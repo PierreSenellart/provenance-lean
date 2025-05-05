@@ -20,7 +20,7 @@ These formal definitions and proofs are provided as open-source software under t
 
 ## Contact
 
-<https://github.com/PierreSenellart/provenance-lean
+<https://github.com/PierreSenellart/provenance-lean>
 
 Pierre Senellart <pierre@senellart.com>
 
