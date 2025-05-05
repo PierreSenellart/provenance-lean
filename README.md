@@ -5,14 +5,14 @@ for provenance in databases.
 
 This is work in progress. For now:
 
-- [Provenance/SemiringWithMonus.lean](SemiringWithMonus.lean) contains
+- [SemiringWithMonus.lean](Provenance/SemiringWithMonus.lean) contains
   the definition of a *semiring with monus* (or *m-semiring*)
 - We include proofs that some common provenance m-semirings are indeed
   m-semirings:
-  - [Provenance/Semirings/Bool.lean](Bool.lean): the Boolean m-semiring
-  - [Provenance/Semirings/Nat.lean](Nat.lean): the counting m-semiring
-  - [Provenance/Semirings/Why.lean](Why.lean): the Why[X] m-semiring
-  - [Provenance/Semirings/Tropical.lean](Tropical.lean): the tropical m-semiring of natural numbers
+  - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
+  - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
+  - [Why.lean](Provenance/Semirings/Why.lean): the Why[X] m-semiring
+  - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring of natural numbers
 
 ## License
 
