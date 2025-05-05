@@ -6,7 +6,8 @@ for provenance in databases.
 This is work in progress. For now:
 
 - [SemiringWithMonus.lean](Provenance/SemiringWithMonus.lean) contains
-  the definition of a *semiring with monus* (or *m-semiring*)
+  the definition of a *semiring with monus* (or *m-semiring*), along with
+  some classical and useful theorems
 - We include proofs that some common provenance m-semirings are indeed
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
