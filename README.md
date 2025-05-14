@@ -12,8 +12,9 @@ This is work in progress. For now:
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
   - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
-  - [Why.lean](Provenance/Semirings/Why.lean): the Why[X] m-semiring
   - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring of natural numbers
+  - [Which.lean](Provenance/Semirings/Why.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
+  - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
 
 ## License
 
