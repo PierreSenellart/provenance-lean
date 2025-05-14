@@ -12,7 +12,7 @@ This is work in progress. For now:
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
   - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
-  - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or real with ∞ as ⊤)
+  - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
   - [Which.lean](Provenance/Semirings/Which.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
   - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
 
