@@ -12,6 +12,7 @@ This is work in progress. For now:
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
   - [BoolFunc.lean](Provenance/Semirings/BoolFunc.lean): the Bool\[X\] m-semiring of Boolean functions over a set X of Boolean variables
+  - [MinMax.lean](Provenance/Semirings/MinMax.lean): the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
   - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
   - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
   - [Which.lean](Provenance/Semirings/Which.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
