@@ -1,19 +1,14 @@
 import Mathlib.Algebra.Tropical.Basic
 import Provenance.SemiringWithMonus
 
-abbrev ℕinf := WithTop Nat
-
-def sub_tropical (a b: Tropical ℕinf) :=
-  if (Tropical.untrop a ≥ Tropical.untrop b) then ⊤ else a
-
 theorem tropical_order_ge [LinearOrder α] :
   ∀ a b: Tropical α, Tropical.untrop a ≥ Tropical.untrop b ↔ a+b = b := by {
     intro a b
     exact Tropical.add_eq_right_iff.symm
   }
 
-instance : SemiringWithMonus (Tropical ℕinf) where
-  sub := sub_tropical
+instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α) where
+  sub a b := if (Tropical.untrop a ≥ Tropical.untrop b) then ⊤ else a
   le a b := Tropical.untrop a ≥ Tropical.untrop b
   lt a b := a+b = b ∧ a ≠ b
   lt_iff_le_not_le := by {
@@ -84,9 +79,7 @@ instance : SemiringWithMonus (Tropical ℕinf) where
 
   monus_spec := by {
     intro a b c
-    simp
-    change c ≤ (sub_tropical a b) ↔ b ≤ a ∨ c ≤ a
-    unfold sub_tropical
+    simp[(· - ·)]
     split_ifs with h
     . simp
       left
