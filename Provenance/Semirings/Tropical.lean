@@ -111,6 +111,7 @@ instance : SemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
 
 /-- The tropical semiring over `ℝ ∪ {∞}` is a semiring with monus. Note
 that this contradicts [Geerts & Poggi, *On database query languages for
-K-relations*, Example 4][geerts2010database]: indeed, that paper gives
+K-relations*, Example 4][geerts2010database] which claims this semiring
+cannot be extended to a semiring with monus: indeed, that paper gives
 a wrong definition of the monus operator in the tropical semiring. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℝ)) := inferInstance
