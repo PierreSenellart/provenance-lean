@@ -1,3 +1,7 @@
+/-
+  Released under the MIT license as described in the file LICENSE.
+  Authors: Pierre Senellart
+-/
 import Mathlib.Algebra.Order.Monoid.Canonical.Defs
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Order.Ring.Canonical
@@ -5,6 +9,16 @@ import Mathlib.Algebra.Order.Ring.Defs
 import Mathlib.Algebra.Ring.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Insert
+
+/-!
+# Semirings with monus
+
+Many semirings relevant for provenance can be equipped with a monus ⊖
+operator, resulting in what is called a semiring with monus, or
+m-semiring. This is standard in semiring theory [amer1984equationally] and was
+introduced in the setting of provenance semirings by Geerts and Poggi
+[geerts2010database].
+-/
 
 /-- A `SemiringWithMonus` is a naturally ordered semiring
 with a monus operation that is compatible with the natural order.
