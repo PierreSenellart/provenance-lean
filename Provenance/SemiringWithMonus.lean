@@ -13,20 +13,37 @@ import Mathlib.Data.Set.Insert
 /-!
 # Semirings with monus
 
-Many semirings relevant for provenance can be equipped with a monus ⊖
+This file defines semirings with monus and introduces their main
+properties.
+
+Many semirings relevant for provenance can be equipped with a monus -
 operator, resulting in what is called a semiring with monus, or
 m-semiring. This is standard in semiring theory [amer1984equationally] and was
 introduced in the setting of provenance semirings by Geerts and Poggi
 [geerts2010database].
+
+## References
+
+* [Amer, *Equationally complete classes of commutative monoids with
+monus*][amer1984equationally]
+* [Geerts & Poggi, *On database query languages for
+K-relations*][geerts2010database]
+
 -/
+
+/-! ## Definition of a `SemiringWithMonus` -/
 
 /-- A `SemiringWithMonus` is a naturally ordered semiring
 with a monus operation that is compatible with the natural order.
-We do not require the semiring to be necessarily commutative -/
+We do not require the semiring to be necessarily commutative. -/
 class SemiringWithMonus (α : Type)
   extends Semiring α, PartialOrder α, IsOrderedAddMonoid α, CanonicallyOrderedAdd α, Sub α where
   monus_spec : ∀ a b c : α, a - b ≤ c ↔ a ≤ b + c
 
+/-! ## Main properties -/
+
+/-- In a `SemiringWithMonus`, `a - b` is the smallest element `c`
+satisfying `a ≤ b + c`. -/
 theorem monus_smallest [K : SemiringWithMonus α] :
   ∀ a b : α, a ≤ b + (a - b) ∧ ∀ c: α, a ≤ b + c → a - b ≤ c := by {
     intro a b
@@ -37,7 +54,7 @@ theorem monus_smallest [K : SemiringWithMonus α] :
       exact h
   }
 
-theorem monus_self (K : SemiringWithMonus α) :
+theorem monus_self [K : SemiringWithMonus α] :
   ∀ a : α, a - a = 0 := by {
     intro a
     apply le_antisymm
@@ -46,7 +63,7 @@ theorem monus_self (K : SemiringWithMonus α) :
     . simp
   }
 
-theorem zero_monus (K : SemiringWithMonus α) :
+theorem zero_monus [K : SemiringWithMonus α] :
   ∀ a : α, 0 - a = 0 := by {
     intro a
     apply le_antisymm
@@ -55,7 +72,7 @@ theorem zero_monus (K : SemiringWithMonus α) :
     . simp
   }
 
-theorem add_monus (K : SemiringWithMonus α) :
+theorem add_monus [K : SemiringWithMonus α] :
   ∀ a b : α, a + (b - a) = b + (a - b) := by {
     intro a b
 
@@ -83,7 +100,7 @@ theorem add_monus (K : SemiringWithMonus α) :
       . simp
   }
 
-theorem monus_add (K: SemiringWithMonus α) :
+theorem monus_add [K: SemiringWithMonus α] :
   ∀ a b c : α, a - (b + c) = a - b - c := by {
     intro a b c
 
