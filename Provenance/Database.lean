@@ -1,6 +1,7 @@
 import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Finsupp.Defs
 import Mathlib.Data.Multiset.AddSub
+import Mathlib.Data.Multiset.Bind
 
 section Database
 
@@ -14,6 +15,9 @@ def Relation (α) (arity: ℕ) := Multiset (Tuple α arity)
 
 instance : Add (Relation α arity) := inferInstanceAs (Add (Multiset (Tuple α arity)))
 instance : Sub (Relation α arity) := inferInstanceAs (Sub (Multiset (Tuple α arity)))
+instance : HMul (Relation α a₁) (Relation α a₂) (Relation α (a₁+a₂)) where
+  hMul r s :=
+    Multiset.map (λ (x,y) ↦ Vector.append x y) (Multiset.product r s)
 
 instance : Zero (Relation α n) where zero := (∅: Multiset (Tuple α n))
 instance : Zero ((n : ℕ) × Relation α n) where zero := ⟨0,(∅: Multiset (Tuple α 0))⟩
