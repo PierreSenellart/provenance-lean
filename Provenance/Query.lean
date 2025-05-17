@@ -6,22 +6,7 @@ import Mathlib.Data.Multiset.Filter
 
 import Provenance.Database
 
-section Query
-
-variable {T: Type} [Zero T] [decEq: DecidableEq T] [PartialOrder T] [decLE: DecidableLE T]
-
-instance : DecidableRel ((· : T) ≠ ·) :=
-  λ a b =>
-    match inferInstanceAs (Decidable (a = b)) with
-    | isTrue h  => isFalse (by simp[h])
-    | isFalse h => isTrue  (by simp[h])
-
-instance : DecidableRel ((· : T) < ·) :=
-  λ a b =>
-    match inferInstanceAs (Decidable (a ≤ b)), inferInstanceAs (Decidable (a = b)) with
-    | isTrue h₁, isTrue h₂  => isFalse (by simp[h₂])
-    | isTrue h₁, isFalse h₂ => isTrue  (lt_of_le_of_ne h₁ h₂)
-    | isFalse h₁, _         => isFalse (by contrapose h₁; simp at *; exact le_of_lt h₁)
+variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
 
 inductive Term T n where
 | Const : T → Term T n
@@ -129,5 +114,3 @@ def Query.evaluate (q: Query T n) (d: Database T) : Relation T n := match q with
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
 | Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂
-
-end Query

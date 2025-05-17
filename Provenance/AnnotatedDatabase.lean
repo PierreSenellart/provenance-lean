@@ -3,25 +3,25 @@ import Provenance.SemiringWithMonus
 
 section AnnotatedDatabase
 
-variable {α: Type} [Zero α] [DecidableEq α]
+variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
 variable {K: Type} [Zero K]
 
-abbrev AnnotatedTuple (α K) (n: ℕ) := Vector α n × K
+abbrev AnnotatedTuple (T K) (n: ℕ) := Vector T n × K
 
-instance : Zero (AnnotatedTuple α K n) := ⟨0,0⟩
+instance : Zero (AnnotatedTuple T K n) := ⟨0,0⟩
 
-def AnnotatedRelation (α K) (arity: ℕ) := Multiset (AnnotatedTuple α K arity)
+def AnnotatedRelation (T K) (arity: ℕ) := Multiset (AnnotatedTuple T K arity)
 
-instance : Add (AnnotatedRelation α K arity) := inferInstanceAs (Add (Multiset (AnnotatedTuple α K arity)))
+instance : Add (AnnotatedRelation T K arity) := inferInstanceAs (Add (Multiset (AnnotatedTuple T K arity)))
 
-instance : Zero (AnnotatedRelation α K n) where zero := (∅: Multiset (AnnotatedTuple α K n))
-instance : Zero ((n : ℕ) × AnnotatedRelation α K n) where zero := ⟨0,(∅: Multiset (AnnotatedTuple α K 0))⟩
+instance : Zero (AnnotatedRelation T K n) where zero := (∅: Multiset (AnnotatedTuple T K n))
+instance : Zero ((n : ℕ) × AnnotatedRelation T K n) where zero := ⟨0,(∅: Multiset (AnnotatedTuple T K 0))⟩
 
-structure AnnotatedDatabase (α K) where
-  db : (ℕ × String) →₀ (Σ n, AnnotatedRelation α K n)
+structure AnnotatedDatabase (T K) where
+  db : (ℕ × String) →₀ (Σ n, AnnotatedRelation T K n)
   wf : ∀ (n: ℕ) (s: String), (db (n,s)).fst = n
 
-instance : FunLike (AnnotatedDatabase α K) (ℕ × String) (Σ n, AnnotatedRelation α K n) where
+instance : FunLike (AnnotatedDatabase T K) (ℕ × String) (Σ n, AnnotatedRelation T K n) where
   coe := λ d ↦ (λ (n, s) ↦ d.db (n, s))
   coe_injective' := by
     intro d₁ d₂ h

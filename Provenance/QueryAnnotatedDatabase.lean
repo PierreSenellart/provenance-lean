@@ -5,7 +5,7 @@ import Provenance.Query
 
 section QueryAnnotatedDatabase
 
-variable {T: Type} [Zero T] [decEq: DecidableEq T] [PartialOrder T] [decLE: DecidableLE T] [Hashable T]
+variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
 variable {K: Type} [SemiringWithMonus K]
 
 def Filter.evalDecidableAnnotated (φ : Filter T n) :
@@ -14,15 +14,12 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
       | isTrue h  => isTrue (by simp [Filter.eval, h])
       | isFalse h => isFalse  (by simp [Filter.eval, h])
 
-def addToHashMap (ta: Tuple T n × K) (acc: Std.HashMap (Tuple T n) K) :=
-  acc.insert ta.fst ((acc.getD ta.fst 0) + ta.snd)
-
 def addToList (ta: Tuple T n × K) (acc: List (Tuple T n × K)) := match acc with
 | [] => [ta]
 | ua::q =>
-  if ua.fst==ta.fst then
+  if ua.fst=ta.fst then
     ⟨ua.fst,ua.snd+ta.snd⟩::q
-  else if ta.fst<ua.fst then
+  else if ua.fst<ta.fst then
     ta::acc
   else
     ua::(addToList ta q)
@@ -39,29 +36,45 @@ instance :
     . rw[h]
       induction l with
       | nil =>
-        simp[addToList]
+        simp[addToList,h]
         exact add_comm _ _
       | cons hd tl ih =>
         simp[addToList]
         by_cases ht : hd.fst = t₂ <;> simp[ht]
         . unfold addToList
           simp
-          exact add_right_comm hd.2 α₂ α₁
+          exact add_right_comm hd.snd α₂ α₁
         . unfold addToList
           simp[ht]
-          sorry
-    . induction l with
+          by_cases hlt : hd.fst < t₂
+          . simp[hlt]
+            exact add_comm _ _
+          . simp[hlt,ht]
+            exact ih
+    . have h' : ¬ t₂=t₁ := fun a ↦ h (id (Eq.symm a))
+      induction l with
       | nil =>
-        have h' : ¬ t₂=t₁ := fun a ↦ h (id (Eq.symm a))
         simp[addToList,h,h']
         by_cases h₁₂ : t₁<t₂ <;> simp[h₁₂]
-        . have h₁₂' : ¬ t₂<t₁ := by
-            simp[h₁₂]
-            sorry
-          sorry
+        . simp[le_of_lt h₁₂]
+        . intro hle
+          have : t₁=t₂ := by
+            apply eq_of_le_of_le <;> assumption
+          contradiction
+      | cons hd tl ih =>
+        simp[addToList]
+        by_cases ht : hd.fst = t₂ <;> simp[ht]
+        . simp[h']
+          by_cases h₁₂ : t₂<t₁ <;> simp[h₁₂]
+          . have hh  : addToList (t₂, α₂) tl = (t₂, hd.snd+α₂)::tl := by
+              unfold addToList
+              sorry
+            have hh' : addToList (t₁, α₁) tl = (t₁,α₁) :: hd :: tl := by
+              sorry
+            rw[hh,hh'] at ih
+            exact ih
+          . sorry
         . sorry
-      | cons =>
-        sorry
 
 def groupByKey (m : Multiset (Tuple T n × K)) :=
   m.foldr addToList []
