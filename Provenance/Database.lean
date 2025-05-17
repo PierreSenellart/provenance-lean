@@ -5,28 +5,30 @@ import Mathlib.Data.Multiset.Bind
 
 section Database
 
-variable {α: Type} [Zero α] [DecidableEq α]
+variable {T: Type} [Zero T] [DecidableEq T] [Hashable T]
 
-abbrev Tuple (α : Type) (n: ℕ) := Vector α n
+abbrev Tuple (T : Type) (n: ℕ) := Vector T n
 
-instance : Zero (Tuple α n) := ⟨Vector.replicate n 0⟩
+instance : Zero (Tuple T n) := ⟨Vector.replicate n 0⟩
 
-def Relation (α) (arity: ℕ) := Multiset (Tuple α arity)
+instance : Hashable (Tuple T n) where hash t := hash t.toArray
 
-instance : Add (Relation α arity) := inferInstanceAs (Add (Multiset (Tuple α arity)))
-instance : Sub (Relation α arity) := inferInstanceAs (Sub (Multiset (Tuple α arity)))
-instance : HMul (Relation α a₁) (Relation α a₂) (Relation α (a₁+a₂)) where
+def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
+
+instance : Add (Relation T arity) := inferInstanceAs (Add (Multiset (Tuple T arity)))
+instance : Sub (Relation T arity) := inferInstanceAs (Sub (Multiset (Tuple T arity)))
+instance : HMul (Relation T a₁) (Relation T a₂) (Relation T (a₁+a₂)) where
   hMul r s :=
     Multiset.map (λ (x,y) ↦ Vector.append x y) (Multiset.product r s)
 
-instance : Zero (Relation α n) where zero := (∅: Multiset (Tuple α n))
-instance : Zero ((n : ℕ) × Relation α n) where zero := ⟨0,(∅: Multiset (Tuple α 0))⟩
+instance : Zero (Relation T n) where zero := (∅: Multiset (Tuple T n))
+instance : Zero ((n : ℕ) × Relation T n) where zero := ⟨0,(∅: Multiset (Tuple T 0))⟩
 
-structure Database (α) where
-  db : (ℕ × String) →₀ (Σ n, Relation α n)
+structure Database (T) where
+  db : (ℕ × String) →₀ (Σ n, Relation T n)
   wf : ∀ (n: ℕ) (s: String), (db (n,s)).fst = n
 
-instance : FunLike (Database α) (ℕ × String) (Σ n, Relation α n) where
+instance : FunLike (Database T) (ℕ × String) (Σ n, Relation T n) where
   coe := λ d ↦ (λ (n, s) ↦ d.db (n, s))
   coe_injective' := by
     intro d₁ d₂ h
