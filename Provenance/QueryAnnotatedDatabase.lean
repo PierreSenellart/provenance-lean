@@ -6,7 +6,7 @@ import Provenance.Query
 section QueryAnnotatedDatabase
 
 variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
-variable {K: Type} [SemiringWithMonus K]
+variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
 def Filter.evalDecidableAnnotated (φ : Filter T n) :
   DecidablePred (λ (ta: AnnotatedTuple T K n) ↦ φ.eval ta.fst) :=
@@ -14,19 +14,51 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
       | isTrue h  => isTrue (by simp [Filter.eval, h])
       | isFalse h => isFalse  (by simp [Filter.eval, h])
 
-def addToList (ta: Tuple T n × K) (acc: List (Tuple T n × K)) := match acc with
-| [] => [ta]
-| ua::q =>
-  if ua.fst=ta.fst then
-    ⟨ua.fst,ua.snd+ta.snd⟩::q
-  else if ua.fst<ta.fst then
-    ta::acc
-  else
-    ua::(addToList ta q)
+def LEByKey {α β: Type} [LinearOrder α] [DecidableLE α] (a b: Prod α β) : Prop :=
+  a.fst <= b.fst
+
+instance [LinearOrder α] [DecidableLE α] : DecidableRel (@LEByKey α β _ _) :=
+  λ a b => match inferInstanceAs (Decidable (a.fst <= b.fst)) with
+  | isTrue h => isTrue (by unfold LEByKey; assumption)
+  | isFalse h => isFalse (by unfold LEByKey; assumption)
+
+instance [LinearOrder α] : IsTotal (α × β) LEByKey where
+  total := by
+    intro a b
+    unfold LEByKey
+    exact le_total _ _
+
+instance [LinearOrder α] : IsTrans (α × β) LEByKey where
+  trans := by
+    intro a b c
+    unfold LEByKey
+    exact Preorder.le_trans _ _ _
+
+def addToList (ta: Tuple T n × K) (acc: List (Tuple T n × K)) :=
+  match acc.find? (·.fst=ta.fst) with
+  | none       => List.Sorted.orderedInsert (r:=LEByKey) ta acc
+  | some (a,α) => List.Sorted.orderedInsert (r:=LEByKey) ta (acc.erase (a,α))
 
 def findInList (t : Tuple T n) (l : List (Tuple T n × K)) (default: K) := match l with
 | [] => default
 | ua::q => if ua.fst=t then ua.snd else findInList t q default
+
+theorem sorted_erase [DecidableEq α] {l : List α} (x : α) (r: α → α -> Prop) (h : List.Sorted r l) :
+  List.Sorted r (List.erase l x) := by
+  induction l with
+  | nil => simp
+  | cons hd tl ih =>
+    simp only [List.erase]
+    by_cases h₁ : hd == x
+    · simp[h₁]
+      exact h.tail
+    · simp[h₁]
+      simp at h₁
+      constructor
+      · intro y hy
+        have : y ∈ tl := List.mem_of_mem_erase hy
+        apply List.rel_of_sorted_cons <;> assumption
+      · exact ih h.tail
 
 instance :
   LeftCommutative (addToList: Tuple T n × K → List (Tuple T n × K) → List (Tuple T n × K)) where

@@ -118,6 +118,57 @@ instance : PartialOrder (Tuple T n) where
         . tauto
     . tauto
 
+instance : LinearOrder (Tuple T n) where
+  le_total := by
+    intro a b
+    simp [(· ≤ ·)]
+    cases a with
+    | mk arr sa =>
+      cases arr with
+      | mk la => cases la with
+        | nil => cases b with
+          | mk arrb sb => cases arrb with
+            | mk lb => cases lb with
+              | nil => simp
+              | cons tb qb => simp
+        | cons ta qa => cases b with
+          | mk arrb sb => cases arrb with
+            | mk lb => cases lb with
+              | nil => simp
+              | cons tb qb =>
+                by_cases h : ta=tb <;> simp[h]
+                . by_cases h' : qa<qb
+                  . left
+                    simp[h']
+                  . by_cases h'' : qb<qa
+                    . right;right
+                      exact h''
+                    . right;left
+                      exact List.le_antisymm h' h''
+                . by_cases h': ta<tb
+                  . left
+                    exact List.Lex.rel h'
+                  . right;right
+                    have h'' : tb < ta := by
+                      simp[h] at h'
+                      exact lt_of_le_of_ne h' fun a ↦ h (id (Eq.symm a))
+                    exact List.Lex.rel h''
+
+  toDecidableLE := inferInstance
+
+  compare_eq_compareOfLessAndEq := by
+    intro a b
+    unfold compare
+    unfold compareOfLessAndEq
+    by_cases h: a<b
+    . simp [h,Vector.instOrd,Vector.compareLex,Array.compareLex]
+      unfold Array.compareLex.go
+      by_cases hempty: n=0
+      . simp[hempty]
+        sorry
+      . sorry
+    . sorry
+
 def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
 
 instance : Add (Relation T arity) := inferInstanceAs (Add (Multiset (Tuple T arity)))
