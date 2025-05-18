@@ -3,9 +3,9 @@ import Mathlib.Data.Finsupp.Defs
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
 
-class ValueType (T : Type) extends Zero T, BEq T, LE T, LinearOrder T
+class ValueType (T : Type) extends Zero T, LinearOrder T
 
-variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
+variable {T: Type} [ValueType T]
 
 instance : DecidableRel ((· : T) ≠ ·) :=
   λ a b =>
@@ -44,10 +44,12 @@ instance : Trans (fun (a b : T) ↦ ¬a < b) (fun a b ↦ ¬a < b) (fun a b ↦ 
     apply not_lt_of_ge
     have hab' := le_of_not_lt hab
     have hbc' := le_of_not_lt hbc
-    exact ValueType.le_trans c b a hbc' hab'
+    exact Preorder.le_trans c b a hbc' hab'
 
 instance : Zero (Tuple T n) := ⟨Vector.replicate n 0⟩
-instance : PartialOrder (Tuple T n) where
+instance instLinearOrderListT : LinearOrder (List T) := inferInstance
+
+instance : LinearOrder (Tuple T n) where
   le_refl := by apply Vector.lt_irrefl
 
   le_trans := by
@@ -55,34 +57,19 @@ instance : PartialOrder (Tuple T n) where
     apply Vector.le_trans
 
   le_antisymm := by
+    have h : ∀ (a b : List T), a ≤ b → b ≤ a → a=b := instLinearOrderListT.le_antisymm
     intro a b
-    simp only [(· ≤ ·)]
-    simp
+    specialize h a.toList b.toList
+    simp only[(· ≤ ·)]
+    simp[h]
     intro hab hba
-    refine Vector.toList_inj.mp ?_
-    cases a with
-    | mk arr s  =>
-      cases arr with
-      | mk la => cases la with
-        | nil        =>
-          simp[(· ≤ ·)] at hba
-          simp[hba]
-        | cons ta qa => cases b with
-          | mk arrb sb => cases arrb with
-            | mk lb => cases lb with
-              | nil        =>
-                simp[(· ≤ ·)] at hab
-              | cons tb qb =>
-                simp[(· ≤ ·)] at *
-                cases hab with
-                | inl hab' => assumption
-                | inr hab' => cases hba with
-                  | inl hba' => simp[hba']
-                  | inr hba' =>
-                    apply List.lex_asymm at hab'
-                    contradiction
-                    intro x y
-                    exact not_lt_of_gt
+    exact Vector.toList_inj.mp (h hab hba)
+
+  le_total := by
+    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[instLinearOrderListT.le_total]
+    intro a b
+    specialize h a.toList b.toList
+    assumption
 
   lt_iff_le_not_le := by
     intro a b
@@ -118,56 +105,25 @@ instance : PartialOrder (Tuple T n) where
         . tauto
     . tauto
 
-instance : LinearOrder (Tuple T n) where
-  le_total := by
-    intro a b
-    simp [(· ≤ ·)]
-    cases a with
-    | mk arr sa =>
-      cases arr with
-      | mk la => cases la with
-        | nil => cases b with
-          | mk arrb sb => cases arrb with
-            | mk lb => cases lb with
-              | nil => simp
-              | cons tb qb => simp
-        | cons ta qa => cases b with
-          | mk arrb sb => cases arrb with
-            | mk lb => cases lb with
-              | nil => simp
-              | cons tb qb =>
-                by_cases h : ta=tb <;> simp[h]
-                . by_cases h' : qa<qb
-                  . left
-                    simp[h']
-                  . by_cases h'' : qb<qa
-                    . right;right
-                      exact h''
-                    . right;left
-                      exact List.le_antisymm h' h''
-                . by_cases h': ta<tb
-                  . left
-                    exact List.Lex.rel h'
-                  . right;right
-                    have h'' : tb < ta := by
-                      simp[h] at h'
-                      exact lt_of_le_of_ne h' fun a ↦ h (id (Eq.symm a))
-                    exact List.Lex.rel h''
-
   toDecidableLE := inferInstance
 
   compare_eq_compareOfLessAndEq := by
     intro a b
     unfold compare
     unfold compareOfLessAndEq
-    by_cases h: a<b
-    . simp [h,Vector.instOrd,Vector.compareLex,Array.compareLex]
+    by_cases h': a<b
+    . simp [h',Vector.instOrd,Vector.compareLex,Array.compareLex]
+      simp only[(· < ·)] at h'
       unfold Array.compareLex.go
       by_cases hempty: n=0
+      . have ha : a.toList = [] := by simp[hempty]
+        have hb : b.toList = [] := by simp[hempty]
+        simp only[ha,hb] at h'
+        contradiction
       . simp[hempty]
         sorry
-      . sorry
     . sorry
+
 
 def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
 
