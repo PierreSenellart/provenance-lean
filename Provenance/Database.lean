@@ -111,19 +111,41 @@ instance : LinearOrder (Tuple T n) where
     intro a b
     unfold compare
     unfold compareOfLessAndEq
-    by_cases h': a<b
-    . simp [h',Vector.instOrd,Vector.compareLex,Array.compareLex]
-      simp only[(· < ·)] at h'
-      unfold Array.compareLex.go
-      by_cases hempty: n=0
-      . have ha : a.toList = [] := by simp[hempty]
-        have hb : b.toList = [] := by simp[hempty]
-        simp only[ha,hb] at h'
-        contradiction
-      . simp[hempty]
-        sorry
-    . sorry
-
+    cases a with
+    | mk arr sa => cases arr with
+      | mk la => induction la generalizing n b with
+        | nil => cases b with
+          | mk arrb sb => cases arrb with
+            | mk lb  =>
+              simp only[Vector.instOrd,Vector.compareLex]
+              unfold compare
+              unfold Array.compareLex
+              unfold Array.compareLex.go
+              cases lb <;> simp
+        | cons ta qa ih => cases b with
+          | mk arrb sb => cases arrb with
+            | mk lb =>
+              simp only[Vector.instOrd,Vector.compareLex]
+              cases lb with
+              | nil => simp[compare,Array.compareLex,Array.compareLex.go]
+              | cons tb qb =>
+                specialize @ih (n-1)
+                let ab := (⟨qb⟩: Array T)
+                have hab : qb.length = n-1 := Nat.eq_sub_of_add_eq sb
+                have haa : qa.length = n-1 := Nat.eq_sub_of_add_eq sa
+                specialize ih ⟨ab, hab⟩
+                specialize ih haa
+                simp
+                by_cases h : ta=tb
+                . simp[h]
+                  have heq : compare tb tb = Ordering.eq := by
+                    exact compare_eq_iff_eq.mpr rfl
+                  sorry
+                . by_cases hab : ta<tb
+                  . simp[hab]
+                    sorry
+                  . simp[hab]
+                    sorry
 
 def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
 
