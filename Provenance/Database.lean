@@ -47,26 +47,27 @@ instance : Trans (fun (a b : T) ↦ ¬a < b) (fun a b ↦ ¬a < b) (fun a b ↦ 
     exact Preorder.le_trans c b a hbc' hab'
 
 instance : Zero (Tuple T n) := ⟨Vector.replicate n 0⟩
-instance instLinearOrderListT : LinearOrder (List T) := inferInstance
 
-instance : LinearOrder (Tuple T n) where
-  le_refl := by apply Vector.lt_irrefl
+instance : LinearOrder (List T) := inferInstance
+
+instance : LinearOrder (Array T) where
+  le_refl := by apply Array.lt_irrefl
 
   le_trans := by
     intro a b c
-    apply Vector.le_trans
+    apply Array.le_trans
 
   le_antisymm := by
-    have h : ∀ (a b : List T), a ≤ b → b ≤ a → a=b := instLinearOrderListT.le_antisymm
+    have h : ∀ (a b : List T), a ≤ b → b ≤ a → a=b := by apply le_antisymm
     intro a b
     specialize h a.toList b.toList
     simp only[(· ≤ ·)]
     simp[h]
     intro hab hba
-    exact Vector.toList_inj.mp (h hab hba)
+    exact Array.toList_inj.mp (h hab hba)
 
   le_total := by
-    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[instLinearOrderListT.le_total]
+    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[le_total]
     intro a b
     specialize h a.toList b.toList
     assumption
@@ -80,28 +81,108 @@ instance : LinearOrder (Tuple T n) where
       . tauto
       . constructor
         . cases a with
-          | mk arr sa =>
-            cases arr with
-            | mk la => induction la generalizing n b with
-              | nil => cases b with
-                | mk arrb sb => cases arrb with
-                  | mk lb => cases lb with
-                    | nil        => contradiction
-                    | cons tb qb =>  simp
-              | cons ta qa ih => cases b with
-                | mk arrb sb => cases arrb with
-                  | mk lb => cases lb with
-                    | nil        => contradiction
-                    | cons tb qb =>
-                      simp at *
-                      intro ht
-                      simp[ht] at h
-                      specialize @ih (n-1)
-                      let ab := (⟨qb⟩: Array T)
-                      have hab : qb.length = n-1 := Nat.eq_sub_of_add_eq sb
-                      specialize ih ⟨ab, hab⟩
-                      simp[Nat.eq_sub_of_add_eq sa] at ih
-                      exact fun a ↦ ih h (congrArg Array.mk a)
+          | mk la => induction la generalizing b with
+            | nil => cases b with
+              | mk lb => cases lb with
+                | nil        => contradiction
+                | cons tb qb =>  simp
+            | cons ta qa ih => cases b with
+              | mk lb => cases lb with
+                | nil        => contradiction
+                | cons tb qb =>
+                  simp at *
+                  intro ht
+                  simp[ht] at h
+                  let ab := (⟨qb⟩: Array T)
+                  specialize ih ab
+                  exact fun a ↦ ih h (congrArg Array.mk a)
+        . tauto
+    . tauto
+
+  toDecidableLE := inferInstance
+
+  compare_eq_compareOfLessAndEq := by
+    intro a b
+    unfold compare
+    unfold compareOfLessAndEq
+    cases a with
+    | mk la => induction la generalizing b with
+      | nil => cases b with
+        | mk lb  =>
+          simp only[Array.instOrd]
+          unfold compare
+          unfold Array.compareLex
+          unfold Array.compareLex.go
+          cases lb <;> simp
+      | cons ta qa ih => cases b with
+        | mk lb =>
+          simp only[Array.instOrd]
+          cases lb with
+          | nil => simp[compare,Array.compareLex,Array.compareLex.go]
+          | cons tb qb =>
+            let aa := (⟨qa⟩: Array T)
+            let ab := (⟨qb⟩: Array T)
+            specialize ih ab
+            simp
+            by_cases h : ta=tb
+            . simp[h]
+              by_cases hq : qa=qb
+              . simp[compare,Array.compareLex,hq]
+                unfold Array.compareLex.go
+                have heq : compare tb tb = Ordering.eq := compare_eq_iff_eq.mpr rfl
+                simp[heq]
+                have heq' : compare qa qb = Ordering.eq := by
+                  simp[compare_eq_iff_eq,List.instOrd,hq]
+                  simp[hq,aa,ab] at ih
+                  simp[Array.instOrd,Array.compareLex] at ih
+                  unfold Array.compareLex.go at ih
+                  sorry
+                sorry
+              . sorry
+            . by_cases hab : ta<tb
+              . simp[hab]
+                sorry
+              . simp[hab]
+                sorry
+
+instance : LinearOrder (Tuple T n) where
+  le_refl := by apply Vector.lt_irrefl
+
+  le_trans := by
+    intro a b c
+    apply Vector.le_trans
+
+  le_antisymm := by
+    have h : ∀ (a b : Array T), a ≤ b → b ≤ a → a=b := by apply le_antisymm
+    intro a b
+    specialize h a.toArray b.toArray
+    intro hab hba
+    exact Vector.toArray_inj.mp (h hab hba)
+
+  le_total := by
+    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[le_total]
+    intro a b
+    specialize h a.toList b.toList
+    assumption
+
+  lt_iff_le_not_le := by
+    intro a b
+    simp[(· ≤ ·)]
+    apply Iff.intro
+    . intro h
+      constructor
+      . tauto
+      . constructor
+        . cases a with
+          | mk arra sa =>
+            cases b with
+            | mk arrb sb =>
+              have h' : arra < arrb := by
+                simp only [(· < ·)] at h
+                exact h
+              have h'' : ¬arra=arrb := ne_of_lt h'
+              simp[h'']
+              tauto
         . tauto
     . tauto
 
@@ -130,6 +211,7 @@ instance : LinearOrder (Tuple T n) where
               | nil => simp[compare,Array.compareLex,Array.compareLex.go]
               | cons tb qb =>
                 specialize @ih (n-1)
+                let aa := (⟨qa⟩: Array T)
                 let ab := (⟨qb⟩: Array T)
                 have hab : qb.length = n-1 := Nat.eq_sub_of_add_eq sb
                 have haa : qa.length = n-1 := Nat.eq_sub_of_add_eq sa
@@ -140,7 +222,16 @@ instance : LinearOrder (Tuple T n) where
                 . simp[h]
                   have heq : compare tb tb = Ordering.eq := by
                     exact compare_eq_iff_eq.mpr rfl
-                  sorry
+                  by_cases hq : qa=qb
+                  . simp[compare,Array.compareLex,hq]
+                    unfold Array.compareLex.go
+                    simp[heq]
+                    have heq' : compare aa ab = Ordering.eq := by
+                      simp[aa,ab,hq]
+                      rw[← compare_eq_iff_eq]
+
+                    sorry
+                  . sorry
                 . by_cases hab : ta<tb
                   . simp[hab]
                     sorry
