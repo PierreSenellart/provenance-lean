@@ -2,6 +2,8 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Finsupp.Defs
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
+import Mathlib.Data.Fin.VecNotation
+import Mathlib.Tactic.Linarith.Frontend
 
 class ValueType (T : Type) extends Zero T, LinearOrder T
 
@@ -19,8 +21,6 @@ instance : DecidableRel ((· : T) < ·) :=
     | isTrue h₁, isTrue h₂  => isFalse (by simp[h₂])
     | isTrue h₁, isFalse h₂ => isTrue  (lt_of_le_of_ne h₁ h₂)
     | isFalse h₁, _         => isFalse (by contrapose h₁; simp at *; exact le_of_lt h₁)
-
-abbrev Tuple (T : Type) (n: ℕ) := Vector T n
 
 instance : Std.Irrefl (λ (a b: T) ↦ a < b) where
   irrefl := by simp
@@ -46,197 +46,198 @@ instance : Trans (fun (a b : T) ↦ ¬a < b) (fun a b ↦ ¬a < b) (fun a b ↦ 
     have hbc' := le_of_not_lt hbc
     exact Preorder.le_trans c b a hbc' hab'
 
-instance : Zero (Tuple T n) := ⟨Vector.replicate n 0⟩
+def Tuple (T : Type) (n: ℕ) := Fin n → T
 
-instance : LinearOrder (List T) := inferInstance
+instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
 
-instance : LinearOrder (Array T) where
-  le_refl := by apply Array.lt_irrefl
+instance : LT (Tuple T n) := ⟨λ a b ↦ ∃ i : Fin n, (∀ j, j < i → a j = b j) ∧ a i < b i⟩
+instance : LE (Tuple T n) := ⟨λ a b ↦ a < b ∨ a = b⟩
 
-  le_trans := by
-    intro a b c
-    apply Array.le_trans
+instance : DecidableRel ((·: Tuple T n) = ·) :=
+  λ f g ↦
+    if h : ∀ i, f i = g i then
+      isTrue (funext h)
+    else
+      isFalse (fun H => h (congrFun H))
 
-  le_antisymm := by
-    have h : ∀ (a b : List T), a ≤ b → b ≤ a → a=b := by apply le_antisymm
-    intro a b
-    specialize h a.toList b.toList
-    simp only[(· ≤ ·)]
-    simp[h]
-    intro hab hba
-    exact Array.toList_inj.mp (h hab hba)
-
-  le_total := by
-    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[le_total]
-    intro a b
-    specialize h a.toList b.toList
-    assumption
-
-  lt_iff_le_not_le := by
-    intro a b
-    simp[(· ≤ ·)]
-    apply Iff.intro
-    . intro h
-      constructor
-      . tauto
-      . constructor
-        . cases a with
-          | mk la => induction la generalizing b with
-            | nil => cases b with
-              | mk lb => cases lb with
-                | nil        => contradiction
-                | cons tb qb =>  simp
-            | cons ta qa ih => cases b with
-              | mk lb => cases lb with
-                | nil        => contradiction
-                | cons tb qb =>
-                  simp at *
-                  intro ht
-                  simp[ht] at h
-                  let ab := (⟨qb⟩: Array T)
-                  specialize ih ab
-                  exact fun a ↦ ih h (congrArg Array.mk a)
-        . tauto
-    . tauto
-
-  toDecidableLE := inferInstance
-
-  compare_eq_compareOfLessAndEq := by
-    intro a b
-    unfold compare
-    unfold compareOfLessAndEq
-    cases a with
-    | mk la => induction la generalizing b with
-      | nil => cases b with
-        | mk lb  =>
-          simp only[Array.instOrd]
-          unfold compare
-          unfold Array.compareLex
-          unfold Array.compareLex.go
-          cases lb <;> simp
-      | cons ta qa ih => cases b with
-        | mk lb =>
-          simp only[Array.instOrd]
-          cases lb with
-          | nil => simp[compare,Array.compareLex,Array.compareLex.go]
-          | cons tb qb =>
-            let aa := (⟨qa⟩: Array T)
-            let ab := (⟨qb⟩: Array T)
-            specialize ih ab
-            simp
-            by_cases h : ta=tb
-            . simp[h]
-              by_cases hq : qa=qb
-              . simp[compare,Array.compareLex,hq]
-                unfold Array.compareLex.go
-                have heq : compare tb tb = Ordering.eq := compare_eq_iff_eq.mpr rfl
-                simp[heq]
-                have heq' : compare qa qb = Ordering.eq := by
-                  simp[compare_eq_iff_eq,List.instOrd,hq]
-                  simp[hq,aa,ab] at ih
-                  simp[Array.instOrd,Array.compareLex] at ih
-                  unfold Array.compareLex.go at ih
-                  sorry
-                sorry
-              . sorry
-            . by_cases hab : ta<tb
-              . simp[hab]
-                sorry
-              . simp[hab]
-                sorry
+instance : DecidableRel ((·: Tuple T n) < ·) :=
+  λ f g ↦
+    if h : ∃ i : Fin n, (∀ j, j < i → f j = g j) ∧ f i < g i then
+      isTrue (h)
+    else
+      isFalse (h)
 
 instance : LinearOrder (Tuple T n) where
-  le_refl := by apply Vector.lt_irrefl
+  le_refl := by simp[(· ≤ ·)]
+
+  le_antisymm := by
+    simp[(· ≤ ·)]
+    intro a b hab hba
+    cases hab with
+    | inl hab' =>
+      cases hba with
+      | inl hba' =>
+        simp only[(· < ·)] at *
+        rcases hab' with ⟨iab,hiab⟩
+        rcases hba' with ⟨iba,hiba⟩
+        by_cases h : iab=iba
+        . rw[h] at hiab
+          have := lt_trans hiab.right hiba.right
+          have := lt_asymm (lt_trans hiab.right hiba.right)
+          contradiction
+        . by_cases h' : iab<iba
+          . have heq := hiba.left iab h'
+            have := hiab.right
+            rw[heq] at this
+            have := lt_asymm this
+            contradiction
+          . have h'' : iba<iab := by
+              refine lt_iff_le_and_ne.mpr ?_
+              constructor
+              . exact le_of_not_lt h'
+              . exact fun a ↦ h (id (Eq.symm a))
+            have heq := hiab.left iba h''
+            have := hiba.right
+            rw[heq] at this
+            have := lt_asymm this
+            contradiction
+      | inr hba' => exact Eq.symm hba'
+    | inr hab' => exact hab'
 
   le_trans := by
     intro a b c
-    apply Vector.le_trans
-
-  le_antisymm := by
-    have h : ∀ (a b : Array T), a ≤ b → b ≤ a → a=b := by apply le_antisymm
-    intro a b
-    specialize h a.toArray b.toArray
-    intro hab hba
-    exact Vector.toArray_inj.mp (h hab hba)
+    simp only[(· ≤ ·),(· < ·)]
+    intro hab hbc
+    cases hab with
+    | inl habl =>
+      cases hbc with
+      | inl hbcl =>
+        left
+        rcases habl with ⟨iab,hiab⟩
+        rcases hbcl with ⟨ibc,hibc⟩
+        let i := min iab ibc
+        use i
+        have h : ∀ (j : Fin n), j < i → a j = c j := by
+          intro j hj
+          have hx := hiab.left
+          have hy := hibc.left
+          specialize hx j (lt_min_iff.mp hj).left
+          specialize hy j (lt_min_iff.mp hj).right
+          rw[hy] at hx; exact hx
+        use h
+        by_cases heq : iab = i
+        . by_cases heq' : ibc = i
+          . rw[heq] at hiab
+            rw[heq'] at hibc
+            exact lt_trans hiab.right hibc.right
+          . have h' : i < ibc := lt_of_le_of_ne (min_le_right iab ibc) (ne_comm.mpr heq')
+            have hx := hiab.left
+            sorry
+        . sorry
+      | inr hbcr =>
+        subst hbcr
+        left; exact habl
+    | inr habr =>
+      subst habr
+      exact hbc
 
   le_total := by
-    have h : ∀ (a b : List T), a.le b ∨ b.le a := by simp[le_total]
     intro a b
-    specialize h a.toList b.toList
-    assumption
+    simp only[(· ≤ ·)]
+    by_cases heq: a=b
+    . tauto
+    . by_cases h: ∃ i, (∀ j < i, a j = b j) ∧ a i < b i
+      . left;left
+        simp only[(· < ·)]
+        tauto
+      . right;left
+        simp only[(· < ·)]
+        cases h' : Fin.find (λ j ↦ ¬ a j = b j) with
+        | none   =>
+          apply Fin.find_eq_none_iff.mp at h'
+          simp at h'
+          simp[funext h'] at heq
+        | some k =>
+          use k
+          have h'' := h'
+          apply Fin.find_min at h'
+          constructor
+          . intro j hj; specialize h' hj
+            simp at h'; simp[h']
+          . simp at h
+            specialize h k
+            have : ∀ j < k, a j = b j := by
+              intro j hj; specialize h' hj
+              simp at h'
+              simp[h']
+            specialize h this
+            apply lt_iff_le_and_ne.mpr
+            constructor
+            . assumption
+            . apply Fin.find_eq_some_iff.mp at h''
+              rw[ne_comm]
+              simp[h''.left]
 
   lt_iff_le_not_le := by
     intro a b
-    simp[(· ≤ ·)]
+    simp only[(· ≤ ·)]
     apply Iff.intro
-    . intro h
+    . intro hab
       constructor
       . tauto
-      . constructor
-        . cases a with
-          | mk arra sa =>
-            cases b with
-            | mk arrb sb =>
-              have h' : arra < arrb := by
-                simp only [(· < ·)] at h
-                exact h
-              have h'' : ¬arra=arrb := ne_of_lt h'
-              simp[h'']
-              tauto
-        . tauto
-    . tauto
+      . simp only[(· < ·)] at *
+        rcases hab with ⟨i, hi⟩
+        simp
+        constructor
+        . intro k
+          intro h
+          cases hki : compare k i with
+          | eq =>
+            simp at hki
+            rw[hki]
+            exact le_of_lt hi.right
+          | lt =>
+            simp[compare] at hki
+            have := hi.left k hki
+            simp[this]
+          | gt =>
+            simp only[compare,compareOfLessAndEq] at hki
+            by_cases hki' : k < i
+            . simp[hki'] at hki
+            . by_cases hki'' : k = i
+              . rw[hki''] at hki
+                simp at hki
+              . simp[hki',hki''] at hki
+                have hgt : k>i := by
+                  apply le_of_not_lt at hki'
+                  apply lt_of_le_of_ne
+                  . assumption
+                  . exact fun a ↦ hki'' (id (Eq.symm a))
+                specialize h i hgt
+                rw[h] at hi
+                have hc : a i < a i := hi.right
+                simp at hc
+        . by_contra heq
+          rw[heq] at hi
+          simp at hi
+    . intro ⟨h₁,h₂⟩
+      simp at h₂
+      have hne : a ≠ b := by
+        rw[ne_comm]; exact h₂.right
+      simp[hne] at h₁
+      exact h₁
 
-  toDecidableLE := inferInstance
-
-  compare_eq_compareOfLessAndEq := by
-    intro a b
-    unfold compare
-    unfold compareOfLessAndEq
-    cases a with
-    | mk arr sa => cases arr with
-      | mk la => induction la generalizing n b with
-        | nil => cases b with
-          | mk arrb sb => cases arrb with
-            | mk lb  =>
-              simp only[Vector.instOrd,Vector.compareLex]
-              unfold compare
-              unfold Array.compareLex
-              unfold Array.compareLex.go
-              cases lb <;> simp
-        | cons ta qa ih => cases b with
-          | mk arrb sb => cases arrb with
-            | mk lb =>
-              simp only[Vector.instOrd,Vector.compareLex]
-              cases lb with
-              | nil => simp[compare,Array.compareLex,Array.compareLex.go]
-              | cons tb qb =>
-                specialize @ih (n-1)
-                let aa := (⟨qa⟩: Array T)
-                let ab := (⟨qb⟩: Array T)
-                have hab : qb.length = n-1 := Nat.eq_sub_of_add_eq sb
-                have haa : qa.length = n-1 := Nat.eq_sub_of_add_eq sa
-                specialize ih ⟨ab, hab⟩
-                specialize ih haa
-                simp
-                by_cases h : ta=tb
-                . simp[h]
-                  have heq : compare tb tb = Ordering.eq := by
-                    exact compare_eq_iff_eq.mpr rfl
-                  by_cases hq : qa=qb
-                  . simp[compare,Array.compareLex,hq]
-                    unfold Array.compareLex.go
-                    simp[heq]
-                    have heq' : compare aa ab = Ordering.eq := by
-                      simp[aa,ab,hq]
-                      rw[← compare_eq_iff_eq]
-
-                    sorry
-                  . sorry
-                . by_cases hab : ta<tb
-                  . simp[hab]
-                    sorry
-                  . simp[hab]
-                    sorry
+  toDecidableLE :=
+    λ a b ↦
+      match inferInstanceAs (Decidable (a<b)), inferInstanceAs (Decidable (a=b)) with
+      | isTrue h₁, _           => isTrue (Or.inl h₁)
+      | _, isTrue h₂           => isTrue (Or.inr h₂)
+      | isFalse h₁, isFalse h₂ => isFalse (
+        fun h ↦
+          match h with
+            | Or.inl h' => h₁ h'
+            | Or.inr h' => h₂ h'
+        )
 
 def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
 
@@ -244,7 +245,9 @@ instance : Add (Relation T arity) := inferInstanceAs (Add (Multiset (Tuple T ari
 instance : Sub (Relation T arity) := inferInstanceAs (Sub (Multiset (Tuple T arity)))
 instance : HMul (Relation T a₁) (Relation T a₂) (Relation T (a₁+a₂)) where
   hMul r s :=
-    Multiset.map (λ (x,y) ↦ Vector.append x y) (Multiset.product r s)
+    Multiset.map (λ ((x,y) : (Tuple T a₁)×(Tuple T a₂)) ↦
+      Fin.append x y
+    ) (Multiset.product r s)
 
 instance : Zero (Relation T n) where zero := (∅: Multiset (Tuple T n))
 instance : Zero ((n : ℕ) × Relation T n) where zero := ⟨0,(∅: Multiset (Tuple T 0))⟩
