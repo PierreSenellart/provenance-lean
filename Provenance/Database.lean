@@ -2,8 +2,6 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Finsupp.Defs
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
-import Mathlib.Data.Fin.VecNotation
-import Mathlib.Tactic.Linarith.Frontend
 
 class ValueType (T : Type) extends Zero T, LinearOrder T
 
@@ -131,9 +129,24 @@ instance : LinearOrder (Tuple T n) where
             rw[heq'] at hibc
             exact lt_trans hiab.right hibc.right
           . have h' : i < ibc := lt_of_le_of_ne (min_le_right iab ibc) (ne_comm.mpr heq')
-            have hx := hiab.left
-            sorry
-        . sorry
+            have hab := hiab.right
+            rw[heq] at hab
+            have hbc := hibc.left i h'
+            rw[hbc] at hab
+            exact hab
+        . have heq'' : ibc = i := by
+            have choice : iab = i ∨ ibc = i := by
+              have := min_choice iab ibc
+              nth_rw 1 [eq_comm] at this
+              nth_rw 2 [eq_comm] at this
+              assumption
+            tauto
+          have h' : i < iab := lt_of_le_of_ne (min_le_left iab ibc) (ne_comm.mpr heq)
+          have hbc := hibc.right
+          rw[heq''] at hbc
+          have hab := hiab.left i h'
+          rw[hab]
+          exact hbc
       | inr hbcr =>
         subst hbcr
         left; exact habl
