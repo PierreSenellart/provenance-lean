@@ -3,10 +3,10 @@ import Provenance.SemiringWithMonus
 
 section AnnotatedDatabase
 
-variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
+variable {T: Type} [ValueType T]
 variable {K: Type} [Zero K]
 
-abbrev AnnotatedTuple (T K) (n: ℕ) := Vector T n × K
+abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n × K
 
 instance : Zero (AnnotatedTuple T K n) := ⟨0,0⟩
 

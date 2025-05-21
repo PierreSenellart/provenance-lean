@@ -14,7 +14,7 @@ inductive Term T n where
 
 def Term.eval (term: Term T n) (tuple: Tuple T n) := match term with
   | Term.Const a => a
-  | Term.Index k => tuple[k]
+  | Term.Index k => tuple k
 
 instance : Coe T (Term T n) where
   coe a:= Term.Const a
@@ -108,7 +108,7 @@ def Query.arity (_: Query T n) := n
 def Query.evaluate (q: Query T n) (d: Database T) : Relation T n := match q with
 | Rel   n  s  => Eq.mp (congrArg (Relation T) (d.wf n s)) (d (n,s)).snd
 | Proj ts q => let r := evaluate q d
-  Multiset.map (λ t ↦ Vector.map (λ u ↦ u.eval t) ts) r
+  Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
 | Prod  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ * r₂
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
