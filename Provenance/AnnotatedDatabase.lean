@@ -1,8 +1,6 @@
 import Provenance.Database
 import Provenance.SemiringWithMonus
 
-section AnnotatedDatabase
-
 variable {T: Type} [ValueType T]
 variable {K: Type} [Zero K]
 
@@ -28,5 +26,3 @@ instance : FunLike (AnnotatedDatabase T K) (ℕ × String) (Σ n, AnnotatedRelat
     simp at h
     cases d₁; cases d₂
     congr
-
-end AnnotatedDatabase

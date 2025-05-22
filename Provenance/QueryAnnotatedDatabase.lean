@@ -3,9 +3,7 @@ import Std.Data.HashMap.Lemmas
 import Provenance.AnnotatedDatabase
 import Provenance.Query
 
-section QueryAnnotatedDatabase
-
-variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
+variable {T: Type} [ValueType T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
 def Filter.evalDecidableAnnotated (φ : Filter T n) :
@@ -14,10 +12,7 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
       | isTrue h  => isTrue (by simp [Filter.eval, h])
       | isFalse h => isFalse  (by simp [Filter.eval, h])
 
-def LEByKey {α β: Type} [LinearOrder α] [DecidableLE α] (a b: Prod α β) : Prop :=
-  a.fst <= b.fst
-
-instance [LinearOrder α] [DecidableLE α] : DecidableRel (@LEByKey α β _ _) :=
+instance [LinearOrder α] : DecidableRel (@LEByKey α β _ _) :=
   λ a b => match inferInstanceAs (Decidable (a.fst <= b.fst)) with
   | isTrue h => isTrue (by unfold LEByKey; assumption)
   | isFalse h => isFalse (by unfold LEByKey; assumption)
@@ -34,31 +29,11 @@ instance [LinearOrder α] : IsTrans (α × β) LEByKey where
     unfold LEByKey
     exact Preorder.le_trans _ _ _
 
-def addToList (ta: Tuple T n × K) (acc: List (Tuple T n × K)) :=
-  match acc.find? (·.fst=ta.fst) with
-  | none       => List.Sorted.orderedInsert (r:=LEByKey) ta acc
-  | some (a,α) => List.Sorted.orderedInsert (r:=LEByKey) ta (acc.erase (a,α))
 
-def findInList (t : Tuple T n) (l : List (Tuple T n × K)) (default: K) := match l with
-| [] => default
-| ua::q => if ua.fst=t then ua.snd else findInList t q default
+theorem find_ordered_insert_tuple (t : Tuple T n × K) (l : List (Tuple T n × K)) :
+  (List.orderedInsert LEByKey t l).find? (·.fst=t.fst) = some t := by
+    sorry
 
-theorem sorted_erase [DecidableEq α] {l : List α} (x : α) (r: α → α -> Prop) (h : List.Sorted r l) :
-  List.Sorted r (List.erase l x) := by
-  induction l with
-  | nil => simp
-  | cons hd tl ih =>
-    simp only [List.erase]
-    by_cases h₁ : hd == x
-    · simp[h₁]
-      exact h.tail
-    · simp[h₁]
-      simp at h₁
-      constructor
-      · intro y hy
-        have : y ∈ tl := List.mem_of_mem_erase hy
-        apply List.rel_of_sorted_cons <;> assumption
-      · exact ih h.tail
 
 instance :
   LeftCommutative (addToList: Tuple T n × K → List (Tuple T n × K) → List (Tuple T n × K)) where
@@ -73,12 +48,10 @@ instance :
       | cons hd tl ih =>
         simp[addToList]
         by_cases ht : hd.fst = t₂ <;> simp[ht]
-        . unfold addToList
-          simp
+        .
+
           exact add_right_comm hd.snd α₂ α₁
-        . unfold addToList
-          simp[ht]
-          by_cases hlt : hd.fst < t₂
+        . by_cases hlt : hd.fst < t₂
           . simp[hlt]
             exact add_comm _ _
           . simp[hlt,ht]
@@ -135,6 +108,4 @@ def Query.evaluateAnnotated (q: Query T n) (d: AnnotatedDatabase T K) : Annotate
   let r₂ := evaluateAnnotated q₂ d
   let grouped₂ := groupByKey r₂
   r₁.map
-    λ (u,α) ↦ ⟨u, α - (findInList u grouped₂ 0)⟩
-
-end QueryAnnotatedDatabase
+    λ (u,α) ↦ ⟨u, α - (grouped₂.find? u 0)⟩

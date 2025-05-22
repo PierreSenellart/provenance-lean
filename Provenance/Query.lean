@@ -6,7 +6,7 @@ import Mathlib.Data.Multiset.Filter
 
 import Provenance.Database
 
-variable {T: Type} [ValueType T] [DecidableEq T] [DecidableLE T]
+variable {T: Type} [ValueType T]
 
 inductive Term T n where
 | Const : T → Term T n
@@ -107,8 +107,7 @@ def Query.arity (_: Query T n) := n
 
 def Query.evaluate (q: Query T n) (d: Database T) : Relation T n := match q with
 | Rel   n  s  => Eq.mp (congrArg (Relation T) (d.wf n s)) (d (n,s)).snd
-| Proj ts q => let r := evaluate q d
-  Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
+| Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
 | Prod  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ * r₂
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂

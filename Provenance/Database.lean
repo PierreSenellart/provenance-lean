@@ -7,43 +7,6 @@ class ValueType (T : Type) extends Zero T, LinearOrder T
 
 variable {T: Type} [ValueType T]
 
-instance : DecidableRel ((· : T) ≠ ·) :=
-  λ a b =>
-    match inferInstanceAs (Decidable (a = b)) with
-    | isTrue h  => isFalse (by simp[h])
-    | isFalse h => isTrue  (by simp[h])
-
-instance : DecidableRel ((· : T) < ·) :=
-  λ a b =>
-    match inferInstanceAs (Decidable (a ≤ b)), inferInstanceAs (Decidable (a = b)) with
-    | isTrue h₁, isTrue h₂  => isFalse (by simp[h₂])
-    | isTrue h₁, isFalse h₂ => isTrue  (lt_of_le_of_ne h₁ h₂)
-    | isFalse h₁, _         => isFalse (by contrapose h₁; simp at *; exact le_of_lt h₁)
-
-instance : Std.Irrefl (λ (a b: T) ↦ a < b) where
-  irrefl := by simp
-
-instance : Std.Antisymm (fun (a b: T) ↦ ¬a < b) where
-  antisymm := by
-    intro a b hab hba
-    have hab' := le_of_not_lt hab
-    have hbc' := le_of_not_lt hba
-    apply le_antisymm <;> assumption
-
-instance : Std.Asymm (fun (a b : T) ↦ a < b) where
-  asymm := by
-    intro a b
-    exact not_lt_of_gt
-
-instance : Trans (fun (a b : T) ↦ ¬a < b) (fun a b ↦ ¬a < b) (fun a b ↦ ¬a < b) where
-  trans := by
-    intro a b c
-    intro hab hbc
-    apply not_lt_of_ge
-    have hab' := le_of_not_lt hab
-    have hbc' := le_of_not_lt hbc
-    exact Preorder.le_trans c b a hbc' hab'
-
 def Tuple (T : Type) (n: ℕ) := Fin n → T
 
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
