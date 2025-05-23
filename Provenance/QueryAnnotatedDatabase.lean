@@ -17,19 +17,6 @@ instance [LinearOrder α] : DecidableRel (@LEByKey α β _ _) :=
   | isTrue h => isTrue (by unfold LEByKey; assumption)
   | isFalse h => isFalse (by unfold LEByKey; assumption)
 
-instance [LinearOrder α] : IsTotal (α × β) LEByKey where
-  total := by
-    intro a b
-    unfold LEByKey
-    exact le_total _ _
-
-instance [LinearOrder α] : IsTrans (α × β) LEByKey where
-  trans := by
-    intro a b c
-    unfold LEByKey
-    exact Preorder.le_trans _ _ _
-
-
 theorem find_ordered_insert_tuple (t : Tuple T n × K) (l : List (Tuple T n × K)) :
   (List.orderedInsert LEByKey t l).find? (·.fst=t.fst) = some t := by
     sorry
