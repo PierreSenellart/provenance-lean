@@ -20,7 +20,7 @@ def KeyAccValueList.erase [LinearOrder α] [DecidableEq β] [Add β]
 
     sorted := by
       suffices
-        h : @List.Sorted (α×β) LEByKey list → List.Sorted LEByKey (list.erase ab)
+        h : List.Sorted LEByKey list → List.Sorted LEByKey (list.erase ab)
         from h l.sorted
       induction l.list with
       | nil => simp
@@ -41,12 +41,15 @@ def KeyAccValueList.erase [LinearOrder α] [DecidableEq β] [Add β]
           . exact ih (List.Sorted.tail h)
 
     noDupKey := by
+      suffices
+        h : list.Pairwise (·.fst≠·.fst)
       induction l.list with
       | nil => simp
       | cons hd tl ih =>
         simp only [List.erase]
         by_cases h₁ : hd == ab
         . simp only[h₁]
+
           sorry
         . sorry
   }
