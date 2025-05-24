@@ -54,7 +54,7 @@ theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
             exact le_of_lt (lt_of_lt_of_le h.right (sorted_tail.left b hb))
       . exact ih h.left
 
-theorem KeyValueList.noKeyDup (l : List (α×β)) (h: KeyValueList l):
+theorem KeyValueList.noDupKey (l : List (α×β)) (h: KeyValueList l):
   List.Pairwise (·.1≠·.1) l := by
     induction l with
     | nil => tauto
@@ -137,7 +137,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
                   simp[LEByKey,hlt'] at hc
                   have := lt_of_lt_of_le hlt' hc
                   simp at this
-              . have hnodup := noKeyDup (hd₂::tl₂) h₂
+              . have hnodup := noDupKey (hd₂::tl₂) h₂
                 rw[List.pairwise_cons] at hnodup
                 have hmem12 := (hmem hd₁).mp
                 simp at hmem12
@@ -154,7 +154,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
               simp[hx] at hmem12
               rcases hmem12 with hhd|htl
               . rw[← hd₁eqhd₂] at hhd
-                have hnodup := noKeyDup (hd₁::tl₁) h₁
+                have hnodup := noDupKey (hd₁::tl₁) h₁
                 rw[List.pairwise_cons] at hnodup
                 rw[hhd] at hx
                 have := hnodup.left hd₁ hx
@@ -165,7 +165,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
               simp[hx] at hmem21
               rcases hmem21 with hhd|htl
               . rw[hd₁eqhd₂] at hhd
-                have hnodup := noKeyDup (hd₂::tl₂) h₂
+                have hnodup := noDupKey (hd₂::tl₂) h₂
                 rw[List.pairwise_cons] at hnodup
                 rw[hhd] at hx
                 have := hnodup.left hd₂ hx
@@ -212,11 +212,11 @@ theorem KeyValueList.erase_find (l : List (α×β)) (h: KeyValueList l) (a: α):
     | cons hd tl ih =>
       by_cases h' : hd.1 = a
       . simp[h']
-        have hnoKeyDup := noKeyDup (hd::tl) h
+        have hnoDupKey := noDupKey (hd::tl) h
         rw[← h']
         intro a' b ha'b
-        rw[List.pairwise_cons] at hnoKeyDup
-        have := hnoKeyDup.left (a',b) ha'b
+        rw[List.pairwise_cons] at hnoDupKey
+        have := hnoDupKey.left (a',b) ha'b
         simp[ne_comm] at this
         assumption
       . simp[h']
@@ -299,7 +299,39 @@ theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h:
     simp
     by_cases hxa : xa = a
     . simp[hxa]
-      sorry
+      by_cases hhda : hd.1 = a
+      . unfold List.addKV
+        simp[LEByKey,hhda]
+        have nodup := noDupKey (hd::tl) h
+        rw[List.pairwise_cons] at nodup
+        apply Iff.intro
+        . intro hmp
+          have := nodup.left (a,xb)
+          simp[hhda] at this
+          simp[this] at hmp
+          simp[hmp]
+          right
+          use a, hd.2
+          simp[← hhda]
+        . intro hmpr
+          left
+          rcases hmpr with h₁|h₂
+          . simp[h₁]
+            rw[← hhda] at h₁
+            have := h₁.left hd.2
+            simp at this
+          . let ⟨a₁,b₁,h₂'⟩:=h₂
+            let ⟨h₂'₁,h₂'₂,h₂'₃⟩:=h₂'
+            rw[h₂'₃]
+            rw[h₂'₂] at h₂'₁
+            rcases h₂'₁ with hi|hj
+            . simp[Prod.eq_iff_fst_eq_snd_eq] at hi
+              simp[hi]
+            . have := nodup.left (a,b₁) hj
+              simp[hhda] at this
+      . unfold List.addKV
+        simp[LEByKey,hhda]
+        sorry
     . simp[hxa]
       simp[hxa] at ih
       by_cases hxhd : hd=(xa,xb)
