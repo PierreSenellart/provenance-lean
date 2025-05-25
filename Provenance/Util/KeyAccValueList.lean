@@ -284,11 +284,13 @@ theorem KeyValueList.addKV [DecidableEq β] [Add β] (l : List (α×β)) (h: Key
           (b+b')
           (erase_find (hd :: tl) h a)
 
+
+
 theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
   ∀ x, x ∈ l.addKV a b ↔
     (x.1 ≠ a ∧ x ∈ l) ∨
-    (x.1 = a ∧ (¬ (∃ y ∈ l, y.1=a) ∧ x=(a,b) ∨
-                  (∃ y ∈ l, y.1=a ∧ x=(a,b+y.2)))) := by
+    (x.1 = a ∧ (¬ (∃ y, y ∈ l ∧ y.1=a) ∧ x=(a,b) ∨
+                  (∃ y, y ∈ l ∧ y.1=a ∧ x=(a,b+y.2)))) := by
   simp
   intro xa xb
   induction l with
@@ -342,6 +344,47 @@ theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h:
         sorry
       . sorry
 
+theorem KeyValueList.addKV_mem [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
+  ∃ b', (a,b') ∈ l.addKV a b := by
+    simp[List.addKV]
+    induction l with
+    | nil           => simp
+    | cons hd tl ih =>
+      by_cases hhd: hd.1 = a
+      . simp[hhd]
+      . simp[hhd]
+        rcases ih h.left with ⟨b', ih'⟩
+        use b'
+        cases htl : List.find? (·.1=a) tl with
+        | none =>
+          simp[htl] at ih'
+          simp[htl]
+          by_cases hb': b'=b
+          . simp[hb',LEByKey]
+            by_cases hle : a≤hd.1 <;> simp[hle]
+          . simp[hb'] at ih'
+            have hgt : a > hd.1 := by
+              have := (List.sorted_cons.mp (KeyValueList.sorted (hd::tl) h)).left (a,b') ih'
+              simp[LEByKey] at this
+              exact lt_of_le_of_ne this hhd
+            simp[LEByKey]
+            simp[not_le_of_gt hgt]
+            tauto
+        | some val =>
+          simp[htl] at ih'
+          simp[htl]
+          rcases ih' with ih'₁|ih'₂
+          . tauto
+          . right
+            rw[List.eraseP_cons]
+            have hvala : val.1=a := by
+              have := List.find?_some htl
+              exact decide_eq_true_eq.mp this
+            rw[hvala]
+            rw[hvala] at ih'₂
+            simp[hhd]
+            right
+            exact ih'₂
 
 def KeyValueList.addKVFold [DecidableEq β] [Add β]
   (ab: α×β) (l : {l: List (α×β) // KeyValueList l}) :
@@ -352,17 +395,61 @@ instance [DecidableEq β] [AddCommMagma β]:
   left_comm ab₁ ab₂ l := by
     unfold KeyValueList.addKVFold
     simp
-    induction l.val with
-    | nil =>
-      simp[List.addKV]
-      by_cases h : ab₁.1 = ab₂.1
-      . simp[h]
-        exact add_comm _ _
-      . have h' : ¬ ab₂.1 = ab₁.1 := fun a ↦ h (id (Eq.symm a))
-        simp[h,h']
-        by_cases h12 : ab₁.1 ≤ ab₂.1
-        . have h12': ¬ ab₂.1 ≤ ab₁.1 := not_le_of_gt (lt_of_le_of_ne h12 h)
-          simp [h12,h12',LEByKey]
-        . simp[h12,le_of_lt (lt_of_not_le h12),LEByKey]
-    | cons hd tl ih =>
-      sorry
+    rw[KeyValueList.eq_iff_forall_mem]
+    intro x
+
+    let proof (y₁: α×β) (y₂: α×β) :
+      x ∈ (l.val.addKV y₂.1 y₂.2).addKV y₁.1 y₁.2 → x ∈ (l.val.addKV y₁.1 y₁.2).addKV y₂.1 y₂.2 := by
+      repeat rw[KeyValueList.addKV_spec _ (KeyValueList.addKV l.val l.property _ _)]
+      repeat rw[KeyValueList.addKV_spec l.val l.property]
+      simp
+
+      . by_cases hy : y₁.1=y₂.1 <;>
+        by_cases hx₁: x.1=y₁.1 <;>
+        by_cases hx₂: x.1=y₂.1 <;> simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+        any_goals repeat rw[← hy]
+        any_goals repeat rw[← hx₁]
+        any_goals repeat rw[← hx₂]
+        any_goals simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+        any_goals repeat rw[← hy]
+        any_goals repeat rw[← hx₁]
+        any_goals repeat rw[← hx₂]
+        . intro h
+          right
+          use x.1
+          rcases h with hwrong|hright
+          . have := KeyValueList.addKV_mem l.val l.property x.1 y₂.2
+            rcases this with ⟨b',hb'⟩
+            rcases hwrong with ⟨hwrongl,hwrongr⟩
+            specialize hwrongl b'
+            contradiction
+          . rcases hright with ⟨a,b,hab⟩
+            rw[KeyValueList.addKV_spec] at hab
+            simp at hab
+            repeat rw[← hy, ← hx₁, ← hx₂] at hab
+            rcases hab with ⟨habl|habr,hr⟩
+            . tauto
+            . by_cases hb : ∀ b, (x.1,b) ∉ l.val
+              . simp[hb] at habr
+                simp[hb]
+                use y₁.2
+                rw[KeyValueList.addKV_spec l.val l.property]
+                simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+                left
+                sorry
+              . simp[hb] at habr
+                simp[hb]
+                sorry
+
+
+        . sorry
+        . sorry
+        . sorry
+        . sorry
+        . sorry
+
+    apply Iff.intro
+    . exact proof ab₁ ab₂
+    . exact proof ab₂ ab₁
+    . exact KeyValueList.addKV _ (KeyValueList.addKV l.val l.property _ _) _ _
+    . exact KeyValueList.addKV _ (KeyValueList.addKV l.val l.property _ _) _ _
