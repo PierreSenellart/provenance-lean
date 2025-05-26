@@ -1,6 +1,7 @@
 import Mathlib.Algebra.Group.Defs
 import Mathlib.Data.List.Sort
 import Mathlib.Order.Defs.LinearOrder
+import Mathlib.Data.List.Nodup
 
 variable {α: Type} [LinearOrder α]
 
@@ -53,6 +54,39 @@ theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
             rw[List.sorted_cons] at sorted_tail
             exact le_of_lt (lt_of_lt_of_le h.right (sorted_tail.left b hb))
       . exact ih h.left
+
+theorem KeyValueList.nodup (l: List (α×β)) (hl: KeyValueList l) :
+  l.Nodup := by
+    induction l with
+    | nil => simp
+    | cons hd tl ih =>
+      rw[List.nodup_cons]
+      constructor
+      . induction tl with
+        | nil => simp
+        | cons hd' tl' ih' =>
+          simp[KeyValueList] at hl
+          simp
+          constructor
+          . exact fun a ↦ (ne_of_lt hl.right) (congrArg Prod.fst a)
+          . have hih' : KeyValueList tl' → tl'.Nodup := by
+              intro htl'
+              have := ih hl.left
+              rw[List.nodup_cons] at this
+              exact this.right
+            have h' := ih' hih'
+            have hkvl : KeyValueList (hd::tl') := by
+              simp[KeyValueList]
+              cases tl' with
+              | nil =>
+                simp[KeyValueList]
+              | cons hd'' tl'' =>
+                simp
+                constructor
+                . exact hl.left.left
+                . exact lt_trans hl.right hl.left.right
+            exact h' hkvl
+      . exact ih hl.left
 
 theorem KeyValueList.noDupKey (l : List (α×β)) (h: KeyValueList l):
   List.Pairwise (·.1≠·.1) l := by
@@ -308,125 +342,171 @@ theorem KeyValueList.addKV [DecidableEq β] [Add β] (l : List (α×β)) (h: Key
           (b+b')
           (erase_find (hd :: tl) h a)
 
-theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
-  ∀ x, x ∈ l.addKV a b ↔
-    (x.1 ≠ a ∧ x ∈ l) ∨
-    (x.1 = a ∧ (¬ (∃ y, y ∈ l ∧ y.1=a) ∧ x=(a,b) ∨
-                  (∃ y, y ∈ l ∧ y.1=a ∧ x=(a,b+y.2)))) := by
-  simp
-  intro xa xb
-  induction l with
-  | nil =>
-    unfold List.addKV
-    simp
-  | cons hd tl ih =>
-    simp
-    by_cases hxa : xa = a
-    . simp[hxa]
-      simp[hxa] at ih
-      by_cases hhda : hd.1 = a
-      . unfold List.addKV
-        simp[LEByKey,hhda]
-        have nodup := noDupKey (hd::tl) h
-        rw[List.pairwise_cons] at nodup
-        apply Iff.intro
-        . intro hmp
-          have := nodup.left (a,xb)
-          simp[hhda] at this
-          simp[this] at hmp
-          simp[hmp]
-          right
-          use a, hd.2
-          simp[← hhda]
-        . intro hmpr
-          left
-          rcases hmpr with h₁|h₂
-          . simp[h₁]
-            rw[← hhda] at h₁
-            have := h₁.left hd.2
-            simp at this
-          . let ⟨a₁,b₁,h₂'⟩:=h₂
-            let ⟨h₂'₁,h₂'₂,h₂'₃⟩:=h₂'
-            rw[h₂'₃]
-            rw[h₂'₂] at h₂'₁
-            rcases h₂'₁ with hi|hj
-            . simp[Prod.eq_iff_fst_eq_snd_eq] at hi
-              simp[hi]
-            . have := nodup.left (a,b₁) hj
-              simp[hhda] at this
-      . unfold List.addKV
-        simp[LEByKey,hhda]
-        by_cases hle: a ≤ hd.1
-        . simp[hle]
-          cases htl: List.find? (·.1=a) tl with
+theorem KeyValueList.addKV_spec_not_key [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+  ∀ x, (x.1 ≠ a) → (x ∈ l.addKV a b ↔ x ∈ l) := by
+    intro x hxa
+    cases l with
+    | nil =>
+      simp[List.addKV]
+      exact ne_of_apply_ne Prod.fst hxa
+    | cons hd tl =>
+      apply Iff.intro
+      . intro hyp
+        simp[List.addKV,hxa] at hyp
+        simp
+        by_cases hxhd: x=hd
+        . left; exact hxhd
+        . right
+          cases hf: List.find? (·.1 = a) (hd :: tl) with
           | none =>
-            simp
-            simp[List.addKV,htl] at ih
-            have hitl := ih h.left
-            apply Iff.intro
-            . intro hb
-              rcases hb with hb₁|hb₂|hb₃
-              . simp[hb₁]
-                simp[hb₁] at hitl
-                rcases hitl with htl₁|htl₂
-                . left
-                  intro z
-                  simp[htl₁ z]
-                  by_contra hc
-                  rw[← hc] at hhda
-                  contradiction
-                . right
-                  rcases htl₂ with ⟨a',b',hab'⟩
-                  use a', b'
-                  simp[hab'.left]
-                  exact hab'.right
-              . rw[← hb₂] at hhda
-                contradiction
-              . simp[hb₃] at hitl
-                rw[List.find?_eq_none] at htl
-                have := htl _ hb₃
-                simp at this
-            . intro hb
-              rcases hb with hb₁|hb₂
-              . left
-                exact hb₁.right
-              . have : (a,xb) ≠ hd :=  by
-                  by_contra hc
-                  rw[← hc] at hhda
-                  contradiction
-                simp[this]
-                rw[hitl]
-                right
-                cases hb₂ with | intro a' ha' =>
-                  cases ha' with | intro b' hab' =>
-                    use a', b'
-                    rcases hab' with ⟨hab₁,hab₂,hab₃⟩
-                    rw[hab₂] at hab₁
-                    have : (a,b')≠ hd := by
-                      by_contra hc
-                      rw[← hc] at hhda
-                      contradiction
-                    simp[this] at hab₁
-                    constructor
-                    . rw[hab₂]; assumption
-                    . exact ⟨hab₂,hab₃⟩
+            simp[hf] at hyp
+            by_cases le: a≤hd.1 <;> simp[LEByKey,le] at hyp <;>
+            rcases hyp with hyp₁|hyp₂|hyp₃
+            . rw[hyp₁] at hxa
+              contradiction
+            . contradiction
+            . exact hyp₃
+            . contradiction
+            . rw[hyp₂] at hxa
+              contradiction
+            . exact hyp₃
+          | some val =>
+            simp[hf] at hyp
+            have hp := List.find?_some hf
+            simp at hp
+            rcases hyp with hyp₁|hyp₂
+            . rw[hyp₁] at hxa
+              rw[hp] at hxa
+              contradiction
+            . rw[List.mem_eraseP_of_neg] at hyp₂
+              . simp[hxhd] at hyp₂
+                exact hyp₂
+              . simp
+                rw[hp]
+                exact hxa
+      . intro hyp
+        simp at hyp
+        simp[List.addKV,hxa]
+        rcases hyp with hyp₁|hyp₂
+        . cases hf: List.find? (·.1 = a) (hd :: tl) with
+          | none =>
+            by_cases le: a≤hd.1 <;> simp[LEByKey,le] <;> simp[hyp₁]
           | some val =>
             simp
-            simp[List.addKV,htl] at ih
-            have hitl := ih h.left
-            apply Iff.intro
-            . sorry
-            . sorry
-        . simp[hle]
-          sorry
-    . simp[hxa]
-      simp[hxa] at ih
-      by_cases hxhd : hd=(xa,xb)
-      . simp[hxhd]
-        unfold List.addKV
-        simp[hxa]
-        sorry
-      . sorry
+            right
+            rw[List.eraseP_cons]
+            have hp := List.find?_some hf
+            simp at hp
+            rw[hp]
+            rw[← hyp₁]
+            simp[hxa]
+        . cases hf: List.find? (·.1 = a) (hd :: tl) with
+        | none =>
+          by_cases le: a≤hd.1 <;> simp[LEByKey,le] <;> simp[hyp₂]
+        | some val =>
+          simp
+          right
+          rw[List.eraseP_cons]
+          have hp := List.find?_some hf
+          simp at hp
+          rw[hp]
+          by_cases hhda: hd.1=a
+          . simp[hhda]
+            exact hyp₂
+          . simp[hhda]
+            right
+            rw[List.mem_eraseP_of_neg]
+            . exact hyp₂
+            . simp[hxa]
+
+theorem KeyValueList.addKV_spec_key_not_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+  ∀ x, (x.1 = a) → ¬ (∃ z, (a,z) ∈ l) → (x ∈ l.addKV a b ↔ x=(a,b)) := by
+    intro x hxa hz
+    cases l with
+    | nil =>
+      simp[List.addKV]
+    | cons hd tl =>
+      simp[List.addKV]
+      have hnone : List.find? (·.1=a) (hd::tl) = none := by
+        rw[List.find?_eq_none]
+        simp at hz
+        intro y hy
+        simp
+        specialize hz y.2
+        by_contra hc
+        rw[← hc] at hz
+        simp[hz] at hy
+      simp[hnone]
+      simp at hz
+      specialize hz x.2
+      rw[← hxa] at hz
+      simp at hz
+      by_cases hle: a≤hd.1 <;> simp[hle,LEByKey,hz]
+
+lemma KeyValueList.eraseP_eq_filter {l : List (α×β)} (hl: KeyValueList l) (a: α):
+    l.eraseP (·.1=a) = l.filter (·.1≠a) := by
+  induction l with
+  | nil => simp [List.eraseP, List.filter]
+  | cons hd tl ih =>
+    simp only [List.eraseP, List.filter]
+    by_cases h : hd.1=a
+    . simp[h]
+      have : tl = List.filter (fun x ↦ true) tl := by simp
+      nth_rewrite 1 [this]
+      apply List.filter_congr
+      intro y hy
+      by_contra hc
+      simp at hc
+      have nodup := (List.nodup_cons.mp (nodup (hd::tl) hl)).left
+      have functional := functional (hd::tl) hl hd (by simp) y (by simp[hy])
+      simp[h,hc] at functional
+      have : (y.1,y.2) ∉ tl := by
+        rw[hc,← h,← functional]
+        exact nodup
+      contradiction
+    · simp[h]
+      have := ih hl.left
+      simp at this
+      exact this
+
+theorem KeyValueList.addKV_spec_key_before [DecidableEq β] [Add β] (l: List (α×β)) (hl: KeyValueList l) (a: α) (b: β):
+  ∀ x, (x.1 = a) → ∀ z, (a,z) ∈ l → (x ∈ l.addKV a b ↔ x=(a,b+z)) := by
+    intro x hxa z hz
+    cases l with
+    | nil =>
+      simp at hz
+    | cons hd tl =>
+      simp[List.addKV]
+      have hsome : List.find? (·.1=a) (hd::tl) = some (a, z) := by
+        rw[List.find?_eq_some_iff_append]
+        simp
+        have hz₂ := hz
+        rw[List.mem_iff_append] at hz₂
+        rcases hz₂ with ⟨s,t,hzst⟩
+        use s
+        constructor
+        . use t
+        . intro a' b' hs
+          have h': (a',b') ∈ s ++ (a,z) :: t := List.mem_append_left ((a, z) :: t) hs
+          rw[← hzst] at h'
+          have := functional _ hl _ h' _ hz
+          simp at this
+          by_contra hc
+          have := this hc
+          rw[this,hc] at hs
+          rw[hzst] at hl
+          have := List.nodup_append.mp (KeyValueList.nodup (s ++ (a, z) :: t) hl)
+          unfold List.Disjoint at this
+          have problem := this.right.right
+          simp at problem
+          have := problem a z hs
+          simp at this
+      simp[hsome]
+      intro hx
+      rw[eraseP_eq_filter hl] at hx
+      rw[List.mem_filter] at hx
+      have := hx.right
+      simp[hxa] at this
 
 theorem KeyValueList.addKV_mem [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
   ∃ b', (a,b') ∈ l.addKV a b := by
@@ -474,13 +554,11 @@ def KeyValueList.addKVFold [DecidableEq β] [Add β]
   (ab: α×β) (l : {l: List (α×β) // KeyValueList l}) :
   {l: List (α×β) // KeyValueList l} := ⟨l.val.addKV ab.1 ab.2, KeyValueList.addKV _ l.property _ _⟩
 
-
-theorem KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
+lemma KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
   (l: List (α×β)) (hl: KeyValueList l) (a₁ a₂ a: α) (b₁ b₂ b: β):
   (a,b) ∈ (l.addKV a₂ b₂).addKV a₁ b₁ → (a,b) ∈ (l.addKV a₁ b₁).addKV a₂ b₂ := by
   repeat rw[KeyValueList.addKV_spec _ (KeyValueList.addKV l hl _ _)]
   repeat rw[KeyValueList.addKV_spec l hl]
-  simp
 
   . by_cases hy : a₁=a₂ <;>
     by_cases hx₁: a=a₁ <;>
@@ -494,28 +572,26 @@ theorem KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
     any_goals repeat rw[← hx₂]
     . intro h
       right
-      use a
+      use b
       rcases h with hwrong|hright
       . have := addKV_mem l hl a b₂
         rcases this with ⟨b',hb'⟩
         rcases hwrong with ⟨hwrongl,hwrongr⟩
         specialize hwrongl b'
         contradiction
-      . rcases hright with ⟨a',b',hab⟩
+      . rcases hright with ⟨b',hab⟩
         rw[addKV_spec l hl] at hab
         simp at hab
-        rcases hab with ⟨habl|habr,hr⟩
-        . tauto
+        rcases hab with ⟨habr,hr⟩
         . by_cases hb : ∀ z, (a,z) ∉ l
           . simp[hb] at habr
-            simp[hb]
-            use b₁
             rw[addKV_spec l hl]
             simp[hy,hx₁,hx₂,eq_comm,ne_comm]
             rw[← hx₂]
             constructor
             . left
-              assumption
+              constructor
+              . assumption
             . rcases habr with ⟨habrl,habrrl|hbarrr⟩
               . rw[habrrl.right] at hr
                 rw[add_comm] at hr
