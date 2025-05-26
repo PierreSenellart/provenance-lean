@@ -230,7 +230,7 @@ instance : Zero ((n : ℕ) × Relation T n) where zero := ⟨0,(∅: Multiset (T
 
 structure Database (T) where
   db : (ℕ × String) →₀ (Σ n, Relation T n)
-  wf : ∀ (n: ℕ) (s: String), (db (n,s)).fst = n
+  wf : ∀ (n: ℕ) (s: String), (n,s) ∈ db.support → (db (n,s)).fst = n
 
 instance : FunLike (Database T) (ℕ × String) (Σ n, Relation T n) where
   coe := λ d ↦ (λ (n, s) ↦ d.db (n, s))
