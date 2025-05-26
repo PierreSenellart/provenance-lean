@@ -88,6 +88,30 @@ theorem KeyValueList.noDupKey (l : List (α×β)) (h: KeyValueList l):
             exact ih' hb hc a' ha'
       . exact ih h.left
 
+theorem KeyValueList.functional (l : List (α×β)) (hl: KeyValueList l):
+  ∀ x ∈ l, ∀ y ∈ l, x.1=y.1 → x.2=y.2 := by
+  induction l with
+  | nil => simp
+  | cons hd tl ih =>
+    have hnodup := noDupKey (hd::tl) hl
+    rw[List.pairwise_cons] at hnodup
+    intro x hx y hy
+    cases hx with
+    | head =>
+      cases hy with
+      | head => tauto
+      | tail =>
+        rename_i ytl
+        simp[hnodup.left y ytl]
+    | tail xtl =>
+      rename_i xtl
+      cases hy with
+      | head =>
+        simp[hnodup.left x xtl,ne_comm]
+      | tail ytl =>
+        rename_i ytl
+        exact ih hl.left x xtl y ytl
+
 theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
   (l₁ l₂ : List (α×β)) (h₁: KeyValueList l₁) (h₂: KeyValueList l₂):
   l₁=l₂ ↔ ∀ x, x∈l₁ ↔ x∈l₂ := by
@@ -284,8 +308,6 @@ theorem KeyValueList.addKV [DecidableEq β] [Add β] (l : List (α×β)) (h: Key
           (b+b')
           (erase_find (hd :: tl) h a)
 
-
-
 theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h: KeyValueList l) (a: α) (b: β):
   ∀ x, x ∈ l.addKV a b ↔
     (x.1 ≠ a ∧ x ∈ l) ∨
@@ -301,6 +323,7 @@ theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h:
     simp
     by_cases hxa : xa = a
     . simp[hxa]
+      simp[hxa] at ih
       by_cases hhda : hd.1 = a
       . unfold List.addKV
         simp[LEByKey,hhda]
@@ -333,13 +356,74 @@ theorem KeyValueList.addKV_spec [DecidableEq β] [Add β] (l: List (α×β)) (h:
               simp[hhda] at this
       . unfold List.addKV
         simp[LEByKey,hhda]
-        sorry
+        by_cases hle: a ≤ hd.1
+        . simp[hle]
+          cases htl: List.find? (·.1=a) tl with
+          | none =>
+            simp
+            simp[List.addKV,htl] at ih
+            have hitl := ih h.left
+            apply Iff.intro
+            . intro hb
+              rcases hb with hb₁|hb₂|hb₃
+              . simp[hb₁]
+                simp[hb₁] at hitl
+                rcases hitl with htl₁|htl₂
+                . left
+                  intro z
+                  simp[htl₁ z]
+                  by_contra hc
+                  rw[← hc] at hhda
+                  contradiction
+                . right
+                  rcases htl₂ with ⟨a',b',hab'⟩
+                  use a', b'
+                  simp[hab'.left]
+                  exact hab'.right
+              . rw[← hb₂] at hhda
+                contradiction
+              . simp[hb₃] at hitl
+                rw[List.find?_eq_none] at htl
+                have := htl _ hb₃
+                simp at this
+            . intro hb
+              rcases hb with hb₁|hb₂
+              . left
+                exact hb₁.right
+              . have : (a,xb) ≠ hd :=  by
+                  by_contra hc
+                  rw[← hc] at hhda
+                  contradiction
+                simp[this]
+                rw[hitl]
+                right
+                cases hb₂ with | intro a' ha' =>
+                  cases ha' with | intro b' hab' =>
+                    use a', b'
+                    rcases hab' with ⟨hab₁,hab₂,hab₃⟩
+                    rw[hab₂] at hab₁
+                    have : (a,b')≠ hd := by
+                      by_contra hc
+                      rw[← hc] at hhda
+                      contradiction
+                    simp[this] at hab₁
+                    constructor
+                    . rw[hab₂]; assumption
+                    . exact ⟨hab₂,hab₃⟩
+          | some val =>
+            simp
+            simp[List.addKV,htl] at ih
+            have hitl := ih h.left
+            apply Iff.intro
+            . sorry
+            . sorry
+        . simp[hle]
+          sorry
     . simp[hxa]
       simp[hxa] at ih
       by_cases hxhd : hd=(xa,xb)
       . simp[hxhd]
         unfold List.addKV
-
         simp[hxa]
         sorry
       . sorry
@@ -390,7 +474,159 @@ def KeyValueList.addKVFold [DecidableEq β] [Add β]
   (ab: α×β) (l : {l: List (α×β) // KeyValueList l}) :
   {l: List (α×β) // KeyValueList l} := ⟨l.val.addKV ab.1 ab.2, KeyValueList.addKV _ l.property _ _⟩
 
-instance [DecidableEq β] [AddCommMagma β]:
+
+theorem KeyValueList.add_comm_internal [DecidableEq β] [AddCommSemigroup β]
+  (l: List (α×β)) (hl: KeyValueList l) (a₁ a₂ a: α) (b₁ b₂ b: β):
+  (a,b) ∈ (l.addKV a₂ b₂).addKV a₁ b₁ → (a,b) ∈ (l.addKV a₁ b₁).addKV a₂ b₂ := by
+  repeat rw[KeyValueList.addKV_spec _ (KeyValueList.addKV l hl _ _)]
+  repeat rw[KeyValueList.addKV_spec l hl]
+  simp
+
+  . by_cases hy : a₁=a₂ <;>
+    by_cases hx₁: a=a₁ <;>
+    by_cases hx₂: a=a₂ <;> simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+    any_goals repeat rw[← hy]
+    any_goals repeat rw[← hx₁]
+    any_goals repeat rw[← hx₂]
+    any_goals simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+    any_goals repeat rw[← hy]
+    any_goals repeat rw[← hx₁]
+    any_goals repeat rw[← hx₂]
+    . intro h
+      right
+      use a
+      rcases h with hwrong|hright
+      . have := addKV_mem l hl a b₂
+        rcases this with ⟨b',hb'⟩
+        rcases hwrong with ⟨hwrongl,hwrongr⟩
+        specialize hwrongl b'
+        contradiction
+      . rcases hright with ⟨a',b',hab⟩
+        rw[addKV_spec l hl] at hab
+        simp at hab
+        rcases hab with ⟨habl|habr,hr⟩
+        . tauto
+        . by_cases hb : ∀ z, (a,z) ∉ l
+          . simp[hb] at habr
+            simp[hb]
+            use b₁
+            rw[addKV_spec l hl]
+            simp[hy,hx₁,hx₂,eq_comm,ne_comm]
+            rw[← hx₂]
+            constructor
+            . left
+              assumption
+            . rcases habr with ⟨habrl,habrrl|hbarrr⟩
+              . rw[habrrl.right] at hr
+                rw[add_comm] at hr
+                exact hr.right
+              . rcases hbarrr with ⟨a'',b'',hab''⟩
+                specialize hb b''
+                rcases hab'' with ⟨hab''₁,hab''₂,hab''₃,hab''₄⟩
+                rw[hab''₂] at hab''₁
+                contradiction
+          . simp[hb] at habr
+            simp[hb]
+            simp at hb
+            rcases hb with ⟨b'',hab''⟩
+            use b''+b₁
+            simp[addKV_spec l hl]
+            constructor
+            . right
+              use a, b''
+              simp[*]
+              rw[← hx₂]
+              simp[hab'']
+              exact add_comm _ _
+            . rcases habr with ⟨habrl,habrr⟩
+              rcases habrr with ⟨a''',b''',hab'''⟩
+              rcases hab''' with ⟨h₁,h₂,h₃,h₄⟩
+              rw[h₂] at h₁
+              have hb'''b'': b''' = b'' := by
+                have := functional l hl _ h₁ _ hab''
+                simp at this
+                assumption
+              rw[hb'''b''] at h₄
+              rw[hr.right,h₄]
+              rw[← add_assoc]
+              nth_rewrite 2 [add_comm]
+              rw[add_assoc]
+              nth_rewrite 2 [add_comm]
+              rfl
+    . rw[hx₁,hy] at hx₂
+      contradiction
+    . rw[hx₂,← hy] at hx₁
+      contradiction
+    . rw[← hx₁,← hx₂] at hy
+      contradiction
+    . intro h
+      by_cases hz: ∀ z: β, (a, z) ∉ l
+      . left
+        rcases h with h₁|h₂
+        . constructor
+          . exact hz
+          . exact h₁.right
+        . rcases h₂ with ⟨a',z',hz',h₂₂,h₂₃⟩
+          rw[← h₂₂] at hz'
+          specialize hz z'
+          rw[addKV_spec l hl] at hz'
+          simp[hx₂] at hz'
+          contradiction
+      . right
+        simp at hz
+        rcases hz with ⟨z,hz⟩
+        use a, z
+        simp[hz]
+        rcases h with h₁|h₂
+        . have := h₁.left z
+          rw[addKV_spec l hl] at this
+          simp[hx₂,hy] at this
+          contradiction
+        . rcases h₂ with ⟨a',z',hz',h₂₂,h₂₃⟩
+          rw[addKV_spec l hl] at hz'
+          rw[← h₂₂] at hz'
+          simp[hx₂,hy] at hz'
+          have hzz': z=z' := by
+            have := functional l hl _ hz _ hz'
+            simp at this
+            assumption
+          simp[h₂₃,hzz']
+    . intro h
+      by_cases hz: ∀ z: β, (a,z) ∉ l
+      . left
+        rcases h with h₁|h₂
+        . constructor
+          . intro z
+            rw[addKV_spec l hl]
+            simp[hy,hx₁]
+            exact hz z
+          . exact h₁.right
+        . rcases h₂ with ⟨a',z',hz',h₂₂,h₂₃⟩
+          rw[← h₂₂] at hz'
+          specialize hz z'
+          contradiction
+      . right
+        simp at hz
+        rcases hz with ⟨z,hz⟩
+        use a, z
+        simp
+        constructor
+        . rw[addKV_spec l hl]
+          simp[hx₁,hy]
+          exact hz
+        . rcases h with h₁|h₂
+          . rcases h₁ with ⟨h₁₁,h₁₂⟩
+            specialize h₁₁ z
+            contradiction
+          . rcases h₂ with ⟨a',z',hz',h₂₂,h₂₃⟩
+            have hzz': z=z' := by
+              have := functional l hl _ hz _ hz' h₂₂
+              simp at this
+              assumption
+            rw[hzz']
+            assumption
+
+instance [DecidableEq β] [AddCommSemigroup β]:
   @LeftCommutative (α×β) _ (KeyValueList.addKVFold) where
   left_comm ab₁ ab₂ l := by
     unfold KeyValueList.addKVFold
@@ -398,58 +634,8 @@ instance [DecidableEq β] [AddCommMagma β]:
     rw[KeyValueList.eq_iff_forall_mem]
     intro x
 
-    let proof (y₁: α×β) (y₂: α×β) :
-      x ∈ (l.val.addKV y₂.1 y₂.2).addKV y₁.1 y₁.2 → x ∈ (l.val.addKV y₁.1 y₁.2).addKV y₂.1 y₂.2 := by
-      repeat rw[KeyValueList.addKV_spec _ (KeyValueList.addKV l.val l.property _ _)]
-      repeat rw[KeyValueList.addKV_spec l.val l.property]
-      simp
-
-      . by_cases hy : y₁.1=y₂.1 <;>
-        by_cases hx₁: x.1=y₁.1 <;>
-        by_cases hx₂: x.1=y₂.1 <;> simp[hy,hx₁,hx₂,eq_comm,ne_comm]
-        any_goals repeat rw[← hy]
-        any_goals repeat rw[← hx₁]
-        any_goals repeat rw[← hx₂]
-        any_goals simp[hy,hx₁,hx₂,eq_comm,ne_comm]
-        any_goals repeat rw[← hy]
-        any_goals repeat rw[← hx₁]
-        any_goals repeat rw[← hx₂]
-        . intro h
-          right
-          use x.1
-          rcases h with hwrong|hright
-          . have := KeyValueList.addKV_mem l.val l.property x.1 y₂.2
-            rcases this with ⟨b',hb'⟩
-            rcases hwrong with ⟨hwrongl,hwrongr⟩
-            specialize hwrongl b'
-            contradiction
-          . rcases hright with ⟨a,b,hab⟩
-            rw[KeyValueList.addKV_spec] at hab
-            simp at hab
-            repeat rw[← hy, ← hx₁, ← hx₂] at hab
-            rcases hab with ⟨habl|habr,hr⟩
-            . tauto
-            . by_cases hb : ∀ b, (x.1,b) ∉ l.val
-              . simp[hb] at habr
-                simp[hb]
-                use y₁.2
-                rw[KeyValueList.addKV_spec l.val l.property]
-                simp[hy,hx₁,hx₂,eq_comm,ne_comm]
-                left
-                sorry
-              . simp[hb] at habr
-                simp[hb]
-                sorry
-
-
-        . sorry
-        . sorry
-        . sorry
-        . sorry
-        . sorry
-
     apply Iff.intro
-    . exact proof ab₁ ab₂
-    . exact proof ab₂ ab₁
+    . exact KeyValueList.add_comm_internal _ l.property _ _ _ _ _ _
+    . exact KeyValueList.add_comm_internal _ l.property _ _ _ _ _ _
     . exact KeyValueList.addKV _ (KeyValueList.addKV l.val l.property _ _) _ _
     . exact KeyValueList.addKV _ (KeyValueList.addKV l.val l.property _ _) _ _
