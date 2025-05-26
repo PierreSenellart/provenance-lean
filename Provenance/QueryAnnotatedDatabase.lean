@@ -14,20 +14,20 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
       | isFalse h => isFalse  (by simp [Filter.eval, h])
 
 def groupByKey (m : Multiset (Tuple T n × K)) :=
-  m.foldr  []
+  m.foldr KeyValueList.addKVFold ⟨[], by simp[KeyValueList]⟩
 
 def Query.evaluateAnnotated (q: Query T n) (d: AnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
 | Rel   n  s  => Eq.mp (congrArg (AnnotatedRelation T K) (d.wf n s)) (d (n,s)).snd
 | Proj ts q =>
   let r := evaluateAnnotated q d
-  r.map (λ t ↦ ⟨Vector.map (λ u ↦ u.eval t.fst) ts, t.snd⟩)
+  r.map (λ t ↦ ⟨λ k ↦ (ts k).eval t.fst, t.snd⟩)
 | Sel   φ  q  =>
   let r := evaluateAnnotated q d
   @Multiset.filter _ (λ ta ↦ φ.eval ta.fst) φ.evalDecidableAnnotated r
 | Prod  q₁ q₂ =>
   let r₁ := evaluateAnnotated q₁ d
   let r₂ := evaluateAnnotated q₂ d
-  Multiset.map (λ (x,y) ↦ ⟨Vector.append x.fst y.fst, x.snd*y.snd⟩) (Multiset.product r₁ r₂)
+  Multiset.map (λ (x,y) ↦ ⟨Fin.append x.fst y.fst, x.snd*y.snd⟩) (Multiset.product r₁ r₂)
 | Sum   q₁ q₂ =>
   let r₁ := evaluateAnnotated q₁ d
   let r₂ := evaluateAnnotated q₂ d
@@ -40,4 +40,4 @@ def Query.evaluateAnnotated (q: Query T n) (d: AnnotatedDatabase T K) : Annotate
   let r₂ := evaluateAnnotated q₂ d
   let grouped₂ := groupByKey r₂
   r₁.map
-    λ (u,α) ↦ ⟨u, α - (grouped₂.find? u 0)⟩
+    λ (u,α) ↦ ⟨u, α - (((grouped₂.val.find? (·.1=u)).map Prod.snd).getD 0)⟩

@@ -1,4 +1,7 @@
-import Provenance.SemiringWithMonus
+/- Queries on annotated relations -/
+import Provenance.QueryAnnotatedDatabase
+
+/- Various semirings -/
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.MinMax

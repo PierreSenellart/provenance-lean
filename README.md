@@ -7,9 +7,17 @@ for provenance in databases.
 
 This is work in progress. For now:
 
+- [Database.lean](Provenance/Database.lean) defines tuples, relations,
+  and (regular) databases
+- [Query.lean](Provenance/Query.lean) defines the relational
+  algebra
+- [AnnotatedDatabase.lean](Provenance/AnnotatedDatabase.lean) defines annotated
+  databases
 - [SemiringWithMonus.lean](Provenance/SemiringWithMonus.lean) contains
   the definition of a *semiring with monus* (or *m-semiring*), along with
   some classical and useful theorems
+- [QueryAnnotatedDatabase.lean](Provenance/QueryAnnotatedDatabase.lean) defines
+  the semantics of relational algebra queries over annotated databases through m-semirings
 - We include proofs that some common provenance m-semirings are indeed
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
@@ -19,6 +27,7 @@ This is work in progress. For now:
   - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
   - [Which.lean](Provenance/Semirings/Which.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
   - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
+
 
 ## License
 
