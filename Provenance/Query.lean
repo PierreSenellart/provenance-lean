@@ -106,7 +106,11 @@ infix:50 " ∪ " => λ q₁ q₂ ↦ ε (q₁ ⊎ q₂)
 def Query.arity (_: Query T n) := n
 
 def Query.evaluate (q: Query T n) (d: Database T) : Relation T n := match q with
-| Rel   n  s  => Eq.mp (congrArg (Relation T) (d.wf n s)) (d (n,s)).snd
+| Rel   n  s  =>
+    if hsupport: (n,s) ∈ d.db.support then
+      Eq.mp (congrArg (Relation T) (d.wf n s hsupport)) (d (n,s)).snd
+    else
+      (∅: Multiset (Tuple T n))
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
 | Prod  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ * r₂
