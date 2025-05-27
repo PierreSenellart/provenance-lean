@@ -94,13 +94,13 @@ inductive Query (T: Type) : ℕ → Type
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
 
-prefix:50 "Π " => Query.Proj
-prefix:50 "σ " => Query.Sel
+prefix:max "Π " => Query.Proj
+prefix:max "σ " => Query.Sel
 infix:80 " × " => Query.Prod
 infix:50 " ⊎ " => Query.Sum
-prefix:50 "ε " => Query.Dedup
+prefix:max "ε " => Query.Dedup
 infix:50 " - " => Query.Diff
-infix:80 " ⋈ " => λ q₁ φ ↦ λ q₂ ↦ (σ φ) (q₁ × q₂)
+infix:1020 " ⋈ " => λ q₁ φ ↦ λ q₂ ↦ (σ φ) (q₁ × q₂)
 infix:50 " ∪ " => λ q₁ q₂ ↦ ε (q₁ ⊎ q₂)
 
 def Query.arity (_: Query T n) := n

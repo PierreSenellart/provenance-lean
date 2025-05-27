@@ -1,11 +1,17 @@
-import Provenance.Database
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.Data.Finsupp.Single
+import Mathlib.Data.String.Basic
+import Mathlib.Data.Multiset.Basic
+import Mathlib.Data.Multiset.Fintype
 
-instance : Zero String := ⟨""⟩
+import Provenance.Database
+import Provenance.Query
+
+instance : ValueType String where
+  zero := ""
 
 def r : Relation String 4 := Multiset.ofList [
-  !["1","John","Director","New York"],
+  !["1", "John", "Director", "New York"],
   !["2", "Paul", "Janitor", "New York"],
   !["3", "Dave", "Analyst", "Paris"],
   !["4", "Ellen", "Field agent", "Berlin"],
@@ -31,8 +37,29 @@ def d : Database String where
         simp at this
       . simp[h]
   ⟩
-
   wf := λ n s ↦ by
     by_cases h: (n,s)=(4,"Personnel")
     . simp[h]; simp at h; simp[h.left]
     . simp[h]
+
+def qPersonnel := (@Query.Rel String 4 "Personnel")
+
+/- This query looks for distinct cities -/
+def q₀ := ε (Π ![Term.Index 3] qPersonnel)
+
+/- This query looks for cities with ≥2 persons -/
+def q₁ := ε (
+  Π ![Term.Index 3]
+  (
+    σ (Filter.BT (Term.Index 0 < Term.Index 4)) (
+      (qPersonnel ⋈ (Filter.BT (Term.Index 3 == Term.Index 7))) qPersonnel
+    )
+  )
+)
+
+/- This query looks for cities with ≤1 persons -/
+def q₂ := q₀ - q₁
+
+#eval q₀.evaluate d
+#eval q₁.evaluate d
+#eval q₂.evaluate d

@@ -9,3 +9,6 @@ import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
 import Provenance.Semirings.Which
 import Provenance.Semirings.Why
+
+/- Example -/
+import Provenance.Example

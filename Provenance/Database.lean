@@ -14,6 +14,10 @@ instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
 instance : LT (Tuple T n) := ⟨λ a b ↦ ∃ i : Fin n, (∀ j, j < i → a j = b j) ∧ a i < b i⟩
 instance : LE (Tuple T n) := ⟨λ a b ↦ a < b ∨ a = b⟩
 
+instance [ToString T] : ToString (Tuple T n) where
+  toString t :=
+    "(" ++ String.intercalate ", " (List.ofFn (fun i => toString (t i))) ++ ")"
+
 instance : DecidableRel ((·: Tuple T n) = ·) :=
   λ f g ↦
     if h : ∀ i, f i = g i then
@@ -239,3 +243,29 @@ instance : FunLike (Database T) (ℕ × String) (Σ n, Relation T n) where
     simp at h
     cases d₁; cases d₂
     congr
+
+def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Sorted (· ≤ ·) l}) :
+    {l : List α // List.Sorted (· ≤ ·) l} :=
+  ⟨l.val.orderedInsert (· ≤ ·) x, List.Sorted.orderedInsert x l.val l.property⟩
+
+instance [LinearOrder α] :
+  @LeftCommutative α _ sortedInsert where
+  left_comm := by
+    intros a b l
+    simp only [sortedInsert]
+    simp
+    apply @List.eq_of_perm_of_sorted α (· ≤ ·)
+    . rw[List.perm_iff_count]
+      intro c
+      repeat rw[List.orderedInsert_count]
+      by_cases hab : a=b <;>
+        by_cases hca : c=a <;>
+        by_cases hcb : c=b <;> simp[hab,hca,hcb,eq_comm]
+      have : a≠c := by exact fun z ↦ hca (id (Eq.symm z))
+      simp[this]
+    . exact List.Sorted.orderedInsert _ _ (List.Sorted.orderedInsert _ _ l.property)
+    . exact List.Sorted.orderedInsert _ _ (List.Sorted.orderedInsert _ _ l.property)
+
+instance [ToString T] : ToString (Relation T n) where
+  toString r :=
+    String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"

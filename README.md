@@ -28,6 +28,8 @@ This is work in progress. For now:
   - [Which.lean](Provenance/Semirings/Which.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
   - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
 
+See [Example.lean](Provenance/Example.lean) for an example computation.
+
 
 ## License
 
