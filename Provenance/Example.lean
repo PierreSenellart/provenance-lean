@@ -5,7 +5,11 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Fintype
 
 import Provenance.Database
+import Provenance.AnnotatedDatabase
 import Provenance.Query
+import Provenance.SemiringWithMonus
+
+import Provenance.Semirings.Nat
 
 instance : ValueType String where
   zero := ""
@@ -41,6 +45,8 @@ def d : Database String where
     by_cases h: (n,s)=(4,"Personnel")
     . simp[h]; simp at h; simp[h.left]
     . simp[h]
+
+def r_count := r.annotate (λ t ↦ match (t 0).toNat? with | none => 0 | some val => val)
 
 def qPersonnel := (@Query.Rel String 4 "Personnel")
 
