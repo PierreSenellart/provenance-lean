@@ -4,12 +4,11 @@ import Mathlib.Data.String.Basic
 import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Fintype
 
-import Provenance.Database
-import Provenance.AnnotatedDatabase
-import Provenance.Query
+import Provenance.QueryAnnotatedDatabase
 import Provenance.SemiringWithMonus
 
 import Provenance.Semirings.Nat
+import Provenance.Semirings.Tropical
 
 instance : ValueType String where
   zero := ""
@@ -24,27 +23,14 @@ def r : Relation String 4 := Multiset.ofList [
   !["7", "Susan", "Analyst", "Berlin"]
 ]
 
-def d : Database String where
-  db := ⟨
-    ⟨Multiset.ofList [(4,"Personnel")], by decide⟩,
-    λ (n,s) ↦ match (n,s) with
-      | (4,"Personnel") => ⟨4,r⟩
-      | _ => 0,
-    by
-      intro ⟨n,s⟩
-      by_cases h: (n,s)=(4,"Personnel")
-      . simp[h]
-        by_contra hc
-        have : (⟨4,r⟩:(n:ℕ)× Relation String n).fst = 0 := by
-          rw[hc]
-          rfl
-        simp at this
-      . simp[h]
-  ⟩
-  wf := λ n s ↦ by
-    by_cases h: (n,s)=(4,"Personnel")
-    . simp[h]; simp at h; simp[h.left]
-    . simp[h]
+def d : WFDatabase String where
+  db := [(4,"Personnel",⟨4,r⟩)]
+
+  wf := λ n s rn ↦ by
+    simp[Database.find, Database.find.f]
+    intro hn hs hrn
+    rw[← hrn]
+    simp[hn]
 
 def qPersonnel := (@Query.Rel String 4 "Personnel")
 
@@ -68,4 +54,28 @@ def q₂ := q₀ - q₁
 #eval q₁.evaluate d
 #eval q₂.evaluate d
 
-def r_count := r.annotate (λ t ↦ match (t 0).toNat? with | none => 0 | some val => val)
+def r_count := r.annotate (λ _ ↦ 1)
+def d_count : WFAnnotatedDatabase String ℕ where
+  db := [(4,"Personnel",⟨4,r_count⟩)]
+
+  wf := λ n s rn ↦ by
+    simp[AnnotatedDatabase.find, AnnotatedDatabase.find.f]
+    intro hn hs hrn
+    rw[← hrn]
+    simp[hn]
+
+def r_tropical := r.annotate (λ _ ↦ (Tropical.trop 1: Tropical (WithTop ℕ)))
+def d_tropical : WFAnnotatedDatabase String (Tropical (WithTop ℕ)) where
+  db := [(4,"Personnel",⟨4,r_tropical⟩)]
+
+  wf := λ n s rn ↦ by
+    simp[AnnotatedDatabase.find, AnnotatedDatabase.find.f]
+    intro hn hs hrn
+    rw[← hrn]
+    simp[hn]
+
+#eval r_count
+#eval r_tropical
+#eval q₀.evaluateAnnotated d_tropical
+#eval q₁.evaluateAnnotated d_tropical
+#eval q₂.evaluateAnnotated d_tropical

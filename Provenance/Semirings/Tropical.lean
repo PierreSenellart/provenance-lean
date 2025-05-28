@@ -4,10 +4,16 @@ import Mathlib.Data.Real.Basic
 
 import Provenance.SemiringWithMonus
 
+instance [ToString α] : ToString (WithTop α) where
+  toString x := match x with | none => "⊤" | some x => toString x
+
+instance [ToString α] : ToString (Tropical α) where
+  toString x := toString ((x.untrop: α))
+
 /-- In the tropicalization of a linear order, `a ≥ b` if and only if
 `a+b = b`. -/
 theorem tropical_order_ge [LinearOrder α] :
-  ∀ a b: Tropical α, Tropical.untrop a ≥ Tropical.untrop b ↔ a+b = b := by
+  ∀ a b: Tropical α, a.untrop ≥ b.untrop ↔ a+b = b := by
     intro a b
     exact Tropical.add_eq_right_iff.symm
 
