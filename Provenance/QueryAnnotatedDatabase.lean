@@ -34,7 +34,7 @@ def Query.evaluateAnnotated (q: Query T n) (d: AnnotatedDatabase T K) : Annotate
   r₁+r₂
 | Dedup q     =>
   let r := evaluateAnnotated q d
-  Multiset.ofList (groupByKey r)
+  Multiset.ofList ((groupByKey r).val)
 | Diff  q₁ q₂ =>
   let r₁ := evaluateAnnotated q₁ d
   let r₂ := evaluateAnnotated q₂ d

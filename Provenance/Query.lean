@@ -107,7 +107,7 @@ def Query.arity (_: Query T n) := n
 
 def Query.evaluate (q: Query T n) (d: Database T) : Relation T n := match q with
 | Rel   n  s  =>
-    if hsupport: (n,s) ∈ d.db.support then
+    if hsupport: (n,s) ∈ d.support ≠ 0 then
       Eq.mp (congrArg (Relation T) (d.wf n s hsupport)) (d (n,s)).snd
     else
       (∅: Multiset (Tuple T n))

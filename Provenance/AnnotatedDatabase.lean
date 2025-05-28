@@ -1,40 +1,14 @@
+import Mathlib.Data.Prod.Lex
+
 import Provenance.Database
 import Provenance.SemiringWithMonus
 
 variable {T: Type} [ValueType T]
 variable {K: Type} [Zero K]
 
-abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n × K
+abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n ×ₗ K
 
-/-
-instance [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) where
-  le t₁ t₂ :=
-    if t₁.fst < t₂.fst then
-      true
-    else if t₁.fst = t₂.fst ∧ t₁.snd ≤ t₂.snd then
-      true
-    else false
-
-  le_refl t := by simp
-
-  le_antisymm t₁ t₂ := by
-    by_cases hlt₁ : t₁.fst < t₂.fst <;>
-    by_cases hlt₂ : t₂.fst < t₁.fst <;>
-    simp[hlt₁,hlt₂]
-    . have := lt_of_lt_of_le hlt₁ (le_of_lt hlt₂)
-      simp at this
-    . intro heq
-      simp[heq] at hlt₁
-    . intro heq
-      simp[heq] at hlt₂
-    . intro heq
-      sorry
-      -/
-
-
-
-
-
+instance [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
 
 instance [ToString T] [ToString K] : ToString (AnnotatedTuple T K n) where
   toString t :=
@@ -45,16 +19,13 @@ instance : Zero (AnnotatedTuple T K n) := ⟨0,0⟩
 
 def AnnotatedRelation (T K) (arity: ℕ) := Multiset (AnnotatedTuple T K arity)
 
-/-
-instance [ToString T] [ToString K] : ToString (AnnotatedRelation T K n) where
+instance [ToString T] [ToString K] [LinearOrder K] : ToString (AnnotatedRelation T K n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"
--/
 
 def Relation.annotate (f: Tuple T n → K) (r: Relation T n) :
-  AnnotatedRelation T K n
-    :=
-  r.map (λ t ↦ ⟨t, f t⟩)
+  AnnotatedRelation T K n :=
+    r.map (λ t ↦ ⟨t, f t⟩)
 
 instance : Add (AnnotatedRelation T K arity) := inferInstanceAs (Add (Multiset (AnnotatedTuple T K arity)))
 
@@ -72,3 +43,11 @@ instance : FunLike (AnnotatedDatabase T K) (ℕ × String) (Σ n, AnnotatedRelat
     simp at h
     cases d₁; cases d₂
     congr
+
+def Database.annotate (f: ℕ × String →₀ (Σ n, Tuple T n) → K) (d: Database T) :
+  AnnotatedDatabase T K := {
+    db := Finsupp.zipWith (λ g r ↦ ⟨r.1,r.2.annotate λ t ↦ g ⟨r.1,t⟩⟩) (by sorry) f d.db
+
+    wf := by
+      sorry
+  }

@@ -1,5 +1,5 @@
 import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Finsupp.Defs
+import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
 
@@ -233,16 +233,38 @@ instance : Zero (Relation T n) where zero := (∅: Multiset (Tuple T n))
 instance : Zero ((n : ℕ) × Relation T n) where zero := ⟨0,(∅: Multiset (Tuple T 0))⟩
 
 structure Database (T) where
-  db : (ℕ × String) →₀ (Σ n, Relation T n)
-  wf : ∀ (n: ℕ) (s: String), (n,s) ∈ db.support → (db (n,s)).fst = n
+  db : List (ℕ × String × Σ n, Relation T n)
+  support : List (ℕ × String) :=
+    let rec extract
+    | [] => []
+    | (n,s,_)::tl => (n,s)::(extract tl)
+    extract db
+  wf : ∀ (n: ℕ) (s: String) (rn: Σ n, Relation T n), (n,s,rn) ∈ db → rn.fst = n
 
-instance : FunLike (Database T) (ℕ × String) (Σ n, Relation T n) where
-  coe := λ d ↦ (λ (n, s) ↦ d.db (n, s))
-  coe_injective' := by
-    intro d₁ d₂ h
-    simp at h
-    cases d₁; cases d₂
-    congr
+def Database.element_from_support (d: Database T) (n: ℕ) (s: String) (hd: (n,s) ∈ d.support) :
+  Relation T n :=
+    let rec find : ∀ (l : List (ℕ × String × Σ n, Relation T n)), (n, s) ∈ (l.map (λ x => (x.1, x.2))) →
+    Relation T n
+    | [], h => False.elim (List.not_mem_nil _ h)
+    | (n', s', rn) :: tl, h =>
+      if h_eq : (n, s) = (n', s') then
+        -- match found: (n, s) = (n', s')
+        let h_in : (n', s', rn) ∈ (n', s', rn) :: tl := List.mem_head _ _
+        have hn_eq : rn.fst = n := by
+          rw [←h_eq] at h_in
+          exact d.wf n' s' rn h_in
+        Eq.mp (congrArg (Relation T) hn_eq) rn.snd
+      else
+        -- continue searching in tail
+        find tl (List.mem_of_mem_cons_of_ne h (by simp [h_eq]))
+    find d.db hd
+
+instance : CoeFun (Database T) (fun _ => (ℕ × String) → (Σ n, Relation T n)) where
+  coe := λ d (n,s) ↦
+    let rec find
+    | [] => 0
+    | (n',s',rn)::tl => if (n,s) = (n',s') then rn else find tl
+    find d.db
 
 def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Sorted (· ≤ ·) l}) :
     {l : List α // List.Sorted (· ≤ ·) l} :=

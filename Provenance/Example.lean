@@ -46,8 +46,6 @@ def d : Database String where
     . simp[h]; simp at h; simp[h.left]
     . simp[h]
 
-def r_count := r.annotate (λ t ↦ match (t 0).toNat? with | none => 0 | some val => val)
-
 def qPersonnel := (@Query.Rel String 4 "Personnel")
 
 /- This query looks for distinct cities -/
@@ -69,3 +67,5 @@ def q₂ := q₀ - q₁
 #eval q₀.evaluate d
 #eval q₁.evaluate d
 #eval q₂.evaluate d
+
+def r_count := r.annotate (λ t ↦ match (t 0).toNat? with | none => 0 | some val => val)
