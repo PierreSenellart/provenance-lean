@@ -133,7 +133,7 @@ inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
 | Sel   : Filter T n → Query T n → Query T n
-| Prod  : Query T n₁ → Query T n₂ → Query T (n₁+n₂)
+| Prod {n₁: Fin n} : Query T n₁ → Query T (n-n₁) → Query T n
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
@@ -176,7 +176,13 @@ def Query.evaluate (q: Query T n) (d: WFDatabase T): Relation T n := match q wit
   | some rn => Eq.mp (congrArg (Relation T) (d.wf n s rn h)) rn.snd
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
-| Prod  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ * r₂
+| @Prod _ n n₁ q₁ q₂ =>
+  let r₁ := evaluate q₁ d
+  let r₂ := evaluate q₂ d
+  Eq.mp (by
+    have : n₁ + (n-n₁) = n := by omega
+    rw[this]
+  ) (r₁ * r₂)
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
 | Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂

@@ -31,3 +31,4 @@ def Query.rewriting (q: Query T n): Query (T⊕K) (n+1) := match q with
 | Sum   q₁ q₂ => Sum (rewriting q₁) (rewriting q₂)
 | Dedup q     => sorry
 | Diff  q₁ q₂ => sorry
+| Agg _ _ _ _ => sorry
