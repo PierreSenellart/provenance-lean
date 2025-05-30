@@ -7,10 +7,15 @@ import Mathlib.Data.Multiset.Filter
 import Provenance.Database
 
 variable {T: Type} [ValueType T]
+variable {K: Type} [Zero K]
 
 inductive Term T n where
 | Const : T → Term T n
 | Index : Fin n → Term T n
+
+def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
+| Const c => Const (Sum.inl c)
+| Index k => Index (k.castLT (k.val_lt_of_le (Nat.le_add_right n 1)))
 
 def Term.eval (term: Term T n) (tuple: Tuple T n) := match term with
   | Term.Const a => a
@@ -31,6 +36,15 @@ inductive BoolTerm (T) (n: ℕ) where
 | LT : Term T n → Term T n → BoolTerm T n
 | GE : Term T n → Term T n → BoolTerm T n
 | GT : Term T n → Term T n → BoolTerm T n
+
+def BoolTerm.castToAnnotatedTuple (bt: BoolTerm T n): BoolTerm (T⊕K) (n+1) :=
+  match bt with
+  | EQ a b => EQ a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | NE a b => NE a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | LE a b => LE a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | LT a b => LT a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | GE a b => GE a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | GT a b => GT a.castToAnnotatedTuple b.castToAnnotatedTuple
 
 infix:20 " == " => λ x y ↦ BoolTerm.EQ x y
 infix:20 " != " => λ x y ↦ BoolTerm.NE x y
@@ -62,6 +76,12 @@ inductive Filter (T) (n: ℕ) where
 | Not  : Filter T n → Filter T n
 | And  : Filter T n → Filter T n → Filter T n
 | Or   : Filter T n → Filter T n → Filter T n
+
+def Filter.castToAnnotatedTuple (f: Filter T n): Filter (T⊕K) (n+1) := match f with
+| BT  φ     => BT φ.castToAnnotatedTuple
+| Not φ     => Not φ.castToAnnotatedTuple
+| And φ₁ φ₂ => And φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
+| Or  φ₁ φ₂ => Or φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 
 def Filter.eval (φ: Filter T n) (tuple: Tuple T n) := match φ with
 | BT  φ     => φ.eval tuple
