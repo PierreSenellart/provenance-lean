@@ -14,7 +14,79 @@ instance : ValueType String where
   zero := ""
 
 instance: Add String where
-  add s t := s ++ t
+  add s t := match s.toNat? with
+  | none => ""
+  | some n => match t.toNat? with
+              | none => ""
+              | some m => toString (n+m)
+
+lemma toNat_toString : ∀ n : ℕ, (toString (n)).toNat? = some n := by
+  intro n
+  induction n with
+  | zero =>
+    have : toString (0) = "0":= by decide
+    rw[this]
+    simp[String.toNat?]
+    constructor
+    . admit
+    . decide
+  | succ n ih =>
+    admit
+
+instance: AddCommSemigroup String where
+  add_comm := by
+    intro a b
+    have hes: "".toNat? = none := rfl
+    by_cases ha: a.toNat?=none <;>
+    by_cases hb: b.toNat?=none <;>
+    simp[HAdd.hAdd] <;> simp only[Add.add] <;> try simp[ha,hb,hes]
+    . cases hb': b.toNat? with
+      | none => contradiction
+      | some val => simp[hes]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some vala => simp[hes]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some vala =>
+        cases hb': b.toNat? with
+        | none => contradiction
+        | some valb =>
+          simp
+          rw[add_comm]
+
+  add_assoc := by
+    intro a b c
+    have hes: "".toNat? = none := rfl
+    by_cases ha: a.toNat?=none <;>
+    by_cases hb: b.toNat?=none <;>
+    by_cases hc: c.toNat?=none <;>
+    simp[HAdd.hAdd] <;> simp only[Add.add] <;> try simp[ha,hb,hc,hes]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some val => simp[hes]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some vala => simp[hes]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some vala =>
+        cases hb': b.toNat? with
+        | none => contradiction
+        | some valb =>
+          simp[hes]
+          cases hx: (toString (vala+valb)).toNat? <;> simp[hx]
+    . cases ha': a.toNat? with
+      | none => contradiction
+      | some vala =>
+        cases hb': b.toNat? with
+        | none => contradiction
+        | some valb =>
+          cases hc': c.toNat? with
+          | none => contradiction
+          | some valc =>
+            simp[toNat_toString]
+            rw[add_assoc]
 
 instance: Sub String where
   sub _ _ := ""
@@ -59,9 +131,9 @@ def q₁ := ε (
 /- This query looks for cities with ≤1 persons -/
 def q₂ := q₀ - q₁
 
-#eval q₀.evaluate d
-#eval q₁.evaluate d
-#eval q₂.evaluate d
+#eval! q₀.evaluate d
+#eval! q₁.evaluate d
+#eval! q₂.evaluate d
 
 def r_count := r.annotate (λ _ ↦ 1)
 def d_count : WFAnnotatedDatabase String ℕ where
@@ -83,8 +155,8 @@ def d_tropical : WFAnnotatedDatabase String (Tropical (WithTop ℕ)) where
     rw[← hrn]
     simp[hn]
 
-#eval r_count
-#eval r_tropical
+#eval! r_count
+#eval! r_tropical
 #eval q₀.evaluateAnnotated d_tropical
 #eval q₁.evaluateAnnotated d_tropical
 #eval q₂.evaluateAnnotated d_tropical

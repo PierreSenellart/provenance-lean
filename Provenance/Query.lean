@@ -1,12 +1,14 @@
 import Mathlib.Data.Finsupp.Defs
+import Mathlib.Data.Fin.VecNotation
 import Mathlib.Data.FunLike.Basic
 import Mathlib.Data.Vector.Basic
 import Mathlib.Data.Multiset.Dedup
 import Mathlib.Data.Multiset.Filter
+import Mathlib.Data.Prod.Lex
 
 import Provenance.Database
 
-variable {T: Type} [ValueType T] [Add T] [Sub T] [Mul T]
+variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
 variable {K: Type} [Zero K]
 
 inductive Term T n where
@@ -114,6 +116,19 @@ def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
 instance : Coe (BoolTerm T n) (Filter T n) where
   coe bt := Filter.BT bt
 
+inductive AggFunc
+| sum
+
+
+def addFn (a b : T) := a + b
+instance : @Std.Commutative T addFn where
+  comm := add_comm
+instance : @Std.Associative T addFn where
+  assoc := add_assoc
+
+def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
+| sum => m.fold (addFn: T→T→T) 0
+
 inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
@@ -122,6 +137,7 @@ inductive Query (T: Type) : ℕ → Type
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
+| Agg       : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple AggFunc n₂ → Query T m → Query T (n₁+n₂)
 
 prefix:max "Π " => Query.Proj
 prefix:max "σ " => Query.Sel
@@ -134,6 +150,25 @@ infix:50 " ∪ " => λ q₁ q₂ ↦ ε (q₁ ⊎ q₂)
 
 def Query.arity (_: Query T n) := n
 
+def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
+| Rel   n  s  => 0
+| Proj  _ q   => let d := q.aggdepth2_plus_depth; d+1
+| Sel   _  q  => let d := q.aggdepth2_plus_depth; d+1
+| Prod  q₁ q₂ =>
+  let d₁ := q₁.aggdepth2_plus_depth
+  let d₂ := q₂.aggdepth2_plus_depth
+  (max d₁ d₂)+1
+| Sum   q₁ q₂ =>
+  let d₁ := q₁.aggdepth2_plus_depth
+  let d₂ := q₂.aggdepth2_plus_depth
+  (max d₁ d₂)+1
+| Dedup q     => let d := q.aggdepth2_plus_depth; d+1
+| Diff  q₁ q₂ =>
+  let d₁ := q₁.aggdepth2_plus_depth
+  let d₂ := q₂.aggdepth2_plus_depth
+  (max d₁ d₂)+1
+| Agg _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
+
 def Query.evaluate (q: Query T n) (d: WFDatabase T): Relation T n := match q with
 | Rel   n  s  =>
   match h : d.db (n, s) with
@@ -145,3 +180,17 @@ def Query.evaluate (q: Query T n) (d: WFDatabase T): Relation T n := match q wit
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
 | Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂
+| @Agg _ m n₁ n₂ is ts as q =>
+    let r := evaluate ε (Π (λ (k: Fin n₁) ↦ #(is k)) q) d
+    let s := evaluate q d
+    r.map (λ t ↦ Fin.append t (
+      λ (k: Fin n₂) ↦ ((as k).eval (
+        (s.filter (λ u ↦ ∀ k': Fin n₁, u (is k') = t k')).map (λ u ↦ (ts k).eval u)
+      ))
+    ))
+termination_by q.aggdepth2_plus_depth
+decreasing_by
+  all_goals simp[aggdepth2_plus_depth]
+  any_goals refine Nat.lt_add_one_of_le ?_
+  any_goals exact Nat.le_max_left _ _
+  any_goals exact Nat.le_max_right _ _

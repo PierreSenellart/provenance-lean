@@ -4,7 +4,7 @@ import Provenance.AnnotatedDatabase
 import Provenance.Query
 import Provenance.Util.KeyAccValueList
 
-variable {T: Type} [ValueType T] [Add T] [Sub T] [Mul T]
+variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
 def Filter.evalDecidableAnnotated (φ : Filter T n) :
@@ -44,3 +44,4 @@ def Query.evaluateAnnotated (q: Query T n) (d: WFAnnotatedDatabase T K) : Annota
   let grouped₂ := groupByKey r₂
   r₁.map
     λ (u,α) ↦ ⟨u, α - (((grouped₂.val.find? (·.1=u)).map Prod.snd).getD 0)⟩
+| Agg _ _ _ _ => sorry
