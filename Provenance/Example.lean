@@ -13,6 +13,15 @@ import Provenance.Semirings.Tropical
 instance : ValueType String where
   zero := ""
 
+instance: Add String where
+  add s t := s ++ t
+
+instance: Sub String where
+  sub _ _ := ""
+
+instance: Mul String where
+  mul _ _ := ""
+
 def r : Relation String 4 := Multiset.ofList [
   !["1", "John", "Director", "New York"],
   !["2", "Paul", "Janitor", "New York"],
@@ -35,14 +44,14 @@ def d : WFDatabase String where
 def qPersonnel := (@Query.Rel String 4 "Personnel")
 
 /- This query looks for distinct cities -/
-def q₀ := ε (Π ![Term.Index 3] qPersonnel)
+def q₀ := ε (Π ![#3] qPersonnel)
 
 /- This query looks for cities with ≥2 persons -/
 def q₁ := ε (
-  Π ![Term.Index 3]
+  Π ![#3]
   (
-    σ (Filter.BT (Term.Index 0 < Term.Index 4)) (
-      (qPersonnel ⋈ (Filter.BT (Term.Index 3 == Term.Index 7))) qPersonnel
+    σ (Filter.BT (#0 < #4)) (
+      (qPersonnel ⋈ (Filter.BT (#3 == #7))) qPersonnel
     )
   )
 )

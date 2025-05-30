@@ -4,7 +4,7 @@ import Provenance.AnnotatedDatabase
 import Provenance.Query
 import Provenance.Util.KeyAccValueList
 
-variable {T: Type} [ValueType T]
+variable {T: Type} [ValueType T] [Add T] [Sub T] [Mul T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
 def Filter.evalDecidableAnnotated (φ : Filter T n) :

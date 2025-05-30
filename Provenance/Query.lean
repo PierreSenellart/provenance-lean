@@ -6,28 +6,37 @@ import Mathlib.Data.Multiset.Filter
 
 import Provenance.Database
 
-variable {T: Type} [ValueType T]
+variable {T: Type} [ValueType T] [Add T] [Sub T] [Mul T]
 variable {K: Type} [Zero K]
 
 inductive Term T n where
-| Const : T → Term T n
-| Index : Fin n → Term T n
+| const : T → Term T n
+| index : Fin n → Term T n
+| add : Term T n → Term T n → Term T n
+| sub : Term T n → Term T n → Term T n
+| mul : Term T n → Term T n → Term T n
 
 def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
-| Const c => Const (Sum.inl c)
-| Index k => Index (k.castLT (k.val_lt_of_le (Nat.le_add_right n 1)))
+| const c => const (Sum.inl c)
+| index k => index (k.castLT (k.val_lt_of_le (Nat.le_add_right n 1)))
+| add t₁ t₂ => add t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
+| sub t₁ t₂ => sub t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
+| mul t₁ t₂ => mul t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 
 def Term.eval (term: Term T n) (tuple: Tuple T n) := match term with
-  | Term.Const a => a
-  | Term.Index k => tuple k
+  | const a => a
+  | index k => tuple k
+  | add t₁ t₂ => (t₁.eval tuple) + (t₂.eval tuple)
+  | sub t₁ t₂ => (t₁.eval tuple) - (t₂.eval tuple)
+  | mul t₁ t₂ => (t₁.eval tuple) * (t₂.eval tuple)
 
 instance : Coe T (Term T n) where
-  coe a:= Term.Const a
+  coe a:= Term.const a
 
 instance : OfNat (Term ℕ n) (a: ℕ) where
-  ofNat := Term.Const a
+  ofNat := Term.const a
 
-prefix:max "#" => @Term.Index
+prefix:max "#" => Term.index
 
 inductive BoolTerm (T) (n: ℕ) where
 | EQ : Term T n → Term T n → BoolTerm T n
