@@ -11,7 +11,7 @@ import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
 
 instance : ValueType String where
-  zero := ""
+  zero := "0"
 
 instance: Add String where
   add s t := match s.toNat? with
@@ -29,7 +29,7 @@ lemma toNat_toString : ∀ n : ℕ, (toString (n)).toNat? = some n := by
     simp[String.toNat?]
     constructor
     . admit
-    . decide
+    . admit
   | succ n ih =>
     admit
 
@@ -118,12 +118,12 @@ def qPersonnel := (@Query.Rel String 4 "Personnel")
 /- This query looks for distinct cities -/
 def q₀ := ε (Π ![#3] qPersonnel)
 
+def qj: Query String (8-(4: Fin 8)) → Query String 8 := qPersonnel ⋈ (Filter.BT (#3 == #7))
 /- This query looks for cities with ≥2 persons -/
-def q₁ := ε (
-  Π ![#3]
+def q₁ := ε ( Π ![#3]
   (
     σ (Filter.BT (#0 < #4)) (
-      (qPersonnel ⋈ (Filter.BT (#3 == #7))) qPersonnel
+      qj qPersonnel
     )
   )
 )
@@ -131,9 +131,13 @@ def q₁ := ε (
 /- This query looks for cities with ≤1 persons -/
 def q₂ := q₀ - q₁
 
+/- This aggregate query counts persons by cities -/
+def qc := Query.Agg ![3] ![Term.const "1"] ![AggFunc.sum] qPersonnel
+
 #eval! q₀.evaluate d
 #eval! q₁.evaluate d
 #eval! q₂.evaluate d
+#eval! qc.evaluate d
 
 def r_count := r.annotate (λ _ ↦ 1)
 def d_count : WFAnnotatedDatabase String ℕ where
@@ -157,6 +161,6 @@ def d_tropical : WFAnnotatedDatabase String (Tropical (WithTop ℕ)) where
 
 #eval! r_count
 #eval! r_tropical
-#eval q₀.evaluateAnnotated d_tropical
-#eval q₁.evaluateAnnotated d_tropical
-#eval q₂.evaluateAnnotated d_tropical
+#eval! q₀.evaluateAnnotated (by decide) d_tropical
+#eval! q₁.evaluateAnnotated (by decide) d_tropical
+#eval! q₂.evaluateAnnotated (by decide) d_tropical

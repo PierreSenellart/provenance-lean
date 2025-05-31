@@ -139,6 +139,93 @@ inductive Query (T: Type) : ℕ → Type
 | Diff  : Query T n → Query T n → Query T n
 | Agg       : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple AggFunc n₂ → Query T m → Query T (n₁+n₂)
 
+def Query.noAgg (q: Query T n): Prop := match q with
+| Rel   n  s  => True
+| Proj  _ q   => q.noAgg
+| Sel   _  q  => q.noAgg
+| Prod  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
+| Sum   q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
+| Dedup q     => q.noAgg
+| Diff  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
+| Agg _ _ _ q => False
+
+def Query.noAggDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.noAgg T n):=
+  fun (q: Query T n) => match q with
+  | Rel n s => isTrue (by simp[noAgg])
+  | Proj  _ q'   => match q'.noAggDecidable with
+    | isTrue h => isTrue (by simp[noAgg]; exact h)
+    | isFalse h => isFalse (by simp[noAgg]; exact h)
+  | Sel   _  q'  => match q'.noAggDecidable with
+    | isTrue h => isTrue (by simp[noAgg]; exact h)
+    | isFalse h => isFalse (by simp[noAgg]; exact h)
+  | Prod  q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
+  | Sum   q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
+  | Dedup q'     => match q'.noAggDecidable with
+    | isTrue h => isTrue (by simp[noAgg]; exact h)
+    | isFalse h => isFalse (by simp[noAgg]; exact h)
+  | Diff  q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
+  | Agg _ _ _ q' => isFalse (by simp[noAgg])
+
+instance {T: Type} {n: ℕ} : DecidablePred (@Query.noAgg T n) := Query.noAggDecidable
+
+set_option linter.unusedSectionVars false
+@[simp]
+theorem Query.noAggProd {q: Query T n} :
+  q.noAgg → ∀ {n₁: Fin n} {q₁: Query T n₁} {q₂: Query T (n-n₁)} (_: q = Prod q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+    intro hna n₁ q₁ q₂ hq
+    unfold noAgg at hna
+    simp[hq] at hna
+    assumption
+
+@[simp]
+theorem Query.noAggSum {q: Query T n} :
+  q.noAgg → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Sum q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+    intro hna q₁ q₂ hq
+    unfold noAgg at hna
+    simp[hq] at hna
+    assumption
+
+@[simp]
+theorem Query.noAggDiff {q: Query T n} :
+  q.noAgg → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Diff q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+    intro hna q₁ q₂ hq
+    unfold noAgg at hna
+    simp[hq] at hna
+    assumption
+
+@[simp]
+theorem Query.noAggProj {q: Query T n} :
+  q.noAgg → ∀ {m} {t} {q': Query T m} (_: q = Proj t q'), q'.noAgg := by
+    intro hna m t q' hq
+    unfold noAgg at hna
+    rw[hq] at hna
+    assumption
+
+@[simp]
+theorem Query.noAggSel {q: Query T n} :
+  q.noAgg → ∀ {φ} {q': Query T n} (_: q = Sel φ q'), q'.noAgg := by
+    intro hna φ q' hq
+    unfold noAgg at hna
+    rw[hq] at hna
+    assumption
+
+@[simp]
+theorem Query.noAggDedup {q: Query T n} :
+  q.noAgg → ∀ {q': Query T n} (_: q = Dedup q'), q'.noAgg := by
+    intro hna q' hq
+    unfold noAgg at hna
+    rw[hq] at hna
+    assumption
+
 prefix:max "Π " => Query.Proj
 prefix:max "σ " => Query.Sel
 infix:80 " × " => Query.Prod

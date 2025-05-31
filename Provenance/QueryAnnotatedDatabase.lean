@@ -16,32 +16,42 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
 def groupByKey (m : Multiset (Tuple T n × K)) :=
   m.foldr KeyValueList.addKVFold ⟨[], by simp[KeyValueList]⟩
 
-def Query.evaluateAnnotated (q: Query T n) (d: WFAnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
+def Query.evaluateAnnotated (q: Query T n) (hq: q.noAgg) (d: WFAnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
 | Rel   n  s  =>
   match h : d.db (n, s) with
   | none => (∅: Multiset (AnnotatedTuple T K n))
   | some rn => Eq.mp (congrArg (AnnotatedRelation T K) (d.wf n s rn h)) rn.snd
-| Proj ts q =>
-  let r := evaluateAnnotated q d
+| @Proj _ n m ts q' =>
+  let r := evaluateAnnotated q' (noAggProj hq rfl) d
   r.map (λ t ↦ ⟨λ k ↦ (ts k).eval t.fst, t.snd⟩)
 | Sel   φ  q  =>
-  let r := evaluateAnnotated q d
+  let r := evaluateAnnotated q (noAggSel hq rfl) d
   @Multiset.filter _ (λ ta ↦ φ.eval ta.fst) φ.evalDecidableAnnotated r
-| Prod  q₁ q₂ =>
-  let r₁ := evaluateAnnotated q₁ d
-  let r₂ := evaluateAnnotated q₂ d
-  Multiset.map (λ (x,y) ↦ ⟨Fin.append x.fst y.fst, x.snd*y.snd⟩) (Multiset.product r₁ r₂)
+| @Prod _ n n₁ q₁ q₂ =>
+  let r₁ := evaluateAnnotated q₁ (noAggProd hq rfl).left d
+  let r₂ := evaluateAnnotated q₂ (noAggProd hq rfl).right d
+  Multiset.map (λ (x,y) ↦ ⟨
+    Eq.mp (by
+      have : n₁ + (n-n₁) = n := by omega
+      rw[this]
+      rfl
+    )
+    (Fin.append x.fst y.fst),
+    x.snd*y.snd
+  ⟩) (Multiset.product r₁ r₂)
 | Sum   q₁ q₂ =>
-  let r₁ := evaluateAnnotated q₁ d
-  let r₂ := evaluateAnnotated q₂ d
+  let r₁ := evaluateAnnotated q₁ (noAggSum hq rfl).left d
+  let r₂ := evaluateAnnotated q₂ (noAggSum hq rfl).right d
   r₁+r₂
 | Dedup q     =>
-  let r := evaluateAnnotated q d
+  let r := evaluateAnnotated q (noAggDedup hq rfl) d
   Multiset.ofList ((groupByKey r).val)
 | Diff  q₁ q₂ =>
-  let r₁ := evaluateAnnotated q₁ d
-  let r₂ := evaluateAnnotated q₂ d
+  let r₁ := evaluateAnnotated q₁ (noAggDiff hq rfl).left d
+  let r₂ := evaluateAnnotated q₂ (noAggDiff hq rfl).right d
   let grouped₂ := groupByKey r₂
   r₁.map
     λ (u,α) ↦ ⟨u, α - (((grouped₂.val.find? (·.1=u)).map Prod.snd).getD 0)⟩
-| Agg _ _ _ _ => sorry
+| Agg _ _ _ _ => False.elim (by
+  simp[noAgg] at hq
+)
