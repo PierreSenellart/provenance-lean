@@ -10,7 +10,7 @@ import Provenance.SemiringWithMonus
 import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
 
-instance : ValueType String where
+instance : Zero String where
   zero := "0"
 
 instance: Add String where
@@ -19,6 +19,12 @@ instance: Add String where
   | some n => match t.toNat? with
               | none => ""
               | some m => toString (n+m)
+
+instance: Sub String where
+  sub _ _ := ""
+
+instance: Mul String where
+  mul _ _ := ""
 
 lemma toNat_toString : ∀ n : ℕ, (toString (n)).toNat? = some n := by
   intro n
@@ -33,7 +39,7 @@ lemma toNat_toString : ∀ n : ℕ, (toString (n)).toNat? = some n := by
   | succ n ih =>
     admit
 
-instance: AddCommSemigroup String where
+instance: ValueType String where
   add_comm := by
     intro a b
     have hes: "".toNat? = none := rfl
@@ -87,12 +93,6 @@ instance: AddCommSemigroup String where
           | some valc =>
             simp[toNat_toString]
             rw[add_assoc]
-
-instance: Sub String where
-  sub _ _ := ""
-
-instance: Mul String where
-  mul _ _ := ""
 
 def r : Relation String 4 := Multiset.ofList [
   !["1", "John", "Director", "New York"],

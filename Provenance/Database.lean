@@ -3,7 +3,7 @@ import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
 
-class ValueType (T : Type) extends Zero T, LinearOrder T
+class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T
 
 variable {T: Type} [ValueType T]
 
