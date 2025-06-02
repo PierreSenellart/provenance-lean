@@ -9,6 +9,12 @@ variable {T: Type} [ValueType T]
 
 def Tuple (T : Type) (n: ℕ) := Fin n → T
 
+def Tuple.repr [Repr T] (t: Tuple T n) (_: ℕ) : Std.Format :=
+  let elems := (List.finRange n).map (fun (i: Fin n) => reprArg (t i))
+  Std.Format.bracket "[" (Std.Format.joinSep elems ", ") "]"
+
+instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
+
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
 
 instance : LT (Tuple T n) := ⟨λ a b ↦ ∃ i : Fin n, (∀ j, j < i → a j = b j) ∧ a i < b i⟩

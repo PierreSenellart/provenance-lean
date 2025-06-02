@@ -1,4 +1,5 @@
 import Mathlib.Data.Prod.Lex
+import Mathlib.Data.Fin.VecNotation
 
 import Provenance.Database
 import Provenance.SemiringWithMonus
@@ -31,6 +32,10 @@ instance : Add (AnnotatedRelation T K arity) := inferInstanceAs (Add (Multiset (
 
 instance : Zero (AnnotatedRelation T K n) where zero := (∅: Multiset (AnnotatedTuple T K n))
 instance : Zero ((n : ℕ) × AnnotatedRelation T K n) where zero := ⟨0,(∅: Multiset (AnnotatedTuple T K 0))⟩
+
+def AnnotatedRelation.toCompositeRelation (ar: AnnotatedRelation T K n):
+  Relation (T⊕K) (n+1) :=
+  ar.map λ p ↦ Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 
 def AnnotatedDatabase (T K) := List (ℕ × String × Σ n, AnnotatedRelation T K n)
 

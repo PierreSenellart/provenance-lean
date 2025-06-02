@@ -18,6 +18,15 @@ inductive Term T n where
 | sub : Term T n → Term T n → Term T n
 | mul : Term T n → Term T n → Term T n
 
+def Term.repr [Repr T] : Term T n → ℕ → Std.Format
+| const a, _ => reprArg a
+| index k, _ => "#" ++ (reprArg k)
+| add t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "+" ++ repr t₂ p) p
+| sub t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "-" ++ repr t₂ p) p
+| mul t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "*" ++ repr t₂ p) p
+
+instance [Repr α] : Repr (Term α n) := ⟨Term.repr⟩
+
 def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
 | const c => const (Sum.inl c)
 | index k => index (k.castLT (k.val_lt_of_le (Nat.le_add_right n 1)))
@@ -47,6 +56,16 @@ inductive BoolTerm (T) (n: ℕ) where
 | LT : Term T n → Term T n → BoolTerm T n
 | GE : Term T n → Term T n → BoolTerm T n
 | GT : Term T n → Term T n → BoolTerm T n
+
+def BoolTerm.repr [Repr T] : BoolTerm T n → ℕ → Std.Format
+| EQ t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "==" ++ t₂.repr p) p
+| NE t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "!=" ++ t₂.repr p) p
+| LE t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "<=" ++ t₂.repr p) p
+| LT t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "<" ++ t₂.repr p) p
+| GE t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ ">=" ++ t₂.repr p) p
+| GT t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ ">" ++ t₂.repr p) p
+
+instance [Repr α] : Repr (BoolTerm α n) := ⟨BoolTerm.repr⟩
 
 def BoolTerm.castToAnnotatedTuple (bt: BoolTerm T n): BoolTerm (T⊕K) (n+1) :=
   match bt with
@@ -89,6 +108,15 @@ inductive Filter (T) (n: ℕ) where
 | Or   : Filter T n → Filter T n → Filter T n
 | True : Filter T n
 
+def Filter.repr [Repr T] : Filter T n → ℕ → Std.Format
+| BT t, p => t.repr p
+| Not f, p => "¬" ++ (Repr.addAppParen (f.repr p) p)
+| And t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "∧" ++ t₂.repr p) p
+| Or t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "∨" ++ t₂.repr p) p
+| True, _ => "True"
+
+instance [Repr α] : Repr (Filter α n) := ⟨Filter.repr⟩
+
 def Filter.castToAnnotatedTuple (f: Filter T n): Filter (T⊕K) (n+1) := match f with
 | BT  φ     => BT φ.castToAnnotatedTuple
 | Not φ     => Not φ.castToAnnotatedTuple
@@ -122,7 +150,7 @@ instance : Coe (BoolTerm T n) (Filter T n) where
 
 inductive AggFunc
 | sum
-
+deriving Repr
 
 def addFn (a b : T) := a + b
 instance : @Std.Commutative T addFn where
@@ -142,6 +170,22 @@ inductive Query (T: Type) : ℕ → Type
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
 | Agg       : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple AggFunc n₂ → Query T m → Query T (n₁+n₂)
+
+def Query.repr [Repr T] : Query T n → ℕ → Std.Format
+| Rel _ s, p => s
+| Proj ts q, p => "Π_" ++ (Repr.addAppParen (ts.repr p) p) ++ (Repr.addAppParen (q.repr p) p)
+| Sel φ q, p => "σ_" ++ (Repr.addAppParen (φ.repr p) p) ++ (Repr.addAppParen (q.repr p) p)
+| Prod q₁ q₂, p => Repr.addAppParen (q₁.repr p ++ "×" ++ q₂.repr p) p
+| Sum q₁ q₂, p => Repr.addAppParen (q₁.repr p ++ "⊎" ++ q₂.repr p) p
+| Dedup q, p => "ε" ++ Repr.addAppParen (q.repr p) p
+| Diff q₁ q₂, p => Repr.addAppParen (q₁.repr p ++ "-" ++ q₂.repr p) p
+| Agg is ts as q, p =>
+  "γ_" ++ (Repr.addAppParen (is.repr p) p)
+    ++ (Repr.addAppParen (ts.repr p) p)
+    ++ (Repr.addAppParen (as.repr p) p)
+    ++ (Repr.addAppParen (q.repr p) p)
+
+instance [Repr α] : Repr (Query α n) := ⟨Query.repr⟩
 
 def Query.noAgg (q: Query T n): Prop := match q with
 | Rel   n  s  => True

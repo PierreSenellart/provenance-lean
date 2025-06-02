@@ -5,6 +5,7 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Fintype
 
 import Provenance.QueryAnnotatedDatabase
+import Provenance.QueryRewriting
 import Provenance.SemiringWithMonus
 
 import Provenance.Semirings.Nat
@@ -161,6 +162,93 @@ def d_tropical : WFAnnotatedDatabase String (Tropical (WithTop ℕ)) where
 
 #eval! r_count
 #eval! r_tropical
-#eval! q₀.evaluateAnnotated (by decide) d_tropical
-#eval! q₁.evaluateAnnotated (by decide) d_tropical
-#eval! q₂.evaluateAnnotated (by decide) d_tropical
+#eval! q₀.evaluateAnnotated (by decide) d_count
+#eval! q₁.evaluateAnnotated (by decide) d_count
+#eval! q₂.evaluateAnnotated (by decide) d_count
+
+def q'Personnel : Query (String⊕Nat) (qPersonnel.arity + 1) := qPersonnel.rewriting (by decide)
+def q'₀ : Query (String⊕Nat) (q₀.arity + 1) := q₀.rewriting (by decide)
+def q'₁ : Query (String⊕Nat) (q₁.arity + 1) := q₁.rewriting (by decide)
+def q'₂ : Query (String⊕Nat) (q₂.arity + 1) := q₂.rewriting (by decide)
+
+def d_composite : WFDatabase (String⊕ℕ) where
+  db := [(5,"Personnel",⟨5,r_count.toCompositeRelation⟩)]
+
+  wf := λ n s rn ↦ by
+    simp[Database.find, Database.find.f]
+    intro hn hs hrn
+    rw[← hrn]
+    simp[hn]
+
+instance [ValueType V] [LinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
+  zero := Sum.inr 0
+
+  add a b := match a,b with
+  | Sum.inl a', Sum.inl b' => Sum.inl (a'+b')
+  | Sum.inr a', Sum.inr b' => Sum.inr (a'+b')
+  | Sum.inl a', Sum.inr b' => Sum.inl (a')
+  | Sum.inr a', Sum.inl b' => Sum.inl (b')
+
+  sub a b := match a,b with
+  | Sum.inl a', Sum.inl b' => Sum.inl (a'-b')
+  | Sum.inr a', Sum.inr b' => Sum.inr (a'-b')
+  | Sum.inl a', Sum.inr b' => Sum.inl (a')
+  | Sum.inr a', Sum.inl b' => Sum.inl (b')
+
+  mul a b := match a,b with
+  | Sum.inl a', Sum.inl b' => Sum.inl (a'*b')
+  | Sum.inr a', Sum.inr b' => Sum.inr (a'*b')
+  | Sum.inl a', Sum.inr b' => Sum.inl (a')
+  | Sum.inr a', Sum.inl b' => Sum.inl (b')
+
+  add_assoc a b c := by
+    cases a <;> cases b <;> cases c <;> simp[(· + ·)] <;> exact add_assoc _ _ _
+
+  add_comm a b := by
+    cases a <;> cases b <;> simp[(· + ·)] <;> exact add_comm _ _
+
+  le a b := match a,b with
+  | Sum.inl a', Sum.inl b' => a'≤b'
+  | Sum.inr a', Sum.inr b' =>
+    @LE.le K (@Preorder.toLE K (@PartialOrder.toPreorder K LinearOrder.toPartialOrder)) a' b'
+  | Sum.inl a', Sum.inr b' => True
+  | Sum.inr a', Sum.inl b' => False
+
+  le_refl a := by
+    cases a <;> simp[(· ≤ ·)]
+    exact LinearOrder.toPartialOrder.le_refl _
+
+  le_antisymm a b := by
+    cases a <;> cases b <;> simp[(· ≤ ·)]
+    . exact le_antisymm
+    . exact LinearOrder.toPartialOrder.le_antisymm _ _
+
+  le_trans a b c := by
+    cases a <;> cases b <;> cases c <;> simp[(· ≤ ·)]
+    . exact le_trans
+    . exact LinearOrder.toPartialOrder.le_trans _ _ _
+
+  le_total a b := by
+    cases a <;> cases b <;> simp[(· ≤ ·)]
+    . exact le_total _ _
+    . rename_i x y
+      exact LinearOrder.le_total x y
+
+  toDecidableLE :=
+    λ a b ↦ match a, b with
+    | Sum.inl a', Sum.inl b' => inferInstance
+    | Sum.inr a', Sum.inr b' => inferInstance
+    | Sum.inl a', Sum.inr b' => isTrue (trivial)
+    | Sum.inr a', Sum.inl b' => isFalse (id)
+
+instance [ToString V] [ToString K] : ToString (V⊕K) where
+  toString a := match a with
+  | Sum.inl a => toString a
+  | Sum.inr a => toString a
+
+#eval! q'Personnel.evaluate d_composite
+#eval! q'₀.evaluate d_composite
+#eval! q'₁.evaluate d_composite
+#eval! q'₂.evaluate d_composite
+
+#eval! q'₂
