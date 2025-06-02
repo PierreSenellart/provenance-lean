@@ -1,7 +1,7 @@
 import Provenance.SemiringWithMonus
 
 instance : SemiringWithMonus Nat where
-  monus_spec := by {
+  monus_spec := by
     intro a b c
     apply Iff.intro
     . intro h
@@ -31,4 +31,6 @@ instance : SemiringWithMonus Nat where
           simp[h]
           apply Nat.le_succ_of_le
           exact h
-}
+
+instance : HasAltLinearOrder Nat where
+  altOrder := inferInstance

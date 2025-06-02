@@ -1,11 +1,11 @@
 import Mathlib.Data.Fin.VecNotation
 
+import Provenance.AnnotatedDatabase
 import Provenance.Query
+import Provenance.QueryAnnotatedDatabase
+import Provenance.Util.ValueType
 
-variable {T: Type} [ValueType T]
-variable {K: Type} [Zero K]
-
-def Query.rewriting (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match q with
+def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match q with
 | Rel   n  s  => Rel (n+1) s
 | Proj  ts q  =>
   let ts :=
@@ -53,3 +53,22 @@ def Query.rewriting (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match 
                                  else Term.sub #n #(2*n+1))
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | Agg _ _ _ _ => by simp[noAgg] at hq
+
+theorem Query.rewriting_valid
+  [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  (q: Query T n) (hq: q.noAgg) :
+  ∀ (d: AnnotatedDatabase T K), (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite := by
+  intro d
+  induction q with
+  | Rel n s =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    match ha: AnnotatedDatabase.find n s d with
+    | none =>
+      rw[AnnotatedDatabase.find_toComposite_none] at ha
+      rw[ha]
+      simp[AnnotatedRelation.toComposite]
+    | some rn =>
+      rw[AnnotatedDatabase.find_toComposite_some] at ha
+      rw[ha]
+  | _ => sorry

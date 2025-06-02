@@ -41,12 +41,44 @@ def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) : Opt
   | (s',rn)::tl => if h: n = rn.fst ∧ s =s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
 
-instance : CoeFun (AnnotatedDatabase T K) (fun _ => (ℕ × String) → Option (Σ n, AnnotatedRelation T K n)) where
-  coe := λ d (n,s) ↦ match d.find n s with | some val => some ⟨n,val⟩ | none => none
-
 def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
   Relation (T⊕K) (n+1) :=
   ar.map λ p ↦ Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 
 def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
   d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)
+
+theorem AnnotatedDatabase.find_toComposite_none {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
+  d.find n s = none ↔ d.toComposite.find (n+1) s = none := by
+    induction d with
+    | nil =>
+      unfold find find.f Database.find Database.find.f toComposite
+      simp
+    | cons hd tl ih =>
+      unfold find find.f Database.find Database.find.f toComposite
+      by_cases hhd: n=hd.snd.fst ∧ s=hd.fst
+      . simp[hhd]
+      . simp[hhd]
+        exact ih
+
+theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
+  ∀ r: AnnotatedRelation T K n, d.find n s = some r ↔ d.toComposite.find (n+1) s = some r.toComposite := by
+    induction d with
+    | nil =>
+      unfold find find.f Database.find Database.find.f toComposite
+      simp
+    | cons hd tl ih =>
+      unfold find find.f Database.find Database.find.f toComposite
+      by_cases hhd: n=hd.snd.fst ∧ s=hd.fst
+      . simp[hhd]
+        intro rn
+        unfold AnnotatedRelation.toComposite
+        apply Iff.intro
+        . intro h
+          have : hd.snd.snd = Eq.mp (by rw[hhd.left]) rn := by
+            sorry
+          rw[this]
+          simp
+        . sorry
+      . simp[hhd]
+        exact ih

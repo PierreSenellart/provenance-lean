@@ -5,7 +5,7 @@ import Provenance.SemiringWithMonus
 
 class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T
 
-instance [ValueType V] [LinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
+instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
   zero := Sum.inr 0
 
   add a b := match a,b with
@@ -34,30 +34,29 @@ instance [ValueType V] [LinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K)
 
   le a b := match a,b with
   | Sum.inl a', Sum.inl b' => a'≤b'
-  | Sum.inr a', Sum.inr b' =>
-    @LE.le K (@Preorder.toLE K (@PartialOrder.toPreorder K LinearOrder.toPartialOrder)) a' b'
+  | Sum.inr a', Sum.inr b' => HasAltLinearOrder.altOrder.le a' b'
   | Sum.inl a', Sum.inr b' => True
   | Sum.inr a', Sum.inl b' => False
 
   le_refl a := by
     cases a <;> simp[(· ≤ ·)]
-    exact LinearOrder.toPartialOrder.le_refl _
+    exact HasAltLinearOrder.altOrder.le_refl _
 
   le_antisymm a b := by
     cases a <;> cases b <;> simp[(· ≤ ·)]
     . exact le_antisymm
-    . exact LinearOrder.toPartialOrder.le_antisymm _ _
+    . exact HasAltLinearOrder.altOrder.le_antisymm _ _
 
   le_trans a b c := by
     cases a <;> cases b <;> cases c <;> simp[(· ≤ ·)]
     . exact le_trans
-    . exact LinearOrder.toPartialOrder.le_trans _ _ _
+    . exact HasAltLinearOrder.altOrder.le_trans _ _ _
 
   le_total a b := by
     cases a <;> cases b <;> simp[(· ≤ ·)]
     . exact le_total _ _
     . rename_i x y
-      exact LinearOrder.le_total x y
+      exact HasAltLinearOrder.altOrder.le_total x y
 
   toDecidableLE :=
     λ a b ↦ match a, b with

@@ -130,3 +130,6 @@ theorem monus_add [K: SemiringWithMonus α] :
     . apply h2
       rw [← SemiringWithMonus.monus_spec]
   }
+
+class HasAltLinearOrder (α : Type u) where
+  altOrder : LinearOrder α
