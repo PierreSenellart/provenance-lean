@@ -3,7 +3,7 @@ import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Multiset.AddSub
 import Mathlib.Data.Multiset.Bind
 
-class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T
+import Provenance.Util.ValueType
 
 variable {T: Type} [ValueType T]
 
@@ -238,23 +238,13 @@ instance : HMul (Relation T a₁) (Relation T a₂) (Relation T (a₁+a₂)) whe
 instance : Zero (Relation T n) where zero := (∅: Multiset (Tuple T n))
 instance : Zero ((n : ℕ) × Relation T n) where zero := ⟨0,(∅: Multiset (Tuple T 0))⟩
 
-def Database (T) := List (ℕ × String × Σ n, Relation T n)
+def Database (T) := List (String × Σ n, Relation T n)
 
-def Database.find (n: ℕ) (s: String) (d: Database T) : Option (Σ n, Relation T n) :=
+def Database.find (n: ℕ) (s: String) (d: Database T) : Option (Relation T n) :=
   let rec f
   | [] => none
-  | (n',s',rn)::tl => if (n,s) = (n',s') then some rn else f tl
+  | (s',rn)::tl => if h: n = rn.fst ∧ s=s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
-
-instance : CoeFun (Database T) (fun _ => (ℕ × String) → Option (Σ n, Relation T n)) where
-  coe := λ d (n,s) ↦ d.find n s
-
-def Database.Wf (d: Database T) : Prop :=
-  ∀ (n: ℕ) (s: String) (rn: Σ n, Relation T n), d.find n s = some rn → rn.fst = n
-
-structure WFDatabase (T) where
-  db : Database T
-  wf: Database.Wf db
 
 def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Sorted (· ≤ ·) l}) :
     {l : List α // List.Sorted (· ≤ ·) l} :=

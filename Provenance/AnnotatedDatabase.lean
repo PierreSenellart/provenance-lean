@@ -33,24 +33,20 @@ instance : Add (AnnotatedRelation T K arity) := inferInstanceAs (Add (Multiset (
 instance : Zero (AnnotatedRelation T K n) where zero := (∅: Multiset (AnnotatedTuple T K n))
 instance : Zero ((n : ℕ) × AnnotatedRelation T K n) where zero := ⟨0,(∅: Multiset (AnnotatedTuple T K 0))⟩
 
-def AnnotatedRelation.toCompositeRelation (ar: AnnotatedRelation T K n):
-  Relation (T⊕K) (n+1) :=
-  ar.map λ p ↦ Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
+def AnnotatedDatabase (T K) := List (String × Σ n, AnnotatedRelation T K n)
 
-def AnnotatedDatabase (T K) := List (ℕ × String × Σ n, AnnotatedRelation T K n)
-
-def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) : Option (Σ n, AnnotatedRelation T K n) :=
+def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) : Option (AnnotatedRelation T K n) :=
   let rec f
   | [] => none
-  | (n',s',rn)::tl => if (n,s) = (n',s') then some rn else f tl
+  | (s',rn)::tl => if h: n = rn.fst ∧ s =s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
 
 instance : CoeFun (AnnotatedDatabase T K) (fun _ => (ℕ × String) → Option (Σ n, AnnotatedRelation T K n)) where
-  coe := λ d (n,s) ↦ d.find n s
+  coe := λ d (n,s) ↦ match d.find n s with | some val => some ⟨n,val⟩ | none => none
 
-def AnnotatedDatabase.Wf (d: AnnotatedDatabase T K) : Prop :=
-  ∀ (n: ℕ) (s: String) (rn: Σ n, AnnotatedRelation T K n), d.find n s = some rn → rn.fst = n
+def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
+  Relation (T⊕K) (n+1) :=
+  ar.map λ p ↦ Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 
-structure WFAnnotatedDatabase (T K) where
-  db : AnnotatedDatabase T K
-  wf: AnnotatedDatabase.Wf db
+def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
+  d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)

@@ -16,11 +16,11 @@ def Filter.evalDecidableAnnotated (φ : Filter T n) :
 def groupByKey (m : Multiset (Tuple T n × K)) :=
   m.foldr KeyValueList.addKVFold ⟨[], by simp[KeyValueList]⟩
 
-def Query.evaluateAnnotated (q: Query T n) (hq: q.noAgg) (d: WFAnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
+def Query.evaluateAnnotated (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
 | Rel   n  s  =>
-  match h : d.db (n, s) with
+  match h : d.find n s with
   | none => (∅: Multiset (AnnotatedTuple T K n))
-  | some rn => Eq.mp (congrArg (AnnotatedRelation T K) (d.wf n s rn h)) rn.snd
+  | some rn => rn
 | @Proj _ n m ts q' =>
   let r := evaluateAnnotated q' (noAggProj hq rfl) d
   r.map (λ t ↦ ⟨λ k ↦ (ts k).eval t.fst, t.snd⟩)

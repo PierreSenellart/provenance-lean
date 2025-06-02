@@ -305,11 +305,11 @@ def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
   (max d₁ d₂)+1
 | Agg _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
 
-def Query.evaluate (q: Query T n) (d: WFDatabase T): Relation T n := match q with
+def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
 | Rel   n  s  =>
-  match h : d.db (n, s) with
+  match h : d.find n s with
   | none => (∅: Multiset (Tuple T n))
-  | some rn => Eq.mp (congrArg (Relation T) (d.wf n s rn h)) rn.snd
+  | some rn => rn
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
 | @Prod _ n₁ n hn₁ q₁ q₂ =>

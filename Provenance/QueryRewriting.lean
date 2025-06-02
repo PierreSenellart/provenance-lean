@@ -33,7 +33,7 @@ def Query.rewriting (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match 
   let q'₂ := q₂.rewriting (noAggDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#k==#(k+n)))).foldr
+      (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#k==#(k+n+1)))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   have h₁ : (2*n+1 - (n+1): ℕ) = n  := by omega
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) (2*n+1) (by omega) q'₁ r)
@@ -45,7 +45,7 @@ def Query.rewriting (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match 
       (λ k ↦ @Filter.BT (T⊕K) (2*n+2) (#k==#(k+n+1)))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
-  let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (2*n+2) (by omega) q'₂ r)
+  let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (2*n+2) (by omega) q'₁ r)
   let prod₂r := Agg (λ (k: Fin n) ↦ (k: Fin (n+1))) ![#n] ![AggFunc.sum] q'₂
   let prod₂ := prod₂t (Eq.mp (by rw[h₂]) prod₂r)
   let ts₁ := (λ (k: Fin (n+1)) ↦ #(k: Fin (2*n+1)))
