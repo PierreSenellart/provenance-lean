@@ -22,7 +22,7 @@ def Query.rewriting (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match 
     (λ k: Fin (n+1) =>
       if k<n₁ then #k
       else if (↑k<n: Prop) then #(k+1)
-      else Term.mul #n₁ #n)
+      else Term.mul #n₁ #(n+1))
   Proj ts product
 | Sum   q₁ q₂ => Sum (q₁.rewriting (noAggSum hq rfl).left) (rewriting q₂ (noAggSum hq rfl).right)
 | Dedup q     =>
