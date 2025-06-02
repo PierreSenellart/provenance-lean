@@ -87,18 +87,21 @@ inductive Filter (T) (n: ℕ) where
 | Not  : Filter T n → Filter T n
 | And  : Filter T n → Filter T n → Filter T n
 | Or   : Filter T n → Filter T n → Filter T n
+| True : Filter T n
 
 def Filter.castToAnnotatedTuple (f: Filter T n): Filter (T⊕K) (n+1) := match f with
 | BT  φ     => BT φ.castToAnnotatedTuple
 | Not φ     => Not φ.castToAnnotatedTuple
 | And φ₁ φ₂ => And φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 | Or  φ₁ φ₂ => Or φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
+| True      => True
 
 def Filter.eval (φ: Filter T n) (tuple: Tuple T n) := match φ with
 | BT  φ     => φ.eval tuple
 | Not φ     => ¬ (φ.eval tuple)
 | And φ₁ φ₂ => (φ₁.eval tuple) ∧ (φ₂.eval tuple)
 | Or  φ₁ φ₂ => (φ₁.eval tuple) ∨ (φ₂.eval tuple)
+| True      => true
 
 def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
   λ t => match φ with
@@ -112,6 +115,7 @@ def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
     | Filter.Or φ₁ φ₂   => match φ₁.evalDecidable t, φ₂.evalDecidable t with
       | isTrue h, _ | _, isTrue h => isTrue (by simp [Filter.eval, h])
       | isFalse h₁, isFalse h₂    => isFalse (by simp [Filter.eval, h₁, h₂])
+    | Filter.True       => isTrue (rfl)
 
 instance : Coe (BoolTerm T n) (Filter T n) where
   coe bt := Filter.BT bt
@@ -133,7 +137,7 @@ inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
 | Sel   : Filter T n → Query T n → Query T n
-| Prod {n₁: Fin n} : Query T n₁ → Query T (n-n₁) → Query T n
+| Prod {hn₁: n₁≤n} : Query T n₁ → Query T (n-n₁) → Query T n
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
@@ -180,8 +184,9 @@ instance {T: Type} {n: ℕ} : DecidablePred (@Query.noAgg T n) := Query.noAggDec
 set_option linter.unusedSectionVars false
 @[simp]
 theorem Query.noAggProd {q: Query T n} :
-  q.noAgg → ∀ {n₁: Fin n} {q₁: Query T n₁} {q₂: Query T (n-n₁)} (_: q = Prod q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
-    intro hna n₁ q₁ q₂ hq
+  q.noAgg → ∀ {n₁} {q₁: Query T n₁} {q₂: Query T (n-n₁)} {hn₁: n₁≤n}
+    (_: q = @Prod T n₁ n hn₁ q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+    intro hna n₁ q₁ q₂ hn₁ hq
     unfold noAgg at hna
     simp[hq] at hna
     assumption
@@ -263,11 +268,11 @@ def Query.evaluate (q: Query T n) (d: WFDatabase T): Relation T n := match q wit
   | some rn => Eq.mp (congrArg (Relation T) (d.wf n s rn h)) rn.snd
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
-| @Prod _ n n₁ q₁ q₂ =>
+| @Prod _ n₁ n hn₁ q₁ q₂ =>
   let r₁ := evaluate q₁ d
   let r₂ := evaluate q₂ d
   Eq.mp (by
-    have : n₁ + (n-n₁) = n := by omega
+    have : n₁ + (n-(n₁:ℕ)) = n := by omega
     rw[this]
   ) (r₁ * r₂)
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂

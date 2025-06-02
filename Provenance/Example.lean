@@ -118,12 +118,12 @@ def qPersonnel := (@Query.Rel String 4 "Personnel")
 /- This query looks for distinct cities -/
 def q₀ := ε (Π ![#3] qPersonnel)
 
-def qj: Query String (8-(4: Fin 8)) → Query String 8 := qPersonnel ⋈ (Filter.BT (#3 == #7))
 /- This query looks for cities with ≥2 persons -/
 def q₁ := ε ( Π ![#3]
   (
     σ (Filter.BT (#0 < #4)) (
-      qj qPersonnel
+      Query.Sel (Filter.BT (#3 == #7))
+        (@Query.Prod _ 4 8 (by decide) qPersonnel qPersonnel)
     )
   )
 )
