@@ -71,6 +71,34 @@ theorem Query.rewriting_valid
     | some rn =>
       rw[AnnotatedDatabase.find_toComposite_some] at ha
       rw[ha]
+  | @Proj m n' ts q ih =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    rw[← ih (noAggProj hq rfl)]
+    unfold AnnotatedRelation.toComposite
+    simp
+    apply congrFun
+    apply congrArg
+    funext t k
+    by_cases hkn' : k=n'
+    . simp[hkn']
+      simp[Term.eval]
+      unfold Query.arity
+      have : ∀ x, Fin.last x = Fin.natAdd (Fin.last x) 0 := by
+        simp
+        intro x
+        rfl
+      rw[this n',this m]
+      rw[@Fin.append_right (Fin.last n')]
+      rw[@Fin.append_right (Fin.last m)]
+    . simp at hkn'
+      have hlt := Fin.val_lt_last hkn'
+      simp[hlt]
+      have : k = (Fin.castAdd (Fin.last 1) (k.castLT hlt): Fin (n'+1)) := by simp
+      rewrite (occs := [1]) [this]
+      rw[@Fin.append_left (Fin.last n') (Fin.last 1)]
+      rw[Term.castToAnnotatedTuple_eval]
+      rfl
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp

@@ -8,8 +8,7 @@ import Mathlib.Data.Prod.Lex
 
 import Provenance.Database
 
-variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
-variable {K: Type} [Zero K]
+variable {T: Type} [ValueType T]
 
 inductive Term T n where
 | const : T → Term T n
@@ -34,12 +33,39 @@ def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
 | sub t₁ t₂ => sub t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 | mul t₁ t₂ => mul t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 
+
 def Term.eval (term: Term T n) (tuple: Tuple T n) := match term with
   | const a => a
   | index k => tuple k
   | add t₁ t₂ => (t₁.eval tuple) + (t₂.eval tuple)
   | sub t₁ t₂ => (t₁.eval tuple) - (t₂.eval tuple)
   | mul t₁ t₂ => (t₁.eval tuple) * (t₂.eval tuple)
+
+theorem Term.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
+∀ α: K,
+  t.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = Sum.inl (t.eval tuple) := by
+  intro α
+  induction t with
+  | const c =>
+    unfold castToAnnotatedTuple eval
+    simp
+  | index k =>
+    unfold castToAnnotatedTuple eval
+    have hk : k.castLT (lt_trans k.isLt (lt_add_one n)) = Fin.castAdd 1 k := rfl
+    rw[hk]
+    rw[Fin.append_left]
+  | add t₁ t₂ ih₁ ih₂ =>
+    unfold castToAnnotatedTuple eval
+    rw[ih₁, ih₂]
+    simp[(·+·),Add.add]
+  | sub t₁ t₂ ih₁ ih₂ =>
+    unfold castToAnnotatedTuple eval
+    rw[ih₁, ih₂]
+    simp[(·-·),Sub.sub]
+  | mul t₁ t₂ ih₁ ih₂ =>
+    unfold castToAnnotatedTuple eval
+    rw[ih₁, ih₂]
+    simp[(·*·),Mul.mul]
 
 instance : Coe T (Term T n) where
   coe a:= Term.const a
