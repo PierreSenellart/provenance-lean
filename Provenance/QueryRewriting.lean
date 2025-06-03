@@ -99,6 +99,24 @@ theorem Query.rewriting_valid
       rw[@Fin.append_left (Fin.last n') (Fin.last 1)]
       rw[Term.castToAnnotatedTuple_eval]
       rfl
+  | Sel φ q' ih =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    rw[← ih (noAggSel hq rfl)]
+    unfold AnnotatedRelation.toComposite
+    rw[Multiset.filter_map]
+    apply congrArg
+    apply congrFun
+    simp[Function.comp_def]
+
+    rw[Filter.castToAnnotatedTuple_eval x.1]
+
+
+
+
+
+
+    sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp

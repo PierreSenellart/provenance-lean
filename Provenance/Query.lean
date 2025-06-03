@@ -117,6 +117,43 @@ def BoolTerm.eval (φ: BoolTerm T n) (tuple: Tuple T n) := match φ with
 | GE t₁ t₂ => (t₁.eval tuple) ≥ (t₂.eval tuple)
 | GT t₁ t₂ => (t₁.eval tuple) > (t₂.eval tuple)
 
+theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) :
+  ∀ α: K, t.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = t.eval tuple := by
+    intro α
+    induction t with
+    | EQ t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      simp[Sum.inl.inj_iff]
+    | NE t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      simp[Sum.inl.inj_iff]
+    | LE t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      exact ge_iff_le
+    | LT t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      simp[LT.lt]
+      exact le_of_lt
+    | GE t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      exact ge_iff_le
+    | GT t₁ t₂ =>
+      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
+      simp
+      repeat rw[Term.castToAnnotatedTuple_eval]
+      simp[LT.lt]
+      exact le_of_lt
+
 def BoolTerm.evalDecidable (φ: BoolTerm T n) : DecidablePred φ.eval :=
   λ t => by
     cases φ <;> rename_i x y <;> simp [BoolTerm.eval]
@@ -144,7 +181,7 @@ def Filter.repr [Repr T] : Filter T n → ℕ → Std.Format
 instance [Repr α] : Repr (Filter α n) := ⟨Filter.repr⟩
 
 def Filter.castToAnnotatedTuple (f: Filter T n): Filter (T⊕K) (n+1) := match f with
-| BT  φ     => BT φ.castToAnnotatedTuple
+| BT  t     => BT t.castToAnnotatedTuple
 | Not φ     => Not φ.castToAnnotatedTuple
 | And φ₁ φ₂ => And φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 | Or  φ₁ φ₂ => Or φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
@@ -156,6 +193,25 @@ def Filter.eval (φ: Filter T n) (tuple: Tuple T n) := match φ with
 | And φ₁ φ₂ => (φ₁.eval tuple) ∧ (φ₂.eval tuple)
 | Or  φ₁ φ₂ => (φ₁.eval tuple) ∨ (φ₂.eval tuple)
 | True      => true
+
+theorem Filter.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (φ: Filter T n) (tuple: Tuple T n) :
+∀ α: K,
+  φ.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = φ.eval tuple := by
+    intro α
+    induction φ with
+    | BT t =>
+      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      rw[BoolTerm.castToAnnotatedTuple_eval]
+    | Not φ ih =>
+      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      rw[ih]
+    | And φ₁ φ₂ ih₁ ih₂ =>
+      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      rw[ih₁,ih₂]
+    | Or φ₁ φ₂ ih₁ ih₂ =>
+      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      rw[ih₁,ih₂]
+    | True => trivial
 
 def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
   λ t => match φ with
