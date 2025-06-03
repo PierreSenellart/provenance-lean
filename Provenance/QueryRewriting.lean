@@ -71,4 +71,10 @@ theorem Query.rewriting_valid
     | some rn =>
       rw[AnnotatedDatabase.find_toComposite_some] at ha
       rw[ha]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    rw[ih₁ (noAggSum hq rfl).left]
+    rw[ih₂ (noAggSum hq rfl).right]
+  | Agg _ _ _ _ => simp[noAgg] at hq
   | _ => sorry

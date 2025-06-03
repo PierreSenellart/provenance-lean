@@ -1,5 +1,6 @@
 import Mathlib.Data.Prod.Lex
 import Mathlib.Data.Fin.VecNotation
+import Mathlib.Data.Multiset.MapFold
 
 import Provenance.Database
 import Provenance.SemiringWithMonus
@@ -45,6 +46,12 @@ def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
   Relation (T⊕K) (n+1) :=
   ar.map λ p ↦ Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 
+@[simp]
+theorem AnnotatedRelation.toComposite_add {T: Type} {K: Type} (ar₁ ar₂: AnnotatedRelation T K n):
+   (ar₁ + ar₂).toComposite = ar₁.toComposite + ar₂.toComposite := by
+     unfold toComposite
+     rw[Multiset.map_add]
+
 def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
   d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)
 
@@ -73,12 +80,33 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
       . simp[hhd]
         intro rn
         unfold AnnotatedRelation.toComposite
+        have := hhd.left
+        subst n
         apply Iff.intro
         . intro h
           have : hd.snd.snd = Eq.mp (by rw[hhd.left]) rn := by
-            sorry
+            exact h
           rw[this]
           simp
-        . sorry
+        . intro h
+          let f := fun (p: Tuple T hd.2.1 × K) ↦ Fin.append (fun k ↦ Sum.inl (p.1 k)) ![Sum.inr p.2]
+          have hf : Function.Injective f := by
+            intro a b hf
+            unfold f at hf
+            unfold Fin.append Fin.addCases at hf
+            simp at hf
+            have h1 : ∀ (i: Fin hd.snd.fst), a.1 i = b.1 i := by
+              intro i
+              have hfi := congrFun hf i
+              simp at hfi
+              assumption
+            have h2 : a.2=b.2 := by
+              have := congrFun hf (hd.snd.fst)
+              simp at this
+              assumption
+            exact Prod.ext (funext h1) h2
+          have map_eq : Multiset.map (f) hd.2.2 = Multiset.map (f) rn := h
+          rw[Multiset.map_eq_map hf] at map_eq
+          exact map_eq
       . simp[hhd]
         exact ih
