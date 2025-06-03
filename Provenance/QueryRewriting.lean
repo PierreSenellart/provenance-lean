@@ -108,19 +108,21 @@ theorem Query.rewriting_valid
     apply congrArg
     apply congrFun
     simp[Function.comp_def]
-
-    rw[Filter.castToAnnotatedTuple_eval x.1]
-
-
-
-
-
-
-    sorry
+    conv =>
+      rhs
+      congr
+      . ext x
+        rw[Filter.castToAnnotatedTuple_eval φ]
+        skip
+      . apply φ.evalDecidableAnnotated
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
     rw[ih₁ (noAggSum hq rfl).left]
     rw[ih₂ (noAggSum hq rfl).right]
+  | Dedup q ih =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    sorry
   | Agg _ _ _ _ => simp[noAgg] at hq
   | _ => sorry
