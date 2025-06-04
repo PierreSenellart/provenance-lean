@@ -110,3 +110,12 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
           exact map_eq
       . simp[hhd]
         exact ih
+
+theorem AnnotatedRelation.toComposite_map_product {K: Type} [HMul K K K]
+  (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂) :
+  AnnotatedRelation.toComposite (
+    Multiset.map (fun x ↦ ((Fin.append x.1.1 x.2.1), x.1.2 * x.2.2)) (Multiset.product ar₁ ar₂)) =
+  Multiset.map
+    (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦ if k<n₁ then x.1 k else if k<n₁+n₂ then x.2 (k-n₁) else (x.1 n₁ × x.2 n₂))
+    (Multiset.product ar₁.toComposite ar₂.toComposite) := by
+  sorry

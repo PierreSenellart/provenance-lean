@@ -118,6 +118,15 @@ theorem Query.rewriting_valid
   | @Prod n₁ n hn₁ q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
+
+
+    nth_rewrite 1 [AnnotatedRelation.toComposite]
+    rw[Multiset.ext]
+    intro t
+    rw[Multiset.count_map]
+    rw[Multiset.filter_map]
+    simp
+
     sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
@@ -125,6 +134,10 @@ theorem Query.rewriting_valid
     rw[ih₁ (noAggSum hq rfl).left]
     rw[ih₂ (noAggSum hq rfl).right]
   | Dedup q ih =>
+    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    simp
+    sorry
+  | Diff q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
     sorry
