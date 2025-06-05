@@ -54,6 +54,48 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | Agg _ _ _ _ => by simp[noAgg] at hq
 
+lemma Query.rewriting_valid_prod_heqn₁ (hn₁: n₁≤n): (n-n₁: ℕ)+1 = ((n+2:ℕ) - (n₁+1)) := by omega
+
+lemma Query.rewriting_valid_prod1 [ValueType (T⊕K)] (hn₁: (n₁:ℕ)≤n):
+  ∀ (q: Query (T⊕K) ((n-n₁)+1)) (d: Database (T⊕K)),
+    Query.evaluate (@cast _ (Query (T⊕K) ((n+2)-(n₁+1))) (by simp[Query.rewriting_valid_prod_heqn₁ hn₁]) q) d =
+    Eq.mp (by simp[Query.rewriting_valid_prod_heqn₁ hn₁]) (q.evaluate d) := by
+    intro q d
+    simp
+    rw[eq_cast_iff_heq]
+    congr
+    . omega
+    . rw[← eq_cast_iff_heq]
+
+lemma Query.rewriting_valid_prod2 (hn₁: n₁≤n):
+  ∀ (ar₁: Relation (T⊕K) (n₁+1)) (ar₂: Relation (T⊕K) ((n-n₁)+1)),
+    Multiset.product ar₁ (@cast
+      (Relation (T ⊕ K) ((n - n₁) + 1))
+      (Relation (T ⊕ K) (n + 2 - (n₁ + 1))) (by simp[rewriting_valid_prod_heqn₁ hn₁]) ar₂)
+    = Eq.mp (by simp[rewriting_valid_prod_heqn₁ hn₁]) (Multiset.product ar₁ ar₂) := by
+    intro ar₁ ar₂
+    simp
+    rw[eq_cast_iff_heq]
+    congr
+    . omega
+    . rw[← eq_cast_iff_heq]
+
+lemma Query.rewriting_valid_prod3 (hn₁: n₁≤n) :
+  ∀ (ar: Multiset ((Tuple (T⊕K) (n₁+1)) × (Tuple (T⊕K) ((n-n₁:ℕ)+1)))),
+    Multiset.map (fun x ↦ Fin.append x.1 x.2)
+      (@cast (Multiset (Tuple (T⊕K) (n₁+1) × Tuple (T⊕K) ((n-n₁:ℕ)+1)))
+              (Multiset (Tuple (T⊕K) (n₁+1) × Tuple (T⊕K) (n+2 - (n₁+1))))
+              (by simp[rewriting_valid_prod_heqn₁ hn₁]) ar)
+    = Eq.mp (by simp[rewriting_valid_prod_heqn₁ hn₁]) (Multiset.map (fun x ↦ Fin.append x.1 x.2) ar) := by
+    intro ar
+    simp
+    rw[eq_cast_iff_heq]
+    congr
+    . omega
+    . omega
+    . sorry
+    . rw[← eq_cast_iff_heq]
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
@@ -149,18 +191,13 @@ theorem Query.rewriting_valid
       unfold Query.evaluate
       simp[(·*·)]
       skip
-    have heqn': (n-n₁: ℕ)+1 = ((n+2:ℕ) - (n₁+1)) := by omega
-    have: ∀ (q: Query (T⊕K) ((n-n₁)+1)) (d: Database (T⊕K)),
-      Query.evaluate (@cast _ (Query (T⊕K) ((n+2)-(n₁+1))) (by simp[heqn']) q) d =
-      Eq.mp (by simp[heqn']) (q.evaluate d) := by
-      intro q d
-      simp
-      rw[eq_cast_iff_heq]
-      congr
-      . omega
-      . rw[← eq_cast_iff_heq]
-    rw[this]
+    rw[Query.rewriting_valid_prod1 hn₁]
     simp
+    rw[Query.rewriting_valid_prod2 hn₁]
+    simp
+    rw[Query.rewriting_valid_prod3 hn₁]
+    simp
+
     sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
