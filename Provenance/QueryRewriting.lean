@@ -149,6 +149,18 @@ theorem Query.rewriting_valid
       unfold Query.evaluate
       simp[(·*·)]
       skip
+    have heqn': (n-n₁: ℕ)+1 = ((n+2:ℕ) - (n₁+1)) := by omega
+    have: ∀ (q: Query (T⊕K) ((n-n₁)+1)) (d: Database (T⊕K)),
+      Query.evaluate (@cast _ (Query (T⊕K) ((n+2)-(n₁+1))) (by simp[heqn']) q) d =
+      Eq.mp (by simp[heqn']) (q.evaluate d) := by
+      intro q d
+      simp
+      rw[eq_cast_iff_heq]
+      congr
+      . omega
+      . rw[← eq_cast_iff_heq]
+    rw[this]
+    simp
     sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
