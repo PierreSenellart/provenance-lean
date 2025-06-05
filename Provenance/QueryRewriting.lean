@@ -246,7 +246,14 @@ theorem Query.rewriting_valid
     simp
     congr
     . omega
-    . sorry
+    . refine Function.hfunext rfl ?_
+      intro t₁ t₂ hteq
+      congr! with k k' heqk
+      . omega
+      . unfold Term.eval
+
+        sorry
+
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
