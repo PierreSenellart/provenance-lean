@@ -21,7 +21,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
   let ts : Tuple (Term (T⊕K) (n+2)) (n+1) :=
     (λ k: Fin (n+1) =>
       if k<n₁ then #k
-      else if (↑k<n: Prop) then #(k+1)
+    else if (↑k<n: Prop) then #(k+1)
       else Term.mul #n₁ #(n+1))
   Proj ts product
 | Sum   q₁ q₂ => Sum (q₁.rewriting (noAggSum hq rfl).left) (rewriting q₂ (noAggSum hq rfl).right)
@@ -118,15 +118,37 @@ theorem Query.rewriting_valid
   | @Prod n₁ n hn₁ q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
-
-
-    nth_rewrite 1 [AnnotatedRelation.toComposite]
-    rw[Multiset.ext]
-    intro t
-    rw[Multiset.count_map]
-    rw[Multiset.filter_map]
+    have heqn: n₁+(n-n₁)=n := by omega
+    have heq : (Fin (n₁ + (n - n₁)) → T) = (Fin n → T) := by simp[heqn]
+    have :
+      ∀ ar₁ ar₂, AnnotatedRelation.toComposite
+      (Multiset.map (fun (x: AnnotatedTuple T K n₁ × AnnotatedTuple T K (n-n₁)) ↦ (cast heq (Fin.append x.1.1 x.2.1), x.1.2 * x.2.2))
+        (Multiset.product (ar₁) (ar₂))) = Eq.mp (by simp[heqn]) (
+           AnnotatedRelation.toComposite
+      (Multiset.map (fun (x: AnnotatedTuple T K n₁ × AnnotatedTuple T K (n-n₁)) ↦ (Fin.append x.1.1 x.2.1, x.1.2 * x.2.2))
+        (Multiset.product (ar₁) (ar₂)))) := by
+        intro ar₁ ar₂
+        simp
+        rw[eq_cast_iff_heq]
+        congr
+        . omega
+        . omega
+        . congr! with t₁ t₂ he
+          subst t₁
+          congr
+          . omega
+          . exact cast_heq heq (Fin.append t₂.1.1 t₂.2.1)
+    rw[this]
+    rw[AnnotatedRelation.toComposite_map_product]
+    rw[ih₁ (noAggProd hq rfl).left]
+    rw[ih₂ (noAggProd hq rfl).right]
     simp
-
+    rw[eq_comm]
+    rw[eq_cast_iff_heq]
+    conv_lhs =>
+      unfold Query.evaluate
+      simp[(·*·)]
+      skip
     sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
