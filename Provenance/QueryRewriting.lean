@@ -13,11 +13,10 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
                          else Term.index q.arity)
   Proj ts (q.rewriting (noAggProj hq rfl))
 | Sel   φ  q  => Sel φ.castToAnnotatedTuple (q.rewriting (noAggSel hq rfl))
-| @Prod _ n₁ n hn₁ q₁ q₂ =>
-  have hrq : (n - n₁) + 1 = (n + 2) - (n₁ + 1) := by omega
+| @Prod T n₁ n₂ n hn q₁ q₂ =>
   let tmp :=
-    @Query.Prod (T⊕K) (n₁+1) (n+2) (by omega) (q₁.rewriting (noAggProd hq rfl).left)
-  let product := tmp (Eq.mp (by rw[hrq]) (q₂.rewriting (noAggProd hq rfl).right))
+    @Query.Prod (T⊕K) (n₁+1) (n₂+1) (n+2) (by omega) (q₁.rewriting (noAggProd hq rfl).left)
+  let product := tmp (q₂.rewriting (noAggProd hq rfl).right)
   let ts : Tuple (Term (T⊕K) (n+2)) (n+1) :=
     (λ k: Fin (n+1) =>
       if k<n₁ then #k
@@ -35,19 +34,18 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
     ((List.range n).map
       (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#k==#(k+n+1)))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
-  have h₁ : (2*n+1 - (n+1): ℕ) = n  := by omega
-  let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) (2*n+1) (by omega) q'₁ r)
+  let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
   let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k: Fin (n+1)))) q'₁)
                             (Proj (λ (k: Fin n) ↦ (Term.index (k: Fin (n+1)))) q'₂))
-  let prod₁ := prod₁t (Eq.mp (by rw[h₁]) prod₁r)
+  let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
       (λ k ↦ @Filter.BT (T⊕K) (2*n+2) (#k==#(k+n+1)))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
-  let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (2*n+2) (by omega) q'₁ r)
+  let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
   let prod₂r := Agg (λ (k: Fin n) ↦ (k: Fin (n+1))) ![#n] ![AggFunc.sum] q'₂
-  let prod₂ := prod₂t (Eq.mp (by rw[h₂]) prod₂r)
+  let prod₂ := prod₂t (prod₂r)
   let ts₁ := (λ (k: Fin (n+1)) ↦ #(k: Fin (2*n+1)))
   let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k: Fin (2*n+2))
                                  else Term.sub #n #(2*n+1))
@@ -224,7 +222,8 @@ theorem Query.rewriting_valid
   | @Prod n₁ n hn₁ q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
     simp
-    have heq : (Fin (n₁ + (n - n₁)) → T) = (Fin n → T) := by simp[rewriting_valid_prod_heqn₁' hn₁]
+    sorry
+/-    have heq : (Fin (n₁ + (n - n₁)) → T) = (Fin n → T) := by simp[rewriting_valid_prod_heqn₁' hn₁]
     rw[Query.rewriting_valid_prod0 hn₁ heq]
     rw[AnnotatedRelation.toComposite_map_product]
     rw[ih₁ (noAggProd hq rfl).left]
@@ -253,6 +252,7 @@ theorem Query.rewriting_valid
       . unfold Term.eval
 
         sorry
+        -/
 
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting

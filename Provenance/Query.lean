@@ -247,7 +247,7 @@ inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
 | Sel   : Filter T n → Query T n → Query T n
-| Prod {hn₁: n₁≤n} : Query T n₁ → Query T (n-n₁) → Query T n
+| Prod {hn: n₁+n₂=n} : Query T n₁ → Query T n₂ → Query T n
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
@@ -310,8 +310,8 @@ instance {T: Type} {n: ℕ} : DecidablePred (@Query.noAgg T n) := Query.noAggDec
 set_option linter.unusedSectionVars false
 @[simp]
 theorem Query.noAggProd {q: Query T n} :
-  q.noAgg → ∀ {n₁} {q₁: Query T n₁} {q₂: Query T (n-n₁)} {hn₁: n₁≤n}
-    (_: q = @Prod T n₁ n hn₁ q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+  q.noAgg → ∀ {n₁} {q₁: Query T n₁} {q₂: Query T n₂} {hn: n₁+n₂=n}
+    (_: q = @Prod T n₁ n₂ n hn q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
     intro hna n₁ q₁ q₂ hn₁ hq
     unfold noAgg at hna
     simp[hq] at hna
@@ -394,13 +394,10 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
   | some rn => rn
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
 | Sel   φ  q  => let r := evaluate q d; @Multiset.filter _ φ.eval φ.evalDecidable r
-| @Prod _ n₁ n hn₁ q₁ q₂ =>
+| @Prod _ n₁ n₂ n hn q₁ q₂ =>
   let r₁ := evaluate q₁ d
   let r₂ := evaluate q₂ d
-  Eq.mp (by
-    have : n₁ + (n-(n₁:ℕ)) = n := by omega
-    rw[this]
-  ) (r₁ * r₂)
+  Eq.mp (by simp[hn]) (r₁ * r₂)
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
 | Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂

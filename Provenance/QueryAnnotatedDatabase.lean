@@ -27,15 +27,11 @@ def Query.evaluateAnnotated (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T
 | Sel   φ  q  =>
   let r := evaluateAnnotated q (noAggSel hq rfl) d
   @Multiset.filter _ (λ ta ↦ φ.eval ta.fst) φ.evalDecidableAnnotated r
-| @Prod _ n₁ n hn₁ q₁ q₂ =>
+| @Prod _ n₁ n₂ n hn q₁ q₂ =>
   let r₁ := evaluateAnnotated q₁ (noAggProd hq rfl).left d
   let r₂ := evaluateAnnotated q₂ (noAggProd hq rfl).right d
   Multiset.map (λ (x,y) ↦ ⟨
-    Eq.mp (by
-      have : n₁ + (n-n₁) = n := by omega
-      rw[this]
-      rfl
-    )
+    Eq.mp (by simp[hn]; rfl)
     (Fin.append x.fst y.fst),
     x.snd*y.snd
   ⟩) (Multiset.product r₁ r₂)
