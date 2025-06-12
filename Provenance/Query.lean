@@ -397,7 +397,7 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
 | @Prod _ n₁ n₂ n hn q₁ q₂ =>
   let r₁ := evaluate q₁ d
   let r₂ := evaluate q₂ d
-  Eq.mp (by simp[hn]) (r₁ * r₂)
+  (r₁ * r₂).cast hn
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
 | Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂

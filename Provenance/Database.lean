@@ -13,6 +13,15 @@ def Tuple.repr [Repr T] (t: Tuple T n) (_: ℕ) : Std.Format :=
   let elems := (List.finRange n).map (fun (i: Fin n) => reprArg (t i))
   Std.Format.bracket "[" (Std.Format.joinSep elems ", ") "]"
 
+def Tuple.cast (heq : n=m) (t: Tuple T n): Tuple T m := by
+  subst heq
+  exact t
+
+theorem Tuple.apply_cast {T: Type} (heq: n=m) (f: Tuple T m → α) (t: Tuple T n) :
+  f (t.cast heq) = (@_root_.cast (Tuple T m → α) (Tuple T n → α) (by simp[heq]) f) t := by
+  subst heq
+  rfl
+
 instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
 
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
@@ -226,6 +235,17 @@ instance : LinearOrder (Tuple T n) where
         )
 
 def Relation (T) (arity: ℕ) := Multiset (Tuple T arity)
+
+def Relation.cast (heq: n=m) (r: Relation T n): Relation T m := by
+  subst heq
+  exact r
+
+def Relation.cast_eq (r: Relation T n) (s: Relation T m) (heq: n=m) :
+  s = r.cast heq ↔ s = r.map (λ t ↦ t.cast heq)
+  := by
+    simp[Relation.cast, Tuple.cast]
+    subst heq
+    simp
 
 instance : Add (Relation T arity) := inferInstanceAs (Add (Multiset (Tuple T arity)))
 instance : Sub (Relation T arity) := inferInstanceAs (Sub (Multiset (Tuple T arity)))

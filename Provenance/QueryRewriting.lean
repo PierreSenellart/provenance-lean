@@ -59,51 +59,32 @@ lemma Query.rewriting_valid_prod0 [Mul K] {n₁ n₂ n: ℕ}
   (heq : (Fin (n₁ + n₂) → T) = (Fin n → T)):
   ∀ (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂), AnnotatedRelation.toComposite
   (Multiset.map (fun x ↦ (cast heq (Fin.append x.1.1 x.2.1), x.1.2 * x.2.2))
-    (Multiset.product (ar₁) (ar₂))) = Eq.mp (by simp[hn]) (
+    (Multiset.product (ar₁) (ar₂))) = (
       AnnotatedRelation.toComposite
       (Multiset.map (fun x ↦ (Fin.append x.1.1 x.2.1, x.1.2 * x.2.2))
-        (Multiset.product (ar₁) (ar₂)))) := by
+        (Multiset.product (ar₁) (ar₂)))).cast (by simp[hn]) := by
         intro ar₁ ar₂
-        simp
-        rw[eq_cast_iff_heq]
+        subst n
+        rw[AnnotatedRelation.cast_toComposite]
         congr
-        . omega
-        . omega
-        . congr! with t₁ t₂ he
-          subst t₁
-          congr
-          . omega
-          . exact cast_heq heq (Fin.append t₂.1.1 t₂.2.1)
+        rfl
 
 lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
-  (hn: n₁+n₂=n)
+  (hn: n₁+1+(n₂+1)=n+2)
   (f: (Tuple (T ⊕ K) (n + 2)) → (Tuple (T ⊕ K) (n + 1))):
   ∀ (r: Relation (T⊕K) (n₁+1+(n₂+1))),
-  Multiset.map f
-    (@cast (Relation (T⊕K) (n₁+1+(n₂+1))) (Relation (T⊕K) (n+2))
-      (by simp[rewriting_valid_prod_heqn hn]) r)
-  = (Multiset.map (cast (by simp[rewriting_valid_prod_heqn hn]) f) r)
+  (r.cast hn).map f = r.map (λ t ↦ f (t.cast hn))
     := by
   intro r
   congr 1
-  . simp[rewriting_valid_prod_heqn hn]
-  . exact
-    HEq.symm
-      (cast_heq
-        (of_eq_true
-          (Eq.trans
-            (congrArg (Eq (Tuple (T ⊕ K) (n + 2) → Tuple (T ⊕ K) (n + 1)))
-              (implies_congr (congrArg (Tuple (T ⊕ K)) (rewriting_valid_prod_heqn hn))
-                (Eq.refl (Tuple (T ⊕ K) (n + 1)))))
-            (eq_self (Tuple (T ⊕ K) (n + 2) → Tuple (T ⊕ K) (n + 1)))))
-        f)
-  . exact
-    cast_heq
-      (of_eq_true
-        (Eq.trans
-          (congrArg (fun x ↦ Relation (T ⊕ K) x = Relation (T ⊕ K) (n + 2))
-            (rewriting_valid_prod_heqn hn))
-          (eq_self (Relation (T ⊕ K) (n + 2))))) r
+  . simp[hn]
+  . refine Function.hfunext ?_ ?_
+    . simp[hn]
+    . intro t t' heq
+      rw[Tuple.apply_cast hn f t']
+      simp
+      sorry
+  . sorry
 
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
@@ -176,7 +157,8 @@ theorem Query.rewriting_valid
     rw[ih₂ (noAggProd hq rfl).right]
     simp
     rw[eq_comm]
-    rw[eq_cast_iff_heq]
+    rw[Relation.cast_eq]
+    rw[Multiset.map_map]
     conv_lhs =>
       unfold Query.evaluate
       simp[(·*·)]
@@ -187,10 +169,11 @@ theorem Query.rewriting_valid
     . exact (Eq.symm hn)
     . refine Function.hfunext ?_ ?_
       . rfl
-      . intro t₁ t₂ hteq
+      . intro p₁ p₂ hteq
         congr! with k k' heqk
         . exact (Eq.symm hn)
         . sorry
+
 
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold Query.evaluateAnnotated Query.evaluate Query.rewriting

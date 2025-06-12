@@ -21,6 +21,10 @@ instance : Zero (AnnotatedTuple T K n) := ⟨0,0⟩
 
 def AnnotatedRelation (T K) (arity: ℕ) := Multiset (AnnotatedTuple T K arity)
 
+def AnnotatedRelation.cast (heq : n=m) (r: AnnotatedRelation T K n): AnnotatedRelation T K m := by
+  subst heq
+  exact r
+
 instance [ToString T] [ToString K] [LinearOrder K] : ToString (AnnotatedRelation T K n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"
@@ -119,3 +123,9 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} [Mul K] [Mul (T⊕K)
     (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦ if k<n₁ then x.1 k else if k<n₁+n₂ then x.2 (k-n₁) else (x.1 n₁ * x.2 n₂))
     (Multiset.product ar₁.toComposite ar₂.toComposite) := by
   sorry
+
+theorem AnnotatedRelation.cast_toComposite {T: Type} {K: Type}
+  (ar: AnnotatedRelation T K n) (h': n+1=m+1) (h: n = m) :
+  ar.toComposite.cast h' = (ar.cast h).toComposite := by
+  subst h
+  congr
