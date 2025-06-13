@@ -131,9 +131,15 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type}
   repeat rw[Multiset.count_bind]
   apply congrArg
   rw[Multiset.ext]
-  intro t'
+  intro c
   repeat rw[Multiset.count_map]
   simp
+  conv_lhs =>
+    args
+    args
+    ext
+    rw[Multiset.count_map]
+    skip
   sorry
 
 
