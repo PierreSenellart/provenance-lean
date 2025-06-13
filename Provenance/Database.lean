@@ -27,6 +27,14 @@ theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
     subst heq
     rfl
 
+instance [DecidableEq T] : DecidableEq (Tuple T n) :=
+  λ t₁ t₂ =>
+    if h : ∀ k, t₁ k = t₂ k then isTrue (funext h)
+    else isFalse (by
+      intro h'
+      apply h
+      exact fun k => congrFun h' k)
+
 instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
 
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩

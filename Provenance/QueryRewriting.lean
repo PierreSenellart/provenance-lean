@@ -112,6 +112,19 @@ lemma Query.rewriting_append_left
   subst hn
   simp[Fin.append,Fin.addCases,hk]
 
+lemma Query.rewriting_append_right
+  (t₁: Tuple T n₁)
+  (t₂: Tuple T n₂)
+  (hn: n₁+n₂=n)
+  (k: Fin n)
+  (hk: ¬k<n₁):
+  (hn ▸ Fin.append t₁ t₂) k = t₂ (⟨↑k-n₁, by omega⟩) := by
+  subst hn
+  simp[Fin.append,Fin.addCases,hk]
+  apply congrArg
+  refine Fin.eq_of_val_eq ?_
+  simp
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
@@ -200,23 +213,69 @@ theorem Query.rewriting_valid
       simp only[Term.eval]
       unfold Tuple.cast
       simp
+      have hksucc : ↑k < n₁+1 := by omega
       rw[rewriting_append_left]
       . apply congrArg
         refine Fin.eq_of_val_eq ?_
-        simp[hlt₁]
-        sorry
-      . sorry
+        simp
+        have : ↑k < n₁+1 := by omega
+        simp[hksucc]
+        simp[Nat.mod_eq_of_lt hksucc]
+      . simp[hksucc]
     . by_cases hlt: ↑k < n₁+n₂
       . simp[hlt₁,hlt]
         simp only[Term.eval]
         unfold Tuple.cast
         simp
-        sorry
+        rw[rewriting_append_right]
+        . apply congrArg
+          simp
+          refine Fin.eq_of_val_eq ?_
+          simp[Nat.le_of_not_lt hlt₁]
+          have : (k-n₁:ℕ)<n₂+1 := by omega
+          simp[Nat.mod_eq_of_lt this]
+        . simp
+          exact Nat.le_of_not_lt hlt₁
       . simp[hlt₁,hlt]
         simp only[Term.eval]
         unfold Tuple.cast
         simp
-        sorry
+        rw[rewriting_append_left]
+        . rw[rewriting_append_right]
+          . congr
+            . apply congrArg
+              apply Fin.eq_of_val_eq
+              simp[Fin.castLT]
+              omega
+            . apply congrArg
+              apply Fin.eq_of_val_eq
+              simp
+              refine Eq.symm (Nat.eq_sub_of_add_eq' ?_)
+              have : n₁+1+n₂ < n₁+n₂+2 := by omega
+              have : n₁+1+n₂ = ↑(⟨n₁+1+n₂,this⟩: Fin (n₁+n₂+2)) := by simp
+              rw[this]
+              apply Fin.val_eq_of_eq
+              have : n₁+1+n₂=n₁+n₂+1 := by omega
+              conv_lhs =>
+                congr
+                rw[this]
+                skip
+              simp[HAdd.hAdd]
+              simp only[Add.add,Fin.add]
+              simp
+          . simp
+            have :
+              ↑(@Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂) + 1) = n₁+n₂+1 := by
+              have : @Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂) + 1 =
+                     @Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂+1) := by
+                refine Fin.eq_of_val_eq ?_
+                rw[Fin.val_add]
+                simp
+              simp[this]
+            rw[this]
+            simp
+        . have : n₁ < n₁+n₂+2 := by omega
+          simp[Nat.mod_eq_of_lt this]
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold evaluateAnnotated evaluate rewriting
     simp
