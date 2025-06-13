@@ -19,7 +19,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
   let product := tmp (q₂.rewriting (noAggProd hq rfl).right)
   let ts : Tuple (Term (T⊕K) (n+2)) (n+1) :=
     (λ k: Fin (n+1) =>
-      if k<n₁ then #k
+      if ↑k<n₁ then #k
     else if (↑k<n: Prop) then #(k+1)
       else Term.mul #n₁ #(n+1))
   Proj ts product
@@ -69,6 +69,15 @@ lemma Query.rewriting_valid_prod0 [Mul K] {n₁ n₂ n: ℕ}
         congr
         rfl
 
+lemma cast_apply
+  (f: Tuple T n → α)
+  (t: Tuple T m)
+  (hn: n=m) :
+    @cast (Tuple T n → α) (Tuple T m → α) (by simp[hn]) f t
+  = f (t.cast (Eq.symm hn)) := by
+    subst hn
+    simp[Tuple.cast]
+
 lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
   (hn: n₁+1+(n₂+1)=n+2)
   (f: (Tuple (T ⊕ K) (n + 2)) → (Tuple (T ⊕ K) (n + 1))):
@@ -83,8 +92,25 @@ lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
     . intro t t' heq
       rw[Tuple.apply_cast hn f t']
       simp
-      sorry
-  . sorry
+      rw[cast_apply]
+      simp[Tuple.cast]
+      apply congrArg
+      rw[eq_comm]
+      rw[Eq.rec_eq_cast]
+      rw[cast_eq_iff_heq]
+      exact (HEq.symm heq)
+      simp[hn]
+  . simp[Relation.cast]
+
+lemma Query.rewriting_append_left
+  (t₁: Tuple T n₁)
+  (t₂: Tuple T n₂)
+  (hn: n₁+n₂=n)
+  (k: Fin n)
+  (hk: k<n₁):
+  (hn ▸ Fin.append t₁ t₂) k = t₁ (k.castLT hk) := by
+  subst hn
+  simp[Fin.append,Fin.addCases,hk]
 
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
@@ -160,28 +186,44 @@ theorem Query.rewriting_valid
     rw[Relation.cast_eq]
     rw[Multiset.map_map]
     conv_lhs =>
-      unfold Query.evaluate
+      unfold evaluate
       simp[(·*·)]
       skip
-    rw[Query.rewriting_valid_prod1 hn]
+    rw[rewriting_valid_prod1 (rewriting_valid_prod_heqn hn)]
     simp
     congr
-    . exact (Eq.symm hn)
-    . refine Function.hfunext ?_ ?_
-      . rfl
-      . intro p₁ p₂ hteq
-        congr! with k k' heqk
-        . exact (Eq.symm hn)
-        . sorry
-
-
+    ext p k
+    rw[Tuple.cast_get]
+    subst hn
+    by_cases hlt₁: ↑k < n₁
+    . simp[hlt₁]
+      simp only[Term.eval]
+      unfold Tuple.cast
+      simp
+      rw[rewriting_append_left]
+      . apply congrArg
+        refine Fin.eq_of_val_eq ?_
+        simp[hlt₁]
+        sorry
+      . sorry
+    . by_cases hlt: ↑k < n₁+n₂
+      . simp[hlt₁,hlt]
+        simp only[Term.eval]
+        unfold Tuple.cast
+        simp
+        sorry
+      . simp[hlt₁,hlt]
+        simp only[Term.eval]
+        unfold Tuple.cast
+        simp
+        sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     rw[ih₁ (noAggSum hq rfl).left]
     rw[ih₂ (noAggSum hq rfl).right]
   | Dedup q ih =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     sorry
   | Diff q₁ q₂ ih₁ ih₂ =>

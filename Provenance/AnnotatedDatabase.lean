@@ -120,7 +120,7 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} [Mul K] [Mul (T⊕K)
   AnnotatedRelation.toComposite (
     Multiset.map (fun x ↦ ((Fin.append x.1.1 x.2.1), x.1.2 * x.2.2)) (Multiset.product ar₁ ar₂)) =
   Multiset.map
-    (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦ if k<n₁ then x.1 k else if k<n₁+n₂ then x.2 (k-n₁) else (x.1 n₁ * x.2 n₂))
+    (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦ if ↑k<n₁ then x.1 k else if ↑k<n₁+n₂ then x.2 (k-n₁) else (x.1 n₁ * x.2 n₂))
     (Multiset.product ar₁.toComposite ar₂.toComposite) := by
   sorry
 

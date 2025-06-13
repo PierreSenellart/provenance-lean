@@ -22,6 +22,11 @@ theorem Tuple.apply_cast {T: Type} (heq: n=m) (f: Tuple T m → α) (t: Tuple T 
   subst heq
   rfl
 
+theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
+  t.cast heq k = t (k.cast (Eq.symm heq)) := by
+    subst heq
+    rfl
+
 instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
 
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
