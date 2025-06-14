@@ -389,7 +389,7 @@ def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
 
 def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
 | Rel   n  s  =>
-  match h : d.find n s with
+  match d.find n s with
   | none => (∅: Multiset (Tuple T n))
   | some rn => rn
 | Proj ts q => let r := evaluate q d; Multiset.map (λ t ↦ λ k ↦ (ts k).eval t) r
