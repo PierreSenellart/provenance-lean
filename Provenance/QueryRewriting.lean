@@ -132,7 +132,7 @@ theorem Query.rewriting_valid
   intro d
   induction q with
   | Rel n s =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     match ha: AnnotatedDatabase.find n s d with
     | none =>
@@ -143,7 +143,7 @@ theorem Query.rewriting_valid
       rw[AnnotatedDatabase.find_toComposite_some] at ha
       rw[ha]
   | @Proj m n' ts q ih =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     rw[← ih (noAggProj hq rfl)]
     unfold AnnotatedRelation.toComposite
@@ -173,7 +173,7 @@ theorem Query.rewriting_valid
       rw[Term.castToAnnotatedTuple_eval]
       rfl
   | Sel φ q' ih =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     rw[← ih (noAggSel hq rfl)]
     unfold AnnotatedRelation.toComposite
@@ -190,7 +190,7 @@ theorem Query.rewriting_valid
         skip
       . apply φ.evalDecidableAnnotated
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     have heq : (Fin (n₁ + n₂) → T) = (Fin n → T) := by simp[hn]
     rw[Query.rewriting_valid_prod0 hn heq]
@@ -287,9 +287,16 @@ theorem Query.rewriting_valid
   | Dedup q ih =>
     unfold evaluateAnnotated evaluate rewriting
     simp
+    rw[← ih (noAggDedup hq rfl)]
+    unfold evaluate
+    unfold evaluate
+    simp
+    rw[← ih (noAggDedup hq rfl)]
+    unfold AnnotatedRelation.toComposite
+
     sorry
   | Diff q₁ q₂ ih₁ ih₂ =>
-    unfold Query.evaluateAnnotated Query.evaluate Query.rewriting
+    unfold evaluateAnnotated evaluate rewriting
     simp
     sorry
   | Agg _ _ _ _ => simp[noAgg] at hq
