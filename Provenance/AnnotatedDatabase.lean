@@ -13,7 +13,8 @@ abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n ×ₗ K
 
 instance [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
 
-instance [ToString T] [ToString K] : ToString (AnnotatedTuple T K n) where
+instance [ToString T] [ToString K] : ToString (AnnotatedTuple T K n)
+where
   toString t :=
     "(" ++ String.intercalate ", " (List.ofFn (fun i => toString (t.fst i)))
         ++ ";" ++ (toString t.snd) ++ ")"
@@ -50,6 +51,12 @@ def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) : Opt
 def AnnotatedTuple.toComposite (p: AnnotatedTuple T K n) :=
   Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
 
+def Tuple.fromComposite (t: Tuple (T⊕K) (n+1)) : AnnotatedTuple T K n :=
+  (
+    λ (k: Fin n) ↦ match t k with | Sum.inl x => x | Sum.inr _ => 0,
+                   match t n with | Sum.inl _ => 0 | Sum.inr x => x
+  )
+
 def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
   Relation (T⊕K) (n+1) :=
   ar.map λ p ↦ p.toComposite
@@ -57,8 +64,8 @@ def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
 @[simp]
 theorem AnnotatedRelation.toComposite_add {T: Type} {K: Type} (ar₁ ar₂: AnnotatedRelation T K n):
    (ar₁ + ar₂).toComposite = ar₁.toComposite + ar₂.toComposite := by
-     unfold toComposite
-     rw[Multiset.map_add]
+    unfold toComposite
+    rw[Multiset.map_add]
 
 def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
   d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)
@@ -119,15 +126,45 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
       . simp[hhd]
         exact ih
 
-instance {K: Type} [DecidableEq (T⊕K)] [Mul K] {ar₂: AnnotatedRelation T K n₂} {t: Tuple (T⊕K) (n₁+n₂+1)}:
-  DecidablePred (fun b ↦
-    ∃ (t₁: AnnotatedTuple T K n₁),
-      c = (Multiset.filter (fun (t₂: AnnotatedTuple T K n₂) ↦
-        t = AnnotatedTuple.toComposite (Fin.append t₁.1 t₂.1, t₁.2 * t₂.2)) ar₂).card ∧ t₁.toComposite = b) := by
-  sorry
+lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
+  [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K]
+    (ta₁: AnnotatedTuple T K n₁)
+    (ta₂: AnnotatedTuple T K n₂):
+  AnnotatedTuple.toComposite (Fin.append ta₁.1 ta₂.1, ta₁.2 * ta₂.2) = fun (k: Fin (n₁+n₂+1)) ↦
+    if ↑k < n₁ then ta₁.toComposite k
+    else if ↑k < n₁ + n₂ then ta₂.toComposite (k - n₁:ℕ)
+    else ta₁.toComposite (Fin.last n₁) * ta₂.toComposite (Fin.last n₂) := by
+    unfold AnnotatedTuple.toComposite
+    funext k
+    by_cases hlt₁₂: ↑k<n₁+n₂
+    . simp[Fin.append,Fin.addCases,hlt₁₂]
+      by_cases hlt₁: ↑k<n₁
+      . have : ↑k < n₁+1 := by omega
+        simp[Nat.mod_eq_of_lt this,hlt₁]
+        apply congrArg
+        apply Fin.eq_of_val_eq
+        simp[Nat.mod_eq_of_lt this]
+      . simp[hlt₁]
+        have h: ↑k-n₁<n₂+1 := by omega
+        simp[Nat.mod_eq_of_lt h]
+        have h': ↑k-n₁<n₂ := by omega
+        simp[h']
+        apply congrArg
+        apply Fin.eq_of_val_eq
+        simp[Nat.mod_eq_of_lt h]
+    . simp[Fin.append,Fin.addCases,hlt₁₂]
+      have : ¬↑k<n₁ := by omega
+      simp[this]
+      simp[(·*·),Mul.mul]
 
-theorem AnnotatedRelation.toComposite_map_product {K: Type}
-  [DecidableEq (T⊕K)] [DecidableEq T] [Mul K] [Mul (T⊕K)]
+lemma eq_imp_eq_equiv_eq:
+  y=z → (x=y ↔ x=z) := by
+    intro heq
+    subst heq
+    tauto
+
+theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
+  [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K]
   (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂) :
   AnnotatedRelation.toComposite (
     Multiset.map (fun x ↦ ((Fin.append x.1.1 x.2.1), x.1.2 * x.2.2)) (Multiset.product ar₁ ar₂)) =
@@ -156,36 +193,17 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type}
   case h.h =>
     rw[← Multiset.rel_map_left]
     rw[Multiset.rel_eq]
-    rw[Multiset.map_filter']
-    . congr
-      funext tc
-      apply propext
-      apply Iff.intro
-      . intro hyp
-        rcases hyp with ⟨ta,hc,ht⟩
-        rw[Multiset.count_map]
-        subst c
-        congr
-        funext tc'
-        sorry
-      . sorry
-    . unfold AnnotatedTuple.toComposite
-      intro t₁ t₂
-      intro heq
-      unfold Fin.append Fin.addCases at heq
-      simp at heq
-      apply congr_fun at heq
-      have h₁k : ∀ k: Fin n₁, t₁.1 k = t₂.1 k := by
-        intro k
-        specialize heq k
-        simp at heq
-        exact heq
-      have h₁ := funext h₁k
-      have h₂ : t₁.2=t₂.2 := by
-        specialize heq n₁
-        simp at heq
-        exact heq
-      exact Prod.ext h₁ h₂
+    rw[Multiset.filter_map]
+    congr
+    funext ta₁
+    simp
+    rw[Multiset.count_map]
+    apply eq_imp_eq_equiv_eq
+    congr
+    funext ta₂
+    apply propext
+    apply eq_imp_eq_equiv_eq
+    exact AnnotatedTuple.toComposite_join _ _
 
 theorem AnnotatedRelation.cast_toComposite {T: Type} {K: Type}
   (ar: AnnotatedRelation T K n) (h': n+1=m+1) (h: n = m) :

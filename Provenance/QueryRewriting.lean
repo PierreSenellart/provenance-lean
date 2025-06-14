@@ -160,6 +160,7 @@ theorem Query.rewriting_valid
         intro x
         rfl
       rw[this n',this m]
+      unfold AnnotatedTuple.toComposite
       rw[@Fin.append_right (Fin.last n')]
       rw[@Fin.append_right (Fin.last m)]
     . simp at hkn'
@@ -167,6 +168,7 @@ theorem Query.rewriting_valid
       simp[hlt]
       have : k = (Fin.castAdd (Fin.last 1) (k.castLT hlt): Fin (n'+1)) := by simp
       rewrite (occs := [1]) [this]
+      unfold AnnotatedTuple.toComposite
       rw[@Fin.append_left (Fin.last n') (Fin.last 1)]
       rw[Term.castToAnnotatedTuple_eval]
       rfl
@@ -179,6 +181,7 @@ theorem Query.rewriting_valid
     apply congrArg
     apply congrFun
     simp[Function.comp_def]
+    unfold AnnotatedTuple.toComposite
     conv =>
       rhs
       congr
