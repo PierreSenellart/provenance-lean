@@ -2,8 +2,13 @@
 
 [![Continuous Integration](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml/badge.svg)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml)
 
-This repository includes some Lean4 formal definitions and proofs relevant
-for provenance in databases.
+This repository includes some Lean4 formal definitions and proofs
+relevant for provenance in databases. One of the goal of this project is
+to provide a formal semantics to the operations performed in the
+provenance-aware relational database extension
+[ProvSQL](https://github.com/PierreSenellart/provsql). This also
+complements the description of the data model of ProvSQL provided in [a
+technical paper](https://arxiv.org/abs/2504.12058).
 
 This is work in progress. For now:
 
@@ -18,6 +23,10 @@ This is work in progress. For now:
   some classical and useful theorems
 - [QueryAnnotatedDatabase.lean](Provenance/QueryAnnotatedDatabase.lean) defines
   the semantics of relational algebra queries over annotated databases through m-semirings
+- [QueryRewriting.lean](Provenance/QueryRewriting.lean) defines an
+approach to query evaluation on annotated relations through query
+rewriting; a proof (partially written at this point) that this
+rewriting is correct is provided
 - We include proofs that some common provenance m-semirings are indeed
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
@@ -29,7 +38,6 @@ This is work in progress. For now:
   - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
 
 See [Example.lean](Provenance/Example.lean) for an example computation.
-
 
 ## License
 
