@@ -2,6 +2,7 @@ import Provenance.SemiringWithMonus
 import Mathlib.Order.Interval.Set.Defs
 import Mathlib.Data.Rat.Init
 import Mathlib.Algebra.Order.Ring.Rat
+import Mathlib.Tactic.Ring.RingNF
 
 abbrev Interval01 := {q : ℚ // 0 ≤ q ∧ q ≤ 1}
 
@@ -79,4 +80,94 @@ instance : CommSemiring Lukasiewicz where
     simp[(· * ·), Mul.mul]
     rw[add_max,max_add]
     simp
-    sorry
+    by_cases h₁ : c.carrier.val ≤ a.carrier.val + b.carrier.val - 1 + c.carrier.val
+    . rw[max_eq_left h₁]
+      by_cases h₂ : a.carrier.val ≤ a.carrier.val + (b.carrier.val + c.carrier.val - 1)
+      . rw[max_eq_left h₂]
+        ring_nf
+      . rw[max_eq_right (le_of_not_le h₂)]
+        simp at h₂
+        have : a.carrier.val - 1 ≤ 0 := by simp[ha.2]
+        rw[max_eq_right this]
+        simp
+        ring_nf
+        have bound : a.carrier.val + b.carrier.val + c.carrier.val < 2 := by
+          calc
+            a.carrier.val + b.carrier.val + c.carrier.val
+              = a.carrier.val + (b.carrier.val + c.carrier.val) := by ring
+            _ < a.carrier.val + 1 := add_lt_add_left h₂ a.carrier.val
+            _ ≤ 1 + 1 := by simp[ha.2]
+            _ = 2 := by norm_num
+        have := add_lt_add_left bound (-1)
+        ring_nf at this
+        exact (le_of_lt this)
+    . rw[max_eq_right (le_of_not_le h₁)]
+      simp at h₁
+      by_cases h₂ : a.carrier.val ≤ a.carrier.val + (b.carrier.val + c.carrier.val - 1)
+      . rw[max_eq_left h₂]
+        simp at h₂
+        have : c.carrier.val - 1 ≤ 0 := by simp[hc.2]
+        rw[max_eq_right this]
+        simp
+        ring_nf
+        have bound : a.carrier.val + b.carrier.val + c.carrier.val < 2 := by
+          calc
+            a.carrier.val + b.carrier.val + c.carrier.val
+            _ < 1 + c.carrier.val := add_lt_add_right h₁ c.carrier.val
+            _ ≤ 1 + 1 := by simp[hc.2]
+            _ = 2 := by norm_num
+        have := add_lt_add_left bound (-1)
+        ring_nf at this
+        exact (le_of_lt this)
+      . rw[max_eq_right (le_of_not_le h₂)]
+        simp at h₂
+        have : a.carrier.val - 1 ≤ 0 := by simp[ha.2]
+        rw[max_eq_right this]
+        simp
+        exact hc.2
+
+  nsmul := nsmulRec
+
+  zero_mul := by
+    intro a
+    simp[(· * ·), Mul.mul]
+    congr
+    simp
+    exact add_le_of_nonpos_of_le rfl a.carrier.property.2
+
+  mul_zero := by
+    intro a
+    have ha := a.carrier.property
+    simp[(· * ·), Mul.mul]
+    congr
+    simp
+    rw[add_comm]
+    exact add_le_of_nonpos_of_le rfl a.carrier.property.2
+
+  one_mul := by
+    intro a
+    simp[(· * ·), Mul.mul]
+    congr
+    have : (Lukasiewicz.carrier 1).val = 1 := by rfl
+    rw[this]
+    simp
+    exact a.carrier.property.1
+
+  mul_one := by
+    intro a
+    simp[(· * ·), Mul.mul]
+    congr
+    have : (Lukasiewicz.carrier 1).val = 1 := by rfl
+    rw[this]
+    simp
+    exact a.carrier.property.1
+
+  mul_comm := by
+    intro a b
+    have ha := a.carrier.property
+    have hb := b.carrier.property
+    simp[(· * ·), Mul.mul]
+    rw[add_comm]
+
+  left_distrib := sorry
+  right_distrib := sorry
