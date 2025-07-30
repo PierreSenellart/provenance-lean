@@ -203,3 +203,69 @@ instance : CommSemiring Lukasiewicz where
     intro a b c
     rw[mul_comm (a+b) c,mul_comm a c,mul_comm b c]
     exact left_distrib c a b
+
+instance : LinearOrder Lukasiewicz where
+  le a b := a.carrier ≤ b.carrier
+  le_refl := by simp
+  le_antisymm := by
+    intro a b hab hba
+    ext
+    have := le_antisymm hab hba
+    exact congrArg _ this
+  le_trans := by
+    intro a b c hab hbc
+    exact le_trans hab hbc
+  le_total := by
+    intro a b
+    exact le_total _ _
+  toDecidableLE := inferInstance
+
+instance : IsOrderedAddMonoid Lukasiewicz where
+  add_le_add_left := by
+    intro a b hab c
+    simp[(· + ·),Add.add]
+    by_cases hca : c.carrier ≤ a.carrier
+    . rw[max_eq_right hca]
+      rw[max_eq_right (le_trans hca hab)]
+      exact hab
+    . simp at hca
+      rw[max_eq_left (le_of_lt hca)]
+      exact le_max_left c.carrier b.carrier
+
+instance : CanonicallyOrderedAdd Lukasiewicz where
+  exists_add_of_le := by
+    intro a b hab
+    simp[(· + ·), Add.add]
+    use b
+    rw[@max_eq_right _ _ a.carrier b.carrier hab]
+
+  le_self_add := by
+    intro a b
+    simp[(· + ·), Add.add]
+    exact le_max_left a.carrier b.carrier
+
+instance : SemiringWithMonus Lukasiewicz where
+  monus_spec := by
+    intro a b c
+    simp[(· - ·),Sub.sub,(· + ·),Add.add]
+    apply Iff.intro
+    . intro h
+      by_cases hab: a.carrier ≤ b.carrier
+      . apply le_trans hab
+        exact le_max_left b.carrier c.carrier
+      . simp[hab] at h
+        simp at hab
+        have hbc : b.carrier ≤ c.carrier := le_trans (le_of_lt hab) h
+        simp[hbc]
+        exact h
+    . intro h
+      by_cases hab: a.carrier ≤ b.carrier
+      . simp[hab]
+        exact c.carrier.property.1
+      . simp[hab]
+        by_cases hbc: b.carrier ≤ c.carrier
+        . simp[hbc] at h
+          exact h
+        . simp at hbc
+          simp[le_of_lt hbc] at h
+          contradiction

@@ -31,6 +31,7 @@ rewriting is correct is provided
   m-semirings:
   - [Bool.lean](Provenance/Semirings/Bool.lean): the Boolean m-semiring
   - [BoolFunc.lean](Provenance/Semirings/BoolFunc.lean): the Bool\[X\] m-semiring of Boolean functions over a set X of Boolean variables
+  - [Lukasiewicz.lean](Provenance/Semirings/Lukasiewicz.lean): the Łukasiewicz semiring
   - [MinMax.lean](Provenance/Semirings/MinMax.lean): the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
   - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
   - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)

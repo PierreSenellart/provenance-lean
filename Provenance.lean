@@ -4,6 +4,7 @@ import Provenance.QueryAnnotatedDatabase
 /- Various semirings -/
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
+import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
