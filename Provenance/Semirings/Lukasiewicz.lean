@@ -39,6 +39,41 @@ instance : Mul Lukasiewicz where
 instance : Sub Lukasiewicz where
   sub a b := if a.carrier≤b.carrier then ⟨⟨0, by simp⟩⟩ else a
 
+instance : CommMagma Lukasiewicz where
+  mul_comm := by
+    intro a b
+    have ha := a.carrier.property
+    have hb := b.carrier.property
+    simp[(· * ·), Mul.mul]
+    rw[add_comm]
+
+instance instLeftDistribClassLukasiweicz : LeftDistribClass Lukasiewicz where
+  left_distrib := by
+    intro a b c
+    simp[(· * ·), (· + ·), Mul.mul, Add.add]
+    by_cases hbc: b.carrier ≤ c.carrier
+    . simp[hbc]
+      by_cases hab: a.carrier.val + b.carrier.val ≤ 1
+      . right
+        exact hab
+      . left
+        constructor
+        . exact add_le_add (le_of_eq rfl) hbc
+        . simp at hab
+          have := add_le_add (le_of_eq rfl: a.carrier.val ≤ a.carrier.val) hbc
+          exact le_of_lt (lt_of_lt_of_le hab this)
+    . simp at hbc
+      simp[le_of_lt hbc]
+      by_cases hac: a.carrier.val + c.carrier.val ≤ 1
+      . right
+        exact hac
+      . left
+        constructor
+        . exact add_le_add (le_of_eq rfl) (le_of_lt hbc)
+        . simp at hac
+          have := add_le_add (le_of_eq rfl: a.carrier.val ≤ a.carrier.val) (le_of_lt hbc)
+          exact le_of_lt (lt_of_lt_of_le hac this)
+
 instance : CommSemiring Lukasiewicz where
   add_assoc := by
     intro a b c
@@ -162,12 +197,9 @@ instance : CommSemiring Lukasiewicz where
     simp
     exact a.carrier.property.1
 
-  mul_comm := by
-    intro a b
-    have ha := a.carrier.property
-    have hb := b.carrier.property
-    simp[(· * ·), Mul.mul]
-    rw[add_comm]
+  left_distrib := instLeftDistribClassLukasiweicz.left_distrib
 
-  left_distrib := sorry
-  right_distrib := sorry
+  right_distrib := by
+    intro a b c
+    rw[mul_comm (a+b) c,mul_comm a c,mul_comm b c]
+    exact left_distrib c a b
