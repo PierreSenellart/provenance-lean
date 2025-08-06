@@ -10,7 +10,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
 | Proj  ts q  =>
   let ts :=
     (λ (k: Fin (n+1)) => if h : ↑k<n then (ts ⟨k,h⟩).castToAnnotatedTuple
-                         else Term.index q.arity)
+                         else Term.index (Fin.last q.arity))
   Proj ts (q.rewriting (noAggProj hq rfl))
 | Sel   φ  q  => Sel φ.castToAnnotatedTuple (q.rewriting (noAggSel hq rfl))
 | @Prod T n₁ n₂ n hn q₁ q₂ =>
@@ -19,36 +19,36 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
   let product := tmp (q₂.rewriting (noAggProd hq rfl).right)
   let ts : Tuple (Term (T⊕K) (n+2)) (n+1) :=
     (λ k: Fin (n+1) =>
-      if ↑k<n₁ then #k
-    else if (↑k<n: Prop) then #(k+1)
-      else Term.mul #n₁ #(n+1))
+      if ↑k<n₁ then #(k.castLE (by simp))
+    else if (↑k<n: Prop) then #(Fin.ofNat _ (↑k+1))
+    else Term.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n+1)))
   Proj ts product
 | Sum   q₁ q₂ => Sum (q₁.rewriting (noAggSum hq rfl).left) (rewriting q₂ (noAggSum hq rfl).right)
 | Dedup q     =>
   let q' := q.rewriting (noAggDedup hq rfl)
-  Agg (λ (k: Fin n) ↦ (k: Fin (n+1))) ![#n] ![AggFunc.sum] q'
+  Agg (λ (k: Fin n) ↦ k.castLE (by simp)) ![#(Fin.last n)] ![AggFunc.sum] q'
 | Diff  q₁ q₂ =>
   let q'₁ := q₁.rewriting (noAggDiff hq rfl).left
   let q'₂ := q₂.rewriting (noAggDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#k==#(k+n+1)))).foldr
+      (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
-  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k: Fin (n+1)))) q'₁)
-                            (Proj (λ (k: Fin n) ↦ (Term.index (k: Fin (n+1)))) q'₂))
+  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (by simp)))) q'₁)
+                            (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (by simp)))) q'₂))
   let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+2) (#k==#(k+n+1)))).foldr
+      (λ k ↦ @Filter.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k)==#(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
   let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
-  let prod₂r := Agg (λ (k: Fin n) ↦ (k: Fin (n+1))) ![#n] ![AggFunc.sum] q'₂
+  let prod₂r := Agg (λ (k: Fin n) ↦ (k.castLE (by simp))) ![#(Fin.last n)] ![AggFunc.sum] q'₂
   let prod₂ := prod₂t (prod₂r)
-  let ts₁ := (λ (k: Fin (n+1)) ↦ #(k: Fin (2*n+1)))
-  let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k: Fin (2*n+2))
-                                 else Term.sub #n #(2*n+1))
+  let ts₁ := (λ (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
+  let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k.castLE (by omega))
+                                 else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | Agg _ _ _ _ => by simp[noAgg] at hq
 
@@ -151,7 +151,7 @@ theorem Query.rewriting_valid
     apply congrFun
     apply congrArg
     funext t k
-    by_cases hkn' : k=n'
+    by_cases hkn' : k=Fin.last n'
     . simp[hkn']
       simp[Term.eval]
       unfold Query.arity
@@ -223,22 +223,20 @@ theorem Query.rewriting_valid
         simp
         have : ↑k < n₁+1 := by omega
         simp[hksucc]
-        simp[Nat.mod_eq_of_lt hksucc]
       . simp[hksucc]
     . by_cases hlt: ↑k < n₁+n₂
       . simp[hlt₁,hlt]
         simp only[Term.eval]
         unfold Tuple.cast
         simp
+        have hk₁₂: (k+1:ℕ)<n₁+n₂+2 := by omega
         rw[rewriting_append_right]
         . apply congrArg
-          simp
+          simp[Nat.mod_eq_of_lt hk₁₂]
           refine Fin.eq_of_val_eq ?_
-          simp[Nat.le_of_not_lt hlt₁]
           have : (k-n₁:ℕ)<n₂+1 := by omega
           simp[Nat.mod_eq_of_lt this]
-        . simp
-          exact Nat.le_of_not_lt hlt₁
+        . simp[Nat.mod_eq_of_lt hk₁₂,hlt₁]
       . simp[hlt₁,hlt]
         simp only[Term.eval]
         unfold Tuple.cast
@@ -253,30 +251,7 @@ theorem Query.rewriting_valid
             . apply congrArg
               apply Fin.eq_of_val_eq
               simp
-              refine Eq.symm (Nat.eq_sub_of_add_eq' ?_)
-              have : n₁+1+n₂ < n₁+n₂+2 := by omega
-              have : n₁+1+n₂ = ↑(⟨n₁+1+n₂,this⟩: Fin (n₁+n₂+2)) := by simp
-              rw[this]
-              apply Fin.val_eq_of_eq
-              have : n₁+1+n₂=n₁+n₂+1 := by omega
-              conv_lhs =>
-                congr
-                rw[this]
-                skip
-              simp[HAdd.hAdd]
-              simp only[Add.add,Fin.add]
-              simp
           . simp
-            have :
-              ↑(@Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂) + 1) = n₁+n₂+1 := by
-              have : @Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂) + 1 =
-                     @Nat.cast (Fin (n₁+n₂+2)) Fin.instNatCast (n₁+n₂+1) := by
-                refine Fin.eq_of_val_eq ?_
-                rw[Fin.val_add]
-                simp
-              simp[this]
-            rw[this]
-            simp
         . have : n₁ < n₁+n₂+2 := by omega
           simp[Nat.mod_eq_of_lt this]
   | Sum q₁ q₂ ih₁ ih₂ =>

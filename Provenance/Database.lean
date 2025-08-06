@@ -87,7 +87,7 @@ instance : LinearOrder (Tuple T n) where
           . have h'' : iba<iab := by
               refine lt_iff_le_and_ne.mpr ?_
               constructor
-              . exact le_of_not_lt h'
+              . exact le_of_not_gt h'
               . exact fun a ↦ h (id (Eq.symm a))
             have heq := hiab.left iba h''
             have := hiba.right
@@ -186,7 +186,7 @@ instance : LinearOrder (Tuple T n) where
               rw[ne_comm]
               simp[h''.left]
 
-  lt_iff_le_not_le := by
+  lt_iff_le_not_ge := by
     intro a b
     simp only[(· ≤ ·)]
     apply Iff.intro
@@ -215,9 +215,9 @@ instance : LinearOrder (Tuple T n) where
             . by_cases hki'' : k = i
               . rw[hki''] at hki
                 simp at hki
-              . simp[hki',hki''] at hki
+              . simp[hki'] at hki
                 have hgt : k>i := by
-                  apply le_of_not_lt at hki'
+                  apply le_of_not_gt at hki'
                   apply lt_of_le_of_ne
                   . assumption
                   . exact fun a ↦ hki'' (id (Eq.symm a))

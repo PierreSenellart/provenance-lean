@@ -25,7 +25,7 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
   sub a b := if (Tropical.untrop a ≥ Tropical.untrop b) then ⊤ else a
   le a b := Tropical.untrop a ≥ Tropical.untrop b
   lt a b := a+b = b ∧ a ≠ b
-  lt_iff_le_not_le := by
+  lt_iff_le_not_ge := by
     intro a b
     rw[tropical_order_ge,tropical_order_ge]
     apply Iff.intro
@@ -96,9 +96,9 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
     split_ifs with h
     . simp
       left
-      simp[tropical_order_ge] at h
+      simp at h
       exact h
-    . simp[tropical_order_ge] at h
+    . simp at h
       apply Iff.intro
       . tauto
       . intro h'

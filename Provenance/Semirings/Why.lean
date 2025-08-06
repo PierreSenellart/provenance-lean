@@ -26,12 +26,12 @@ instance : CommSemiring (Why α) where
   zero_add := by
     intro a
     show ⟨(⟨∅⟩ : Why α).carrier ∪ a.carrier⟩ = a
-    simp[Why]
+    simp
 
   add_zero := by
     intro a
     show ⟨a.carrier ∪ (⟨∅⟩ : Why α).carrier⟩ = a
-    simp[Why]
+    simp
 
   add_comm := by
     intro a b
@@ -68,31 +68,30 @@ instance : CommSemiring (Why α) where
     intro a
     show why_mul (⟨{∅}⟩: Why α) a = a
     unfold why_mul
-    simp[Why]
+    simp
 
   mul_one := by
     intro a
     show why_mul a (⟨{∅}⟩: Why α) = a
     unfold why_mul
-    simp[Why]
+    simp
 
   zero_mul := by
     intro a
     show why_mul (⟨∅⟩: Why α) a = (⟨∅⟩: Why α)
     unfold why_mul
-    simp[Why]
+    simp
 
   mul_zero := by
     intro a
     show why_mul a (⟨∅⟩: Why α) = (⟨∅⟩: Why α)
     unfold why_mul
-    simp[Why]
+    simp
 
   mul_comm := by
     intro a b
     show why_mul a b = why_mul b a
     unfold why_mul
-    simp[Why]
     ext z
     simp
     apply Iff.intro
@@ -109,7 +108,6 @@ instance : CommSemiring (Why α) where
     intro a b c
     show why_mul a ⟨b ∪ c⟩ = ⟨(why_mul a b) ∪ (why_mul a c)⟩
     unfold why_mul
-    simp[Why]
     ext z
     simp
     apply Iff.intro
@@ -137,7 +135,7 @@ instance : CommSemiring (Why α) where
     intro a b c
     show why_mul ⟨a ∪ b⟩ c = ⟨(why_mul a c) ∪ (why_mul b c)⟩
     unfold why_mul
-    simp[Why]
+    simp
     ext z
     simp
     apply Iff.intro
@@ -199,7 +197,18 @@ instance : SemiringWithMonus (Why α) where
     use ⟨b.carrier \ a.carrier⟩
     ext x
     simp
-    exact fun a ↦ hab a
+    apply Iff.intro
+    . intro hx
+      by_cases h: x ∈ a.carrier
+      . left
+        assumption
+      . right
+        constructor <;> assumption
+    . intro hx
+      by_cases h: x ∈ a.carrier
+      . exact hab h
+      . simp[h] at hx
+        assumption
 
   le_self_add := by
     intro a b x hx
@@ -212,7 +221,6 @@ instance : SemiringWithMonus (Why α) where
     intro a b c
     simp[HAdd.hAdd,Add.add]
     change (⟨a.carrier \ b.carrier⟩: Why α).carrier ⊆ c.carrier ↔ a.carrier ⊆ b.carrier ∪ c.carrier
-    simp[Why]
     apply Iff.intro
     . intro h x hx
       by_cases hx' : x ∈ b.carrier

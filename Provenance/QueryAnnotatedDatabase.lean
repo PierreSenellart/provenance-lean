@@ -10,8 +10,8 @@ variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 def Filter.evalDecidableAnnotated (φ : Filter T n) :
   DecidablePred (λ (ta: AnnotatedTuple T K n) ↦ φ.eval ta.fst) :=
     λ t => match φ.evalDecidable t.fst with
-      | isTrue h  => isTrue (by simp [Filter.eval, h])
-      | isFalse h => isFalse  (by simp [Filter.eval, h])
+      | isTrue h  => isTrue (by simp [h])
+      | isFalse h => isFalse  (by simp [h])
 
 def groupByKey (m : Multiset (Tuple T n × K)) :=
   m.foldr KeyValueList.addKVFold ⟨[], by simp[KeyValueList]⟩

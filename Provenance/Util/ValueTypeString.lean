@@ -38,13 +38,13 @@ instance: ValueType String where
     have hes: "".toNat? = none := rfl
     by_cases ha: a.toNat?=none <;>
     by_cases hb: b.toNat?=none <;>
-    simp[HAdd.hAdd] <;> simp only[Add.add] <;> try simp[ha,hb,hes]
+    simp[HAdd.hAdd] <;> simp only[Add.add] <;> try simp[ha,hb]
     . cases hb': b.toNat? with
       | none => contradiction
-      | some val => simp[hes]
+      | some val => simp
     . cases ha': a.toNat? with
       | none => contradiction
-      | some vala => simp[hes]
+      | some vala => simp
     . cases ha': a.toNat? with
       | none => contradiction
       | some vala =>
@@ -74,7 +74,7 @@ instance: ValueType String where
         | none => contradiction
         | some valb =>
           simp[hes]
-          cases hx: (toString (vala+valb)).toNat? <;> simp[hx]
+          cases hx: (toString (vala+valb)).toNat? <;> simp
     . cases ha': a.toNat? with
       | none => contradiction
       | some vala =>

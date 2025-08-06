@@ -39,21 +39,21 @@ instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (
   | Sum.inr a', Sum.inl b' => False
 
   le_refl a := by
-    cases a <;> simp[(· ≤ ·)]
+    cases a <;> simp
     exact HasAltLinearOrder.altOrder.le_refl _
 
   le_antisymm a b := by
-    cases a <;> cases b <;> simp[(· ≤ ·)]
+    cases a <;> cases b <;> simp
     . exact le_antisymm
     . exact HasAltLinearOrder.altOrder.le_antisymm _ _
 
   le_trans a b c := by
-    cases a <;> cases b <;> cases c <;> simp[(· ≤ ·)]
+    cases a <;> cases b <;> cases c <;> simp
     . exact le_trans
     . exact HasAltLinearOrder.altOrder.le_trans _ _ _
 
   le_total a b := by
-    cases a <;> cases b <;> simp[(· ≤ ·)]
+    cases a <;> cases b <;> simp
     . exact le_total _ _
     . rename_i x y
       exact HasAltLinearOrder.altOrder.le_total x y

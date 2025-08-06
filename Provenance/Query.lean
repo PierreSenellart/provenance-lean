@@ -125,12 +125,12 @@ theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMo
       unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
       simp
       repeat rw[Term.castToAnnotatedTuple_eval]
-      simp[Sum.inl.inj_iff]
+      simp
     | NE t₁ t₂ =>
       unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
       simp
       repeat rw[Term.castToAnnotatedTuple_eval]
-      simp[Sum.inl.inj_iff]
+      simp
     | LE t₁ t₂ =>
       unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
       simp

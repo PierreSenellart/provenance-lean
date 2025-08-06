@@ -53,8 +53,8 @@ def AnnotatedTuple.toComposite (p: AnnotatedTuple T K n) :=
 
 def Tuple.fromComposite (t: Tuple (T⊕K) (n+1)) : AnnotatedTuple T K n :=
   (
-    λ (k: Fin n) ↦ match t k with | Sum.inl x => x | Sum.inr _ => 0,
-                   match t n with | Sum.inl _ => 0 | Sum.inr x => x
+    λ (k: Fin n) ↦ match t (k.castLE (by simp)) with | Sum.inl x => x | Sum.inr _ => 0,
+                   match t (Fin.last n)         with | Sum.inl _ => 0 | Sum.inr x => x
   )
 
 def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
@@ -112,11 +112,11 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
             simp at hf
             have h1 : ∀ (i: Fin hd.snd.fst), a.1 i = b.1 i := by
               intro i
-              have hfi := congrFun hf i
+              have hfi := congrFun hf (i.castLE (by simp))
               simp at hfi
               assumption
             have h2 : a.2=b.2 := by
-              have := congrFun hf (hd.snd.fst)
+              have := congrFun hf (Fin.last hd.snd.fst)
               simp at this
               assumption
             exact Prod.ext (funext h1) h2
@@ -131,27 +131,27 @@ lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
     (ta₁: AnnotatedTuple T K n₁)
     (ta₂: AnnotatedTuple T K n₂):
   AnnotatedTuple.toComposite (Fin.append ta₁.1 ta₂.1, ta₁.2 * ta₂.2) = fun (k: Fin (n₁+n₂+1)) ↦
-    if ↑k < n₁ then ta₁.toComposite k
-    else if ↑k < n₁ + n₂ then ta₂.toComposite (k - n₁:ℕ)
+    if h: ↑k < n₁ then ta₁.toComposite (k.castLT (Nat.lt_add_right 1 h))
+    else if ↑k < n₁ + n₂ then ta₂.toComposite (@Fin.ofNat (n₂+1) _ (k.toNat - n₁))
     else ta₁.toComposite (Fin.last n₁) * ta₂.toComposite (Fin.last n₂) := by
     unfold AnnotatedTuple.toComposite
     funext k
     by_cases hlt₁₂: ↑k<n₁+n₂
     . simp[Fin.append,Fin.addCases,hlt₁₂]
       by_cases hlt₁: ↑k<n₁
-      . have : ↑k < n₁+1 := by omega
-        simp[Nat.mod_eq_of_lt this,hlt₁]
-        apply congrArg
-        apply Fin.eq_of_val_eq
-        simp[Nat.mod_eq_of_lt this]
       . simp[hlt₁]
-        have h: ↑k-n₁<n₂+1 := by omega
-        simp[Nat.mod_eq_of_lt h]
-        have h': ↑k-n₁<n₂ := by omega
-        simp[h']
         apply congrArg
         apply Fin.eq_of_val_eq
-        simp[Nat.mod_eq_of_lt h]
+        simp
+      . simp[hlt₁]
+        have h: (↑k-n₁)%(n₂+1) = ↑k-n₁ := by
+          refine Nat.mod_eq_of_lt ?_
+          omega
+        have h': ↑k-n₁<n₂ := by omega
+        simp[h,h']
+        apply congrArg
+        apply Fin.eq_of_val_eq
+        simp[h]
     . simp[Fin.append,Fin.addCases,hlt₁₂]
       have : ¬↑k<n₁ := by omega
       simp[this]
@@ -169,7 +169,10 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
   AnnotatedRelation.toComposite (
     Multiset.map (fun x ↦ ((Fin.append x.1.1 x.2.1), x.1.2 * x.2.2)) (Multiset.product ar₁ ar₂)) =
   Multiset.map
-    (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦ if ↑k<n₁ then x.1 k else if ↑k<n₁+n₂ then x.2 (k-n₁:ℕ) else (x.1 n₁ * x.2 n₂))
+    (fun x ↦ fun (k: Fin (n₁+n₂+1)) ↦
+      if h: ↑k<n₁ then x.1 (k.castLT (Nat.lt_add_right 1 h))
+      else if ↑k<n₁+n₂ then x.2 (@Fin.ofNat (n₂+1) _ (k.toNat - n₁))
+      else (x.1 (Fin.last n₁) * x.2 (Fin.last n₂)))
     (Multiset.product ar₁.toComposite ar₂.toComposite) := by
   unfold toComposite Multiset.product
   repeat rw[Multiset.map_map]

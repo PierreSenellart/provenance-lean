@@ -28,7 +28,7 @@ instance : SemiringWithMonus Nat where
             exact hr
           }
           simp at h
-          simp[h]
+          simp
           apply Nat.le_succ_of_le
           exact h
 

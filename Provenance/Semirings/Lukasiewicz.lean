@@ -91,7 +91,7 @@ instance : CommSemiring Lukasiewicz where
     have ha := a.carrier.property.left
     ext
     simp
-    apply eq_of_le_of_le
+    apply eq_of_le_of_ge
     . simp
       exact ha
     . simp
@@ -102,7 +102,7 @@ instance : CommSemiring Lukasiewicz where
     have ha := a.carrier.property.left
     ext
     simp
-    apply eq_of_le_of_le
+    apply eq_of_le_of_ge
     . simp
       exact ha
     . simp
@@ -120,7 +120,7 @@ instance : CommSemiring Lukasiewicz where
       by_cases h₂ : a.carrier.val ≤ a.carrier.val + (b.carrier.val + c.carrier.val - 1)
       . rw[max_eq_left h₂]
         ring_nf
-      . rw[max_eq_right (le_of_not_le h₂)]
+      . rw[max_eq_right (le_of_not_ge h₂)]
         simp at h₂
         have : a.carrier.val - 1 ≤ 0 := by simp[ha.2]
         rw[max_eq_right this]
@@ -136,7 +136,7 @@ instance : CommSemiring Lukasiewicz where
         have := add_lt_add_left bound (-1)
         ring_nf at this
         exact (le_of_lt this)
-    . rw[max_eq_right (le_of_not_le h₁)]
+    . rw[max_eq_right (le_of_not_ge h₁)]
       simp at h₁
       by_cases h₂ : a.carrier.val ≤ a.carrier.val + (b.carrier.val + c.carrier.val - 1)
       . rw[max_eq_left h₂]
@@ -154,7 +154,7 @@ instance : CommSemiring Lukasiewicz where
         have := add_lt_add_left bound (-1)
         ring_nf at this
         exact (le_of_lt this)
-      . rw[max_eq_right (le_of_not_le h₂)]
+      . rw[max_eq_right (le_of_not_ge h₂)]
         simp at h₂
         have : a.carrier.val - 1 ≤ 0 := by simp[ha.2]
         rw[max_eq_right this]
