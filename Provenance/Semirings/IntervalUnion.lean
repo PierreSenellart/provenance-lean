@@ -2,103 +2,167 @@ import Mathlib.Data.List.Sort
 import Mathlib.Data.Set.Lattice
 import Mathlib.Logic.Nontrivial.Defs
 
-inductive EndKind | open | closed
-deriving DecidableEq
-
+@[ext]
 structure Endpoint (α: Type) where
-  val  : α
-  kind : EndKind
+  val    : α
+  closed : Bool
 
 namespace Endpoint
 instance [DecidableEq α] : DecidableEq (Endpoint α) := by
   intro a b
   cases a with
-  | _ aval akind =>
+  | _ aval aclosed =>
     cases b with
-    | _ bval bkind =>
+    | _ bval bclosed =>
       by_cases h₁: aval=bval
-      . by_cases h₂: akind=bkind
-        . exact isTrue (by simp[h₁,h₂])
-        . exact isFalse (by intro h; cases h; exact h₂ rfl)
+      . if h₂: aclosed=bclosed then
+          exact isTrue (by simp[h₁,h₂])
+        else
+          exact isFalse (by intro h; cases h; exact h₂ rfl)
       . exact isFalse (by intro h; cases h; exact h₁ rfl)
 
 def minLo [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if a.val < b.val then a else
   if b.val < a.val then b else
-  match a.kind, b.kind with
-  | .closed, .open => a
-  | .open, .closed => b
-  | _, _           => a -- tie, equal kinds; either is fine
+  if ¬a.closed ∧ b.closed then b else a
 
 def maxHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if a.val > b.val then a else
   if b.val > a.val then b else
-  match a.kind, b.kind with
-  | .closed, .open => a
-  | .open, .closed => b
-  | _, _           => a
+  if ¬a.closed ∧ b.closed then b else a
 end Endpoint
 
+@[ext]
 structure Interval (α: Type) [LinearOrder α] where
   lo : Endpoint α
   hi : Endpoint α
   wf :
     lo.val < hi.val ∨
-    (lo.val = hi.val ∧ lo.kind = .closed ∧ hi.kind = .closed)
+    (lo.val = hi.val ∧ lo.closed ∧ hi.closed)
 
 def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
-  match hi.kind with
-  | .closed => x ≤ hi.val
-  | .open   => x < hi.val
+  if(hi.closed) then x ≤ hi.val else x < hi.val
 
 def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
-  match lo.kind with
-  | .closed => lo.val ≤ x
-  | .open   => lo.val < x
+  if(lo.closed) then lo.val ≤ x else lo.val < x
 
 namespace Interval
+@[simp]
+lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
+  cases I.wf with
+  | inl hI => exact le_of_lt hI
+  | inr hI => exact le_of_eq hI.left
+
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | above x I.lo ∧ below x I.hi}
 
-@[simp] lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
+@[simp]
+lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
   x ∈ I.toSet ↔ above x I.lo ∧ below x I.hi := Iff.rfl
 
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
 
-def leAsLower [LinearOrder α] (a b : Endpoint α) : Prop :=
-  a.val < b.val ∨ (a.val = b.val ∧ a.kind = .closed ∧ b.kind = .open)
+instance [LinearOrder α] : PartialOrder (Interval α) where
+  le I J : Prop := I.lo.val ≤ J.lo.val ∧ I.hi.val ≤ J.hi.val ∧
+    (I.lo.val=J.lo.val → J.lo.closed → I.lo.closed) ∧
+    (I.hi.val=J.hi.val → I.hi.closed → J.hi.closed)
+  le_refl := by simp
+  le_antisymm := by
+    intro I J hIJ hJI
+    have hlo : I.lo.val = J.lo.val := by
+      exact le_antisymm hIJ.1 hJI.1
+    have hhi : I.hi.val = J.hi.val := by
+      exact le_antisymm hIJ.2.1 hJI.2.1
+    ext <;> simp_all
+    . have h₁ := hIJ.1
+      have h₂ := hJI.1
+      simp_all
+      by_cases h: I.lo.closed
+      . rw[h]
+        exact Eq.symm (h₂ h)
+      . simp at h
+        simp[h] at *
+        exact h₁
+    . have h₁ := hIJ.2
+      have h₂ := hJI.2
+      simp_all
+      by_cases h: I.hi.closed
+      . rw[h]
+        exact Eq.symm (h₁ h)
+      . simp at h
+        simp[h] at *
+        exact h₂
+  le_trans := by
+    intro I J K hIJ hJK
+    constructor
+    . exact le_trans hIJ.1 hJK.1
+    . constructor
+      . exact le_trans hIJ.2.1 hJK.2.1
+      . constructor
+        . intro hIKlo hK
+          have hIJlo : I.lo.val=J.lo.val := by
+            exact eq_of_le_of_ge (hIJ.1) (by rw[← hIKlo] at hJK; exact hJK.1)
+          have hJKlo : J.lo.val=K.lo.val := by
+            rw[hIJlo] at hIKlo; exact hIKlo
+          exact hIJ.2.2.1 hIJlo (hJK.2.2.1 hJKlo hK)
+        . intro hIKhi hI
+          have hIJhi : I.hi.val=J.hi.val := by
+            exact eq_of_le_of_ge (hIJ.2.1) (by rw[← hIKhi] at hJK; exact hJK.2.1)
+          have hJKhi : J.hi.val=K.hi.val := by
+            rw[hIJhi] at hIKhi; exact hIKhi
+          exact hJK.2.2.2 hJKhi (hIJ.2.2.2 hIJhi hI)
 
-/-- Before, may overlap in one point --/
-def le [LinearOrder α] (I J : Interval α) : Prop :=
-  I.hi.val ≤ J.lo.val
-
-/-- Strictly before, no common point --/
+/-- Strictly before, no common point, cannot be merged --/
 def before [LinearOrder α] (I J : Interval α) : Prop :=
   I.hi.val < J.lo.val ∨
-  (I.hi.val = J.lo.val ∧ (I.hi.kind = .open ∨ J.lo.kind = .open))
+  (I.hi.val = J.lo.val ∧ (I.hi.closed → ¬J.lo.closed))
 
 instance [LinearOrder α] [DecidableEq α] [DecidableLE α] {I J: Interval α} : Decidable (I.before J) := by
   by_cases hlt: I.hi.val < J.lo.val
   . exact isTrue (by left; exact hlt)
   . by_cases heq: I.hi.val=J.lo.val
-    . by_cases hIo: I.hi.kind = .open
-      . exact isTrue (by right; constructor; assumption; left; assumption)
-      . by_cases hJo: J.lo.kind = .open
-        . exact isTrue (by right; constructor; assumption; right; assumption)
+    . by_cases hIo: ¬I.hi.closed
+      . exact isTrue (by right; constructor; assumption; tauto)
+      . by_cases hJo: ¬J.lo.closed
+        . exact isTrue (by right; constructor; assumption; tauto)
         . exact isFalse (by simp[before,heq,hIo,hJo])
     . exact isFalse (by simp[before,hlt,heq])
 
 @[simp]
-lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I.le J := by
+lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ J := by
+  simp[(· ≤ ·)]
   cases h with
-  | inl h' => exact le_of_lt h'
-  | inr h' => exact le_of_eq h'.1
+  | inl h' =>
+    have hlo : I.lo.val < J.lo.val := by
+      cases I.wf with
+      | inl hI => exact lt_trans hI h'
+      | inr hI => rw[← hI.1] at h'; exact h'
+    have hhi : I.hi.val < J.hi.val := by
+      cases J.wf with
+      | inl hJ => exact lt_trans h' hJ
+      | inr hJ => rw[hJ.1] at h'; exact h'
+    simp[le_of_lt hlo,le_of_lt hhi,ne_of_lt hlo,ne_of_lt hhi]
+  | inr h' =>
+    simp[h'.1]
+    constructor
+    . cases I.wf with
+      | inl hI => rw[h'.1] at hI; exact le_of_lt hI
+      | inr hI => rw[h'.1] at hI; exact le_of_eq hI.1
+    . constructor
+      . intro hlo hJlo
+        simp[hJlo] at h'
+        have hIwf := I.wf
+        simp[h',hlo] at hIwf
+      . intro hhi hIhi
+        simp[hIhi] at h'
+        have hJwf := J.wf
+        simp[h',hhi] at hJwf
 end Interval
 
 structure IntervalUnion (α: Type) [LinearOrder α] where
   intervals         : List (Interval α)
   pairwise_disjoint : intervals.Pairwise (fun I J => I ≠ J → I.disjoint J)
-  sorted            : intervals.Sorted Interval.le
+  sorted            : intervals.Sorted LE.le
 
 namespace IntervalUnion
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
@@ -121,29 +185,142 @@ lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
         rcases hx with ⟨I, h⟩
         exact Set.mem_biUnion h.1 h.2
 
-def merge2 [LinearOrder α] (I J : Interval α) : Interval α :=
+def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I)) :
+  Interval α :=
   let lo := Endpoint.minLo I.lo J.lo
   let hi := Endpoint.maxHi I.hi J.hi
   {
     lo := lo
     hi := hi
     wf := by
-      sorry
+      subst lo hi
+      unfold Endpoint.minLo Endpoint.maxHi
+      simp
+      by_cases hIJlo: I.lo.val < J.lo.val <;> simp[hIJlo]
+      . by_cases hJIhi: J.hi.val < I.hi.val <;> simp[hJIhi]
+        . exact I.wf
+        . by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
+          . left
+            exact lt_of_lt_of_le hIJlo J.le_lo_hi
+          . by_cases hkhi : ¬I.hi.closed ∧ J.hi.closed
+            . simp[hkhi]
+              left
+              exact lt_of_lt_of_le hIJlo J.le_lo_hi
+            . simp at hkhi
+              have hIwf := I.wf
+              by_cases hIc: I.hi.closed <;> simp[hIc]
+              . simp[hIc] at hIwf
+                exact hIwf
+              . simp at hIc
+                simp[hkhi hIc,hIc]
+                simp[hIc] at hIwf
+                exact hIwf
+      . by_cases hJIlo: J.lo.val < I.lo.val <;> simp[hJIlo]
+        . by_cases hJIhi: J.hi.val < I.hi.val <;> simp[hJIhi]
+          . left
+            exact lt_of_lt_of_le hJIlo I.le_lo_hi
+          . by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
+            . exact J.wf
+            . by_cases hkhi : ¬I.hi.closed ∧ J.hi.closed
+              . simp[hkhi]
+                have := J.wf
+                tauto
+              . simp at hkhi
+                sorry
+        . have hIJloeq : I.lo.val=J.lo.val := by
+            simp at hIJlo
+            simp at hJIlo
+            exact le_antisymm hJIlo hIJlo
+          by_cases hJIhi: J.hi.val < I.hi.val <;> simp[hJIhi] <;>
+          by_cases hklo : ¬I.lo.closed ∧ J.lo.closed
+          . simp[hklo]
+            left
+            exact lt_of_le_of_lt J.le_lo_hi hJIhi
+          . simp at hklo
+            sorry
+          . simp[hklo]
+            have Jwf := J.wf
+            by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
+            . tauto
+            . by_cases hkhi : ¬I.hi.closed ∧ J.hi.closed
+              . simp[hkhi]
+                tauto
+              . simp at hkhi
+                simp
+                rw[Eq.symm hIJloeq]
+                have := I.wf
+                tauto
+          . simp at hklo
+            simp
+            rw[hIJloeq]
+            by_cases hkhi : ¬I.hi.closed ∧ J.hi.closed
+            . simp[hkhi]
+              cases J.wf with
+              | inl hJ => left; exact hJ
+              | inr hJ =>
+                right
+                constructor
+                . exact hJ.1
+                . cases h: I.lo.kind <;> tauto
+            . simp at hkhi
+              simp
+              by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
+              . cases J.wf with
+                | inl hJ => left; exact hJ
+                | inr hJ =>
+                  right
+                  constructor
+                  . exact hJ.1
+                  . constructor
+                    . cases h: I.lo.closed <;> tauto
+                    . exact hJ.2.2
+              . have := I.wf
+                rw[Eq.symm hIJloeq]
+                tauto
   }
 
 def insertMerge [LinearOrder α] (I : Interval α) : List (Interval α) → List (Interval α)
 | []    => [I]
 | J::tl =>
-  if I.before J then
+  if hIJ: I.before J then
     I::J::tl
-  else if J.before I then
+  else if hJI: J.before I then
     J::(insertMerge I tl)
   else
-    insertMerge (merge2 I J) tl
+    insertMerge (merge I J (by simp[hIJ, hJI])) tl
 
-def mergeAll (U V : IntervalUnion α) : List (Interval α) :=
+lemma insertMerge_preserves_sorted [LinearOrder α] (I : Interval α) :
+  ∀ {l : List (Interval α)}, l.Sorted LE.le →
+    (insertMerge I l).Sorted LE.le := by
+  intro l
+  induction l with
+  | nil => simp[insertMerge]
+  | cons J tl ih =>
+    intro hs
+    rw[List.sorted_cons] at hs
+    unfold insertMerge
+    by_cases hIJ: I.before J
+    . simp[hIJ]
+      constructor
+      intro K hK
+      exact le_trans (Interval.le_of_before hIJ) (hs.1 K hK)
+    . sorry
+
+
+def mergeAll [LinearOrder α] (U V : IntervalUnion α) : List (Interval α) :=
   V.intervals.foldl (fun acc I => insertMerge I acc) U.intervals
-end IntervalUnion
+
+lemma sorted_mergeAll [LinearOrder α] (U V : IntervalUnion α) :
+  (mergeAll U V).Sorted LE.le := by
+  unfold mergeAll
+  induction V.intervals generalizing U with
+  | nil =>
+    simp
+    exact U.sorted
+  | cons J tl ih =>
+    simp
+    apply ih _
+    rw[List.foldl_concat]
 
 variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α]
 
@@ -152,7 +329,7 @@ instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,.open⟩,⟨⊤,.open⟩,by 
 
 instance : Add  (IntervalUnion α) where
   add U V := {
-    intervals := sorry,
+    intervals := U.mergeAll V,
     pairwise_disjoint := sorry,
     sorted := sorry
   }
