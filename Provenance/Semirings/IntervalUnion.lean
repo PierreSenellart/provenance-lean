@@ -226,7 +226,13 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
                 have := J.wf
                 tauto
               . simp at hkhi
-                sorry
+                by_cases hIc: I.hi.closed <;> simp[hIc]
+                . left
+                  exact lt_of_lt_of_le hJIlo I.le_lo_hi
+                . simp at hIc
+                  simp[hkhi hIc]
+                  left
+                  exact lt_of_lt_of_le hJIlo I.le_lo_hi
         . have hIJloeq : I.lo.val=J.lo.val := by
             simp at hIJlo
             simp at hJIlo
@@ -237,7 +243,13 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
             left
             exact lt_of_le_of_lt J.le_lo_hi hJIhi
           . simp at hklo
-            sorry
+            by_cases hIc: I.lo.closed <;> simp[hIc]
+            . have Iwf := I.wf
+              simp[hIc] at Iwf
+              exact Iwf
+            . simp at hIc
+              simp[hklo hIc]
+              exact I.wf
           . simp[hklo]
             have Jwf := J.wf
             by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
@@ -246,37 +258,45 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
               . simp[hkhi]
                 tauto
               . simp at hkhi
-                simp
-                rw[Eq.symm hIJloeq]
-                have := I.wf
-                tauto
+                rw[← hIJloeq]
+                by_cases hIc: I.hi.closed <;> simp[hIc]
+                . exact lt_or_eq_of_le I.le_lo_hi
+                . simp at hIc
+                  simp[hkhi hIc]
+                  have hIwf := I.wf
+                  simp[hIc] at hIwf
+                  left
+                  exact hIwf
           . simp at hklo
-            simp
-            rw[hIJloeq]
-            by_cases hkhi : ¬I.hi.closed ∧ J.hi.closed
-            . simp[hkhi]
-              cases J.wf with
-              | inl hJ => left; exact hJ
-              | inr hJ =>
-                right
-                constructor
-                . exact hJ.1
-                . cases h: I.lo.kind <;> tauto
-            . simp at hkhi
-              simp
-              by_cases hIJhi: I.hi.val < J.hi.val <;> simp[hIJhi]
-              . cases J.wf with
-                | inl hJ => left; exact hJ
-                | inr hJ =>
-                  right
-                  constructor
-                  . exact hJ.1
-                  . constructor
-                    . cases h: I.lo.closed <;> tauto
-                    . exact hJ.2.2
-              . have := I.wf
-                rw[Eq.symm hIJloeq]
+            by_cases hIclo : I.lo.closed <;> simp[hIclo] <;>
+            by_cases hIJhi : I.hi.val < J.hi.val <;> simp[hIJhi]
+            . rw[hIJloeq]
+              have := J.wf
+              tauto
+            . by_cases hIchi : I.hi.closed <;> simp[hIchi]
+              . exact lt_or_eq_of_le I.le_lo_hi
+              . by_cases hJchi : J.hi.closed <;> simp[hJchi]
+                . rw[hIJloeq]
+                  exact lt_or_eq_of_le J.le_lo_hi
+                . have := I.wf
+                  tauto
+            . have := J.wf
+              by_cases hJclo : J.lo.closed <;> simp[hJclo]
+              . tauto
+              . rw[hIJloeq]
                 tauto
+            . have hIwf := I.wf
+              simp at hIclo
+              simp[hklo hIclo]
+              by_cases hIchi : I.hi.closed <;> simp[hIchi]
+              . tauto
+              . have hJwf := J.wf
+                by_cases hJchi : J.hi.closed <;> simp[hJchi]
+                . rw[hIJloeq]
+                  simp[hIclo]
+                  simp[hklo hIclo] at hJwf
+                  exact hJwf
+                . exact hIwf
   }
 
 def insertMerge [LinearOrder α] (I : Interval α) : List (Interval α) → List (Interval α)
@@ -289,6 +309,10 @@ def insertMerge [LinearOrder α] (I : Interval α) : List (Interval α) → List
   else
     insertMerge (merge I J (by simp[hIJ, hJI])) tl
 
+lemma mem_insertMerge [LinearOrder α] (I: Interval α) (L: List (Interval α)) :
+  ∀ x, ∃ K∈(insertMerge I L), x∈K.toSet ↔ x∈I.toSet ∨ ∃J∈L, x∈J.toSet := by
+    sorry
+
 lemma insertMerge_preserves_sorted [LinearOrder α] (I : Interval α) :
   ∀ {l : List (Interval α)}, l.Sorted LE.le →
     (insertMerge I l).Sorted LE.le := by
@@ -299,12 +323,22 @@ lemma insertMerge_preserves_sorted [LinearOrder α] (I : Interval α) :
     intro hs
     rw[List.sorted_cons] at hs
     unfold insertMerge
-    by_cases hIJ: I.before J
-    . simp[hIJ]
-      constructor
-      intro K hK
-      exact le_trans (Interval.le_of_before hIJ) (hs.1 K hK)
-    . sorry
+    by_cases hIJ: I.before J <;> simp[hIJ]
+    . constructor
+      . intro K hK
+        exact le_trans (Interval.le_of_before hIJ) (hs.1 K hK)
+      . constructor
+        . exact hs.1
+        . exact hs.2
+    . by_cases hJI: J.before I <;> simp[hJI]
+      . constructor
+        . intro K hK
+          simp
+          rw[mem_insertMerge] at hK
+        . exact ih hs.2
+      . sorry
+
+
 
 
 def mergeAll [LinearOrder α] (U V : IntervalUnion α) : List (Interval α) :=
