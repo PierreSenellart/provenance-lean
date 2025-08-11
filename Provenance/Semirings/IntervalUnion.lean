@@ -185,6 +185,7 @@ lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
         rcases hx with ⟨I, h⟩
         exact Set.mem_biUnion h.1 h.2
 
+
 def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I)) :
   Interval α :=
   let lo := Endpoint.minLo I.lo J.lo
@@ -299,30 +300,92 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
                 . exact hIwf
   }
 
-def insertMerge [LinearOrder α] (I : Interval α) : List (Interval α) → List (Interval α)
+
+set_option maxHeartbeats 500000
+lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: Interval α}
+  (hKI: K ≤ I) (hKJ: K ≤ J) (h: ¬ (I.before J ∨ J.before I)) :
+    K ≤ merge I J h := by
+      simp[merge,(· ≤ ·)] at *
+      unfold Endpoint.maxHi Endpoint.minLo
+      constructor
+      . by_cases hIJlo : I.lo.val < J.lo.val <;> simp only[hIJlo]
+        . tauto
+        . by_cases hJIlo : J.lo.val < I.lo.val <;> simp only[hJIlo]
+          . tauto
+          . by_cases hloIc : I.lo.closed <;> simp only[hloIc] <;>
+            by_cases hloJc : J.lo.closed <;> (try simp only[hloJc]) <;> tauto
+      . constructor
+        . by_cases hJIhi : J.hi.val < I.hi.val <;> simp only[hJIhi]
+          . tauto
+          . by_cases hIJhi : I.hi.val < J.hi.val <;> simp only[hIJhi]
+            . tauto
+            . by_cases hhiIc : I.hi.closed <;> simp only[hhiIc] <;>
+              by_cases hhiJc : J.hi.closed <;> (try simp only[hhiJc]) <;> tauto
+        . constructor
+          . by_cases hIJlo : I.lo.val < J.lo.val <;> simp only[hIJlo]
+            . tauto
+            . by_cases hJIlo : J.lo.val < I.lo.val <;> simp only[hJIlo]
+              . tauto
+              . by_cases hloIc : I.lo.closed <;> simp only[hloIc] <;>
+                by_cases hloJc : J.lo.closed <;> (try simp only[hloJc]) <;> tauto
+          . by_cases hJIhi : J.hi.val < I.hi.val <;> simp only[hJIhi]
+            . tauto
+            . by_cases hIJhi : I.hi.val < J.hi.val <;> simp only[hIJhi]
+              . tauto
+              . by_cases hhiIc : I.hi.closed <;> simp only[hhiIc] <;>
+                by_cases hhiJc : J.hi.closed <;> (try simp only[hhiJc]) <;> tauto
+
+
+def insertMergeList [LinearOrder α] (I : Interval α) : List (Interval α) → List (Interval α)
 | []    => [I]
 | J::tl =>
   if hIJ: I.before J then
     I::J::tl
   else if hJI: J.before I then
-    J::(insertMerge I tl)
+    J::(insertMergeList I tl)
   else
-    insertMerge (merge I J (by simp[hIJ, hJI])) tl
+    insertMergeList (merge I J (by simp[hIJ, hJI])) tl
 
-lemma mem_insertMerge [LinearOrder α] (I: Interval α) (L: List (Interval α)) :
-  ∀ x, ∃ K∈(insertMerge I L), x∈K.toSet ↔ x∈I.toSet ∨ ∃J∈L, x∈J.toSet := by
-    sorry
 
-lemma insertMerge_preserves_sorted [LinearOrder α] (I : Interval α) :
+lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (Interval α)} :
+  ∀ J, J≤I → (∀ K ∈ L, J≤K) → ∀ K ∈ insertMergeList I L, J ≤ K := by
+    intro J hJI
+    intro hJL
+    induction L generalizing I with
+    | nil => simp[insertMergeList]; exact hJI
+    | cons M tl ih =>
+      intro K
+      unfold insertMergeList
+      have hK'tl : ∀ K' ∈ tl, J≤K' := by
+        intro K' hK'
+        exact hJL K' (List.mem_cons_of_mem M hK')
+      by_cases hIM: I.before M <;> simp[hIM]
+      . by_cases hKI: K=I <;> simp[hKI]
+        . exact hJI
+        . by_cases hKM: K=M <;> simp[hKM]
+          . exact hJL M List.mem_cons_self
+          . intro hK
+            exact hJL K (List.mem_cons_of_mem _ hK)
+      . by_cases hMI: M.before I <;> simp[hMI]
+        . by_cases hKM: K=M <;> simp[hKM]
+          . exact hJL M (List.mem_cons_self)
+          . have hK'tl : ∀ K' ∈ tl, J≤K' := by
+              intro K' hK'
+              exact hJL K' (List.mem_cons_of_mem M hK')
+            exact ih hJI hK'tl K
+        . exact ih (merge_preserves_le hJI (hJL M List.mem_cons_self) (not_or_intro hIM hMI)) hK'tl K
+
+
+lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
   ∀ {l : List (Interval α)}, l.Sorted LE.le →
-    (insertMerge I l).Sorted LE.le := by
+    (insertMergeList I l).Sorted LE.le := by
   intro l
-  induction l with
-  | nil => simp[insertMerge]
+  induction l generalizing I with
+  | nil => simp[insertMergeList]
   | cons J tl ih =>
     intro hs
     rw[List.sorted_cons] at hs
-    unfold insertMerge
+    unfold insertMergeList
     by_cases hIJ: I.before J <;> simp[hIJ]
     . constructor
       . intro K hK
@@ -332,22 +395,29 @@ lemma insertMerge_preserves_sorted [LinearOrder α] (I : Interval α) :
         . exact hs.2
     . by_cases hJI: J.before I <;> simp[hJI]
       . constructor
-        . intro K hK
-          simp
-          rw[mem_insertMerge] at hK
-        . exact ih hs.2
-      . sorry
+        . exact insertMergeList_preserves_le J (Interval.le_of_before hJI) hs.1
+        . exact ih I hs.2
+      . apply ih (merge I J (not_or_intro hIJ hJI))
+        exact hs.2
 
 
-
+def IntervalUnion.insertMerge [LinearOrder α]
+  (I: Interval α) (U: IntervalUnion α) : IntervalUnion α :=
+  ⟨
+    insertMergeList I U.intervals,
+    sorry,
+    insertMergeList_preserves_sorted I U.sorted
+  ⟩
 
 def mergeAll [LinearOrder α] (U V : IntervalUnion α) : List (Interval α) :=
-  V.intervals.foldl (fun acc I => insertMerge I acc) U.intervals
+  V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I ⟨acc,sorry,sorry⟩).intervals) U.intervals
+
 
 lemma sorted_mergeAll [LinearOrder α] (U V : IntervalUnion α) :
   (mergeAll U V).Sorted LE.le := by
   unfold mergeAll
-  induction V.intervals generalizing U with
+  set W := U.intervals with hV
+  induction V.intervals generalizing V with
   | nil =>
     simp
     exact U.sorted
@@ -355,6 +425,7 @@ lemma sorted_mergeAll [LinearOrder α] (U V : IntervalUnion α) :
     simp
     apply ih _
     rw[List.foldl_concat]
+
 
 variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α]
 
