@@ -30,6 +30,40 @@ def maxHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if a.val > b.val then a else
   if b.val > a.val then b else
   if ¬a.closed ∧ b.closed then b else a
+
+def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
+  if(hi.closed) then x ≤ hi.val else x < hi.val
+
+def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
+  if(lo.closed) then lo.val ≤ x else lo.val < x
+
+lemma below_of_below_of_lt [LinearOrder α] {hi hi': Endpoint α} (h: hi.val < hi'.val) {x: α} :
+  below x hi → below x hi' := by
+    unfold below
+    by_cases hc: hi.closed <;> simp[hc] <;>
+    by_cases hc': hi'.closed <;> simp[hc']
+    . intro h'
+      exact le_of_lt (lt_of_le_of_lt h' h)
+    . intro h'
+      exact lt_of_le_of_lt h' h
+    . intro h'
+      exact le_of_lt (lt_trans h' h)
+    . intro h'
+      exact lt_trans h' h
+
+lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < lo.val) {x: α} :
+  above x lo → above x lo' := by
+    unfold above
+    by_cases hc: lo.closed <;> simp[hc] <;>
+    by_cases hc': lo'.closed <;> simp[hc']
+    . intro h'
+      exact le_of_lt (lt_of_lt_of_le h h')
+    . intro h'
+      exact lt_of_lt_of_le h h'
+    . intro h'
+      exact le_of_lt (lt_trans h h')
+    . intro h'
+      exact lt_trans h h'
 end Endpoint
 
 @[ext]
@@ -40,12 +74,6 @@ structure Interval (α: Type) [LinearOrder α] where
     lo.val < hi.val ∨
     (lo.val = hi.val ∧ lo.closed ∧ hi.closed)
 
-def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
-  if(hi.closed) then x ≤ hi.val else x < hi.val
-
-def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
-  if(lo.closed) then lo.val ≤ x else lo.val < x
-
 namespace Interval
 @[simp]
 lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
@@ -53,11 +81,11 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
   | inl hI => exact le_of_lt hI
   | inr hI => exact le_of_eq hI.left
 
-def toSet [LinearOrder α] (I: Interval α) : Set α := {x | above x I.lo ∧ below x I.hi}
+def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
 @[simp]
 lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
-  x ∈ I.toSet ↔ above x I.lo ∧ below x I.hi := Iff.rfl
+  x ∈ I.toSet ↔ Endpoint.above x I.lo ∧ Endpoint.below x I.hi := Iff.rfl
 
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
@@ -302,6 +330,24 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
 
 
 set_option maxHeartbeats 500000
+lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
+  ∀ x, x ∈ (merge I J h).toSet ↔ x ∈ I.toSet ∨ x ∈ J.toSet := by
+    intro x
+    unfold merge
+    unfold Interval.toSet Endpoint.minLo Endpoint.maxHi
+    simp
+    by_cases hIJlo : I.lo.val < J.lo.val <;> simp only[hIJlo]
+    . by_cases hJIhi : J.hi.val < I.hi.val <;> simp[hJIhi]
+      . intro hl hi
+        exact ⟨Endpoint.above_of_above_of_lt hIJlo hl,
+               Endpoint.below_of_below_of_lt hJIhi hi⟩
+      . by_cases hIJhi : I.hi.val < J.hi.val <;> simp[hIJhi]
+        . sorry
+        . sorry
+    . sorry
+
+
+
 lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: Interval α}
   (hKI: K ≤ I) (hKJ: K ≤ J) (h: ¬ (I.before J ∨ J.before I)) :
     K ≤ merge I J h := by
@@ -345,6 +391,72 @@ def insertMergeList [LinearOrder α] (I : Interval α) : List (Interval α) → 
     J::(insertMergeList I tl)
   else
     insertMergeList (merge I J (by simp[hIJ, hJI])) tl
+
+
+lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval α)) :
+  ∀ x, (∃ J ∈ insertMergeList I L, x ∈ J.toSet) ↔ (x ∈ I.toSet ∨ ∃ J ∈ L, x ∈ J.toSet) := by
+    intro x
+    induction L generalizing I with
+    | nil => simp[insertMergeList]
+    | cons J tl ih =>
+      unfold insertMergeList
+      by_cases hIJ: I.before J <;> simp[hIJ]
+      by_cases hJI: J.before I <;> simp[hJI]
+      . apply Iff.intro
+        . intro h
+          cases h with
+          | inl h' => tauto
+          | inr h' =>
+            rcases h' with ⟨K, hK⟩
+            have : (∃ K' ∈ insertMergeList I tl, x ∈ K'.toSet) := by
+              use K
+              exact hK
+            have ih' := (ih I).mp this
+            cases ih' with
+            | inl ih'₁ => left; tauto
+            | inr ih'₂ =>
+              rcases ih'₂ with ⟨M, hM⟩
+              right; right
+              use M
+              tauto
+        . intro h
+          cases h with
+          | inl h' =>
+            right
+            apply (ih I).mpr
+            tauto
+          | inr h' =>
+            cases h' with
+            | inl h'' => tauto
+            | inr h'' =>
+              have := (ih I).mpr (Or.inr h'')
+              tauto
+      . apply Iff.intro
+        . intro h
+          have := (ih (merge I J (not_or_intro hIJ hJI))).mp h
+          cases this with
+          | inl h' =>
+            rw[mem_merge] at h'
+            cases h' with
+            | inl h'' => left; tauto
+            | inr h'' => right; left; tauto
+          | inr h' => tauto
+        . intro h'
+          have hbefore := not_or_intro hIJ hJI
+          cases h' with
+          | inl h' =>
+            apply (ih (merge I J hbefore)).mpr
+            left
+            exact (mem_merge x).mpr (Or.inl h')
+          | inr h' =>
+            apply (ih (merge I J hbefore)).mpr
+            cases h' with
+            | inl h'' =>
+              left
+              exact (mem_merge x).mpr (Or.inr h'')
+            | inr h'' =>
+              right
+              tauto
 
 
 lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (Interval α)} :
@@ -399,6 +511,7 @@ lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
         . exact ih I hs.2
       . apply ih (merge I J (not_or_intro hIJ hJI))
         exact hs.2
+
 
 def insertMerge [LinearOrder α]
   (I: Interval α) (U: IntervalUnion α) : IntervalUnion α :=
