@@ -400,8 +400,7 @@ lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
       . apply ih (merge I J (not_or_intro hIJ hJI))
         exact hs.2
 
-
-def IntervalUnion.insertMerge [LinearOrder α]
+def insertMerge [LinearOrder α]
   (I: Interval α) (U: IntervalUnion α) : IntervalUnion α :=
   ⟨
     insertMergeList I U.intervals,
@@ -409,32 +408,21 @@ def IntervalUnion.insertMerge [LinearOrder α]
     insertMergeList_preserves_sorted I U.sorted
   ⟩
 
-def mergeAll [LinearOrder α] (U V : IntervalUnion α) : List (Interval α) :=
-  V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I ⟨acc,sorry,sorry⟩).intervals) U.intervals
+
+def union [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
+  V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I acc)) U
 
 
-lemma sorted_mergeAll [LinearOrder α] (U V : IntervalUnion α) :
-  (mergeAll U V).Sorted LE.le := by
-  unfold mergeAll
-  set W := U.intervals with hV
-  induction V.intervals generalizing V with
-  | nil =>
-    simp
-    exact U.sorted
-  | cons J tl ih =>
-    simp
-    apply ih _
-    rw[List.foldl_concat]
+lemma mem_union [LinearOrder α] (U V : IntervalUnion α) :
+  ∀ x, (x ∈ (U.union V).toSet) ↔ (x ∈ U.toSet) ∨ (x ∈ V.toSet) := by
+    sorry
+end IntervalUnion
 
 
 variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α]
 
 instance : Zero (IntervalUnion α) := ⟨[], by simp, by simp⟩
-instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,.open⟩,⟨⊤,.open⟩,by simp⟩], by simp, by simp⟩
+instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊥⟩,⟨⊤,⊥⟩,by simp⟩], by simp, by simp⟩
 
 instance : Add  (IntervalUnion α) where
-  add U V := {
-    intervals := U.mergeAll V,
-    pairwise_disjoint := sorry,
-    sorted := sorry
-  }
+  add U V := U.union V
