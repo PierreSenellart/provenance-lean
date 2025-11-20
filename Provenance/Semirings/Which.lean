@@ -203,3 +203,8 @@ instance : SemiringWithMonus (Which α) where
           assumption
     . rename_i sb
       by_cases h' : sa ⊆ sb <;> simp[h']
+
+theorem Which.idempotent : idempotent (Which α) := by
+  intro a
+  simp[(· + ·), Add.add]
+  cases ha: a <;> simp

@@ -34,3 +34,8 @@ instance : SemiringWithMonus Nat where
 
 instance : HasAltLinearOrder Nat where
   altOrder := inferInstance
+
+theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
+  simp
+  use 1
+  simp

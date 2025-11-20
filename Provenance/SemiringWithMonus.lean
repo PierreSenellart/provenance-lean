@@ -31,6 +31,8 @@ K-relations*][geerts2010database]
 
 -/
 
+section SemiringWithMonus
+
 /-! ## Definition of a `SemiringWithMonus` -/
 
 /-- A `SemiringWithMonus` is a naturally ordered semiring
@@ -131,5 +133,94 @@ theorem monus_add [K: SemiringWithMonus α] :
       rw [← SemiringWithMonus.monus_spec]
   }
 
+abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
+
+abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
+
+theorem idempotent_of_absorptive [K: Semiring α] :
+  absorptive α → idempotent α := by
+    intro habs
+    intro a
+    nth_rewrite 1 2 [← mul_one a]
+    rw[← mul_add]
+    simp[habs 1]
+
+theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
+  ∀ a b: α, a<=b ↔ a+b = b := by
+    intro a b
+    apply Iff.intro
+    . intro hab
+      have := le_iff_exists_add.mp hab
+      rcases this with ⟨c,hc⟩
+      nth_rewrite 1 [hc]
+      rw[← add_assoc]
+      rw[h a]
+      tauto
+    . intro hab
+      rw[← hab]
+      exact le_self_add
+
+theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
+  ∀ a b: α, ((a ≤ a+b) ∧ (b ≤ a+b)) ∧ (∀ u: α, (a ≤ u) ∧ (b ≤ u) → a+b ≤ u) := by
+    intro a b
+    constructor
+    . constructor
+      . exact le_self_add
+      . rw[add_comm]
+        exact le_self_add
+    . intro u
+      intro hu
+      have ha := (le_iff_add_eq h _ _).mp hu.1
+      have hb := (le_iff_add_eq h _ _).mp hu.2
+      apply (le_iff_add_eq h _ _).mpr
+      rw[add_assoc]
+      rw[hb]
+      exact ha
+
+theorem idempotent_of_add_monus
+  [K: SemiringWithMonus α]
+  (h: ∀ a b c : α, (a + b) - c = (a - c) + (b - c)) : idempotent α := by
+      intro a
+      have ha := h a a a
+      simp[monus_self] at ha
+      have h₁ : a + a ≤ a := by
+        have := (K.monus_spec _ _ _).mp (le_of_eq ha)
+        simp at this
+        assumption
+      have h₂ : a ≤ a + a := by
+        exact le_self_add
+      exact eq_of_le_of_ge h₁ h₂
+
+theorem add_monus_of_idempotent [K: SemiringWithMonus α] (h: idempotent α) :
+  ∀ a b c : α, (a + b) - c = (a - c) + (b - c) := by
+    intro a b c
+    have h₁ : (a + b) - c ≤ (a - c) + (b - c) := by
+      apply (K.monus_spec _ _ _).mpr
+      have ha : a ≤ c + (a - c) := (monus_smallest _ _).1
+      have hb : b ≤ c + (b - c) := (monus_smallest _ _).1
+      have := add_le_add ha hb
+      apply le_trans this
+      simp[← add_assoc]
+      rw[add_assoc c _ c]
+      rw[add_comm (a-c) c]
+      simp[← add_assoc]
+      rw[h c]
+
+    have h₂ : (a - c) + (b - c) ≤ (a + b) - c := by
+      suffices h₂' : (a-c) ≤ (a + b) - c ∧ (b-c) ≤ (a + b) - c from
+        (plus_is_join h (a-c) (b-c)).2 _ h₂'
+      constructor
+      . have hab := @le_self_add _ _ _ _ a b
+        have habc := le_trans hab (monus_smallest (a+b) c).1
+        exact (K.monus_spec _ _ _).mpr habc
+      . have hab := @le_self_add _ _ _ _ b a
+        rw[add_comm] at hab
+        have habc := le_trans hab (monus_smallest (a+b) c).1
+        exact (K.monus_spec _ _ _).mpr habc
+
+    exact eq_of_le_of_ge h₁ h₂
+
 class HasAltLinearOrder (α : Type u) where
   altOrder : LinearOrder α
+
+end SemiringWithMonus

@@ -110,6 +110,11 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
         | inr h'' =>
           exact h''
 
+/-- The tropical semiring is idempotent --/
+theorem Tropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (Tropical α) := by
+  intro a
+  simp[(· + ·), Add.add]
+
 /-- The tropical semiring over `ℕ ∪ {∞}` is a semiring with monus. -/
 instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/

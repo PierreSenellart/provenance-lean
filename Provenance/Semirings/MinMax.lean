@@ -121,3 +121,14 @@ instance : SemiringWithMonus (MinMax α) where
     intro a b c
     simp[(· + ·),Add.add,(· ≤ ·),(· - ·),Sub.sub]
     split_ifs with h <;> simp <;> tauto
+
+theorem MinMax.absorptive : absorptive (MinMax α) := by
+  intro a
+  simp[(· + ·), Add.add]
+  congr
+  simp
+  left
+  rfl
+
+theorem MinMax.idempotent : idempotent (MinMax α) :=
+  idempotent_of_absorptive MinMax.absorptive

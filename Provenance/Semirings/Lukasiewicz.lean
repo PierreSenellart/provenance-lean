@@ -269,3 +269,17 @@ instance : SemiringWithMonus Lukasiewicz where
         . simp at hbc
           simp[le_of_lt hbc] at h
           contradiction
+
+theorem Lukasiewicz.absorptive : absorptive Lukasiewicz := by
+  intro a
+  simp[(· + ·), Add.add]
+  congr
+  refine max_eq_left ?_
+  have h₁ := a.1.2.2
+  have h₂ : (One.one: Lukasiewicz).1.1 = (1: ℚ) := by
+    rfl
+  simp[← h₂] at h₁
+  exact h₁
+
+theorem Lukasiewicz.idempotent : idempotent Lukasiewicz :=
+  idempotent_of_absorptive (Lukasiewicz.absorptive)

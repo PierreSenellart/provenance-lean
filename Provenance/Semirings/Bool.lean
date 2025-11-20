@@ -46,5 +46,11 @@ instance : SemiringWithMonus Bool where
     intro a b c
     apply Iff.intro <;> cases a <;> cases b <;> tauto
 
+theorem Bool.absorptive : absorptive Bool := by
+  simp
+  tauto
+
+theorem Bool.idempotent : idempotent Bool :=
+  idempotent_of_absorptive (Bool.absorptive)
 
 end Bool

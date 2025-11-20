@@ -64,3 +64,15 @@ noncomputable instance : SemiringWithMonus (MvPolynomial α ℕ) where
       exact Nat.sub_le_iff_le_add'.mp (h m)
     . intro h m
       exact Nat.sub_le_iff_le_add'.mpr (h m)
+
+theorem How.not_idempotent : ¬(idempotent (MvPolynomial α ℕ)) := by
+  simp
+  use (MvPolynomial.C 1)
+  rw[← MvPolynomial.C_add]
+  rw[MvPolynomial.C_inj _ _]
+  simp
+
+theorem How.not_absorptive : ¬(absorptive (MvPolynomial α ℕ)) := by
+  have h₁ := @idempotent_of_absorptive (MvPolynomial α ℕ) _
+  have h₂ : ¬(idempotent (MvPolynomial α ℕ)) := How.not_idempotent
+  tauto

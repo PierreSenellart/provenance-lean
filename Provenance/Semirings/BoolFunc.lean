@@ -126,3 +126,11 @@ instance : SemiringWithMonus (BoolFunc X) where
       have h' : b ν = true ∨ c ν = true := h ν ha
       simp[hb] at h'
       exact h'
+
+theorem BoolFunc.absorptive : absorptive (BoolFunc X) := by
+  intro a
+  simp[(· + ·),Add.add]
+  congr
+
+theorem BoolFunc.idempotent : idempotent (BoolFunc X) :=
+  idempotent_of_absorptive (BoolFunc.absorptive)

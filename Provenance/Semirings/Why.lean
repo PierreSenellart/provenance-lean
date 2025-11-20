@@ -235,3 +235,21 @@ instance : SemiringWithMonus (Why α) where
       have h' : x ∈ b.carrier ∪ c.carrier := h ha
       simp at h'
       tauto
+
+theorem Why.idempotent : idempotent (Why α) := by
+  intro a
+  simp[(· + ·), Add.add]
+
+theorem Why.not_absorptive (hNotEmpty: ∃ (x: α), ⊤) : ¬(absorptive (Why α)) := by
+  rcases hNotEmpty with ⟨x, _⟩
+  simp
+  use ⟨{{x}}⟩
+  simp[(· + ·), Add.add, insert, Set.insert]
+  intro h
+  have h' := congrArg Why.carrier h
+  have hone: (1: Why α).1=({∅}: Set (Set α)) := by
+    rfl
+  rw[hone] at h'
+  simp at h'
+  have := congrArg (fun S => {x} ∈ S) h'
+  simp at this
