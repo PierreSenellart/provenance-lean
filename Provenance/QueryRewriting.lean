@@ -96,7 +96,7 @@ lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
       simp[Tuple.cast]
       apply congrArg
       rw[eq_comm]
-      rw[Eq.rec_eq_cast]
+      rw[eqRec_eq_cast]
       rw[cast_eq_iff_heq]
       exact (HEq.symm heq)
       simp[hn]

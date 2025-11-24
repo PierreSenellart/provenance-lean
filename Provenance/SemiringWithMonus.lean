@@ -75,19 +75,21 @@ theorem zero_monus [K : SemiringWithMonus α] :
   }
 
 theorem add_monus [K : SemiringWithMonus α] :
-  ∀ a b : α, a + (b - a) = b + (a - b) := by {
+  ∀ a b : α, a + (b - a) = b + (a - b) := by
     intro a b
 
-    have h : ∀ a b c : α, (a ≤ c ∧ b ≤ c) → a+(b-a) ≤ c := by {
-        intro a b c hc
-        rcases hc with ⟨ha, hb⟩
-        rcases (exists_add_of_le ha) with ⟨d, ha'⟩
-        rw [ha'] at hb
-        rw [← SemiringWithMonus.monus_spec] at hb
-        apply add_le_add_left at hb
-        specialize hb a
-        simp [ha', hb]
-      }
+    have h : ∀ a b c : α, (a ≤ c ∧ b ≤ c) → a+(b-a) ≤ c := by
+      intro a b c hc
+      rcases hc with ⟨ha, hb⟩
+      rcases (exists_add_of_le ha) with ⟨d, ha'⟩
+      rw [ha'] at hb
+      rw [← SemiringWithMonus.monus_spec] at hb
+      apply add_le_add_left at hb
+      specialize hb a
+      rw[add_comm]
+      simp [ha']
+      nth_rewrite 2 [add_comm]
+      assumption
 
     apply le_antisymm
 
@@ -100,7 +102,6 @@ theorem add_monus [K : SemiringWithMonus α] :
       constructor
       . simp [← SemiringWithMonus.monus_spec]
       . simp
-  }
 
 theorem monus_add [K: SemiringWithMonus α] :
   ∀ a b c : α, a - (b + c) = a - b - c := by {
@@ -125,7 +126,7 @@ theorem monus_add [K: SemiringWithMonus α] :
         a ≤ b + (a-b)       := by rw [← SemiringWithMonus.monus_spec a b (a-b)]
         _ ≤ b + c + (a-b-c) := by {
           rw [add_assoc]
-          apply add_le_add_left
+          apply add_le_add_right
           rw [← SemiringWithMonus.monus_spec (a-b) c (a-b-c)]
         }
 
@@ -139,8 +140,7 @@ abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
 
 theorem idempotent_of_absorptive [K: Semiring α] :
   absorptive α → idempotent α := by
-    intro habs
-    intro a
+    intro habs a
     nth_rewrite 1 2 [← mul_one a]
     rw[← mul_add]
     simp[habs 1]
@@ -168,8 +168,7 @@ theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
       . exact le_self_add
       . rw[add_comm]
         exact le_self_add
-    . intro u
-      intro hu
+    . intro u hu
       have ha := (le_iff_add_eq h _ _).mp hu.1
       have hb := (le_iff_add_eq h _ _).mp hu.2
       apply (le_iff_add_eq h _ _).mpr

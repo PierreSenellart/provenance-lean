@@ -101,6 +101,10 @@ instance : SemiringWithMonus (BoolFunc X) where
     simp[(· + ·),Add.add,(· ≤ ·)]
     tauto
 
+  le_add_self := by
+    simp[(· + ·),Add.add,(· ≤ ·)]
+    tauto
+
   add_le_add_left := by
     simp[(· + ·),Add.add,(· ≤ ·)]
     tauto

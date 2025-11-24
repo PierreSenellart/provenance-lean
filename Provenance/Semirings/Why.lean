@@ -45,23 +45,20 @@ instance : CommSemiring (Why α) where
     simp [HMul.hMul]
     apply Iff.intro
     . intro h
-      obtain ⟨x,h₁, h₂⟩ := h
-      obtain ⟨y, hy, z, hz, hx⟩ := h₁
-      obtain ⟨t, ht, hw⟩ := h₂
-      simp[hx] at hw
-      use y, hy, z ∪ t
+      obtain ⟨xa, xb, h₁, h₂⟩ := h
+      obtain ⟨hxa, hxb⟩ := h₁
+      obtain ⟨xc, hxc, hw⟩ := h₂
+      use xa, hxa, xb, xc
       constructor
-      . use z, hz, t, ht
+      . use hxb, hxc
       . simp[hw, Set.union_assoc]
 
     . intro h
-      obtain ⟨y, hy, x, h', hw⟩ := h
-      obtain ⟨z, hz, t, ht, hx⟩ := h'
-      use y ∪ z
-      simp[hx] at hw
+      obtain ⟨xa, hxa, xb, xc, hxbc, hw⟩ := h
+      use xa, xb
       constructor
-      . use y, hy, z, hz
-      . use t, ht
+      . use hxa, hxbc.1
+      . use xc, hxbc.2
         simp[hw, Set.union_assoc]
 
   one_mul := by
@@ -181,14 +178,14 @@ instance : SemiringWithMonus (Why α) where
     simp[HAdd.hAdd,Add.add]
     intro a b hab c x hx
     simp
-    right
+    left
     exact hab hx
 
   add_le_add_right := by
     simp[HAdd.hAdd,Add.add]
     intro a b hab c x hx
     simp
-    left
+    right
     exact hab hx
 
   exists_add_of_le := by
@@ -216,6 +213,12 @@ instance : SemiringWithMonus (Why α) where
     left
     exact hx
 
+  le_add_self := by
+    intro a b x hx
+    simp[HAdd.hAdd,Add.add]
+    right
+    exact hx
+
   sub a b := ⟨a.carrier \ b.carrier⟩
   monus_spec := by
     intro a b c
@@ -240,7 +243,7 @@ theorem Why.idempotent : idempotent (Why α) := by
   intro a
   simp[(· + ·), Add.add]
 
-theorem Why.not_absorptive (hNotEmpty: ∃ (x: α), ⊤) : ¬(absorptive (Why α)) := by
+theorem Why.not_absorptive (hNotEmpty: ∃ (_: α), ⊤) : ¬(absorptive (Why α)) := by
   rcases hNotEmpty with ⟨x, _⟩
   simp
   use ⟨{{x}}⟩

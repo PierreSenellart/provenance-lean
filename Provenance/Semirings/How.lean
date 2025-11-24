@@ -28,8 +28,7 @@ instance : PartialOrder (MvPolynomial α ℕ) where
     exact le_antisymm (hab m) (hba m)
 
   le_trans := by
-    intro a b c hab hbc
-    intro m
+    intro a b c hab hbc m
     exact le_trans (hab m) (hbc m)
 
 
@@ -51,6 +50,10 @@ instance : CanonicallyOrderedAdd (MvPolynomial α ℕ) where
   le_self_add := by
     intro a b m
     exact le_add_of_nonneg_right (by simp)
+
+  le_add_self := by
+    intro a b m
+    exact le_add_of_nonneg_left (by simp)
 
 
 /-- Marked as noncomputable only because the proof that `MvPolynomial` is a

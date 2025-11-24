@@ -130,7 +130,7 @@ instance : CommSemiring Lukasiewicz where
           calc
             a.carrier.val + b.carrier.val + c.carrier.val
               = a.carrier.val + (b.carrier.val + c.carrier.val) := by ring
-            _ < a.carrier.val + 1 := add_lt_add_left h₂ a.carrier.val
+            _ < a.carrier.val + 1 := add_lt_add_right h₂ a.carrier.val
             _ ≤ 1 + 1 := by simp[ha.2]
             _ = 2 := by norm_num
         have := add_lt_add_left bound (-1)
@@ -148,7 +148,7 @@ instance : CommSemiring Lukasiewicz where
         have bound : a.carrier.val + b.carrier.val + c.carrier.val < 2 := by
           calc
             a.carrier.val + b.carrier.val + c.carrier.val
-            _ < 1 + c.carrier.val := add_lt_add_right h₁ c.carrier.val
+            _ < 1 + c.carrier.val := add_lt_add_left h₁ c.carrier.val
             _ ≤ 1 + 1 := by simp[hc.2]
             _ = 2 := by norm_num
         have := add_lt_add_left bound (-1)
@@ -225,12 +225,12 @@ instance : IsOrderedAddMonoid Lukasiewicz where
     intro a b hab c
     simp[(· + ·),Add.add]
     by_cases hca : c.carrier ≤ a.carrier
-    . rw[max_eq_right hca]
-      rw[max_eq_right (le_trans hca hab)]
+    . rw[max_eq_left hca]
+      rw[max_eq_left (le_trans hca hab)]
       exact hab
     . simp at hca
-      rw[max_eq_left (le_of_lt hca)]
-      exact le_max_left c.carrier b.carrier
+      rw[max_eq_right (le_of_lt hca)]
+      exact le_max_right b.carrier c.carrier
 
 instance : CanonicallyOrderedAdd Lukasiewicz where
   exists_add_of_le := by
@@ -243,6 +243,11 @@ instance : CanonicallyOrderedAdd Lukasiewicz where
     intro a b
     simp[(· + ·), Add.add]
     exact le_max_left a.carrier b.carrier
+
+  le_add_self := by
+    intro a b
+    simp[(· + ·), Add.add]
+    exact le_max_right b.carrier a.carrier
 
 instance : SemiringWithMonus Lukasiewicz where
   monus_spec := by

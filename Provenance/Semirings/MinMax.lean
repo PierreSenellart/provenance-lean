@@ -104,7 +104,7 @@ instance : SemiringWithMonus (MinMax α) where
   add_le_add_left := by
     intro a b hab c
     simp[(· + ·),Add.add,(· ≤ ·)]
-    exact Or.inr hab
+    exact Or.inl hab
 
   exists_add_of_le := by
     intro a b hab
@@ -114,6 +114,10 @@ instance : SemiringWithMonus (MinMax α) where
     exact hab
 
   le_self_add := by
+    intro a b
+    simp[(· + ·),Add.add,(· ≤ ·)]
+
+  le_add_self := by
     intro a b
     simp[(· + ·),Add.add,(· ≤ ·)]
 

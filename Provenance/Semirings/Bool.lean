@@ -33,6 +33,10 @@ instance : SemiringWithMonus Bool where
     intro a b
     cases a <;> tauto
 
+  le_add_self := by
+    intro a b
+    cases b <;> tauto
+
   add_le_add_left := by
     intro a b h c
     cases a <;> cases b <;> cases c <;> tauto

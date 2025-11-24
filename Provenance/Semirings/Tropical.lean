@@ -69,13 +69,16 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
     rw[tropical_order_ge] at h
 
     calc
-      c + a + (c + b) = c + (a + (c + b)) := by rw[add_assoc]
+      a + c + (b + c) = c + a + (c + b)   := by simp[add_comm]
+                    _ = c + (a + (c + b)) := by rw[add_assoc]
                     _ = c + (a + c + b)   := by rw[add_assoc]
                     _ = c + (c + a + b)   := by rw[add_comm a c]
                     _ = c + (c + (a + b)) := by rw[add_assoc]
                     _ = c + (c + b)       := by rw[h]
                     _ = c + c + b         := by rw[add_assoc]
                     _ = c + b             := by simp
+
+    simp[add_comm]
 
   exists_add_of_le := by
     intro a b h
@@ -89,6 +92,9 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
     calc
       a + (a + b) = a + a + b := by rw[add_assoc]
                 _ = a + b     := by simp
+
+  le_add_self := by
+    simp[add_comm]
 
   monus_spec := by
     intro a b c

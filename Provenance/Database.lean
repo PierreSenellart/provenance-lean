@@ -46,14 +46,14 @@ instance [ToString T] : ToString (Tuple T n) where
   toString t :=
     "(" ++ String.intercalate ", " (List.ofFn (fun i => toString (t i))) ++ ")"
 
-instance : DecidableRel ((·: Tuple T n) = ·) :=
+instance : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ = t₂) :=
   λ f g ↦
     if h : ∀ i, f i = g i then
       isTrue (funext h)
     else
       isFalse (fun H => h (congrFun H))
 
-instance : DecidableRel ((·: Tuple T n) < ·) :=
+instance : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ < t₂) :=
   λ f g ↦
     if h : ∃ i : Fin n, (∀ j, j < i → f j = g j) ∧ f i < g i then
       isTrue (h)
@@ -197,8 +197,7 @@ instance : LinearOrder (Tuple T n) where
         rcases hab with ⟨i, hi⟩
         simp
         constructor
-        . intro k
-          intro h
+        . intro k h
           cases hki : compare k i with
           | eq =>
             simp at hki

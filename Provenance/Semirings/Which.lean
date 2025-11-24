@@ -160,13 +160,17 @@ instance : CanonicallyOrderedAdd (Which α) where
     intro a b
     cases a <;> cases b <;> simp [(· ≤ ·)]
 
+  le_add_self := by
+    intro a b
+    cases a <;> cases b <;> simp [(· ≤ ·)]
+
 instance : IsOrderedAddMonoid (Which α) where
   add_le_add_left := by
     intro a b
     simp[(· + ·),Add.add,(· ≤ ·)]
     cases a <;> cases b <;> intro h c <;> cases c <;> simp <;> simp at h
     . rename_i x y z
-      exact Finset.union_subset_union_right h
+      exact Finset.union_subset_union_left h
     . assumption
 
   add_le_add_right := by
@@ -174,7 +178,7 @@ instance : IsOrderedAddMonoid (Which α) where
     simp[(· + ·),Add.add,(· ≤ ·)]
     cases a <;> cases b <;> intro h c <;> cases c <;> simp <;> simp at h
     . rename_i x y z
-      exact Finset.union_subset_union_left h
+      exact Finset.union_subset_union_right h
     . assumption
 
 instance : SemiringWithMonus (Which α) where
