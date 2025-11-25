@@ -208,6 +208,30 @@ instance : SemiringWithMonus (Which α) where
     . rename_i sb
       by_cases h' : sa ⊆ sb <;> simp[h']
 
+
+/-- Which[X] is not absorptive as long as there is at least one variable -/
+theorem Which.not_absorptive (h: ∃ (x: α), ⊤) : ¬(absorptive (Which α)) := by
+  rcases h with ⟨x, hx⟩
+  simp
+  use wset {x}
+  simp[(· + ·), Add.add]
+  have : wset ∅ = (1: Which α) := by
+    rfl
+  rw[← this]
+  simp
+
+/-- Which[∅] is absorptive -/
+theorem Which.absorptive (h: IsEmpty α): absorptive (Which α) := by
+  intro x
+  simp[(· + ·), Add.add]
+  cases hx: x
+  . rename_i a
+    have : a = ∅ := by
+      exact Finset.eq_empty_of_isEmpty a
+    simp[this]
+    rfl
+  . rfl
+
 theorem Which.idempotent : idempotent (Which α) := by
   intro a
   simp[(· + ·), Add.add]
