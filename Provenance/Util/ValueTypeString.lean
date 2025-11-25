@@ -4,14 +4,14 @@ import Mathlib.Data.String.Basic
 import Provenance.Util.ValueType
 
 instance : Zero String where
-  zero := "0"
+  zero := Nat.repr 0
 
 instance: Add String where
   add s t := match s.toNat? with
   | none => ""
   | some n => match t.toNat? with
               | none => ""
-              | some m => toString (n+m)
+              | some m => Nat.repr (n+m)
 
 instance: Sub String where
   sub _ _ := ""
@@ -19,18 +19,21 @@ instance: Sub String where
 instance: Mul String where
   mul _ _ := ""
 
-lemma toNat_toString : ∀ n : ℕ, (toString (n)).toNat? = some n := by
+#find (Nat.repr _).toNat?
+
+lemma toNat_reprStr : ∀ n : ℕ, (Nat.repr n).toNat? = some n := by
   intro n
   induction n with
   | zero =>
-    have : toString (0) = "0":= by decide
-    rw[this]
     simp[String.toNat?]
     constructor
-    . admit
-    . admit
+    . simp[String.isNat]
+      constructor
+      . decide
+      . apply String.all_eq
+    . apply String.foldl_eq
   | succ n ih =>
-    admit
+    sorry
 
 instance: ValueType String where
   add_comm := by
@@ -74,7 +77,7 @@ instance: ValueType String where
         | none => contradiction
         | some valb =>
           simp[hes]
-          cases hx: (toString (vala+valb)).toNat? <;> simp
+          cases hx: (Nat.repr (vala+valb)).toNat? <;> simp
     . cases ha': a.toNat? with
       | none => contradiction
       | some vala =>
@@ -84,5 +87,5 @@ instance: ValueType String where
           cases hc': c.toNat? with
           | none => contradiction
           | some valc =>
-            simp[toNat_toString]
+            simp[toNat_reprStr]
             rw[Nat.add_assoc]
