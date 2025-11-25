@@ -138,3 +138,10 @@ theorem BoolFunc.absorptive : absorptive (BoolFunc X) := by
 
 theorem BoolFunc.idempotent : idempotent (BoolFunc X) :=
   idempotent_of_absorptive (BoolFunc.absorptive)
+
+theorem BoolFunc.mul_sub_left_distributive : mul_sub_left_distributive (BoolFunc X) := by
+  intro x y z
+  simp[(· * ·),Mul.mul,(· - ·),Sub.sub]
+  apply funext
+  intro ν
+  by_cases hx: x ν <;> by_cases hy: y ν <;> by_cases hz: z ν <;> simp[hx,hy,hz]

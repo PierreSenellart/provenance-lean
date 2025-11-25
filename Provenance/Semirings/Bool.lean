@@ -57,4 +57,7 @@ theorem Bool.absorptive : absorptive Bool := by
 theorem Bool.idempotent : idempotent Bool :=
   idempotent_of_absorptive (Bool.absorptive)
 
+theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by
+  decide
+
 end Bool

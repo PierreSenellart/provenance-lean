@@ -6,7 +6,6 @@ import Mathlib.Algebra.Order.Monoid.Canonical.Defs
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Order.Ring.Canonical
 import Mathlib.Algebra.Order.Ring.Defs
-import Mathlib.Algebra.Ring.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Insert
 
@@ -137,6 +136,8 @@ theorem monus_add [K: SemiringWithMonus α] :
 abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
 
 abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
+
+abbrev mul_sub_left_distributive (α) [SemiringWithMonus α] := ∀ a b c : α, a * (b - c) = a*b - a*c
 
 theorem idempotent_of_absorptive [K: Semiring α] :
   absorptive α → idempotent α := by
