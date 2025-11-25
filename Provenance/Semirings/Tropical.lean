@@ -116,6 +116,14 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
         | inr h'' =>
           exact h''
 
+/-- The tropical semiring is absorptive, as long as the order in the
+  addition monoid corresponds to a canonical order (e.g., as in ℕ) --/
+theorem Tropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [CanonicallyOrderedAdd α] : absorptive (Tropical α) := by
+  intro a
+  simp only[(· + ·), Add.add]
+  congr
+  simp[untrop_one]
+
 /-- The tropical semiring is idempotent --/
 theorem Tropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (Tropical α) := by
   intro a
