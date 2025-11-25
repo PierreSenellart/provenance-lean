@@ -6,6 +6,7 @@ import Mathlib.Algebra.Order.Monoid.Canonical.Defs
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Order.Ring.Canonical
 import Mathlib.Algebra.Order.Ring.Defs
+import Mathlib.Algebra.Ring.Hom.Defs
 import Mathlib.Data.Set.Basic
 import Mathlib.Data.Set.Insert
 
@@ -222,5 +223,9 @@ theorem add_monus_of_idempotent [K: SemiringWithMonus α] (h: idempotent α) :
 
 class HasAltLinearOrder (α : Type u) where
   altOrder : LinearOrder α
+
+class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMonus β]
+  extends RingHom α β where
+  map_sub : ∀ (x y: α), toFun (x - y) = toFun x - toFun y
 
 end SemiringWithMonus
