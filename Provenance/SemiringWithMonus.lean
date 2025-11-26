@@ -221,6 +221,10 @@ theorem add_monus_of_idempotent [K: SemiringWithMonus α] (h: idempotent α) :
 
     exact eq_of_le_of_ge h₁ h₂
 
+theorem idempotent_iff_add_monus [SemiringWithMonus α] :
+  idempotent α ↔ ∀ a b c : α, (a + b) - c = (a - c) + (b - c)
+    := ⟨add_monus_of_idempotent, idempotent_of_add_monus⟩
+
 class HasAltLinearOrder (α : Type u) where
   altOrder : LinearOrder α
 
