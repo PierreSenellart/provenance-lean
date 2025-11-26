@@ -136,3 +136,46 @@ theorem MinMax.absorptive : absorptive (MinMax α) := by
 
 theorem MinMax.idempotent : idempotent (MinMax α) :=
   idempotent_of_absorptive MinMax.absorptive
+
+abbrev MaxMin (α : Type) := MinMax (OrderDual α)
+
+instance : CommSemiring (MaxMin α) :=
+  inferInstanceAs (CommSemiring (MinMax (OrderDual α)))
+
+instance : SemiringWithMonus (MaxMin α) :=
+  inferInstanceAs (SemiringWithMonus (MinMax (OrderDual α)))
+
+inductive TVL
+| bot
+| unknown
+| top
+deriving DecidableEq, Repr, Ord
+
+instance : LE TVL where
+  le := λ a b => (compare a b).isLE
+
+instance : LinearOrder TVL where
+  le_refl := by intro a; cases a <;> decide
+  le_trans := by intro a b c; cases a <;> cases b <;> cases c <;> decide
+  le_antisymm := by intro a b; cases a <;> cases b <;> decide
+  le_total := by intro a b; cases a <;> cases b <;> decide
+  toDecidableLE := inferInstance
+
+instance : OrderBot TVL where
+  bot := TVL.bot
+  bot_le := by intro a; cases a <;> decide
+
+instance : OrderTop TVL where
+  top := TVL.top
+  le_top := by intro a; cases a <;> decide
+
+instance : CommSemiring (MaxMin TVL) :=
+  inferInstance
+
+instance : SemiringWithMonus (MaxMin TVL) :=
+  inferInstance
+
+theorem TVL.not_mul_sub_left_distributive : ¬(mul_sub_left_distributive (MaxMin TVL)) := by
+  simp
+  use ⟨TVL.unknown⟩, ⟨TVL.top⟩, ⟨TVL.unknown⟩
+  decide
