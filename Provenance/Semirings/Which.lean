@@ -210,7 +210,7 @@ instance : SemiringWithMonus (Which α) where
 
 
 /-- Which[X] is not absorptive as long as there is at least one variable -/
-theorem Which.not_absorptive (h: ∃ (x: α), ⊤) : ¬(absorptive (Which α)) := by
+theorem Which.not_absorptive (h: ∃ (_: α), ⊤) : ¬(absorptive (Which α)) := by
   rcases h with ⟨x, hx⟩
   simp
   use wset {x}
