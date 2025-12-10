@@ -56,6 +56,7 @@ theorem monus_smallest [K : SemiringWithMonus α] :
       exact h
   }
 
+/-- In a `SemiringWithMonus`, `a - a = 0`. -/
 theorem monus_self [K : SemiringWithMonus α] :
   ∀ a : α, a - a = 0 := by {
     intro a
@@ -65,6 +66,7 @@ theorem monus_self [K : SemiringWithMonus α] :
     . simp
   }
 
+/-- In a `SemiringWithMonus`, `0 - a = 0`. -/
 theorem zero_monus [K : SemiringWithMonus α] :
   ∀ a : α, 0 - a = 0 := by {
     intro a
@@ -74,6 +76,7 @@ theorem zero_monus [K : SemiringWithMonus α] :
     . simp
   }
 
+/-- In a `SemiringWithMonus`, `a + (b -a) = b + (a - b)`. -/
 theorem add_monus [K : SemiringWithMonus α] :
   ∀ a b : α, a + (b - a) = b + (a - b) := by
     intro a b
@@ -103,6 +106,7 @@ theorem add_monus [K : SemiringWithMonus α] :
       . simp [← SemiringWithMonus.monus_spec]
       . simp
 
+/-- In a `SemiringWithMonus`, monus is left-distributive over plus. -/
 theorem monus_add [K: SemiringWithMonus α] :
   ∀ a b c : α, a - (b + c) = a - b - c := by {
     intro a b c
@@ -134,12 +138,21 @@ theorem monus_add [K: SemiringWithMonus α] :
       rw [← SemiringWithMonus.monus_spec]
   }
 
+/-! ## Additional properties
+
+The following properties do not always hold in an arbitrary m-semiring.
+-/
+
+/-- A `Semiring` is idempotent if `a + a = a`. -/
 abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
 
+/-- A `Semiring` is absorptive (also called 0-closed or 0-bounded) if `1 + a = a`. -/
 abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
 
+/-- We define left-distributivity of times over monus in a `SemiringWithMonus`. -/
 abbrev mul_sub_left_distributive (α) [SemiringWithMonus α] := ∀ a b c : α, a * (b - c) = a*b - a*c
 
+/-- Absorptivity implies idempotence -/
 theorem idempotent_of_absorptive [K: Semiring α] :
   absorptive α → idempotent α := by
     intro habs a
@@ -147,8 +160,9 @@ theorem idempotent_of_absorptive [K: Semiring α] :
     rw[← mul_add]
     simp[habs 1]
 
+/-- In an idempotent `SemiringWithMonus`, `a ≤ b` iff `a + b = b`. -/
 theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
-  ∀ a b: α, a<=b ↔ a+b = b := by
+  ∀ a b: α, a ≤ b ↔ a+b = b := by
     intro a b
     apply Iff.intro
     . intro hab
@@ -162,6 +176,8 @@ theorem le_iff_add_eq [K: SemiringWithMonus α] (h: idempotent α) :
       rw[← hab]
       exact le_self_add
 
+/-- In an idempotent `SemiringWithMonus`, plus is the join of the
+  semilattice -/
 theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
   ∀ a b: α, ((a ≤ a+b) ∧ (b ≤ a+b)) ∧ (∀ u: α, (a ≤ u) ∧ (b ≤ u) → a+b ≤ u) := by
     intro a b
@@ -178,6 +194,8 @@ theorem plus_is_join [K: SemiringWithMonus α] (h: idempotent α) :
       rw[hb]
       exact ha
 
+/-- In a `SemiringWithMonus`, right-distributivity of monus
+  over plus implies idempotence. -/
 theorem idempotent_of_add_monus
   [K: SemiringWithMonus α]
   (h: ∀ a b c : α, (a + b) - c = (a - c) + (b - c)) : idempotent α := by
@@ -192,6 +210,8 @@ theorem idempotent_of_add_monus
         exact le_self_add
       exact eq_of_le_of_ge h₁ h₂
 
+/-- In a `SemiringWithMonus`, idempotence implies right-distributivity of monus
+  over plus. -/
 theorem add_monus_of_idempotent [K: SemiringWithMonus α] (h: idempotent α) :
   ∀ a b c : α, (a + b) - c = (a - c) + (b - c) := by
     intro a b c
@@ -221,9 +241,19 @@ theorem add_monus_of_idempotent [K: SemiringWithMonus α] (h: idempotent α) :
 
     exact eq_of_le_of_ge h₁ h₂
 
+/-- A `SemiringWithMonus` is idempotent iff monus is right-distributive
+  over plus. -/
+theorem idempotent_iff_add_monus [SemiringWithMonus α] :
+  idempotent α ↔ ∀ a b c : α, (a + b) - c = (a - c) + (b - c)
+    := ⟨add_monus_of_idempotent, idempotent_of_add_monus⟩
+
+/-! ## Miscellaneous
+-/
+
 class HasAltLinearOrder (α : Type u) where
   altOrder : LinearOrder α
 
+/-- Definition of a homomorphism of `SemiringWithMonus`s -/
 class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMonus β]
   extends RingHom α β where
   map_sub : ∀ (x y: α), toFun (x - y) = toFun x - toFun y
