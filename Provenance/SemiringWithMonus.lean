@@ -256,6 +256,10 @@ class HasAltLinearOrder (α : Type u) where
 /-- Definition of a homomorphism of `SemiringWithMonus`s -/
 class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMonus β]
   extends RingHom α β where
-  map_sub : ∀ (x y: α), toFun (x - y) = toFun x - toFun y
+  map_sub : ∀ (x y: α), toRingHom (x - y) = toRingHom x - toRingHom y
+
+instance (α β) [SemiringWithMonus α] [SemiringWithMonus β] :
+  CoeFun (SemiringWithMonusHom α β) (fun _ ↦ α → β) where
+  coe f := fun x => f.toRingHom x
 
 end SemiringWithMonus

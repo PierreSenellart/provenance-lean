@@ -3,6 +3,7 @@ import Mathlib.Algebra.MvPolynomial.Eval
 import Mathlib.Data.Finsupp.ToDFinsupp
 
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.Nat
 
 variable {X: Type} [DecidableEq X]
 
@@ -16,6 +17,12 @@ instance : Sub (MvPolynomial X ℕ) where
     let bDF := b.toDFinsupp
     let rDF := DFinsupp.zipWith (λ m x y ↦ x - y) (by simp) aDF bDF
     rDF.toFinsupp
+
+
+theorem coeff_sub (p q : MvPolynomial X ℕ) (n : X →₀ ℕ) :
+  (p-q).coeff n = p.coeff n - q.coeff n := by
+    simp only[HSub.hSub, Sub.sub]
+    simp [MvPolynomial.coeff, DFinsupp.toFinsupp, DFinsupp.zipWith]
 
 
 instance : PartialOrder (MvPolynomial X ℕ) where
@@ -81,11 +88,55 @@ theorem How.not_absorptive : ¬(absorptive (MvPolynomial X ℕ)) := by
   have h₂ : ¬(idempotent (MvPolynomial X ℕ)) := How.not_idempotent
   tauto
 
+
 /-- The How[X] semiring is universal among commutative semirings. This
   was observed in [Green, Karnouvarakis, Tannen, *Provenance
   Semirings*, Proposition 4.2][green2007provenance]. -/
-theorem How.universal (K : Type) [CommSemiring K] :
+theorem How.universal (K: Type) [CommSemiring K] :
   ∀ ν: X → K, ∃ h: RingHom (MvPolynomial X ℕ) K, ∀ i: X, h (MvPolynomial.X i) = ν i := by
     intro ν
     use MvPolynomial.eval₂Hom (Nat.castRingHom K) ν
     simp[MvPolynomial.eval₂Hom_X']
+
+/-- The How[X] semiring is not universal among commutative m-semirings, as
+long as there is at least one variable in X (if there is none, the notion
+of universality is trivial). This was shown in
+[Geerts & Poggi, *On database query languages for K-relations*, Example
+10][geerts2010database]. -/
+theorem How.not_universal_m [Inhabited X] :
+  ∃ ν: X → ℕ, ¬(∃ h: SemiringWithMonusHom (MvPolynomial X ℕ) ℕ, ∀ i: X, h (MvPolynomial.X i) = ν i) := by
+    let ν : X → ℕ := fun i => 1
+    use ν
+    intro h_exists
+    rcases h_exists with ⟨h, hX⟩
+
+    let x: MvPolynomial X ℕ := MvPolynomial.X (default: X)
+
+    have hx : h x = 1 := by
+      simpa using hX _
+
+    have h₁: h (x*x - x) = 0 := by
+      simp[h.map_sub (x*x) x]
+      simp[hx]
+
+    have hxx: x*x = (MvPolynomial.X default)^2 := by
+      simp[x, pow_two]
+
+    have h₂: x*x - x = x*x := by
+      simp[hxx]
+      ext m
+      simp[coeff_sub]
+      simp[x]
+      rw[MvPolynomial.coeff_X_pow]
+      by_cases hm : Finsupp.single default 2 = m
+      . simp[← hm]
+      . by_cases hm': Finsupp.single default 1 = m
+        . simp[← hm']
+          simp[Finsupp.single]
+        . simp[hm]
+
+    have h₂': h (x*x - x) = 1 := by
+      simp[h₂]
+      exact hx
+
+    simp[h₁] at h₂'
