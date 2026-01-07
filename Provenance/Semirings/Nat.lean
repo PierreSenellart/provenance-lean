@@ -35,6 +35,9 @@ instance : SemiringWithMonus Nat where
 instance : HasAltLinearOrder Nat where
   altOrder := inferInstance
 
+theorem Nat.mul_sub_left_distributive : mul_sub_left_distributive Nat :=
+  Nat.mul_sub_left_distrib
+
 theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
   simp
   use 1
