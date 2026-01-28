@@ -42,3 +42,7 @@ theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
   simp
   use 1
   simp
+
+theorem Nat.not_absorptive : ¬ (absorptive Nat) := by
+  by_contra h
+  exact Nat.not_idempotent (idempotent_of_absorptive h)
