@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 section Bool
 
@@ -28,36 +29,33 @@ instance : CommSemiring Bool where
 
 
 instance : SemiringWithMonus Bool where
-  -- natural order
-  le_self_add := by
-    intro a b
-    cases a <;> tauto
+  le_self_add := by decide
+  le_add_self := by decide
+  add_le_add_left := by decide
+  exists_add_of_le := by decide
+  monus_spec := by decide
 
-  le_add_self := by
-    intro a b
-    cases b <;> tauto
 
-  add_le_add_left := by
-    intro a b h c
-    cases a <;> cases b <;> cases c <;> tauto
+theorem Bool.absorptive : absorptive Bool := by decide
 
-  exists_add_of_le := by
-    intro a b h
-    rw[le_iff_exists_sup] at h
-    exact h
+theorem Bool.idempotent : idempotent Bool := by decide
 
-  monus_spec := by
-    intro a b c
-    apply Iff.intro <;> cases a <;> cases b <;> tauto
+theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by decide
 
-theorem Bool.absorptive : absorptive Bool := by
-  simp
-  tauto
-
-theorem Bool.idempotent : idempotent Bool :=
-  idempotent_of_absorptive (Bool.absorptive)
-
-theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by
-  decide
+/-- Injective m-semiring homomorphism from Bool to Bool[X] -/
+theorem Bool.homomorphism_from_BoolFunc :
+  ∃ ν: SemiringWithMonusHom Bool (BoolFunc X), Function.Injective ν := by
+    use {
+      toFun     := fun b => fun _ => b
+      map_zero' := rfl
+      map_one'  := rfl
+      map_add'  := by intro a b; rfl
+      map_mul'  := by intro a b; rfl
+      map_sub   := by intro a b; rfl
+    }
+    simp
+    by_contra heq
+    have := congrFun heq default
+    tauto
 
 end Bool
