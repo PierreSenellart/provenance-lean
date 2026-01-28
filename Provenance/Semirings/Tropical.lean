@@ -116,19 +116,6 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
         | inr h'' =>
           exact h''
 
-/-- The tropical semiring is absorptive, as long as the order in the
-  addition monoid corresponds to a canonical order (e.g., as in ℕ) --/
-theorem Tropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [CanonicallyOrderedAdd α] : absorptive (Tropical α) := by
-  intro a
-  simp only[(· + ·), Add.add]
-  congr
-  simp[untrop_one]
-
-/-- The tropical semiring is idempotent --/
-theorem Tropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (Tropical α) := by
-  intro a
-  simp[(· + ·), Add.add]
-
 /-- The tropical semiring over `ℕ ∪ {∞}` is a semiring with monus. -/
 instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/
@@ -140,3 +127,80 @@ K-relations*, Example 4][geerts2010database] which claims this semiring
 cannot be extended to a semiring with monus: indeed, that paper gives
 a wrong definition of the monus operator in the tropical semiring. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℝ)) := inferInstance
+
+/-- The tropical semiring is absorptive, as long as the order in the
+  addition monoid corresponds to a canonical order (e.g., as in ℕ) --/
+theorem Tropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [CanonicallyOrderedAdd α] : absorptive (Tropical α) := by
+  intro a
+  simp only[(· + ·), Add.add]
+  congr
+  simp[untrop_one]
+
+theorem TropicalN.absorptive : absorptive (Tropical (WithTop ℕ)) := by
+  exact Tropical.absorptive
+
+/-- Times distributes over monus on tropical semirings made of an order
+  strictly compatible with addition, with an additional top element. -/
+theorem Tropical.mul_sub_left_distributive
+  [LinearOrder α] [AddCommMonoid α] [IsOrderedAddMonoid α] [AddLeftStrictMono α]:
+  mul_sub_left_distributive (Tropical (WithTop α)) := by
+    intro a b c
+    simp[(· - ·), Sub.sub]
+    split_ifs with h₁ h₂ h₃
+    . exact mul_zero _
+    . simp at *
+      simp only[(· ≤ ·)] at h₁
+      have h' := add_le_add_right h₁ (untrop a)
+      have contradiction := lt_of_lt_of_le h₂ h'
+      simp at contradiction
+    . simp only[(· ≤ ·)] at h₁
+      have h : untrop b < untrop c := by
+        exact lt_of_not_ge h₁
+      by_cases ha: untrop a = ⊤
+      . simp only[ha,(· * ·),Mul.mul]
+        rfl
+      . have : ∃ x, untrop a = some x := by
+          exact Option.ne_none_iff_exists'.mp ha
+        rcases this with ⟨x, hx⟩
+        have h: untrop a + untrop b < untrop a + untrop c := by
+          simp only[(· + ·), Add.add]
+          unfold Option.map₂ Option.bind Option.map
+          simp[hx]
+          by_cases hb: untrop b = ⊤
+          . simp[hb] at h
+          . have : ∃ y, untrop b = some y := by
+              exact Option.ne_none_iff_exists'.mp hb
+            rcases this with ⟨y, hy⟩
+            simp[hy]
+            by_cases hc : untrop c = ⊤
+            . simp[hc]
+              exact compareOfLessAndEq_eq_lt.mp rfl
+            . have : ∃ z, untrop c = some z := by
+                exact Option.ne_none_iff_exists'.mp hc
+              rcases this with ⟨z, hz⟩
+              simp[hz]
+              rw[WithTop.lt_def]
+              simp
+              use x+y, x+z
+              constructor
+              . apply add_lt_add_right _
+                simp[hy,hz] at h
+                exact WithTop.coe_lt_coe.mp h
+              . constructor
+                . rfl
+                . rfl
+        have contradiction := lt_of_lt_of_le h h₃
+        simp at contradiction
+    . rfl
+
+theorem TropicalN.mul_sub_left_distributive : mul_sub_left_distributive (Tropical (WithTop ℕ)) := by
+  exact Tropical.mul_sub_left_distributive
+theorem TropicalQ.mul_sub_left_distributive : mul_sub_left_distributive (Tropical (WithTop ℚ)) := by
+  exact Tropical.mul_sub_left_distributive
+theorem TropicalR.mul_sub_left_distributive : mul_sub_left_distributive (Tropical (WithTop ℝ)) := by
+  exact Tropical.mul_sub_left_distributive
+
+/-- The tropical semiring is idempotent --/
+theorem Tropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (Tropical α) := by
+  intro a
+  simp[(· + ·), Add.add]
