@@ -247,11 +247,9 @@ theorem idempotent_iff_add_monus [SemiringWithMonus α] :
   idempotent α ↔ ∀ a b c : α, (a + b) - c = (a - c) + (b - c)
     := ⟨add_monus_of_idempotent, idempotent_of_add_monus⟩
 
-/-! ## Miscellaneous
--/
 
-class HasAltLinearOrder (α : Type u) where
-  altOrder : LinearOrder α
+/-! ## Homomorphisms of `SemiringWithMonus`s
+-/
 
 /-- Definition of a homomorphism of `SemiringWithMonus`s -/
 class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMonus β]
@@ -259,7 +257,40 @@ class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMo
   map_sub : ∀ (x y: α), toRingHom (x - y) = toRingHom x - toRingHom y
 
 instance (α β) [SemiringWithMonus α] [SemiringWithMonus β] :
-  CoeFun (SemiringWithMonusHom α β) (fun _ ↦ α → β) where
+CoeFun (SemiringWithMonusHom α β) (fun _ ↦ α → β) where
   coe f := fun x => f.toRingHom x
+
+/-- If ν is an injective m-semiring homomorphism from α to β,
+  and β is idempotent, so is α. -/
+theorem idempotent_of_injective_homomorphism_idempotent
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hνi : Function.Injective ν) :
+  idempotent β → idempotent α := by
+    intro hβ x
+    apply hνi
+    simp
+    exact hβ _
+
+/-- If ν is an injective m-semiring homomorphism from α to β,
+  and β has left-distributivity of times over monus, so has α. -/
+theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hνi : Function.Injective ν) :
+  mul_sub_left_distributive β → mul_sub_left_distributive α := by
+    intro hβ a b c
+    apply hνi
+    simp[SemiringWithMonusHom.map_sub]
+    exact hβ _ _ _
+
+/-! ## Miscellaneous
+-/
+
+class HasAltLinearOrder (α : Type u) where
+  altOrder : LinearOrder α
+
 
 end SemiringWithMonus
