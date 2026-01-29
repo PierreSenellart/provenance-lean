@@ -260,7 +260,7 @@ theorem Why.not_absorptive (hNotEmpty: ∃ (_: α), ⊤) : ¬(absorptive (Why α
 /-- In Why[X], as long as X is non-empty, times is not distributive over
   monus. Note that this contradicts [Amsterdamer, Deutch & Tannen, *On
   the limitations of provenance for queries with differences*, table page
-  4][amsterdamer2011limitations]. which claims this semiring satisfies
+  4][amsterdamer2011limitations], which claims this semiring satisfies
   axiom A13. -/
 theorem Why.not_mul_sub_left_distributive [Inhabited α] :
   ¬(mul_sub_left_distributive (Why α)) := by

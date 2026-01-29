@@ -236,3 +236,12 @@ theorem Which.idempotent : idempotent (Which α) := by
   intro a
   simp[(· + ·), Add.add]
   cases ha: a <;> simp
+
+/-- In Which[X], as long as X is non-empty, times is not distributive over
+  monus. -/
+theorem Which.not_mul_sub_left_distributive [Inhabited α] :
+  ¬ (mul_sub_left_distributive (Which α)) := by
+  simp
+  have x := (default: α)
+  use wset {x}, wset {x}, wset ∅
+  simp[(· * ·),Mul.mul,(· - ·),Sub.sub]

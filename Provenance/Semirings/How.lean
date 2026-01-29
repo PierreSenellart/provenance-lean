@@ -140,3 +140,32 @@ theorem How.not_universal_m [Inhabited X] :
       exact hx
 
     simp[h₁] at h₂'
+
+
+/-- In How[X], as long as X is non-empty, times is not distributive over
+  monus. Note that this contradicts [Amsterdamer, Deutch & Tannen, *On
+  the limitations of provenance for queries with differences*, table page
+  4][amsterdamer2011limitations], which claims this semiring satisfies
+  axiom A13. -/
+theorem How.not_mul_sub_left_distributive [Inhabited X]:
+  ¬ (mul_sub_left_distributive (MvPolynomial X ℕ)) := by
+    simp
+    have x := (default: X)
+    let b : MvPolynomial X ℕ := MvPolynomial.X x
+    let c : MvPolynomial X ℕ := MvPolynomial.C 1
+    let a := b + c
+    use a, b, c
+    let m : X →₀ ℕ := Finsupp.single x 1
+    intro h
+    have hm : MvPolynomial.coeff m (a * (b - c)) = MvPolynomial.coeff m (a * b - a * c) :=
+      congrArg (MvPolynomial.coeff m) h
+    simp[a,b,c,m,coeff_sub] at hm
+    simp[MvPolynomial.coeff_mul] at hm
+    have hAD :
+      Finset.antidiagonal 1 = ({(0,1), (1,0)} : Finset (Nat × Nat)) := by
+      decide
+    simp[hAD] at hm
+    simp[coeff_sub] at hm
+    have : MvPolynomial.coeff (Finsupp.single x 1) 1 = 0 := by
+      simp[MvPolynomial.coeff_one,eq_comm]
+    simp[this] at hm
