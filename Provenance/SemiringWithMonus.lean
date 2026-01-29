@@ -273,18 +273,48 @@ theorem idempotent_of_injective_homomorphism_idempotent
     simp
     exact hβ _
 
-/-- If ν is an injective m-semiring homomorphism from α to β,
-  and β has left-distributivity of times over monus, so has α. -/
-theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
+/-- If ν is an m-semiring homomorphism from α onto β,
+  and α is idempotent, so is β. -/
+theorem idempotent_of_surjective_homomorphism_idempotent
   [SemiringWithMonus α]
   [SemiringWithMonus β]
   (ν: SemiringWithMonusHom α β)
+  (hνs : Function.Surjective ν) :
+  idempotent α → idempotent β := by
+    intro hα x
+    have ⟨a,ha⟩ := hνs x
+    rw[← ha]
+    rw[← RingHom.map_add]
+    simp[hα]
+
+/-- If ν is an injective m-semiring homomorphism from α to β,
+  and β has left-distributivity of times over monus, so has α. -/
+theorem mul_sub_left_of_injective_homomorphism_mul_sub_left
+   [SemiringWithMonus α]
+   [SemiringWithMonus β]
+   (ν: SemiringWithMonusHom α β)
   (hνi : Function.Injective ν) :
   mul_sub_left_distributive β → mul_sub_left_distributive α := by
     intro hβ a b c
     apply hνi
     simp[SemiringWithMonusHom.map_sub]
     exact hβ _ _ _
+
+/-- If ν is an m-semiring homomorphism from α onto β,
+  and α has left-distributivity of times over monus, so has β. -/
+theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hνs : Function.Surjective ν) :
+  mul_sub_left_distributive α → mul_sub_left_distributive β := by
+    intro hα x y z
+    have ⟨a,ha⟩ := hνs x
+    have ⟨b,hb⟩ := hνs y
+    have ⟨c,hc⟩ := hνs z
+    rw[← ha, ← hb, ← hc]
+    simp only[← SemiringWithMonusHom.map_sub, ← RingHom.map_mul]
+    simp[hα]
 
 /-! ## Miscellaneous
 -/
