@@ -225,10 +225,14 @@ instance : LinearOrder Lukasiewicz where
     exact LinearOrder.max_def a b
   compare_eq_compareOfLessAndEq := by
     intro a b
-    unfold compareOfLessAndEq compare
+    unfold compareOfLessAndEq
     by_cases hab: a<b <;> simp[hab]
-    . sorry
-    . sorry
+    . apply compare_lt_iff_lt.mpr
+      exact hab
+    . by_cases habeq: a=b <;> simp[habeq]
+      . apply compare_gt_iff_gt.mpr
+        simp at hab
+        exact lt_of_le_of_ne hab (fun a ↦ habeq (id (Eq.symm a)))
 
 instance : IsOrderedAddMonoid Lukasiewicz where
   add_le_add_left := by
