@@ -25,10 +25,88 @@ def minLo [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if b.val < a.val then b else
   if ¬a.closed ∧ b.closed then b else a
 
+lemma minLo_or [LinearOrder α] (a b: Endpoint α) :
+    minLo a b = a ∨ minLo a b = b := by
+      unfold minLo
+      split_ifs <;> simp
+
+lemma minLo_commutative [LinearOrder α] {a b: Endpoint α} :
+  minLo a b = minLo b a := by
+    simp[minLo]
+    split_ifs with h₁ h₂ h₃ h₄ h₅ h₆ <;> try simp
+    . have := (lt_self_iff_false a.val).mp (lt_trans h₁ h₂)
+      contradiction
+    . have := Eq.trans (Eq.symm h₅.1) h₄.2
+      contradiction
+    . simp at h₁ h₃ h₄ h₆
+      ext
+      . exact le_antisymm h₃ h₁
+      . cases h: a.closed
+        . exact Eq.symm (h₄ h)
+        . by_contra h'
+          simp at h'
+          have := Eq.trans (Eq.symm h) (h₆ h')
+          contradiction
+
+lemma minLo_le_left [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ a.val := by
+  simp[minLo]
+  split_ifs with hab hba hc
+  . tauto
+  . exact le_of_lt hba
+  . exact le_of_not_gt hab
+  . tauto
+
+lemma minLo_le_right [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ b.val := by
+  simp[minLo]
+  split_ifs with hab hba hc
+  . exact le_of_lt hab
+  . tauto
+  . tauto
+  . exact le_of_not_gt hba
+
 def maxHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if a.val > b.val then a else
   if b.val > a.val then b else
   if ¬a.closed ∧ b.closed then b else a
+
+lemma maxHi_or [LinearOrder α] (a b: Endpoint α) :
+    maxHi a b = a ∨ maxHi a b = b := by
+      unfold maxHi
+      split_ifs <;> simp
+
+lemma maxHi_commutative [LinearOrder α] {a b: Endpoint α} :
+  maxHi a b = maxHi b a := by
+    simp[maxHi]
+    split_ifs with h₁ h₂ h₃ h₄ h₅ h₆ <;> try simp
+    . have := (lt_self_iff_false a.val).mp (lt_trans h₂ h₁)
+      contradiction
+    . have := Eq.trans (Eq.symm h₅.1) h₄.2
+      contradiction
+    . simp at h₁ h₃ h₄ h₆
+      ext
+      . exact le_antisymm h₁ h₃
+      . cases h: a.closed
+        . exact Eq.symm (h₄ h)
+        . by_contra h'
+          simp at h'
+          have := Eq.trans (Eq.symm h) (h₆ h')
+          contradiction
+
+lemma le_maxHi_left [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).val := by
+  simp[maxHi]
+  split_ifs with hab hba hc
+  . tauto
+  . exact le_of_lt hba
+  . exact le_of_not_gt hab
+  . tauto
+
+lemma le_maxHi_right [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).val := by
+  simp[maxHi]
+  split_ifs with hab hba hc
+  . tauto
+  . exact le_of_lt hba
+  . exact le_of_not_gt hab
+  . tauto
 
 def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
   if(hi.closed) then x ≤ hi.val else x < hi.val
@@ -74,6 +152,20 @@ lemma below_of_below_of_lt [LinearOrder α] {hi hi': Endpoint α} (h: hi.val < h
     . intro h'
       exact lt_trans h' h
 
+lemma below_of_below_of_le [LinearOrder α] {hi hi': Endpoint α}
+    (h: hi.val ≤ hi'.val) (hep: ¬hi.closed ∨ hi'.closed) {x: α} :
+  below x hi → below x hi' := by
+    unfold below
+    by_cases hc: hi.closed <;> simp[hc] <;>
+    by_cases hc': hi'.closed <;> simp[hc']
+    . intro h'
+      exact le_trans h' h
+    . simp[hc,hc'] at hep
+    . intro h'
+      exact le_of_lt (lt_of_lt_of_le h' h)
+    . intro h'
+      exact lt_of_lt_of_le h' h
+
 lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < lo.val) {x: α} :
   above x lo → above x lo' := by
     unfold above
@@ -87,6 +179,21 @@ lemma above_of_above_of_lt [LinearOrder α] {lo lo': Endpoint α} (h: lo'.val < 
       exact le_of_lt (lt_trans h h')
     . intro h'
       exact lt_trans h h'
+
+lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
+    (h: lo'.val ≤ lo.val) (hep: ¬lo.closed ∨ lo'.closed) {x: α} :
+  above x lo → above x lo' := by
+    unfold above
+    by_cases hc: lo.closed <;> simp[hc] <;>
+    by_cases hc': lo'.closed <;> simp[hc']
+    . intro h'
+      exact le_trans h h'
+    . simp[hc,hc'] at hep
+    . intro h'
+      exact le_of_lt (lt_of_le_of_lt h h')
+    . intro h'
+      exact lt_of_le_of_lt h h'
+
 end Endpoint
 
 @[ext]
@@ -168,6 +275,68 @@ def before [LinearOrder α] (I J : Interval α) : Prop :=
   I.hi.val < J.lo.val ∨
   (I.hi.val = J.lo.val ∧ (I.hi.closed → ¬J.lo.closed))
 
+lemma ne_of_before [LinearOrder α] {I J : Interval α} : I.before J → I ≠ J := by
+  unfold before
+  intro h
+  by_contra heq
+  rw[Eq.symm heq] at h
+  cases h with
+  | inl h' =>
+    have hIwf := I.wf
+    cases hIwf with
+    | inl h'' =>
+      have := (lt_self_iff_false _).mp (lt_trans h' h'')
+      contradiction
+    | inr h'' =>
+      rw[h''.1] at h'
+      have := (lt_self_iff_false _).mp h'
+      contradiction
+  | inr h' =>
+    have hIwf := I.wf
+    simp[h'.1] at hIwf
+    simp[hIwf] at h'
+
+lemma disjoint_of_before [LinearOrder α] {I J : Interval α} : I.before J → I.disjoint J := by
+  intro h
+  unfold disjoint
+  intro A
+  simp
+  intro hAI hAJ
+  by_contra hneq
+  have hnemp := Set.nonempty_iff_ne_empty.mpr hneq
+  rcases hnemp with ⟨x, hx⟩
+  have hxI := hAI hx
+  have hxJ := hAJ hx
+  simp[Endpoint.below] at hxI
+  simp[Endpoint.above] at hxJ
+  unfold before at h
+  cases h with
+  | inl h' =>
+    by_cases hIhc : I.hi.closed <;> simp[hIhc] at hxI <;>
+    by_cases hJlc : J.lo.closed <;> simp[hJlc] at hxJ
+    . have hle := le_trans hxJ.1 hxI.2
+      have := (lt_self_iff_false _).mp (lt_of_le_of_lt hle h')
+      contradiction
+    . have hlt := lt_of_lt_of_le hxJ.1 hxI.2
+      have := (lt_self_iff_false _).mp (lt_trans hlt h')
+      contradiction
+    . have hlt := lt_of_le_of_lt hxJ.1 hxI.2
+      have := (lt_self_iff_false _).mp (lt_trans hlt h')
+      contradiction
+    . have hlt := lt_trans hxJ.1 hxI.2
+      have := (lt_self_iff_false _).mp (lt_trans hlt h')
+      contradiction
+  | inr h' =>
+    by_cases hIhc : I.hi.closed <;> simp[hIhc] at hxI <;>
+    by_cases hJlc : J.lo.closed <;> simp[hJlc] at hxJ <;>
+    simp[hIhc,hJlc] at h' <;> rw[h'] at hxI
+    . have := (lt_self_iff_false _).mp (lt_of_le_of_lt hxI.2 hxJ.1)
+      contradiction
+    . have := (lt_self_iff_false _).mp (lt_of_lt_of_le hxI.2 hxJ.1)
+      contradiction
+    . have := (lt_self_iff_false _).mp (lt_trans hxI.2 hxJ.1)
+      contradiction
+
 instance [LinearOrder α] [DecidableEq α] [DecidableLE α] {I J: Interval α} : Decidable (I.before J) := by
   by_cases hlt: I.hi.val < J.lo.val
   . exact isTrue (by left; exact hlt)
@@ -208,4 +377,27 @@ lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ 
         simp[hIhi] at h'
         have hJwf := J.wf
         simp[h',hhi] at hJwf
+
+lemma before_of_before_of_le [LinearOrder α] {I J K : Interval α}
+  (hIJ: I.before J) (hJK: J ≤ K) : I.before K := by
+    simp[(· ≤ ·)] at hJK
+    unfold before at hIJ
+    unfold before
+    have hJwf := J.wf
+    by_cases hIJlt : I.hi.val < J.lo.val <;> simp[hIJlt] at hIJ
+    . left
+      exact lt_of_lt_of_le hIJlt hJK.1
+    . rw[hIJ.1]
+      by_cases hJKlt : J.lo.val < K.lo.val <;> simp[hJKlt]
+      constructor
+      . exact eq_of_le_of_ge hJK.1 (not_lt.mp hJKlt)
+      . intro hIhc
+        simp[hIhc] at hIJ
+        have hIwf := I.wf
+        simp[hIhc] at hIwf
+        have hKwf := K.wf
+        by_contra hKlc
+        simp at hKlc
+        simp[eq_of_le_of_ge hJK.1 (not_lt.mp hJKlt), hKlc, hIJ.2] at hJK
+
 end Interval

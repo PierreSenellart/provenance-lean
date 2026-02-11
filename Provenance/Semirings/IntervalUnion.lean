@@ -2,14 +2,34 @@ import Mathlib.Data.List.Sort
 import Mathlib.Data.Set.Lattice
 import Mathlib.Logic.Nontrivial.Defs
 import Provenance.Semirings.Interval
+import Provenance.SemiringWithMonus
 
 structure IntervalUnion (α: Type) [LinearOrder α] where
   intervals         : List (Interval α)
-  pairwise_disjoint : intervals.Pairwise (fun I J => I ≠ J → I.disjoint J)
+  pairwise_disjoint : intervals.Pairwise Interval.disjoint
   sorted            : intervals.Sorted LE.le
 
 namespace IntervalUnion
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
+
+theorem intervals_eq_of_toSet_eq [LinearOrder α]
+  (U V : IntervalUnion α) (h : U.toSet = V.toSet) :
+  U.intervals = V.intervals := by
+    sorry
+
+theorem ext [LinearOrder α] (U V : IntervalUnion α)
+  (h : U.intervals = V.intervals) : U = V := by
+  cases U
+  cases V
+  simp at h
+  cases h
+  simp
+
+@[ext]
+theorem ext_toSet [LinearOrder α] (U V : IntervalUnion α)
+  (h: U.toSet = V.toSet) : U = V := by
+  apply IntervalUnion.ext U V
+  exact intervals_eq_of_toSet_eq U V h
 
 @[simp]
 lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
@@ -28,7 +48,6 @@ lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
       . intro hx
         rcases hx with ⟨I, h⟩
         exact Set.mem_biUnion h.1 h.2
-
 
 def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I)) :
   Interval α :=
@@ -144,50 +163,174 @@ def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I
                 . exact hIwf
   }
 
-def contrapositive (h : P → Q) : ¬Q → ¬P :=
-  fun hnq hp => hnq (h hp)
-def contrapositive' (h : ¬P → Q) : ¬Q → P := by
-  have := contrapositive h
-  simp at this
-  exact this
+lemma merge_commutative [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
+  merge I J h = merge J I (by exact fun a ↦ h (id (Or.symm a))) := by
+    simp[merge,Endpoint.minLo_commutative,Endpoint.maxHi_commutative]
 
-set_option maxHeartbeats 500000
+lemma mem_merge' [LinearOrder α] {I J: Interval α} (h: ¬(I.before J ∨ J.before I)):
+  ∀ x, x ∈ I.toSet → x ∈ (merge I J h).toSet := by
+    intro x hI
+    constructor
+    . by_cases hIJ: I.lo.val ≤ J.lo.val
+      . by_cases hIc: I.lo.closed
+        . apply Endpoint.above_of_above_of_le (Endpoint.minLo_le_left) _
+          . exact hI.1
+          . simp[hIc]
+            unfold Endpoint.minLo
+            by_cases hIJ': I.lo.val < J.lo.val <;> simp[hIJ',hIc]
+            simp[not_lt_of_ge hIJ]
+            exact hIc
+        . unfold merge Endpoint.minLo
+          by_cases hIJ': I.lo.val < J.lo.val <;> simp[hIJ',hIc]
+          . exact hI.1
+          . simp[Endpoint.above,hIc] at hI
+            simp[not_lt_of_ge hIJ]
+            split_ifs with hJc <;> simp[Endpoint.above,hJc]
+            . exact le_trans (not_lt.mp hIJ') (le_of_lt hI.1)
+            . simp[hIc]
+              exact hI.1
+      . simp at hIJ
+        simp[merge,Endpoint.minLo,not_lt_of_gt hIJ,hIJ]
+        exact Endpoint.above_of_above_of_lt hIJ hI.1
+    . by_cases hIJ: J.hi.val ≤ I.hi.val
+      . by_cases hIc: I.hi.closed
+        . apply Endpoint.below_of_below_of_le (Endpoint.le_maxHi_left) _
+          . exact hI.2
+          . simp[hIc]
+            unfold Endpoint.maxHi
+            by_cases hIJ': J.hi.val < I.hi.val <;> simp[hIJ',hIc]
+            simp[not_lt_of_ge hIJ]
+            exact hIc
+        . unfold merge Endpoint.maxHi
+          by_cases hIJ': J.hi.val < I.hi.val <;> simp[hIJ',hIc]
+          . exact hI.2
+          . simp[Endpoint.below,hIc] at hI
+            simp[not_lt_of_ge hIJ]
+            split_ifs with hJc <;> simp[Endpoint.below,hJc]
+            . exact le_trans (le_of_lt hI.2) (not_lt.mp hIJ')
+            . simp[hIc]
+              exact hI.2
+      . simp at hIJ
+        simp[merge,Endpoint.maxHi,not_lt_of_gt hIJ,hIJ]
+        exact Endpoint.below_of_below_of_lt hIJ hI.2
+
 lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.before I)}:
   ∀ x, x ∈ (merge I J h).toSet ↔ x ∈ I.toSet ∨ x ∈ J.toSet := by
     intro x
-    simp[Interval.before] at h
-    unfold merge
-    unfold Interval.toSet Endpoint.minLo Endpoint.maxHi
-    simp
-    by_cases hIJlo : I.lo.val < J.lo.val <;> simp only[hIJlo]
-    . by_cases hJIhi : J.hi.val < I.hi.val <;> simp[hJIhi]
-      . intro hl hi
-        exact ⟨Endpoint.above_of_above_of_lt hIJlo hl,
-               Endpoint.below_of_below_of_lt hJIhi hi⟩
-      . by_cases hIJhi : I.hi.val < J.hi.val <;> simp[hIJhi]
-        . apply Iff.intro
-          intro h'
-          by_cases hx : Endpoint.below x I.hi
-          . left; tauto
-          . right
-            simp[h']
-            apply Endpoint.ge_of_not_below at hx
-            have := le_trans h.1.1 hx
-            by_cases hIJeq : I.hi.val = J.lo.val
-            . simp[hIJeq] at h
-              simp[Endpoint.above,h]
-              tauto
-            . apply (contrapositive' (Endpoint.le_of_not_above x J.lo))
-              by_cases hx': x > I.hi.val
-              . simp; exact lt_of_le_of_lt h.1.1 hx'
-              . simp at hx'
-                have := eq_of_le_of_ge hx' hx
-                sorry
-        . sorry
-    . sorry
+    apply Iff.intro
+    . intro hmem
+      simp at hmem
+      by_cases hI : x ∈ I.toSet
+      . tauto
+      . simp[hI]
+        simp[merge] at hmem
+        simp at h
+        constructor
+        . have hmem₁ := hmem.1
+          have h₁ := h.1
+          by_cases hIJ : Endpoint.minLo I.lo J.lo = J.lo
+          . rw[hIJ] at hmem₁
+            exact hmem₁
+          . have hIJ' : Endpoint.minLo I.lo J.lo = I.lo := by
+              have := Endpoint.minLo_or I.lo J.lo
+              simp[hIJ] at this
+              exact this
+            rw[hIJ'] at hmem₁
+            simp[Endpoint.above] at hmem₁
+            simp[Endpoint.above]
+            simp[Endpoint.minLo] at hIJ'
+            by_cases hle : J.lo.val ≤ I.lo.val
+            . simp[hle] at hIJ'
+              by_cases hlt: J.lo.val < I.lo.val
+              . simp[hlt] at hIJ'
+                rw[hIJ'] at hlt
+                have := (lt_self_iff_false _).mp hlt
+                contradiction
+              . simp at hlt
+                have heq : I.lo.val = J.lo.val := antisymm hlt hle
+                rw[Eq.symm heq]
+                by_cases hJc: J.lo.closed <;> by_cases hIc: I.lo.closed <;> simp[hJc] <;> simp[hIc] at hmem₁
+                . assumption
+                . exact le_of_lt hmem₁
+                . simp[Endpoint.above,hmem₁,hIc,Endpoint.below] at hI
+                  simp[Interval.before,Eq.symm heq,hJc] at h₁
+                  by_cases hIhc: I.hi.closed <;> simp[hIhc] at hI
+                  . exact lt_of_le_of_lt I.le_lo_hi hI
+                  . have hIwf := I.wf
+                    simp[hIc,hIhc] at hIwf
+                    exact lt_of_lt_of_le hIwf hI
+                . assumption
+            . simp at hle
+              simp[Endpoint.above,hmem₁,Endpoint.below] at hI
+              simp[Interval.before] at h₁
+              by_cases hJc : J.lo.closed <;> simp[hJc]
+                                         <;> by_cases hIhc : I.hi.closed
+                                         <;> simp[hIhc] at hI
+              . exact le_trans h₁.1 (le_of_lt hI)
+              . exact le_trans h₁.1 hI
+              . exact lt_of_le_of_lt h₁.1 hI
+              . simp[hIhc] at h₁
+                exact lt_of_lt_of_le (lt_of_le_of_ne h₁.1 (λ a ↦ h₁.2 (id (Eq.symm a)))) hI
 
+        . have hmem₂ := hmem.2
+          have h₂ := h.2
+          by_cases hIJ : Endpoint.maxHi I.hi J.hi = J.hi
+          . rw[hIJ] at hmem₂
+            exact hmem₂
+          . have hIJ' : Endpoint.maxHi I.hi J.hi = I.hi := by
+              have := Endpoint.maxHi_or I.hi J.hi
+              simp[hIJ] at this
+              exact this
+            rw[hIJ'] at hmem₂
+            simp[Endpoint.below] at hmem₂
+            simp[Endpoint.below]
+            simp[Endpoint.maxHi] at hIJ'
+            by_cases hle : I.hi.val ≤ J.hi.val
+            . simp[hle] at hIJ'
+              by_cases hlt: I.hi.val < J.hi.val
+              . simp[hlt] at hIJ'
+                rw[hIJ'] at hlt
+                have := (lt_self_iff_false _).mp hlt
+                contradiction
+              . simp at hlt
+                have heq : I.hi.val = J.hi.val := antisymm hle hlt
+                rw[Eq.symm heq]
+                by_cases hJc: J.hi.closed <;> by_cases hIc: I.hi.closed <;> simp[hJc] <;> simp[hIc] at hmem₂
+                . assumption
+                . exact le_of_lt hmem₂
+                . simp[Endpoint.below,hmem₂,hIc,Endpoint.above] at hI
+                  simp[Interval.before,Eq.symm heq,hJc] at h₂
+                  by_cases hIlc: I.lo.closed <;> simp[hIlc] at hI
+                  . exact lt_of_lt_of_le hI I.le_lo_hi
+                  . have hIwf := I.wf
+                    simp[hIc,hIlc] at hIwf
+                    exact lt_of_le_of_lt hI hIwf
+                . assumption
+            . simp at hle
+              simp[Endpoint.below,hmem₂,Endpoint.above] at hI
+              simp[Interval.before] at h₂
+              by_cases hJc : J.hi.closed <;> simp[hJc]
+                                         <;> by_cases hIlc : I.lo.closed
+                                         <;> simp[hIlc] at hI
+              . exact le_trans (le_of_lt hI) h₂.1
+              . exact le_trans hI h₂.1
+              . exact lt_of_lt_of_le hI h₂.1
+              . simp[hIlc] at h₂
+                exact lt_of_le_of_lt hI (lt_of_le_of_ne h₂.1 (λ a ↦ h₂.2 (id (Eq.symm a))))
 
+    . intro hmem
+      by_cases hI : x ∈ I.toSet
+      . exact mem_merge' h x hI
+      . cases hmem with
+        | inl => contradiction
+        | inr hJ =>
+        . rw[merge_commutative]
+          conv at h =>
+            rhs
+            rw[or_comm]
+          exact mem_merge' h x hJ
 
+set_option maxHeartbeats 500000
 lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: Interval α}
   (hKI: K ≤ I) (hKJ: K ≤ J) (h: ¬ (I.before J ∨ J.before I)) :
     K ≤ merge I J h := by
@@ -231,7 +374,6 @@ def insertMergeList [LinearOrder α] (I : Interval α) : List (Interval α) → 
     J::(insertMergeList I tl)
   else
     insertMergeList (merge I J (by simp[hIJ, hJI])) tl
-
 
 lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval α)) :
   ∀ x, (∃ J ∈ insertMergeList I L, x ∈ J.toSet) ↔ (x ∈ I.toSet ∨ ∃ J ∈ L, x ∈ J.toSet) := by
@@ -298,11 +440,9 @@ lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval
               right
               tauto
 
-
 lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (Interval α)} :
   ∀ J, J≤I → (∀ K ∈ L, J≤K) → ∀ K ∈ insertMergeList I L, J ≤ K := by
-    intro J hJI
-    intro hJL
+    intro J hJI hJL
     induction L generalizing I with
     | nil => simp[insertMergeList]; exact hJI
     | cons M tl ih =>
@@ -326,7 +466,6 @@ lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (I
               exact hJL K' (List.mem_cons_of_mem M hK')
             exact ih hJI hK'tl K
         . exact ih (merge_preserves_le hJI (hJL M List.mem_cons_self) (not_or_intro hIM hMI)) hK'tl K
-
 
 lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
   ∀ {l : List (Interval α)}, l.Sorted LE.le →
@@ -352,25 +491,69 @@ lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
       . apply ih (merge I J (not_or_intro hIJ hJI))
         exact hs.2
 
+lemma insertMergeList_preserves_disjoint [LinearOrder α] (I : Interval α) :
+  ∀ {l : List (Interval α)}, (l.Sorted LE.le ∧ l.Pairwise Interval.disjoint) →
+    (insertMergeList I l).Pairwise Interval.disjoint := by
+  intro l
+  induction l generalizing I with
+  | nil => simp[insertMergeList]
+  | cons J tl ih =>
+    intro hs
+    rw[List.pairwise_cons] at hs
+    unfold insertMergeList
+    by_cases hIJ: I.before J <;> simp[hIJ]
+    . constructor
+      . constructor
+        . exact Interval.disjoint_of_before hIJ
+        . intro K hK
+          have hJtl := hs.1
+          simp at hJtl
+          exact Interval.disjoint_of_before
+            (Interval.before_of_before_of_le hIJ (hJtl.1 K hK))
+      . constructor
+        . exact hs.2.1
+        . exact hs.2.2
+    . by_cases hJI: J.before I <;> simp[hJI]
+      . constructor
+        . intro K hK
+          simp[Interval.disjoint]
+          intro A
+          simp
+          intro hAJ hAK
+          by_contra hc
+          have hnemp := Set.nonempty_iff_ne_empty.mpr hc
+          rcases hnemp with ⟨x, hx⟩
+          have hxJ := hAJ hx
+          have hxK := hAK hx
+          have hmem := (mem_insertMergeList I tl x).mp ⟨K, ⟨hK, hxK⟩⟩
+          cases hmem with
+          | inl h =>
+            have hh := Interval.disjoint_of_before hJI (Set.singleton_subset_iff.mpr hxJ)
+            have := hh (Set.singleton_subset_iff.mpr h)
+            simp at this
+          | inr h =>
+            rcases h with ⟨M, ⟨hM, hxM⟩⟩
+            have := hs.2.1 M hM (Set.singleton_subset_iff.mpr hxJ) (Set.singleton_subset_iff.mpr hxM)
+            simp at this
+        . exact ih I ⟨(List.sorted_cons.mp hs.1).2, hs.2.2⟩
+      . apply ih (merge I J (not_or_intro hIJ hJI))
+        exact ⟨(List.sorted_cons.mp hs.1).2, hs.2.2⟩
 
 def insertMerge [LinearOrder α]
   (I: Interval α) (U: IntervalUnion α) : IntervalUnion α :=
   ⟨
     insertMergeList I U.intervals,
-    sorry,
+    insertMergeList_preserves_disjoint I ⟨U.sorted, U.pairwise_disjoint⟩,
     insertMergeList_preserves_sorted I U.sorted
   ⟩
 
-
 def union [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
   V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I acc)) U
-
 
 lemma mem_union [LinearOrder α] (U V : IntervalUnion α) :
   ∀ x, (x ∈ (U.union V).toSet) ↔ (x ∈ U.toSet) ∨ (x ∈ V.toSet) := by
     sorry
 end IntervalUnion
-
 
 variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α]
 
@@ -379,3 +562,11 @@ instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊥⟩,⟨⊤,⊥⟩,by simp
 
 instance : Add  (IntervalUnion α) where
   add U V := U.union V
+
+instance : AddMonoid (IntervalUnion α) where
+  add_assoc := by
+    intro a b c
+    simp[(· + ·), Add.add]
+    ext x
+    repeat rw[IntervalUnion.mem_union]
+    tauto
