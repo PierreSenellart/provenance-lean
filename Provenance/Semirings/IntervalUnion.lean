@@ -12,10 +12,38 @@ structure IntervalUnion (α: Type) [LinearOrder α] where
 namespace IntervalUnion
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
 
-theorem intervals_eq_of_toSet_eq [LinearOrder α]
+theorem intervals_eq_of_toSet_eq [LinearOrder α] [DenselyOrdered α]
   (U V : IntervalUnion α) (h : U.toSet = V.toSet) :
   U.intervals = V.intervals := by
-    sorry
+  rcases U with ⟨L₁, hdis₁, hsorted₁⟩
+  rcases V with ⟨L₂, hdis₂, hsorted₂⟩
+  simp[toSet] at h
+  simp
+  induction L₁ generalizing L₂ with
+  | nil =>
+    rw[eq_comm] at h
+    simp at h
+    cases L₂ with
+    | nil => rfl
+    | cons J tl =>
+      have ⟨x,hx⟩ := Interval.toSet_not_empty J
+      have hJ := h J
+      simp at hJ
+      rw[hJ] at hx
+      contradiction
+  | cons I tl ih =>
+    cases L₂ with
+    | nil =>
+      simp at h
+      have ⟨x, hx⟩ := Interval.toSet_not_empty I
+      rw[h.1] at hx
+      contradiction
+    | cons J tl' =>
+        have := ih (List.pairwise_cons.mp hdis₁).2
+                   (List.sorted_cons.mp hsorted₁).2 tl'
+                   (List.pairwise_cons.mp hdis₂).2
+                   (List.sorted_cons.mp hsorted₂).2
+        sorry
 
 theorem ext [LinearOrder α] (U V : IntervalUnion α)
   (h : U.intervals = V.intervals) : U = V := by
@@ -26,7 +54,7 @@ theorem ext [LinearOrder α] (U V : IntervalUnion α)
   simp
 
 @[ext]
-theorem ext_toSet [LinearOrder α] (U V : IntervalUnion α)
+theorem ext_toSet [LinearOrder α] [DenselyOrdered α] (U V : IntervalUnion α)
   (h: U.toSet = V.toSet) : U = V := by
   apply IntervalUnion.ext U V
   exact intervals_eq_of_toSet_eq U V h

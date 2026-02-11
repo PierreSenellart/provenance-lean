@@ -213,6 +213,25 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
 
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
+lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
+  (I: Interval α) : ∃ x, x∈I.toSet := by
+  have hIwf := I.wf
+  by_cases hIlc : I.lo.closed
+  . use I.lo.val
+    simp[Endpoint.above,Endpoint.below,hIlc,toSet]
+    by_cases hIlh: I.lo.val < I.hi.val <;> simp[hIlh] at hIwf
+    . simp[hIlh]
+    . simp[hIwf]
+  . by_cases hIhc : I.hi.closed
+    . use I.hi.val
+      simp[Endpoint.above,Endpoint.below,hIlc,hIhc,toSet]
+      by_cases hIlh: I.lo.val < I.hi.val <;> simp[hIlh,hIlc] at hIwf
+      simp[hIlh]
+    . simp[hIlc,hIhc] at hIwf
+      simp[toSet,Endpoint.above,Endpoint.below,hIlc,hIhc]
+      apply exists_between
+      exact hIwf
+
 @[simp]
 lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
   x ∈ I.toSet ↔ Endpoint.above x I.lo ∧ Endpoint.below x I.hi := Iff.rfl
