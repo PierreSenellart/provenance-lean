@@ -39,11 +39,19 @@ theorem intervals_eq_of_toSet_eq [LinearOrder α] [DenselyOrdered α]
       rw[h.1] at hx
       contradiction
     | cons J tl' =>
-        have := ih (List.pairwise_cons.mp hdis₁).2
-                   (List.sorted_cons.mp hsorted₁).2 tl'
-                   (List.pairwise_cons.mp hdis₂).2
-                   (List.sorted_cons.mp hsorted₂).2
+        have ihtl := ih (List.pairwise_cons.mp hdis₁).2
+                        (List.sorted_cons.mp hsorted₁).2 tl'
+                        (List.pairwise_cons.mp hdis₂).2
+                        (List.sorted_cons.mp hsorted₂).2
+        have hIJeq: I.toSet = J.toSet := by
+          sorry
+        have hIJeq': I = J := by
+          sorry
+        rw[hIJeq']
+        simp
+        apply ihtl
         sorry
+
 
 theorem ext [LinearOrder α] (U V : IntervalUnion α)
   (h : U.intervals = V.intervals) : U = V := by
