@@ -196,7 +196,6 @@ lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
 
 end Endpoint
 
-@[ext]
 structure Interval (α: Type) [LinearOrder α] where
   lo : Endpoint α
   hi : Endpoint α
@@ -212,6 +211,38 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
   | inr hI => exact le_of_eq hI.left
 
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
+
+theorem eq_closed [LinearOrder α] [DenselyOrdered α] (I J : Interval α)
+    (h: I.toSet = J.toSet) : I.lo.closed = J.lo.closed := by
+  by_cases hIc: I.lo.closed
+  . have h' : I.lo.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, I.lo.val ≤ x := by
+      repeat rw[Eq.symm h]
+      simp[toSet, Endpoint.above, Endpoint.below, hIc]
+      constructor
+      . have hIwf := I.wf
+        intro hIhc
+        simp[hIhc,hIc] at hIwf
+        assumption
+      . tauto
+    by_cases hJc: J.lo.closed
+    . simp_all
+    . sorry
+  . by_cases hJc: J.lo.closed
+    . sorry
+    . simp_all
+
+
+@[ext]
+theorem ext_toSet [LinearOrder α] (I J : Interval α)
+  (h: I.toSet = J.toSet) : I = J := by
+  rcases I with ⟨Ilo,Ihi,Iwf⟩
+  rcases J with ⟨Jlo,Jhi,Jwf⟩
+  simp_all[toSet, Endpoint.above, Endpoint.below]
+  by_cases Ilo.closed <;>
+  by_cases Ihi.closed <;>
+  by_cases Jlo.closed <;>
+  by_cases Jhi.closed <;> simp[*] at h Iwf Jwf
+
 
 lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
   (I: Interval α) : ∃ x, x∈I.toSet := by
