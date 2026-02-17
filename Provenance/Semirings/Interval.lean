@@ -212,36 +212,87 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
 
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
-theorem eq_closed [LinearOrder α] [DenselyOrdered α] (I J : Interval α)
-    (h: I.toSet = J.toSet) : I.lo.closed = J.lo.closed := by
-  by_cases hIc: I.lo.closed
-  . have h' : I.lo.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, I.lo.val ≤ x := by
-      repeat rw[Eq.symm h]
-      simp[toSet, Endpoint.above, Endpoint.below, hIc]
-      constructor
-      . have hIwf := I.wf
-        intro hIhc
-        simp[hIhc,hIc] at hIwf
-        assumption
-      . tauto
-    by_cases hJc: J.lo.closed
-    . simp_all
-    . sorry
-  . by_cases hJc: J.lo.closed
-    . sorry
-    . simp_all
+lemma eq_closed_lo [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
+    (h: I.toSet = J.toSet) : I.lo.closed → J.lo.closed := by
+  intro hIc
+  have h' : I.lo.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, I.lo.val ≤ x := by
+    repeat rw[Eq.symm h]
+    simp[toSet, Endpoint.above, Endpoint.below, hIc]
+    constructor
+    . have hIwf := I.wf
+      intro hIhc
+      simp[hIhc,hIc] at hIwf
+      assumption
+    . tauto
+  by_cases hJc: J.lo.closed
+  . simp_all
+  . have h'₁ := h'.1
+    simp[toSet,Endpoint.above,Endpoint.below,hJc] at h'₁
+    have ⟨a, haJl, haIl⟩ := exists_between h'₁.1
+    have haJ : a ∈ J.toSet := by
+      simp[toSet,Endpoint.above,hJc,haJl,Endpoint.below]
+      by_cases J.hi.closed <;> simp_all
+      . exact le_of_lt (lt_of_lt_of_le haIl h'₁.2)
+      . exact lt_trans haIl h'₁.2
+    have := (lt_self_iff_false _).mp (lt_of_lt_of_le haIl (h'.2 a haJ))
+    contradiction
 
+lemma eq_closed_hi [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
+    (h: I.toSet = J.toSet) : I.hi.closed → J.hi.closed := by
+  intro hIc
+  have h' : I.hi.val ∈ J.toSet ∧ ∀ x ∈ J.toSet, x ≤ I.hi.val := by
+    repeat rw[Eq.symm h]
+    simp[toSet, Endpoint.above, Endpoint.below, hIc]
+    have hIwf := I.wf
+    intro hIhc
+    simp[hIhc,hIc] at hIwf
+    assumption
+  by_cases hJc: J.hi.closed
+  . simp_all
+  . have h'₁ := h'.1
+    simp[toSet,Endpoint.above,Endpoint.below,hJc] at h'₁
+    have ⟨a, haIu, haJu⟩ := exists_between h'₁.2
+    have haJ : a ∈ J.toSet := by
+      simp[toSet,Endpoint.above,hJc,haJu,Endpoint.below]
+      by_cases J.lo.closed <;> simp_all
+      . exact le_of_lt (lt_of_le_of_lt h'₁.1 haIu)
+      . exact lt_trans h'₁.1 haIu
+    have := (lt_self_iff_false _).mp (lt_of_lt_of_le haIu (h'.2 a haJ))
+    contradiction
+
+theorem eq_closed [LinearOrder α] [DenselyOrdered α] {I J: Interval α}
+    (h: I.toSet = J.toSet) : I.lo.closed=J.lo.closed ∧ I.hi.closed = J.hi.closed := by
+      constructor
+      . by_cases hIl: I.lo.closed <;> simp[hIl]
+        . exact eq_closed_lo h hIl
+        . by_contra hJl
+          simp at hJl
+          have := eq_closed_lo (Eq.symm h) hJl
+          contradiction
+      . by_cases hIu: I.hi.closed <;> simp[hIu]
+        . exact eq_closed_hi h hIu
+        . by_contra hJu
+          simp at hJu
+          have := eq_closed_hi (Eq.symm h) hJu
+          contradiction
 
 @[ext]
-theorem ext_toSet [LinearOrder α] (I J : Interval α)
+theorem ext_toSet [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
   (h: I.toSet = J.toSet) : I = J := by
-  rcases I with ⟨Ilo,Ihi,Iwf⟩
-  rcases J with ⟨Jlo,Jhi,Jwf⟩
-  simp_all[toSet, Endpoint.above, Endpoint.below]
-  by_cases Ilo.closed <;>
-  by_cases Ihi.closed <;>
-  by_cases Jlo.closed <;>
-  by_cases Jhi.closed <;> simp[*] at h Iwf Jwf
+  have hc := eq_closed h
+  let ⟨Ilo,Ihi,Iwf⟩ := I
+  let ⟨Jlo,Jhi,Jwf⟩ := J
+  simp at hc h
+  unfold toSet at h
+  rw[hc.1,hc.2] at Iwf
+  simp
+  constructor <;> ext <;> try simp[hc]
+  . by_cases hlc: Jlo.closed <;> simp[hlc] at h
+    . have hIlJ : Ilo.val ≤ Jlo.val := by
+        sorry
+      sorry
+    . sorry
+  . sorry
 
 
 lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
