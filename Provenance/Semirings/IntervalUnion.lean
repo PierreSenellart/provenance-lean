@@ -12,9 +12,9 @@ structure IntervalUnion (α: Type) [LinearOrder α] where
 namespace IntervalUnion
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
 
-theorem intervals_eq_of_toSet_eq [LinearOrder α] [DenselyOrdered α]
-  (U V : IntervalUnion α) (h : U.toSet = V.toSet) :
-  U.intervals = V.intervals := by
+@[ext]
+theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
+  (U V : IntervalUnion α) (h : U.toSet = V.toSet) : U = V := by
   rcases U with ⟨L₁, hdis₁, hsorted₁⟩
   rcases V with ⟨L₂, hdis₂, hsorted₂⟩
   simp[toSet] at h
@@ -44,9 +44,20 @@ theorem intervals_eq_of_toSet_eq [LinearOrder α] [DenselyOrdered α]
                         (List.pairwise_cons.mp hdis₂).2
                         (List.sorted_cons.mp hsorted₂).2
         have hIJeq: I.toSet = J.toSet := by
-          sorry
-        have hIJeq': I = J := by
-          sorry
+          ext x
+          apply Iff.intro
+          . intro hxI
+            have hx : x ∈ ⋃ K ∈ I :: tl, K.toSet := by
+              apply Set.mem_iUnion.mpr
+              use I
+              simp[hxI]
+            rw[h] at hx
+            simp at hx
+
+
+
+          . sorry
+        have hIJeq': I = J := Interval.ext_toSet hIJeq
         rw[hIJeq']
         simp
         apply ihtl

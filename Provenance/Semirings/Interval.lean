@@ -196,6 +196,7 @@ lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
 
 end Endpoint
 
+@[ext]
 structure Interval (α: Type) [LinearOrder α] where
   lo : Endpoint α
   hi : Endpoint α
@@ -209,6 +210,16 @@ lemma le_lo_hi [LinearOrder α] (I: Interval α) : I.lo.val ≤ I.hi.val := by
   cases I.wf with
   | inl hI => exact le_of_lt hI
   | inr hI => exact le_of_eq hI.left
+
+@[simp]
+lemma lo_below_hi [LinearOrder α] (I: Interval α) : Endpoint.below I.lo.val I.hi := by
+  unfold Endpoint.below
+  cases I.wf <;> simp_all
+
+@[simp]
+lemma hi_above_lo [LinearOrder α] (I: Interval α) : Endpoint.above I.hi.val I.lo := by
+  unfold Endpoint.above
+  cases I.wf <;> simp_all
 
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
@@ -276,25 +287,6 @@ theorem eq_closed [LinearOrder α] [DenselyOrdered α] {I J: Interval α}
           have := eq_closed_hi (Eq.symm h) hJu
           contradiction
 
-@[ext]
-theorem ext_toSet [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
-  (h: I.toSet = J.toSet) : I = J := by
-  have hc := eq_closed h
-  let ⟨Ilo,Ihi,Iwf⟩ := I
-  let ⟨Jlo,Jhi,Jwf⟩ := J
-  simp at hc h
-  unfold toSet at h
-  rw[hc.1,hc.2] at Iwf
-  simp
-  constructor <;> ext <;> try simp[hc]
-  . by_cases hlc: Jlo.closed <;> simp[hlc] at h
-    . have hIlJ : Ilo.val ≤ Jlo.val := by
-        sorry
-      sorry
-    . sorry
-  . sorry
-
-
 lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
   (I: Interval α) : ∃ x, x∈I.toSet := by
   have hIwf := I.wf
@@ -313,6 +305,114 @@ lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
       simp[toSet,Endpoint.above,Endpoint.below,hIlc,hIhc]
       apply exists_between
       exact hIwf
+
+@[ext]
+theorem ext_toSet [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
+  (h: I.toSet = J.toSet) : I = J := by
+  have hc := eq_closed h
+  simp at hc h
+  unfold toSet at h
+  ext <;> try simp[hc]
+  . by_cases hlc: J.lo.closed
+    <;> simp[hlc] at hc
+    <;> simp[hc,hlc,Endpoint.above] at h
+    . have hIlJ : I.lo.val ≤ J.lo.val := by
+        have hJ : J.lo.val ∈ {x | J.lo.val ≤ x ∧ Endpoint.below x J.hi} := by
+          simp
+        rw[Eq.symm h] at hJ
+        simp at hJ
+        exact hJ.1
+      have hJlI : J.lo.val ≤ I.lo.val := by
+        have hI : I.lo.val ∈ {x | I.lo.val ≤ x ∧ Endpoint.below x I.hi} := by
+          simp
+        rw[h] at hI
+        simp at hI
+        exact hI.1
+      exact le_antisymm hIlJ hJlI
+    . by_contra hInJ
+      by_cases hIleJ: I.lo.val ≤ J.lo.val
+      . have hIlJ := lt_of_le_of_ne hIleJ hInJ
+        have Iwf := I.wf
+        simp[hc] at Iwf
+        have : I.lo.val < min J.lo.val I.hi.val := by
+          simp[hIlJ,Iwf]
+        have ⟨x, hx⟩ := exists_between this
+        simp at hx
+        have hx' : x ∈ {x | I.lo.val < x ∧ Endpoint.below x I.hi} := by
+          simp[Endpoint.below, hx]
+          by_cases hIhc: I.hi.closed
+          . simp[le_of_lt hx.2.2]
+          . simp[hIhc]
+        rw[h] at hx'
+        simp at hx'
+        have := (lt_self_iff_false _).mp (lt_trans hx'.1 hx.2.1)
+        contradiction
+      . simp at hIleJ
+        have Jwf := J.wf
+        simp[hlc] at Jwf
+        have : J.lo.val < min I.lo.val J.hi.val := by
+          simp[hIleJ,Jwf]
+        have ⟨x, hx⟩ := exists_between this
+        simp at hx
+        have hx' : x ∈ {x | J.lo.val < x ∧ Endpoint.below x J.hi} := by
+          simp[Endpoint.below, hx]
+          by_cases hJhc: J.hi.closed
+          . simp[le_of_lt hx.2.2]
+          . simp[hJhc]
+        rw[Eq.symm h] at hx'
+        simp at hx'
+        have := (lt_self_iff_false _).mp (lt_trans hx'.1 hx.2.1)
+        contradiction
+  . by_cases hlc: J.hi.closed
+    <;> simp[hlc] at hc
+    <;> simp[hc,hlc,Endpoint.below] at h
+    . have hJlI : J.hi.val ≤ I.hi.val := by
+        have hJ : J.hi.val ∈ {x | Endpoint.above x J.lo ∧ x ≤ J.hi.val} := by
+          simp
+        rw[Eq.symm h] at hJ
+        simp at hJ
+        exact hJ.2
+      have hIlJ : I.hi.val ≤ J.hi.val := by
+        have hI : I.hi.val ∈ {x | Endpoint.above x I.lo ∧ x ≤ I.hi.val} := by
+          simp
+        rw[h] at hI
+        simp at hI
+        exact hI.2
+      exact le_antisymm hIlJ hJlI
+    . by_contra hInJ
+      by_cases hJleI: J.hi.val ≤ I.hi.val
+      . have hJlI := lt_of_le_of_ne hJleI (λ a ↦ hInJ (id (Eq.symm a)))
+        have Iwf := I.wf
+        simp[hc] at Iwf
+        have : max J.hi.val I.lo.val < I.hi.val := by
+          simp[hJlI,Iwf]
+        have ⟨x, hx⟩ := exists_between this
+        simp at hx
+        have hx' : x ∈ {x | Endpoint.above x I.lo ∧ x < I.hi.val} := by
+          simp[Endpoint.above, hx]
+          by_cases hIhc: I.lo.closed
+          . simp[le_of_lt hx.1.2]
+          . simp[hIhc]
+        rw[h] at hx'
+        simp at hx'
+        have := (lt_self_iff_false _).mp (lt_trans hx'.2 hx.1.1)
+        contradiction
+      . simp at hJleI
+        have Jwf := J.wf
+        simp[hlc] at Jwf
+        have : max I.hi.val J.lo.val < J.hi.val := by
+          simp[hJleI,Jwf]
+        have ⟨x, hx⟩ := exists_between this
+        simp at hx
+        have hx' : x ∈ {x | Endpoint.above x J.lo ∧ x < J.hi.val} := by
+          simp[Endpoint.above, hx]
+          by_cases hIhc: J.lo.closed
+          . simp[le_of_lt hx.1.2]
+          . simp[hIhc]
+        rw[Eq.symm h] at hx'
+        simp at hx'
+        have := (lt_self_iff_false _).mp (lt_trans hx'.2 hx.1.1)
+        contradiction
 
 @[simp]
 lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
