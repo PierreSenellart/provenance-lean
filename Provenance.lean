@@ -14,6 +14,7 @@ import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
+import Provenance.Semirings.Viterbi
 import Provenance.Semirings.Which
 import Provenance.Semirings.Why
 
