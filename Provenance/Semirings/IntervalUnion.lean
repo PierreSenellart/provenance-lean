@@ -53,16 +53,62 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
               simp[hxI]
             rw[h] at hx
             simp at hx
-
-
-
+            cases hx with
+            | inl hxJ => assumption
+            | inr hxtl' =>
+              rw[List.sorted_cons] at hsorted₁
+              rw[List.sorted_cons] at hsorted₂
+              rcases hxtl' with ⟨K, hK⟩
+              sorry
           . sorry
         have hIJeq': I = J := Interval.ext_toSet hIJeq
         rw[hIJeq']
         simp
         apply ihtl
-        sorry
-
+        ext x
+        apply Iff.intro
+        . intro hxtl
+          apply Set.mem_iUnion₂.mp at hxtl
+          rcases hxtl with ⟨K, ⟨hK,hxK⟩⟩
+          have hx: x ∈ ⋃ K ∈ I :: tl, K.toSet := by
+            simp
+            right
+            use K
+            simp[hK]
+            exact hxK
+          rw[List.pairwise_cons] at hdis₁
+          have hdisjK: I.disjoint K := hdis₁.1 K hK
+          rw[hIJeq'] at hdisjK
+          rw[h] at hx
+          simp at hx
+          cases hx with
+          | inl hxJ =>
+            have := Interval.not_mem_of_disjoint_right hdisjK x hxK
+            contradiction
+          | inr hxtl' =>
+            simp
+            exact hxtl'
+        . intro hxtl'
+          apply Set.mem_iUnion₂.mp at hxtl'
+          rcases hxtl' with ⟨K, ⟨hK,hxK⟩⟩
+          have hx: x ∈ ⋃ K ∈ J :: tl', K.toSet := by
+            simp
+            right
+            use K
+            simp[hK]
+            exact hxK
+          rw[List.pairwise_cons] at hdis₂
+          have hdisjK: J.disjoint K := hdis₂.1 K hK
+          rw[Eq.symm hIJeq'] at hdisjK
+          rw[Eq.symm h] at hx
+          simp at hx
+          cases hx with
+          | inl hxI =>
+            have := Interval.not_mem_of_disjoint_right hdisjK x hxK
+            contradiction
+          | inr hxtl =>
+            simp
+            exact hxtl
 
 theorem ext [LinearOrder α] (U V : IntervalUnion α)
   (h : U.intervals = V.intervals) : U = V := by

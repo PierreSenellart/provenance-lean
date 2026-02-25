@@ -421,6 +421,18 @@ lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
 
+def not_mem_of_disjoint_right [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
+  ∀ x ∈ J.toSet, ¬(x ∈ I.toSet) := by
+    simp[disjoint] at h
+    intro x hx
+    exact Disjoint.notMem_of_mem_right h hx
+
+def not_mem_of_disjoint_left [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
+  ∀ x ∈ I.toSet, ¬(x ∈ J.toSet) := by
+    simp[disjoint] at h
+    intro x hx
+    exact Disjoint.notMem_of_mem_left h hx
+
 instance [LinearOrder α] : PartialOrder (Interval α) where
   le I J : Prop := I.lo.val ≤ J.lo.val ∧ I.hi.val ≤ J.hi.val ∧
     (I.lo.val=J.lo.val → J.lo.closed → I.lo.closed) ∧
