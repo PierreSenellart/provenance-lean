@@ -36,6 +36,7 @@ rewriting is correct is provided
   - [MinMax.lean](Provenance/Semirings/MinMax.lean): the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
   - [Nat.lean](Provenance/Semirings/Nat.lean): the counting m-semiring
   - [Tropical.lean](Provenance/Semirings/Tropical.lean): the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
+  - [Viterbi.lean](Provenance/Semirings/Viterbi.lean): the Viterbi m-semiring
   - [Which.lean](Provenance/Semirings/Which.lean): the Which\[X\] m-semiring (also called lineage or Lin\[X\])
   - [Why.lean](Provenance/Semirings/Why.lean): the Why\[X\] m-semiring
 
