@@ -38,6 +38,7 @@ This is work in progress. For now:
   - `Provenance.Semirings.MinMax`: the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
   - `Provenance.Semirings.Nat`: the counting m-semiring
   - `Provenance.Semirings.Tropical`: the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
+  - `Provenance.Semirings.Viterbi`: the Viterbi m-semiring
   - `Provenance.Semirings.Which`: the Which[X] m-semiring (also called lineage or Lin[X])
   - `Provenance.Semirings.Why`: the Why[X] m-semiring
 - `Provenance.Database` defines tuples, relations, and (regular) databases
