@@ -247,6 +247,13 @@ theorem idempotent_iff_add_monus [SemiringWithMonus α] :
   idempotent α ↔ ∀ a b c : α, (a + b) - c = (a - c) + (b - c)
     := ⟨add_monus_of_idempotent, idempotent_of_add_monus⟩
 
+theorem monus_le [SemiringWithMonus α] :
+  ∀ a b : α, a - b ≤ a := by
+    simp[SemiringWithMonus.monus_spec]
+
+theorem le_plus_monus [SemiringWithMonus α] :
+  ∀ a b : α, a ≤ b + (a - b) := by
+    simp[← SemiringWithMonus.monus_spec]
 
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/
