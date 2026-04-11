@@ -194,6 +194,72 @@ lemma above_of_above_of_le [LinearOrder α] {lo lo': Endpoint α}
     . intro h'
       exact lt_of_le_of_lt h h'
 
+/-! ### Endpoint operations for intersection and difference -/
+
+/-- Most restrictive (largest) lower endpoint: `above x (maxLo a b) ↔ above x a ∧ above x b`. -/
+def maxLo [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
+  if b.val < a.val then a else
+  if a.val < b.val then b else
+  if a.closed ∧ ¬b.closed then b else a
+
+/-- Most restrictive (smallest) upper endpoint: `below x (minHi a b) ↔ below x a ∧ below x b`. -/
+def minHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
+  if a.val < b.val then a else
+  if b.val < a.val then b else
+  if a.closed ∧ ¬b.closed then b else a
+
+-- `h1 : ¬(b < a)` gives `not_lt.mp h1 : a ≤ b`; `h2 : ¬(a < b)` gives `not_lt.mp h2 : b ≤ a`
+-- so `le_antisymm (not_lt.mp h1) (not_lt.mp h2) : a = b`
+lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
+    above x (maxLo a b) ↔ above x a ∧ above x b := by
+  constructor
+  · intro h
+    simp only [maxLo] at h
+    split_ifs at h with h1 h2 h3
+    · exact ⟨h, above_of_above_of_lt h1 h⟩
+    · exact ⟨above_of_above_of_lt h2 h, h⟩
+    · -- h1:¬(b<a), h2:¬(a<b), h3:(a.closed∧¬b.closed), maxLo=b
+      have heq : a.val = b.val := le_antisymm (not_lt.mp h1) (not_lt.mp h2)
+      -- above x b → above x a: use a.val=b.val, a.closed, and above_of_above_of_le
+      exact ⟨above_of_above_of_le (le_of_eq heq) (Or.inr h3.1) h, h⟩
+    · -- h1:¬(b<a), h2:¬(a<b), h3:¬(a.closed∧¬b.closed), maxLo=a
+      have heq : a.val = b.val := le_antisymm (not_lt.mp h1) (not_lt.mp h2)
+      -- above x a → above x b: a.val=b.val, ¬(a.closed∧¬b.closed) → ¬a.closed ∨ b.closed
+      push_neg at h3
+      refine ⟨h, above_of_above_of_le (le_of_eq heq.symm) ?_ h⟩
+      cases hac : a.closed
+      · exact Or.inl (by simp [hac])
+      · exact Or.inr (h3 (by simp [hac]))
+  · rintro ⟨ha, hb⟩
+    simp only [maxLo]
+    split_ifs with h1 h2 h3 <;> assumption
+
+-- `h1 : ¬(a < b)` gives `not_lt.mp h1 : b ≤ a`; `h2 : ¬(b < a)` gives `not_lt.mp h2 : a ≤ b`
+-- so `le_antisymm (not_lt.mp h2) (not_lt.mp h1) : a = b`
+lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
+    below x (minHi a b) ↔ below x a ∧ below x b := by
+  constructor
+  · intro h
+    simp only [minHi] at h
+    split_ifs at h with h1 h2 h3
+    · exact ⟨h, below_of_below_of_lt h1 h⟩
+    · exact ⟨below_of_below_of_lt h2 h, h⟩
+    · -- h1:¬(a<b), h2:¬(b<a), h3:(a.closed∧¬b.closed), minHi=b
+      have heq : a.val = b.val := le_antisymm (not_lt.mp h2) (not_lt.mp h1)
+      -- below x b → below x a: hi=b (open), hi'=a (closed), hi.val≤hi'.val = b.val≤a.val
+      exact ⟨below_of_below_of_le (le_of_eq heq.symm) (Or.inr h3.1) h, h⟩
+    · -- h1:¬(a<b), h2:¬(b<a), h3:¬(a.closed∧¬b.closed), minHi=a
+      have heq : a.val = b.val := le_antisymm (not_lt.mp h2) (not_lt.mp h1)
+      -- below x a → below x b: hi=a, hi'=b, hi.val≤hi'.val = a.val≤b.val
+      push_neg at h3
+      refine ⟨h, below_of_below_of_le (le_of_eq heq) ?_ h⟩
+      cases hac : a.closed
+      · exact Or.inl (by simp [hac])
+      · exact Or.inr (h3 (by simp [hac]))
+  · rintro ⟨ha, hb⟩
+    simp only [minHi]
+    split_ifs with h1 h2 h3 <;> assumption
+
 end Endpoint
 
 @[ext]
@@ -486,7 +552,7 @@ instance [LinearOrder α] : PartialOrder (Interval α) where
 /-- Strictly before, no common point, cannot be merged --/
 def before [LinearOrder α] (I J : Interval α) : Prop :=
   I.hi.val < J.lo.val ∨
-  (I.hi.val = J.lo.val ∧ (I.hi.closed → ¬J.lo.closed))
+  (I.hi.val = J.lo.val ∧ ¬I.hi.closed ∧ ¬J.lo.closed)
 
 lemma ne_of_before [LinearOrder α] {I J : Interval α} : I.before J → I ≠ J := by
   unfold before
@@ -543,10 +609,6 @@ lemma disjoint_of_before [LinearOrder α] {I J : Interval α} : I.before J → I
     by_cases hIhc : I.hi.closed <;> simp[hIhc] at hxI <;>
     by_cases hJlc : J.lo.closed <;> simp[hJlc] at hxJ <;>
     simp[hIhc,hJlc] at h' <;> rw[h'] at hxI
-    . have := (lt_self_iff_false _).mp (lt_of_le_of_lt hxI.2 hxJ.1)
-      contradiction
-    . have := (lt_self_iff_false _).mp (lt_of_lt_of_le hxI.2 hxJ.1)
-      contradiction
     . have := (lt_self_iff_false _).mp (lt_trans hxI.2 hxJ.1)
       contradiction
 
@@ -555,10 +617,10 @@ instance [LinearOrder α] [DecidableEq α] [DecidableLE α] {I J: Interval α} :
   . exact isTrue (by left; exact hlt)
   . by_cases heq: I.hi.val=J.lo.val
     . by_cases hIo: ¬I.hi.closed
-      . exact isTrue (by right; constructor; assumption; tauto)
       . by_cases hJo: ¬J.lo.closed
-        . exact isTrue (by right; constructor; assumption; tauto)
+        . exact isTrue (by right; exact ⟨heq, hIo, hJo⟩)
         . exact isFalse (by simp[before,heq,hIo,hJo])
+      . exact isFalse (by simp[before,heq,hIo])
     . exact isFalse (by simp[before,hlt,heq])
 
 @[simp]
@@ -584,12 +646,8 @@ lemma le_of_before [LinearOrder α] {I J : Interval α} (h: I.before J) : I ≤ 
     . constructor
       . intro hlo hJlo
         simp[hJlo] at h'
-        have hIwf := I.wf
-        simp[h',hlo] at hIwf
       . intro hhi hIhi
         simp[hIhi] at h'
-        have hJwf := J.wf
-        simp[h',hhi] at hJwf
 
 lemma before_of_before_of_le [LinearOrder α] {I J K : Interval α}
   (hIJ: I.before J) (hJK: J ≤ K) : I.before K := by
@@ -602,15 +660,168 @@ lemma before_of_before_of_le [LinearOrder α] {I J K : Interval α}
       exact lt_of_lt_of_le hIJlt hJK.1
     . rw[hIJ.1]
       by_cases hJKlt : J.lo.val < K.lo.val <;> simp[hJKlt]
-      constructor
-      . exact eq_of_le_of_ge hJK.1 (not_lt.mp hJKlt)
-      . intro hIhc
-        simp[hIhc] at hIJ
-        have hIwf := I.wf
-        simp[hIhc] at hIwf
-        have hKwf := K.wf
-        by_contra hKlc
-        simp at hKlc
-        simp[eq_of_le_of_ge hJK.1 (not_lt.mp hJKlt), hKlc, hIJ.2] at hJK
+      have hjeq := eq_of_le_of_ge hJK.1 (not_lt.mp hJKlt)
+      refine ⟨hjeq, hIJ.2.1, ?_⟩
+      by_contra hKlc
+      simp at hKlc
+      have hJlc := hJK.2.2.1 hjeq hKlc
+      simp[hJlc] at hIJ
+
+/-! ### Interval intersection -/
+
+/-- Intersection of two intervals: empty or a single interval. -/
+def inter [LinearOrder α] (I J : Interval α) : List (Interval α) :=
+  let lo := Endpoint.maxLo I.lo J.lo
+  let hi := Endpoint.minHi I.hi J.hi
+  if h : lo.val < hi.val ∨ (lo.val = hi.val ∧ lo.closed ∧ hi.closed) then
+    [⟨lo, hi, h⟩]
+  else
+    []
+
+lemma mem_inter [LinearOrder α] (I J : Interval α) (x : α) :
+    (∃ K ∈ I.inter J, x ∈ K.toSet) ↔ x ∈ I.toSet ∧ x ∈ J.toSet := by
+  simp only [inter, Interval.mem, toSet, Set.mem_setOf_eq]
+  split_ifs with h
+  · -- non-empty intersection
+    simp only [List.mem_singleton, exists_eq_left, Interval.mem, Set.mem_setOf_eq]
+    exact ⟨fun ⟨ha, hb⟩ => ⟨⟨(Endpoint.above_maxLo x I.lo J.lo).mp ha |>.1,
+                                (Endpoint.below_minHi x I.hi J.hi).mp hb |>.1⟩,
+                              ⟨(Endpoint.above_maxLo x I.lo J.lo).mp ha |>.2,
+                               (Endpoint.below_minHi x I.hi J.hi).mp hb |>.2⟩⟩,
+           fun ⟨⟨ha1, hb1⟩, ⟨ha2, hb2⟩⟩ =>
+             ⟨(Endpoint.above_maxLo x I.lo J.lo).mpr ⟨ha1, ha2⟩,
+              (Endpoint.below_minHi x I.hi J.hi).mpr ⟨hb1, hb2⟩⟩⟩
+  · -- empty intersection: any x in I.toSet ∩ J.toSet would satisfy the wf condition
+    simp only [List.not_mem_nil, false_and, exists_false, false_iff]
+    rintro ⟨⟨ha1, hb1⟩, ⟨ha2, hb2⟩⟩
+    apply h
+    have hlo := (Endpoint.above_maxLo x I.lo J.lo).mpr ⟨ha1, ha2⟩
+    have hhi := (Endpoint.below_minHi x I.hi J.hi).mpr ⟨hb1, hb2⟩
+    -- x satisfies above x (maxLo lo lo') and below x (minHi hi hi'), so wf holds
+    have hx_ge_lo : (Endpoint.maxLo I.lo J.lo).val ≤ x := Endpoint.ge_of_above x _ hlo
+    have hx_le_hi : x ≤ (Endpoint.minHi I.hi J.hi).val := Endpoint.le_of_below x _ hhi
+    rcases (hx_ge_lo.trans hx_le_hi).lt_or_eq with hlt | heq
+    · left; exact hlt
+    · right
+      have hx_le_lo : x ≤ (Endpoint.maxLo I.lo J.lo).val := hx_le_hi.trans_eq heq.symm
+      have hhi_le_x : (Endpoint.minHi I.hi J.hi).val ≤ x := heq ▸ hx_ge_lo
+      refine ⟨heq, ?_, ?_⟩
+      · simp only [Endpoint.above] at hlo
+        cases hclo : (Endpoint.maxLo I.lo J.lo).closed
+        · simp [hclo] at hlo
+          exact absurd hlo (not_lt.mpr hx_le_lo)
+        · rfl
+      · simp only [Endpoint.below] at hhi
+        cases hchi : (Endpoint.minHi I.hi J.hi).closed
+        · simp [hchi] at hhi
+          exact absurd hhi (not_lt.mpr hhi_le_x)
+        · rfl
+
+/-! ### Interval difference -/
+
+/-- `above x e` is the negation of `below x` at the complemented endpoint. -/
+lemma Endpoint.above_iff_not_below_complement [LinearOrder α] (x : α) (e : Endpoint α) :
+    Endpoint.above x e ↔ ¬Endpoint.below x ⟨e.val, !e.closed⟩ := by
+  simp only [Endpoint.above, Endpoint.below, Bool.not_not]
+  cases e.closed <;> simp [not_le, not_lt]
+
+/-- `below x e` is the negation of `above x` at the complemented endpoint. -/
+lemma Endpoint.below_iff_not_above_complement [LinearOrder α] (x : α) (e : Endpoint α) :
+    Endpoint.below x e ↔ ¬Endpoint.above x ⟨e.val, !e.closed⟩ := by
+  simp only [Endpoint.above, Endpoint.below, Bool.not_not]
+  cases e.closed <;> simp [not_le, not_lt]
+
+/-- Membership in an optional singleton interval (where the interval may be empty due to
+    wf failing) is equivalent to the endpoint conditions. -/
+private lemma mem_opt_interval [LinearOrder α] (lo hi : Endpoint α) (x : α) :
+    (∃ K ∈ (if h : lo.val < hi.val ∨ (lo.val = hi.val ∧ lo.closed ∧ hi.closed)
+             then [⟨lo, hi, h⟩]
+             else ([] : List (Interval α))), x ∈ K.toSet) ↔
+    Endpoint.above x lo ∧ Endpoint.below x hi := by
+  split_ifs with h
+  · simp only [List.mem_singleton, exists_eq_left, Interval.mem, toSet, Set.mem_setOf_eq]
+  · simp only [List.not_mem_nil, false_and, exists_false, false_iff]
+    rintro ⟨ha, hb⟩
+    apply h
+    have hx_ge : lo.val ≤ x := Endpoint.ge_of_above x lo ha
+    have hx_le : x ≤ hi.val := Endpoint.le_of_below x hi hb
+    rcases (hx_ge.trans hx_le).lt_or_eq with hlt | heq
+    · left; exact hlt
+    · right
+      refine ⟨heq, ?_, ?_⟩
+      · simp only [Endpoint.above] at ha
+        cases hclo : lo.closed
+        · simp [hclo] at ha
+          exact absurd ha (not_lt.mpr (hx_le.trans_eq heq.symm))
+        · rfl
+      · simp only [Endpoint.below] at hb
+        cases hchi : hi.closed
+        · simp [hchi] at hb
+          exact absurd hb (not_lt.mpr (heq ▸ hx_ge))
+        · rfl
+
+/-- Difference `I \ J`: the left piece (below J) and right piece (above J) of I. -/
+def diff [LinearOrder α] (I J : Interval α) : List (Interval α) :=
+  -- Left piece uses hi = complement of J.lo
+  let leftHi  : Endpoint α := ⟨J.lo.val, !J.lo.closed⟩
+  -- Right piece uses lo = complement of J.hi
+  let rightLo : Endpoint α := ⟨J.hi.val, !J.hi.closed⟩
+  let leftHi'  := Endpoint.minHi I.hi leftHi
+  let rightLo' := Endpoint.maxLo I.lo rightLo
+  (if h : I.lo.val < leftHi'.val ∨
+          (I.lo.val = leftHi'.val ∧ I.lo.closed ∧ leftHi'.closed)
+   then [⟨I.lo, leftHi', h⟩] else []) ++
+  (if h : rightLo'.val < I.hi.val ∨
+          (rightLo'.val = I.hi.val ∧ rightLo'.closed ∧ I.hi.closed)
+   then [⟨rightLo', I.hi, h⟩] else [])
+
+lemma mem_diff [LinearOrder α] (I J : Interval α) (x : α) :
+    (∃ K ∈ I.diff J, x ∈ K.toSet) ↔ x ∈ I.toSet ∧ x ∉ J.toSet := by
+  constructor
+  · rintro ⟨K, hK, hxK⟩
+    simp only [diff, List.mem_append] at hK
+    rcases hK with hKL | hKR
+    · -- K is in the left piece
+      have hmem := (mem_opt_interval I.lo (Endpoint.minHi I.hi ⟨J.lo.val, !J.lo.closed⟩) x).mp
+        ⟨K, hKL, hxK⟩
+      obtain ⟨hIlo, hhi⟩ := hmem
+      have hIhi := (Endpoint.below_minHi x I.hi ⟨J.lo.val, !J.lo.closed⟩).mp hhi |>.1
+      have hc := (Endpoint.below_minHi x I.hi ⟨J.lo.val, !J.lo.closed⟩).mp hhi |>.2
+      rw [Endpoint.below_iff_not_above_complement] at hc
+      simp only [Bool.not_not] at hc
+      exact ⟨⟨hIlo, hIhi⟩, fun ⟨haJ, _⟩ => hc haJ⟩
+    · -- K is in the right piece
+      have hmem := (mem_opt_interval (Endpoint.maxLo I.lo ⟨J.hi.val, !J.hi.closed⟩) I.hi x).mp
+        ⟨K, hKR, hxK⟩
+      obtain ⟨hlo, hIhi⟩ := hmem
+      have hIlo := (Endpoint.above_maxLo x I.lo ⟨J.hi.val, !J.hi.closed⟩).mp hlo |>.1
+      have hc := (Endpoint.above_maxLo x I.lo ⟨J.hi.val, !J.hi.closed⟩).mp hlo |>.2
+      rw [Endpoint.above_iff_not_below_complement] at hc
+      simp only [Bool.not_not] at hc
+      exact ⟨⟨hIlo, hIhi⟩, fun ⟨_, hbJ⟩ => hc hbJ⟩
+  · intro ⟨hxI, hxnotJ⟩
+    simp only [toSet, Set.mem_setOf_eq] at hxI
+    obtain ⟨hIlo, hIhi⟩ := hxI
+    -- hxnotJ : ¬(above x J.lo ∧ below x J.hi)
+    rcases Classical.em (Endpoint.above x J.lo) with haJ | hnaJ
+    · -- above x J.lo, so ¬below x J.hi
+      have hnbJ : ¬Endpoint.below x J.hi := by
+        simp only [toSet, Set.mem_setOf_eq] at hxnotJ
+        exact fun hbJ => hxnotJ ⟨haJ, hbJ⟩
+      -- x is in the right piece
+      have habove_rlo : Endpoint.above x (Endpoint.maxLo I.lo ⟨J.hi.val, !J.hi.closed⟩) := by
+        rw [Endpoint.above_maxLo]
+        exact ⟨hIlo, (Endpoint.above_iff_not_below_complement x ⟨J.hi.val, !J.hi.closed⟩).mpr
+          (by simp only [Bool.not_not]; exact hnbJ)⟩
+      obtain ⟨K, hK, hxK⟩ := (mem_opt_interval _ I.hi x).mpr ⟨habove_rlo, hIhi⟩
+      exact ⟨K, by simp only [diff]; exact List.mem_append_right _ hK, hxK⟩
+    · -- ¬above x J.lo: x is in the left piece
+      have hnblo : Endpoint.below x ⟨J.lo.val, !J.lo.closed⟩ :=
+        (Endpoint.below_iff_not_above_complement x ⟨J.lo.val, !J.lo.closed⟩).mpr
+          (by simp only [Bool.not_not]; exact hnaJ)
+      have hbelow_lhi : Endpoint.below x (Endpoint.minHi I.hi ⟨J.lo.val, !J.lo.closed⟩) :=
+        (Endpoint.below_minHi x I.hi ⟨J.lo.val, !J.lo.closed⟩).mpr ⟨hIhi, hnblo⟩
+      obtain ⟨K, hK, hxK⟩ := (mem_opt_interval I.lo _ x).mpr ⟨hIlo, hbelow_lhi⟩
+      exact ⟨K, by simp only [diff]; exact List.mem_append_left _ hK, hxK⟩
 
 end Interval

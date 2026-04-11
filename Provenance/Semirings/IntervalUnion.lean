@@ -1,22 +1,64 @@
 import Mathlib.Data.List.Sort
 import Mathlib.Data.Set.Lattice
 import Mathlib.Logic.Nontrivial.Defs
+import Mathlib.Tactic.Linarith
 import Provenance.Semirings.Interval
 import Provenance.SemiringWithMonus
 
 structure IntervalUnion (α: Type) [LinearOrder α] where
   intervals         : List (Interval α)
   pairwise_disjoint : intervals.Pairwise Interval.disjoint
-  sorted            : intervals.Sorted LE.le
+  pairwise_before   : intervals.Pairwise Interval.before
 
 namespace IntervalUnion
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
 
+-- Helper: convexity of interval toSet
+private lemma interval_mem_between [LinearOrder α] {I : Interval α} {y z x : α}
+    (hy : y ∈ I.toSet) (hx : x ∈ I.toSet) (hyz : y < z) (hzx : z < x) : z ∈ I.toSet := by
+  constructor
+  · have h : I.lo.val < z := lt_of_le_of_lt (Endpoint.ge_of_above y I.lo hy.1) hyz
+    unfold Endpoint.above; cases I.lo.closed
+    · exact h
+    · exact le_of_lt h
+  · have h : z < I.hi.val := lt_of_lt_of_le hzx (Endpoint.le_of_below x I.hi hx.2)
+    unfold Endpoint.below; cases I.hi.closed
+    · exact h
+    · exact le_of_lt h
+
+-- Helper: if z < K'.lo.val then z ∉ K'.toSet
+private lemma not_mem_of_lt_lo [LinearOrder α] {K' : Interval α} {z : α}
+    (hlt : z < K'.lo.val) : z ∉ K'.toSet := by
+  intro hmem
+  exact lt_irrefl z (lt_of_lt_of_le hlt (Endpoint.ge_of_above z K'.lo hmem.1))
+
+-- Helper: if z = K'.lo.val and K'.lo.closed = false then z ∉ K'.toSet
+private lemma not_mem_of_eq_lo_open [LinearOrder α] {K' : Interval α} {z : α}
+    (heq : z = K'.lo.val) (hopen : ¬K'.lo.closed) : z ∉ K'.toSet := by
+  intro hmem
+  by_cases hc : K'.lo.closed
+  · exact absurd hc hopen
+  · have hlo := hmem.1
+    simp [Endpoint.above, hc] at hlo
+    rw [heq] at hlo
+    exact absurd hlo (lt_irrefl K'.lo.val)
+
+-- Helper: if z = K'.hi.val and K'.hi.closed = false then z ∉ K'.toSet
+private lemma not_mem_of_eq_hi_open [LinearOrder α] {K' : Interval α} {z : α}
+    (heq : z = K'.hi.val) (hopen : ¬K'.hi.closed) : z ∉ K'.toSet := by
+  intro hmem
+  by_cases hc : K'.hi.closed
+  · exact absurd hc hopen
+  · have hhi := hmem.2
+    simp [Endpoint.below, hc] at hhi
+    rw [heq] at hhi
+    exact absurd hhi (lt_irrefl K'.hi.val)
+
 @[ext]
 theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
   (U V : IntervalUnion α) (h : U.toSet = V.toSet) : U = V := by
-  rcases U with ⟨L₁, hdis₁, hsorted₁⟩
-  rcases V with ⟨L₂, hdis₂, hsorted₂⟩
+  rcases U with ⟨L₁, hdis₁, hpb₁⟩
+  rcases V with ⟨L₂, hdis₂, hpb₂⟩
   simp[toSet] at h
   simp
   induction L₁ generalizing L₂ with
@@ -40,27 +82,408 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
       contradiction
     | cons J tl' =>
         have ihtl := ih (List.pairwise_cons.mp hdis₁).2
-                        (List.sorted_cons.mp hsorted₁).2 tl'
+                        (List.pairwise_cons.mp hpb₁).2 tl'
                         (List.pairwise_cons.mp hdis₂).2
-                        (List.sorted_cons.mp hsorted₂).2
-        have hIJeq: I.toSet = J.toSet := by
-          ext x
-          apply Iff.intro
-          . intro hxI
-            have hx : x ∈ ⋃ K ∈ I :: tl, K.toSet := by
-              apply Set.mem_iUnion.mpr
-              use I
-              simp[hxI]
-            rw[h] at hx
-            simp at hx
-            cases hx with
-            | inl hxJ => assumption
-            | inr hxtl' =>
-              rw[List.sorted_cons] at hsorted₁
-              rw[List.sorted_cons] at hsorted₂
-              rcases hxtl' with ⟨K, hK⟩
-              sorry
-          . sorry
+                        (List.pairwise_cons.mp hpb₂).2
+        -- gap_contra₁: x ∈ I.toSet ∧ K ∈ tl' ∧ x ∈ K.toSet → False
+        have gap_contra : ∀ x : α, x ∈ I.toSet →
+            ∀ K ∈ tl', x ∈ K.toSet → False := by
+          intro x hxI K hKtl' hxK
+          -- J.before K from pairwise_before of J :: tl'
+          have hJbK := (List.pairwise_cons.mp hpb₂).1 K hKtl'
+          -- get y ∈ J.toSet (non-empty)
+          obtain ⟨y, hyJ⟩ := Interval.toSet_not_empty J
+          -- y is in I :: tl via h
+          have hyL₁ : y ∈ ⋃ L ∈ I :: tl, L.toSet := by
+            have : y ∈ ⋃ L ∈ J :: tl', L.toSet :=
+              Set.mem_iUnion₂.mpr ⟨J, List.mem_cons_self, hyJ⟩
+            rwa [h]
+          rw [Set.mem_iUnion₂] at hyL₁
+          obtain ⟨L, hLconsI, hyL⟩ := hyL₁
+          -- y in I.toSet or L ∈ tl
+          cases List.mem_cons.mp hLconsI with
+          | inr hLtl =>
+            -- y ∈ L.toSet with I.before L → I.hi.val ≤ L.lo.val ≤ y ≤ J.hi.val and x ≤ I.hi.val but x ≥ K.lo.val > J.hi.val
+            have hIbL := (List.pairwise_cons.mp hpb₁).1 L hLtl
+            -- I.hi.val ≤ L.lo.val
+            have hIhiLlo : I.hi.val ≤ L.lo.val := by
+              cases hIbL with
+              | inl h => exact h.le
+              | inr h => exact le_of_eq h.1
+            -- L.lo.val ≤ y (from y ∈ L.toSet)
+            have hLloY : L.lo.val ≤ y := by
+              simp only [Interval.mem, Endpoint.above] at hyL
+              split_ifs at hyL with hc
+              · exact hyL.1
+              · exact hyL.1.le
+            -- y ≤ J.hi.val (from y ∈ J.toSet)
+            have hyJhi : y ≤ J.hi.val := by
+              simp only [Interval.mem, Endpoint.below] at hyJ
+              split_ifs at hyJ with hc
+              · exact hyJ.2
+              · exact hyJ.2.le
+            -- x ≤ I.hi.val (from x ∈ I.toSet)
+            have hxIhi : x ≤ I.hi.val := by
+              simp only [Interval.mem, Endpoint.below] at hxI
+              split_ifs at hxI with hc
+              · exact hxI.2
+              · exact hxI.2.le
+            -- K.lo.val ≤ x (or strict) (from x ∈ K.toSet)
+            -- J.hi.val < K.lo.val or = with K.lo.open
+            cases hJbK with
+            | inl hJhiKlo =>
+              have hKloX : K.lo.val ≤ x := by
+                simp only [Interval.mem, Endpoint.above] at hxK
+                split_ifs at hxK with hc
+                · exact hxK.1
+                · exact hxK.1.le
+              exact lt_irrefl x (lt_of_le_of_lt
+                (le_trans hxIhi (le_trans hIhiLlo (le_trans hLloY hyJhi)))
+                (lt_of_lt_of_le hJhiKlo hKloX))
+            | inr hJbKopen =>
+              have hKloX : K.lo.val < x := by
+                simp only [Interval.mem, Endpoint.above, hJbKopen.2.2, ite_false] at hxK
+                exact hxK.1
+              exact lt_irrefl x (lt_of_le_of_lt
+                (le_trans hxIhi (le_trans hIhiLlo (le_trans hLloY (hJbKopen.1 ▸ hyJhi))))
+                hKloX)
+          | inl hLI =>
+            -- y ∈ I.toSet (L = I). Use convexity + gap argument.
+            subst hLI
+            -- Gap between J.hi and K.lo (or at J.hi = K.lo with open endpoints)
+            -- Get K₁ = head of tl' for gap
+            cases tl' with
+            | nil => exact absurd hKtl' List.not_mem_nil
+            | cons K₁ tl'' =>
+              -- K₁ is first in tl'
+              have hJbK₁ := (List.pairwise_cons.mp hpb₂).1 K₁ List.mem_cons_self
+              -- K₁.lo.val ≤ K.lo.val (K ∈ K₁ :: tl'')
+              have hK₁loKlo : K₁.lo.val ≤ K.lo.val := by
+                cases List.mem_cons.mp hKtl' with
+                | inl h => rw [h]
+                | inr h =>
+                  have := Interval.le_of_before
+                    ((List.pairwise_cons.mp (List.pairwise_cons.mp hpb₂).2).1 K h)
+                  simp [(· ≤ ·)] at this
+                  exact this.1
+              -- x ≥ K.lo.val ≥ K₁.lo.val
+              have hxKlo : K₁.lo.val ≤ x := by
+                have : K.lo.val ≤ x := by
+                  simp only [Interval.mem, Endpoint.above] at hxK
+                  split_ifs at hxK with hc
+                  · exact hxK.1
+                  · exact hxK.1.le
+                exact le_trans hK₁loKlo this
+              -- y ≤ J.hi.val (from y ∈ J.toSet)
+              have hyJhi : y ≤ J.hi.val := by
+                simp only [Interval.mem, Endpoint.below] at hyJ
+                split_ifs at hyJ with hc
+                · exact hyJ.2
+                · exact hyJ.2.le
+              -- For all K' ∈ tl', K₁.lo.val ≤ K'.lo.val
+              have hK₁loAll : ∀ K' ∈ (K₁ :: tl''), K₁.lo.val ≤ K'.lo.val := by
+                intro K' hK'
+                cases List.mem_cons.mp hK' with
+                | inl h => rw [h]
+                | inr h =>
+                  have := Interval.le_of_before
+                    ((List.pairwise_cons.mp (List.pairwise_cons.mp hpb₂).2).1 K' h)
+                  simp [(· ≤ ·)] at this
+                  exact this.1
+              -- gap argument on J.before K₁
+              cases hJbK₁ with
+              | inl hJhiK₁lo =>
+                -- Get z strictly between J.hi.val and K₁.lo.val
+                obtain ⟨z, hz1, hz2⟩ := exists_between hJhiK₁lo
+                -- y < z (y ≤ J.hi.val < z)
+                have hyz : y < z := lt_of_le_of_lt hyJhi hz1
+                -- z < x (z < K₁.lo.val ≤ x)
+                have hzx : z < x := lt_of_lt_of_le hz2 hxKlo
+                -- z ∈ I.toSet by convexity
+                have hzI := interval_mem_between hyL hxI hyz hzx
+                -- z ∉ J.toSet
+                have hznotJ : z ∉ J.toSet := by
+                  simp only [Interval.mem, Endpoint.below]
+                  intro ⟨_, hzhi⟩
+                  split_ifs at hzhi with hc
+                  · exact absurd hz1 (not_lt.mpr hzhi)
+                  · exact absurd hz1 (not_lt.mpr hzhi.le)
+                -- z ∉ K' for K' ∈ K₁ :: tl''
+                have hznotK' : ∀ K' ∈ (K₁ :: tl''), z ∉ K'.toSet := by
+                  intro K' hK'
+                  have hK₁loK' := hK₁loAll K' hK'
+                  exact not_mem_of_lt_lo (lt_of_lt_of_le hz2 hK₁loK')
+                -- z ∉ ⋃ K ∈ J :: tl'
+                have hznotL₂ : z ∉ ⋃ K ∈ J :: K₁ :: tl'', K.toSet := by
+                  simp only [Set.mem_iUnion]
+                  rintro ⟨K', hK', hzK'⟩
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact hznotJ (h ▸ hzK')
+                  | inr h => exact hznotK' K' h hzK'
+                -- But z ∈ I.toSet ⊆ ⋃ K ∈ I :: tl = ⋃ K ∈ J :: tl'
+                apply hznotL₂; rw [← h]
+                exact Set.mem_iUnion₂.mpr ⟨_, List.mem_cons_self, hzI⟩
+              | inr hJbK₁open =>
+                -- z = J.hi.val = K₁.lo.val, both open
+                set z := J.hi.val
+                -- y < z (J.hi.closed = false → y ∈ J.toSet → y < J.hi.val = z)
+                have hyz : y < z := by
+                  simp only [Interval.mem, Endpoint.below, hJbK₁open.2.1, ite_false] at hyJ
+                  exact hyJ.2
+                -- z < x
+                have hzx : z < x := by
+                  have hzK₁lo : z = K₁.lo.val := hJbK₁open.1
+                  rcases lt_or_eq_of_le (hzK₁lo ▸ hxKlo) with hlt | heqx
+                  · exact hlt
+                  · exfalso
+                    cases List.mem_cons.mp hKtl' with
+                    | inl hKK₁ =>
+                      rw [hKK₁] at hxK
+                      simp only [Interval.mem, Endpoint.above, hJbK₁open.2.2, ite_false] at hxK
+                      exact absurd (hzK₁lo.symm.trans heqx ▸ hxK.1) (lt_irrefl x)
+                    | inr hKtl'' =>
+                      have hK₁K := (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₂).2).1 K hKtl''
+                      have hKloX : K.lo.val ≤ x := by
+                        simp only [Interval.mem, Endpoint.above] at hxK
+                        split_ifs at hxK with hc
+                        · exact hxK.1
+                        · exact hxK.1.le
+                      have hKloZ : K.lo.val = z :=
+                        le_antisymm (heqx ▸ hKloX)
+                                    (hzK₁lo ▸ hK₁loAll K (List.mem_cons_of_mem K₁ hKtl''))
+                      cases hK₁K with
+                      | inl hlt =>
+                        exact lt_irrefl K₁.lo.val
+                          (lt_of_le_of_lt K₁.le_lo_hi (hlt.trans_eq (hKloZ.trans hzK₁lo)))
+                      | inr heq =>
+                        have : K₁.hi.val = z := heq.1.trans hKloZ
+                        cases K₁.wf with
+                        | inl h' =>
+                          exact lt_irrefl K₁.lo.val (h'.trans_eq (this.trans hzK₁lo))
+                        | inr h' => exact absurd h'.2.2 heq.2.1
+                -- z ∈ I.toSet by convexity
+                have hzI := interval_mem_between hyL hxI hyz hzx
+                -- z ∉ J.toSet (J.hi.closed = false, z = J.hi.val)
+                have hznotJ : z ∉ J.toSet := not_mem_of_eq_hi_open rfl hJbK₁open.2.1
+                -- z ∉ K' for K' ∈ K₁ :: tl''
+                have hznotK' : ∀ K' ∈ (K₁ :: tl''), z ∉ K'.toSet := by
+                  intro K' hK'
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact h ▸ not_mem_of_eq_lo_open hJbK₁open.1 hJbK₁open.2.2
+                  | inr hmem =>
+                    have hK₁K'before :=
+                      (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₂).2).1 K' hmem
+                    cases hK₁K'before with
+                    | inl hlt =>
+                      exact not_mem_of_lt_lo (calc z = K₁.lo.val := hJbK₁open.1
+                        _ ≤ K₁.hi.val := K₁.le_lo_hi
+                        _ < K'.lo.val := hlt)
+                    | inr heq =>
+                      rcases lt_or_eq_of_le
+                          ((le_of_eq hJbK₁open.1).trans (K₁.le_lo_hi.trans_eq heq.1))
+                          with hlt | heqz
+                      · exact not_mem_of_lt_lo hlt
+                      · exact not_mem_of_eq_lo_open heqz heq.2.2
+                -- z ∉ ⋃ K ∈ J :: tl'
+                have hznotL₂ : z ∉ ⋃ K ∈ J :: K₁ :: tl'', K.toSet := by
+                  simp only [Set.mem_iUnion]
+                  rintro ⟨K', hK', hzK'⟩
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact hznotJ (h ▸ hzK')
+                  | inr h => exact hznotK' K' h hzK'
+                -- But z ∈ I.toSet ⊆ ⋃ K ∈ I :: tl = ⋃ K ∈ J :: tl'
+                apply hznotL₂; rw [← h]
+                exact Set.mem_iUnion₂.mpr ⟨_, List.mem_cons_self, hzI⟩
+        -- gap_contra₂: x ∈ J.toSet ∧ K ∈ tl ∧ x ∈ K.toSet → False
+        have gap_contra₂ : ∀ x : α, x ∈ J.toSet → ∀ K ∈ tl, x ∈ K.toSet → False := by
+          intro x hxJ K hKtl hxK
+          have hIbK := (List.pairwise_cons.mp hpb₁).1 K hKtl
+          obtain ⟨y, hyI⟩ := Interval.toSet_not_empty I
+          have hyL₂ : y ∈ ⋃ L ∈ J :: tl', L.toSet := by
+            have : y ∈ ⋃ L ∈ I :: tl, L.toSet :=
+              Set.mem_iUnion₂.mpr ⟨I, List.mem_cons_self, hyI⟩
+            rwa [← h]
+          rw [Set.mem_iUnion₂] at hyL₂
+          obtain ⟨L, hLconsJ, hyL⟩ := hyL₂
+          cases List.mem_cons.mp hLconsJ with
+          | inr hLtl' =>
+            have hJbL := (List.pairwise_cons.mp hpb₂).1 L hLtl'
+            have hJhiLlo : J.hi.val ≤ L.lo.val := by
+              cases hJbL with
+              | inl h => exact h.le
+              | inr h => exact le_of_eq h.1
+            have hLloY : L.lo.val ≤ y := by
+              simp only [Interval.mem, Endpoint.above] at hyL
+              split_ifs at hyL with hc
+              · exact hyL.1
+              · exact hyL.1.le
+            have hxJhi : x ≤ J.hi.val := by
+              simp only [Interval.mem, Endpoint.below] at hxJ
+              split_ifs at hxJ with hc
+              · exact hxJ.2
+              · exact hxJ.2.le
+            have hyIhi : y ≤ I.hi.val := by
+              simp only [Interval.mem, Endpoint.below] at hyI
+              split_ifs at hyI with hc
+              · exact hyI.2
+              · exact hyI.2.le
+            cases hIbK with
+            | inl hIhiKlo =>
+              have hKloX : K.lo.val ≤ x := by
+                simp only [Interval.mem, Endpoint.above] at hxK
+                split_ifs at hxK with hc
+                · exact hxK.1
+                · exact hxK.1.le
+              exact lt_irrefl x (lt_of_le_of_lt
+                (le_trans hxJhi (le_trans hJhiLlo (le_trans hLloY hyIhi)))
+                (lt_of_lt_of_le hIhiKlo hKloX))
+            | inr hIbKopen =>
+              have hKloX : K.lo.val < x := by
+                simp only [Interval.mem, Endpoint.above, hIbKopen.2.2, ite_false] at hxK
+                exact hxK.1
+              exact lt_irrefl x (lt_of_le_of_lt
+                (le_trans hxJhi (le_trans hJhiLlo (le_trans hLloY (hIbKopen.1 ▸ hyIhi))))
+                hKloX)
+          | inl hLJ =>
+            subst hLJ
+            cases tl with
+            | nil => exact absurd hKtl List.not_mem_nil
+            | cons K₁ tl'' =>
+              have hIbK₁ := (List.pairwise_cons.mp hpb₁).1 K₁ List.mem_cons_self
+              have hK₁loKlo : K₁.lo.val ≤ K.lo.val := by
+                cases List.mem_cons.mp hKtl with
+                | inl h => rw [h]
+                | inr h =>
+                  have := Interval.le_of_before
+                    ((List.pairwise_cons.mp (List.pairwise_cons.mp hpb₁).2).1 K h)
+                  simp [(· ≤ ·)] at this; exact this.1
+              have hxKlo : K₁.lo.val ≤ x := by
+                have : K.lo.val ≤ x := by
+                  simp only [Interval.mem, Endpoint.above] at hxK
+                  split_ifs at hxK with hc
+                  · exact hxK.1
+                  · exact hxK.1.le
+                exact le_trans hK₁loKlo this
+              have hyIhi : y ≤ I.hi.val := by
+                simp only [Interval.mem, Endpoint.below] at hyI
+                split_ifs at hyI with hc
+                · exact hyI.2
+                · exact hyI.2.le
+              have hK₁loAll : ∀ K' ∈ (K₁ :: tl''), K₁.lo.val ≤ K'.lo.val := by
+                intro K' hK'
+                cases List.mem_cons.mp hK' with
+                | inl h => rw [h]
+                | inr h =>
+                  have := Interval.le_of_before
+                    ((List.pairwise_cons.mp (List.pairwise_cons.mp hpb₁).2).1 K' h)
+                  simp [(· ≤ ·)] at this; exact this.1
+              cases hIbK₁ with
+              | inl hIhiK₁lo =>
+                obtain ⟨z, hz1, hz2⟩ := exists_between hIhiK₁lo
+                have hyz : y < z := lt_of_le_of_lt hyIhi hz1
+                have hzx : z < x := lt_of_lt_of_le hz2 hxKlo
+                have hzJ := interval_mem_between hyL hxJ hyz hzx
+                have hznotI : z ∉ I.toSet := by
+                  simp only [Interval.mem, Endpoint.below]
+                  intro ⟨_, hzhi⟩
+                  split_ifs at hzhi with hc
+                  · exact absurd hz1 (not_lt.mpr hzhi)
+                  · exact absurd hz1 (not_lt.mpr hzhi.le)
+                have hznotK' : ∀ K' ∈ (K₁ :: tl''), z ∉ K'.toSet := by
+                  intro K' hK'
+                  exact not_mem_of_lt_lo (lt_of_lt_of_le hz2 (hK₁loAll K' hK'))
+                have hznotL₁ : z ∉ ⋃ K ∈ I :: K₁ :: tl'', K.toSet := by
+                  simp only [Set.mem_iUnion]
+                  rintro ⟨K', hK', hzK'⟩
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact hznotI (h ▸ hzK')
+                  | inr h => exact hznotK' K' h hzK'
+                -- But z ∈ J.toSet ⊆ ⋃ K ∈ J :: tl' = ⋃ K ∈ I :: tl
+                apply hznotL₁; rw [h]
+                exact Set.mem_iUnion₂.mpr ⟨_, List.mem_cons_self, hzJ⟩
+              | inr hIbK₁open =>
+                set z := I.hi.val
+                have hyz : y < z := by
+                  simp only [Interval.mem, Endpoint.below, hIbK₁open.2.1, ite_false] at hyI
+                  exact hyI.2
+                have hzx : z < x := by
+                  have hzK₁lo : z = K₁.lo.val := hIbK₁open.1
+                  rcases lt_or_eq_of_le (hzK₁lo ▸ hxKlo) with hlt | heqx
+                  · exact hlt
+                  · exfalso
+                    cases List.mem_cons.mp hKtl with
+                    | inl hKK₁ =>
+                      rw [hKK₁] at hxK
+                      simp only [Interval.mem, Endpoint.above, hIbK₁open.2.2, ite_false] at hxK
+                      exact absurd (hzK₁lo.symm.trans heqx ▸ hxK.1) (lt_irrefl x)
+                    | inr hKtl'' =>
+                      have hK₁K := (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₁).2).1 K hKtl''
+                      have hKloX : K.lo.val ≤ x := by
+                        simp only [Interval.mem, Endpoint.above] at hxK
+                        split_ifs at hxK with hc
+                        · exact hxK.1
+                        · exact hxK.1.le
+                      have hKloZ : K.lo.val = z :=
+                        le_antisymm (heqx ▸ hKloX)
+                                    (hzK₁lo ▸ hK₁loAll K (List.mem_cons_of_mem K₁ hKtl''))
+                      cases hK₁K with
+                      | inl hlt =>
+                        exact lt_irrefl K₁.lo.val
+                          (lt_of_le_of_lt K₁.le_lo_hi (hlt.trans_eq (hKloZ.trans hzK₁lo)))
+                      | inr heq =>
+                        have : K₁.hi.val = z := heq.1.trans hKloZ
+                        cases K₁.wf with
+                        | inl h' =>
+                          exact lt_irrefl K₁.lo.val (h'.trans_eq (this.trans hzK₁lo))
+                        | inr h' => exact absurd h'.2.2 heq.2.1
+                have hzJ := interval_mem_between hyL hxJ hyz hzx
+                have hznotI : z ∉ I.toSet := not_mem_of_eq_hi_open rfl hIbK₁open.2.1
+                have hznotK' : ∀ K' ∈ (K₁ :: tl''), z ∉ K'.toSet := by
+                  intro K' hK'
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact h ▸ not_mem_of_eq_lo_open hIbK₁open.1 hIbK₁open.2.2
+                  | inr hmem =>
+                    have hK₁K'before :=
+                      (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₁).2).1 K' hmem
+                    cases hK₁K'before with
+                    | inl hlt =>
+                      exact not_mem_of_lt_lo (calc z = K₁.lo.val := hIbK₁open.1
+                        _ ≤ K₁.hi.val := K₁.le_lo_hi
+                        _ < K'.lo.val := hlt)
+                    | inr heq =>
+                      rcases lt_or_eq_of_le
+                          ((le_of_eq hIbK₁open.1).trans (K₁.le_lo_hi.trans_eq heq.1))
+                          with hlt | heqz
+                      · exact not_mem_of_lt_lo hlt
+                      · exact not_mem_of_eq_lo_open heqz heq.2.2
+                have hznotL₁ : z ∉ ⋃ K ∈ I :: K₁ :: tl'', K.toSet := by
+                  simp only [Set.mem_iUnion]
+                  rintro ⟨K', hK', hzK'⟩
+                  cases List.mem_cons.mp hK' with
+                  | inl h => exact hznotI (h ▸ hzK')
+                  | inr h => exact hznotK' K' h hzK'
+                -- But z ∈ J.toSet ⊆ ⋃ K ∈ J :: tl' = ⋃ K ∈ I :: tl
+                apply hznotL₁; rw [h]
+                exact Set.mem_iUnion₂.mpr ⟨_, List.mem_cons_self, hzJ⟩
+        -- I.toSet = J.toSet using both gap arguments
+        have hIJeq : I.toSet = J.toSet := by
+          ext x; constructor
+          · intro hxI
+            have hx : x ∈ ⋃ L ∈ J :: tl', L.toSet := by
+              rw [← h]; exact Set.mem_iUnion₂.mpr ⟨I, List.mem_cons_self, hxI⟩
+            rw [Set.mem_iUnion₂] at hx
+            obtain ⟨L, hLcons, hxL⟩ := hx
+            cases List.mem_cons.mp hLcons with
+            | inl hLJ => exact hLJ ▸ hxL
+            | inr hLtl' => exact False.elim (gap_contra x hxI L hLtl' hxL)
+          · intro hxJ
+            have hx : x ∈ ⋃ L ∈ I :: tl, L.toSet := by
+              rw [h]; exact Set.mem_iUnion₂.mpr ⟨J, List.mem_cons_self, hxJ⟩
+            rw [Set.mem_iUnion₂] at hx
+            obtain ⟨L, hLcons, hxL⟩ := hx
+            cases List.mem_cons.mp hLcons with
+            | inl hLI => exact hLI ▸ hxL
+            | inr hLtl => exact False.elim (gap_contra₂ x hxJ L hLtl hxL)
         have hIJeq': I = J := Interval.ext_toSet hIJeq
         rw[hIJeq']
         simp
@@ -69,46 +492,36 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
         apply Iff.intro
         . intro hxtl
           apply Set.mem_iUnion₂.mp at hxtl
-          rcases hxtl with ⟨K, ⟨hK,hxK⟩⟩
-          have hx: x ∈ ⋃ K ∈ I :: tl, K.toSet := by
-            simp
-            right
-            use K
-            simp[hK]
-            exact hxK
+          rcases hxtl with ⟨K, ⟨hK, hxK⟩⟩
+          have hx : x ∈ ⋃ K' ∈ I :: tl, K'.toSet :=
+            Set.mem_iUnion₂.mpr ⟨K, List.mem_cons.mpr (Or.inr hK), hxK⟩
           rw[List.pairwise_cons] at hdis₁
-          have hdisjK: I.disjoint K := hdis₁.1 K hK
+          have hdisjK : I.disjoint K := hdis₁.1 K hK
           rw[hIJeq'] at hdisjK
           rw[h] at hx
-          simp at hx
-          cases hx with
-          | inl hxJ =>
-            have := Interval.not_mem_of_disjoint_right hdisjK x hxK
-            contradiction
-          | inr hxtl' =>
-            simp
-            exact hxtl'
+          rw[Set.mem_iUnion₂] at hx
+          obtain ⟨K', hK'mem, hxK'⟩ := hx
+          cases List.mem_cons.mp hK'mem with
+          | inl hK'J =>
+            exact absurd (hK'J ▸ hxK') (Interval.not_mem_of_disjoint_right hdisjK x hxK)
+          | inr hK'tl' =>
+            exact Set.mem_iUnion₂.mpr ⟨K', hK'tl', hxK'⟩
         . intro hxtl'
           apply Set.mem_iUnion₂.mp at hxtl'
-          rcases hxtl' with ⟨K, ⟨hK,hxK⟩⟩
-          have hx: x ∈ ⋃ K ∈ J :: tl', K.toSet := by
-            simp
-            right
-            use K
-            simp[hK]
-            exact hxK
+          rcases hxtl' with ⟨K, ⟨hK, hxK⟩⟩
+          have hx : x ∈ ⋃ K' ∈ J :: tl', K'.toSet :=
+            Set.mem_iUnion₂.mpr ⟨K, List.mem_cons.mpr (Or.inr hK), hxK⟩
           rw[List.pairwise_cons] at hdis₂
-          have hdisjK: J.disjoint K := hdis₂.1 K hK
+          have hdisjK : J.disjoint K := hdis₂.1 K hK
           rw[Eq.symm hIJeq'] at hdisjK
           rw[Eq.symm h] at hx
-          simp at hx
-          cases hx with
-          | inl hxI =>
-            have := Interval.not_mem_of_disjoint_right hdisjK x hxK
-            contradiction
-          | inr hxtl =>
-            simp
-            exact hxtl
+          rw[Set.mem_iUnion₂] at hx
+          obtain ⟨K', hK'mem, hxK'⟩ := hx
+          cases List.mem_cons.mp hK'mem with
+          | inl hK'I =>
+            exact absurd (hK'I ▸ hxK') (Interval.not_mem_of_disjoint_right hdisjK x hxK)
+          | inr hK'tl =>
+            exact Set.mem_iUnion₂.mpr ⟨K', hK'tl, hxK'⟩
 
 theorem ext [LinearOrder α] (U V : IntervalUnion α)
   (h : U.intervals = V.intervals) : U = V := by
@@ -117,12 +530,6 @@ theorem ext [LinearOrder α] (U V : IntervalUnion α)
   simp at h
   cases h
   simp
-
-@[ext]
-theorem ext_toSet [LinearOrder α] [DenselyOrdered α] (U V : IntervalUnion α)
-  (h: U.toSet = V.toSet) : U = V := by
-  apply IntervalUnion.ext U V
-  exact intervals_eq_of_toSet_eq U V h
 
 @[simp]
 lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
@@ -140,7 +547,7 @@ lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
           exact h.2
       . intro hx
         rcases hx with ⟨I, h⟩
-        exact Set.mem_biUnion h.1 h.2
+        exact Set.mem_iUnion₂.mpr ⟨I, h.1, h.2⟩
 
 def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I)) :
   Interval α :=
@@ -363,7 +770,7 @@ lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.befo
               . exact le_trans h₁.1 hI
               . exact lt_of_le_of_lt h₁.1 hI
               . simp[hIhc] at h₁
-                exact lt_of_lt_of_le (lt_of_le_of_ne h₁.1 (λ a ↦ h₁.2 (id (Eq.symm a)))) hI
+                exact lt_of_lt_of_le (lt_of_le_of_ne h₁.1 (Ne.symm (by simpa [hJc] using h₁.2))) hI
 
         . have hmem₂ := hmem.2
           have h₂ := h.2
@@ -409,7 +816,7 @@ lemma mem_merge [LinearOrder α] {I J: Interval α} {h: ¬(I.before J ∨ J.befo
               . exact le_trans hI h₂.1
               . exact lt_of_lt_of_le hI h₂.1
               . simp[hIlc] at h₂
-                exact lt_of_le_of_lt hI (lt_of_le_of_ne h₂.1 (λ a ↦ h₂.2 (id (Eq.symm a))))
+                exact lt_of_le_of_lt hI (lt_of_le_of_ne h₂.1 (Ne.symm (by simpa [hJc] using h₂.2)))
 
     . intro hmem
       by_cases hI : x ∈ I.toSet
@@ -560,33 +967,42 @@ lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (I
             exact ih hJI hK'tl K
         . exact ih (merge_preserves_le hJI (hJL M List.mem_cons_self) (not_or_intro hIM hMI)) hK'tl K
 
-lemma insertMergeList_preserves_sorted [LinearOrder α] (I : Interval α) :
-  ∀ {l : List (Interval α)}, l.Sorted LE.le →
-    (insertMergeList I l).Sorted LE.le := by
-  intro l
-  induction l generalizing I with
-  | nil => simp[insertMergeList]
-  | cons J tl ih =>
-    intro hs
-    rw[List.sorted_cons] at hs
-    unfold insertMergeList
-    by_cases hIJ: I.before J <;> simp[hIJ]
-    . constructor
-      . intro K hK
-        exact le_trans (Interval.le_of_before hIJ) (hs.1 K hK)
-      . constructor
-        . exact hs.1
-        . exact hs.2
-    . by_cases hJI: J.before I <;> simp[hJI]
-      . constructor
-        . exact insertMergeList_preserves_le J (Interval.le_of_before hJI) hs.1
-        . exact ih I hs.2
-      . apply ih (merge I J (not_or_intro hIJ hJI))
-        exact hs.2
+private lemma before_merge [LinearOrder α] {I J K : Interval α}
+    (hnot : ¬ (I.before J ∨ J.before I))
+    (hKI : K.before I) (hKJ : K.before J) : K.before (merge I J hnot) := by
+  have hlo : (merge I J hnot).lo = Endpoint.minLo I.lo J.lo := rfl
+  unfold Interval.before at *
+  rcases Endpoint.minLo_or I.lo J.lo with hm | hm
+  · rwa [hlo, hm]
+  · rwa [hlo, hm]
 
-lemma insertMergeList_preserves_disjoint [LinearOrder α] (I : Interval α) :
-  ∀ {l : List (Interval α)}, (l.Sorted LE.le ∧ l.Pairwise Interval.disjoint) →
-    (insertMergeList I l).Pairwise Interval.disjoint := by
+private lemma insertMergeList_preserves_before [LinearOrder α] {I J : Interval α}
+    {L : List (Interval α)} :
+    J.before I → (∀ K ∈ L, J.before K) → ∀ K ∈ insertMergeList I L, J.before K := by
+  intro hJI hJL
+  induction L generalizing I with
+  | nil => simp [insertMergeList]; exact hJI
+  | cons M tl ih =>
+    intro K
+    unfold insertMergeList
+    have hJtl : ∀ K' ∈ tl, J.before K' :=
+      fun K' hK' => hJL K' (List.mem_cons_of_mem M hK')
+    by_cases hIM : I.before M <;> simp [hIM]
+    · by_cases hKI : K = I <;> simp [hKI]
+      · exact hJI
+      · by_cases hKM : K = M <;> simp [hKM]
+        · exact hJL M List.mem_cons_self
+        · intro hK
+          exact hJL K (List.mem_cons_of_mem M hK)
+    · by_cases hMI : M.before I <;> simp [hMI]
+      · by_cases hKM : K = M <;> simp [hKM]
+        · exact hJL M List.mem_cons_self
+        · exact ih hJI hJtl K
+      · exact ih (before_merge (not_or_intro hIM hMI) hJI (hJL M List.mem_cons_self)) hJtl K
+
+lemma insertMergeList_preserves_pairwise_before [LinearOrder α] (I : Interval α) :
+  ∀ {l : List (Interval α)}, l.Pairwise Interval.before →
+    (insertMergeList I l).Pairwise Interval.before := by
   intro l
   induction l generalizing I with
   | nil => simp[insertMergeList]
@@ -594,21 +1010,52 @@ lemma insertMergeList_preserves_disjoint [LinearOrder α] (I : Interval α) :
     intro hs
     rw[List.pairwise_cons] at hs
     unfold insertMergeList
+    by_cases hIJ: I.before J
+    · simp only [hIJ, dif_pos]
+      rw[List.pairwise_cons]
+      constructor
+      · intro K hK
+        cases List.mem_cons.mp hK with
+        | inl h => exact h ▸ hIJ
+        | inr h => exact Interval.before_of_before_of_le hIJ (Interval.le_of_before (hs.1 K h))
+      · exact List.pairwise_cons.mpr hs
+    · simp only [hIJ, dif_neg, not_false_eq_true]
+      by_cases hJI: J.before I
+      · simp only [hJI, dif_pos]
+        rw[List.pairwise_cons]
+        constructor
+        · intro K hK
+          exact insertMergeList_preserves_before hJI (fun K' hK' => hs.1 K' hK') K hK
+        · exact ih I hs.2
+      · simp only [hJI, dif_neg, not_false_eq_true]
+        apply ih (merge I J (not_or_intro hIJ hJI))
+        exact hs.2
+
+lemma insertMergeList_preserves_disjoint [LinearOrder α] (I : Interval α) :
+  ∀ {l : List (Interval α)}, (l.Pairwise Interval.before ∧ l.Pairwise Interval.disjoint) →
+    (insertMergeList I l).Pairwise Interval.disjoint := by
+  intro l
+  induction l generalizing I with
+  | nil => simp[insertMergeList]
+  | cons J tl ih =>
+    intro hs
+    obtain ⟨hsbefore, hsdisjoint⟩ := hs
+    rw[List.pairwise_cons] at hsbefore
+    rw[List.pairwise_cons] at hsdisjoint
+    unfold insertMergeList
     by_cases hIJ: I.before J <;> simp[hIJ]
-    . constructor
-      . constructor
-        . exact Interval.disjoint_of_before hIJ
-        . intro K hK
-          have hJtl := hs.1
-          simp at hJtl
+    · constructor
+      · constructor
+        · exact Interval.disjoint_of_before hIJ
+        · intro K hK
           exact Interval.disjoint_of_before
-            (Interval.before_of_before_of_le hIJ (hJtl.1 K hK))
-      . constructor
-        . exact hs.2.1
-        . exact hs.2.2
-    . by_cases hJI: J.before I <;> simp[hJI]
-      . constructor
-        . intro K hK
+            (Interval.before_of_before_of_le hIJ (Interval.le_of_before (hsbefore.1 K hK)))
+      · constructor
+        · exact hsdisjoint.1
+        · exact hsdisjoint.2
+    · by_cases hJI: J.before I <;> simp[hJI]
+      · constructor
+        · intro K hK
           simp[Interval.disjoint]
           intro A
           simp
@@ -626,40 +1073,262 @@ lemma insertMergeList_preserves_disjoint [LinearOrder α] (I : Interval α) :
             simp at this
           | inr h =>
             rcases h with ⟨M, ⟨hM, hxM⟩⟩
-            have := hs.2.1 M hM (Set.singleton_subset_iff.mpr hxJ) (Set.singleton_subset_iff.mpr hxM)
+            have := hsdisjoint.1 M hM (Set.singleton_subset_iff.mpr hxJ) (Set.singleton_subset_iff.mpr hxM)
             simp at this
-        . exact ih I ⟨(List.sorted_cons.mp hs.1).2, hs.2.2⟩
-      . apply ih (merge I J (not_or_intro hIJ hJI))
-        exact ⟨(List.sorted_cons.mp hs.1).2, hs.2.2⟩
+        · exact ih I ⟨hsbefore.2, hsdisjoint.2⟩
+      · apply ih (merge I J (not_or_intro hIJ hJI))
+        exact ⟨hsbefore.2, hsdisjoint.2⟩
 
 def insertMerge [LinearOrder α]
   (I: Interval α) (U: IntervalUnion α) : IntervalUnion α :=
   ⟨
     insertMergeList I U.intervals,
-    insertMergeList_preserves_disjoint I ⟨U.sorted, U.pairwise_disjoint⟩,
-    insertMergeList_preserves_sorted I U.sorted
+    insertMergeList_preserves_disjoint I ⟨U.pairwise_before, U.pairwise_disjoint⟩,
+    insertMergeList_preserves_pairwise_before I U.pairwise_before
   ⟩
+
+lemma mem_insertMerge [LinearOrder α] (I : Interval α) (U : IntervalUnion α) (x : α) :
+    x ∈ (insertMerge I U).toSet ↔ x ∈ I.toSet ∨ x ∈ U.toSet := by
+  simp only [mem, insertMerge]
+  exact mem_insertMergeList I U.intervals x
+
+private lemma mem_foldl_insertMerge [LinearOrder α]
+    (L : List (Interval α)) (U : IntervalUnion α) (x : α) :
+    x ∈ (L.foldl (fun acc I => insertMerge I acc) U).toSet ↔
+    x ∈ U.toSet ∨ ∃ I ∈ L, x ∈ I.toSet := by
+  induction L generalizing U with
+  | nil => simp
+  | cons I tl ih =>
+    simp only [List.foldl_cons]
+    rw [ih (insertMerge I U), mem_insertMerge I U x]
+    constructor
+    · rintro ((hI | hU) | ⟨J, hJ, hxJ⟩)
+      · exact Or.inr ⟨I, List.mem_cons_self, hI⟩
+      · exact Or.inl hU
+      · exact Or.inr ⟨J, List.mem_cons.mpr (Or.inr hJ), hxJ⟩
+    · rintro (hU | ⟨J, hJ, hxJ⟩)
+      · exact Or.inl (Or.inr hU)
+      · cases List.mem_cons.mp hJ with
+        | inl h => exact Or.inl (Or.inl (h ▸ hxJ))
+        | inr h => exact Or.inr ⟨J, h, hxJ⟩
 
 def union [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
   V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I acc)) U
 
 lemma mem_union [LinearOrder α] (U V : IntervalUnion α) :
-  ∀ x, (x ∈ (U.union V).toSet) ↔ (x ∈ U.toSet) ∨ (x ∈ V.toSet) := by
-    sorry
+    ∀ x, x ∈ (U.union V).toSet ↔ x ∈ U.toSet ∨ x ∈ V.toSet := by
+  intro x
+  unfold union
+  rw [mem_foldl_insertMerge, mem x V]
+
+def inter [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
+  let pieces := U.intervals.flatMap (fun I => V.intervals.flatMap (fun J => I.inter J))
+  pieces.foldl (fun acc I => insertMerge I acc) ⟨[], by simp, by simp⟩
+
+lemma mem_inter [LinearOrder α] (U V : IntervalUnion α) (x : α) :
+    x ∈ (U.inter V).toSet ↔ x ∈ U.toSet ∧ x ∈ V.toSet := by
+  simp only [inter, mem_foldl_insertMerge, mem x ⟨[], by simp, by simp⟩,
+             List.not_mem_nil, false_iff, exists_false]
+  simp only [mem x U, mem x V]
+  constructor
+  · rintro (⟨⟩ | ⟨K, hK, hxK⟩)
+    · simp at *
+    · simp only [List.mem_flatMap] at hK
+      obtain ⟨I, hI, J, hJ, hIJ⟩ := hK
+      have := (Interval.mem_inter I J x).mp ⟨K, hIJ, hxK⟩
+      exact ⟨⟨I, hI, this.1⟩, ⟨J, hJ, this.2⟩⟩
+  · rintro ⟨⟨I, hI, hxI⟩, ⟨J, hJ, hxJ⟩⟩
+    right
+    have := (Interval.mem_inter I J x).mpr ⟨hxI, hxJ⟩
+    obtain ⟨K, hK, hxK⟩ := this
+    exact ⟨K, by simp [List.mem_flatMap]; exact ⟨I, hI, J, hJ, hK⟩, hxK⟩
+
+def diff [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
+  let pieces := U.intervals.flatMap (fun I =>
+    V.intervals.foldl (fun L J => L.flatMap (fun I' => I'.diff J)) [I])
+  pieces.foldl (fun acc I => insertMerge I acc) ⟨[], by simp, by simp⟩
+
+-- Helper: iteratively subtracting a list of intervals from a list preserves membership
+private lemma mem_foldl_diff [LinearOrder α]
+    (L : List (Interval α)) (V : List (Interval α)) (x : α) :
+    (∃ K ∈ V.foldl (fun acc J => acc.flatMap (fun I' => I'.diff J)) L, x ∈ K.toSet) ↔
+    (∃ I ∈ L, x ∈ I.toSet) ∧ ∀ J ∈ V, x ∉ J.toSet := by
+  induction V generalizing L with
+  | nil => simp
+  | cons J tl ih =>
+    simp only [List.foldl_cons]
+    rw [ih (L.flatMap (fun I' => I'.diff J))]
+    constructor
+    · rintro ⟨⟨I', hI', hxI'⟩, htl⟩
+      simp only [List.mem_flatMap] at hI'
+      obtain ⟨I, hI, hKI⟩ := hI'
+      have := (Interval.mem_diff I J x).mp ⟨I', hKI, hxI'⟩
+      exact ⟨⟨I, hI, this.1⟩, fun K hK => by
+        simp only [List.mem_cons] at hK
+        cases hK with
+        | inl h => rw [h]; exact this.2
+        | inr h => exact htl K h⟩
+    · rintro ⟨⟨I, hI, hxI⟩, hnotin⟩
+      refine ⟨?_, fun K hK => hnotin K (List.mem_cons_of_mem J hK)⟩
+      simp only [List.mem_flatMap]
+      have hnotJ := hnotin J List.mem_cons_self
+      obtain ⟨K, hK, hxK⟩ := (Interval.mem_diff I J x).mpr ⟨hxI, hnotJ⟩
+      exact ⟨K, ⟨I, hI, hK⟩, hxK⟩
+
+lemma mem_diff [LinearOrder α] (U V : IntervalUnion α) (x : α) :
+    x ∈ (U.diff V).toSet ↔ x ∈ U.toSet ∧ x ∉ V.toSet := by
+  simp only [diff]
+  rw [mem_foldl_insertMerge]
+  simp only [mem x (⟨[], by simp, by simp⟩ : IntervalUnion α), List.not_mem_nil,
+             false_and, exists_false, false_or]
+  simp only [List.mem_flatMap]
+  rw [mem x U, mem x V]
+  constructor
+  · rintro ⟨K, ⟨I, hI, hK⟩, hxK⟩
+    obtain ⟨⟨_, hI', hxI'⟩, hnotV⟩ := (mem_foldl_diff [I] V.intervals x).mp ⟨K, hK, hxK⟩
+    simp only [List.mem_singleton] at hI'
+    rw [hI'] at hxI'
+    exact ⟨⟨I, hI, hxI'⟩, fun ⟨J, hJ, hxJ⟩ => hnotV J hJ hxJ⟩
+  · rintro ⟨⟨I, hI, hxI⟩, hnotV⟩
+    have hnotV' : ∀ J ∈ V.intervals, x ∉ J.toSet :=
+      fun J hJ hxJ => hnotV ⟨J, hJ, hxJ⟩
+    obtain ⟨K, hK, hxK⟩ := (mem_foldl_diff [I] V.intervals x).mpr
+      ⟨⟨I, List.mem_singleton.mpr rfl, hxI⟩, hnotV'⟩
+    exact ⟨K, ⟨I, hI, hK⟩, hxK⟩
+
 end IntervalUnion
 
-variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α]
+open IntervalUnion
+
+variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α] [DenselyOrdered α]
 
 instance : Zero (IntervalUnion α) := ⟨[], by simp, by simp⟩
-instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊥⟩,⟨⊤,⊥⟩,by simp⟩], by simp, by simp⟩
+instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊤⟩,⟨⊤,⊤⟩,by simp⟩], by simp, by simp⟩
 
 instance : Add  (IntervalUnion α) where
   add U V := U.union V
 
+instance : Mul  (IntervalUnion α) where
+  mul U V := U.inter V
+
+instance : Sub  (IntervalUnion α) where
+  sub U V := U.diff V
+
+-- `+` unfolds to `union`, `*` to `inter`, `-` to `diff`
+private lemma add_eq_union (U V : IntervalUnion α) : U + V = U.union V := rfl
+private lemma mul_eq_inter (U V : IntervalUnion α) : U * V = U.inter V := rfl
+private lemma sub_eq_diff  (U V : IntervalUnion α) : U - V = U.diff  V := rfl
+@[simp]
+private lemma zero_intervals : (0 : IntervalUnion α).intervals = [] := rfl
+
 instance : AddMonoid (IntervalUnion α) where
   add_assoc := by
-    intro a b c
-    simp[(· + ·), Add.add]
-    ext x
-    repeat rw[IntervalUnion.mem_union]
+    intro a b c; apply ext_toSet; ext x
+    rw [add_eq_union, add_eq_union, add_eq_union, add_eq_union,
+        mem_union, mem_union, mem_union, mem_union]
     tauto
+  zero_add := by
+    intro U; apply ext_toSet; ext x
+    rw [add_eq_union, mem_union]
+    simp [toSet]
+  add_zero := fun _ => rfl
+  nsmul := nsmulRec
+
+-- Helper: `(1 : IntervalUnion α).toSet = Set.univ`
+private lemma one_toSet : (1 : IntervalUnion α).toSet = Set.univ := by
+  apply Set.eq_univ_of_forall; intro x
+  rw [mem]
+  -- By proof irrelevance any wf proof is definitionally equal to the one in the One instance
+  refine ⟨⟨⟨⊥, ⊤⟩, ⟨⊤, ⊤⟩, by simp⟩, List.mem_cons_self, ?_⟩
+  simp [Interval.toSet, Endpoint.above, Endpoint.below]
+
+-- Helper: `(0 : IntervalUnion α).toSet = ∅`
+private lemma zero_toSet : (0 : IntervalUnion α).toSet = ∅ := by
+  simp [IntervalUnion.toSet]
+
+instance : CommSemiring (IntervalUnion α) where
+  add_comm := by
+    intro a b; apply ext_toSet; ext x
+    rw [add_eq_union, add_eq_union, mem_union, mem_union]; tauto
+  mul_assoc := by
+    intro a b c; apply ext_toSet; ext x
+    rw [mul_eq_inter, mul_eq_inter, mul_eq_inter, mul_eq_inter,
+        mem_inter, mem_inter, mem_inter, mem_inter]
+    tauto
+  mul_comm := by
+    intro a b; apply ext_toSet; ext x
+    rw [mul_eq_inter, mul_eq_inter, mem_inter, mem_inter]; tauto
+  left_distrib := by
+    intro a b c; apply ext_toSet; ext x
+    rw [mul_eq_inter, add_eq_union, add_eq_union, mul_eq_inter, mul_eq_inter,
+        mem_inter, mem_union, mem_union, mem_inter, mem_inter]
+    tauto
+  right_distrib := by
+    intro a b c; apply ext_toSet; ext x
+    rw [add_eq_union, mul_eq_inter, add_eq_union, mul_eq_inter, mul_eq_inter,
+        mem_inter, mem_union, mem_union, mem_inter, mem_inter]
+    tauto
+  one_mul := by
+    intro a; apply ext_toSet; ext x
+    rw [mul_eq_inter, mem_inter]; simp [one_toSet]
+  mul_one := by
+    intro a; apply ext_toSet; ext x
+    rw [mul_eq_inter, mem_inter]; simp [one_toSet]
+  zero_mul := by
+    intro a; apply ext_toSet; ext x
+    rw [mul_eq_inter, mem_inter]; simp [zero_toSet]
+  mul_zero := by
+    intro a; apply ext_toSet; ext x
+    rw [mul_eq_inter, mem_inter]; simp [zero_toSet]
+  npow := npowRec
+
+instance : SemiringWithMonus (IntervalUnion α) where
+  -- Order: set inclusion
+  le U V := U.toSet ⊆ V.toSet
+  le_refl _ := Set.Subset.refl _
+  le_antisymm U V hUV hVU := ext_toSet U V (Set.Subset.antisymm hUV hVU)
+  le_trans _ _ _ hUV hVW := Set.Subset.trans hUV hVW
+  -- Ordered add monoid: union is monotone
+  add_le_add_left := by
+    intro a b hab c x hx
+    rw [add_eq_union, mem_union] at hx ⊢
+    cases hx with
+    | inl ha => left; exact hab ha
+    | inr hc => right; exact hc
+  -- Canonically ordered: a ≤ a + b always
+  le_self_add := by
+    intro a b x hx
+    rw [add_eq_union, mem_union]; left; exact hx
+  le_add_self := by
+    intro a b x hx
+    rw [add_eq_union, mem_union]; right; exact hx
+  -- For exists_add_of_le: if a ≤ b, take c = b - a
+  -- goal is `b = a + b.diff a`, so after ext_toSet the iff is b.toSet ↔ (a + b.diff a).toSet
+  exists_add_of_le := by
+    intro a b hab
+    use b.diff a
+    apply ext_toSet; ext x
+    rw [add_eq_union, mem_union, mem_diff]
+    constructor
+    · intro hxb
+      by_cases hxa : x ∈ a.toSet
+      · left; exact hxa
+      · right; exact ⟨hxb, hxa⟩
+    · rintro (hxa | ⟨hxb, _⟩)
+      · exact hab hxa
+      · exact hxb
+  -- Monus: A \ B ⊆ C ↔ A ⊆ B ∪ C
+  monus_spec := by
+    intro a b c
+    constructor
+    · intro h x hxa
+      rw [add_eq_union, mem_union]
+      by_cases hxb : x ∈ b.toSet
+      · left; exact hxb
+      · right; exact h ((IntervalUnion.mem_diff a b x).mpr ⟨hxa, hxb⟩)
+    · intro h x hx
+      have ⟨hxa, hxnb⟩ := (IntervalUnion.mem_diff a b x).mp hx
+      have h' : a.toSet ⊆ (b.union c).toSet := h
+      rcases (mem_union b c x).mp (h' hxa) with hxb | hxc
+      · exact absurd hxb hxnb
+      · exact hxc
