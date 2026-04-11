@@ -10,6 +10,7 @@ import Provenance.QueryAnnotatedDatabase
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.How
+import Provenance.Semirings.IntervalUnion
 import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
@@ -34,6 +35,7 @@ This is work in progress. For now:
   - `Provenance.Semirings.Bool`: the Boolean m-semiring
   - `Provenance.Semirings.BoolFunc`: the Bool[X] m-semiring of Boolean functions over a set X of Boolean variables
   - `Provenance.Semirings.How`: the ℕ[X] m-semiring of multivariate polynomials with natural integer coefficients, sometimes called the How[X] m-semiring; it is the m-semiring extension of the universal provenance semiring
+  - `Provenance.Semirings.IntervalUnion`: the semiring of interval unions over a dense linear order, used in temporal databases
   - `Provenance.Semirings.Lukasiewicz`: the Łukasiewicz semiring
   - `Provenance.Semirings.MinMax`: the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
   - `Provenance.Semirings.Nat`: the counting m-semiring
