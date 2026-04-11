@@ -228,7 +228,7 @@ lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
       push_neg at h3
       refine ⟨h, above_of_above_of_le (le_of_eq heq.symm) ?_ h⟩
       cases hac : a.closed
-      · exact Or.inl (by simp [hac])
+      · exact Or.inl (by simp)
       · exact Or.inr (h3 (by simp [hac]))
   · rintro ⟨ha, hb⟩
     simp only [maxLo]
@@ -254,7 +254,7 @@ lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
       push_neg at h3
       refine ⟨h, below_of_below_of_le (le_of_eq heq) ?_ h⟩
       cases hac : a.closed
-      · exact Or.inl (by simp [hac])
+      · exact Or.inl (by simp)
       · exact Or.inr (h3 (by simp [hac]))
   · rintro ⟨ha, hb⟩
     simp only [minHi]

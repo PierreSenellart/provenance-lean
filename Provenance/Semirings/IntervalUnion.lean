@@ -142,7 +142,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
                 (lt_of_lt_of_le hJhiKlo hKloX))
             | inr hJbKopen =>
               have hKloX : K.lo.val < x := by
-                simp only [Interval.mem, Endpoint.above, hJbKopen.2.2, ite_false] at hxK
+                simp only [Interval.mem, Endpoint.above, hJbKopen.2.2] at hxK
                 exact hxK.1
               exact lt_irrefl x (lt_of_le_of_lt
                 (le_trans hxIhi (le_trans hIhiLlo (le_trans hLloY (hJbKopen.1 ▸ hyJhi))))
@@ -228,7 +228,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
                 set z := J.hi.val
                 -- y < z (J.hi.closed = false → y ∈ J.toSet → y < J.hi.val = z)
                 have hyz : y < z := by
-                  simp only [Interval.mem, Endpoint.below, hJbK₁open.2.1, ite_false] at hyJ
+                  simp only [Interval.mem, Endpoint.below, hJbK₁open.2.1] at hyJ
                   exact hyJ.2
                 -- z < x
                 have hzx : z < x := by
@@ -239,7 +239,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
                     cases List.mem_cons.mp hKtl' with
                     | inl hKK₁ =>
                       rw [hKK₁] at hxK
-                      simp only [Interval.mem, Endpoint.above, hJbK₁open.2.2, ite_false] at hxK
+                      simp only [Interval.mem, Endpoint.above, hJbK₁open.2.2] at hxK
                       exact absurd (hzK₁lo.symm.trans heqx ▸ hxK.1) (lt_irrefl x)
                     | inr hKtl'' =>
                       have hK₁K := (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₂).2).1 K hKtl''
@@ -339,7 +339,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
                 (lt_of_lt_of_le hIhiKlo hKloX))
             | inr hIbKopen =>
               have hKloX : K.lo.val < x := by
-                simp only [Interval.mem, Endpoint.above, hIbKopen.2.2, ite_false] at hxK
+                simp only [Interval.mem, Endpoint.above, hIbKopen.2.2] at hxK
                 exact hxK.1
               exact lt_irrefl x (lt_of_le_of_lt
                 (le_trans hxJhi (le_trans hJhiLlo (le_trans hLloY (hIbKopen.1 ▸ hyIhi))))
@@ -404,7 +404,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
               | inr hIbK₁open =>
                 set z := I.hi.val
                 have hyz : y < z := by
-                  simp only [Interval.mem, Endpoint.below, hIbK₁open.2.1, ite_false] at hyI
+                  simp only [Interval.mem, Endpoint.below, hIbK₁open.2.1] at hyI
                   exact hyI.2
                 have hzx : z < x := by
                   have hzK₁lo : z = K₁.lo.val := hIbK₁open.1
@@ -414,7 +414,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
                     cases List.mem_cons.mp hKtl with
                     | inl hKK₁ =>
                       rw [hKK₁] at hxK
-                      simp only [Interval.mem, Endpoint.above, hIbK₁open.2.2, ite_false] at hxK
+                      simp only [Interval.mem, Endpoint.above, hIbK₁open.2.2] at hxK
                       exact absurd (hzK₁lo.symm.trans heqx ▸ hxK.1) (lt_irrefl x)
                     | inr hKtl'' =>
                       have hK₁K := (List.pairwise_cons.mp (List.pairwise_cons.mp hpb₁).2).1 K hKtl''
@@ -1128,7 +1128,7 @@ def inter [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
 lemma mem_inter [LinearOrder α] (U V : IntervalUnion α) (x : α) :
     x ∈ (U.inter V).toSet ↔ x ∈ U.toSet ∧ x ∈ V.toSet := by
   simp only [inter, mem_foldl_insertMerge, mem x ⟨[], by simp, by simp⟩,
-             List.not_mem_nil, false_iff, exists_false]
+             List.not_mem_nil]
   simp only [mem x U, mem x V]
   constructor
   · rintro (⟨⟩ | ⟨K, hK, hxK⟩)
@@ -1200,10 +1200,10 @@ end IntervalUnion
 
 open IntervalUnion
 
-variable {α: Type} [LinearOrder α] [BoundedOrder α] [Nontrivial α] [DenselyOrdered α]
+variable {α: Type} [LinearOrder α]
 
 instance : Zero (IntervalUnion α) := ⟨[], by simp, by simp⟩
-instance : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊤⟩,⟨⊤,⊤⟩,by simp⟩], by simp, by simp⟩
+instance [BoundedOrder α] : One  (IntervalUnion α) := ⟨[⟨⟨⊥,⊤⟩,⟨⊤,⊤⟩,by simp[lt_or_eq_of_le] ⟩], by simp, by simp⟩
 
 instance : Add  (IntervalUnion α) where
   add U V := U.union V
@@ -1221,7 +1221,7 @@ private lemma sub_eq_diff  (U V : IntervalUnion α) : U - V = U.diff  V := rfl
 @[simp]
 private lemma zero_intervals : (0 : IntervalUnion α).intervals = [] := rfl
 
-instance : AddMonoid (IntervalUnion α) where
+instance [DenselyOrdered α] : AddMonoid (IntervalUnion α) where
   add_assoc := by
     intro a b c; apply ext_toSet; ext x
     rw [add_eq_union, add_eq_union, add_eq_union, add_eq_union,
@@ -1235,18 +1235,18 @@ instance : AddMonoid (IntervalUnion α) where
   nsmul := nsmulRec
 
 -- Helper: `(1 : IntervalUnion α).toSet = Set.univ`
-private lemma one_toSet : (1 : IntervalUnion α).toSet = Set.univ := by
+private lemma one_toSet [BoundedOrder α] : (1 : IntervalUnion α).toSet = Set.univ := by
   apply Set.eq_univ_of_forall; intro x
   rw [mem]
   -- By proof irrelevance any wf proof is definitionally equal to the one in the One instance
-  refine ⟨⟨⟨⊥, ⊤⟩, ⟨⊤, ⊤⟩, by simp⟩, List.mem_cons_self, ?_⟩
+  refine ⟨⟨⟨⊥, ⊤⟩, ⟨⊤, ⊤⟩, by simp[lt_or_eq_of_le]⟩, List.mem_cons_self, ?_⟩
   simp [Interval.toSet, Endpoint.above, Endpoint.below]
 
 -- Helper: `(0 : IntervalUnion α).toSet = ∅`
 private lemma zero_toSet : (0 : IntervalUnion α).toSet = ∅ := by
   simp [IntervalUnion.toSet]
 
-instance : CommSemiring (IntervalUnion α) where
+instance [DenselyOrdered α] [BoundedOrder α] : CommSemiring (IntervalUnion α) where
   add_comm := by
     intro a b; apply ext_toSet; ext x
     rw [add_eq_union, add_eq_union, mem_union, mem_union]; tauto
@@ -1282,7 +1282,7 @@ instance : CommSemiring (IntervalUnion α) where
     rw [mul_eq_inter, mem_inter]; simp [zero_toSet]
   npow := npowRec
 
-instance : SemiringWithMonus (IntervalUnion α) where
+instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion α) where
   -- Order: set inclusion
   le U V := U.toSet ⊆ V.toSet
   le_refl _ := Set.Subset.refl _
