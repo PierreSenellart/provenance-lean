@@ -1,6 +1,37 @@
 import Mathlib.Order.Defs.LinearOrder
 import Mathlib.Data.Set.Lattice
 
+/-!
+# Intervals over linear orders
+
+This file defines closed/open intervals over a linear order and the operations
+needed to build the interval-union semiring.
+
+## Main definitions
+
+* `Endpoint α` — an endpoint of an interval: a value in `α` together with a
+  `closed` flag indicating whether the endpoint is included
+* `Interval α` — an interval with possibly open endpoints whose endpoints satisfy
+  `lo.val < hi.val`, or `lo.val = hi.val` with both endpoints closed
+* `Interval.toSet` — the set of points belonging to an interval
+* `Interval.disjoint` — two intervals are disjoint when their point sets are disjoint
+* `Interval.before` — `I.before J` means `I` lies strictly to the left of `J`
+  (no point is shared and they cannot be merged)
+* `Interval.inter` — intersection of two intervals
+* `Interval.diff` — difference of two intervals (a list of at most two intervals)
+
+## Main results
+
+* `Interval.toSet_not_empty` — every well-formed interval contains at least one point
+* `Interval.ext_toSet` — two intervals with the same point set are equal
+  (requires `DenselyOrdered`)
+* `Interval.mem_inter` — membership in the intersection is conjunction of memberships
+* `Interval.mem_diff` — membership in the difference is membership minus exclusion
+* `Interval.disjoint_of_before` — `before` implies `disjoint`
+-/
+
+/-- An endpoint of an interval: a value together with a boolean flag indicating
+whether the endpoint is included (`closed = true`) or excluded (`closed = false`). -/
 @[ext]
 structure Endpoint (α: Type) where
   val    : α
@@ -92,9 +123,13 @@ lemma le_maxHi_left [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).
   . exact le_of_not_gt hab
   . tauto
 
+/-- `below x hi` holds when `x` is on the correct side of the upper endpoint `hi`,
+respecting its closedness: `x ≤ hi.val` if closed, `x < hi.val` if open. -/
 def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
   if(hi.closed) then x ≤ hi.val else x < hi.val
 
+/-- `above x lo` holds when `x` is on the correct side of the lower endpoint `lo`,
+respecting its closedness: `lo.val ≤ x` if closed, `lo.val < x` if open. -/
 def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
   if(lo.closed) then lo.val ≤ x else lo.val < x
 
@@ -234,6 +269,9 @@ lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
 
 end Endpoint
 
+/-- An interval over a linear order, given by a lower endpoint `lo` and an upper
+endpoint `hi` satisfying `lo.val < hi.val` (strict) or `lo.val = hi.val` with both
+endpoints closed (degenerate point interval). -/
 @[ext]
 structure Interval (α: Type) [LinearOrder α] where
   lo : Endpoint α
@@ -259,6 +297,8 @@ lemma hi_above_lo [LinearOrder α] (I: Interval α) : Endpoint.above I.hi.val I.
   unfold Endpoint.above
   cases I.wf <;> simp_all
 
+/-- The set of points belonging to an interval: those `x` that are above `lo`
+and below `hi` according to their respective closedness flags. -/
 def toSet [LinearOrder α] (I: Interval α) : Set α := {x | Endpoint.above x I.lo ∧ Endpoint.below x I.hi}
 
 lemma eq_closed_lo [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
@@ -456,6 +496,7 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
 lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
   x ∈ I.toSet ↔ Endpoint.above x I.lo ∧ Endpoint.below x I.hi := Iff.rfl
 
+/-- Two intervals are disjoint when their point sets have empty intersection. -/
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
 
@@ -515,7 +556,8 @@ instance [LinearOrder α] : PartialOrder (Interval α) where
             rw[hIJhi] at hIKhi; exact hIKhi
           exact hJK.2.2.2 hJKhi (hIJ.2.2.2 hIJhi hI)
 
-/-- Strictly before, no common point, cannot be merged --/
+/-- `I.before J` means the intervals are strictly separated and cannot be merged:
+either `I.hi.val < J.lo.val`, or the endpoints meet at the same value but both are open. -/
 def before [LinearOrder α] (I J : Interval α) : Prop :=
   I.hi.val < J.lo.val ∨
   (I.hi.val = J.lo.val ∧ ¬I.hi.closed ∧ ¬J.lo.closed)

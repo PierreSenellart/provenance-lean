@@ -4,6 +4,21 @@ import Provenance.AnnotatedDatabase
 import Provenance.Query
 import Provenance.Util.KeyAccValueList
 
+/-!
+# Query semantics over annotated databases
+
+This file defines the evaluation of relational algebra queries over annotated databases.
+Query operators are lifted to annotated relations using the m-semiring operations of the
+annotation domain `K`: addition corresponds to union, multiplication to join, and
+monus to difference.
+
+## Main definitions
+
+* `Query.evaluateAnnotated` — evaluates a query over an `AnnotatedDatabase T K`,
+  propagating annotations through each relational operator according to the semiring
+  structure of `K`
+-/
+
 variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 

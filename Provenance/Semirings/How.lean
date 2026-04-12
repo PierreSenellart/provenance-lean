@@ -5,6 +5,30 @@ import Mathlib.Data.Finsupp.ToDFinsupp
 import Provenance.SemiringWithMonus
 import Provenance.Semirings.Nat
 
+/-!
+# How-provenance m-semiring `ℕ[X]`
+
+This file shows that the polynomial semiring `MvPolynomial X ℕ` (multivariate
+polynomials with natural-number coefficients over a set `X` of variables) is a
+commutative m-semiring, sometimes called the *How* provenance semiring.
+
+It is the universal commutative semiring for provenance
+[Green, Karnouvarakis & Tannen, *Provenance Semirings*, Proposition 4.2][green2007provenance],
+but is **not** the universal m-semiring
+[Geerts & Poggi, *On database query languages for K-relations*, Example 10][geerts2010database].
+
+`ℕ[X]` is neither idempotent nor absorptive. It also does **not** satisfy
+left-distributivity of multiplication over monus, contradicting a claim in
+[Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries with
+differences*, Table on p. 4][amsterdamer2011limitations].
+
+## References
+
+* [Green, Karnouvarakis & Tannen, *Provenance Semirings*][green2007provenance]
+* [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
+* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries with differences*][amsterdamer2011limitations]
+-/
+
 variable {X: Type} [DecidableEq X]
 
 instance : LE (MvPolynomial X ℕ) where

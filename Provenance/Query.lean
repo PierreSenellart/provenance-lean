@@ -8,6 +8,21 @@ import Mathlib.Data.Prod.Lex
 
 import Provenance.Database
 
+/-!
+# Relational algebra
+
+This file defines the abstract syntax and semantics of relational algebra queries over
+plain (unannotated) databases.
+
+## Main definitions
+
+* `Term T n` — an expression that evaluates to a value of type `T` in the context of
+  a tuple of arity `n` (constants, tuple projections, and arithmetic operations)
+* `Query T` — a relational algebra query: selection, projection, union, join,
+  difference, and renaming
+* `Query.evaluate` — the standard set semantics of queries over `Database T`
+-/
+
 variable {T: Type} [ValueType T]
 
 inductive Term T n where

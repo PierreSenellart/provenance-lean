@@ -2,10 +2,37 @@ import Provenance.SemiringWithMonus
 
 import Mathlib.Order.BoundedOrder.Basic
 
+/-!
+# Min-max semiring
+
+This file defines the *min-max* semiring `MinMax α` over a bounded linear order `α`,
+where addition is `min` and multiplication is `max`. The natural order is the
+**reverse** of the order on `α` (so `⊤` is the additive identity and `⊥` the
+multiplicative identity). This semiring models security levels or (dually) the fuzzy
+semiring.
+
+Also defined:
+* `MaxMin α = MinMax (OrderDual α)` — the dual semiring with `max` for addition and
+  `min` for multiplication
+* `TVL` — three-valued logic `{⊥, unknown, ⊤}`, an instance of `MaxMin`
+
+`MinMax α` is absorptive and idempotent. The dual `MaxMin TVL` does **not** satisfy
+left-distributivity of multiplication over monus.
+
+The security/access control semiring is discussed in
+[Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance].
+
+## References
+
+* [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
+-/
+
 section MinMax
 
 variable {α: Type} [LinearOrder α] [OrderBot α] [OrderTop α]
 
+/-- The min-max semiring over a bounded linear order: addition is `min`, multiplication
+is `max`, zero is `⊤` and one is `⊥`. The natural order is the reverse of `α`'s order. -/
 @[ext]
 structure MinMax (α: Type) where
   val: α
@@ -100,6 +127,7 @@ instance : CommSemiring (MinMax α) where
     simp[(· * ·),Mul.mul]
     exact OrderTop.le_top _
 
+/-- `MinMax α` is a commutative m-semiring for any bounded linear order `α`. -/
 instance : SemiringWithMonus (MinMax α) where
   add_le_add_left := by
     intro a b hab c
@@ -145,6 +173,7 @@ instance : CommSemiring (MaxMin α) :=
 instance : SemiringWithMonus (MaxMin α) :=
   inferInstanceAs (SemiringWithMonus (MinMax (OrderDual α)))
 
+/-- Three-valued logic `{⊥, unknown, ⊤}`, used as an instance of `MaxMin`. -/
 inductive TVL
 | bot
 | unknown

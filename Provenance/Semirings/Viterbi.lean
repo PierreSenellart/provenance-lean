@@ -5,6 +5,23 @@ import Provenance.SemiringWithMonus
 
 open scoped Classical
 
+/-!
+# Viterbi m-semiring
+
+This file defines the *Viterbi* semiring over non-negative reals in `[0,1]`.
+Addition is `max`, multiplication is the usual product, zero is `0`, and one is `1`.
+
+The Viterbi semiring is absorptive and idempotent, and satisfies left-distributivity
+of multiplication over monus.
+
+This semiring is discussed in
+[Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance].
+
+## References
+
+* [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
+-/
+
 /--
 Viterbi semiring (max-times) over probabilities in `[0,1]`.
 -/
@@ -94,6 +111,8 @@ instance : PartialOrder Viterbi where
 @[simp] theorem le_def (a b : Viterbi) :
     a ≤ b ↔ (a: NNReal) ≤ (b: NNReal) := by simp
 
+/-- `Viterbi` is a commutative m-semiring. The natural order is the usual order on
+`[0,1]`, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
 noncomputable
 instance : SemiringWithMonus Viterbi where
   sub a b := if (a : NNReal) ≤ (b : NNReal) then 0 else a

@@ -6,12 +6,57 @@ import Mathlib.Tactic.Linarith
 import Provenance.Semirings.Interval
 import Provenance.SemiringWithMonus
 
+/-!
+# Interval-union semiring
+
+This file defines the semiring of finite unions of pairwise-disjoint intervals over
+a dense linear order, used for provenance in temporal and numeric-range databases.
+
+An `IntervalUnion α` is a sorted, non-overlapping list of intervals. Addition is union,
+multiplication is intersection, and monus is set difference. The natural order is
+set inclusion.
+
+## Main definitions
+
+* `IntervalUnion α` — a finite union of pairwise-disjoint, sorted intervals
+* `IntervalUnion.toSet` — the corresponding point set
+* `IntervalUnion.union` — union of two interval unions (addition)
+* `IntervalUnion.inter` — intersection of two interval unions (multiplication)
+* `IntervalUnion.diff` — set difference of two interval unions (monus)
+
+## Main results
+
+* `IntervalUnion.ext_toSet` — two interval unions with the same point set are equal
+  (requires `DenselyOrdered`)
+* `IntervalUnion.mem_union` / `mem_inter` / `mem_diff` — membership characterizations
+* `instance : SemiringWithMonus (IntervalUnion α)` — interval unions form an m-semiring
+  for any `DenselyOrdered` and `BoundedOrder` linear order
+* `IntervalUnion.absorptive` — the semiring is absorptive (`1 + a = 1`): the whole
+  space absorbs any interval union under union
+* `IntervalUnion.mul_sub_left_distributive` — `a * (b - c) = a * b - a * c`, i.e.,
+  `A ∩ (B \ C) = (A ∩ B) \ (A ∩ C)`
+
+## Concrete instances
+
+* `SemiringWithMonus (IntervalUnion EReal)` — interval unions over the extended reals
+* `SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ)))` — interval unions over the
+  extended rationals
+
+## References
+
+* [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update Provenance through Temporal Databases*][DBLP:conf/pw/WidiaatmajaDDS25]
+-/
+
+/-- A finite union of pairwise-disjoint intervals sorted from left to right.
+The invariants `pairwise_disjoint` and `pairwise_before` ensure the canonical
+representation. -/
 structure IntervalUnion (α: Type) [LinearOrder α] where
   intervals         : List (Interval α)
   pairwise_disjoint : intervals.Pairwise Interval.disjoint
   pairwise_before   : intervals.Pairwise Interval.before
 
 namespace IntervalUnion
+/-- The point set of an interval union: the union of the point sets of its intervals. -/
 def toSet [LinearOrder α] (U : IntervalUnion α) : Set α := ⋃ I ∈ U.intervals, I.toSet
 
 -- Helper: convexity of interval toSet
@@ -550,6 +595,7 @@ lemma mem [LinearOrder α] (x: α) (U: IntervalUnion α) :
         rcases hx with ⟨I, h⟩
         exact Set.mem_iUnion₂.mpr ⟨I, h.1, h.2⟩
 
+/-- Merge two overlapping or adjacent intervals into one. -/
 def merge [LinearOrder α] (I J : Interval α) (h: ¬ (I.before J ∨ J.before I)) :
   Interval α :=
   let lo := Endpoint.minLo I.lo J.lo
@@ -866,6 +912,8 @@ lemma merge_preserves_le [LinearOrder α] {I: Interval α} {J: Interval α} {K: 
                 by_cases hhiJc : J.hi.closed <;> (try simp only[hhiJc]) <;> tauto
 
 
+/-- Insert an interval into a sorted disjoint list, merging with any overlapping
+or adjacent intervals. -/
 def insertMergeList [LinearOrder α] (I : Interval α) : List (Interval α) → List (Interval α)
 | []    => [I]
 | J::tl =>
@@ -1086,6 +1134,7 @@ private lemma mem_foldl_insertMerge [LinearOrder α]
         | inl h => exact Or.inl (Or.inl (h ▸ hxJ))
         | inr h => exact Or.inr ⟨J, h, hxJ⟩
 
+/-- Union of two interval unions (the semiring addition). -/
 def union [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
   V.intervals.foldl (fun acc I => (IntervalUnion.insertMerge I acc)) U
 
@@ -1095,6 +1144,7 @@ lemma mem_union [LinearOrder α] (U V : IntervalUnion α) :
   unfold union
   rw [mem_foldl_insertMerge, mem x V]
 
+/-- Intersection of two interval unions (the semiring multiplication). -/
 def inter [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
   let pieces := U.intervals.flatMap (fun I => V.intervals.flatMap (fun J => I.inter J))
   pieces.foldl (fun acc I => insertMerge I acc) ⟨[], by simp, by simp⟩
@@ -1117,6 +1167,7 @@ lemma mem_inter [LinearOrder α] (U V : IntervalUnion α) (x : α) :
     obtain ⟨K, hK, hxK⟩ := this
     exact ⟨K, by simp [List.mem_flatMap]; exact ⟨I, hI, J, hJ, hK⟩, hxK⟩
 
+/-- Set difference of two interval unions (the semiring monus). -/
 def diff [LinearOrder α] (U V : IntervalUnion α) : IntervalUnion α :=
   let pieces := U.intervals.flatMap (fun I =>
     V.intervals.foldl (fun L J => L.flatMap (fun I' => I'.diff J)) [I])
@@ -1256,6 +1307,9 @@ instance [DenselyOrdered α] [BoundedOrder α] : CommSemiring (IntervalUnion α)
     rw [mul_eq_inter, mem_inter]; simp [zero_toSet]
   npow := npowRec
 
+/-- Interval unions over a dense bounded linear order form a commutative m-semiring,
+with union as addition, intersection as multiplication, set inclusion as natural order,
+and set difference as monus. -/
 instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion α) where
   -- Order: set inclusion
   le U V := U.toSet ⊆ V.toSet
@@ -1307,6 +1361,8 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
       · exact absurd hxb hxnb
       · exact hxc
 
+/-- The interval-union semiring is absorptive: the multiplicative identity (the whole
+space) absorbs any element under addition (union). -/
 theorem IntervalUnion.absorptive [DenselyOrdered α] [BoundedOrder α] :
     absorptive (IntervalUnion α) := by
   intro a
@@ -1314,6 +1370,8 @@ theorem IntervalUnion.absorptive [DenselyOrdered α] [BoundedOrder α] :
   rw [add_eq_union, mem_union]
   simp [one_toSet]
 
+/-- Left-distributivity of multiplication (intersection) over monus (set difference):
+`A ∩ (B \ C) = (A ∩ B) \ (A ∩ C)`. -/
 theorem IntervalUnion.mul_sub_left_distributive [DenselyOrdered α] [BoundedOrder α] :
     mul_sub_left_distributive (IntervalUnion α) := by
   intro a b c
@@ -1321,6 +1379,13 @@ theorem IntervalUnion.mul_sub_left_distributive [DenselyOrdered α] [BoundedOrde
   simp only [mul_eq_inter, sub_eq_diff, mem_inter, mem_diff]
   tauto
 
+/-- The interval-union semiring is idempotent: `a + a = a` (derived from absorptivity). -/
+theorem IntervalUnion.idempotent [DenselyOrdered α] [BoundedOrder α] :
+    idempotent (IntervalUnion α) :=
+  idempotent_of_absorptive IntervalUnion.absorptive
+
+/-- The interval-union semiring over the extended reals `[-∞, +∞]`. -/
 noncomputable instance : SemiringWithMonus (IntervalUnion EReal) := inferInstance
 
+/-- The interval-union semiring over the extended rationals. -/
 instance : SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ))) := inferInstance

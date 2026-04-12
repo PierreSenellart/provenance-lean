@@ -1,6 +1,17 @@
 import Provenance.SemiringWithMonus
 import Provenance.Semirings.BoolFunc
 
+/-!
+# Boolean m-semiring
+
+This file shows that `Bool` (with `||` as addition and `&&` as multiplication) is a
+commutative m-semiring. It is the simplest m-semiring and serves as the target of the
+natural homomorphism from `BoolFunc X`.
+
+The semiring is absorptive (`true || a = true`), idempotent, and satisfies
+left-distributivity of multiplication over monus.
+-/
+
 section Bool
 
 open Bool
@@ -28,6 +39,8 @@ instance : CommSemiring Bool where
   nsmul := nsmulRec
 
 
+/-- The Boolean semiring (`Bool`, `||`, `&&`) is an m-semiring. The natural order is
+the usual Boolean order (`false ≤ true`), and the monus is `a && !b`. -/
 instance : SemiringWithMonus Bool where
   le_self_add := by decide
   le_add_self := by decide

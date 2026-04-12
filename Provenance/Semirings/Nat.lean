@@ -1,5 +1,18 @@
 import Provenance.SemiringWithMonus
 
+/-!
+# Counting m-semiring
+
+This file shows that `ℕ` (with standard addition and multiplication) is a commutative
+m-semiring. The monus is truncated subtraction (`Nat.sub`). Unlike most provenance
+semirings, `ℕ` is neither idempotent nor absorptive.
+
+The natural order is the usual order on natural numbers, and monus coincides with
+Mathlib's `Nat.sub`.
+-/
+
+/-- `ℕ` is a commutative m-semiring. The natural order is the usual order on
+natural numbers, and the monus is truncated subtraction. -/
 instance : SemiringWithMonus Nat where
   monus_spec := by
     intro a b c

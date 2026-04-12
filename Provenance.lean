@@ -25,29 +25,55 @@ import Provenance.Example
 /-!
 # Provenance in databases
 
-This Lean4 library aims at providing formal definitions and proofs
-relevant for provenance in databases.
+This Lean 4 library provides formal definitions and proofs relevant for *provenance in
+databases*, following the semiring framework of
+[Green, Karvounarakis & Tannen][green2007provenance] and
+[Green & Tannen][green2017provenance].
 
-This is work in progress. For now:
+One of the goals of this library is to provide a formal, machine-checked semantics for
+the provenance-aware relational database system
+[ProvSQL](https://provsql.org/) described in
+[Sen, Maniu & Senellart][sen2026provsql].
 
-- `Provenance.SemiringWithMonus` contains the definition of a semiring with monus (or m-semiring), along with some classical and useful theorems
-- We include proofs that some common provenance m-semirings are indeed m-semirings:
-  - `Provenance.Semirings.Bool`: the Boolean m-semiring
-  - `Provenance.Semirings.BoolFunc`: the Bool[X] m-semiring of Boolean functions over a set X of Boolean variables
-  - `Provenance.Semirings.How`: the ℕ[X] m-semiring of multivariate polynomials with natural integer coefficients, sometimes called the How[X] m-semiring; it is the m-semiring extension of the universal provenance semiring
-  - `Provenance.Semirings.IntervalUnion`: the semiring of interval unions over a dense linear order, used in temporal databases
-  - `Provenance.Semirings.Lukasiewicz`: the Łukasiewicz semiring
-  - `Provenance.Semirings.MinMax`: the min-max semiring over any bounded linear order, such as the security semiring or (the dual of) the fuzzy semiring
-  - `Provenance.Semirings.Nat`: the counting m-semiring
-  - `Provenance.Semirings.Tropical`: the tropical m-semiring (for any linearly ordered commutative monoid with an additively absorbing ⊤ element, e.g., natural integers or reals with ∞ as ⊤)
-  - `Provenance.Semirings.Viterbi`: the Viterbi m-semiring
-  - `Provenance.Semirings.Which`: the Which[X] m-semiring (also called lineage or Lin[X])
-  - `Provenance.Semirings.Why`: the Why[X] m-semiring
-- `Provenance.Database` defines tuples, relations, and (regular) databases
-- `Provenance.Query` defines the relational algebra
-- `Provenance.AnnotatedDatabase` defines annotated databases
-- `Provenance.QueryAnnotatedDatabase` defines the semantics of relational algebra queries over annotated databases through m-semirings
-- `Provenance.QueryRewriting` defines an approach to query evaluation on annotated relations through query rewriting; a proof (partially written at this point) that this rewriting is correct is provided
+## Contents
 
-See `Provenance.Example` for an example computation.
+**Core theory**
+
+- `Provenance.SemiringWithMonus` — definition of a *semiring with monus* (m-semiring),
+  the algebraic structure underlying annotated database semantics, together with general
+  theorems about it
+- `Provenance.Database` — tuples, relations, and plain databases
+- `Provenance.Query` — relational algebra (select, project, join, union, difference…)
+- `Provenance.AnnotatedDatabase` — databases annotated with values in an m-semiring `K`
+- `Provenance.QueryAnnotatedDatabase` — semantics of relational algebra over annotated
+  databases via m-semiring operations
+- `Provenance.QueryRewriting` — alternative query evaluation by rewriting plain queries
+  on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
+  correctness proof partially formalised
+
+**Concrete m-semirings** (`Provenance.Semirings.*`)
+
+- `Bool` — the Boolean m-semiring `𝔹`
+- `BoolFunc` — the Boolean-function m-semiring `𝔹[X]`
+- `Why` — the Why[X] m-semiring (sets of witness sets)
+- `Which` — the Which[X] m-semiring (lineage / Lin[X])
+- `How` — the ℕ[X] m-semiring of multivariate polynomials; the universal provenance
+  semiring
+- `Nat` — the counting m-semiring `ℕ`
+- `Tropical` — the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
+  `ℝ ∪ {∞}`
+- `Viterbi` — the Viterbi m-semiring (max-times) over `[0,1]`
+- `MinMax` — the min-max semiring over any bounded linear order (security / access
+  control semiring and dual fuzzy semiring)
+- `Lukasiewicz` — the Łukasiewicz (fuzzy logic) m-semiring over `ℚ ∩ [0,1]`
+- `Interval`, `IntervalUnion` — intervals and finite unions of intervals over a dense
+  linear order, used for temporal databases
+
+See `Provenance.Example` for an example annotated database computation.
+
+## References
+
+* [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
+* [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
+* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
 -/

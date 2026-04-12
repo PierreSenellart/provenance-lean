@@ -1,5 +1,29 @@
 import Provenance.SemiringWithMonus
 
+/-!
+# Boolean-function m-semiring `Bool[X]`
+
+This file defines the semiring `BoolFunc X` of Boolean functions over a set `X` of
+Boolean variables. Concretely, `BoolFunc X = (X → Bool) → Bool`: elements are functions
+from Boolean assignments to Booleans, with pointwise operations.
+
+Addition is pointwise `||`, multiplication is pointwise `&&`, and the natural order
+is `f ≤ g ↔ ∀ a, f a → g a` (pointwise implication).
+
+`BoolFunc X` is absorptive, idempotent, and left-distributive.
+
+This semiring is used in
+[Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance] and
+surveyed in [Senellart, *Provenance and Probabilities in Relational Databases*][senellart2017provenance].
+
+## References
+
+* [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
+* [Senellart, *Provenance and Probabilities in Relational Databases*][senellart2017provenance]
+-/
+
+/-- The type of Boolean functions over Boolean assignments to `X`:
+`(X → Bool) → Bool` with pointwise operations. -/
 def BoolFunc (X : Type) := (X → Bool) → Bool
 
 
@@ -84,6 +108,8 @@ instance : CommSemiring (BoolFunc X) where
     tauto
 
 
+/-- `BoolFunc X` is a commutative m-semiring with pointwise `||` as addition,
+pointwise `&&` as multiplication, and pointwise implication as natural order. -/
 instance : SemiringWithMonus (BoolFunc X) where
   -- natural order
   le_refl := by tauto

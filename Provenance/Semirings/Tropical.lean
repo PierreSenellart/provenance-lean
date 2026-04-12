@@ -4,6 +4,31 @@ import Mathlib.Data.Real.Basic
 
 import Provenance.SemiringWithMonus
 
+/-!
+# Tropical m-semiring
+
+This file shows that the tropicalization of any linearly ordered additive commutative
+monoid with an absorbing top element (e.g., `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, `ℝ ∪ {∞}`) is a
+commutative m-semiring. Addition is `min` (inherited from the tropical structure in
+Mathlib), multiplication is the original addition of the monoid, zero is `⊤`, and one
+is `0`.
+
+The tropical semiring is absorptive and idempotent, and satisfies left-distributivity
+of multiplication over monus.
+
+The tropical semiring is used as a provenance semiring in
+[Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance].
+
+Note: [Geerts & Poggi, *On database query languages for K-relations*, Example 4][geerts2010database]
+claims that the tropical semiring cannot be extended to an m-semiring. That claim is
+incorrect: the paper gives a wrong definition of the monus operator.
+
+## References
+
+* [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
+* [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
+-/
+
 instance [ToString α] : ToString (WithTop α) where
   toString x := match x with | none => "⊤" | some x => toString x
 

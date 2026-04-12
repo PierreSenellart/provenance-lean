@@ -4,6 +4,26 @@ import Mathlib.Data.Rat.Init
 import Mathlib.Algebra.Order.Ring.Rat
 import Mathlib.Tactic.Ring.RingNF
 
+/-!
+# Łukasiewicz m-semiring
+
+This file defines the *Łukasiewicz* (fuzzy logic) semiring over rationals `[0,1]`.
+Addition is `max`, multiplication is the Łukasiewicz t-norm `max(a + b - 1, 0)`,
+zero is `0`, and one is `1`.
+
+The Łukasiewicz semiring is absorptive and idempotent, and satisfies left-distributivity
+of multiplication over monus.
+
+This semiring is discussed as a provenance semiring in
+[Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order Logic*][gradel2005provenance].
+
+## References
+
+* [Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order Logic*][gradel2005provenance]
+-/
+
+/-- The Łukasiewicz semiring: rationals in `[0,1]` with `max` as addition and the
+Łukasiewicz t-norm `max(a + b - 1, 0)` as multiplication. -/
 abbrev Lukasiewicz := {q : ℚ // 0 ≤ q ∧ q ≤ 1}
 
 instance : Zero Lukasiewicz where
@@ -262,6 +282,8 @@ instance : CanonicallyOrderedAdd Lukasiewicz where
     intro a b
     simp[(· + ·), Add.add]
 
+/-- `Lukasiewicz` is a commutative m-semiring. The natural order is the usual rational
+order, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
 instance : SemiringWithMonus Lukasiewicz where
   monus_spec := by
     intro a b c

@@ -1,5 +1,22 @@
 import Provenance.SemiringWithMonus
 
+/-!
+# Why-provenance m-semiring `Why[X]`
+
+This file defines the *Why* provenance semiring `Why α = Set (Set α)`.
+Elements are sets of subsets of `α` (representing sets of witnesses). Addition
+is union of families, and multiplication is pairwise union of witnesses.
+
+`Why α` is idempotent but **not** absorptive when `α` is nonempty. It also
+does **not** satisfy left-distributivity of multiplication over monus, contradicting
+a claim in [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for
+queries with differences*, Table on p. 4][amsterdamer2011limitations].
+
+## References
+
+* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries with differences*][amsterdamer2011limitations]
+-/
+
 @[ext]
 structure Why (α: Type) where
   carrier : Set (Set α)

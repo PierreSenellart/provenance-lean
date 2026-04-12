@@ -2,6 +2,24 @@ import Provenance.SemiringWithMonus
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Lattice.Basic
 
+/-!
+# Which-provenance m-semiring (lineage)
+
+This file defines the *Which* (or lineage) provenance semiring `Which α`.
+Elements are either a finite set `wset s` representing the witnesses or `wbot`
+(bottom). Addition takes the union of witness sets, and multiplication does likewise.
+
+`Which α` is idempotent. It is absorptive if and only if `α` is empty. It does
+**not** satisfy left-distributivity of multiplication over monus when `α` is nonempty.
+
+The lineage semiring is discussed in
+[Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance].
+
+## References
+
+* [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
+-/
+
 section Which
 
 variable {α: Type} [DecidableEq α]

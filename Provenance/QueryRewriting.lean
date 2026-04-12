@@ -5,6 +5,26 @@ import Provenance.Query
 import Provenance.QueryAnnotatedDatabase
 import Provenance.Util.ValueType
 
+/-!
+# Query evaluation by rewriting
+
+This file provides an alternative approach to evaluating queries on annotated databases:
+instead of directly interpreting operators over annotated tuples, a query on `T` is
+rewritten into a query on `T ⊕ K` that operates on plain tuples whose values encode
+both data and provenance.
+
+The rewriting implemented here realises rules (R1)–(R5) from
+[Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance
+and Probability of Data*][sen2026provsql].
+
+A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
+partially formalised (rules (R1) and (R2) are machine-checked).
+
+## References
+
+* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
+-/
+
 def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match q with
 | Rel   n  s  => Rel (n+1) s
 | Proj  ts q  =>
