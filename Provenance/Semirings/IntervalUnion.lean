@@ -1,3 +1,4 @@
+import Mathlib.Data.EReal.Basic
 import Mathlib.Data.List.Sort
 import Mathlib.Data.Set.Lattice
 import Mathlib.Logic.Nontrivial.Defs
@@ -1332,3 +1333,21 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
       rcases (mem_union b c x).mp (h' hxa) with hxb | hxc
       · exact absurd hxb hxnb
       · exact hxc
+
+theorem absorptive_intervalUnion [DenselyOrdered α] [BoundedOrder α] :
+    absorptive (IntervalUnion α) := by
+  intro a
+  apply ext_toSet; ext x
+  rw [add_eq_union, mem_union]
+  simp [one_toSet]
+
+theorem mul_sub_left_dist_intervalUnion [DenselyOrdered α] [BoundedOrder α] :
+    mul_sub_left_distributive (IntervalUnion α) := by
+  intro a b c
+  apply ext_toSet; ext x
+  simp only [mul_eq_inter, sub_eq_diff, mem_inter, mem_diff]
+  tauto
+
+noncomputable instance : SemiringWithMonus (IntervalUnion EReal) := inferInstance
+
+instance : SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ))) := inferInstance
