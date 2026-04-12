@@ -56,14 +56,6 @@ lemma minLo_le_left [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ a.
   . exact le_of_not_gt hab
   . tauto
 
-lemma minLo_le_right [LinearOrder α] {a b: Endpoint α} : (minLo a b).val ≤ b.val := by
-  simp[minLo]
-  split_ifs with hab hba hc
-  . exact le_of_lt hab
-  . tauto
-  . tauto
-  . exact le_of_not_gt hba
-
 def maxHi [LinearOrder α] (a b : Endpoint α) : Endpoint α :=
   if a.val > b.val then a else
   if b.val > a.val then b else
@@ -100,40 +92,20 @@ lemma le_maxHi_left [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).
   . exact le_of_not_gt hab
   . tauto
 
-lemma le_maxHi_right [LinearOrder α] {a b: Endpoint α} : a.val ≤ (maxHi a b).val := by
-  simp[maxHi]
-  split_ifs with hab hba hc
-  . tauto
-  . exact le_of_lt hba
-  . exact le_of_not_gt hab
-  . tauto
-
 def below [LinearOrder α] (x: α) (hi : Endpoint α) : Prop :=
   if(hi.closed) then x ≤ hi.val else x < hi.val
 
 def above [LinearOrder α] (x: α) (lo : Endpoint α) : Prop :=
   if(lo.closed) then lo.val ≤ x else lo.val < x
 
-def le_of_below [LinearOrder α] (x: α) (lo: Endpoint α) :
+lemma le_of_below [LinearOrder α] (x: α) (lo: Endpoint α) :
     below x lo → x ≤ lo.val := by
       simp[below]
       by_cases h : lo.closed <;> simp[h]
       exact le_of_lt
 
-def ge_of_not_below [LinearOrder α] (x: α) (lo: Endpoint α) :
-    ¬below x lo → x ≥ lo.val := by
-      simp[below]
-      by_cases h : lo.closed <;> simp[h]
-      exact le_of_lt
-
-def ge_of_above [LinearOrder α] (x: α) (hi: Endpoint α) :
+lemma ge_of_above [LinearOrder α] (x: α) (hi: Endpoint α) :
     above x hi → x ≥ hi.val := by
-      simp[above]
-      by_cases h : hi.closed <;> simp[h]
-      exact le_of_lt
-
-def le_of_not_above [LinearOrder α] (x: α) (hi: Endpoint α) :
-    ¬above x hi → x ≤ hi.val := by
       simp[above]
       by_cases h : hi.closed <;> simp[h]
       exact le_of_lt
@@ -487,17 +459,11 @@ lemma mem {α: Type} [LinearOrder α] (x : α) (I: Interval α) :
 def disjoint [LinearOrder α] (I J : Interval α) : Prop :=
   Disjoint I.toSet J.toSet
 
-def not_mem_of_disjoint_right [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
+lemma not_mem_of_disjoint_right [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
   ∀ x ∈ J.toSet, ¬(x ∈ I.toSet) := by
     simp[disjoint] at h
     intro x hx
     exact Disjoint.notMem_of_mem_right h hx
-
-def not_mem_of_disjoint_left [LinearOrder α] {I J: Interval α} (h: I.disjoint J) :
-  ∀ x ∈ I.toSet, ¬(x ∈ J.toSet) := by
-    simp[disjoint] at h
-    intro x hx
-    exact Disjoint.notMem_of_mem_left h hx
 
 instance [LinearOrder α] : PartialOrder (Interval α) where
   le I J : Prop := I.lo.val ≤ J.lo.val ∧ I.hi.val ≤ J.hi.val ∧
@@ -553,27 +519,6 @@ instance [LinearOrder α] : PartialOrder (Interval α) where
 def before [LinearOrder α] (I J : Interval α) : Prop :=
   I.hi.val < J.lo.val ∨
   (I.hi.val = J.lo.val ∧ ¬I.hi.closed ∧ ¬J.lo.closed)
-
-lemma ne_of_before [LinearOrder α] {I J : Interval α} : I.before J → I ≠ J := by
-  unfold before
-  intro h
-  by_contra heq
-  rw[Eq.symm heq] at h
-  cases h with
-  | inl h' =>
-    have hIwf := I.wf
-    cases hIwf with
-    | inl h'' =>
-      have := (lt_self_iff_false _).mp (lt_trans h' h'')
-      contradiction
-    | inr h'' =>
-      rw[h''.1] at h'
-      have := (lt_self_iff_false _).mp h'
-      contradiction
-  | inr h' =>
-    have hIwf := I.wf
-    simp[h'.1] at hIwf
-    simp[hIwf] at h'
 
 lemma disjoint_of_before [LinearOrder α] {I J : Interval α} : I.before J → I.disjoint J := by
   intro h

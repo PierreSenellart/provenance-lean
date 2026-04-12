@@ -941,33 +941,6 @@ lemma mem_insertMergeList [LinearOrder α] (I : Interval α) (L : List (Interval
               right
               tauto
 
-lemma insertMergeList_preserves_le [LinearOrder α] {I: Interval α} {L: List (Interval α)} :
-  ∀ J, J≤I → (∀ K ∈ L, J≤K) → ∀ K ∈ insertMergeList I L, J ≤ K := by
-    intro J hJI hJL
-    induction L generalizing I with
-    | nil => simp[insertMergeList]; exact hJI
-    | cons M tl ih =>
-      intro K
-      unfold insertMergeList
-      have hK'tl : ∀ K' ∈ tl, J≤K' := by
-        intro K' hK'
-        exact hJL K' (List.mem_cons_of_mem M hK')
-      by_cases hIM: I.before M <;> simp[hIM]
-      . by_cases hKI: K=I <;> simp[hKI]
-        . exact hJI
-        . by_cases hKM: K=M <;> simp[hKM]
-          . exact hJL M List.mem_cons_self
-          . intro hK
-            exact hJL K (List.mem_cons_of_mem _ hK)
-      . by_cases hMI: M.before I <;> simp[hMI]
-        . by_cases hKM: K=M <;> simp[hKM]
-          . exact hJL M (List.mem_cons_self)
-          . have hK'tl : ∀ K' ∈ tl, J≤K' := by
-              intro K' hK'
-              exact hJL K' (List.mem_cons_of_mem M hK')
-            exact ih hJI hK'tl K
-        . exact ih (merge_preserves_le hJI (hJL M List.mem_cons_self) (not_or_intro hIM hMI)) hK'tl K
-
 private lemma before_merge [LinearOrder α] {I J K : Interval α}
     (hnot : ¬ (I.before J ∨ J.before I))
     (hKI : K.before I) (hKJ : K.before J) : K.before (merge I J hnot) := by
@@ -1334,14 +1307,14 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
       · exact absurd hxb hxnb
       · exact hxc
 
-theorem absorptive_intervalUnion [DenselyOrdered α] [BoundedOrder α] :
+theorem IntervalUnion.absorptive [DenselyOrdered α] [BoundedOrder α] :
     absorptive (IntervalUnion α) := by
   intro a
   apply ext_toSet; ext x
   rw [add_eq_union, mem_union]
   simp [one_toSet]
 
-theorem mul_sub_left_dist_intervalUnion [DenselyOrdered α] [BoundedOrder α] :
+theorem IntervalUnion.mul_sub_left_distributive [DenselyOrdered α] [BoundedOrder α] :
     mul_sub_left_distributive (IntervalUnion α) := by
   intro a b c
   apply ext_toSet; ext x
