@@ -53,20 +53,20 @@ the provenance-aware relational database system
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 
-- `Bool` — the Boolean m-semiring `𝔹`
-- `BoolFunc` — the Boolean-function m-semiring `𝔹[X]`
-- `Why` — the Why[X] m-semiring (sets of witness sets)
-- `Which` — the Which[X] m-semiring (lineage / Lin[X])
-- `How` — the ℕ[X] m-semiring of multivariate polynomials; the universal provenance
+- `Provenance.Semirings.Bool` — the Boolean m-semiring `𝔹`
+- `Provenance.Semirings.BoolFunc` — the Boolean-function m-semiring `𝔹[X]`
+- `Provenance.Semirings.Why` — the Why[X] m-semiring (sets of witness sets)
+- `Provenance.Semirings.Which` — the Which[X] m-semiring (lineage / Lin[X])
+- `Provenance.Semirings.How` — the ℕ[X] m-semiring of multivariate polynomials; the universal provenance
   semiring
-- `Nat` — the counting m-semiring `ℕ`
-- `Tropical` — the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
+- `Provenance.Semirings.Nat` — the counting m-semiring `ℕ`
+- `Provenance.Semirings.Tropical` — the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
   `ℝ ∪ {∞}`
-- `Viterbi` — the Viterbi m-semiring (max-times) over `[0,1]`
-- `MinMax` — the min-max semiring over any bounded linear order (security / access
+- `Provenance.Semirings.Viterbi` — the Viterbi m-semiring (max-times) over `[0,1]`
+- `Provenance.Semirings.MinMax` — the min-max semiring over any bounded linear order (security / access
   control semiring and dual fuzzy semiring)
-- `Lukasiewicz` — the Łukasiewicz (fuzzy logic) m-semiring over `ℚ ∩ [0,1]`
-- `Interval`, `IntervalUnion` — intervals and finite unions of intervals over a dense
+- `Provenance.Semirings.Lukasiewicz` — the Łukasiewicz (fuzzy logic) m-semiring over `ℚ ∩ [0,1]`
+- `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` — intervals and finite unions of intervals over a dense
   linear order, used for temporal databases
 
 See `Provenance.Example` for an example annotated database computation.
