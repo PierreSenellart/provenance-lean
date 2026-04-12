@@ -595,7 +595,7 @@ lemma disjoint_of_before [LinearOrder α] {I J : Interval α} : I.before J → I
   | inr h' =>
     by_cases hIhc : I.hi.closed <;> simp[hIhc] at hxI <;>
     by_cases hJlc : J.lo.closed <;> simp[hJlc] at hxJ <;>
-    simp[hIhc,hJlc] at h' <;> rw[h'] at hxI
+    simp[hIhc,hJlc] at h'; rw[h'] at hxI
     . have := (lt_self_iff_false _).mp (lt_trans hxI.2 hxJ.1)
       contradiction
 
@@ -667,10 +667,10 @@ def inter [LinearOrder α] (I J : Interval α) : List (Interval α) :=
 
 lemma mem_inter [LinearOrder α] (I J : Interval α) (x : α) :
     (∃ K ∈ I.inter J, x ∈ K.toSet) ↔ x ∈ I.toSet ∧ x ∈ J.toSet := by
-  simp only [inter, Interval.mem, toSet, Set.mem_setOf_eq]
+  simp only [inter, toSet, Set.mem_setOf_eq]
   split_ifs with h
   · -- non-empty intersection
-    simp only [List.mem_singleton, exists_eq_left, Interval.mem, Set.mem_setOf_eq]
+    simp only [List.mem_singleton, exists_eq_left]
     exact ⟨fun ⟨ha, hb⟩ => ⟨⟨(Endpoint.above_maxLo x I.lo J.lo).mp ha |>.1,
                                 (Endpoint.below_minHi x I.hi J.hi).mp hb |>.1⟩,
                               ⟨(Endpoint.above_maxLo x I.lo J.lo).mp ha |>.2,
@@ -709,13 +709,13 @@ lemma mem_inter [LinearOrder α] (I J : Interval α) (x : α) :
 /-- `above x e` is the negation of `below x` at the complemented endpoint. -/
 lemma Endpoint.above_iff_not_below_complement [LinearOrder α] (x : α) (e : Endpoint α) :
     Endpoint.above x e ↔ ¬Endpoint.below x ⟨e.val, !e.closed⟩ := by
-  simp only [Endpoint.above, Endpoint.below, Bool.not_not]
+  simp only [Endpoint.above, Endpoint.below]
   cases e.closed <;> simp [not_le, not_lt]
 
 /-- `below x e` is the negation of `above x` at the complemented endpoint. -/
 lemma Endpoint.below_iff_not_above_complement [LinearOrder α] (x : α) (e : Endpoint α) :
     Endpoint.below x e ↔ ¬Endpoint.above x ⟨e.val, !e.closed⟩ := by
-  simp only [Endpoint.above, Endpoint.below, Bool.not_not]
+  simp only [Endpoint.above, Endpoint.below]
   cases e.closed <;> simp [not_le, not_lt]
 
 /-- Membership in an optional singleton interval (where the interval may be empty due to
@@ -726,7 +726,7 @@ private lemma mem_opt_interval [LinearOrder α] (lo hi : Endpoint α) (x : α) :
              else ([] : List (Interval α))), x ∈ K.toSet) ↔
     Endpoint.above x lo ∧ Endpoint.below x hi := by
   split_ifs with h
-  · simp only [List.mem_singleton, exists_eq_left, Interval.mem, toSet, Set.mem_setOf_eq]
+  · simp only [List.mem_singleton, exists_eq_left, toSet, Set.mem_setOf_eq]
   · simp only [List.not_mem_nil, false_and, exists_false, false_iff]
     rintro ⟨ha, hb⟩
     apply h
