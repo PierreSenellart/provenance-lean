@@ -333,6 +333,44 @@ header a:hover {
     cursor: pointer;
 }
 
+/* ---- Move hamburger to the right & style white-on-purple (match main site) ---- */
+@media screen and (max-width: 1000px) {
+  header {
+    padding-right: 3em;  /* reserve space for the hamburger */
+  }
+  label[for="nav_toggle"] {
+    position: absolute;
+    right: var(--header-side-padding, 1ex);
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    background: transparent;
+    border: none;
+    color: #F4F0FA;
+    font-size: 1.6em;
+    padding: 0.2ex 0.5ex;
+  }
+  #nav_toggle:checked ~ * label[for="nav_toggle"] {
+    background: rgba(244,240,250,0.15);
+  }
+  /* Hide search box on narrow screens to avoid overlapping the hamburger */
+  #search_form { display: none !important; }
+}
+
+/* ---- "Back to provsql.org" footer ---- */
+#provsql-back-link {
+  text-align: center;
+  padding: 0.6em 1em;
+  background: #2A1850;
+  border-top: 2px solid #E8B84B;
+  font-family: 'Jost', 'Segoe UI', sans-serif;
+  font-size: 0.85rem;
+}
+#provsql-back-link a {
+  color: rgba(244,240,250,0.85);
+  text-decoration: none;
+}
+
 /* ---- Section headings ---- */
 
 main h2 {
