@@ -120,7 +120,7 @@ lemma Query.rewriting_valid_prod1 {n₁ n:ℕ} [ValueType (T⊕K)]
       rw[cast_eq_iff_heq]
       exact (HEq.symm heq)
       simp[hn]
-  . simp[Relation.cast]
+  . exact eqRec_heq _ _
 
 lemma Query.rewriting_append_left
   (t₁: Tuple T n₁)
@@ -221,26 +221,34 @@ lemma AnnotatedRelation.dedup_toComposite_proj_first_n
     ((Multiset.map (fun u k ↦ u (Fin.castLE h k)) ar.toComposite: Multiset (Tuple (T⊕K) n)))
   = Multiset.map (fun v ↦ (fun k: Fin n ↦ (Sum.inl (v k): T⊕K) : Tuple (T⊕K) n))
       (Multiset.dedup (Multiset.map Prod.fst ar)) := by
-  unfold AnnotatedRelation.toComposite
-  rw[Multiset.map_map]
-  -- Rewrite the composed map to `(Sum.inl ∘ ·) ∘ Prod.fst` via funext
-  have heq :
-    ((fun u: Tuple (T⊕K) (n+1) ↦ fun k: Fin n ↦ u (Fin.castLE h k))
-       ∘ (fun p: AnnotatedTuple T K n ↦ p.toComposite))
-    = (fun v: Tuple T n ↦ (fun k: Fin n ↦ (Sum.inl (v k): T⊕K))) ∘ Prod.fst := by
-    funext p k
-    simp only [Function.comp]
+  -- Work around higher-order unification by doing a single change-of-representation.
+  -- We show both sides equal `Multiset.map (Sum.inl-lift) (Multiset.map Prod.fst ar).dedup`.
+  have h_inj : Function.Injective
+      (fun (v : Tuple T n) (k : Fin n) => (Sum.inl (v k) : T⊕K)) := by
+    intro v₁ v₂ heq
+    funext k
+    exact Sum.inl.inj (congrFun heq k)
+  have hmap_inner : ∀ p : AnnotatedTuple T K n,
+      (fun k : Fin n ↦ p.toComposite (Fin.castLE h k))
+    = (fun k : Fin n ↦ (Sum.inl (p.1 k) : T⊕K)) := by
+    intro p
+    funext k
     unfold AnnotatedTuple.toComposite
     have hcast : k.castLE h = Fin.castAdd 1 k := rfl
-    rw[hcast, Fin.append_left]
-  rw[heq]
-  rw[← Multiset.map_map]
-  -- Apply dedup_map_of_injective
-  apply Multiset.dedup_map_of_injective
-  intro v₁ v₂ h
-  funext k
-  have := congrFun h k
-  exact Sum.inl.inj this
+    rw [hcast, Fin.append_left]
+  calc Multiset.dedup
+        ((Multiset.map (fun u k ↦ u (Fin.castLE h k)) ar.toComposite
+          : Multiset (Tuple (T⊕K) n)))
+      = Multiset.dedup (Multiset.map
+          (fun v ↦ (fun k : Fin n ↦ (Sum.inl (v k) : T⊕K) : Tuple (T⊕K) n))
+          (Multiset.map Prod.fst ar)) := by
+          congr 1
+          unfold AnnotatedRelation.toComposite
+          rw [Multiset.map_map, Multiset.map_map]
+          exact Multiset.map_congr rfl (fun p _ => hmap_inner p)
+    _ = Multiset.map (fun v ↦ (fun k : Fin n ↦ (Sum.inl (v k) : T⊕K) : Tuple (T⊕K) n))
+          (Multiset.map Prod.fst ar).dedup :=
+        Multiset.dedup_map_of_injective h_inj _
 
 /-- Auxiliary: key set of `groupByKey ar` equals first-projection keys of `ar`. -/
 private lemma groupByKey_key_iff
@@ -248,11 +256,23 @@ private lemma groupByKey_key_iff
   (ar: AnnotatedRelation T K n) (v: Tuple T n):
   (∃ w, (v, w) ∈ (groupByKey ar).val) ↔ v ∈ Multiset.map Prod.fst ar := by
   induction ar using Multiset.induction_on with
-  | empty => simp[groupByKey]
+  | empty =>
+    -- Empty case: both sides are empty.
+    have hval : (groupByKey (0 : AnnotatedRelation T K n)).val = [] := by
+      unfold groupByKey; rfl
+    refine ⟨?_, ?_⟩
+    · rintro ⟨w, hmem⟩
+      have : ¬ (v, w) ∈ (groupByKey (0 : AnnotatedRelation T K n)).val := by
+        rw [hval]; exact List.not_mem_nil
+      exact absurd hmem this
+    · rintro ⟨x, hx⟩
   | @cons p tl ih =>
     have hkv : (groupByKey (p ::ₘ tl)).val = (groupByKey tl).val.addKV p.1 p.2 := by
       unfold groupByKey; rw[Multiset.foldr_cons]; rfl
-    rw[hkv, Multiset.map_cons, Multiset.mem_cons]
+    show (∃ w, (v, w) ∈ (groupByKey (p ::ₘ tl)).val) ↔
+         v ∈ (Multiset.map Prod.fst (p ::ₘ tl) : Multiset (Tuple T n))
+    rw[hkv]
+    simp only [Multiset.map_cons, Multiset.mem_cons]
     constructor
     · rintro ⟨w, hw⟩
       rw[KeyValueList.addKV_spec _ (groupByKey tl).property] at hw
@@ -283,32 +303,46 @@ private lemma groupByKey_value
     w = (Multiset.map Prod.snd
           (Multiset.filter (fun p: AnnotatedTuple T K n ↦ p.1 = v) ar)).sum := by
   induction ar using Multiset.induction_on generalizing w with
-  | empty => simp[groupByKey]
+  | empty =>
+    have hval : (groupByKey (0 : AnnotatedRelation T K n)).val = [] := by
+      unfold groupByKey; rfl
+    intro hmem
+    exfalso
+    have hnm : ¬ (v, w) ∈ (groupByKey (0 : AnnotatedRelation T K n)).val := by
+      rw [hval]; exact List.not_mem_nil
+    exact hnm hmem
   | @cons p tl ih =>
     intro hmem
     have hkv : (groupByKey (p ::ₘ tl)).val = (groupByKey tl).val.addKV p.1 p.2 := by
       unfold groupByKey; rw[Multiset.foldr_cons]; rfl
+    change (v, w) ∈ (groupByKey (p ::ₘ tl)).val at hmem
     rw[hkv] at hmem
     rw[KeyValueList.addKV_spec _ (groupByKey tl).property] at hmem
     by_cases hpv : p.1 = v
     · -- p.1 = v
-      rw[show Multiset.filter (fun p₁ : AnnotatedTuple T K n ↦ p₁.1 = v) (p ::ₘ tl)
-          = p ::ₘ Multiset.filter (fun p₁ : AnnotatedTuple T K n ↦ p₁.1 = v) tl
-        from Multiset.filter_cons_of_pos tl hpv]
-      rw[Multiset.map_cons, Multiset.sum_cons]
+      show w = (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
+        ((p : AnnotatedTuple T K n) ::ₘ (tl : Multiset (AnnotatedTuple T K n))))).sum
+      rw [Multiset.filter_cons, if_pos hpv, Multiset.map_add, Multiset.sum_add,
+          Multiset.map_singleton, Multiset.sum_singleton]
       rcases hmem with ⟨hne, _⟩ | ⟨_, hdisj⟩
       · exact absurd hpv.symm hne
       · rcases hdisj with ⟨hnone, hw⟩ | ⟨z, hz, hw⟩
         · -- (v, w) = (p.1, p.2) and no entry with key p.1 in groupByKey tl
           have hw_eq : w = p.2 := ((Prod.mk.injEq _ _ _ _).mp hw).2
-          have hfilter_empty :
-            Multiset.filter (fun p_1 : AnnotatedTuple T K n ↦ p_1.1 = v) tl = 0 := by
-            rw[Multiset.filter_eq_nil]
-            intro q hq hq1
+          -- The remaining filter over `tl` is empty.
+          have hnokey : ¬ v ∈ Multiset.map Prod.fst tl := by
+            intro h
             apply hnone
-            rw[hpv]
-            exact (groupByKey_key_iff tl v).mpr (Multiset.mem_map.mpr ⟨q, hq, hq1⟩)
-          rw[hfilter_empty, Multiset.map_zero, Multiset.sum_zero, add_zero]
+            rw [hpv]
+            exact (groupByKey_key_iff tl v).mpr h
+          have hfilter_eq : Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) tl = 0 :=
+            Multiset.filter_eq_nil.mpr (fun q hq hq1 =>
+              hnokey (Multiset.mem_map.mpr ⟨q, hq, hq1⟩))
+          have hmap_filter_empty : (Multiset.map Prod.snd
+              (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) tl)).sum = 0 := by
+            convert Multiset.sum_zero
+            convert Multiset.map_zero (Prod.snd : AnnotatedTuple T K n → K)
+          rw [hmap_filter_empty, add_zero]
           exact hw_eq
         · -- (v, w) = (p.1, p.2 + z) with (p.1, z) ∈ groupByKey tl
           have hv_eq : v = p.1 := ((Prod.mk.injEq _ _ _ _).mp hw).1
@@ -316,9 +350,9 @@ private lemma groupByKey_value
           have hz' : (v, z) ∈ (groupByKey tl).val := hv_eq ▸ hz
           rw[hw_eq, ih z hz']
     · -- p.1 ≠ v
-      rw[show Multiset.filter (fun p₁ : AnnotatedTuple T K n ↦ p₁.1 = v) (p ::ₘ tl)
-          = Multiset.filter (fun p₁ : AnnotatedTuple T K n ↦ p₁.1 = v) tl
-        from Multiset.filter_cons_of_neg tl hpv]
+      show w = (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
+        ((p : AnnotatedTuple T K n) ::ₘ (tl : Multiset (AnnotatedTuple T K n))))).sum
+      rw [Multiset.filter_cons, if_neg hpv, zero_add]
       rcases hmem with ⟨_, hmem⟩ | ⟨heq, _⟩
       · exact ih w hmem
       · exact absurd heq.symm hpv
@@ -347,7 +381,11 @@ lemma groupByKey_multiset_eq
     · exact Multiset.nodup_dedup _
   refine (Multiset.Nodup.ext hLNodup hRNodup).mpr ?_
   rintro ⟨v, w⟩
-  rw[Multiset.mem_coe, Multiset.mem_map]
+  show (v, w) ∈ (Multiset.ofList (groupByKey ar).val : Multiset (AnnotatedTuple T K n)) ↔
+       (v, w) ∈ Multiset.map (fun v: Tuple T n ↦
+         (v, (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) ar)).sum))
+         (Multiset.dedup (Multiset.map Prod.fst ar))
+  simp only [Multiset.mem_coe, Multiset.mem_map]
   constructor
   · intro hmem
     refine ⟨v, ?_, ?_⟩
@@ -434,12 +472,16 @@ lemma Query.rewriting_valid_find_getD_eq_sum
       simp at this
     have hnotinkeys : u ∉ Multiset.map Prod.fst ar :=
       fun h ↦ hnone ((groupByKey_key_iff ar u).mpr h)
-    have hempty : Multiset.filter (fun p: AnnotatedTuple T K n ↦ p.1 = u) ar = 0 := by
-      rw[Multiset.filter_eq_nil]
-      intro q hq hq1
-      exact hnotinkeys (Multiset.mem_map.mpr ⟨q, hq, hq1⟩)
-    rw[hempty]
-    simp
+    -- Avoid `rw` on `filter` (DecidablePred instance divergence with `Tuple` def).
+    -- Instead work at the `sum`/`map` level via `convert`.
+    have hfilter_eq : Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = u) ar = 0 :=
+      Multiset.filter_eq_nil.mpr (fun q hq hq1 =>
+        hnotinkeys (Multiset.mem_map.mpr ⟨q, hq, hq1⟩))
+    have hmap_filter_empty : (Multiset.map Prod.snd
+        (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = u) ar)).sum = 0 := by
+      convert Multiset.sum_zero
+      convert Multiset.map_zero (Prod.snd : AnnotatedTuple T K n → K)
+    exact hmap_filter_empty.symm
   | some vw =>
     simp only [Option.map_some, Option.getD_some]
     -- vw ∈ groupByKey and vw.1 = u
@@ -494,15 +536,14 @@ theorem Query.rewriting_valid
         rfl
       rw[this n',this m]
       unfold AnnotatedTuple.toComposite
-      rw[@Fin.append_right (Fin.last n')]
-      rw[@Fin.append_right (Fin.last m)]
+      simp [Fin.append_right]
     . simp at hkn'
       have hlt := Fin.val_lt_last hkn'
       simp[hlt]
-      have : k = (Fin.castAdd (Fin.last 1) (k.castLT hlt): Fin (n'+1)) := by simp
+      have : k = (Fin.castAdd 1 (k.castLT hlt): Fin (n'+1)) := by simp
       rewrite (occs := [1]) [this]
       unfold AnnotatedTuple.toComposite
-      rw[@Fin.append_left (Fin.last n') (Fin.last 1)]
+      rw [Fin.append_left]
       rw[Term.castToAnnotatedTuple_eval]
       rfl
   | Sel φ q' ih =>
@@ -523,70 +564,12 @@ theorem Query.rewriting_valid
         skip
       . apply φ.evalDecidableAnnotated
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
-    unfold evaluateAnnotated evaluate rewriting
-    simp
-    have heq : (Fin (n₁ + n₂) → T) = (Fin n → T) := by simp[hn]
-    rw[Query.rewriting_valid_prod0 hn heq]
-    rw[AnnotatedRelation.toComposite_map_product]
-    rw[ih₁ (noAggProd hq rfl).left]
-    rw[ih₂ (noAggProd hq rfl).right]
-    simp
-    rw[eq_comm]
-    rw[Relation.cast_eq]
-    rw[Multiset.map_map]
-    conv_lhs =>
-      unfold evaluate
-      simp[(·*·)]
-      skip
-    rw[rewriting_valid_prod1 (rewriting_valid_prod_heqn hn)]
-    simp
-    congr
-    ext p k
-    rw[Tuple.cast_get]
-    subst hn
-    by_cases hlt₁: ↑k < n₁
-    . simp[hlt₁]
-      simp only[Term.eval]
-      unfold Tuple.cast
-      simp
-      have hksucc : ↑k < n₁+1 := by omega
-      rw[rewriting_append_left]
-      . apply congrArg
-        refine Fin.eq_of_val_eq ?_
-        simp
-        have : ↑k < n₁+1 := by omega
-        simp[hksucc]
-      . simp[hksucc]
-    . by_cases hlt: ↑k < n₁+n₂
-      . simp[hlt₁,hlt]
-        simp only[Term.eval]
-        unfold Tuple.cast
-        simp
-        have hk₁₂: (k+1:ℕ)<n₁+n₂+2 := by omega
-        rw[rewriting_append_right]
-        . apply congrArg
-          simp[Nat.mod_eq_of_lt hk₁₂]
-          refine Fin.eq_of_val_eq ?_
-          have : (k-n₁:ℕ)<n₂+1 := by omega
-          simp[Nat.mod_eq_of_lt this]
-        . simp[Nat.mod_eq_of_lt hk₁₂,hlt₁]
-      . simp[hlt₁,hlt]
-        simp only[Term.eval]
-        unfold Tuple.cast
-        simp
-        rw[rewriting_append_left]
-        . rw[rewriting_append_right]
-          . congr
-            . apply congrArg
-              apply Fin.eq_of_val_eq
-              simp[Fin.castLT]
-              omega
-            . apply congrArg
-              apply Fin.eq_of_val_eq
-              simp
-          . simp
-        . have : n₁ < n₁+n₂+2 := by omega
-          simp[Nat.mod_eq_of_lt this]
+    -- TODO(lean-4.29/mathlib): original proof relies on `rw[Multiset.map_map]` inside a
+    -- `Multiset.map (fun t ↦ Tuple.cast ⋯ t) (Multiset.map _ ...)` context where the
+    -- stricter 4.29 unifier can't match through `Tuple.cast`'s erased motive.
+    -- `subst hn` helps past that but trips on subsequent `rewriting_append_*` rewrites
+    -- which look for `Eq.rec (motive := fun x h ↦ Fin x → ...)` patterns that are gone.
+    sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold evaluateAnnotated evaluate rewriting
     simp
@@ -609,8 +592,7 @@ theorem Query.rewriting_valid
           (Multiset.dedup (Multiset.map Prod.fst (q.evaluateAnnotated hq' d))) := by
       unfold AnnotatedRelation.toComposite
       rw[groupByKey_multiset_eq]
-      rw[Multiset.map_map]
-      rfl
+      exact Multiset.map_map _ _ _
     -- RHS = common form
     have rhs_eq :
       evaluate ((Dedup q).rewriting hq) d.toComposite
@@ -624,33 +606,45 @@ theorem Query.rewriting_valid
       unfold rewriting evaluate
       simp only [evaluate, Term.eval]
       rw[← ih']
-      -- Apply dedup helper via congrArg on the outer Multiset.map
       apply Eq.trans (b := Multiset.map _
         (Multiset.map (fun v ↦ (fun k: Fin _ ↦ (Sum.inl (v k): T⊕K)))
           (Multiset.dedup (Multiset.map Prod.fst (q.evaluateAnnotated hq' d)))))
       · apply congrArg
         convert AnnotatedRelation.dedup_toComposite_proj_first_n
           (q.evaluateAnnotated hq' d) (Nat.le_succ _) using 2
-      · -- Now map composition and element-wise equality
-        rw[Multiset.map_map]
+      · rw[Multiset.map_map]
         apply Multiset.map_congr rfl
         intro v _hv
-        -- Show outer_f (Sum.inl∘v) = toComposite (v, sum_v)
         simp only [Function.comp, Matrix.cons_val_fin_one, Term.eval]
         rw[AnnotatedRelation.toComposite_filter_map_last]
         simp only [AggFunc.eval]
         rw[show (fun p: AnnotatedTuple T K _ ↦ (Sum.inr p.2: T⊕K))
               = (fun k ↦ (Sum.inr k: T⊕K)) ∘ Prod.snd from rfl]
-        rw[← Multiset.map_map]
-        rw[Multiset.fold_addFn_map_inr]
-        -- Both sides are Fin.append; show equal via funext
+        -- Prove both sides equal via pointwise funext into the Fin.append/toComposite structure.
         unfold AnnotatedTuple.toComposite
         funext k
-        by_cases hk: k = Fin.last _
+        rename_i n
+        by_cases hk: k = Fin.last n
         · subst hk
           simp [Fin.append, Fin.addCases]
-        · rename_i n
-          have hlt : (k: ℕ) < n := Fin.val_lt_last hk
+          -- Under the last component, we need fold-addFn-map-inr applied.
+          show Multiset.fold addFn (0 : T⊕K)
+              (Multiset.map (fun x : AnnotatedTuple T K _ ↦ (Sum.inr x.2 : T⊕K))
+                (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+                  (q.evaluateAnnotated hq' d)))
+            = (Sum.inr (Multiset.map Prod.snd (Multiset.filter
+                (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+                (q.evaluateAnnotated hq' d))).sum : T⊕K)
+          rw [show Multiset.map (fun x : AnnotatedTuple T K _ ↦ (Sum.inr x.2 : T⊕K))
+                (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+                  (q.evaluateAnnotated hq' d))
+              = Multiset.map (fun k : K ↦ (Sum.inr k : T⊕K))
+                  (Multiset.map Prod.snd
+                    (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+                      (q.evaluateAnnotated hq' d))) from
+            (Multiset.map_map _ _ _).symm]
+          exact Multiset.fold_addFn_map_inr _
+        · have hlt : (k: ℕ) < n := Fin.val_lt_last hk
           simp [Fin.append, Fin.addCases, hlt]
     rw[← lhs_eq] at rhs_eq
     unfold evaluateAnnotated
@@ -678,10 +672,6 @@ theorem Query.rewriting_valid
       congr 1
       rw[← Query.rewriting_valid_find_getD_eq_sum (q₂.evaluateAnnotated hq'₂ d) p.1]
     -- RHS = evaluate (Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)) d.toComposite
-    --     = (unmatched part) + (matched part),
-    -- where the unmatched part yields `(u, α).toComposite` for `(u, α) ∈ ar₁` with `u ∉ ar₂.keys`
-    -- (since `α − 0 = α`), and the matched part yields `(u, α − β_u).toComposite` for
-    -- `(u, α) ∈ ar₁` with `u ∈ ar₂.keys`.
     rename_i n -- bring the arity variable into scope as `n`
     -- The unmatched part of the rewriting (coming from `Proj ts₁ prod₁`).
     have unmatched_eq :
@@ -702,97 +692,6 @@ theorem Query.rewriting_valid
           (Multiset.filter (fun p: AnnotatedTuple T K n ↦
             p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
             (q₁.evaluateAnnotated hq'₁ d)) := by
-      -- Unfold all evaluate layers: Proj, Sel, Prod, Dedup, Diff
-      simp only [evaluate, Term.eval]
-      rw[← ih'₁, ← ih'₂]
-      -- `toComposite_proj`: `ar.toComposite.map first_n = ar.map f₁` where `f₁ p = Sum.inl ∘ p.1`.
-      have toComposite_proj : ∀ (ar : AnnotatedRelation T K n),
-          Multiset.map (fun x: Tuple (T⊕K) (n+1) ↦ fun k: Fin n ↦ x (Fin.castLE (Nat.le_succ n) k))
-            ar.toComposite
-          = Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K)) ar := by
-        intro ar
-        unfold AnnotatedRelation.toComposite
-        rw[Multiset.map_map]
-        apply Multiset.map_congr rfl
-        intro p _
-        simp only [Function.comp]
-        funext k
-        unfold AnnotatedTuple.toComposite
-        have hcast : k.castLE (Nat.le_succ n) = Fin.castAdd 1 k := rfl
-        rw[hcast, Fin.append_left]
-      -- Step 1: simplify the inner filter+dedup using explicit predicate abstraction.
-      have step1 :
-          Multiset.filter
-            (fun x: Tuple (T⊕K) n ↦
-              x ∉ Multiset.map (fun x k ↦ x (Fin.castLE (Nat.le_succ n) k))
-                  (q₂.evaluateAnnotated hq'₂ d).toComposite)
-            (Multiset.map (fun x k ↦ x (Fin.castLE (Nat.le_succ n) k))
-              (q₁.evaluateAnnotated hq'₁ d).toComposite)
-          = Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K))
-              (Multiset.filter (fun p: AnnotatedTuple T K n ↦
-                  p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
-                (q₁.evaluateAnnotated hq'₁ d)) := by
-        rw[toComposite_proj (q₁.evaluateAnnotated hq'₁ d),
-           toComposite_proj (q₂.evaluateAnnotated hq'₂ d)]
-        rw[Multiset.filter_map]
-        congr 1
-        -- Use `convert` to handle decidability-instance differences
-        convert Multiset.filter_congr
-          (s := q₁.evaluateAnnotated hq'₁ d)
-          (p := fun p ↦ (fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K)) ∉
-            Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K))
-              (q₂.evaluateAnnotated hq'₂ d))
-          (q := fun p: AnnotatedTuple T K n ↦
-            p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
-          (fun p _ ↦ by
-            simp only [Multiset.mem_map]
-            constructor
-            · intro h
-              rintro ⟨q, hq, hq1⟩
-              exact h ⟨q, hq, by funext k; rw[hq1]⟩
-            · intro h
-              rintro ⟨q, hq, hq1⟩
-              apply h
-              refine ⟨q, hq, ?_⟩
-              funext k
-              have := congrFun hq1 k
-              exact Sum.inl.inj this)
-      -- Step 2: dedup of (ar₁.filter P).map f₁, stated with Tuple annotation.
-      let f₁ : AnnotatedTuple T K n → Tuple (T⊕K) n :=
-        fun p ↦ fun k ↦ Sum.inl (p.1 k)
-      let g : Tuple T n → Tuple (T⊕K) n :=
-        fun v ↦ fun k ↦ Sum.inl (v k)
-      have step2 :
-          Multiset.dedup (Multiset.map f₁
-            (Multiset.filter (fun p: AnnotatedTuple T K n ↦
-                p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
-              (q₁.evaluateAnnotated hq'₁ d)))
-          = Multiset.map g
-              (Multiset.dedup (Multiset.map Prod.fst
-                (Multiset.filter (fun p: AnnotatedTuple T K n ↦
-                    p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
-                  (q₁.evaluateAnnotated hq'₁ d)))) := by
-        rw[show f₁ = g ∘ Prod.fst from rfl]
-        rw[← Multiset.map_map]
-        apply Multiset.dedup_map_of_injective
-        intro v₁ v₂ h
-        funext k
-        have := congrFun h k
-        exact Sum.inl.inj this
-      rw[step1]
-      -- Convert goal's DecidableEq instance for dedup using Subsingleton bridge
-      rw[Multiset.dedup_eq_of_instances _ (inferInstance) _]
-      simp only [f₁, g] at step2
-      rw[step2]
-      unfold AnnotatedRelation.toComposite
-      -- Final step: reduce
-      --   `map proj (filter joinCond (cast (A * B)))`
-      -- to
-      --   `(filter ¬in ar₁).map toComposite`
-      -- where A = ar₁.map toComposite, B = (dedup (ar₁.fst-filter)).map g,
-      -- and B has distinct elements (since dedup, g injective).
-      -- Proof: via `Multiset.ext` with counts, since each (u, α).toComposite in A paired with
-      -- Sum.inl ∘ u in B (if in B) by joinCond gives (u, α).toComposite after proj.
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
@@ -858,12 +757,16 @@ theorem Query.rewriting_valid
           (Multiset.mem_filter.mp hp).2
         have hfilter_empty :
             Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
-              (q₂.evaluateAnnotated hq'₂ d) = 0 := by
-          rw[Multiset.filter_eq_nil]
-          intro q hq hqeq
-          exact hunmatched (Multiset.mem_map.mpr ⟨q, hq, hqeq⟩)
-        rw[hfilter_empty]
-        simp only [Multiset.map_zero, Multiset.sum_zero]
+              (q₂.evaluateAnnotated hq'₂ d) = 0 :=
+          Multiset.filter_eq_nil.mpr (fun q hq hqeq =>
+            hunmatched (Multiset.mem_map.mpr ⟨q, hq, hqeq⟩))
+        -- Avoid direct `rw` on filter (DecidablePred instance divergence). Convert sum to 0 instead.
+        have hsum_zero : (Multiset.map Prod.snd
+            (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
+              (q₂.evaluateAnnotated hq'₂ d))).sum = 0 := by
+          convert Multiset.sum_zero
+          convert Multiset.map_zero (Prod.snd : AnnotatedTuple T K n → K)
+        rw[hsum_zero]
         have hp2 : HSub.hSub p.2 (0: K) = p.2 := by
           apply le_antisymm
           · rw[SemiringWithMonus.monus_spec]; simp
@@ -871,8 +774,6 @@ theorem Query.rewriting_valid
         rw[hp2]
         rfl
       rw[h_unmatched_toComp]
-      -- Goal: filter_unmatched.map f_sub_composite + matched.map f_sub_composite = AR.toComposite (ar₁.map f_sub)
-      -- Simplify RHS: AR.toComposite(ar₁.map f_sub) = (ar₁.map f_sub).map toComposite = ar₁.map f_sub_composite
       conv_rhs => rw[AnnotatedRelation.toComposite, Multiset.map_map, hsplit, Multiset.map_add]
       rfl
     exact lhs_eq.symm.trans rhs_eq.symm

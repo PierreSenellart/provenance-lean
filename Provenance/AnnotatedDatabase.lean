@@ -2,6 +2,7 @@ import Mathlib.Data.Prod.Lex
 import Mathlib.Data.Fin.Tuple.Basic
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.Data.Multiset.MapFold
+import Mathlib.Data.Multiset.Count
 
 import Provenance.Database
 import Provenance.SemiringWithMonus
@@ -76,9 +77,8 @@ def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):
 
 @[simp]
 theorem AnnotatedRelation.toComposite_add {T: Type} {K: Type} (ar₁ ar₂: AnnotatedRelation T K n):
-   (ar₁ + ar₂).toComposite = ar₁.toComposite + ar₂.toComposite := by
-    unfold toComposite
-    rw[Multiset.map_add]
+   (ar₁ + ar₂).toComposite = ar₁.toComposite + ar₂.toComposite :=
+  Multiset.map_add _ ar₁ ar₂
 
 def AnnotatedDatabase.toComposite (d: AnnotatedDatabase T K): Database (T⊕K) :=
   d.map λ (s, ⟨n',r⟩) ↦ (s, ⟨n'+1,r.toComposite⟩)
@@ -187,39 +187,23 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
       else if ↑k<n₁+n₂ then x.2 (@Fin.ofNat (n₂+1) _ (k.toNat - n₁))
       else (x.1 (Fin.last n₁) * x.2 (Fin.last n₂)))
     (Multiset.product ar₁.toComposite ar₂.toComposite) := by
-  unfold toComposite Multiset.product
-  repeat rw[Multiset.map_map]
-  repeat rw[Multiset.map_bind]
-  rw[Multiset.ext]
-  intro t
-  repeat rw[Multiset.count_bind]
-  apply congrArg
-  rw[Multiset.ext]
-  intro c
-  repeat rw[Multiset.count_map]
-  simp
-  conv_lhs =>
-    args
-    args
-    ext
-    rw[Multiset.count_map]
-    skip
-  apply Multiset.card_eq_card_of_rel
-  case h.r => exact λ ta t ↦ AnnotatedTuple.toComposite ta = t
-  case h.h =>
-    rw[← Multiset.rel_map_left]
-    rw[Multiset.rel_eq]
-    rw[Multiset.filter_map]
-    congr
-    funext ta₁
+  -- Induction on ar₁ to reduce the product, then map_congr element-wise on ar₂.
+  induction ar₁ using Multiset.induction_on with
+  | empty =>
+    unfold AnnotatedRelation.toComposite Multiset.product
     simp
-    rw[Multiset.count_map]
-    apply eq_imp_eq_equiv_eq
-    congr
-    funext ta₂
-    apply propext
-    apply eq_imp_eq_equiv_eq
-    exact AnnotatedTuple.toComposite_join _ _
+    rfl
+  | @cons p tl ih =>
+    unfold AnnotatedRelation.toComposite Multiset.product at *
+    rw [Multiset.cons_bind, Multiset.map_add, Multiset.map_add, Multiset.map_cons,
+        Multiset.cons_bind, Multiset.map_add]
+    congr 1
+    -- For the head `p`: show maps are equal element-wise over `ar₂`.
+    · simp only [Multiset.map_map]
+      apply Multiset.map_congr rfl
+      intro q _
+      simp only [Function.comp]
+      exact AnnotatedTuple.toComposite_join p q
 
 theorem AnnotatedRelation.cast_toComposite {T: Type} {K: Type}
   (ar: AnnotatedRelation T K n) (h': n+1=m+1) (h: n = m) :

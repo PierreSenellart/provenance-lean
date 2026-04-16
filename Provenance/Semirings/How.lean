@@ -103,8 +103,6 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
 theorem How.not_idempotent : ¬(idempotent (MvPolynomial X ℕ)) := by
   simp
   use (MvPolynomial.C 1)
-  rw[← MvPolynomial.C_add]
-  rw[MvPolynomial.C_inj _ _]
   simp
 
 theorem How.not_absorptive : ¬(absorptive (MvPolynomial X ℕ)) := by

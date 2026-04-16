@@ -40,7 +40,6 @@ instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (
 
   le_refl a := by
     cases a <;> simp
-    exact HasAltLinearOrder.altOrder.le_refl _
 
   le_antisymm a b := by
     cases a <;> cases b <;> simp

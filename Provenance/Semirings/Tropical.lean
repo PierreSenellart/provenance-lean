@@ -167,7 +167,7 @@ theorem TropicalN.absorptive : absorptive (Tropical (WithTop ℕ)) := by
 /-- Times distributes over monus on tropical semirings made of an order
   strictly compatible with addition, with an additional top element. -/
 theorem Tropical.mul_sub_left_distributive
-  [LinearOrder α] [AddCommMonoid α] [IsOrderedAddMonoid α] [AddLeftStrictMono α]:
+  [LinearOrder α] [AddCancelCommMonoid α] [IsOrderedAddMonoid α] [AddLeftStrictMono α]:
   mul_sub_left_distributive (Tropical (WithTop α)) := by
     intro a b c
     simp[(· - ·), Sub.sub]
@@ -184,37 +184,9 @@ theorem Tropical.mul_sub_left_distributive
       by_cases ha: untrop a = ⊤
       . simp only[ha,(· * ·),Mul.mul]
         rfl
-      . have : ∃ x, untrop a = some x := by
-          exact Option.ne_none_iff_exists'.mp ha
-        rcases this with ⟨x, hx⟩
-        have h: untrop a + untrop b < untrop a + untrop c := by
-          simp only[(· + ·), Add.add]
-          unfold Option.map₂ Option.bind Option.map
-          simp[hx]
-          by_cases hb: untrop b = ⊤
-          . simp[hb] at h
-          . have : ∃ y, untrop b = some y := by
-              exact Option.ne_none_iff_exists'.mp hb
-            rcases this with ⟨y, hy⟩
-            simp[hy]
-            by_cases hc : untrop c = ⊤
-            . simp[hc]
-              exact compareOfLessAndEq_eq_lt.mp rfl
-            . have : ∃ z, untrop c = some z := by
-                exact Option.ne_none_iff_exists'.mp hc
-              rcases this with ⟨z, hz⟩
-              simp[hz]
-              rw[WithTop.lt_def]
-              simp
-              use x+y, x+z
-              constructor
-              . apply add_lt_add_right _
-                simp[hy,hz] at h
-                exact WithTop.coe_lt_coe.mp h
-              . constructor
-                . rfl
-                . rfl
-        have contradiction := lt_of_lt_of_le h h₃
+      . have h_lt : untrop a + untrop b < untrop a + untrop c :=
+          WithTop.add_lt_add_left ha h
+        have contradiction := lt_of_lt_of_le h_lt h₃
         simp at contradiction
     . rfl
 

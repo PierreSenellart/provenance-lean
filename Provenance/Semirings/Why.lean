@@ -211,18 +211,8 @@ instance : SemiringWithMonus (Why α) where
     use ⟨b.carrier \ a.carrier⟩
     ext x
     simp
-    apply Iff.intro
-    . intro hx
-      by_cases h: x ∈ a.carrier
-      . left
-        assumption
-      . right
-        constructor <;> assumption
-    . intro hx
-      by_cases h: x ∈ a.carrier
-      . exact hab h
-      . simp[h] at hx
-        assumption
+    intro hx
+    exact hab hx
 
   le_self_add := by
     intro a b x hx
@@ -285,4 +275,3 @@ theorem Why.not_mul_sub_left_distributive [Inhabited α] :
   have x := (default: α)
   use ⟨{{x}}⟩, ⟨{∅}⟩, ⟨{{x}}⟩
   simp[(· * ·),Mul.mul,why_mul,(· - ·),Sub.sub]
-  simp[Set.diff_eq]

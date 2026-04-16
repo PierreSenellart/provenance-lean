@@ -109,7 +109,7 @@ instance : PartialOrder Viterbi where
     exact le_antisymm hab hba
 
 @[simp] theorem le_def (a b : Viterbi) :
-    a ≤ b ↔ (a: NNReal) ≤ (b: NNReal) := by simp
+    a ≤ b ↔ (a: NNReal) ≤ (b: NNReal) := Iff.rfl
 
 /-- `Viterbi` is a commutative m-semiring. The natural order is the usual order on
 `[0,1]`, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
@@ -161,14 +161,25 @@ instance : SemiringWithMonus Viterbi where
 
   monus_spec := by
     intro a b c
-    -- unfold the definition of `sub` and split on `a ≤ b`
-    simp[(· - ·), Sub.sub]
-    by_cases hab : (a : NNReal) ≤ (b : NNReal) <;> simp at hab
-    · simp [hab]
-      refine Subtype.coe_le_coe.mp ?_
-      simp
-    · have : ¬a≤b := by by_contra h; have := (lt_self_iff_false _).mp (lt_of_lt_of_le hab h); assumption
-      simp [this]
+    show (if (a : NNReal) ≤ (b : NNReal) then (0 : Viterbi) else a) ≤ c ↔
+         (a : NNReal) ≤ max (b : NNReal) (c : NNReal)
+    split_ifs with hab
+    · constructor
+      · intro _
+        exact le_max_of_le_left hab
+      · intro _
+        show (0 : NNReal) ≤ (c : NNReal)
+        simp
+    · refine ⟨fun h => le_max_of_le_right h, fun h => ?_⟩
+      rcases max_le_iff.mp (le_of_eq (rfl : max (b : NNReal) (c : NNReal) = _)) with _
+      rcases le_or_gt (a : NNReal) (c : NNReal) with hac | hac
+      · exact hac
+      · exfalso
+        have hab' : (a : NNReal) ≤ (b : NNReal) := by
+          rcases le_total (b : NNReal) (c : NNReal) with hbc | hbc
+          · rw [max_eq_right hbc] at h; exact absurd (lt_of_lt_of_le hac h) (lt_irrefl _)
+          · rw [max_eq_left hbc] at h; exact h
+        exact hab hab'
 
 theorem absorptive : absorptive Viterbi := by
   intro a
@@ -180,21 +191,15 @@ theorem idempotent : idempotent Viterbi := idempotent_of_absorptive absorptive
 theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
   intro a b c
   ext
-  simp [(· - ·), Sub.sub, mul_def]
-  by_cases hbc : (b : NNReal) ≤ (c : NNReal) <;> simp at hbc
-  · simp[hbc]
-    have habc : (a : NNReal) * (b : NNReal) ≤ (a : NNReal) * (c : NNReal) :=
-      @mul_le_mul_right Viterbi _ _ _ _ _ hbc (a: Viterbi)
-    simp [habc]
-  . have : ¬b≤c := by by_contra h; have := (lt_self_iff_false _).mp (lt_of_lt_of_le hbc h); assumption
-    simp[this]
-    by_cases ha0 : (a : NNReal) = 0
+  simp only [(· - ·), Sub.sub, mul_def]
+  split_ifs with hbc habc habc
+  · simp
+  · exfalso
+    exact habc (mul_le_mul_of_nonneg_left hbc (zero_le _))
+  · by_cases ha0 : (a : NNReal) = 0
     · simp [ha0]
-    · have hnot : ¬ (a : NNReal) * (b : NNReal) ≤ (a : NNReal) * (c : NNReal) := by
-        intro habc
-        have ha_pos : (0 : NNReal) < (a : NNReal) := lt_of_le_of_ne (by simp) (Ne.symm ha0)
-        have : (b : NNReal) ≤ (c : NNReal) := le_of_mul_le_mul_left habc ha_pos
-        exact (lt_self_iff_false _).mp (lt_of_le_of_lt this hbc)
-      simp [hnot]
+    · have ha_pos : (0 : NNReal) < (a : NNReal) := lt_of_le_of_ne (zero_le _) (Ne.symm ha0)
+      exact absurd (le_of_mul_le_mul_left habc ha_pos) hbc
+  · rfl
 
 end Viterbi

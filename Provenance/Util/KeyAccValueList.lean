@@ -35,11 +35,11 @@ def List.addKV [DecidableEq β] [Add β] (l: List (α×β)) (a: α) (b: β) :=
   | some (a,b') => (l.eraseP (Prod.fst · = a)).orderedInsert LEByKey (a,b+b')
 
 theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
-  List.Sorted LEByKey l := by
+  l.Pairwise LEByKey := by
     induction l with
     | nil           => simp
     | cons hd tl ih =>
-      apply List.sorted_cons.mpr
+      apply List.pairwise_cons.mpr
       simp[KeyValueList] at h
       constructor
       . cases tl with
@@ -51,7 +51,7 @@ theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
           . exact le_of_lt h.right
           . rename_i hb
             have sorted_tail := ih h.left
-            rw[List.sorted_cons] at sorted_tail
+            rw[List.pairwise_cons] at sorted_tail
             exact le_of_lt (lt_of_lt_of_le h.right (sorted_tail.left b hb))
       . exact ih h.left
 
@@ -177,7 +177,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
               rcases h1b2 with h'₁|h'₂
               . exact h'₁
               . have hs := KeyValueList.sorted (hd₂::tl₂) h₂
-                rw[List.sorted_cons] at hs
+                rw[List.pairwise_cons] at hs
                 have hc := hs.left hd₁ h'₂
                 simp at hc
                 have := lt_of_lt_of_le hlt hc
@@ -190,7 +190,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
                 rcases h2b1 with h'₁|h'₂
                 . exact Eq.symm h'₁
                 . have hs := KeyValueList.sorted (hd₁::tl₁) h₁
-                  rw[List.sorted_cons] at hs
+                  rw[List.pairwise_cons] at hs
                   have hc := hs.left hd₂ h'₂
                   simp[LEByKey] at hc
                   have := lt_of_lt_of_le hlt' hc
@@ -571,7 +571,7 @@ theorem KeyValueList.addKV_mem [DecidableEq β] [Add β] (l: List (α×β)) (h: 
             by_cases hle : a≤hd.1 <;> simp[hle]
           . simp[hb'] at ih'
             have hgt : a > hd.1 := by
-              have := (List.sorted_cons.mp (KeyValueList.sorted (hd::tl) h)).left (a,b') ih'
+              have := (List.pairwise_cons.mp (KeyValueList.sorted (hd::tl) h)).left (a,b') ih'
               simp[LEByKey] at this
               exact lt_of_le_of_ne this hhd
             simp[LEByKey]

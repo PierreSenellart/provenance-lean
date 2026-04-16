@@ -41,13 +41,8 @@ theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
     subst heq
     rfl
 
-instance (priority := 10000) [DecidableEq T] : DecidableEq (Tuple T n) :=
-  λ t₁ t₂ =>
-    if h : ∀ k, t₁ k = t₂ k then isTrue (funext h)
-    else isFalse (by
-      intro h'
-      apply h
-      exact fun k => congrFun h' k)
+instance [DecidableEq T] : DecidableEq (Tuple T n) :=
+  inferInstanceAs (DecidableEq (Fin n → T))
 
 instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
 
@@ -167,31 +162,23 @@ instance : LinearOrder (Tuple T n) where
         tauto
       . right;left
         simp only[(· < ·)]
-        cases h' : Fin.find (λ j ↦ ¬ a j = b j) with
-        | none   =>
-          apply Fin.find_eq_none_iff.mp at h'
-          simp at h'
-          simp[funext h'] at heq
-        | some k =>
-          use k
-          have h'' := h'
-          apply Fin.find_min at h'
-          constructor
-          . intro j hj; specialize h' hj
-            simp at h'; simp[h']
-          . simp at h
-            specialize h k
-            have : ∀ j < k, a j = b j := by
-              intro j hj; specialize h' hj
-              simp at h'
-              simp[h']
-            specialize h this
-            apply lt_iff_le_and_ne.mpr
-            constructor
-            . assumption
-            . apply Fin.find_eq_some_iff.mp at h''
-              rw[ne_comm]
-              simp[h''.left]
+        have hexists : ∃ k, ¬ a k = b k := by
+          by_contra hne
+          simp at hne
+          exact heq (funext hne)
+        set k := Fin.find (λ j ↦ ¬ a j = b j) hexists with hk_def
+        use k
+        have hspec : ¬ a k = b k := Fin.find_spec hexists
+        have hmin_ab : ∀ j < k, a j = b j := by
+          intro j hj
+          have := Fin.find_min hexists hj
+          simp at this
+          exact this
+        have hmin_ba : ∀ j < k, b j = a j := fun j hj => (hmin_ab j hj).symm
+        refine ⟨hmin_ba, ?_⟩
+        simp at h
+        have hle : b k ≤ a k := h k hmin_ab
+        exact lt_iff_le_and_ne.mpr ⟨hle, fun h => hspec h.symm⟩
 
   lt_iff_le_not_ge := by
     intro a b
@@ -285,9 +272,9 @@ def Database.find (n: ℕ) (s: String) (d: Database T) : Option (Relation T n) :
   | (s',rn)::tl => if h: n = rn.fst ∧ s=s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
 
-def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Sorted (· ≤ ·) l}) :
-    {l : List α // List.Sorted (· ≤ ·) l} :=
-  ⟨l.val.orderedInsert (· ≤ ·) x, List.Sorted.orderedInsert x l.val l.property⟩
+def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Pairwise (· ≤ ·) l}) :
+    {l : List α // List.Pairwise (· ≤ ·) l} :=
+  ⟨l.val.orderedInsert (· ≤ ·) x, List.Pairwise.orderedInsert x l.val l.property⟩
 
 instance [LinearOrder α] :
   @LeftCommutative α _ sortedInsert where
@@ -295,17 +282,17 @@ instance [LinearOrder α] :
     intros a b l
     simp only [sortedInsert]
     simp
-    apply @List.eq_of_perm_of_sorted α (· ≤ ·)
-    . rw[List.perm_iff_count]
-      intro c
-      repeat rw[List.orderedInsert_count]
-      by_cases hab : a=b <;>
-        by_cases hca : c=a <;>
-        by_cases hcb : c=b <;> simp[hab,hca,hcb,eq_comm]
-      have : a≠c := by exact fun z ↦ hca (id (Eq.symm z))
-      simp[this]
-    . exact List.Sorted.orderedInsert _ _ (List.Sorted.orderedInsert _ _ l.property)
-    . exact List.Sorted.orderedInsert _ _ (List.Sorted.orderedInsert _ _ l.property)
+    apply @List.Perm.eq_of_pairwise' α (· ≤ ·) _
+    . exact List.Pairwise.orderedInsert _ _ (List.Pairwise.orderedInsert _ _ l.property)
+    . exact List.Pairwise.orderedInsert _ _ (List.Pairwise.orderedInsert _ _ l.property)
+    rw[List.perm_iff_count]
+    intro c
+    repeat rw[List.orderedInsert_count]
+    by_cases hab : a=b <;>
+      by_cases hca : c=a <;>
+      by_cases hcb : c=b <;> simp[hab,hca,hcb,eq_comm]
+    have : a≠c := by exact fun z ↦ hca (id (Eq.symm z))
+    simp[this]
 
 instance [ToString T] : ToString (Relation T n) where
   toString r :=

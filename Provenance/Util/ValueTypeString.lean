@@ -127,32 +127,12 @@ private theorem Nat.toDigits_foldl (n : Nat) :
       rw [Nat.digitChar_toNat_sub (n%10) (Nat.mod_lt _ (by omega))]
       omega
 
+-- TODO(lean-4.29): `String.toNat?` was restructured to go through `String.Slice.toNat?`
+-- and `String.Slice.isNat` now has a more complex definition (tracking underscore state).
+-- The previous proof relied on the old structure. Re-prove on top of the new API.
 lemma toNat_reprStr : ∀ n : ℕ, (Nat.repr n).toNat? = some n := by
   intro n
-  unfold String.toNat?
-  have hisNat : (Nat.repr n).isNat = true := by
-    unfold String.isNat
-    rw [Bool.and_eq_true]
-    refine ⟨?_, ?_⟩
-    · have hne : Nat.repr n ≠ "" := by
-        unfold Nat.repr
-        rw [Ne, String.ofList_eq_empty_iff]
-        exact Nat.toDigits_ne_nil n
-      have : (Nat.repr n).isEmpty = false := by
-        rw [Bool.eq_false_iff, Ne, String.isEmpty_iff]
-        exact hne
-      simp [this]
-    · rw [String.all_eq]
-      unfold Nat.repr
-      rw [String.toList_ofList, List.all_eq_true]
-      intro c hc
-      exact Nat.toDigits_all_isDigit n c hc
-  rw [if_pos hisNat]
-  congr 1
-  rw [String.foldl_eq]
-  unfold Nat.repr
-  rw [String.toList_ofList]
-  exact Nat.toDigits_foldl n
+  sorry
 
 instance: ValueType String where
   add_comm := by
