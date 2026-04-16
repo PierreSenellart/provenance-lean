@@ -415,7 +415,10 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
   (r₁ * r₂).cast hn
 | Sum   q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ + r₂
 | Dedup q     => let r := evaluate q d; Multiset.dedup r
-| Diff  q₁ q₂ => let r₁ := evaluate q₁ d; let r₂ := evaluate q₂ d; r₁ - r₂
+| Diff  q₁ q₂ =>
+  let r₁ := evaluate q₁ d
+  let r₂ : Multiset (Tuple T _) := evaluate q₂ d
+  r₁.filter (fun t ↦ t ∉ r₂)
 | @Agg _ m n₁ n₂ is ts as q =>
     let r := evaluate ε (Π (λ (k: Fin n₁) ↦ #(is k)) q) d
     let s := evaluate q d

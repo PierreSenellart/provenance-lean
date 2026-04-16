@@ -366,6 +366,92 @@ lemma groupByKey_multiset_eq
     rw[this]
     exact hw'
 
+/-!
+### Helper lemmas for the `Diff` case of `rewriting_valid`
+-/
+
+/-- Folded `Filter.And` over a mapped list is equivalent to the universal conjunction. -/
+lemma Filter.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
+  (list: List α) (f: α → Filter T N) (t: Tuple T N):
+  Filter.eval
+    ((list.map f).foldr (λ t t' ↦ Filter.And t t') Filter.True) t
+  ↔ ∀ x ∈ list, Filter.eval (f x) t := by
+  induction list with
+  | nil => simp [Filter.eval]
+  | cons hd tl ih =>
+    simp only [List.map_cons, List.foldr_cons, Filter.eval, List.mem_cons]
+    rw[ih]
+    constructor
+    · rintro ⟨hhd, htl⟩ x (rfl | hx)
+      · exact hhd
+      · exact htl x hx
+    · intro h
+      exact ⟨h hd (Or.inl rfl), fun x hx ↦ h x (Or.inr hx)⟩
+
+/-- The folded join condition `(#k == #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
+tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`. -/
+lemma Query.rewriting_valid_joinCond_eval
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
+  Filter.eval
+    (((List.range n).map
+      (λ k ↦ @Filter.BT (T⊕K) N
+        (#(Fin.ofNat N k) == #(Fin.ofNat N (k+n+1))))).foldr
+      (λ t t' ↦ Filter.And t t') Filter.True) t
+  ↔ ∀ k: Fin n, t (@Fin.ofNat N _ k)
+              = t (@Fin.ofNat N _ (k+n+1)) := by
+  rw[Filter.eval_foldr_and_map]
+  simp only [List.mem_range]
+  constructor
+  · intro h k
+    have := h k.val k.isLt
+    simpa [Filter.eval, BoolTerm.eval, Term.eval] using this
+  · intro h k hk
+    have := h ⟨k, hk⟩
+    simpa [Filter.eval, BoolTerm.eval, Term.eval] using this
+
+/-- Semiring-sum over the filter, via `groupByKey.find?`-based lookup. -/
+lemma Query.rewriting_valid_find_getD_eq_sum
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
+  (ar: AnnotatedRelation T K n) (u: Tuple T n):
+  (((groupByKey ar).val.find? (·.1 = u)).map Prod.snd).getD 0
+  = (Multiset.map Prod.snd
+      (Multiset.filter (fun p: AnnotatedTuple T K n ↦ p.1 = u) ar)).sum := by
+  cases hfind : (groupByKey ar).val.find? (·.1 = u) with
+  | none =>
+    simp only [Option.map_none, Option.getD_none]
+    -- u is not a key of ar, so filter is empty, sum is 0
+    have hnone : ¬ ∃ w, (u, w) ∈ (groupByKey ar).val := by
+      intro ⟨w, hmem⟩
+      rw[List.find?_eq_none] at hfind
+      have := hfind (u, w) hmem
+      simp at this
+    have hnotinkeys : u ∉ Multiset.map Prod.fst ar :=
+      fun h ↦ hnone ((groupByKey_key_iff ar u).mpr h)
+    have hempty : Multiset.filter (fun p: AnnotatedTuple T K n ↦ p.1 = u) ar = 0 := by
+      rw[Multiset.filter_eq_nil]
+      intro q hq hq1
+      exact hnotinkeys (Multiset.mem_map.mpr ⟨q, hq, hq1⟩)
+    rw[hempty]
+    simp
+  | some vw =>
+    simp only [Option.map_some, Option.getD_some]
+    -- vw ∈ groupByKey and vw.1 = u
+    have hmem : vw ∈ (groupByKey ar).val := List.mem_of_find?_eq_some hfind
+    have hcond : vw.1 = u := by
+      have := List.find?_some hfind
+      simpa using this
+    obtain ⟨v, w⟩ := vw
+    simp at hcond
+    subst hcond
+    exact groupByKey_value ar v w hmem
+
+/-- Subtraction distributes over `Sum.inr` in `T⊕K`. -/
+lemma Query.rewriting_valid_sub_inr
+  {T K: Type} [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K] (a b: K):
+  ((Sum.inr a: T⊕K) - Sum.inr b) = Sum.inr (a - b) := by
+  rfl
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
@@ -564,7 +650,139 @@ theorem Query.rewriting_valid
     unfold evaluateAnnotated
     exact rhs_eq.symm
   | Diff q₁ q₂ ih₁ ih₂ =>
-    unfold evaluateAnnotated evaluate rewriting
-    simp
-    sorry
+    have hq'₁ := (noAggDiff hq rfl).left
+    have hq'₂ := (noAggDiff hq rfl).right
+    have ih'₁ := ih₁ hq'₁
+    have ih'₂ := ih₂ hq'₂
+    -- LHS: (ar₁.map (fun (u,α) ↦ (u, α - β_u))).toComposite
+    -- where β_u = sum of annotations of u in ar₂.
+    -- Rewrite β_u via find?/getD using our helper.
+    -- Common form: each tuple from ar₁ with its annotation minus ar₂'s matching sum.
+    have lhs_eq :
+      AnnotatedRelation.toComposite
+        ((q₁.evaluateAnnotated hq'₁ d).map (fun p: AnnotatedTuple T K _ ↦
+          (p.1, p.2 - (Multiset.map Prod.snd
+            (Multiset.filter (fun q: AnnotatedTuple T K _ ↦ q.1 = p.1)
+              (q₂.evaluateAnnotated hq'₂ d))).sum)))
+      = ((Diff q₁ q₂).evaluateAnnotated hq d).toComposite := by
+      show _ = AnnotatedRelation.toComposite _
+      congr 1
+      apply Multiset.map_congr rfl
+      intro p _
+      congr 1
+      rw[← Query.rewriting_valid_find_getD_eq_sum (q₂.evaluateAnnotated hq'₂ d) p.1]
+    -- RHS = evaluate (Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)) d.toComposite
+    --     = (unmatched part) + (matched part),
+    -- where the unmatched part yields `(u, α).toComposite` for `(u, α) ∈ ar₁` with `u ∉ ar₂.keys`
+    -- (since `α − 0 = α`), and the matched part yields `(u, α − β_u).toComposite` for
+    -- `(u, α) ∈ ar₁` with `u ∈ ar₂.keys`.
+    rename_i n -- bring the arity variable into scope as `n`
+    -- The unmatched part of the rewriting (coming from `Proj ts₁ prod₁`).
+    have unmatched_eq :
+      evaluate
+        (Query.Proj (fun (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
+          (Query.Sel (((List.range n).map
+              (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (λ t t' ↦ Filter.And t t') Filter.True)
+            (@Query.Prod _ (n+1) n (2*n+1) (by omega) (q₁.rewriting hq'₁)
+              (Query.Dedup (Query.Diff
+                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (by simp)))
+                  (q₁.rewriting hq'₁))
+                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (by simp)))
+                  (q₂.rewriting hq'₂)))))))
+        d.toComposite
+      = AnnotatedRelation.toComposite
+          (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+            p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+            (q₁.evaluateAnnotated hq'₁ d)) := by
+      -- Unfold all evaluate layers: Proj, Sel, Prod, Dedup, Diff
+      simp only [evaluate, Term.eval]
+      rw[← ih'₁, ← ih'₂]
+      -- Goal reduces to Multiset manipulation: project, filter by joinCond₁, cross-product,
+      -- dedup, difference (NOT-IN), and first-n projection on composites. The desired form is
+      -- `(ar₁.filter (p.1 ∉ ar₂.keys)).toComposite`. Proof via `Multiset.ext`/bijection.
+      sorry
+    -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
+    have matched_eq :
+      evaluate
+        (Query.Proj (fun (k: Fin (n+1)) ↦
+            if ↑k < n then #(k.castLE (by omega))
+            else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
+          (Query.Sel (((List.range n).map
+              (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (λ t t' ↦ Filter.And t t') Filter.True)
+            (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) (q₁.rewriting hq'₁)
+              (Query.Agg (fun k: Fin n ↦ k.castLE (by simp)) ![#(Fin.last n)]
+                ![AggFunc.sum] (q₂.rewriting hq'₂)))))
+        d.toComposite
+      = (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+            p.1 ∈ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+          (q₁.evaluateAnnotated hq'₁ d)).map
+          (fun p: AnnotatedTuple T K n ↦ AnnotatedTuple.toComposite
+            (p.1, p.2 - (Multiset.map Prod.snd
+              (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
+                (q₂.evaluateAnnotated hq'₂ d))).sum)) := by
+      sorry
+    have rhs_eq :
+      evaluate ((Diff q₁ q₂).rewriting hq) d.toComposite
+      = AnnotatedRelation.toComposite
+        ((q₁.evaluateAnnotated hq'₁ d).map (fun p: AnnotatedTuple T K _ ↦
+          (p.1, p.2 - (Multiset.map Prod.snd
+            (Multiset.filter (fun q: AnnotatedTuple T K _ ↦ q.1 = p.1)
+              (q₂.evaluateAnnotated hq'₂ d))).sum))) := by
+      unfold rewriting evaluate
+      simp only []
+      rw[unmatched_eq, matched_eq]
+      -- Split ar₁ via filter
+      have hsplit :
+          q₁.evaluateAnnotated hq'₁ d
+          = Multiset.filter (fun p: AnnotatedTuple T K n ↦
+              p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+              (q₁.evaluateAnnotated hq'₁ d)
+            + Multiset.filter (fun p: AnnotatedTuple T K n ↦
+              p.1 ∈ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+              (q₁.evaluateAnnotated hq'₁ d) := by
+        rw[add_comm]
+        exact (Multiset.filter_add_not _ _).symm
+      -- Show unmatched.toComposite equals the map form (since β = 0 on unmatched, α - 0 = α)
+      have h_unmatched_toComp :
+          AnnotatedRelation.toComposite
+            (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+              p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+              (q₁.evaluateAnnotated hq'₁ d))
+        = Multiset.map
+            (fun p: AnnotatedTuple T K n ↦ AnnotatedTuple.toComposite
+              (p.1, p.2 - (Multiset.map Prod.snd
+                (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
+                  (q₂.evaluateAnnotated hq'₂ d))).sum))
+            (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+              p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+              (q₁.evaluateAnnotated hq'₁ d)) := by
+        unfold AnnotatedRelation.toComposite
+        apply Multiset.map_congr rfl
+        intro p hp
+        have hunmatched : p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d) :=
+          (Multiset.mem_filter.mp hp).2
+        have hfilter_empty :
+            Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
+              (q₂.evaluateAnnotated hq'₂ d) = 0 := by
+          rw[Multiset.filter_eq_nil]
+          intro q hq hqeq
+          exact hunmatched (Multiset.mem_map.mpr ⟨q, hq, hqeq⟩)
+        rw[hfilter_empty]
+        simp only [Multiset.map_zero, Multiset.sum_zero]
+        have hp2 : HSub.hSub p.2 (0: K) = p.2 := by
+          apply le_antisymm
+          · rw[SemiringWithMonus.monus_spec]; simp
+          · simpa using (monus_smallest p.2 0).left
+        rw[hp2]
+        rfl
+      rw[h_unmatched_toComp]
+      -- Goal: filter_unmatched.map f_sub_composite + matched.map f_sub_composite = AR.toComposite (ar₁.map f_sub)
+      -- Simplify RHS: AR.toComposite(ar₁.map f_sub) = (ar₁.map f_sub).map toComposite = ar₁.map f_sub_composite
+      conv_rhs => rw[AnnotatedRelation.toComposite, Multiset.map_map, hsplit, Multiset.map_add]
+      rfl
+    exact lhs_eq.symm.trans rhs_eq.symm
   | Agg _ _ _ _ => simp[noAgg] at hq
