@@ -370,6 +370,12 @@ lemma groupByKey_multiset_eq
 ### Helper lemmas for the `Diff` case of `rewriting_valid`
 -/
 
+/-- `Multiset.dedup` only depends on the `DecidableEq` instance up to subsingleton equality. -/
+lemma Multiset.dedup_eq_of_instances {α : Type*} (inst₁ inst₂ : DecidableEq α) (m : Multiset α) :
+  @Multiset.dedup α inst₁ m = @Multiset.dedup α inst₂ m := by
+  congr
+  apply Subsingleton.elim
+
 /-- Folded `Filter.And` over a mapped list is equivalent to the universal conjunction. -/
 lemma Filter.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
   (list: List α) (f: α → Filter T N) (t: Tuple T N):
@@ -699,9 +705,94 @@ theorem Query.rewriting_valid
       -- Unfold all evaluate layers: Proj, Sel, Prod, Dedup, Diff
       simp only [evaluate, Term.eval]
       rw[← ih'₁, ← ih'₂]
-      -- Goal reduces to Multiset manipulation: project, filter by joinCond₁, cross-product,
-      -- dedup, difference (NOT-IN), and first-n projection on composites. The desired form is
-      -- `(ar₁.filter (p.1 ∉ ar₂.keys)).toComposite`. Proof via `Multiset.ext`/bijection.
+      -- `toComposite_proj`: `ar.toComposite.map first_n = ar.map f₁` where `f₁ p = Sum.inl ∘ p.1`.
+      have toComposite_proj : ∀ (ar : AnnotatedRelation T K n),
+          Multiset.map (fun x: Tuple (T⊕K) (n+1) ↦ fun k: Fin n ↦ x (Fin.castLE (Nat.le_succ n) k))
+            ar.toComposite
+          = Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K)) ar := by
+        intro ar
+        unfold AnnotatedRelation.toComposite
+        rw[Multiset.map_map]
+        apply Multiset.map_congr rfl
+        intro p _
+        simp only [Function.comp]
+        funext k
+        unfold AnnotatedTuple.toComposite
+        have hcast : k.castLE (Nat.le_succ n) = Fin.castAdd 1 k := rfl
+        rw[hcast, Fin.append_left]
+      -- Step 1: simplify the inner filter+dedup using explicit predicate abstraction.
+      have step1 :
+          Multiset.filter
+            (fun x: Tuple (T⊕K) n ↦
+              x ∉ Multiset.map (fun x k ↦ x (Fin.castLE (Nat.le_succ n) k))
+                  (q₂.evaluateAnnotated hq'₂ d).toComposite)
+            (Multiset.map (fun x k ↦ x (Fin.castLE (Nat.le_succ n) k))
+              (q₁.evaluateAnnotated hq'₁ d).toComposite)
+          = Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K))
+              (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+                  p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+                (q₁.evaluateAnnotated hq'₁ d)) := by
+        rw[toComposite_proj (q₁.evaluateAnnotated hq'₁ d),
+           toComposite_proj (q₂.evaluateAnnotated hq'₂ d)]
+        rw[Multiset.filter_map]
+        congr 1
+        -- Use `convert` to handle decidability-instance differences
+        convert Multiset.filter_congr
+          (s := q₁.evaluateAnnotated hq'₁ d)
+          (p := fun p ↦ (fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K)) ∉
+            Multiset.map (fun (p: AnnotatedTuple T K n) ↦ fun k: Fin n ↦ (Sum.inl (p.1 k): T⊕K))
+              (q₂.evaluateAnnotated hq'₂ d))
+          (q := fun p: AnnotatedTuple T K n ↦
+            p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+          (fun p _ ↦ by
+            simp only [Multiset.mem_map]
+            constructor
+            · intro h
+              rintro ⟨q, hq, hq1⟩
+              exact h ⟨q, hq, by funext k; rw[hq1]⟩
+            · intro h
+              rintro ⟨q, hq, hq1⟩
+              apply h
+              refine ⟨q, hq, ?_⟩
+              funext k
+              have := congrFun hq1 k
+              exact Sum.inl.inj this)
+      -- Step 2: dedup of (ar₁.filter P).map f₁, stated with Tuple annotation.
+      let f₁ : AnnotatedTuple T K n → Tuple (T⊕K) n :=
+        fun p ↦ fun k ↦ Sum.inl (p.1 k)
+      let g : Tuple T n → Tuple (T⊕K) n :=
+        fun v ↦ fun k ↦ Sum.inl (v k)
+      have step2 :
+          Multiset.dedup (Multiset.map f₁
+            (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+                p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+              (q₁.evaluateAnnotated hq'₁ d)))
+          = Multiset.map g
+              (Multiset.dedup (Multiset.map Prod.fst
+                (Multiset.filter (fun p: AnnotatedTuple T K n ↦
+                    p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
+                  (q₁.evaluateAnnotated hq'₁ d)))) := by
+        rw[show f₁ = g ∘ Prod.fst from rfl]
+        rw[← Multiset.map_map]
+        apply Multiset.dedup_map_of_injective
+        intro v₁ v₂ h
+        funext k
+        have := congrFun h k
+        exact Sum.inl.inj this
+      rw[step1]
+      -- Convert goal's DecidableEq instance for dedup using Subsingleton bridge
+      rw[Multiset.dedup_eq_of_instances _ (inferInstance) _]
+      simp only [f₁, g] at step2
+      rw[step2]
+      unfold AnnotatedRelation.toComposite
+      -- Final step: reduce
+      --   `map proj (filter joinCond (cast (A * B)))`
+      -- to
+      --   `(filter ¬in ar₁).map toComposite`
+      -- where A = ar₁.map toComposite, B = (dedup (ar₁.fst-filter)).map g,
+      -- and B has distinct elements (since dedup, g injective).
+      -- Proof: via `Multiset.ext` with counts, since each (u, α).toComposite in A paired with
+      -- Sum.inl ∘ u in B (if in B) by joinCond gives (u, α).toComposite after proj.
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
