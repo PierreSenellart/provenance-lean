@@ -41,7 +41,7 @@ theorem Tuple.cast_get {T: Type} (heq: n=m) (t: Tuple T n) (k: Fin m) :
     subst heq
     rfl
 
-instance [DecidableEq T] : DecidableEq (Tuple T n) :=
+instance (priority := 10000) [DecidableEq T] : DecidableEq (Tuple T n) :=
   λ t₁ t₂ =>
     if h : ∀ k, t₁ k = t₂ k then isTrue (funext h)
     else isFalse (by
@@ -59,13 +59,6 @@ instance : LE (Tuple T n) := ⟨λ a b ↦ a < b ∨ a = b⟩
 instance [ToString T] : ToString (Tuple T n) where
   toString t :=
     "(" ++ String.intercalate ", " (List.ofFn (fun i => toString (t i))) ++ ")"
-
-instance : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ = t₂) :=
-  λ f g ↦
-    if h : ∀ i, f i = g i then
-      isTrue (funext h)
-    else
-      isFalse (fun H => h (congrFun H))
 
 instance : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ < t₂) :=
   λ f g ↦
