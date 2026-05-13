@@ -145,6 +145,35 @@ lemma Query.rewriting_append_right
   refine Fin.eq_of_val_eq ?_
   simp
 
+/-- `Tuple.cast`-flavoured variant of `rewriting_append_left`. Both `Tuple.cast`'s and `▸`'s
+`Eq.rec` motives must syntactically agree for `rw` to fire on Lean v4.29; this version
+matches the motive produced by `Tuple.cast`. -/
+lemma Query.tupleCast_append_left
+  (t₁: Tuple T n₁)
+  (t₂: Tuple T n₂)
+  (hn: n₁+n₂=n)
+  (k: Fin n)
+  (hk: ↑k<n₁):
+  Tuple.cast hn (Fin.append t₁ t₂) k = t₁ (k.castLT hk) := by
+  subst hn
+  unfold Tuple.cast
+  simp[Fin.append,Fin.addCases,hk]
+
+/-- `Tuple.cast`-flavoured variant of `rewriting_append_right`. -/
+lemma Query.tupleCast_append_right
+  (t₁: Tuple T n₁)
+  (t₂: Tuple T n₂)
+  (hn: n₁+n₂=n)
+  (k: Fin n)
+  (hk: ¬↑k<n₁):
+  Tuple.cast hn (Fin.append t₁ t₂) k = t₂ ⟨↑k-n₁, by omega⟩ := by
+  subst hn
+  unfold Tuple.cast
+  simp[Fin.append,Fin.addCases,hk]
+  apply congrArg
+  refine Fin.eq_of_val_eq ?_
+  simp
+
 /-!
 ### Helper lemmas for the `Dedup` case of `rewriting_valid`
 -/
@@ -564,18 +593,68 @@ theorem Query.rewriting_valid
         skip
       . apply φ.evalDecidableAnnotated
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
-    -- TODO(lean-4.29/mathlib): the original main-branch proof relies on
-    -- `rw[Multiset.map_map]` inside `Multiset.map (fun t ↦ Tuple.cast ⋯ t)
-    -- (Multiset.map _ ...)` after `rw[Relation.cast_eq]`. The stricter 4.29 unifier
-    -- can no longer find the higher-order pattern through the dependent `Tuple.cast`
-    -- motive (the pattern reads `@Multiset.map (?β ⋯) (?γ ⋯) ?g (Multiset.map ?f ?s)`,
-    -- with metavariables tagged by the heq context, which fails to unify against the
-    -- elaborated `Tuple (T⊕K) _` type). Various workarounds attempted (transporting
-    -- the equation via `show` / `change`, `subst hn` upfront, `Eq.mpr`-style lifts,
-    -- explicit `β`-instantiation in `Multiset.map_map`) all bottom out at the same
-    -- unification step. Leaving the `Prod` case as a `sorry` for now while keeping
-    -- the rest of the upgrade green.
-    sorry
+    unfold evaluateAnnotated evaluate rewriting
+    simp
+    have heq : (Fin (n₁ + n₂) → T) = (Fin n → T) := by simp[hn]
+    rw[Query.rewriting_valid_prod0 hn heq]
+    rw[AnnotatedRelation.toComposite_map_product]
+    rw[ih₁ (noAggProd hq rfl).left]
+    rw[ih₂ (noAggProd hq rfl).right]
+    simp
+    rw[eq_comm]
+    rw[Relation.cast_eq]
+    conv_lhs =>
+      unfold evaluate
+      simp[(·*·)]
+      skip
+    rw[rewriting_valid_prod1 (rewriting_valid_prod_heqn hn)]
+    -- Lean v4.29's pattern unifier cannot find `Multiset.map (Multiset.map ...)` in either
+    -- side because `Tuple.cast`/`Fin.append` hide the codomain through their motives.
+    -- Reduce both sides to a single `Multiset.map` by exposing the head structure via
+    -- `Eq.trans` with the desired `Multiset.map_map` instance — letting Lean infer the
+    -- specific function arguments avoids the failing higher-order match.
+    refine Eq.trans (Multiset.map_map _ _ _) (Eq.trans ?_ (Multiset.map_map _ _ _).symm)
+    apply Multiset.map_congr rfl
+    intro p _
+    simp only [Function.comp]
+    funext k
+    rw[Tuple.cast_get]
+    subst hn
+    by_cases hlt₁: ↑k < n₁
+    . simp[hlt₁]
+      simp only[Term.eval]
+      have hksucc : ↑(Fin.castLE (by omega : n₁+n₂+1 ≤ n₁+n₂+2) k) < n₁+1 := by simp; omega
+      rw[tupleCast_append_left (n:=n₁+n₂+2) p.1 p.2 (by omega) _ hksucc]
+      apply congrArg
+      refine Fin.eq_of_val_eq ?_
+      simp[Fin.castLT]
+    . by_cases hlt: ↑k < n₁+n₂
+      . simp[hlt₁,hlt]
+        simp only[Term.eval]
+        simp only [← Fin.ofNat_eq_cast]
+        have hk₁₂: ((k:ℕ)+1)<n₁+n₂+2 := by omega
+        rw[tupleCast_append_right (n:=n₁+n₂+2) p.1 p.2 (by omega)
+              (Fin.ofNat (n₁+n₂+2) ((k:ℕ)+1))
+              (by simp [Fin.ofNat, Nat.mod_eq_of_lt hk₁₂]; omega)]
+        apply congrArg
+        refine Fin.eq_of_val_eq ?_
+        have hkn1 : ((k:ℕ)-n₁)<n₂+1 := by omega
+        simp [Fin.ofNat, Nat.mod_eq_of_lt hk₁₂, Nat.mod_eq_of_lt hkn1]
+      . simp[hlt₁,hlt]
+        simp only[Term.eval]
+        simp only [← Fin.ofNat_eq_cast]
+        have hn1 : n₁<n₁+n₂+2 := by omega
+        rw[tupleCast_append_left (n:=n₁+n₂+2) p.1 p.2 (by omega)
+              (Fin.ofNat (n₁+n₂+2) n₁) (by simp [Fin.ofNat, Nat.mod_eq_of_lt hn1])]
+        rw[tupleCast_append_right (n:=n₁+n₂+2) p.1 p.2 (by omega)
+              (Fin.last (n₁+n₂+1)) (by simp)]
+        congr
+        . apply congrArg
+          apply Fin.eq_of_val_eq
+          simp [Fin.castLT, Fin.ofNat, Nat.mod_eq_of_lt hn1]
+        . apply congrArg
+          apply Fin.eq_of_val_eq
+          simp
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold evaluateAnnotated evaluate rewriting
     simp
