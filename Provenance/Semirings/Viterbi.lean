@@ -193,7 +193,7 @@ instance : Nontrivial Viterbi :=
 
 /-- `Viterbi` has characteristic 0 in the `CharP` sense: it is idempotent and
 nontrivial, so every positive natural-number cast equals `1`. -/
-instance Viterbi.instCharPZero : CharP Viterbi 0 :=
+instance instCharPZero : CharP Viterbi 0 :=
   CharP.zero_of_idempotent Viterbi.idempotent
 
 theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by

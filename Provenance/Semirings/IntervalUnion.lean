@@ -1386,7 +1386,7 @@ theorem IntervalUnion.idempotent [DenselyOrdered α] [BoundedOrder α] :
 
 instance [BoundedOrder α] : Nontrivial (IntervalUnion α) := ⟨0, 1, fun h => by
   have : (0 : IntervalUnion α).intervals = (1 : IntervalUnion α).intervals := by rw [h]
-  exact List.noConfusion this⟩
+  cases this⟩
 
 /-- The interval-union semiring has characteristic 0 in the `CharP` sense: it is
 idempotent and nontrivial (the empty list differs from the singleton `[⊥,⊤]`), so

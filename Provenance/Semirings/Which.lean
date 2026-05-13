@@ -255,7 +255,9 @@ theorem Which.idempotent : idempotent (Which α) := by
   simp[(· + ·), Add.add]
   cases ha: a <;> simp
 
-instance : Nontrivial (Which α) := ⟨0, 1, fun h => Which.noConfusion h⟩
+instance : Nontrivial (Which α) := ⟨0, 1, by
+  intro (h : wbot = wset ∅)
+  cases h⟩
 
 /-- `Which α` has characteristic 0 in the `CharP` sense: it is idempotent and
 nontrivial (`wbot ≠ wset ∅`), so every positive natural-number cast equals `1`. -/
