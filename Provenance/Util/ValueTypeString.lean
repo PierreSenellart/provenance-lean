@@ -46,7 +46,7 @@ private theorem Nat.toDigitsCore_fuel_eq (n : Nat) :
     · simp [Nat.toDigitsCore, hn]
     · have h_n_ge_10 : 10 ≤ n := by
         by_contra hc
-        push_neg at hc
+        push Not at hc
         have : n / 10 = 0 := Nat.div_eq_of_lt hc
         contradiction
       have h_div_lt : n / 10 < n := Nat.div_lt_self (by omega) (by omega)
@@ -95,7 +95,7 @@ private theorem Nat.toDigits_all_isDigit (n : Nat) :
       simp at hc
       rw [hc]
       exact Nat.digitChar_isDigit n h10
-    · push_neg at h10
+    · push Not at h10
       rw [Nat.toDigits_recursion n h10] at hc
       rw [List.mem_append] at hc
       cases hc with
@@ -108,7 +108,7 @@ private theorem Nat.toDigits_all_isDigit (n : Nat) :
 private theorem Nat.toDigits_ne_nil (n : Nat) : Nat.toDigits 10 n ≠ [] := by
   by_cases h10 : n < 10
   · rw [Nat.toDigits_lt_10 n h10]; simp
-  · push_neg at h10
+  · push Not at h10
     rw [Nat.toDigits_recursion n h10]; simp
 
 private theorem Nat.toDigits_foldl (n : Nat) :
@@ -119,7 +119,7 @@ private theorem Nat.toDigits_foldl (n : Nat) :
     · rw [Nat.toDigits_lt_10 n h10]
       simp only [List.foldl_cons, List.foldl_nil, zero_mul, zero_add]
       exact Nat.digitChar_toNat_sub n h10
-    · push_neg at h10
+    · push Not at h10
       rw [Nat.toDigits_recursion n h10]
       rw [List.foldl_append]
       simp only [List.foldl_cons, List.foldl_nil]
@@ -163,7 +163,7 @@ private theorem Nat.toDigits_no_underscore (n : Nat) :
     · rw [Nat.toDigits_lt_10 n h10] at hc
       simp at hc; subst hc
       exact digitChar_ne_underscore n h10
-    · push_neg at h10
+    · push Not at h10
       rw [Nat.toDigits_recursion n h10] at hc
       rw [List.mem_append] at hc
       cases hc with

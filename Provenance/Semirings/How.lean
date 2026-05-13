@@ -100,17 +100,20 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
     . intro h m
       exact Nat.sub_le_iff_le_add'.mpr (h m)
 
+omit [DecidableEq X] in
 theorem How.not_idempotent : ¬(idempotent (MvPolynomial X ℕ)) := by
   simp
   use (MvPolynomial.C 1)
   simp
 
+omit [DecidableEq X] in
 theorem How.not_absorptive : ¬(absorptive (MvPolynomial X ℕ)) := by
   have h₁ := @idempotent_of_absorptive (MvPolynomial X ℕ) _
   have h₂ : ¬(idempotent (MvPolynomial X ℕ)) := How.not_idempotent
   tauto
 
 
+omit [DecidableEq X] in
 /-- The How[X] semiring is universal among commutative semirings. This
   was observed in [Green, Karnouvarakis, Tannen, *Provenance
   Semirings*, Proposition 4.2][green2007provenance]. -/
@@ -201,6 +204,7 @@ instance : CharZero (MvPolynomial X ℕ) where
     rwa [← MvPolynomial.C_eq_coe_nat, ← MvPolynomial.C_eq_coe_nat,
          MvPolynomial.C_inj, Nat.cast_inj] at hxy
 
+omit [DecidableEq X] in
 /-- `ℕ[X]` has characteristic 0 in the `CharP` sense, inherited from `CharZero` via
 `CharP.ofCharZero`. -/
 theorem How.charP_zero : CharP (MvPolynomial X ℕ) 0 := inferInstance

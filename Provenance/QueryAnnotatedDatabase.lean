@@ -22,7 +22,7 @@ monus to difference.
 variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
-def Filter.evalDecidableAnnotated (φ : Filter T n) :
+@[reducible] def Filter.evalDecidableAnnotated (φ : Filter T n) :
   DecidablePred (λ (ta: AnnotatedTuple T K n) ↦ φ.eval ta.fst) :=
     λ t => match φ.evalDecidable t.fst with
       | isTrue h  => isTrue (by simp [h])

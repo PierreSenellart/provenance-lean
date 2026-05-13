@@ -11,7 +11,7 @@ def LEByKey (a b: Prod α β) : Prop :=
 instance : DecidableRel (λ (a b: α×β) ↦ LEByKey a b) :=
   λ a b ↦ if h : a.fst <= b.fst then isTrue (h) else isFalse (h)
 
-instance : IsTotal (α × β) LEByKey where
+instance : Std.Total (α := α × β) LEByKey where
   total := by
     intro a b
     unfold LEByKey

@@ -414,7 +414,7 @@ lemma groupByKey_multiset_eq
        (v, w) ∈ Multiset.map (fun v: Tuple T n ↦
          (v, (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) ar)).sum))
          (Multiset.dedup (Multiset.map Prod.fst ar))
-  simp only [Multiset.mem_coe, Multiset.mem_map]
+  simp only [Multiset.mem_map]
   constructor
   · intro hmem
     refine ⟨v, ?_, ?_⟩

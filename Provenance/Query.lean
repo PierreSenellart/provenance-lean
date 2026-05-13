@@ -169,7 +169,7 @@ theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMo
       simp[LT.lt]
       exact le_of_lt
 
-def BoolTerm.evalDecidable (φ: BoolTerm T n) : DecidablePred φ.eval :=
+@[reducible] def BoolTerm.evalDecidable (φ: BoolTerm T n) : DecidablePred φ.eval :=
   λ t => by
     cases φ <;> rename_i x y <;> simp [BoolTerm.eval]
     . exact inferInstanceAs (Decidable (x.eval t = y.eval t))
@@ -228,7 +228,7 @@ theorem Filter.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonu
       rw[ih₁,ih₂]
     | True => trivial
 
-def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
+@[reducible] def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
   λ t => match φ with
     | Filter.BT φ      => φ.evalDecidable t
     | Filter.Not φ     => match φ.evalDecidable t with
@@ -294,7 +294,7 @@ def Query.noAgg (q: Query T n): Prop := match q with
 | Diff  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
 | Agg _ _ _ q => False
 
-def Query.noAggDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.noAgg T n):=
+@[reducible] def Query.noAggDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.noAgg T n):=
   fun (q: Query T n) => match q with
   | Rel n s => isTrue (by simp[noAgg])
   | Proj  _ q'   => match q'.noAggDecidable with

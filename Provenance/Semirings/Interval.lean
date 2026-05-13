@@ -232,7 +232,7 @@ lemma above_maxLo [LinearOrder α] (x : α) (a b : Endpoint α) :
     · -- h1:¬(b<a), h2:¬(a<b), h3:¬(a.closed∧¬b.closed), maxLo=a
       have heq : a.val = b.val := le_antisymm (not_lt.mp h1) (not_lt.mp h2)
       -- above x a → above x b: a.val=b.val, ¬(a.closed∧¬b.closed) → ¬a.closed ∨ b.closed
-      push_neg at h3
+      push Not at h3
       refine ⟨h, above_of_above_of_le (le_of_eq heq.symm) ?_ h⟩
       cases hac : a.closed
       · exact Or.inl (by simp)
@@ -258,7 +258,7 @@ lemma below_minHi [LinearOrder α] (x : α) (a b : Endpoint α) :
     · -- h1:¬(a<b), h2:¬(b<a), h3:¬(a.closed∧¬b.closed), minHi=a
       have heq : a.val = b.val := le_antisymm (not_lt.mp h2) (not_lt.mp h1)
       -- below x a → below x b: hi=a, hi'=b, hi.val≤hi'.val = a.val≤b.val
-      push_neg at h3
+      push Not at h3
       refine ⟨h, below_of_below_of_le (le_of_eq heq) ?_ h⟩
       cases hac : a.closed
       · exact Or.inl (by simp)
