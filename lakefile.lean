@@ -8,7 +8,7 @@ package "provenance" where
   ]
   -- add any additional package configuration options here
 
-require "leanprover-community" / "mathlib" @ git "v4.29.0"
+require "leanprover-community" / "mathlib" @ git "v4.29.1"
 
 @[default_target]
 lean_lib «Provenance» where
