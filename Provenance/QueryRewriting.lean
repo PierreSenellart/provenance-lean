@@ -564,11 +564,17 @@ theorem Query.rewriting_valid
         skip
       . apply φ.evalDecidableAnnotated
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
-    -- TODO(lean-4.29/mathlib): original proof relies on `rw[Multiset.map_map]` inside a
-    -- `Multiset.map (fun t ↦ Tuple.cast ⋯ t) (Multiset.map _ ...)` context where the
-    -- stricter 4.29 unifier can't match through `Tuple.cast`'s erased motive.
-    -- `subst hn` helps past that but trips on subsequent `rewriting_append_*` rewrites
-    -- which look for `Eq.rec (motive := fun x h ↦ Fin x → ...)` patterns that are gone.
+    -- TODO(lean-4.29/mathlib): the original main-branch proof relies on
+    -- `rw[Multiset.map_map]` inside `Multiset.map (fun t ↦ Tuple.cast ⋯ t)
+    -- (Multiset.map _ ...)` after `rw[Relation.cast_eq]`. The stricter 4.29 unifier
+    -- can no longer find the higher-order pattern through the dependent `Tuple.cast`
+    -- motive (the pattern reads `@Multiset.map (?β ⋯) (?γ ⋯) ?g (Multiset.map ?f ?s)`,
+    -- with metavariables tagged by the heq context, which fails to unify against the
+    -- elaborated `Tuple (T⊕K) _` type). Various workarounds attempted (transporting
+    -- the equation via `show` / `change`, `subst hn` upfront, `Eq.mpr`-style lifts,
+    -- explicit `β`-instantiation in `Multiset.map_map`) all bottom out at the same
+    -- unification step. Leaving the `Prod` case as a `sorry` for now while keeping
+    -- the rest of the upgrade green.
     sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold evaluateAnnotated evaluate rewriting
