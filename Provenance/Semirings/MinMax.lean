@@ -223,9 +223,13 @@ instance : SemiringWithMonus (MaxMin TVL) :=
 
 instance : Nontrivial TVL := ⟨TVL.bot, TVL.top, by decide⟩
 
-/-- `MaxMin TVL` has characteristic 0 in the `CharP` sense, inheriting from the general
-`MinMax` instance once `Nontrivial TVL` (hence `Nontrivial (OrderDual TVL)`) is known. -/
-instance TVL.instCharPZero : CharP (MaxMin TVL) 0 := inferInstance
+/-- `MaxMin α` has characteristic 0 in the `CharP` sense whenever `α` is nontrivial:
+this lifts the general `MinMax` instance to the dual order through
+`MaxMin α = MinMax (OrderDual α)`. In particular it applies to `MaxMin TVL` since
+`TVL` is nontrivial. -/
+instance MaxMin.instCharPZero {α : Type} [LinearOrder α] [OrderBot α] [OrderTop α]
+    [Nontrivial α] : CharP (MaxMin α) 0 :=
+  inferInstance
 
 theorem TVL.not_mul_sub_left_distributive : ¬(mul_sub_left_distributive (MaxMin TVL)) := by
   simp
