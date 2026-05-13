@@ -77,6 +77,16 @@ theorem zero_monus [K : SemiringWithMonus α] :
     . simp
   }
 
+/-- In a `SemiringWithMonus`, `a - 0 = a`. -/
+theorem monus_zero [K : SemiringWithMonus α] :
+  ∀ a : α, a - 0 = a := by {
+    intro a
+    apply le_antisymm
+    . rw [SemiringWithMonus.monus_spec]; simp
+    . have h := (monus_smallest a 0).1
+      simpa using h
+  }
+
 /-- In a `SemiringWithMonus`, `a + (b -a) = b + (a - b)`. -/
 theorem add_monus [K : SemiringWithMonus α] :
   ∀ a b : α, a + (b - a) = b + (a - b) := by
