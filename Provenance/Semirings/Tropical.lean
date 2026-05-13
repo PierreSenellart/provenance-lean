@@ -201,3 +201,13 @@ theorem TropicalR.mul_sub_left_distributive : mul_sub_left_distributive (Tropica
 theorem Tropical.idempotent [LinearOrderedAddCommMonoidWithTop α] : idempotent (Tropical α) := by
   intro a
   simp[(· + ·), Add.add]
+
+/-- The tropical semiring over `WithTop R` (for any `R` with `Zero R`) has characteristic 0
+in the `CharP` sense: it is idempotent, and `(0 : Tropical (WithTop R)) = trop ⊤` differs from
+`(1 : Tropical (WithTop R)) = trop 0` since `⊤ ≠ 0` in `WithTop R`. -/
+instance TropicalN.instCharPZero : CharP (Tropical (WithTop ℕ)) 0 :=
+  CharP.zero_of_idempotent Tropical.idempotent
+instance TropicalQ.instCharPZero : CharP (Tropical (WithTop ℚ)) 0 :=
+  CharP.zero_of_idempotent Tropical.idempotent
+noncomputable instance TropicalR.instCharPZero : CharP (Tropical (WithTop ℝ)) 0 :=
+  CharP.zero_of_idempotent Tropical.idempotent

@@ -59,3 +59,7 @@ theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
 theorem Nat.not_absorptive : ¬ (absorptive Nat) := by
   by_contra h
   exact Nat.not_idempotent (idempotent_of_absorptive h)
+
+/-- `ℕ` has characteristic 0: it satisfies `CharZero`, hence `CharP ℕ 0` via
+`CharP.ofCharZero`. -/
+theorem Nat.charP_zero : CharP Nat 0 := inferInstance

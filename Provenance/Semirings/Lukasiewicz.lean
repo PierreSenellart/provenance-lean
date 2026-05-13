@@ -311,6 +311,14 @@ theorem Lukasiewicz.absorptive : absorptive Lukasiewicz := by
 theorem Lukasiewicz.idempotent : idempotent Lukasiewicz :=
   idempotent_of_absorptive (Lukasiewicz.absorptive)
 
+instance : Nontrivial Lukasiewicz :=
+  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
+
+/-- `Lukasiewicz` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial, so every positive natural-number cast equals `1`. -/
+instance Lukasiewicz.instCharPZero : CharP Lukasiewicz 0 :=
+  CharP.zero_of_idempotent Lukasiewicz.idempotent
+
 theorem Lukasiewicz.mul_sub_left_distributive :
   mul_sub_left_distributive Lukasiewicz := by
     intro a b c

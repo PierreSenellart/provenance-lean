@@ -165,6 +165,21 @@ theorem MinMax.absorptive : absorptive (MinMax α) := by
 theorem MinMax.idempotent : idempotent (MinMax α) :=
   idempotent_of_absorptive MinMax.absorptive
 
+instance [Nontrivial α] : Nontrivial (MinMax α) := ⟨0, 1, fun h => by
+  have h' : (⟨⊤⟩ : MinMax α) = ⟨⊥⟩ := h
+  injection h' with h''
+  obtain ⟨x, y, hxy⟩ := exists_pair_ne α
+  apply hxy
+  have hx : x = ⊥ := le_antisymm (h'' ▸ le_top) bot_le
+  have hy : y = ⊥ := le_antisymm (h'' ▸ le_top) bot_le
+  exact hx.trans hy.symm⟩
+
+/-- `MinMax α` has characteristic 0 in the `CharP` sense whenever `α` is nontrivial:
+it is idempotent, and `(0 : MinMax α) = ⟨⊤⟩` differs from `(1 : MinMax α) = ⟨⊥⟩`
+since `⊥ ≠ ⊤` in a nontrivial bounded order. -/
+instance MinMax.instCharPZero [Nontrivial α] : CharP (MinMax α) 0 :=
+  CharP.zero_of_idempotent MinMax.idempotent
+
 abbrev MaxMin (α : Type) := MinMax (OrderDual α)
 
 instance : CommSemiring (MaxMin α) :=
@@ -172,6 +187,8 @@ instance : CommSemiring (MaxMin α) :=
 
 instance : SemiringWithMonus (MaxMin α) :=
   inferInstanceAs (SemiringWithMonus (MinMax (OrderDual α)))
+
+instance {α : Type} [h : Nontrivial α] : Nontrivial (OrderDual α) := h
 
 /-- Three-valued logic `{⊥, unknown, ⊤}`, used as an instance of `MaxMin`. -/
 inductive TVL
@@ -203,6 +220,12 @@ instance : CommSemiring (MaxMin TVL) :=
 
 instance : SemiringWithMonus (MaxMin TVL) :=
   inferInstance
+
+instance : Nontrivial TVL := ⟨TVL.bot, TVL.top, by decide⟩
+
+/-- `MaxMin TVL` has characteristic 0 in the `CharP` sense, inheriting from the general
+`MinMax` instance once `Nontrivial TVL` (hence `Nontrivial (OrderDual TVL)`) is known. -/
+instance TVL.instCharPZero : CharP (MaxMin TVL) 0 := inferInstance
 
 theorem TVL.not_mul_sub_left_distributive : ¬(mul_sub_left_distributive (MaxMin TVL)) := by
   simp
