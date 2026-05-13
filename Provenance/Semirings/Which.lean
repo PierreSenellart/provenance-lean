@@ -255,6 +255,13 @@ theorem Which.idempotent : idempotent (Which α) := by
   simp[(· + ·), Add.add]
   cases ha: a <;> simp
 
+instance : Nontrivial (Which α) := ⟨0, 1, fun h => Which.noConfusion h⟩
+
+/-- `Which α` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial (`wbot ≠ wset ∅`), so every positive natural-number cast equals `1`. -/
+instance Which.instCharPZero : CharP (Which α) 0 :=
+  CharP.zero_of_idempotent Which.idempotent
+
 /-- In Which[X], as long as X is non-empty, times is not distributive over
   monus. -/
 theorem Which.not_mul_sub_left_distributive [Inhabited α] :

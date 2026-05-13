@@ -2,6 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Mathlib.Algebra.CharP.Defs
 import Mathlib.Algebra.Order.Monoid.Canonical.Defs
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Order.Ring.Canonical
@@ -254,6 +255,38 @@ theorem monus_le [SemiringWithMonus α] :
 theorem le_plus_monus [SemiringWithMonus α] :
   ∀ a b : α, a ≤ b + (a - b) := by
     simp[← SemiringWithMonus.monus_spec]
+
+/-! ## Characteristic of idempotent semirings
+
+In an idempotent semiring (`a + a = a`), every positive natural-number cast
+collapses to `1`. With `1 ≠ 0` this yields `CharP K 0`. Note that this is
+strictly weaker than `CharZero K`, which fails for idempotent semirings since
+the cast `ℕ → K` is not injective. -/
+
+/-- In a semiring with idempotent addition, the cast of any positive natural
+number equals `1`. -/
+theorem natCast_pos_eq_one_of_idempotent {K : Type} [Semiring K] (h : idempotent K) :
+  ∀ {n : ℕ}, 0 < n → (n : K) = 1 := by
+    intro n hn
+    induction n with
+    | zero => omega
+    | succ m ih =>
+      match Nat.eq_zero_or_pos m with
+      | .inl hm => subst hm; simp
+      | .inr hm => rw [Nat.cast_succ, ih hm, h 1]
+
+/-- A nontrivial idempotent semiring has characteristic 0 in the `CharP` sense.
+Unlike `CharZero`, this does not require the natural-number cast to be injective:
+in an idempotent semiring every positive natural maps to `1`, but `1 ≠ 0` still
+suffices to give `CharP K 0`. -/
+theorem CharP.zero_of_idempotent {K : Type} [Semiring K] [Nontrivial K]
+  (h : idempotent K) : CharP K 0 := by
+    refine ⟨fun x => ?_⟩
+    rw [zero_dvd_iff]
+    refine ⟨fun hx => ?_, fun hx => by rw [hx]; exact Nat.cast_zero⟩
+    by_contra hne
+    rw [natCast_pos_eq_one_of_idempotent h (Nat.pos_of_ne_zero hne)] at hx
+    exact one_ne_zero hx
 
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/

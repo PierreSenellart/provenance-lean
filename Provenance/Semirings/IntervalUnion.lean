@@ -1384,6 +1384,17 @@ theorem IntervalUnion.idempotent [DenselyOrdered α] [BoundedOrder α] :
     idempotent (IntervalUnion α) :=
   idempotent_of_absorptive IntervalUnion.absorptive
 
+instance [BoundedOrder α] : Nontrivial (IntervalUnion α) := ⟨0, 1, fun h => by
+  have : (0 : IntervalUnion α).intervals = (1 : IntervalUnion α).intervals := by rw [h]
+  exact List.noConfusion this⟩
+
+/-- The interval-union semiring has characteristic 0 in the `CharP` sense: it is
+idempotent and nontrivial (the empty list differs from the singleton `[⊥,⊤]`), so
+every positive natural-number cast equals `1`. -/
+instance IntervalUnion.instCharPZero [DenselyOrdered α] [BoundedOrder α] :
+    CharP (IntervalUnion α) 0 :=
+  CharP.zero_of_idempotent IntervalUnion.idempotent
+
 /-- The interval-union semiring over the extended reals `[-∞, +∞]`. -/
 noncomputable instance : SemiringWithMonus (IntervalUnion EReal) := inferInstance
 

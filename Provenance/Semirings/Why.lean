@@ -260,6 +260,16 @@ theorem Why.idempotent : idempotent (Why α) := by
   intro a
   simp[(· + ·), Add.add]
 
+instance : Nontrivial (Why α) := ⟨0, 1, fun h => by
+  have h' : (⟨∅⟩ : Why α) = ⟨{∅}⟩ := h
+  injection h' with h''
+  exact Set.singleton_ne_empty _ h''.symm⟩
+
+/-- `Why α` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial (`⟨∅⟩ ≠ ⟨{∅}⟩`), so every positive natural-number cast equals `1`. -/
+instance Why.instCharPZero : CharP (Why α) 0 :=
+  CharP.zero_of_idempotent Why.idempotent
+
 theorem Why.not_absorptive (hNotEmpty: ∃ (_: α), ⊤) : ¬(absorptive (Why α)) := by
   rcases hNotEmpty with ⟨x, _⟩
   simp

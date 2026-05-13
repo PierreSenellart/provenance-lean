@@ -171,3 +171,13 @@ theorem BoolFunc.mul_sub_left_distributive : mul_sub_left_distributive (BoolFunc
   apply funext
   intro ν
   by_cases hx: x ν <;> by_cases hy: y ν <;> by_cases hz: z ν <;> simp[hx,hy,hz]
+
+instance : Nontrivial (BoolFunc X) := ⟨0, 1, by
+  intro h
+  have : (0 : BoolFunc X) (fun _ => false) = (1 : BoolFunc X) (fun _ => false) := by rw [h]
+  exact Bool.false_ne_true this⟩
+
+/-- `BoolFunc X` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial, so every positive natural-number cast equals `1`. -/
+instance BoolFunc.instCharPZero : CharP (BoolFunc X) 0 :=
+  CharP.zero_of_idempotent BoolFunc.idempotent

@@ -177,6 +177,14 @@ theorem absorptive : absorptive Viterbi := by
 
 theorem idempotent : idempotent Viterbi := idempotent_of_absorptive absorptive
 
+instance : Nontrivial Viterbi :=
+  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
+
+/-- `Viterbi` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial, so every positive natural-number cast equals `1`. -/
+instance Viterbi.instCharPZero : CharP Viterbi 0 :=
+  CharP.zero_of_idempotent Viterbi.idempotent
+
 theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
   intro a b c
   ext

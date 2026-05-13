@@ -193,3 +193,16 @@ theorem How.not_mul_sub_left_distributive [Inhabited X]:
     have : MvPolynomial.coeff (Finsupp.single x 1) 1 = 0 := by
       simp[MvPolynomial.coeff_one,eq_comm]
     simp[this] at hm
+
+/-- `ℕ[X]` inherits `CharZero` from `ℕ`: the constant embedding `C : ℕ → MvPolynomial X ℕ`
+is injective, and `(n : MvPolynomial X ℕ) = C n`. (Equivalent to
+`Mathlib.RingTheory.MvPolynomial.Basic.instCharZero`, inlined here to avoid the heavy
+transitive imports of that file.) -/
+instance : CharZero (MvPolynomial X ℕ) where
+  cast_injective x y hxy := by
+    rwa [← MvPolynomial.C_eq_coe_nat, ← MvPolynomial.C_eq_coe_nat,
+         MvPolynomial.C_inj, Nat.cast_inj] at hxy
+
+/-- `ℕ[X]` has characteristic 0 in the `CharP` sense, inherited from `CharZero` via
+`CharP.ofCharZero`. -/
+theorem How.charP_zero : CharP (MvPolynomial X ℕ) 0 := inferInstance

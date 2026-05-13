@@ -55,6 +55,11 @@ theorem Bool.idempotent : idempotent Bool := by decide
 
 theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by decide
 
+/-- `Bool` has characteristic 0 in the `CharP` sense: it is idempotent and nontrivial
+(`true ≠ false`), so every positive natural-number cast equals `1 = true`. It is not
+`CharZero` since the cast `ℕ → Bool` is not injective. -/
+instance Bool.instCharPZero : CharP Bool 0 := CharP.zero_of_idempotent Bool.idempotent
+
 /-- Injective m-semiring homomorphism from Bool to Bool[X] -/
 theorem Bool.homomorphism_from_BoolFunc :
   ∃ ν: SemiringWithMonusHom Bool (BoolFunc X), Function.Injective ν := by
