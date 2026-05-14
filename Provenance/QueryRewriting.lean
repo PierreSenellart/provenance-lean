@@ -55,8 +55,8 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
       (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Filter.And t t') Filter.True
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
-  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (by simp)))) q'₁)
-                            (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (by simp)))) q'₂))
+  let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₁)
+                            (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₂))
   let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
@@ -826,9 +826,9 @@ theorem Query.rewriting_valid
               (λ t t' ↦ Filter.And t t') Filter.True)
             (@Query.Prod _ (n+1) n (2*n+1) (by omega) (q₁.rewriting hq'₁)
               (Query.Dedup (Query.Diff
-                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (by simp)))
+                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (Nat.le_succ _)))
                   (q₁.rewriting hq'₁))
-                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (by simp)))
+                (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (Nat.le_succ _)))
                   (q₂.rewriting hq'₂)))))))
         d.toComposite
       = AnnotatedRelation.toComposite
