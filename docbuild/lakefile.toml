@@ -4,10 +4,10 @@ version = "0.1.0"
 packagesDir = "../.lake/packages"
 
 [[require]]
-name = "provenance"
-path = "../"
-
-[[require]]
 scope = "leanprover"
 name = "doc-gen4"
-rev = "main"
+rev = "v4.29.1"
+
+[[require]]
+name = "provenance"
+path = "../"
