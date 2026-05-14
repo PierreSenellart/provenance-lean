@@ -443,6 +443,12 @@ lemma Multiset.dedup_eq_of_instances {α : Type*} (inst₁ inst₂ : DecidableEq
   congr
   apply Subsingleton.elim
 
+/-- `Multiset.filter` only depends on the `DecidablePred` instance up to subsingleton equality. -/
+lemma Multiset.filter_eq_of_instances {α : Type*} (p : α → Prop)
+  (inst₁ inst₂ : DecidablePred p) (m : Multiset α) :
+  @Multiset.filter α p inst₁ m = @Multiset.filter α p inst₂ m := by
+  congr
+
 /-- Folded `Filter.And` over a mapped list is equivalent to the universal conjunction. -/
 lemma Filter.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
   (list: List α) (f: α → Filter T N) (t: Tuple T N):
@@ -594,7 +600,7 @@ lemma AnnotatedTuple.toComposite_last
     pattern matches what `simp only [evaluate]` produces in the `Diff` case of
     `rewriting_valid`. -/
 lemma Query.rewriting_valid_diff_inner_dd
-  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] {n: ℕ}
   (AR₁ AR₂: AnnotatedRelation T K n):
   (Multiset.filter
     (fun u: Tuple (T⊕K) n ↦
@@ -914,24 +920,17 @@ theorem Query.rewriting_valid
       -- Unfold `evaluate` and reduce the inner subqueries via the induction hypotheses.
       simp only [evaluate, Term.eval]
       rw[← ih'₁, ← ih'₂]
-      -- Inline the inner-Diff reduction: unfold `AnnotatedRelation.toComposite`, fuse
-      -- the chained `Multiset.map`s, then simplify `p.toComposite (k.castLE …)` to
-      -- `Sum.inl (p.1 k)` pointwise (using `AnnotatedTuple.toComposite_castLE`).
-      unfold AnnotatedRelation.toComposite
-      simp only [Multiset.map_map, Function.comp_def]
-      have hcomp : ∀ (p : AnnotatedTuple T K n) (k : Fin n),
-          p.toComposite (Fin.castLE (Nat.le_succ n) k) = (Sum.inl (p.1 k) : T⊕K) :=
-        fun p k => AnnotatedTuple.toComposite_castLE p k
-      simp only [hcomp]
-      -- At this point the goal is:
-      --   map (proj_outer) (filter joinCond
-      --       (Relation.cast … (map toComp AR₁ * inner.dedup))) = map toComp (filter P AR₁)
-      -- where  inner  = filter (∉ map (λp k. Sum.inl (p.1 k)) AR₂)
-      --                        (map (λp k. Sum.inl (p.1 k)) AR₁),
-      --        P      = fun p ↦ p.1 ∉ map Prod.fst AR₂.
-      -- The inner reduces (via Sum.inl injectivity) to map (Sum.inl-lift)
-      -- (filter P AR₁).map(Prod.fst) modulo dedup; see `rewriting_valid_diff_inner_dd`.
-      -- TODO: continue inline reduction (steps 1–2 in TODO.md).
+      -- At this point the goal contains the inner-Diff form
+      --   (Multiset.filter (· ∉ Multiset.map proj_n AR₂.toComposite)
+      --     (Multiset.map proj_n AR₁.toComposite)).dedup
+      -- which is `Query.rewriting_valid_diff_inner_dd`'s LHS. However `rw`/`simp only`/
+      -- `conv`/`nth_rewrite`/`convert` all fail to fire on this subterm because the goal's
+      -- `.dedup` is elaborated with `LinearOrder.toDecidableEq` (via ValueType (T⊕K))
+      -- whereas the helper's `.dedup` is elaborated with `instDecidableEqSum`. The two
+      -- `DecidableEq (T⊕K)` instances are propositionally equal (Subsingleton.elim) but not
+      -- syntactically; even writing `have hInner : (literal form) := ...` re-triggers the
+      -- mismatch because Lean's instance inference at the `have` site picks the helper's
+      -- path, not the goal's. See `TODO.md` for the full diagnosis.
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
