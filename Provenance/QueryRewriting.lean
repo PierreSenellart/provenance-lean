@@ -280,7 +280,7 @@ lemma AnnotatedRelation.dedup_toComposite_proj_first_n
         Multiset.dedup_map_of_injective h_inj _
 
 /-- Auxiliary: key set of `groupByKey ar` equals first-projection keys of `ar`. -/
-private lemma groupByKey_key_iff
+lemma groupByKey_key_iff
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (v: Tuple T n):
   (∃ w, (v, w) ∈ (groupByKey ar).val) ↔ v ∈ Multiset.map Prod.fst ar := by
@@ -325,7 +325,7 @@ private lemma groupByKey_key_iff
 
 /-- Auxiliary: if `(v, w) ∈ (groupByKey ar).val`, then `w` is the semiring-sum of annotations
 of entries in `ar` with key `v`. -/
-private lemma groupByKey_value
+lemma groupByKey_value
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
   (ar: AnnotatedRelation T K n) (v: Tuple T n) (w: K):
   (v, w) ∈ (groupByKey ar).val →

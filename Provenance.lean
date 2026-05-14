@@ -5,6 +5,7 @@
 
 /- Queries on annotated relations -/
 import Provenance.QueryAnnotatedDatabase
+import Provenance.QueryAnnotatedDatabaseHom
 
 /- Various semirings -/
 import Provenance.Semirings.Bool
