@@ -90,7 +90,10 @@ instance : CanonicallyOrderedAdd (MvPolynomial X ℕ) where
 
 /-- Marked as noncomputable only because the proof that `MvPolynomial` is a
 `CommutativeSemiring` is done in a non-computable way in Mathlib. We
-could redefine `MvPolynomial` to provide computable proofs. -/
+could redefine `MvPolynomial` to provide computable proofs.
+
+The δ operator matches ProvSQL's `How::delta`: the support indicator
+(`0 ↦ 0`, any non-zero polynomial ↦ `1`). -/
 noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
   monus_spec := by
     intro a b c
@@ -99,6 +102,18 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
       exact Nat.sub_le_iff_le_add'.mp (h m)
     . intro h m
       exact Nat.sub_le_iff_le_add'.mpr (h m)
+  delta p := if p = 0 then 0 else 1
+  delta_zero := by simp
+  delta_natCast_pos := by
+    intro n hn
+    have hne : ((n : MvPolynomial X ℕ)) ≠ 0 := by
+      intro hzero
+      have := congrArg (MvPolynomial.coeff 0) hzero
+      rw [← MvPolynomial.C_eq_coe_nat, MvPolynomial.coeff_C,
+          MvPolynomial.coeff_zero] at this
+      simp at this
+      exact (Nat.ne_of_gt hn) this
+    simp [hne]
 
 omit [DecidableEq X] in
 theorem How.not_idempotent : ¬(idempotent (MvPolynomial X ℕ)) := by

@@ -1361,6 +1361,17 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
       · exact absurd hxb hxnb
       · exact hxc
 
+  /- δ matches ProvSQL's `IntervalUnion::delta`: the identity. -/
+  delta := id
+  delta_zero := rfl
+  delta_natCast_pos := by
+    have habs : absorptive (IntervalUnion α) := fun a => by
+      apply ext_toSet; ext x
+      rw [add_eq_union, mem_union]
+      simp [one_toSet]
+    intro n hn
+    exact natCast_pos_eq_one_of_idempotent (idempotent_of_absorptive habs) hn
+
 /-- The interval-union semiring is absorptive: the multiplicative identity (the whole
 space) absorbs any element under addition (union). -/
 theorem IntervalUnion.absorptive [DenselyOrdered α] [BoundedOrder α] :

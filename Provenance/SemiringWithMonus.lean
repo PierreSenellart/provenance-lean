@@ -38,10 +38,25 @@ section SemiringWithMonus
 
 /-- A `SemiringWithMonus` is a naturally ordered semiring
 with a monus operation that is compatible with the natural order.
-We do not require the semiring to be necessarily commutative. -/
+We do not require the semiring to be necessarily commutative.
+
+In addition to monus, the class carries a `δ : α → α` operator subject
+to two axioms (`delta_zero` and `delta_natCast_pos`). This is the
+duplicate-eliminating support operator used to interpret aggregation
+in the framework of
+[Amsterdamer, Deutch & Tannen, *Provenance for aggregate queries*][amsterdamer2011aggregate],
+mirroring ProvSQL's `Semiring::delta`. -/
 class SemiringWithMonus (α : Type)
   extends Semiring α, PartialOrder α, IsOrderedAddMonoid α, CanonicallyOrderedAdd α, Sub α where
   monus_spec : ∀ a b c : α, a - b ≤ c ↔ a ≤ b + c
+  /-- Duplicate-eliminating support operator. Sends `0` to `0` and any
+  positive integer iterate of `1` to `1`. -/
+  delta : α → α
+  /-- `δ` sends `0` to `0`. -/
+  delta_zero : delta 0 = 0
+  /-- `δ` sends every positive integer iterate of `1` (i.e., every
+  positive natural-number cast) to `1`. -/
+  delta_natCast_pos : ∀ {n : ℕ}, 0 < n → delta ((n : α)) = 1
 
 /-! ## Main properties -/
 
@@ -56,6 +71,11 @@ theorem monus_smallest [K : SemiringWithMonus α] :
       rw [SemiringWithMonus.monus_spec]
       exact h
   }
+
+/-- In a `SemiringWithMonus`, `δ 1 = 1`. -/
+theorem delta_one [K : SemiringWithMonus α] : K.delta 1 = 1 := by
+  have h := K.delta_natCast_pos (n := 1) Nat.zero_lt_one
+  simpa using h
 
 /-- In a `SemiringWithMonus`, `a - a = 0`. -/
 theorem monus_self [K : SemiringWithMonus α] :

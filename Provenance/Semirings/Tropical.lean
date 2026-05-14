@@ -141,6 +141,21 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
         | inr h'' =>
           exact h''
 
+  /- δ matches ProvSQL's `Tropical::delta`: the support indicator
+  (`0 = trop ⊤ ↦ 0`, any other element ↦ `1 = trop 0`). -/
+  delta a := if a = 0 then 0 else 1
+  delta_zero := by simp
+  delta_natCast_pos := by
+    have hidem : idempotent (Tropical α) := fun a => by simp [(· + ·), Add.add]
+    intro n hn
+    have hcast : ((n : Tropical α)) = 1 :=
+      natCast_pos_eq_one_of_idempotent hidem hn
+    show (if ((n : Tropical α)) = 0 then (0 : Tropical α) else 1) = 1
+    rw [hcast]
+    split_ifs with hh
+    · exact hh.symm
+    · rfl
+
 /-- The tropical semiring over `ℕ ∪ {∞}` is a semiring with monus. -/
 instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/

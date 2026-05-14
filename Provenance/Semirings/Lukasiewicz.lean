@@ -283,7 +283,8 @@ instance : CanonicallyOrderedAdd Lukasiewicz where
     simp[(· + ·), Add.add]
 
 /-- `Lukasiewicz` is a commutative m-semiring. The natural order is the usual rational
-order, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
+order, and the monus is `a` if `a > b`, `0` if `a ≤ b`. The δ operator matches ProvSQL's
+`Lukasiewicz::delta`: the support indicator. -/
 instance : SemiringWithMonus Lukasiewicz where
   monus_spec := by
     intro a b c
@@ -302,6 +303,20 @@ instance : SemiringWithMonus Lukasiewicz where
         exact c.property.1
       . simp[hab] at h
         by_cases hbc: b ≤ c <;> simp[hab] <;> exact h
+  delta a := if a = 0 then 0 else 1
+  delta_zero := by simp
+  delta_natCast_pos := by
+    have habs : absorptive Lukasiewicz := fun a => by
+      simp [(· + ·), Add.add]
+      exact a.property.2
+    have hidem : idempotent Lukasiewicz := idempotent_of_absorptive habs
+    have hone_ne_zero : (1 : Lukasiewicz) ≠ 0 :=
+      fun h => one_ne_zero (congrArg Subtype.val h)
+    intro n hn
+    have hcast : ((n : Lukasiewicz)) = 1 :=
+      natCast_pos_eq_one_of_idempotent hidem hn
+    show (if ((n : Lukasiewicz)) = 0 then (0 : Lukasiewicz) else 1) = 1
+    rw [hcast, if_neg hone_ne_zero]
 
 theorem Lukasiewicz.absorptive : absorptive Lukasiewicz := by
   intro a

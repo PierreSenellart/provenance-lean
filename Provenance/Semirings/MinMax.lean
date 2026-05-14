@@ -154,6 +154,20 @@ instance : SemiringWithMonus (MinMax α) where
     simp[(· + ·),Add.add,(· ≤ ·),(· - ·),Sub.sub]
     split_ifs with h <;> simp <;> tauto
 
+  /- δ matches ProvSQL's `MinMax::delta`: the identity. -/
+  delta := id
+  delta_zero := rfl
+  delta_natCast_pos := by
+    have hidem : idempotent (MinMax α) :=
+      idempotent_of_absorptive (fun a => by
+        simp [(· + ·), Add.add]
+        congr
+        simp
+        left
+        rfl)
+    intro n hn
+    exact natCast_pos_eq_one_of_idempotent hidem hn
+
 theorem MinMax.absorptive : absorptive (MinMax α) := by
   intro a
   simp[(· + ·), Add.add]

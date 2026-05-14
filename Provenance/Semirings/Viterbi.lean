@@ -181,6 +181,20 @@ instance : SemiringWithMonus Viterbi where
           · rw [max_eq_left hbc] at h; exact h
         exact hab hab'
 
+  /- δ matches ProvSQL's `Viterbi::delta`: the support indicator. -/
+  delta a := if a = 0 then 0 else 1
+  delta_zero := by simp
+  delta_natCast_pos := by
+    have habs : absorptive Viterbi := fun a => by ext; simp [a.property]
+    have hidem : idempotent Viterbi := idempotent_of_absorptive habs
+    have hone_ne_zero : (1 : Viterbi) ≠ 0 :=
+      fun h => zero_ne_one (Subtype.ext_iff.mp h.symm)
+    intro n hn
+    have hcast : ((n : Viterbi)) = 1 :=
+      natCast_pos_eq_one_of_idempotent hidem hn
+    show (if ((n : Viterbi)) = 0 then (0 : Viterbi) else 1) = 1
+    rw [hcast, if_neg hone_ne_zero]
+
 theorem absorptive : absorptive Viterbi := by
   intro a
   ext

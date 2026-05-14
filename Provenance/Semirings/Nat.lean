@@ -12,7 +12,8 @@ Mathlib's `Nat.sub`.
 -/
 
 /-- `ℕ` is a commutative m-semiring. The natural order is the usual order on
-natural numbers, and the monus is truncated subtraction. -/
+natural numbers, and the monus is truncated subtraction. The δ operator matches
+ProvSQL's `Counting::delta`: the support indicator (`0 ↦ 0`, positive ↦ `1`). -/
 instance : SemiringWithMonus Nat where
   monus_spec := by
     intro a b c
@@ -44,6 +45,11 @@ instance : SemiringWithMonus Nat where
           simp
           apply Nat.le_succ_of_le
           exact h
+  delta n := if n = 0 then 0 else 1
+  delta_zero := by simp
+  delta_natCast_pos := by
+    intro n hn
+    simp [Nat.cast_id, Nat.ne_of_gt hn]
 
 instance : HasAltLinearOrder Nat where
   altOrder := inferInstance

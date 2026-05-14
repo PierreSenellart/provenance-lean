@@ -18,6 +18,30 @@ a complementary, mathematically distinct direction.
 the whole non-`Agg` fragment: Rel, Proj, Sel, Prod, Sum, Dedup,
 Diff. Zero sorries.
 
+### C. δ on `SemiringWithMonus` + the 12 instances
+
+`Provenance/SemiringWithMonus.lean` now carries a `δ : α → α` field
+with axioms `delta_zero : δ 0 = 0` and
+`delta_natCast_pos : 0 < n → δ ((n : α)) = 1`. A small derived lemma
+`delta_one : δ 1 = 1` is exposed at the top level.
+
+All 12 concrete m-semiring instances were extended with a `δ` matching
+ProvSQL's `Semiring::delta` in `src/semiring/`:
+
+- Identity (idempotent semirings): `Bool`, `BoolFunc`, `Which`, `Why`,
+  `MinMax` (and `MaxMin` via `OrderDual`), `IntervalUnion`.
+- Support indicator (`0 ↦ 0`, otherwise `↦ 1`): `Nat`, `How`,
+  `Lukasiewicz`, `Viterbi`, `Tropical`.
+
+For idempotent semirings the `delta_natCast_pos` axiom follows from
+`natCast_pos_eq_one_of_idempotent` (already in `SemiringWithMonus.lean`).
+For `Nat`/`How` it follows by computing the constant coefficient. For
+`Lukasiewicz`/`Viterbi`/`Tropical` (idempotent but using the
+indicator definition to match ProvSQL exactly) we first reduce
+`(n : α)` to `1` via idempotence and then dispatch the `if`. The
+`Tropical` proof handles the trivial degenerate case (`α` collapses
+`⊤` and `0`, so `1 = 0` in `Tropical α`) gracefully via `split_ifs`.
+
 Key supporting lemmas (all proved):
 - `find_mapAnnotatedDatabase`, `map_fst_mapAnnotatedRelation`,
   `map_snd_mapAnnotatedRelation`
@@ -55,13 +79,6 @@ and `groupByKey_value` publicly.
 
 This is the formal semantics described in the ICDE 2026 paper.
 
-### C. Add `δ` to `SemiringWithMonus` + verify the 12 instances
-
-A smaller, self-contained piece of B: just the δ-semiring structure,
-without yet touching `Query.Agg`. `gate_delta` is currently
-unmodeled on the Lean side. One new field on the class + ~12 short
-instance proofs.
-
 ### D. d-DNNF correctness (semantic, not complexity)
 
 Define `Circuit Bool` + smoothness / decomposability / determinism
@@ -86,4 +103,4 @@ rewrite (`rewriteMultivaluedGates` in `BooleanCircuit.cpp`).
 
 ## Working order
 
-A done → C (small bridge) → B → D.
+A done → C done → B → D.

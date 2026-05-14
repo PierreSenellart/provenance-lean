@@ -246,6 +246,15 @@ instance : SemiringWithMonus (Why α) where
       simp at h'
       tauto
 
+  /- δ matches ProvSQL's `Why::delta`: identity on `Why α` (the C++ form
+  `x.empty() ? zero() : x` collapses to the identity since `zero = ⟨∅⟩`). -/
+  delta := id
+  delta_zero := rfl
+  delta_natCast_pos := by
+    have hidem : idempotent (Why α) := fun a => by simp [(· + ·), Add.add]
+    intro n hn
+    exact natCast_pos_eq_one_of_idempotent hidem hn
+
 theorem Why.idempotent : idempotent (Why α) := by
   intro a
   simp[(· + ·), Add.add]

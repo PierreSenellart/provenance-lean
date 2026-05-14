@@ -40,13 +40,19 @@ instance : CommSemiring Bool where
 
 
 /-- The Boolean semiring (`Bool`, `||`, `&&`) is an m-semiring. The natural order is
-the usual Boolean order (`false ≤ true`), and the monus is `a && !b`. -/
+the usual Boolean order (`false ≤ true`), and the monus is `a && !b`. The δ operator
+matches ProvSQL's `Boolean::delta`: it is the identity. -/
 instance : SemiringWithMonus Bool where
   le_self_add := by decide
   le_add_self := by decide
   add_le_add_left := by decide
   exists_add_of_le := by decide
   monus_spec := by decide
+  delta := id
+  delta_zero := rfl
+  delta_natCast_pos := by
+    intro n hn
+    exact natCast_pos_eq_one_of_idempotent (by decide) hn
 
 
 theorem Bool.absorptive : absorptive Bool := by decide

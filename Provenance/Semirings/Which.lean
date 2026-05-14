@@ -226,6 +226,16 @@ instance : SemiringWithMonus (Which α) where
     . rename_i sb
       by_cases h' : sa ⊆ sb <;> simp[h']
 
+  /- δ matches ProvSQL's `Which::delta`: the identity. -/
+  delta := id
+  delta_zero := rfl
+  delta_natCast_pos := by
+    have hidem : idempotent (Which α) := fun a => by
+      simp [(· + ·), Add.add]
+      cases ha: a <;> simp
+    intro n hn
+    exact natCast_pos_eq_one_of_idempotent hidem hn
+
 
 /-- Which[X] is not absorptive as long as there is at least one variable -/
 theorem Which.not_absorptive (h: ∃ (_: α), ⊤) : ¬(absorptive (Which α)) := by
