@@ -529,6 +529,64 @@ lemma Query.rewriting_valid_sub_inr
   ((Sum.inr a: T⊕K) - Sum.inr b) = Sum.inr (a - b) := by
   rfl
 
+/-- Non-dedup form of `dedup_toComposite_proj_first_n`: the first-`n` projection of
+`ar.toComposite` is the `Sum.inl`-lift of the first-projection of `ar`. -/
+lemma AnnotatedRelation.toComposite_proj_first_n
+  {T K: Type} [ValueType T] {n: ℕ}
+  (ar: AnnotatedRelation T K n) (h: n ≤ n+1):
+  Multiset.map (fun (u: Tuple (T⊕K) (n+1)) ↦
+      ((fun (k: Fin n) ↦ u (Fin.castLE h k)) : Tuple (T⊕K) n))
+    ar.toComposite
+  = Multiset.map (fun (v: Tuple T n) ↦
+      ((fun (k: Fin n) ↦ (Sum.inl (v k): T⊕K)) : Tuple (T⊕K) n))
+      (Multiset.map Prod.fst ar) := by
+  unfold AnnotatedRelation.toComposite
+  rw [Multiset.map_map, Multiset.map_map]
+  apply Multiset.map_congr rfl
+  intro p _
+  simp only [Function.comp]
+  funext k
+  unfold AnnotatedTuple.toComposite
+  have hcast : Fin.castLE h k = Fin.castAdd 1 k := rfl
+  rw[hcast, Fin.append_left]
+
+/-- `Sum.inl`-lift of tuples is injective. -/
+lemma Sum.inl_lift_injective {T K: Type} {n: ℕ}:
+  Function.Injective (fun (v: Tuple T n) (k: Fin n) ↦ (Sum.inl (v k): T⊕K)) := by
+  intro v₁ v₂ heq
+  funext k
+  exact Sum.inl.inj (congrFun heq k)
+
+/-- Filtering by "not a member of an injective image" pulls through the map. -/
+lemma Multiset.filter_notMem_map_of_injective
+  {α β: Type*} [DecidableEq α] [DecidableEq β] {f: α → β} (hf: Function.Injective f)
+  (m: Multiset α) (s: Multiset α):
+  Multiset.filter (fun b ↦ b ∉ Multiset.map f s) (Multiset.map f m)
+  = Multiset.map f (Multiset.filter (fun a ↦ a ∉ s) m) := by
+  rw[Multiset.filter_map]
+  congr 1
+  apply Multiset.filter_congr
+  intro a _
+  simp [Function.comp, Multiset.mem_map, hf.eq_iff]
+
+/-- Helper: the data part `Tuple.fromComposite` and `AnnotatedTuple.toComposite` agree on data. -/
+lemma AnnotatedTuple.toComposite_castLE
+  {T K: Type} [Zero K] {n: ℕ} (p: AnnotatedTuple T K n) (k: Fin n):
+  p.toComposite (k.castLE (Nat.le_succ n)) = Sum.inl (p.1 k) := by
+  unfold AnnotatedTuple.toComposite
+  have hcast : k.castLE (Nat.le_succ n) = Fin.castAdd 1 k := rfl
+  rw[hcast, Fin.append_left]
+
+/-- The annotation part of `p.toComposite` is `Sum.inr p.2`. -/
+lemma AnnotatedTuple.toComposite_last
+  {T K: Type} [Zero K] {n: ℕ} (p: AnnotatedTuple T K n):
+  p.toComposite (Fin.last n) = (Sum.inr p.2: T⊕K) := by
+  unfold AnnotatedTuple.toComposite
+  have : Fin.last n = Fin.natAdd n (0: Fin 1) := by
+    apply Fin.eq_of_val_eq; simp
+  rw[this, Fin.append_right]
+  rfl
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
