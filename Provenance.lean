@@ -48,6 +48,9 @@ the provenance-aware relational database system
 - `Provenance.AnnotatedDatabase` — databases annotated with values in an m-semiring `K`
 - `Provenance.QueryAnnotatedDatabase` — semantics of relational algebra over annotated
   databases via m-semiring operations
+- `Provenance.QueryAnnotatedDatabaseHom` – evaluation commutes with m-semiring
+  homomorphisms ([Green, Karvounarakis & Tannen][green2007provenance],
+  Proposition 3.5; [Geerts & Poggi][geerts2010database], Proposition 1)
 - `Provenance.QueryRewriting` — alternative query evaluation by rewriting plain queries
   on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
   correctness proof partially formalised
@@ -75,6 +78,7 @@ See `Provenance.Example` for an example annotated database computation.
 ## References
 
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
+* [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
 * [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
 * [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
 -/
