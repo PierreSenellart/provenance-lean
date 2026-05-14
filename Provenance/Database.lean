@@ -48,21 +48,21 @@ instance [Repr α] : Repr (Tuple α n) := ⟨Tuple.repr⟩
 
 instance : Zero (Tuple T n) := ⟨λ _ ↦ 0⟩
 
-instance : LT (Tuple T n) := ⟨λ a b ↦ ∃ i : Fin n, (∀ j, j < i → a j = b j) ∧ a i < b i⟩
-instance : LE (Tuple T n) := ⟨λ a b ↦ a < b ∨ a = b⟩
+instance [LT T] : LT (Tuple T n) := ⟨λ a b ↦ ∃ i : Fin n, (∀ j, j < i → a j = b j) ∧ a i < b i⟩
+instance [LT T] : LE (Tuple T n) := ⟨λ a b ↦ a < b ∨ a = b⟩
 
 instance [ToString T] : ToString (Tuple T n) where
   toString t :=
     "(" ++ String.intercalate ", " (List.ofFn (fun i => toString (t i))) ++ ")"
 
-instance : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ < t₂) :=
+instance [LinearOrder T] : DecidableRel (λ (t₁ t₂: Tuple T n) => t₁ < t₂) :=
   λ f g ↦
     if h : ∃ i : Fin n, (∀ j, j < i → f j = g j) ∧ f i < g i then
       isTrue (h)
     else
       isFalse (h)
 
-instance : LinearOrder (Tuple T n) where
+instance [LinearOrder T] : LinearOrder (Tuple T n) where
   le_refl := by simp[(· ≤ ·)]
 
   le_antisymm := by
@@ -294,6 +294,6 @@ instance [LinearOrder α] :
     have : a≠c := by exact fun z ↦ hca (id (Eq.symm z))
     simp[this]
 
-instance [ToString T] : ToString (Relation T n) where
+instance [LinearOrder T] [ToString T] : ToString (Relation T n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"

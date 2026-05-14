@@ -25,7 +25,7 @@ variable {K: Type} [Zero K]
 
 abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n ×ₗ K
 
-instance [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
+instance [LinearOrder T] [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
 
 instance [ToString T] [ToString K] : ToString (AnnotatedTuple T K n)
 where
@@ -41,7 +41,8 @@ def AnnotatedRelation.cast (heq : n=m) (r: AnnotatedRelation T K n): AnnotatedRe
   subst heq
   exact r
 
-instance [ToString T] [ToString K] [LinearOrder K] : ToString (AnnotatedRelation T K n) where
+instance [LinearOrder T] [ToString T] [ToString K] [LinearOrder K] :
+    ToString (AnnotatedRelation T K n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"
 
