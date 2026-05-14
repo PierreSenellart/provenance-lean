@@ -587,6 +587,79 @@ lemma AnnotatedTuple.toComposite_last
   rw[this, Fin.append_right]
   rfl
 
+/-- Reduction of the inner `Dedup ∘ Diff ∘ Proj` block of the `Diff` rewriting:
+    deduping the difference of first-`n` projections of `AR₁.toComposite` and `AR₂.toComposite`
+    yields the `Sum.inl`-lift of the deduped "unmatched-keys" filter over the data part.
+    Stated using `Fin.castLE` (function form) and dot notation (`.dedup`) so the LHS
+    pattern matches what `simp only [evaluate]` produces in the `Diff` case of
+    `rewriting_valid`. -/
+lemma Query.rewriting_valid_diff_inner_dd
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] {n: ℕ}
+  (AR₁ AR₂: AnnotatedRelation T K n):
+  (Multiset.filter
+    (fun u: Tuple (T⊕K) n ↦
+      u ∉ Multiset.map
+            (fun (u': Tuple (T⊕K) (n+1)) (k: Fin n) ↦ u' (Fin.castLE (Nat.le_succ n) k))
+            AR₂.toComposite)
+    (Multiset.map
+      (fun (u': Tuple (T⊕K) (n+1)) (k: Fin n) ↦ u' (Fin.castLE (Nat.le_succ n) k))
+      AR₁.toComposite)).dedup
+  = Multiset.map (fun (v: Tuple T n) (k: Fin n) ↦ (Sum.inl (v k): T⊕K))
+      (Multiset.filter (fun v ↦ v ∉ Multiset.map Prod.fst AR₂)
+        (Multiset.map Prod.fst AR₁)).dedup := by
+  -- Unfold toComposite, fuse Multiset.map, simplify pointwise via `hcomp`.
+  unfold AnnotatedRelation.toComposite
+  simp only [Multiset.map_map, Function.comp_def]
+  have hcomp : ∀ (p : AnnotatedTuple T K n) (k : Fin n),
+      p.toComposite (k.castLE (Nat.le_succ n)) = (Sum.inl (p.1 k) : T⊕K) :=
+    fun p k => AnnotatedTuple.toComposite_castLE p k
+  simp only [hcomp]
+  -- Now both inner `map`s have the curried form `λp k. Sum.inl (p.1 k)`.
+  -- We need to convert this into `(Sum.inl-lift) ∘ Prod.fst` form so that injectivity applies.
+  -- `rw` is fragile here (HOU on Lean v4.29); fall back to `Multiset.Nodup.ext`.
+  refine (Multiset.Nodup.ext (Multiset.nodup_dedup _) ?_).mpr ?_
+  · exact (Multiset.nodup_dedup _).map (fun _ _ heq => Sum.inl_lift_injective heq)
+  intro u
+  constructor
+  · intro hLHS
+    have hmem₁ := Multiset.mem_dedup.mp hLHS
+    rw [Multiset.mem_filter] at hmem₁
+    obtain ⟨hmem_map, hnot⟩ := hmem₁
+    obtain ⟨p, hp, hp_eq⟩ := Multiset.mem_map.mp hmem_map
+    refine Multiset.mem_map.mpr ⟨p.1, ?_, hp_eq⟩
+    refine Multiset.mem_dedup.mpr ?_
+    rw [Multiset.mem_filter]
+    refine ⟨?_, ?_⟩
+    · refine Multiset.mem_map.mpr ⟨p, hp, rfl⟩
+    · intro hmem₂
+      apply hnot
+      obtain ⟨q, hq, hq_eq⟩ := Multiset.mem_map.mp hmem₂
+      refine Multiset.mem_map.mpr ⟨q, hq, ?_⟩
+      funext k
+      rw [← hp_eq]
+      exact congrArg (fun (v: Tuple T n) ↦ (Sum.inl (v k) : T⊕K)) hq_eq
+  · intro hRHS
+    obtain ⟨v, hv, hv_eq⟩ := Multiset.mem_map.mp hRHS
+    have hv₁ := Multiset.mem_dedup.mp hv
+    rw [Multiset.mem_filter] at hv₁
+    obtain ⟨hv_in_keys, hnot⟩ := hv₁
+    obtain ⟨p, hp, hpv⟩ := Multiset.mem_map.mp hv_in_keys
+    refine Multiset.mem_dedup.mpr ?_
+    rw [Multiset.mem_filter]
+    refine ⟨?_, ?_⟩
+    · refine Multiset.mem_map.mpr ⟨p, hp, ?_⟩
+      funext k
+      rw [← hv_eq, ← hpv]
+    · intro hmem₂
+      apply hnot
+      obtain ⟨q, hq, hq_eq⟩ := Multiset.mem_map.mp hmem₂
+      refine Multiset.mem_map.mpr ⟨q, hq, ?_⟩
+      funext k
+      apply Sum.inl.inj
+      have : (fun k ↦ (Sum.inl (q.1 k) : T⊕K)) = u := hq_eq
+      rw [← hv_eq] at this
+      exact congrFun this k
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
@@ -835,6 +908,30 @@ theorem Query.rewriting_valid
           (Multiset.filter (fun p: AnnotatedTuple T K n ↦
             p.1 ∉ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
             (q₁.evaluateAnnotated hq'₁ d)) := by
+      -- Abbreviations for the two evaluated annotated relations.
+      set AR₁ := q₁.evaluateAnnotated hq'₁ d with hAR₁
+      set AR₂ := q₂.evaluateAnnotated hq'₂ d with hAR₂
+      -- Unfold `evaluate` and reduce the inner subqueries via the induction hypotheses.
+      simp only [evaluate, Term.eval]
+      rw[← ih'₁, ← ih'₂]
+      -- Inline the inner-Diff reduction: unfold `AnnotatedRelation.toComposite`, fuse
+      -- the chained `Multiset.map`s, then simplify `p.toComposite (k.castLE …)` to
+      -- `Sum.inl (p.1 k)` pointwise (using `AnnotatedTuple.toComposite_castLE`).
+      unfold AnnotatedRelation.toComposite
+      simp only [Multiset.map_map, Function.comp_def]
+      have hcomp : ∀ (p : AnnotatedTuple T K n) (k : Fin n),
+          p.toComposite (Fin.castLE (Nat.le_succ n) k) = (Sum.inl (p.1 k) : T⊕K) :=
+        fun p k => AnnotatedTuple.toComposite_castLE p k
+      simp only [hcomp]
+      -- At this point the goal is:
+      --   map (proj_outer) (filter joinCond
+      --       (Relation.cast … (map toComp AR₁ * inner.dedup))) = map toComp (filter P AR₁)
+      -- where  inner  = filter (∉ map (λp k. Sum.inl (p.1 k)) AR₂)
+      --                        (map (λp k. Sum.inl (p.1 k)) AR₁),
+      --        P      = fun p ↦ p.1 ∉ map Prod.fst AR₂.
+      -- The inner reduces (via Sum.inl injectivity) to map (Sum.inl-lift)
+      -- (filter P AR₁).map(Prod.fst) modulo dedup; see `rewriting_valid_diff_inner_dd`.
+      -- TODO: continue inline reduction (steps 1–2 in TODO.md).
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
