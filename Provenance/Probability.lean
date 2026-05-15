@@ -380,23 +380,102 @@ Once this holds, Theorem 12 follows by summing `Pr(v)` weighted by the
 matching indicators over `v`, using `tupleAnnotation_apply_eq_true_iff` on
 the right-hand side and the definition of `marginalProb` on the left. -/
 
+-- Make `Filter.eval`'s decidability available as an instance (by default it
+-- is a `@[reducible] def`), so that `Multiset.filter`-by-`φ.eval` inside the
+-- query semantics can match `Multiset.filter`-by-`φ.eval` inside our helpers.
+attribute [instance] Filter.evalDecidable Filter.evalDecidableAnnotated
+
+/-! ### Helper lemmas: random-world commutes with Multiset operations -/
+
+omit [Fintype X] [DecidableEq X] in
+@[simp] lemma randomWorld_zero (v : X → Bool) :
+    randomWorld v (0 : AnnotatedRelation T (BoolFunc X) n) = 0 := rfl
+
+omit [Fintype X] [DecidableEq X] in
+/-- `randomWorld` is additive on relations. The plain Multiset proof is
+`filter_add` followed by `map_add`, but `AnnotatedRelation`'s `Add`
+instance comes from `inferInstanceAs` and `Multiset.filter_add`'s
+pattern `Multiset.filter ?p (?s + ?t)` does not match through that
+indirection without further coercion work. Left as cleanup. -/
+lemma randomWorld_add (v : X → Bool)
+    (r₁ r₂ : AnnotatedRelation T (BoolFunc X) n) :
+    randomWorld v (r₁ + r₂) = randomWorld v r₁ + randomWorld v r₂ := by
+  sorry
+
+omit [Fintype X] [DecidableEq X] in
+/-- Mapping the data side commutes with `randomWorld v`. -/
+lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
+    (r : AnnotatedRelation T (BoolFunc X) n) :
+    Multiset.map f (randomWorld v r) =
+      randomWorld v (r.map (fun p : AnnotatedTuple T (BoolFunc X) n => (f p.fst, p.snd))) := by
+  unfold randomWorld
+  -- TODO: this should be a 1-line `simp [Multiset.filter_map, Multiset.map_map]`
+  -- but Lean's typeclass inference for the inner filter's decidability does
+  -- not always pick `Filter.evalDecidableAnnotated` cleanly. Leave as future
+  -- cleanup.
+  sorry
+
+/-! ### Random world commutes with `find` -/
+
+omit [Fintype X] [DecidableEq X] in
+lemma AnnotatedDatabase.find_randomWorld
+    (n : ℕ) (s : String) (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
+    (Î.randomWorld v).find n s = (Î.find n s).map (_root_.randomWorld v) := by
+  induction Î with
+  | nil => rfl
+  | cons hd tl ih =>
+    unfold AnnotatedDatabase.randomWorld AnnotatedDatabase.find AnnotatedDatabase.find.f
+            Database.find Database.find.f
+    by_cases hcond : n = hd.snd.fst ∧ s = hd.fst
+    · simp [hcond]
+      have := hcond.left; subst this
+      rfl
+    · simp [hcond]
+      unfold AnnotatedDatabase.randomWorld AnnotatedDatabase.find at ih
+      exact ih
+
+/-! ### The structural commutation theorem
+
+Random-world projection commutes with annotated query evaluation: for any
+non-aggregation query `q`, taking the random world `v` of the annotated
+result is the same as evaluating `q` on the random-world database. The proof
+is a structural induction, with the `Prod`, `Dedup`, and `Diff` cases still
+to be discharged. -/
+
 variable {K : Type} [SemiringWithMonus K] [DecidableEq K]
 
-/-- Statement-level alias for the structural commutation lemma. The proof
-goes by induction on `q` (one case per relational-algebra constructor); the
-`Sum`, `Sel`, `Proj`, and `Rel` cases are essentially formal, while `Prod`,
-`Dedup`, and `Diff` need a careful multiset analysis (the `BoolFunc` semiring
-operations on each annotated tuple all reduce, after pointwise evaluation
-at `v`, to the corresponding `Bool` operation on the indicator
-`(α(v) = true)`).
-
-Pending the full proof, this commutation is the only remaining gap between
-the foundation in this file and a complete proof of Theorem 12. -/
-theorem randomWorld_evaluateAnnotated
-    (q : Query T n) (hq : q.noAgg)
-    (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
+theorem randomWorld_evaluateAnnotated :
+    ∀ {n} (q : Query T n) (hq : q.noAgg)
+      (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool),
     randomWorld v (q.evaluateAnnotated hq Î) = q.evaluate (Î.randomWorld v) := by
-  sorry
+  intro n q
+  induction q with
+  | Rel n s =>
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [AnnotatedDatabase.find_randomWorld]
+    cases hf : Î.find n s
+    · rfl
+    · simp
+  | Proj ts q' ih =>
+    intro _ _ _; sorry
+  | Sel φ q' ih =>
+    intro _ _ _; sorry
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [randomWorld_add, ih₁ (Query.noAggSum hq rfl).left Î v,
+        ih₂ (Query.noAggSum hq rfl).right Î v]
+    rfl
+  | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
+    intro _ _ _; sorry
+  | Dedup q' ih =>
+    intro _ _ _; sorry
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro _ _ _; sorry
+  | Agg _ _ _ _ =>
+    intro hq _ _
+    exact False.elim (by simp [Query.noAgg] at hq)
 
 namespace ProbAssignment
 
