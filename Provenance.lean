@@ -67,6 +67,11 @@ the provenance-aware relational database system
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
+- `Provenance.Probability` — intensional probabilistic query evaluation: probability
+  distribution over Boolean valuations, probability of a `BoolFunc X`, and the
+  statement of Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql] reducing
+  `Pr(t ∈ q(Î))` to `Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`; the proof is reduced to a single
+  structural commutation lemma `randomWorld_evaluateAnnotated`
 
 **Algorithms**
 
