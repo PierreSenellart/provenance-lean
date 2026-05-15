@@ -12,6 +12,7 @@ import Provenance.Having
 
 /- Algorithms (HAVING enumeration) -/
 import Provenance.Algorithms.CountEnum
+import Provenance.Algorithms.SumDP
 
 /- Various semirings -/
 import Provenance.Semirings.Bool
@@ -66,10 +67,16 @@ the provenance-aware relational database system
 
 **Algorithms**
 
+- `Provenance.Algorithms.CompOp` — shared comparison-operator type used by the
+  HAVING enumeration algorithms
 - `Provenance.Algorithms.CountEnum` — enumeration of valid possible worlds for
   `HAVING count op C` predicates: definitions of `combinations`, `addExact`, and
   `countEnum`, together with the correctness theorem `countEnum_correct`
   ([Sen, Maniu & Senellart][sen2026provsql], Algorithm 2)
+- `Provenance.Algorithms.SumDP` — subset-sum enumeration of valid possible
+  worlds for `HAVING sum(t) op C` predicates: definition of `sumExact` and
+  `sumDP`, together with the correctness theorem `sumDP_correct`
+  ([Sen, Maniu & Senellart][sen2026provsql], Algorithm 1)
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 

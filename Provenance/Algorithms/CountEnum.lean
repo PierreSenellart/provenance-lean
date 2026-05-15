@@ -5,6 +5,7 @@
 import Mathlib.Data.Finset.Powerset
 import Mathlib.Data.Finset.Card
 import Mathlib.Data.List.Range
+import Provenance.Algorithms.CompOp
 
 /-!
 # Correctness of Algorithm 2: COUNT enumeration
@@ -28,23 +29,6 @@ matches list length: without it, the algorithm still returns subsets of
 namespace CountEnum
 
 variable {α : Type*} [DecidableEq α]
-
-/-- Comparison operator for cardinalities. -/
-inductive CompOp where
-  | eq | ne | lt | le | gt | ge
-  deriving DecidableEq, Repr
-
-/-- Semantics of a comparison operator on natural numbers. -/
-def CompOp.eval : CompOp → ℕ → ℕ → Prop
-  | .eq, a, b => a = b
-  | .ne, a, b => a ≠ b
-  | .lt, a, b => a < b
-  | .le, a, b => a ≤ b
-  | .gt, a, b => a > b
-  | .ge, a, b => a ≥ b
-
-instance (op : CompOp) (a b : ℕ) : Decidable (op.eval a b) := by
-  cases op <;> simp [CompOp.eval] <;> infer_instance
 
 /-- `Combinations(i, x, W)` of Algorithm 2, expressed with the suffix
 list `occs` (representing the occurrences `(uᵢ, αᵢ), …, (u_N, α_N)`)
