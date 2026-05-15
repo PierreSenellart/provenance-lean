@@ -23,6 +23,7 @@ import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
 import Provenance.Semirings.Tropical
+import Provenance.Semirings.Arctic
 import Provenance.Semirings.Viterbi
 import Provenance.Semirings.Which
 import Provenance.Semirings.Why
@@ -89,6 +90,10 @@ the provenance-aware relational database system
 - `Provenance.Semirings.Nat` — the counting m-semiring `ℕ`
 - `Provenance.Semirings.Tropical` — the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
   `ℝ ∪ {∞}`
+- `Provenance.Semirings.Arctic` — the arctic (max-plus) semiring over `ℕ ∪ {-∞}`, packaged
+  primarily as a counterexample: it is idempotent and distributive over `⊖` but not
+  absorptive, witnessing that the hypotheses of Theorem 1(i) of the HAVING paper as stated
+  (idempotent + distributive) are too weak
 - `Provenance.Semirings.Viterbi` — the Viterbi m-semiring (max-times) over `[0,1]`
 - `Provenance.Semirings.MinMax` — the min-max semiring over any bounded linear order (security / access
   control semiring and dual fuzzy semiring)
