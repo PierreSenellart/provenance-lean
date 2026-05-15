@@ -522,10 +522,13 @@ possible-world provenance `F_C(U)` equals the join-based provenance
 `S_C(U)` for all `C ≥ 1`. Absorptive is a strictly stronger hypothesis
 than the bare "idempotent + distributive" combination one might wish for,
 but it is what makes the `C = 1` base of the recurrence-driven induction
-go through, via `F_zero_eq_one`. All concrete idempotent m-semirings in
-the library with `mul_sub_left_distributive` (Bool, BoolFunc, IntervalUnion,
-Tropical, Viterbi, Łukasiewicz) are absorptive, so this hypothesis is
-satisfied in every case of interest. -/
+go through, via `F_zero_eq_one`. The absorptive hypothesis is essential:
+`Provenance.Semirings.Tropical.TropicalQ.F_ne_S` exhibits a non-absorptive
+(but idempotent and distributive) instance — `Tropical (WithTop ℚ)` — for
+which the conclusion fails. The idempotent m-semirings in the library
+with `mul_sub_left_distributive` that *are* absorptive (Bool, BoolFunc,
+IntervalUnion, `Tropical (WithTop ℕ)`, Viterbi, Łukasiewicz) all satisfy
+the conclusion. -/
 theorem F_eq_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) (U : Finset ι) (C : ℕ) :
     F α U (C + 1) = S α U (C + 1) := by

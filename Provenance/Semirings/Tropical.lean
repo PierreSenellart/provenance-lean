@@ -2,6 +2,7 @@ import Mathlib.Algebra.Tropical.Basic
 import Mathlib.Algebra.Order.Ring.Rat
 import Mathlib.Data.Real.Basic
 
+import Provenance.Having
 import Provenance.SemiringWithMonus
 import Provenance.Semirings.BoolFunc
 
@@ -320,3 +321,159 @@ theorem TropicalN.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
       ¬ ∃ φ : BoolFunc Y →+* Tropical (WithTop ℕ),
         ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_mul_idem TropicalN.not_mul_idempotent
+
+/-! ### Counterexample to `Having.F_eq_S` without absorptivity
+
+Unlike `Tropical (WithTop ℕ)` (canonically ordered, hence absorptive via
+`Tropical.absorptive`), `Tropical (WithTop ℚ)` is **not** absorptive: with
+`a = trop (-1)` we have `1 + a = trop (min 0 (-1)) = trop (-1) ≠ trop 0 = 1`.
+
+The tropical m-semiring over `ℚ` is still idempotent and satisfies
+`mul_sub_left_distributive`, so it satisfies the "idempotent + ⊗-over-⊖
+distributive" hypotheses one might hope to suffice for `Having.F_eq_S`.
+The witness below shows that the strengthened hypothesis (absorptivity) is
+genuinely required: on `U = {true, false} ⊆ Bool` and `α ≡ trop (-1)` we
+have `S_1(U) = trop (-1)` but `F_1(U) = trop (-2)`. -/
+
+/-- `Tropical (WithTop ℚ)` is **not** absorptive: `1 + trop (-1) = trop (-1) ≠ 1`.
+The proof goes through `tropical_order_ge`: `a + 1 = 1` would force
+`untrop a ≥ untrop 1 = 0`, but with `a = trop (-1)` we have `untrop a = -1`. -/
+theorem TropicalQ.not_absorptive : ¬ absorptive (Tropical (WithTop ℚ)) := by
+  intro h
+  have h1 := h (Tropical.trop ((-1 : ℚ) : WithTop ℚ))
+  rw [add_comm] at h1
+  have hge := (tropical_order_ge _ _).mpr h1
+  rw [Tropical.untrop_one] at hge
+  have hlt : ((-1 : ℚ) : WithTop ℚ) < (0 : WithTop ℚ) := by
+    show ((-1 : ℚ) : WithTop ℚ) < ((0 : ℚ) : WithTop ℚ)
+    exact_mod_cast (by norm_num : (-1 : ℚ) < 0)
+  exact absurd hge (not_le.mpr hlt)
+
+namespace TropicalQ
+
+/-- Counterexample family: the constant `α ≡ trop (-1)` on `Bool`. -/
+private def α_ce : Bool → Tropical (WithTop ℚ) :=
+  fun _ => Tropical.trop ((-1 : ℚ) : WithTop ℚ)
+
+private theorem A_ce_singleton (b : Bool) :
+    Having.A α_ce ({b} : Finset Bool) = Tropical.trop ((-1 : ℚ) : WithTop ℚ) := by
+  simp [Having.A, α_ce]
+
+private theorem A_ce_true_false :
+    Having.A α_ce ({true, false} : Finset Bool) =
+      Tropical.trop ((-2 : ℚ) : WithTop ℚ) := by
+  show ∏ x ∈ ({true, false} : Finset Bool), α_ce x = _
+  rw [Finset.prod_pair (by decide : true ≠ false)]
+  show Tropical.trop ((-1 : ℚ) : WithTop ℚ) * Tropical.trop ((-1 : ℚ) : WithTop ℚ) = _
+  apply Tropical.untrop_injective
+  rw [Tropical.untrop_mul]
+  show ((-1 : ℚ) : WithTop ℚ) + ((-1 : ℚ) : WithTop ℚ) = ((-2 : ℚ) : WithTop ℚ)
+  norm_cast
+
+private theorem A_ce_false_true :
+    Having.A α_ce ({false, true} : Finset Bool) =
+      Tropical.trop ((-2 : ℚ) : WithTop ℚ) := by
+  rw [show ({false, true} : Finset Bool) = ({true, false} : Finset Bool) from by decide]
+  exact A_ce_true_false
+
+/-- `S_1` on `U = {true, false}` collapses by idempotence: both singleton
+monomials equal `trop (-1)`, and `trop (-1) + trop (-1) = trop (-1)`. -/
+private theorem S_ce_univ_one :
+    Having.S α_ce (Finset.univ : Finset Bool) 1 =
+      Tropical.trop ((-1 : ℚ) : WithTop ℚ) := by
+  show ∑ W ∈ (Finset.univ : Finset Bool).powersetCard 1, Having.A α_ce W = _
+  rw [show ((Finset.univ : Finset Bool).powersetCard 1)
+        = ({({true} : Finset Bool), {false}} : Finset (Finset Bool)) from by decide]
+  rw [Finset.sum_pair (by decide : ({true} : Finset Bool) ≠ {false})]
+  rw [A_ce_singleton true, A_ce_singleton false]
+  exact Tropical.idempotent _
+
+private theorem neg1_ge_neg2 :
+    ((-1 : ℚ) : WithTop ℚ) ≥ ((-2 : ℚ) : WithTop ℚ) := by
+  exact_mod_cast (by norm_num : (-1 : ℚ) ≥ -2)
+
+/-- The "exactly-`{b}`" contribution vanishes for both singletons: the
+monus `trop (-1) ⊖ trop (-2)` collapses to `0` because `-1 ≥ -2` puts
+`trop (-2)` above `trop (-1)` in the natural (reverse) order. -/
+private theorem T_ce_singleton_eq_zero (b : Bool) :
+    Having.T α_ce (Finset.univ : Finset Bool) ({b} : Finset Bool) = 0 := by
+  show Having.A α_ce {b} -
+       ∑ x ∈ ((Finset.univ : Finset Bool) \ {b}),
+         Having.A α_ce (insert x {b}) = 0
+  have huniv : (Finset.univ : Finset Bool) \ ({b} : Finset Bool) = {!b} := by
+    cases b <;> decide
+  rw [huniv, Finset.sum_singleton]
+  have hAinsert : Having.A α_ce (insert (!b) ({b} : Finset Bool)) =
+      Tropical.trop ((-2 : ℚ) : WithTop ℚ) := by
+    cases b
+    · exact A_ce_true_false
+    · exact A_ce_false_true
+  rw [A_ce_singleton, hAinsert]
+  show (if Tropical.untrop (Tropical.trop ((-1 : ℚ) : WithTop ℚ)) ≥
+           Tropical.untrop (Tropical.trop ((-2 : ℚ) : WithTop ℚ)) then
+        (⊤ : Tropical (WithTop ℚ)) else _) = 0
+  simp only [Tropical.untrop_trop]
+  rw [if_pos neg1_ge_neg2]
+  rfl
+
+/-- The maximal subset contributes `trop (-2)`: with `U \ {true, false} = ∅`,
+the residual sum is `0 = trop ⊤`, and `trop (-2) ⊖ 0 = trop (-2)` since
+`¬ (-2 ≥ ⊤)`. -/
+private theorem T_ce_univ_eq_neg2 :
+    Having.T α_ce (Finset.univ : Finset Bool) ({true, false} : Finset Bool) =
+      Tropical.trop ((-2 : ℚ) : WithTop ℚ) := by
+  show Having.A α_ce {true, false} -
+       ∑ x ∈ ((Finset.univ : Finset Bool) \ {true, false}),
+         Having.A α_ce (insert x {true, false}) = _
+  rw [show ((Finset.univ : Finset Bool) \ ({true, false} : Finset Bool))
+        = (∅ : Finset Bool) from by decide]
+  rw [Finset.sum_empty, A_ce_true_false]
+  show (if Tropical.untrop (Tropical.trop ((-2 : ℚ) : WithTop ℚ)) ≥
+           Tropical.untrop (0 : Tropical (WithTop ℚ)) then
+        (⊤ : Tropical (WithTop ℚ)) else _) = _
+  rw [if_neg]
+  rw [Tropical.untrop_zero]
+  intro h
+  have h' : (⊤ : WithTop ℚ) ≤ ((-2 : ℚ) : WithTop ℚ) := h
+  rw [top_le_iff] at h'
+  exact WithTop.coe_ne_top h'
+
+/-- `F_1` aggregates `T_U(W)` over `W ∈ {{true}, {false}, {true, false}}`;
+the singletons contribute `0` (by `T_ce_singleton_eq_zero`) and the maximal
+subset contributes `trop (-2)`. -/
+private theorem F_ce_univ_one :
+    Having.F α_ce (Finset.univ : Finset Bool) 1 =
+      Tropical.trop ((-2 : ℚ) : WithTop ℚ) := by
+  show ∑ W ∈ (Finset.univ : Finset Bool).powerset.filter (fun W => 1 ≤ W.card),
+         Having.T α_ce (Finset.univ : Finset Bool) W = _
+  rw [show ((Finset.univ : Finset Bool).powerset.filter (fun W => 1 ≤ W.card))
+        = ({({true} : Finset Bool), {false}, {true, false}}
+            : Finset (Finset Bool)) from by decide]
+  rw [show ({({true} : Finset Bool), {false}, {true, false}}
+            : Finset (Finset Bool))
+        = insert ({true} : Finset Bool)
+            ({({false} : Finset Bool), {true, false}}
+              : Finset (Finset Bool)) from rfl]
+  rw [Finset.sum_insert (by decide :
+      ({true} : Finset Bool) ∉
+        ({({false} : Finset Bool), {true, false}} : Finset (Finset Bool)))]
+  rw [Finset.sum_pair (by decide :
+      ({false} : Finset Bool) ≠ ({true, false} : Finset Bool))]
+  rw [T_ce_singleton_eq_zero true, T_ce_singleton_eq_zero false, T_ce_univ_eq_neg2]
+  rw [zero_add, zero_add]
+
+end TropicalQ
+
+/-- The HAVING-count identity `F_C(U) = S_C(U)` from `Having.F_eq_S`
+fails in `Tropical (WithTop ℚ)`: with `U = Finset.univ : Finset Bool`,
+`α ≡ trop (-1)`, and `C = 1`, we have `F_1(U) = trop (-2)` while
+`S_1(U) = trop (-1)`. This shows that `Having.F_eq_S` genuinely needs the
+absorptivity hypothesis (cf. `TropicalQ.not_absorptive`): the weaker
+"idempotent + `mul_sub_left_distributive`" combination satisfied by
+`Tropical (WithTop ℚ)` (and by `Tropical (WithTop ℝ)`) is insufficient. -/
+theorem TropicalQ.F_ne_S :
+    Having.F TropicalQ.α_ce (Finset.univ : Finset Bool) 1 ≠
+      Having.S TropicalQ.α_ce (Finset.univ : Finset Bool) 1 := by
+  rw [TropicalQ.F_ce_univ_one, TropicalQ.S_ce_univ_one]
+  intro h
+  exact absurd (WithTop.coe_injective (Tropical.trop_injective h)) (by norm_num)
