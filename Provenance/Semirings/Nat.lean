@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 /-!
 # Counting m-semiring
@@ -69,3 +70,10 @@ theorem Nat.not_absorptive : ¬ (absorptive Nat) := by
 /-- `ℕ` has characteristic 0: it satisfies `CharZero`, hence `CharP ℕ 0` via
 `CharP.ofCharZero`. -/
 theorem Nat.charP_zero : CharP Nat 0 := inferInstance
+
+/-- There is no semiring homomorphism from `BoolFunc X` to `ℕ` sending the
+variables to arbitrary values: `ℕ` is not absorptive (`1 + 1 = 2 ≠ 1`),
+which contradicts `var i + 1 = 1` in `BoolFunc X`. -/
+theorem Nat.no_hom_from_BoolFunc {X : Type} [Inhabited X] :
+    ∃ ν : X → ℕ, ¬ ∃ φ : BoolFunc X →+* ℕ, ∀ i : X, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_absorptive Nat.not_absorptive

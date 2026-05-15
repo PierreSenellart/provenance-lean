@@ -3,6 +3,7 @@ import Mathlib.Algebra.MvPolynomial.Eval
 import Mathlib.Data.Finsupp.ToDFinsupp
 
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.Nat
 
 /-!
@@ -223,3 +224,13 @@ omit [DecidableEq X] in
 /-- `ℕ[X]` has characteristic 0 in the `CharP` sense, inherited from `CharZero` via
 `CharP.ofCharZero`. -/
 theorem How.charP_zero : CharP (MvPolynomial X ℕ) 0 := inferInstance
+
+omit [DecidableEq X] in
+/-- There is no semiring homomorphism from `BoolFunc Y` to `ℕ[X]` sending the
+variables to arbitrary values: `ℕ[X]` is not absorptive, which contradicts
+`var i + 1 = 1` in `BoolFunc Y`. -/
+theorem How.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+    ∃ ν : Y → MvPolynomial X ℕ,
+      ¬ ∃ φ : BoolFunc Y →+* MvPolynomial X ℕ,
+        ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_absorptive How.not_absorptive

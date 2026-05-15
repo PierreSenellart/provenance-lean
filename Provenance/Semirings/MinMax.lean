@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 import Mathlib.Order.BoundedOrder.Basic
 
@@ -249,3 +250,42 @@ theorem TVL.not_mul_sub_left_distributive : ¬(mul_sub_left_distributive (MaxMin
   simp
   use ⟨TVL.unknown⟩, ⟨TVL.top⟩, ⟨TVL.unknown⟩
   decide
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to `MaxMin TVL` sending the
+variables to arbitrary values. The semiring `MaxMin TVL` is absorptive and has
+both idempotent addition and idempotent multiplication, so the simple
+obstructions don't apply: the failure is more subtle.
+
+The argument uses only that a semiring homomorphism preserves `+` and `*`
+(monus is irrelevant here, even though one of the elements we exhibit
+happens to be written using BoolFunc's monus). In `BoolFunc Y`, the element
+`c := 1 - var i` satisfies two purely additive/multiplicative identities:
+`var i + c = 1` and `var i * c = 0`. Applying any semiring homomorphism `φ`
+and writing `y := φ c` (an arbitrary element of the target), this forces
+`φ (var i) + y = 1` and `φ (var i) * y = 0`. Setting `φ (var i) = ⟨unknown⟩`
+in `MaxMin TVL`: the first equation reduces to `max(unknown, y.val) = top`,
+forcing `y.val = top`; the second reduces to `min(unknown, y.val) = bot`,
+forcing `y.val = bot`. The two are incompatible.
+
+The same obstruction extends to `MinMax α` whenever `α` has at least three
+distinct order values. -/
+theorem TVL.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+    ∃ ν : Y → MaxMin TVL,
+      ¬ ∃ φ : BoolFunc Y →+* MaxMin TVL,
+        ∀ i : Y, φ (BoolFunc.var i) = ν i := by
+  refine ⟨fun _ => ⟨TVL.unknown⟩, ?_⟩
+  rintro ⟨φ, hφ⟩
+  set v := BoolFunc.var (default : Y)
+  have hadd_bf : v + (1 - v) = (1 : BoolFunc Y) := BoolFunc.add_sub_self v
+  have hmul_bf : v * (1 - v) = (0 : BoolFunc Y) := BoolFunc.mul_sub_self v
+  have hφv : φ v = (⟨TVL.unknown⟩ : MaxMin TVL) := hφ (default : Y)
+  have hadd : φ v + φ (1 - v) = 1 := by rw [← φ.map_add, hadd_bf, φ.map_one]
+  have hmul : φ v * φ (1 - v) = 0 := by rw [← φ.map_mul, hmul_bf, φ.map_zero]
+  rw [hφv] at hadd hmul
+  have key : ∀ y : MaxMin TVL,
+      ¬ ((⟨TVL.unknown⟩ : MaxMin TVL) + y = 1 ∧
+         (⟨TVL.unknown⟩ : MaxMin TVL) * y = 0) := by
+    intro y
+    obtain ⟨w⟩ := y
+    cases w <;> decide
+  exact key (φ (1 - v)) ⟨hadd, hmul⟩

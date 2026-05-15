@@ -3,6 +3,7 @@ import Mathlib.Algebra.Order.Ring.Rat
 import Mathlib.Data.Real.Basic
 
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 /-!
 # Tropical m-semiring
@@ -226,3 +227,25 @@ instance TropicalQ.instCharPZero : CharP (Tropical (WithTop ℚ)) 0 :=
   CharP.zero_of_idempotent Tropical.idempotent
 noncomputable instance TropicalR.instCharPZero : CharP (Tropical (WithTop ℝ)) 0 :=
   CharP.zero_of_idempotent Tropical.idempotent
+
+/-- The tropical semiring over `ℕ ∪ {∞}` does not have idempotent multiplication:
+`Tropical.trop 1 * Tropical.trop 1 = Tropical.trop 2 ≠ Tropical.trop 1`. (Tropical
+multiplication is the original additive monoid operation, which is not idempotent
+on `ℕ`.) -/
+theorem TropicalN.not_mul_idempotent :
+    ¬ ∀ a : Tropical (WithTop ℕ), a * a = a := by
+  push Not
+  refine ⟨Tropical.trop (1 : WithTop ℕ), ?_⟩
+  intro h
+  have : Tropical.trop (1 + 1 : WithTop ℕ) = Tropical.trop (1 : WithTop ℕ) := h
+  have h' : (1 + 1 : WithTop ℕ) = (1 : WithTop ℕ) := Tropical.trop_injective this
+  exact absurd h' (by decide)
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to the tropical semiring
+over `ℕ ∪ {∞}` sending the variables to arbitrary values: tropical multiplication
+is not idempotent, contradicting `var i * var i = var i` in `BoolFunc Y`. -/
+theorem TropicalN.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+    ∃ ν : Y → Tropical (WithTop ℕ),
+      ¬ ∃ φ : BoolFunc Y →+* Tropical (WithTop ℕ),
+        ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_mul_idem TropicalN.not_mul_idempotent

@@ -1,8 +1,14 @@
+import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Data.EReal.Basic
+import Mathlib.Data.Fintype.Basic
+import Mathlib.Data.Fintype.Pi
 import Mathlib.Data.List.Sort
 import Mathlib.Data.Set.Lattice
 import Mathlib.Logic.Nontrivial.Defs
+import Mathlib.Order.CompleteLattice.Finset
 import Mathlib.Tactic.Linarith
+import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.Interval
 import Provenance.SemiringWithMonus
 
@@ -1411,3 +1417,224 @@ noncomputable instance : SemiringWithMonus (IntervalUnion EReal) := inferInstanc
 
 /-- The interval-union semiring over the extended rationals. -/
 instance : SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ))) := inferInstance
+
+/-! ## Homomorphism from `BoolFunc Y` to `IntervalUnion`
+
+For any assignment `ν : Y → IntervalUnion β` with `Y` finite, there is an
+m-semiring homomorphism `BoolFunc Y →+* IntervalUnion β` sending each
+variable to its assigned interval union.
+
+**Construction.** For `f ∈ BoolFunc Y`, write `f` in disjunctive normal form
+over the finite variable set `Y`:
+`f = ⋁_σ (⋀_i var_i^{σ(i)})`, where `σ : Y → Bool` ranges over assignments
+with `f σ = true` and `var_i^true = var_i`, `var_i^false = 1 - var_i`. Define
+`evalBF ν f := ∑_σ (if f σ then atomIU ν σ else 0)` where
+`atomIU ν σ := ∏_i (if σ i then ν i else 1 - ν i)`. This is a finite Boolean
+combination of the `ν(i)`'s, hence lies in `IntervalUnion β`.
+
+The correctness rests on the set-theoretic characterisation
+`mem_atomIU_iff_sig`: `x ∈ (atomIU ν σ).toSet` iff `σ` is the ν-signature of
+`x`, where the ν-signature `sigOf ν x` sends each `i` to `decide (x ∈ ν i)`.
+This yields `(evalBF ν f).toSet = {x : β | f (sigOf ν x) = true}`
+(`evalBF_toSet`), from which preservation of `0`, `1`, `+`, `*`, monus,
+and the variable mapping all follow.
+
+For **infinite** `Y`, no such homomorphism exists in general: the set
+`{x | f(τ_x) = true}` need not be a finite union of intervals when `f`
+depends non-trivially on infinitely many variables. So `Fintype Y` is
+essential. -/
+
+namespace BoolFuncHom
+
+set_option linter.unusedSectionVars false
+
+open Classical
+
+variable {β : Type} [LinearOrder β] [DenselyOrdered β] [BoundedOrder β]
+variable {Y : Type} [Fintype Y] [DecidableEq Y]
+
+/-- toSet of `+`: union of toSets. -/
+private lemma add_toSet (U V : IntervalUnion β) : (U + V).toSet = U.toSet ∪ V.toSet := by
+  apply Set.ext; intro x
+  rw [add_eq_union, IntervalUnion.mem_union]; rfl
+
+/-- toSet of `*`: intersection of toSets. -/
+private lemma mul_toSet (U V : IntervalUnion β) : (U * V).toSet = U.toSet ∩ V.toSet := by
+  apply Set.ext; intro x
+  rw [mul_eq_inter, IntervalUnion.mem_inter]; rfl
+
+/-- toSet of `-`: set difference. -/
+private lemma sub_toSet (U V : IntervalUnion β) : (U - V).toSet = U.toSet \ V.toSet := by
+  apply Set.ext; intro x
+  rw [sub_eq_diff, IntervalUnion.mem_diff]; rfl
+
+/-- toSet of a `Finset.sum` is the union of toSets. -/
+private lemma sum_toSet {ι : Type _} (s : Finset ι) (f : ι → IntervalUnion β) :
+    (∑ i ∈ s, f i).toSet = ⋃ i ∈ s, (f i).toSet := by
+  induction s using Finset.induction_on with
+  | empty => simp [IntervalUnion.toSet]
+  | insert _ _ hi ih =>
+    rw [Finset.sum_insert hi, add_toSet, ih, Finset.set_biUnion_insert]
+
+/-- toSet of a `Finset.prod` is the intersection of toSets. -/
+private lemma prod_toSet {ι : Type _} (s : Finset ι) (f : ι → IntervalUnion β) :
+    (∏ i ∈ s, f i).toSet = ⋂ i ∈ s, (f i).toSet := by
+  induction s using Finset.induction_on with
+  | empty => simp [one_toSet]
+  | insert _ _ hi ih =>
+    rw [Finset.prod_insert hi, mul_toSet, ih, Finset.set_biInter_insert]
+
+/-- The atom for a Boolean signature: the IntervalUnion of those `x : β`
+whose membership in each `ν i` matches `σ i`. -/
+private def atomIU (ν : Y → IntervalUnion β) (σ : Y → Bool) : IntervalUnion β :=
+  ∏ i, if σ i then ν i else 1 - ν i
+
+/-- toSet of `1 - ν i`: complement of `ν i.toSet`. -/
+private lemma sub_one_toSet (a : IntervalUnion β) :
+    (1 - a).toSet = (a.toSet)ᶜ := by
+  rw [sub_eq_diff]
+  ext x
+  rw [IntervalUnion.mem_diff]
+  simp [one_toSet]
+
+/-- Membership in `atomIU ν σ`: the ν-signature of `x` equals `σ`. -/
+private lemma mem_atomIU_toSet (ν : Y → IntervalUnion β) (σ : Y → Bool) (x : β) :
+    x ∈ (atomIU ν σ).toSet ↔ ∀ i, (x ∈ (ν i).toSet ↔ σ i = true) := by
+  rw [atomIU, prod_toSet]
+  simp only [Set.mem_iInter, Finset.mem_univ, forall_const]
+  refine forall_congr' fun i => ?_
+  by_cases hσ : σ i = true
+  · rw [if_pos hσ]
+    simp [hσ]
+  · rw [if_neg hσ, sub_one_toSet, Set.mem_compl_iff]
+    simp [hσ]
+
+/-- The canonical ν-signature of a point `x : β`: the Bool-valued function on `Y`
+sending `i` to `true` iff `x` belongs to `ν i`. Noncomputable because membership
+in `(ν i).toSet` is decided classically. -/
+private noncomputable def sigOf (ν : Y → IntervalUnion β) (x : β) : Y → Bool :=
+  fun i => decide (x ∈ (ν i).toSet)
+
+/-- `x` belongs to `atomIU ν σ` iff `σ` is the ν-signature of `x`. -/
+private lemma mem_atomIU_iff_sig (ν : Y → IntervalUnion β) (σ : Y → Bool) (x : β) :
+    x ∈ (atomIU ν σ).toSet ↔ sigOf ν x = σ := by
+  rw [mem_atomIU_toSet, funext_iff]
+  refine forall_congr' fun i => ?_
+  rw [sigOf]
+  cases σ i <;> simp
+
+/-- The DNF evaluation of a Boolean function: the IntervalUnion whose toSet is
+the set of `x : β` such that `f` holds on `x`'s ν-signature. -/
+private noncomputable def evalBF (ν : Y → IntervalUnion β) (f : BoolFunc Y) : IntervalUnion β :=
+  ∑ σ : Y → Bool, if f σ then atomIU ν σ else 0
+
+/-- toSet characterisation of `evalBF`. -/
+private lemma evalBF_toSet (ν : Y → IntervalUnion β) (f : BoolFunc Y) :
+    (evalBF ν f).toSet = {x : β | f (sigOf ν x) = true} := by
+  rw [evalBF, sum_toSet]
+  ext x
+  simp only [Set.mem_iUnion, Set.mem_setOf_eq]
+  constructor
+  · rintro ⟨σ, _, hxσ⟩
+    by_cases hfσ : f σ = true
+    · rw [if_pos hfσ, mem_atomIU_iff_sig] at hxσ
+      rw [hxσ]; exact hfσ
+    · rw [if_neg hfσ, zero_toSet] at hxσ
+      exact absurd hxσ (Set.notMem_empty _)
+  · intro hf
+    refine ⟨sigOf ν x, Finset.mem_univ _, ?_⟩
+    rw [if_pos hf, mem_atomIU_iff_sig]
+
+/-- `evalBF` sends `0` to `0`. -/
+private lemma evalBF_zero (ν : Y → IntervalUnion β) : evalBF ν 0 = 0 := by
+  apply ext_toSet
+  rw [evalBF_toSet, zero_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+  show ¬ (false = true)
+  decide
+
+/-- `evalBF` sends `1` to `1`. -/
+private lemma evalBF_one (ν : Y → IntervalUnion β) : evalBF ν 1 = 1 := by
+  apply ext_toSet
+  rw [evalBF_toSet, one_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_univ, iff_true]
+  rfl
+
+/-- `evalBF` preserves addition. -/
+private lemma evalBF_add (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
+    evalBF ν (f + g) = evalBF ν f + evalBF ν g := by
+  apply ext_toSet
+  rw [add_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_union]
+  show ((f (sigOf ν x)) || (g (sigOf ν x))) = true ↔ _
+  simp [Bool.or_eq_true]
+
+/-- `evalBF` preserves multiplication. -/
+private lemma evalBF_mul (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
+    evalBF ν (f * g) = evalBF ν f * evalBF ν g := by
+  apply ext_toSet
+  rw [mul_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_inter_iff]
+  show ((f (sigOf ν x)) && (g (sigOf ν x))) = true ↔ _
+  simp [Bool.and_eq_true]
+
+/-- `evalBF` preserves monus. -/
+private lemma evalBF_sub (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
+    evalBF ν (f - g) = evalBF ν f - evalBF ν g := by
+  apply ext_toSet
+  rw [sub_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq, Set.mem_diff]
+  show ((f (sigOf ν x)) && !(g (sigOf ν x))) = true ↔ _
+  rw [Bool.and_eq_true]
+  refine and_congr_right (fun _ => ?_)
+  cases g (sigOf ν x) <;> simp
+
+/-- `evalBF` sends the i-th variable to `ν i`. -/
+private lemma evalBF_var (ν : Y → IntervalUnion β) (i : Y) :
+    evalBF ν (BoolFunc.var i) = ν i := by
+  apply ext_toSet
+  rw [evalBF_toSet]
+  ext x
+  simp only [Set.mem_setOf_eq]
+  show sigOf ν x i = true ↔ _
+  rw [sigOf, Bool.decide_iff]
+
+end BoolFuncHom
+
+open BoolFuncHom
+
+/-- For any assignment `ν : Y → IntervalUnion β` with `Y` finite, there is an
+m-semiring homomorphism `BoolFunc Y →+* IntervalUnion β` sending each
+variable `BoolFunc.var i` to `ν i`. The homomorphism is the DNF evaluation
+`evalBF`: `f ↦ ∑_σ (if f σ then atomIU ν σ else 0)`. -/
+theorem IntervalUnion.homomorphism_from_BoolFunc
+    (β : Type) [LinearOrder β] [DenselyOrdered β] [BoundedOrder β]
+    (Y : Type) [Fintype Y] [DecidableEq Y] :
+    ∀ ν : Y → IntervalUnion β,
+      ∃ h : SemiringWithMonusHom (BoolFunc Y) (IntervalUnion β),
+        ∀ i : Y, h (BoolFunc.var i) = ν i := by
+  intro ν
+  refine ⟨{
+    toFun := evalBF ν
+    map_zero' := evalBF_zero ν
+    map_one'  := evalBF_one ν
+    map_add'  := evalBF_add ν
+    map_mul'  := evalBF_mul ν
+    map_sub   := evalBF_sub ν
+  }, ?_⟩
+  intro i
+  exact evalBF_var ν i
+
+/-- Specialisation of `IntervalUnion.homomorphism_from_BoolFunc` to the
+extended rationals. -/
+theorem IntervalUnion.homomorphism_from_BoolFunc_rat
+    (Y : Type) [Fintype Y] [DecidableEq Y] :
+    ∀ ν : Y → IntervalUnion (WithBot (WithTop ℚ)),
+      ∃ h : SemiringWithMonusHom (BoolFunc Y) (IntervalUnion (WithBot (WithTop ℚ))),
+        ∀ i : Y, h (BoolFunc.var i) = ν i :=
+  IntervalUnion.homomorphism_from_BoolFunc _ Y

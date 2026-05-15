@@ -82,4 +82,23 @@ theorem Bool.homomorphism_from_BoolFunc :
     have := congrFun heq default
     tauto
 
+/-- For any assignment `ν : X → Bool` of Boolean variables to Booleans, the
+evaluation map `f ↦ f ν` is an m-semiring homomorphism `BoolFunc X → Bool`
+sending each variable `BoolFunc.var i` to `ν i`. -/
+theorem Bool.homomorphism_to_BoolFunc {X : Type} :
+    ∀ ν : X → Bool,
+      ∃ h : SemiringWithMonusHom (BoolFunc X) Bool,
+        ∀ i : X, h (BoolFunc.var i) = ν i := by
+  intro ν
+  refine ⟨{
+    toFun     := fun f => f ν
+    map_zero' := rfl
+    map_one'  := rfl
+    map_add'  := by intro a b; rfl
+    map_mul'  := by intro a b; rfl
+    map_sub   := by intro a b; rfl
+  }, ?_⟩
+  intro i
+  rfl
+
 end Bool

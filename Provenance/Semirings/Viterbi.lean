@@ -2,6 +2,7 @@ import Mathlib.Data.NNReal.Basic
 import Mathlib.Algebra.Order.Ring.Basic
 
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 open scoped Classical
 
@@ -209,6 +210,27 @@ instance : Nontrivial Viterbi :=
 nontrivial, so every positive natural-number cast equals `1`. -/
 instance instCharPZero : CharP Viterbi 0 :=
   CharP.zero_of_idempotent Viterbi.idempotent
+
+/-- Viterbi multiplication is not idempotent: `(1/2) * (1/2) = 1/4 ≠ 1/2`. -/
+theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
+  push Not
+  have hle : ((1 : NNReal) / 2) ≤ 1 := by
+    rw [div_le_iff₀ (by norm_num : (0 : NNReal) < 2)]; norm_num
+  refine ⟨⟨(1 : NNReal) / 2, hle⟩, ?_⟩
+  intro h
+  have h' : ((1 : NNReal) / 2) * ((1 : NNReal) / 2) = (1 : NNReal) / 2 :=
+    congrArg Subtype.val h
+  field_simp at h'
+  norm_num at h'
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to `Viterbi` sending the
+variables to arbitrary values: Viterbi multiplication (ordinary product on
+`[0,1]`) is not idempotent, contradicting `var i * var i = var i` in
+`BoolFunc Y`. -/
+theorem no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+    ∃ ν : Y → Viterbi,
+      ¬ ∃ φ : BoolFunc Y →+* Viterbi, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_mul_idem not_mul_idempotent
 
 theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
   intro a b c

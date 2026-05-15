@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Lattice.Basic
 
@@ -282,3 +283,12 @@ theorem Which.not_mul_sub_left_distributive [Inhabited α] :
   have x := (default: α)
   use wset {x}, wset {x}, wset ∅
   simp[(· * ·),Mul.mul,(· - ·),Sub.sub]
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to `Which α` (with `α`
+inhabited) sending the variables to arbitrary values: `Which α` is not
+absorptive (`Which.not_absorptive`), which contradicts `var i + 1 = 1` in
+`BoolFunc Y`. -/
+theorem Which.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
+    ∃ ν : Y → Which α,
+      ¬ ∃ φ : BoolFunc Y →+* Which α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_absorptive (Which.not_absorptive ⟨default, trivial⟩)

@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 
 /-!
 # Why-provenance m-semiring `Why[X]`
@@ -294,3 +295,12 @@ theorem Why.not_mul_sub_left_distributive [Inhabited α] :
   have x := (default: α)
   use ⟨{{x}}⟩, ⟨{∅}⟩, ⟨{{x}}⟩
   simp[(· * ·),Mul.mul,why_mul,(· - ·),Sub.sub]
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to `Why α` (with `α`
+inhabited) sending the variables to arbitrary values: `Why α` is not
+absorptive (`Why.not_absorptive`), which contradicts `var i + 1 = 1` in
+`BoolFunc Y`. -/
+theorem Why.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
+    ∃ ν : Y → Why α,
+      ¬ ∃ φ : BoolFunc Y →+* Why α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_absorptive (Why.not_absorptive ⟨default, trivial⟩)

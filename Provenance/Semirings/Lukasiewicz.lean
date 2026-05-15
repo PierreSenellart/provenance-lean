@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.BoolFunc
 import Mathlib.Order.Interval.Set.Defs
 import Mathlib.Data.Rat.Init
 import Mathlib.Algebra.Order.Ring.Rat
@@ -333,6 +334,33 @@ instance : Nontrivial Lukasiewicz :=
 nontrivial, so every positive natural-number cast equals `1`. -/
 instance Lukasiewicz.instCharPZero : CharP Lukasiewicz 0 :=
   CharP.zero_of_idempotent Lukasiewicz.idempotent
+
+/-- Łukasiewicz multiplication is not idempotent: `(1/2) * (1/2) = max(0, 0) = 0 ≠ 1/2`. -/
+theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by
+  push Not
+  have h0 : (0 : ℚ) ≤ (1 : ℚ) / 2 := by
+    rw [le_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+  have h1 : (1 : ℚ) / 2 ≤ 1 := by
+    rw [div_le_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+  refine ⟨⟨(1 : ℚ) / 2, ⟨h0, h1⟩⟩, ?_⟩
+  intro h
+  have h' := congrArg Subtype.val h
+  simp [(· * ·), Mul.mul] at h'
+  have hmax : max ((2 : ℚ)⁻¹ + (2 : ℚ)⁻¹ - 1) 0 = 0 :=
+    max_eq_right (by norm_num)
+  rw [hmax] at h'
+  have hpos : (0 : ℚ) < (2 : ℚ)⁻¹ := by
+    rw [inv_pos]; norm_num
+  exact hpos.ne h'
+
+/-- There is no semiring homomorphism from `BoolFunc Y` to the Łukasiewicz
+semiring sending the variables to arbitrary values: Łukasiewicz multiplication
+is not idempotent (`(1/2) ⊗ (1/2) = 0 ≠ 1/2`), contradicting
+`var i * var i = var i` in `BoolFunc Y`. -/
+theorem Lukasiewicz.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
+    ∃ ν : Y → Lukasiewicz,
+      ¬ ∃ φ : BoolFunc Y →+* Lukasiewicz, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
+  BoolFunc.no_hom_of_not_mul_idem Lukasiewicz.not_mul_idempotent
 
 theorem Lukasiewicz.mul_sub_left_distributive :
   mul_sub_left_distributive Lukasiewicz := by
