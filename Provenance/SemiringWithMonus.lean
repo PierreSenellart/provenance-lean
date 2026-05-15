@@ -303,6 +303,18 @@ theorem idempotent_iff_add_monus [SemiringWithMonus α] :
   idempotent α ↔ ∀ a b c : α, (a + b) - c = (a - c) + (b - c)
     := ⟨add_monus_of_idempotent, idempotent_of_add_monus⟩
 
+/-- Finite-family version of `add_monus_of_idempotent`: in an idempotent
+  `SemiringWithMonus`, monus distributes over the sum of any multiset of
+  annotations, `(⨁ᵢ aᵢ) ⊖ c = ⨁ᵢ (aᵢ ⊖ c)`. -/
+theorem add_monus_of_idempotent_multiset [SemiringWithMonus α] (h: idempotent α) :
+  ∀ (s : Multiset α) (c : α), s.sum - c = (s.map (· - c)).sum := by
+    intro s c
+    induction s using Multiset.induction_on with
+    | empty => simp [zero_monus]
+    | cons a s ih =>
+      rw [Multiset.map_cons, Multiset.sum_cons, Multiset.sum_cons,
+          add_monus_of_idempotent h, ih]
+
 theorem monus_le [SemiringWithMonus α] :
   ∀ a b : α, a - b ≤ a := by
     simp[SemiringWithMonus.monus_spec]

@@ -304,3 +304,64 @@ theorem Why.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
     ∃ ν : Y → Why α,
       ¬ ∃ φ : BoolFunc Y →+* Why α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive (Why.not_absorptive ⟨default, trivial⟩)
+
+/-- The two natural expansions of `HAVING (count = 2)` for a three-tuple
+group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕ (t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)`
+and `(t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)`, are inequivalent in `Why[X]`.
+With `t₁ = ⟨{{0}}⟩`, `t₂ = ⟨{{1}}⟩`, `t₃ = ⟨{∅}⟩ = 𝟙` over `X = Fin 2`, the
+first expression has carrier `{{0}, {1}}` while the second has the strictly
+larger carrier `{{0, 1}, {0}, {1}}`. The witness set `{0, 1}` separates
+them. -/
+theorem Why.counterexample_having :
+    ∃ t₁ t₂ t₃ : Why (Fin 2),
+      (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
+        ≠ t₁ * t₂ + t₁ * t₃ + t₂ * t₃ := by
+  refine ⟨⟨{{0}}⟩, ⟨{{1}}⟩, ⟨{∅}⟩, ?_⟩
+  intro h
+  -- `{0, 1}` lies in the RHS carrier via the `t₁ * t₂` summand …
+  have h01_eq : ({0, 1} : Set (Fin 2)) = ({0} : Set (Fin 2)) ∪ ({1} : Set (Fin 2)) :=
+    (Set.singleton_union).symm
+  have hRHS : ({0, 1} : Set (Fin 2)) ∈
+      ((⟨{{0}}⟩ * ⟨{{1}}⟩ + ⟨{{0}}⟩ * ⟨{∅}⟩ + ⟨{{1}}⟩ * ⟨{∅}⟩ : Why (Fin 2))).carrier := by
+    show ({0, 1} : Set (Fin 2)) ∈
+        (why_mul ⟨{{0}}⟩ ⟨{{1}}⟩).carrier ∪
+          (why_mul ⟨{{0}}⟩ ⟨{∅}⟩).carrier ∪
+            (why_mul ⟨{{1}}⟩ ⟨{∅}⟩).carrier
+    refine Or.inl (Or.inl ⟨{0}, {1}, ?_, ?_, h01_eq⟩)
+    · change ({0} : Set (Fin 2)) ∈ ({{0}} : Set (Set (Fin 2))); simp
+    · change ({1} : Set (Fin 2)) ∈ ({{1}} : Set (Set (Fin 2))); simp
+  -- … but it is absent from the LHS, by case analysis on the three summands.
+  have hcarr := congrArg Why.carrier h
+  rw [← hcarr] at hRHS
+  rcases hRHS with hRHS | hRHS
+  · rcases hRHS with hRHS | hRHS
+    · -- First summand: `(1 - t₃).carrier = ({∅} \ {∅}) = ∅`, impossible.
+      obtain ⟨_, y, _, hy, _⟩ := hRHS
+      change y ∈ ({∅} \ {∅} : Set (Set (Fin 2))) at hy
+      simp at hy
+    · -- Second summand: `(t₁ * t₃) * (1 - t₂)` has carrier `{{0}}`.
+      obtain ⟨x, y, hx, hy, hxy⟩ := hRHS
+      obtain ⟨a, b, ha, hb, hab⟩ := hx
+      have hy_eq : y = (∅ : Set (Fin 2)) := hy.1
+      change a ∈ ({{0}} : Set (Set (Fin 2))) at ha
+      change b ∈ ({∅} : Set (Set (Fin 2))) at hb
+      simp at ha hb
+      subst ha; subst hb; subst hy_eq
+      have hx_eq : x = ({0} : Set (Fin 2)) := by rw [hab]; ext n; simp
+      have hbad : ({0, 1} : Set (Fin 2)) = ({0} : Set (Fin 2)) := by
+        rw [hxy, hx_eq]; ext n; simp
+      have h1mem : (1 : Fin 2) ∈ ({0, 1} : Set (Fin 2)) := by simp
+      rw [hbad] at h1mem; simp at h1mem
+  · -- Third summand: `(t₂ * t₃) * (1 - t₁)` has carrier `{{1}}`.
+    obtain ⟨x, y, hx, hy, hxy⟩ := hRHS
+    obtain ⟨a, b, ha, hb, hab⟩ := hx
+    have hy_eq : y = (∅ : Set (Fin 2)) := hy.1
+    change a ∈ ({{1}} : Set (Set (Fin 2))) at ha
+    change b ∈ ({∅} : Set (Set (Fin 2))) at hb
+    simp at ha hb
+    subst ha; subst hb; subst hy_eq
+    have hx_eq : x = ({1} : Set (Fin 2)) := by rw [hab]; ext n; simp
+    have hbad : ({0, 1} : Set (Fin 2)) = ({1} : Set (Fin 2)) := by
+      rw [hxy, hx_eq]; ext n; simp
+    have h0mem : (0 : Fin 2) ∈ ({0, 1} : Set (Fin 2)) := by simp
+    rw [hbad] at h0mem; simp at h0mem

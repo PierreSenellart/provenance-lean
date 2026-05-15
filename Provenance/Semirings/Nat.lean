@@ -83,3 +83,15 @@ which contradicts `var i + 1 = 1` in `BoolFunc X`. -/
 theorem Nat.no_hom_from_BoolFunc {X : Type} [Inhabited X] :
     ∃ ν : X → ℕ, ¬ ∃ φ : BoolFunc X →+* ℕ, ∀ i : X, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive Nat.not_absorptive
+
+/-- Over `ℕ`, the two natural expansions of `HAVING (count = 2)` for a
+three-tuple group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕
+(t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)` and `(t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)`, differ.
+With `t₁ = t₂ = t₃ = 1`, the first expression evaluates to `0` while the
+second evaluates to `3`. -/
+theorem Nat.counterexample_having :
+    let t₁ : ℕ := 1
+    let t₂ : ℕ := 1
+    let t₃ : ℕ := 1
+    (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
+      ≠ t₁ * t₂ + t₁ * t₃ + t₂ * t₃ := by decide
