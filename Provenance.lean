@@ -10,6 +10,9 @@ import Provenance.QueryAnnotatedDatabaseHom
 /- HAVING algebraic identities -/
 import Provenance.Having
 
+/- Algorithms (HAVING enumeration) -/
+import Provenance.Algorithms.CountEnum
+
 /- Various semirings -/
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
@@ -60,6 +63,13 @@ the provenance-aware relational database system
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
+
+**Algorithms**
+
+- `Provenance.Algorithms.CountEnum` — enumeration of valid possible worlds for
+  `HAVING count op C` predicates: definitions of `combinations`, `addExact`, and
+  `countEnum`, together with the correctness theorem `countEnum_correct`
+  ([Sen, Maniu & Senellart][sen2026provsql], Algorithm 2)
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 
