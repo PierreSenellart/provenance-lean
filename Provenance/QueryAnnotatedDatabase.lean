@@ -10,13 +10,22 @@ import Provenance.Util.KeyAccValueList
 This file defines the evaluation of relational algebra queries over annotated databases.
 Query operators are lifted to annotated relations using the m-semiring operations of the
 annotation domain `K`: addition corresponds to union, multiplication to join, and
-monus to difference.
+monus to difference. This is the algebra of Section IV-B of
+[Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+Provenance and Probability of Data*][sen2026provsql], itself an adaptation of
+[Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance] to
+multiset semantics with explicit duplicate elimination and multiset difference.
 
 ## Main definitions
 
 * `Query.evaluateAnnotated` — evaluates a query over an `AnnotatedDatabase T K`,
   propagating annotations through each relational operator according to the semiring
   structure of `K`
+
+## References
+
+* [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section IV-B)
+* [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 -/
 
 variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]

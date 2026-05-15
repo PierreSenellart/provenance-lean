@@ -11,13 +11,21 @@ import Provenance.SemiringWithMonus
 # Annotated databases
 
 This file extends the relational model with provenance annotations drawn from an
-m-semiring `K`.
+m-semiring `K`. Annotated relations are the data model of Section IV-A of
+[Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+Provenance and Probability of Data*][sen2026provsql] (a multiset variant of the
+`K`-relations of [Green, Karvounarakis & Tannen][green2007provenance]).
 
 ## Main definitions
 
 * `AnnotatedTuple T K n` — a tuple of arity `n` paired with an annotation in `K`
 * `AnnotatedRelation T K n` — a multiset of annotated tuples of arity `n`
 * `AnnotatedDatabase T K` — a mapping from relation names to annotated relations
+
+## References
+
+* [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section IV-A)
+* [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 -/
 
 variable {T: Type} [ValueType T]

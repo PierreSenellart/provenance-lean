@@ -23,7 +23,10 @@ Many semirings relevant for provenance can be equipped with a monus -
 operator, resulting in what is called a semiring with monus, or
 m-semiring. This is standard in semiring theory [amer1984equationally] and was
 introduced in the setting of provenance semirings by Geerts and Poggi
-[geerts2010database].
+[geerts2010database]. The class is the algebraic structure underlying the
+annotated query semantics of Section IV-A of
+[Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+Provenance and Probability of Data*][sen2026provsql] (Definition 5).
 
 ## References
 
@@ -31,6 +34,7 @@ introduced in the setting of provenance semirings by Geerts and Poggi
 monus*][amer1984equationally]
 * [Geerts & Poggi, *On database query languages for
 K-relations*][geerts2010database]
+* [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Definition 5)
 
 -/
 

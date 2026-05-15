@@ -10,6 +10,9 @@ import Provenance.QueryAnnotatedDatabaseHom
 /- HAVING algebraic identities -/
 import Provenance.Having
 
+/- Probability distributions over Boolean variables -/
+import Provenance.Probability
+
 /- Algorithms (HAVING enumeration) -/
 import Provenance.Algorithms.CountEnum
 import Provenance.Algorithms.SumDP

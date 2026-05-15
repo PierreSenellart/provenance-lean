@@ -12,7 +12,11 @@ import Provenance.Database
 # Relational algebra
 
 This file defines the abstract syntax and semantics of relational algebra queries over
-plain (unannotated) databases.
+plain (unannotated) databases. The language is the *extended relational algebra*
+described in Section III of
+[Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+Provenance and Probability of Data*][sen2026provsql], with multiset semantics,
+explicit duplicate elimination, multiset difference, and aggregation.
 
 ## Main definitions
 
@@ -21,6 +25,10 @@ plain (unannotated) databases.
 * `Query T` — a relational algebra query: selection, projection, union, join,
   difference, and renaming
 * `Query.evaluate` — the standard set semantics of queries over `Database T`
+
+## References
+
+* [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section III)
 -/
 
 variable {T: Type} [ValueType T]
