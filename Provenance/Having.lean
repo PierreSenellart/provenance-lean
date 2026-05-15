@@ -480,4 +480,97 @@ theorem absorbing_subfamily (α : ι → K) (h_abs : absorptive K)
         Finset.single_le_sum_of_canonicallyOrdered (f := A α) hW'M
   · exact Finset.sum_le_sum_of_subset hM_sub
 
+/-! ### F equals S: algebraic skeleton of `HAVING count ≥ C`
+
+The possible-world provenance `F_C(U)` agrees with the join-based provenance
+`S_C(U)` for all `C ≥ 1`, in any absorptive commutative m-semiring with
+left-distributivity of `⊗` over `⊖`. Proof by induction on `U.card` driven
+by the `FC_recurrence` and `SC_recurrence` recurrences; the `C = 1` base of
+the recurrence (where `F α U' 0` and `S α U' 0` appear on the right-hand
+side) is closed by the auxiliary fact `F_zero_eq_one`.
+-/
+
+/-- In an absorptive idempotent m-semiring, `F α U 0 = 𝟙`: the
+unconstrained possible-world provenance collapses to `𝟙`. Lower bound
+from `upward_expansion` with `V = ∅`; upper bound from `T α U W ≤ A α W`
+and `A α W ≤ 𝟙` (the latter via `prod_le_one_absorptive`). -/
+theorem F_zero_eq_one (h_idem : idempotent K) (h_abs : absorptive K)
+    (α : ι → K) (U : Finset ι) : F α U 0 = 1 := by
+  apply le_antisymm
+  · -- F α U 0 ≤ 𝟙: every summand T α U W ≤ A α W ≤ 𝟙.
+    simp only [F]
+    have hfilter : U.powerset.filter (fun W => 0 ≤ W.card) = U.powerset := by
+      ext W; simp
+    rw [hfilter]
+    apply sum_le_of_forall_le h_idem
+    intro W _
+    calc T α U W ≤ A α W := by unfold T; exact monus_le _ _
+      _ ≤ 1 := prod_le_one_absorptive h_abs α W
+  · -- 𝟙 ≤ F α U 0 by `upward_expansion` with V = ∅.
+    have hAempty : A α (∅ : Finset ι) = 1 := by simp [A]
+    have h := upward_expansion α h_idem U ∅ (Finset.empty_subset U)
+    rw [hAempty] at h
+    have hfilter_eq : U.powerset.filter ((∅ : Finset ι) ⊆ ·) =
+        U.powerset.filter (fun W => 0 ≤ W.card) := by
+      ext W; simp
+    rw [hfilter_eq] at h
+    exact h
+
+/-- **Algebraic skeleton of Theorem 1(i)** for `HAVING count ≥ C`: in an
+absorptive commutative m-semiring with `mul_sub_left_distributive`, the
+possible-world provenance `F_C(U)` equals the join-based provenance
+`S_C(U)` for all `C ≥ 1`. Absorptive is a strictly stronger hypothesis
+than the bare "idempotent + distributive" combination one might wish for,
+but it is what makes the `C = 1` base of the recurrence-driven induction
+go through, via `F_zero_eq_one`. All concrete idempotent m-semirings in
+the library with `mul_sub_left_distributive` (Bool, BoolFunc, IntervalUnion,
+Tropical, Viterbi, Łukasiewicz) are absorptive, so this hypothesis is
+satisfied in every case of interest. -/
+theorem F_eq_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+    (α : ι → K) (U : Finset ι) (C : ℕ) :
+    F α U (C + 1) = S α U (C + 1) := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  suffices h : ∀ n : ℕ, ∀ U' : Finset ι, U'.card = n →
+      ∀ C : ℕ, F α U' (C + 1) = S α U' (C + 1) from
+    h U.card U rfl C
+  intro n
+  induction n with
+  | zero =>
+    intro U' hU' C
+    have hUempty : U' = ∅ := Finset.card_eq_zero.mp hU'
+    subst hUempty
+    have hF : F α (∅ : Finset ι) (C + 1) = 0 := by
+      unfold F
+      have : ((∅ : Finset ι).powerset.filter (fun W => C + 1 ≤ W.card)) = ∅ := by
+        ext W
+        simp only [Finset.mem_filter, Finset.mem_powerset, Finset.subset_empty,
+                   Finset.notMem_empty, iff_false, not_and]
+        intro hW
+        subst hW
+        simp
+      rw [this, Finset.sum_empty]
+    have hS : S α (∅ : Finset ι) (C + 1) = 0 := by
+      unfold S
+      have : ((∅ : Finset ι).powersetCard (C + 1)) = ∅ :=
+        Finset.powersetCard_eq_empty.mpr (by simp)
+      rw [this, Finset.sum_empty]
+    rw [hF, hS]
+  | succ n ih =>
+    intro U' hU' C
+    obtain ⟨u, hu⟩ : U'.Nonempty := Finset.card_pos.mp (hU' ▸ Nat.succ_pos _)
+    have hcard' : (U'.erase u).card = n := by
+      rw [Finset.card_erase_of_mem hu, hU']; omega
+    rw [FC_recurrence α h_idem h_distrib hu C, SC_recurrence α hu C]
+    congr 1
+    · exact ih (U'.erase u) hcard' C
+    · cases C with
+      | zero =>
+        rw [F_zero_eq_one h_idem h_abs α (U'.erase u)]
+        have hS0 : S α (U'.erase u) 0 = 1 := by
+          simp only [S, Finset.powersetCard_zero, Finset.sum_singleton,
+                     A, Finset.prod_empty]
+        rw [hS0]
+      | succ C' =>
+        rw [ih (U'.erase u) hcard' C']
+
 end Having
