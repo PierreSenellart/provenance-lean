@@ -28,8 +28,9 @@ a homomorphism out of `ℕ[X]` and does not connect it to query evaluation.
 in `Provenance/Semirings/How.lean`), so it could not factor every m-semiring
 evaluation even if we restricted to the operators it supports. Second, on the
 implementation side, ProvSQL's circuit has gate types that go beyond the
-semiring framework altogether: `δ` (the Amsterdamer-Deutch-Tannen δ operator
-for aggregation row provenance), `cmp` (HAVING-style comparison gates),
+semiring framework altogether: `δ` (the δ operator for aggregation row
+provenance from [Amsterdamer, Deutch & Tannen, *Provenance for aggregate
+queries*][amsterdamer2011aggregate]), `cmp` (HAVING-style comparison gates),
 `agg` / `semimod` / `value` (the K-semimodule construction for aggregate
 values), `mulinput` (block-independent database alternatives), and the
 continuous-distribution stack `rv` / `arith` / `mixture`. The commutation
