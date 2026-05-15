@@ -53,6 +53,21 @@ a `HAVING count ≥ C` predicate. -/
 def F (α : ι → K) (U : Finset ι) (C : ℕ) : K :=
   ∑ W ∈ U.powerset.filter (fun W => C ≤ W.card), T α U W
 
+/-- Alternative form `T_U(W) = A_W ⊗ (𝟙 ⊖ ⊕_{x ∈ U \ W} α x)`. This is the
+shape in which `T_U(W)` first arises from the possible-world semantics; the
+definition of `T` is the rewritten form obtained via distributivity of `⊗`
+over `⊖` and over `⊕`. Holds in any commutative m-semiring with
+`mul_sub_left_distributive`. -/
+theorem T_eq_mul_one_monus_sum (α : ι → K) (h_distrib : mul_sub_left_distributive K)
+    (U W : Finset ι) :
+    T α U W = A α W * (1 - ∑ x ∈ U \ W, α x) := by
+  simp only [T, A]
+  rw [h_distrib, mul_one, Finset.mul_sum]
+  congr 1
+  refine Finset.sum_congr rfl (fun x hx => ?_)
+  have hxW : x ∉ W := (Finset.mem_sdiff.mp hx).2
+  rw [Finset.prod_insert hxW, mul_comm]
+
 /-- Include/exclude recurrence for the JOIN-based provenance `S`:
 `S_{C+1}(U) = S_{C+1}(U \ {u}) ⊕ S_C(U \ {u}) ⊗ α u`. The proof partitions
 `(insert u U').powersetCard (C+1)` into subsets that do not contain `u` and
@@ -394,5 +409,75 @@ theorem FC_recurrence (α : ι → K) (h_idem : idempotent K)
         ≤ F α U (C + 1) + F α U (C + 1) := add_le_add hFU'_le_FU hII_le_FU
       _ = F α U (C + 1) := h_idem _
   exact le_antisymm hle1 hle2
+
+/-! ### Upward-closed family collapse in absorptive m-semirings
+
+The provenance of a finite family `F` of subsets, weighted by `A`, agrees
+with the provenance of any subfamily `M ⊆ F` such that every element of
+`F` contains some element of `M`. When `F` is upward-closed under
+inclusion, the canonical such `M` is the set of minimal elements of `F`.
+-/
+
+/-- Multiplication on the left is monotone in any `SemiringWithMonus` (the
+`CanonicallyOrderedAdd` structure makes the additive witness of `≤`
+multiply through). -/
+private theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
+    a * b ≤ a * c := by
+  obtain ⟨d, rfl⟩ := exists_add_of_le h
+  rw [mul_add]
+  exact le_self_add
+
+/-- In an absorptive `CommSemiringWithMonus`, any finite product of
+annotations is bounded above by `𝟙`. -/
+private theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
+    ∀ S : Finset ι, ∏ x ∈ S, α x ≤ 1 := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  have hα_le_one : ∀ x, α x ≤ 1 := fun x => by
+    rw [le_iff_add_eq h_idem, add_comm]; exact h_abs (α x)
+  intro S
+  induction S using Finset.induction with
+  | empty => simp
+  | insert x t hxt ih =>
+    rw [Finset.prod_insert hxt]
+    calc α x * ∏ y ∈ t, α y
+        ≤ α x * 1 := mul_le_mul_left_canonical _ ih
+      _ = α x := mul_one _
+      _ ≤ 1 := hα_le_one x
+
+/-- In an absorptive `CommSemiringWithMonus`, the monomial `A` is monotone
+*decreasing* under inclusion: enlarging a subset can only decrease its
+annotation, since each additional factor is bounded by `𝟙`. -/
+private theorem A_le_of_subset_absorptive (h_abs : absorptive K) (α : ι → K)
+    {W W' : Finset ι} (hW'W : W' ⊆ W) :
+    A α W ≤ A α W' := by
+  have hdisj : Disjoint W' (W \ W') := Finset.disjoint_sdiff
+  have hunion : W = W' ∪ (W \ W') := (Finset.union_sdiff_of_subset hW'W).symm
+  simp only [A]
+  conv_lhs => rw [hunion, Finset.prod_union hdisj]
+  calc (∏ x ∈ W', α x) * (∏ x ∈ W \ W', α x)
+      ≤ (∏ x ∈ W', α x) * 1 :=
+        mul_le_mul_left_canonical _ (prod_le_one_absorptive h_abs α _)
+    _ = ∏ x ∈ W', α x := mul_one _
+
+/-- Upward-closed family collapse: in an absorptive commutative m-semiring,
+the `A`-weighted sum over a finite family `F` equals the `A`-weighted sum
+over any subfamily `M ⊆ F` such that every element of `F` is a superset of
+some element of `M`. Taking `M` = the minimal elements of `F` (when `F` is
+upward-closed) is the canonical application: the provenance of an
+upward-closed family of worlds collapses to the provenance of its minimal
+worlds. -/
+theorem absorbing_subfamily (α : ι → K) (h_abs : absorptive K)
+    {F M : Finset (Finset ι)} (hM_sub : M ⊆ F)
+    (hcover : ∀ W ∈ F, ∃ W' ∈ M, W' ⊆ W) :
+    ∑ W ∈ F, A α W = ∑ W ∈ M, A α W := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  apply le_antisymm
+  · apply sum_le_of_forall_le h_idem
+    intro W hW
+    obtain ⟨W', hW'M, hW'W⟩ := hcover W hW
+    calc A α W ≤ A α W' := A_le_of_subset_absorptive h_abs α hW'W
+      _ ≤ ∑ W'' ∈ M, A α W'' :=
+        Finset.single_le_sum_of_canonicallyOrdered (f := A α) hW'M
+  · exact Finset.sum_le_sum_of_subset hM_sub
 
 end Having
