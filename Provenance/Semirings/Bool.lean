@@ -50,9 +50,8 @@ instance : SemiringWithMonus Bool where
   monus_spec := by decide
   delta := id
   delta_zero := rfl
-  delta_natCast_pos := by
-    intro n hn
-    exact natCast_pos_eq_one_of_idempotent (by decide) hn
+  delta_natCast_pos := fun hn => delta_natCast_pos_id (by decide) hn
+  delta_regrouping := delta_regrouping_id
 
 
 theorem Bool.absorptive : absorptive Bool := by decide

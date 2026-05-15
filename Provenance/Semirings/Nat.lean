@@ -12,6 +12,13 @@ The natural order is the usual order on natural numbers, and monus coincides wit
 Mathlib's `Nat.sub`.
 -/
 
+/-- ProvSQL's `Counting::delta`: the support indicator. -/
+private def Nat.deltaInd (n : ℕ) : ℕ := if n = 0 then 0 else 1
+
+private theorem Nat.deltaInd_isIndicator : IsDeltaIndicator Nat.deltaInd where
+  zero := rfl
+  nonzero := fun a ha => by simp [Nat.deltaInd, ha]
+
 /-- `ℕ` is a commutative m-semiring. The natural order is the usual order on
 natural numbers, and the monus is truncated subtraction. The δ operator matches
 ProvSQL's `Counting::delta`: the support indicator (`0 ↦ 0`, positive ↦ `1`). -/
@@ -46,11 +53,10 @@ instance : SemiringWithMonus Nat where
           simp
           apply Nat.le_succ_of_le
           exact h
-  delta n := if n = 0 then 0 else 1
-  delta_zero := by simp
-  delta_natCast_pos := by
-    intro n hn
-    simp [Nat.cast_id, Nat.ne_of_gt hn]
+  delta := Nat.deltaInd
+  delta_zero := Nat.deltaInd_isIndicator.zero
+  delta_natCast_pos := delta_natCast_pos_indicator Nat.deltaInd_isIndicator
+  delta_regrouping := delta_regrouping_indicator Nat.deltaInd_isIndicator
 
 instance : HasAltLinearOrder Nat where
   altOrder := inferInstance

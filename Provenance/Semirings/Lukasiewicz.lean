@@ -283,6 +283,30 @@ instance : CanonicallyOrderedAdd Lukasiewicz where
     intro a b
     simp[(· + ·), Add.add]
 
+instance : Nontrivial Lukasiewicz :=
+  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
+
+theorem Lukasiewicz.absorptive : absorptive Lukasiewicz := by
+  intro a
+  simp[(· + ·), Add.add]
+  exact a.property.2
+
+theorem Lukasiewicz.idempotent : idempotent Lukasiewicz :=
+  idempotent_of_absorptive (Lukasiewicz.absorptive)
+
+/-- `Lukasiewicz` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial, so every positive natural-number cast equals `1`. -/
+instance Lukasiewicz.instCharPZero : CharP Lukasiewicz 0 :=
+  CharP.zero_of_idempotent Lukasiewicz.idempotent
+
+/-- ProvSQL's `Lukasiewicz::delta`: the support indicator. -/
+private def Lukasiewicz.deltaInd (a : Lukasiewicz) : Lukasiewicz :=
+  if a = 0 then 0 else 1
+
+private theorem Lukasiewicz.deltaInd_isIndicator : IsDeltaIndicator Lukasiewicz.deltaInd where
+  zero := by simp [Lukasiewicz.deltaInd]
+  nonzero := fun a ha => by simp [Lukasiewicz.deltaInd, ha]
+
 /-- `Lukasiewicz` is a commutative m-semiring. The natural order is the usual rational
 order, and the monus is `a` if `a > b`, `0` if `a ≤ b`. The δ operator matches ProvSQL's
 `Lukasiewicz::delta`: the support indicator. -/
@@ -304,36 +328,10 @@ instance : SemiringWithMonus Lukasiewicz where
         exact c.property.1
       . simp[hab] at h
         by_cases hbc: b ≤ c <;> simp[hab] <;> exact h
-  delta a := if a = 0 then 0 else 1
-  delta_zero := by simp
-  delta_natCast_pos := by
-    have habs : absorptive Lukasiewicz := fun a => by
-      simp [(· + ·), Add.add]
-      exact a.property.2
-    have hidem : idempotent Lukasiewicz := idempotent_of_absorptive habs
-    have hone_ne_zero : (1 : Lukasiewicz) ≠ 0 :=
-      fun h => one_ne_zero (congrArg Subtype.val h)
-    intro n hn
-    have hcast : ((n : Lukasiewicz)) = 1 :=
-      natCast_pos_eq_one_of_idempotent hidem hn
-    show (if ((n : Lukasiewicz)) = 0 then (0 : Lukasiewicz) else 1) = 1
-    rw [hcast, if_neg hone_ne_zero]
-
-theorem Lukasiewicz.absorptive : absorptive Lukasiewicz := by
-  intro a
-  simp[(· + ·), Add.add]
-  exact a.property.2
-
-theorem Lukasiewicz.idempotent : idempotent Lukasiewicz :=
-  idempotent_of_absorptive (Lukasiewicz.absorptive)
-
-instance : Nontrivial Lukasiewicz :=
-  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
-
-/-- `Lukasiewicz` has characteristic 0 in the `CharP` sense: it is idempotent and
-nontrivial, so every positive natural-number cast equals `1`. -/
-instance Lukasiewicz.instCharPZero : CharP Lukasiewicz 0 :=
-  CharP.zero_of_idempotent Lukasiewicz.idempotent
+  delta := Lukasiewicz.deltaInd
+  delta_zero := Lukasiewicz.deltaInd_isIndicator.zero
+  delta_natCast_pos := delta_natCast_pos_indicator Lukasiewicz.deltaInd_isIndicator
+  delta_regrouping := delta_regrouping_indicator Lukasiewicz.deltaInd_isIndicator
 
 /-- Łukasiewicz multiplication is not idempotent: `(1/2) * (1/2) = max(0, 0) = 0 ≠ 1/2`. -/
 theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by

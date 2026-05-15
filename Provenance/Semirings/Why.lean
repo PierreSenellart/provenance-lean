@@ -251,10 +251,10 @@ instance : SemiringWithMonus (Why α) where
   `x.empty() ? zero() : x` collapses to the identity since `zero = ⟨∅⟩`). -/
   delta := id
   delta_zero := rfl
-  delta_natCast_pos := by
-    have hidem : idempotent (Why α) := fun a => by simp [(· + ·), Add.add]
-    intro n hn
-    exact natCast_pos_eq_one_of_idempotent hidem hn
+  delta_natCast_pos :=
+    let hidem : idempotent (Why α) := fun a => by simp [(· + ·), Add.add]
+    fun hn => delta_natCast_pos_id hidem hn
+  delta_regrouping := delta_regrouping_id
 
 theorem Why.idempotent : idempotent (Why α) := by
   intro a

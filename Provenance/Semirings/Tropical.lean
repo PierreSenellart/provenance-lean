@@ -43,11 +43,16 @@ theorem tropical_order_ge [LinearOrder α] :
     intro a b
     exact Tropical.add_eq_right_iff.symm
 
+/-- ProvSQL's `Tropical::delta`: the indicator of being nonzero. -/
+private noncomputable def Tropical.deltaInd
+    [LinearOrderedAddCommMonoidWithTop α] (a : Tropical α) : Tropical α :=
+  if a = 0 then 0 else 1
+
 /-- The tropical semiring is an m-semiring. The natural order of the
 semiring is the reverse of the usual order. The monus `a-b` is defined as
 `⊤` if `a≥b` (for the usual order, not the natural semiring order), and
 as `a` otherwise. -/
-instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α) where
+noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α) where
   sub a b := if (Tropical.untrop a ≥ Tropical.untrop b) then ⊤ else a
   le a b := Tropical.untrop a ≥ Tropical.untrop b
   lt a b := a+b = b ∧ a ≠ b
@@ -143,24 +148,83 @@ instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonus (Tropical α
           exact h''
 
   /- δ matches ProvSQL's `Tropical::delta`: the support indicator
-  (`0 = trop ⊤ ↦ 0`, any other element ↦ `1 = trop 0`). -/
-  delta a := if a = 0 then 0 else 1
-  delta_zero := by simp
+  (`0 = trop ⊤ ↦ 0`, any other element ↦ `1 = trop 0`).
+  The tropical semiring is idempotent, so a tropical `δ` could equally well be the
+  identity; we follow ProvSQL and use the indicator here.
+
+  The proofs below are local rather than going through the generic helpers
+  `delta_natCast_pos_indicator` / `delta_regrouping_indicator`: the tropical order
+  that makes the semiring canonically ordered is the *reverse* of the Mathlib order on
+  `Tropical α`, so we cannot expose a separate `CanonicallyOrderedAdd (Tropical α)`
+  instance without clashing with `Mathlib.Algebra.Tropical.Basic`. -/
+  delta := Tropical.deltaInd
+  delta_zero := by simp [Tropical.deltaInd]
   delta_natCast_pos := by
     have hidem : idempotent (Tropical α) := fun a => by simp [(· + ·), Add.add]
     intro n hn
     have hcast : ((n : Tropical α)) = 1 :=
       natCast_pos_eq_one_of_idempotent hidem hn
-    show (if ((n : Tropical α)) = 0 then (0 : Tropical α) else 1) = 1
-    rw [hcast]
+    show Tropical.deltaInd ((n : Tropical α)) = 1
+    rw [Tropical.deltaInd, hcast]
     split_ifs with hh
     · exact hh.symm
     · rfl
+  delta_regrouping := by
+    -- `Tropical α` analogue of `Multiset.sum_eq_zero_iff` (Mathlib only provides the
+    -- canonically-ordered version, but the tropical order here is reversed). Proved
+    -- by induction: zero in the tropical semiring is `trop ⊤`, addition is `min`,
+    -- and `min x y = ⊤ ↔ x = ⊤ ∧ y = ⊤`.
+    have hsum_zero : ∀ (t : Multiset (Tropical α)),
+        t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
+      intro t
+      induction t using Multiset.induction_on with
+      | empty => simp
+      | cons a r ih =>
+        rw [Multiset.sum_cons]
+        simp only [Multiset.mem_cons, forall_eq_or_imp]
+        constructor
+        · intro hadd
+          have h : min (Tropical.untrop a) (Tropical.untrop r.sum) = ⊤ := by
+            rw [← Tropical.untrop_add, hadd, Tropical.untrop_zero]
+          refine ⟨Tropical.untrop_injective ?_, ih.mp (Tropical.untrop_injective ?_)⟩
+          · rw [Tropical.untrop_zero]
+            exact le_antisymm le_top (by rw [← h]; exact min_le_left _ _)
+          · rw [Tropical.untrop_zero]
+            exact le_antisymm le_top (by rw [← h]; exact min_le_right _ _)
+        · rintro ⟨ha, hr⟩
+          rw [ha, ih.mpr hr, add_zero]
+    intro s
+    show Tropical.deltaInd (s.map Tropical.deltaInd).sum = Tropical.deltaInd s.sum
+    -- Both sides reduce to a single `if`; show the conditions coincide.
+    have hzero_iff : (s.map Tropical.deltaInd).sum = 0 ↔ s.sum = 0 := by
+      constructor
+      · intro h
+        refine (hsum_zero s).mpr (fun a ha => ?_)
+        by_contra hane
+        have h1eq : (1 : Tropical α) = 0 := by
+          have hmem : (1 : Tropical α) ∈ s.map Tropical.deltaInd :=
+            Multiset.mem_map.mpr ⟨a, ha, by simp [Tropical.deltaInd, hane]⟩
+          exact (hsum_zero _).mp h _ hmem
+        -- `1 = 0` in a semiring collapses everything to `0`.
+        apply hane
+        calc a = a * 1 := (mul_one a).symm
+          _ = a * 0 := by rw [h1eq]
+          _ = 0 := mul_zero a
+      · intro h
+        refine (hsum_zero _).mpr ?_
+        intro b hb
+        obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hb
+        simp [Tropical.deltaInd, (hsum_zero s).mp h a ha]
+    show (if (s.map Tropical.deltaInd).sum = 0 then (0 : Tropical α) else 1) =
+         if s.sum = 0 then (0 : Tropical α) else 1
+    by_cases hs : s.sum = 0
+    · rw [if_pos hs, if_pos (hzero_iff.mpr hs)]
+    · rw [if_neg hs, if_neg (fun h => hs (hzero_iff.mp h))]
 
 /-- The tropical semiring over `ℕ ∪ {∞}` is a semiring with monus. -/
-instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
+noncomputable instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/
-instance : SemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
+noncomputable instance : SemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
 
 /-- The tropical semiring over `ℝ ∪ {∞}` is a semiring with monus. Note
 that this contradicts [Geerts & Poggi, *On database query languages for

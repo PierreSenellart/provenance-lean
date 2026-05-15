@@ -230,12 +230,12 @@ instance : SemiringWithMonus (Which α) where
   /- δ matches ProvSQL's `Which::delta`: the identity. -/
   delta := id
   delta_zero := rfl
-  delta_natCast_pos := by
-    have hidem : idempotent (Which α) := fun a => by
+  delta_natCast_pos :=
+    let hidem : idempotent (Which α) := fun a => by
       simp [(· + ·), Add.add]
       cases ha: a <;> simp
-    intro n hn
-    exact natCast_pos_eq_one_of_idempotent hidem hn
+    fun hn => delta_natCast_pos_id hidem hn
+  delta_regrouping := delta_regrouping_id
 
 
 /-- Which[X] is not absorptive as long as there is at least one variable -/

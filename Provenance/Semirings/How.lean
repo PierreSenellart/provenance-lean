@@ -89,6 +89,23 @@ instance : CanonicallyOrderedAdd (MvPolynomial X ℕ) where
     exact le_add_of_nonneg_left (by simp)
 
 
+/-- `ℕ[X]` inherits `CharZero` from `ℕ`: the constant embedding `C : ℕ → MvPolynomial X ℕ`
+is injective, and `(n : MvPolynomial X ℕ) = C n`. (Equivalent to
+`Mathlib.RingTheory.MvPolynomial.Basic.instCharZero`, inlined here to avoid the heavy
+transitive imports of that file.) -/
+instance : CharZero (MvPolynomial X ℕ) where
+  cast_injective x y hxy := by
+    rwa [← MvPolynomial.C_eq_coe_nat, ← MvPolynomial.C_eq_coe_nat,
+         MvPolynomial.C_inj, Nat.cast_inj] at hxy
+
+/-- ProvSQL's `How::delta`: the support indicator. -/
+private noncomputable def How.deltaInd (p : MvPolynomial X ℕ) : MvPolynomial X ℕ :=
+  if p = 0 then 0 else 1
+
+private theorem How.deltaInd_isIndicator : IsDeltaIndicator (How.deltaInd (X := X)) where
+  zero := by simp [How.deltaInd]
+  nonzero := fun a ha => by simp [How.deltaInd, ha]
+
 /-- Marked as noncomputable only because the proof that `MvPolynomial` is a
 `CommutativeSemiring` is done in a non-computable way in Mathlib. We
 could redefine `MvPolynomial` to provide computable proofs.
@@ -103,18 +120,10 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
       exact Nat.sub_le_iff_le_add'.mp (h m)
     . intro h m
       exact Nat.sub_le_iff_le_add'.mpr (h m)
-  delta p := if p = 0 then 0 else 1
-  delta_zero := by simp
-  delta_natCast_pos := by
-    intro n hn
-    have hne : ((n : MvPolynomial X ℕ)) ≠ 0 := by
-      intro hzero
-      have := congrArg (MvPolynomial.coeff 0) hzero
-      rw [← MvPolynomial.C_eq_coe_nat, MvPolynomial.coeff_C,
-          MvPolynomial.coeff_zero] at this
-      simp at this
-      exact (Nat.ne_of_gt hn) this
-    simp [hne]
+  delta := How.deltaInd
+  delta_zero := How.deltaInd_isIndicator.zero
+  delta_natCast_pos := delta_natCast_pos_indicator How.deltaInd_isIndicator
+  delta_regrouping := delta_regrouping_indicator How.deltaInd_isIndicator
 
 omit [DecidableEq X] in
 theorem How.not_idempotent : ¬(idempotent (MvPolynomial X ℕ)) := by
@@ -210,15 +219,6 @@ theorem How.not_mul_sub_left_distributive [Inhabited X]:
     have : MvPolynomial.coeff (Finsupp.single x 1) 1 = 0 := by
       simp[MvPolynomial.coeff_one,eq_comm]
     simp[this] at hm
-
-/-- `ℕ[X]` inherits `CharZero` from `ℕ`: the constant embedding `C : ℕ → MvPolynomial X ℕ`
-is injective, and `(n : MvPolynomial X ℕ) = C n`. (Equivalent to
-`Mathlib.RingTheory.MvPolynomial.Basic.instCharZero`, inlined here to avoid the heavy
-transitive imports of that file.) -/
-instance : CharZero (MvPolynomial X ℕ) where
-  cast_injective x y hxy := by
-    rwa [← MvPolynomial.C_eq_coe_nat, ← MvPolynomial.C_eq_coe_nat,
-         MvPolynomial.C_inj, Nat.cast_inj] at hxy
 
 omit [DecidableEq X] in
 /-- `ℕ[X]` has characteristic 0 in the `CharP` sense, inherited from `CharZero` via

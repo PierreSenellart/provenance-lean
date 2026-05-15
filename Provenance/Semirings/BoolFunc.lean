@@ -164,11 +164,11 @@ instance : SemiringWithMonus (BoolFunc X) where
   /- δ matches ProvSQL's `BoolExpr::delta`: the identity. -/
   delta := id
   delta_zero := rfl
-  delta_natCast_pos := by
-    have hidem : idempotent (BoolFunc X) :=
+  delta_natCast_pos :=
+    let hidem : idempotent (BoolFunc X) :=
       idempotent_of_absorptive (fun a => by simp [(· + ·), Add.add]; congr)
-    intro n hn
-    exact natCast_pos_eq_one_of_idempotent hidem hn
+    fun hn => delta_natCast_pos_id hidem hn
+  delta_regrouping := delta_regrouping_id
 
 theorem BoolFunc.absorptive : absorptive (BoolFunc X) := by
   intro a

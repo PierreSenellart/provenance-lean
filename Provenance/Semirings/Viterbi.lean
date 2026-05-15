@@ -112,54 +112,46 @@ instance : PartialOrder Viterbi where
 @[simp] theorem le_def (a b : Viterbi) :
     a ≤ b ↔ (a: NNReal) ≤ (b: NNReal) := Iff.rfl
 
-/-- `Viterbi` is a commutative m-semiring. The natural order is the usual order on
-`[0,1]`, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
-noncomputable
-instance : SemiringWithMonus Viterbi where
-  sub a b := if (a : NNReal) ≤ (b : NNReal) then 0 else a
-  lt a b := a + b = b ∧ a ≠ b
-  le := (· ≤ ·)
-  le_refl := le_refl
-  le_trans := by intro a b c; exact le_trans
-  le_antisymm := by intro a b; exact le_antisymm
+noncomputable instance : Sub Viterbi :=
+  ⟨fun a b => if (a : NNReal) ≤ (b : NNReal) then 0 else a⟩
 
-  lt_iff_le_not_ge := by
-    intro a b
-    constructor
-    · intro h
-      rcases h with ⟨hab, hne⟩
-      have hle : (a : NNReal) ≤ (b : NNReal) := (viterbi_order_le a b).2 hab
-      have hnot : ¬ (b : NNReal) ≤ (a : NNReal) := by
-        intro hba
-        exact hne (Subtype.ext (le_antisymm hle hba))
-      exact ⟨hle, hnot⟩
-    · intro h
-      rcases h with ⟨hle, hnot⟩
-      have hab : a + b = b := (viterbi_order_le a b).1 hle
-      have hne : a ≠ b := by
-        intro heq
-        apply hnot
-        simp [heq]
-      exact ⟨hab, hne⟩
-
+instance : IsOrderedAddMonoid Viterbi where
   add_le_add_left := by
     intro a b hab c
     simpa using max_le_max hab (le_rfl : (c : NNReal) ≤ c)
 
+instance : CanonicallyOrderedAdd Viterbi where
   exists_add_of_le := by
     intro a b hab
     refine ⟨b, ?_⟩
     symm
     exact (viterbi_order_le a b).1 hab
+  le_self_add := by intro a b; simp
+  le_add_self := by intro a b; simp
 
-  le_self_add := by
-    intro a b
-    simp
+instance instNontrivial : Nontrivial Viterbi :=
+  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
 
-  le_add_self := by
-    intro a b
-    simp
+theorem absorptive' : absorptive Viterbi := by intro a; ext; simp [a.property]
 
+theorem idempotent' : idempotent Viterbi := idempotent_of_absorptive absorptive'
+
+/-- `Viterbi` has characteristic 0 in the `CharP` sense: it is idempotent and
+nontrivial. -/
+instance instCharPZero' : CharP Viterbi 0 := CharP.zero_of_idempotent idempotent'
+
+/-- ProvSQL's `Viterbi::delta`: the support indicator. -/
+private noncomputable def Viterbi.deltaInd (a : Viterbi) : Viterbi :=
+  if a = 0 then 0 else 1
+
+private theorem Viterbi.deltaInd_isIndicator : IsDeltaIndicator Viterbi.deltaInd where
+  zero := by simp [Viterbi.deltaInd]
+  nonzero := fun a ha => by simp [Viterbi.deltaInd, ha]
+
+/-- `Viterbi` is a commutative m-semiring. The natural order is the usual order on
+`[0,1]`, and the monus is `a` if `a > b`, `0` if `a ≤ b`. -/
+noncomputable
+instance : SemiringWithMonus Viterbi where
   monus_spec := by
     intro a b c
     show (if (a : NNReal) ≤ (b : NNReal) then (0 : Viterbi) else a) ≤ c ↔
@@ -181,35 +173,14 @@ instance : SemiringWithMonus Viterbi where
           · rw [max_eq_right hbc] at h; exact absurd (lt_of_lt_of_le hac h) (lt_irrefl _)
           · rw [max_eq_left hbc] at h; exact h
         exact hab hab'
+  delta := Viterbi.deltaInd
+  delta_zero := Viterbi.deltaInd_isIndicator.zero
+  delta_natCast_pos := delta_natCast_pos_indicator Viterbi.deltaInd_isIndicator
+  delta_regrouping := delta_regrouping_indicator Viterbi.deltaInd_isIndicator
 
-  /- δ matches ProvSQL's `Viterbi::delta`: the support indicator. -/
-  delta a := if a = 0 then 0 else 1
-  delta_zero := by simp
-  delta_natCast_pos := by
-    have habs : absorptive Viterbi := fun a => by ext; simp [a.property]
-    have hidem : idempotent Viterbi := idempotent_of_absorptive habs
-    have hone_ne_zero : (1 : Viterbi) ≠ 0 :=
-      fun h => zero_ne_one (Subtype.ext_iff.mp h.symm)
-    intro n hn
-    have hcast : ((n : Viterbi)) = 1 :=
-      natCast_pos_eq_one_of_idempotent hidem hn
-    show (if ((n : Viterbi)) = 0 then (0 : Viterbi) else 1) = 1
-    rw [hcast, if_neg hone_ne_zero]
+theorem absorptive : absorptive Viterbi := absorptive'
 
-theorem absorptive : absorptive Viterbi := by
-  intro a
-  ext
-  simp [a.property]
-
-theorem idempotent : idempotent Viterbi := idempotent_of_absorptive absorptive
-
-instance : Nontrivial Viterbi :=
-  ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
-
-/-- `Viterbi` has characteristic 0 in the `CharP` sense: it is idempotent and
-nontrivial, so every positive natural-number cast equals `1`. -/
-instance instCharPZero : CharP Viterbi 0 :=
-  CharP.zero_of_idempotent Viterbi.idempotent
+theorem idempotent : idempotent Viterbi := idempotent'
 
 /-- Viterbi multiplication is not idempotent: `(1/2) * (1/2) = 1/4 ≠ 1/2`. -/
 theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by

@@ -158,16 +158,16 @@ instance : SemiringWithMonus (MinMax α) where
   /- δ matches ProvSQL's `MinMax::delta`: the identity. -/
   delta := id
   delta_zero := rfl
-  delta_natCast_pos := by
-    have hidem : idempotent (MinMax α) :=
+  delta_natCast_pos :=
+    let hidem : idempotent (MinMax α) :=
       idempotent_of_absorptive (fun a => by
         simp [(· + ·), Add.add]
         congr
         simp
         left
         rfl)
-    intro n hn
-    exact natCast_pos_eq_one_of_idempotent hidem hn
+    fun hn => delta_natCast_pos_id hidem hn
+  delta_regrouping := delta_regrouping_id
 
 theorem MinMax.absorptive : absorptive (MinMax α) := by
   intro a
