@@ -132,13 +132,13 @@ instance : CanonicallyOrderedAdd Viterbi where
 instance instNontrivial : Nontrivial Viterbi :=
   ⟨0, 1, fun h => zero_ne_one (Subtype.ext_iff.mp h)⟩
 
-theorem absorptive' : absorptive Viterbi := by intro a; ext; simp [a.property]
+theorem absorptive : absorptive Viterbi := by intro a; ext; simp [a.property]
 
-theorem idempotent' : idempotent Viterbi := idempotent_of_absorptive absorptive'
+theorem idempotent : idempotent Viterbi := idempotent_of_absorptive absorptive
 
 /-- `Viterbi` has characteristic 0 in the `CharP` sense: it is idempotent and
 nontrivial. -/
-instance instCharPZero' : CharP Viterbi 0 := CharP.zero_of_idempotent idempotent'
+instance instCharPZero : CharP Viterbi 0 := CharP.zero_of_idempotent idempotent
 
 /-- ProvSQL's `Viterbi::delta`: the support indicator. -/
 private noncomputable def Viterbi.deltaInd (a : Viterbi) : Viterbi :=
@@ -181,10 +181,6 @@ instance : SemiringWithMonus Viterbi where
 noncomputable
 instance : CommSemiringWithMonus Viterbi where
   mul_comm := mul_comm
-
-theorem absorptive : absorptive Viterbi := absorptive'
-
-theorem idempotent : idempotent Viterbi := idempotent'
 
 /-- Viterbi multiplication is not idempotent: `(1/2) * (1/2) = 1/4 ≠ 1/2`. -/
 theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
