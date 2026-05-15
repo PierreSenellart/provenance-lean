@@ -170,6 +170,9 @@ instance : SemiringWithMonus (BoolFunc X) where
     fun hn => delta_natCast_pos_id hidem hn
   delta_regrouping := delta_regrouping_id
 
+instance : CommSemiringWithMonus (BoolFunc X) where
+  mul_comm := mul_comm
+
 theorem BoolFunc.absorptive : absorptive (BoolFunc X) := by
   intro a
   simp[(· + ·),Add.add]

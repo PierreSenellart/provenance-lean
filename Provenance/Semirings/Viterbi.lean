@@ -178,6 +178,10 @@ instance : SemiringWithMonus Viterbi where
   delta_natCast_pos := delta_natCast_pos_indicator Viterbi.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Viterbi.deltaInd_isIndicator
 
+noncomputable
+instance : CommSemiringWithMonus Viterbi where
+  mul_comm := mul_comm
+
 theorem absorptive : absorptive Viterbi := absorptive'
 
 theorem idempotent : idempotent Viterbi := idempotent'

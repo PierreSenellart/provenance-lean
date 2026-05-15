@@ -333,6 +333,9 @@ instance : SemiringWithMonus Lukasiewicz where
   delta_natCast_pos := delta_natCast_pos_indicator Lukasiewicz.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Lukasiewicz.deltaInd_isIndicator
 
+instance : CommSemiringWithMonus Lukasiewicz where
+  mul_comm := mul_comm
+
 /-- Łukasiewicz multiplication is not idempotent: `(1/2) * (1/2) = max(0, 0) = 0 ≠ 1/2`. -/
 theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by
   push Not

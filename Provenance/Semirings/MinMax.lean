@@ -169,6 +169,9 @@ instance : SemiringWithMonus (MinMax α) where
     fun hn => delta_natCast_pos_id hidem hn
   delta_regrouping := delta_regrouping_id
 
+instance : CommSemiringWithMonus (MinMax α) where
+  mul_comm := mul_comm
+
 theorem MinMax.absorptive : absorptive (MinMax α) := by
   intro a
   simp[(· + ·), Add.add]
@@ -203,6 +206,9 @@ instance : CommSemiring (MaxMin α) :=
 instance : SemiringWithMonus (MaxMin α) :=
   inferInstanceAs (SemiringWithMonus (MinMax (OrderDual α)))
 
+instance : CommSemiringWithMonus (MaxMin α) :=
+  inferInstanceAs (CommSemiringWithMonus (MinMax (OrderDual α)))
+
 instance {α : Type} [h : Nontrivial α] : Nontrivial (OrderDual α) := h
 
 /-- Three-valued logic `{⊥, unknown, ⊤}`, used as an instance of `MaxMin`. -/
@@ -234,6 +240,9 @@ instance : CommSemiring (MaxMin TVL) :=
   inferInstance
 
 instance : SemiringWithMonus (MaxMin TVL) :=
+  inferInstance
+
+instance : CommSemiringWithMonus (MaxMin TVL) :=
   inferInstance
 
 instance : Nontrivial TVL := ⟨TVL.bot, TVL.top, by decide⟩

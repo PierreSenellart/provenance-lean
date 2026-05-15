@@ -237,6 +237,9 @@ instance : SemiringWithMonus (Which α) where
     fun hn => delta_natCast_pos_id hidem hn
   delta_regrouping := delta_regrouping_id
 
+instance : CommSemiringWithMonus (Which α) where
+  mul_comm := mul_comm
+
 
 /-- Which[X] is not absorptive as long as there is at least one variable -/
 theorem Which.not_absorptive (h: ∃ (_: α), ⊤) : ¬(absorptive (Which α)) := by

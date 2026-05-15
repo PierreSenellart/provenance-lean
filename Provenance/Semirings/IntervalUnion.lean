@@ -1378,6 +1378,9 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
     fun hn => delta_natCast_pos_id (idempotent_of_absorptive habs) hn
   delta_regrouping := delta_regrouping_id
 
+instance [DenselyOrdered α] [BoundedOrder α] : CommSemiringWithMonus (IntervalUnion α) where
+  mul_comm := mul_comm
+
 /-- The interval-union semiring is absorptive: the multiplicative identity (the whole
 space) absorbs any element under addition (union). -/
 theorem IntervalUnion.absorptive [DenselyOrdered α] [BoundedOrder α] :
@@ -1414,9 +1417,11 @@ instance IntervalUnion.instCharPZero [DenselyOrdered α] [BoundedOrder α] :
 
 /-- The interval-union semiring over the extended reals `[-∞, +∞]`. -/
 noncomputable instance : SemiringWithMonus (IntervalUnion EReal) := inferInstance
+noncomputable instance : CommSemiringWithMonus (IntervalUnion EReal) := inferInstance
 
 /-- The interval-union semiring over the extended rationals. -/
 instance : SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ))) := inferInstance
+instance : CommSemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ))) := inferInstance
 
 /-! ## Homomorphism from `BoolFunc Y` to `IntervalUnion`
 

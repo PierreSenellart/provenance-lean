@@ -58,6 +58,9 @@ instance : SemiringWithMonus Nat where
   delta_natCast_pos := delta_natCast_pos_indicator Nat.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Nat.deltaInd_isIndicator
 
+instance : CommSemiringWithMonus Nat where
+  mul_comm := mul_comm
+
 instance : HasAltLinearOrder Nat where
   altOrder := inferInstance
 

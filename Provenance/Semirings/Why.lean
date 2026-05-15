@@ -256,6 +256,9 @@ instance : SemiringWithMonus (Why α) where
     fun hn => delta_natCast_pos_id hidem hn
   delta_regrouping := delta_regrouping_id
 
+instance : CommSemiringWithMonus (Why α) where
+  mul_comm := mul_comm
+
 theorem Why.idempotent : idempotent (Why α) := by
   intro a
   simp[(· + ·), Add.add]

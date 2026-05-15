@@ -221,10 +221,16 @@ noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonu
     · rw [if_pos hs, if_pos (hzero_iff.mpr hs)]
     · rw [if_neg hs, if_neg (fun h => hs (hzero_iff.mp h))]
 
+noncomputable instance [LinearOrderedAddCommMonoidWithTop α] :
+    CommSemiringWithMonus (Tropical α) where
+  mul_comm := mul_comm
+
 /-- The tropical semiring over `ℕ ∪ {∞}` is a semiring with monus. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
+noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℕ)) := inferInstance
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
+noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
 
 /-- The tropical semiring over `ℝ ∪ {∞}` is a semiring with monus. Note
 that this contradicts [Geerts & Poggi, *On database query languages for
@@ -232,6 +238,7 @@ K-relations*, Example 4][geerts2010database] which claims this semiring
 cannot be extended to a semiring with monus: indeed, that paper gives
 a wrong definition of the monus operator in the tropical semiring. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℝ)) := inferInstance
+noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℝ)) := inferInstance
 
 /-- The tropical semiring is absorptive, as long as the order in the
   addition monoid corresponds to a canonical order (e.g., as in ℕ) --/

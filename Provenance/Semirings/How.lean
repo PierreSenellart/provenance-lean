@@ -125,6 +125,9 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
   delta_natCast_pos := delta_natCast_pos_indicator How.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator How.deltaInd_isIndicator
 
+noncomputable instance : CommSemiringWithMonus (MvPolynomial X ℕ) where
+  mul_comm := mul_comm
+
 omit [DecidableEq X] in
 theorem How.not_idempotent : ¬(idempotent (MvPolynomial X ℕ)) := by
   simp

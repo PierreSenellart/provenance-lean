@@ -487,6 +487,29 @@ theorem delta_exists_iff_charP_zero {K : Type} [Semiring K] [Nontrivial K] :
         . simp [ha]
         . simp [ha, one_ne_zero]
 
+/-! ## Commutative `SemiringWithMonus`s
+
+`SemiringWithMonus` is intentionally not assumed to be commutative; however, every
+provenance semiring used in this library is in fact commutative, and the algebraic
+identities that drive HAVING-style aggregate provenance (see `Provenance.Having`)
+require it. `CommSemiringWithMonus` packages a `SemiringWithMonus` together with
+the commutativity axiom, producing a `CommMonoid` instance whose `Mul` matches
+the one already supplied by `SemiringWithMonus`, so no `Mul` diamond appears when
+`Finset.prod` is used.
+-/
+
+/-- A `SemiringWithMonus` whose multiplication is commutative. -/
+class CommSemiringWithMonus (K : Type) extends SemiringWithMonus K where
+  /-- Multiplication on `K` is commutative. -/
+  mul_comm : ∀ a b : K, a * b = b * a
+
+/-- A `CommSemiringWithMonus` is automatically a `CommMonoid`, sharing its
+multiplicative structure with the underlying `SemiringWithMonus`. This makes
+`Finset.prod` usable without introducing a separate `CommSemiring` hypothesis
+that would cause a `Mul` diamond. -/
+instance (priority := 100) {K : Type} [h : CommSemiringWithMonus K] : CommMonoid K where
+  mul_comm := h.mul_comm
+
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/
 
