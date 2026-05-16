@@ -7,6 +7,9 @@
 import Provenance.QueryAnnotatedDatabase
 import Provenance.QueryAnnotatedDatabaseHom
 
+/- K-semimodules and the free K-tensor (aggregation foundation) -/
+import Provenance.KSemiModule
+
 /- HAVING algebraic identities -/
 import Provenance.Having
 
@@ -64,6 +67,11 @@ the provenance-aware relational database system
 - `Provenance.QueryRewriting` — alternative query evaluation by rewriting plain queries
   on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
   correctness proof partially formalised
+- `Provenance.KSemiModule` — the `KSemiModule K M` typeclass (left action of a
+  `CommSemiringWithMonus K` on a commutative monoid `M`) and the free `K`-tensor
+  data structure `KTensor K M`, used to interpret the aggregation operator on
+  `K`-annotated relations
+  ([Amsterdamer, Deutch & Tannen][amsterdamer2011aggregate])
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
