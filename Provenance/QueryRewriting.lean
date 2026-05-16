@@ -709,6 +709,19 @@ lemma Query.rewriting_valid_diff_inner_dd
 lemma Relation.cast_eq_map {T : Type} {n m : ℕ} (h : n = m) (r : Relation T n) :
     r.cast h = r.map (Tuple.cast h) := (Relation.cast_eq r _ h).mp rfl
 
+/-- Projecting the first `n+1` columns of `Tuple.cast h (Fin.append p q)` (for
+`p : Tuple α (n+1)`, `q : Tuple α n`, `h : n+1+n = 2*n+1`) returns `p`. -/
+lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
+    (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) :
+    (fun (k : Fin (n+1)) ↦ Tuple.cast h (Fin.append p q) (k.castLE (by omega))) = p := by
+  funext k
+  rw [Tuple.cast_get]
+  have hlt : ((k.castLE (by omega : n+1 ≤ 2*n+1)).cast h.symm).val < n + 1 := by
+    simp [k.isLt]
+  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  apply congrArg
+  exact Fin.eq_of_val_eq rfl
+
 /-- Filter pushes through `AnnotatedRelation.toComposite` via the
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
