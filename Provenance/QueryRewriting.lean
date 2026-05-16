@@ -1287,11 +1287,16 @@ theorem Query.rewriting_valid
                 (q₂.evaluateAnnotated hq'₂ d))).sum)) := by
       -- TODO: the `Query.evaluate_agg_rewriting_eq` helper characterises the inner
       -- Agg subquery (output is a `toComposite`-map of `(v, sum_v)` pairs over the
-      -- deduped data projection of `AR₂`). The remaining work mirrors `unmatched_eq`:
-      -- cast/HMul/filter_map/map_map reductions, Fin-arithmetic for the (2*n+2)-arity
+      -- deduped data projection of `AR₂`). Substituting it cleanly is blocked by
+      -- the same `LinearOrder.toDecidableEq` vs `instDecidableEqSum` instance gap
+      -- that hit `unmatched_eq` -- but the `simp_rw`-with-instance-polymorphic-wrapper
+      -- trick from there doesn't directly apply because the unfolded Agg expression
+      -- is a `Multiset.map` over a `Multiset.dedup` (rather than a bare dedup).
+      -- The remaining work, once that bridge is built: cast/HMul/filter_map/map_map
+      -- reductions (same as `unmatched_eq`), Fin-arithmetic for the (2*n+2)-arity
       -- selFilter and the (data, subtraction)-shaped proj_outer, the semijoin lemma
       -- with `Big := AggOutput` (Nodup since built from a dedup), then the final
-      -- `Multiset.filter_congr` showing `(fromComposite t).1 ∈ map fst AR₂` matches
+      -- `Multiset.filter_congr` matching `(fromComposite t).1 ∈ map fst AR₂` against
       -- the lookup result, and `Query.rewriting_valid_sub_inr` to convert
       -- `Sum.inr p.2 - Sum.inr sum_v = Sum.inr (p.2 - sum_v)`.
       sorry
