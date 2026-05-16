@@ -219,6 +219,11 @@ instance instDecidableMemRelation {T : Type} [ValueType T] {n : ℕ}
     (t : Tuple T n) (r : Relation T n) : Decidable (t ∈ r) :=
   Multiset.decidableMem t r
 
+/-- Membership in `AnnotatedRelation` (a `def`-wrapped `Multiset`). -/
+instance instMembershipAnnotatedRelation {T K : Type} {n : ℕ} :
+    Membership (AnnotatedTuple T K n) (AnnotatedRelation T K n) :=
+  inferInstanceAs (Membership (AnnotatedTuple T K n) (Multiset (AnnotatedTuple T K n)))
+
 /-! ## Random worlds and the disjunctive tuple annotation
 
 We now move toward Theorem 12 of the paper. Two pieces of infrastructure are
@@ -509,6 +514,115 @@ lemma AnnotatedDatabase.find_randomWorld
       unfold AnnotatedDatabase.randomWorld AnnotatedDatabase.find at ih
       exact ih
 
+/-! ### Diff annotation helper
+
+For the `Diff` case of the structural commutation theorem we need to
+characterise when the annotation subtracted from `r₁`'s entries evaluates to
+`false` at the valuation `v`: this happens exactly when the data tuple is
+not in the random world of `r₂`. -/
+
+omit [Fintype X] [DecidableEq X] in
+/-- The `Diff` subtraction-annotation evaluates to `false` at `v` iff the
+data tuple is absent from the random world of the subtracted relation. -/
+lemma diff_annotation_eq_false_iff
+    (v : X → Bool) (r₂ : AnnotatedRelation T (BoolFunc X) n) (u : Tuple T n) :
+    ((((groupByKey r₂).val.find?
+        (fun q : Tuple T n × BoolFunc X => q.1 = u)).map Prod.snd).getD 0 : BoolFunc X) v = false
+      ↔ u ∉ randomWorld v r₂ := by
+  -- Bridge: u ∉ rw v r₂ iff no annotated tuple p ∈ r₂ with p.fst = u has p.snd v = true.
+  have hnotin_iff : u ∉ randomWorld v r₂
+      ↔ ∀ p : AnnotatedTuple T (BoolFunc X) n, p ∈ r₂
+          → ¬ (p.fst = u ∧ p.snd v = true) := by
+    unfold randomWorld
+    constructor
+    · intro h p hp ⟨hfst, hsnd⟩
+      apply h
+      rw [Multiset.mem_map]
+      refine ⟨p, ?_, hfst⟩
+      rw [Multiset.mem_filter]
+      exact ⟨hp, hsnd⟩
+    · intro h hmem
+      rw [Multiset.mem_map] at hmem
+      obtain ⟨p, hp, hpfst⟩ := hmem
+      rw [Multiset.mem_filter] at hp
+      exact h p hp.1 ⟨hpfst, hp.2⟩
+  cases h_find : (groupByKey r₂).val.find?
+        (fun q : Tuple T n × BoolFunc X => q.1 = u) with
+  | none =>
+    simp only [Option.map_none, Option.getD_none]
+    rw [show (0 : BoolFunc X) v = false from rfl]
+    rw [hnotin_iff]
+    rw [List.find?_eq_none] at h_find
+    refine ⟨?_, ?_⟩
+    · intro _ p hp ⟨hfst, _⟩
+      have hu_mem : u ∈ Multiset.map Prod.fst r₂ := by
+        rw [Multiset.mem_map]; exact ⟨p, hp, hfst⟩
+      obtain ⟨w, hw⟩ := (groupByKey_key_iff r₂ u).mpr hu_mem
+      exact h_find _ hw (by simp)
+    · intro _; rfl
+  | some uw =>
+    obtain ⟨u', w⟩ := uw
+    have hu' : u' = u := by
+      have := List.find?_some h_find; simp at this; exact this
+    -- Substitute the find?-returned key with u everywhere.
+    rw [hu'] at h_find
+    have hw_in : (u, w) ∈ (groupByKey r₂).val := List.mem_of_find?_eq_some h_find
+    have hw_val : w = (Multiset.map Prod.snd
+          (Multiset.filter (fun q : AnnotatedTuple T (BoolFunc X) n ↦ q.fst = u) r₂)).sum :=
+      groupByKey_value r₂ u w hw_in
+    show (((Option.map Prod.snd _).getD 0) : BoolFunc X) v = false ↔ u ∉ randomWorld v r₂
+    rw [hu', Option.map_some, Option.getD_some]
+    -- The `(u, ...).2` projects to the sum; reduce, then apply
+    -- `boolFunc_multiset_sum_apply`.
+    show w v = false ↔ u ∉ randomWorld v r₂
+    rw [hw_val, boolFunc_multiset_sum_apply, hnotin_iff]
+    refine ⟨?_, ?_⟩
+    · intro hw_v p hp ⟨hfst, hsnd⟩
+      have htrue_in : true ∈ Multiset.map (fun f : BoolFunc X => f v)
+          (Multiset.map Prod.snd (Multiset.filter
+            (fun q : AnnotatedTuple T (BoolFunc X) n => q.fst = u) r₂)) := by
+        rw [Multiset.mem_map]
+        refine ⟨p.snd, ?_, hsnd⟩
+        rw [Multiset.mem_map]
+        refine ⟨p, ?_, rfl⟩
+        rw [Multiset.mem_filter]; exact ⟨hp, hfst⟩
+      have hsum : (Multiset.map (fun f : BoolFunc X => f v)
+          (Multiset.map Prod.snd (Multiset.filter
+            (fun q : AnnotatedTuple T (BoolFunc X) n => q.fst = u) r₂))).sum = true := by
+        rw [bool_multiset_sum_eq_true]
+        exact ⟨true, htrue_in, rfl⟩
+      rw [hsum] at hw_v
+      exact Bool.false_ne_true hw_v.symm
+    · intro hall
+      have hall_false : ∀ b ∈ Multiset.map (fun f : BoolFunc X => f v)
+          (Multiset.map Prod.snd (Multiset.filter
+            (fun q : AnnotatedTuple T (BoolFunc X) n => q.fst = u) r₂)),
+          b = false := by
+        intro b hb
+        rw [Multiset.mem_map] at hb
+        obtain ⟨α, hα_in, hα_eq⟩ := hb
+        rw [Multiset.mem_map] at hα_in
+        obtain ⟨p, hp_in, hp_snd⟩ := hα_in
+        rw [Multiset.mem_filter] at hp_in
+        obtain ⟨hp_r, hp_fst⟩ := hp_in
+        rw [← hα_eq, ← hp_snd]
+        cases h : p.snd v
+        · rfl
+        · exfalso; exact hall p hp_r ⟨hp_fst, h⟩
+      have hne_true : (Multiset.map (fun f : BoolFunc X => f v)
+          (Multiset.map Prod.snd (Multiset.filter
+            (fun q : AnnotatedTuple T (BoolFunc X) n => q.fst = u) r₂))).sum ≠ true := by
+        intro h
+        rw [bool_multiset_sum_eq_true] at h
+        obtain ⟨b, hb_in, hb_true⟩ := h
+        rw [hall_false b hb_in] at hb_true
+        exact Bool.false_ne_true hb_true
+      cases h : (Multiset.map (fun f : BoolFunc X => f v)
+          (Multiset.map Prod.snd (Multiset.filter
+            (fun q : AnnotatedTuple T (BoolFunc X) n => q.fst = u) r₂))).sum
+      · rfl
+      · exact absurd h hne_true
+
 /-! ### The structural commutation theorem
 
 Random-world projection commutes with annotated query evaluation: for any
@@ -647,7 +761,93 @@ theorem randomWorld_evaluateAnnotated :
       rw [Multiset.mem_filter]
       exact ⟨Multiset.mem_coe.mpr hw_in, hw_v_true⟩
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro _ _ _; sorry
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [← ih₁ (Query.noAggDiff hq rfl).left Î v,
+        ← ih₂ (Query.noAggDiff hq rfl).right Î v]
+    set r₁ := q₁.evaluateAnnotated (Query.noAggDiff hq rfl).left Î with hr₁
+    set r₂ := q₂.evaluateAnnotated (Query.noAggDiff hq rfl).right Î with hr₂
+    -- Local helper: random-world of a cons splits via if-then-else.
+    -- Stated in the bare-Multiset form (the unfolded `randomWorld`) so the
+    -- pattern matches the goal's Lex-coerced filter+map term.
+    have hrw_cons : ∀ {k : ℕ} (a : Tuple T k × BoolFunc X)
+        (t : Multiset (Tuple T k × BoolFunc X)),
+        Multiset.map Prod.fst
+            (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) (a ::ₘ t))
+          = if a.snd v = true then
+              a.fst ::ₘ Multiset.map Prod.fst
+                  (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) t)
+            else Multiset.map Prod.fst
+                  (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) t) := by
+      intro k a t
+      by_cases ha : a.snd v = true
+      · rw [Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T k × BoolFunc X => p.snd v = true) _ ha,
+            Multiset.map_cons]
+        simp [ha]
+      · rw [Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T k × BoolFunc X => p.snd v = true) _ ha]
+        simp [ha]
+    -- Induct on r₁ at the Prod-type carrier. We must override `randomWorld`
+    -- to accept `Multiset (Tuple T _ × BoolFunc X)` directly so the pattern
+    -- in the recursive `hrw_cons` call matches the goal's coerced form.
+    let r₁' : Multiset (Tuple T _ × BoolFunc X) := r₁
+    show Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T _ × BoolFunc X => p.snd v = true)
+            (r₁'.map (fun p : Tuple T _ × BoolFunc X =>
+              (p.fst, p.snd -
+                (((groupByKey r₂).val.find? (fun q => q.1 = p.fst)).map Prod.snd).getD 0))))
+        = Multiset.filter (fun t => t ∉ randomWorld v r₂)
+            (Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T _ × BoolFunc X => p.snd v = true) r₁'))
+    induction r₁' using Multiset.induction_on with
+    | empty => rfl
+    | cons p s ih =>
+      -- Set β to the diff annotation for `p.fst`. We define β AFTER
+      -- `Multiset.map_cons` fires so the goal's term contains β by construction.
+      rw [Multiset.map_cons]
+      set β : BoolFunc X :=
+          ((List.find? (fun q : Tuple T _ × BoolFunc X => decide (q.1 = p.fst))
+            (groupByKey r₂).val).map Prod.snd).getD 0 with hβ_def
+      have hβ_iff : β v = false ↔ p.fst ∉ randomWorld v r₂ :=
+        diff_annotation_eq_false_iff v r₂ p.fst
+      -- Pull cons through randomWorld on both LHS and RHS.
+      rw [hrw_cons (a := (p.fst, p.snd - β))]
+      conv_rhs => rw [hrw_cons (a := p) (t := s)]
+      -- The cons-head's snd-at-v on the LHS reduces to `p.snd v && !(β v)`.
+      have hlhs_eq : (p.fst, p.snd - β).snd v = (p.snd v && !(β v)) := rfl
+      by_cases hpv : p.snd v = true
+      · -- p.snd v = true. Case on β v.
+        by_cases hbv : β v = false
+        · -- β v = false ⇒ p.fst ∉ rw v r₂.
+          have hp_notin : p.fst ∉ randomWorld v r₂ := hβ_iff.mp hbv
+          have hcond_lhs : (p.snd - β) v = true := by
+            rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv]; rfl
+          rw [if_pos hcond_lhs, if_pos hpv, ih]
+          rw [Multiset.filter_cons_of_pos
+                (p := fun t : Tuple T _ => t ∉ randomWorld v r₂) _ hp_notin]
+        · -- β v ≠ false, so β v = true; p.fst ∈ rw v r₂.
+          have hbv_true : β v = true := by
+            cases h : β v
+            · exact absurd h hbv
+            · rfl
+          have hp_in : ¬ p.fst ∉ randomWorld v r₂ := by
+            intro h; exact absurd (hβ_iff.mpr h) hbv
+          have hcond_lhs : ¬ (p.snd - β) v = true := by
+            rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv_true]
+            simp
+          rw [if_neg hcond_lhs, if_pos hpv, ih]
+          rw [Multiset.filter_cons_of_neg
+                (p := fun t : Tuple T _ => t ∉ randomWorld v r₂) _ hp_in]
+      · -- p.snd v = false: cond on LHS reduces to `false`.
+        have hpv_false : p.snd v = false := by
+          cases h : p.snd v
+          · rfl
+          · exact absurd h hpv
+        have hcond_lhs : ¬ (p.snd - β) v = true := by
+          rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv_false]; simp
+        rw [if_neg hcond_lhs, if_neg hpv]
+        exact ih
   | Agg _ _ _ _ =>
     intro hq _ _
     exact False.elim (by simp [Query.noAgg] at hq)
