@@ -1,10 +1,18 @@
 # TODO
 
-The Diff case of `Query.rewriting_valid` is stuck on a deep Lean
-infrastructure issue (HOU + competing `DecidableEq (T⊕K)` instance
-resolutions inside `Multiset.dedup`/`Multiset.filter`); see the Git
-log around commits `2dc8be2`, `d4ca753` for the full diagnosis. The
-two remaining `sorry`s in `QueryRewriting.lean` (R4/R5) are parked.
+The Diff case of `Query.rewriting_valid` carries two remaining `sorry`s
+(R4 only; R5 is fully proved in `Query.rewriting_valid_full` in
+`QueryEvaluateInVK.lean`), one each in the `unmatched_eq` and
+`matched_eq` halves. The original `DecidableEq (T⊕K)` instance-synthesis
+blocker (see commits `2dc8be2`, `d4ca753`) is now lifted via
+`Query.rewriting_valid_diff_inner_dd_inst`, an instance-polymorphic
+wrapper proven by `convert … using 4` that bridges
+`LinearOrder.toDecidableEq` and `instDecidableEqSum` through
+`Subsingleton.elim`. `simp_rw` with that wrapper rewrites the inner
+dedup in `unmatched_eq` cleanly. The remaining work is the semijoin
+reduction (`unmatched_eq`) and the aggregation step (`matched_eq`); both
+are concrete multiset-arithmetic obligations rather than Lean
+infrastructure ones.
 
 ## Candidates
 
@@ -13,7 +21,7 @@ to inventory every formal claim and check coverage. Defs 1/3/5,
 RA_k (Section III), the annotated semantics ⟪·⟫ (Section IV-B), the
 hom commutation of Section V-C, Proposition 6, and Theorem 12 +
 Corollary 13 (Section IV-D) are all covered. Theorem 10 is partial
-(R1–R3 done, R4/R5 parked). The complexity content of Section V-D
+(R1–R3, R5 done; R4 parked). The complexity content of Section V-D
 (tree-decomposition probability, knowledge compilers, linear-time
 read-once evaluation) and the #P-hardness statement are out of scope
 per the project conventions.
@@ -27,6 +35,14 @@ First-cut scope is in (`Provenance.KSemiModule` + `Provenance.QueryAggregation`)
   `smul`, `embed` — un-quotiented (no bilinear relations enforced);
 - `Query.evaluateAggSum` for top-level aggregation with `AggFunc.sum`:
   one row per group, per-aggregated-column `(value, K-tensor)` annotation.
+- Hom commutation `Query.evaluateAggSum_hom` (aggregation commutes with
+  `SemiringWithMonusHom`).
+- (R5) aggregation rewriting `Query.rewritingAgg` and its correctness
+  via the unified `Query.rewriting_valid_full` in
+  `Provenance.QueryEvaluateInVK`, together with the V_K-lifted
+  evaluator `Query.evaluateInVK`, the unified Def-7 annotated
+  semantics `Query.evaluateAnnotatedFull`, and its hom commutation
+  `Query.evaluateAnnotatedFull_hom`.
 - Exercised end-to-end on `Provenance.Example.qc`.
 
 Remaining for B:
@@ -35,12 +51,13 @@ Remaining for B:
   this is mostly a scaffolding/refactor task.
 - Bilinear quotient for `KTensor`: replace the formal-sum representation
   with the proper tensor product `K ⊗ M` (or use Mathlib's `TensorProduct`
-  where applicable). Required before stating correctness theorems that
-  compare to ProvSQL's intended semantics.
-- Correctness theorems: hom commutation (`evaluateAggSum_hom`),
-  random-world commutation (analogue of `randomWorld_evaluateAnnotated`
-  for the Agg case), rewriting correctness (R6 of the paper, currently
-  not formalised).
+  where applicable). Required before stating the random-world
+  commutation theorem in its expected form (Amsterdamer-Deutch-Tannen),
+  and before any further correctness theorems that compare to ProvSQL's
+  intended semantics modulo bilinearity.
+- Random-world commutation for the Agg case: the analogue of
+  `randomWorld_evaluateAnnotated` for `evaluateAggSum`. Best landed
+  after the bilinear quotient.
 
 The δ prerequisite on `SemiringWithMonus` (item C) is already in place
 on all 12 concrete instances and is used in `Provenance.Having` for the

@@ -19,12 +19,17 @@ and Probability of Data*][sen2026provsql].
 
 A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
 partially formalised: rules (R1), (R2), (R3) are machine-checked end-to-end; rule
-(R4) is proved modulo two `sorry`s in the `Diff` case (a typeclass-instance
-mismatch between `LinearOrder.toDecidableEq` and `instDecidableEqSum` blocks the
-last steps). The (R5) aggregation correctness lives in
-`Provenance.QueryEvaluateInVK` as `Query.rewriting_valid_full`, with its V_K
-interpretation; the syntactic (R5) rewriting itself is in this file as
-`Query.rewritingAgg`.
+(R4) is proved modulo two `sorry`s in the `Diff` case, one each in the
+"unmatched" and "matched" halves of the rewriting. Both reduce to a semijoin
+identity over `Multiset.product`/`Multiset.filter`/`Multiset.map` (matching the
+join condition against the deduped key set produced by the inner rewriting).
+The instance-synthesis blocker on the inner dedup is now lifted via
+`Query.rewriting_valid_diff_inner_dd_inst` (an instance-polymorphic restatement
+of `Query.rewriting_valid_diff_inner_dd` that bridges the `LinearOrder.toDecidableEq`
+vs `instDecidableEqSum` mismatch through `Subsingleton.elim`-style conversion).
+The (R5) aggregation correctness lives in `Provenance.QueryEvaluateInVK` as
+`Query.rewriting_valid_full`, with its V_K interpretation; the syntactic (R5)
+rewriting itself is in this file as `Query.rewritingAgg`.
 
 ## References
 
@@ -700,6 +705,31 @@ lemma Query.rewriting_valid_diff_inner_dd
       rw [← hv_eq] at this
       exact congrFun this k
 
+/-- Instance-polymorphic restatement of `Query.rewriting_valid_diff_inner_dd`.
+Inside the `Diff` case of `rewriting_valid`, Lean's instance synthesis picks
+inconsistent `DecidableEq (T⊕K)` instances at different positions in the goal:
+the inner `Multiset.dedup` is elaborated with `LinearOrder.toDecidableEq` (via
+`ValueType (T⊕K)`), while the surrounding `Multiset.filter`'s `decidableMem`
+uses `instDecidableEqSum`. This wrapper accepts both as explicit parameters and
+bridges to the canonical helper via `Subsingleton.elim`. -/
+lemma Query.rewriting_valid_diff_inner_dd_inst
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] {n: ℕ}
+  (AR₁ AR₂ : AnnotatedRelation T K n)
+  (instA : DecidableEq (Tuple (T⊕K) n))
+  (instDP : DecidablePred (fun u : Tuple (T⊕K) n ↦
+      u ∉ @Multiset.map (Tuple (T⊕K) (n+1)) (Tuple (T⊕K) n)
+            (fun (u': Tuple (T⊕K) (n+1)) (k: Fin n) ↦ u' (Fin.castLE (Nat.le_succ n) k))
+            AR₂.toComposite)) :
+  @Multiset.dedup _ instA
+    (@Multiset.filter _ _ instDP
+      (@Multiset.map (Tuple (T⊕K) (n+1)) (Tuple (T⊕K) n)
+        (fun (u': Tuple (T⊕K) (n+1)) (k: Fin n) ↦ u' (Fin.castLE (Nat.le_succ n) k))
+        AR₁.toComposite))
+  = Multiset.map (fun (v: Tuple T n) (k: Fin n) ↦ (Sum.inl (v k): T⊕K))
+      (Multiset.filter (fun v ↦ v ∉ Multiset.map Prod.fst AR₂)
+        (Multiset.map Prod.fst AR₁)).dedup := by
+  convert Query.rewriting_valid_diff_inner_dd AR₁ AR₂ using 4
+
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.noAgg) :
@@ -954,17 +984,26 @@ theorem Query.rewriting_valid
       -- Unfold `evaluate` and reduce the inner subqueries via the induction hypotheses.
       simp only [evaluate, Term.eval]
       rw[← ih'₁, ← ih'₂]
-      -- At this point the goal contains the inner-Diff form
+      -- The goal contains the inner-Diff form
       --   (Multiset.filter (· ∉ Multiset.map proj_n AR₂.toComposite)
       --     (Multiset.map proj_n AR₁.toComposite)).dedup
-      -- which is `Query.rewriting_valid_diff_inner_dd`'s LHS. However `rw`/`simp only`/
-      -- `conv`/`nth_rewrite`/`convert` all fail to fire on this subterm because the goal's
-      -- `.dedup` is elaborated with `LinearOrder.toDecidableEq` (via ValueType (T⊕K))
-      -- whereas the helper's `.dedup` is elaborated with `instDecidableEqSum`. The two
-      -- `DecidableEq (T⊕K)` instances are propositionally equal (Subsingleton.elim) but not
-      -- syntactically; even writing `have hInner : (literal form) := ...` re-triggers the
-      -- mismatch because Lean's instance inference at the `have` site picks the helper's
-      -- path, not the goal's. See `TODO.md` for the full diagnosis.
+      -- which is `Query.rewriting_valid_diff_inner_dd`'s LHS. A direct `rw`/`simp only`
+      -- with that helper fails because the goal's `.dedup` is elaborated with
+      -- `LinearOrder.toDecidableEq` (via ValueType (T⊕K)) while the helper's `.dedup`
+      -- uses `instDecidableEqSum`; the instances are propositionally equal but not
+      -- syntactically. The bridge `Query.rewriting_valid_diff_inner_dd_inst` accepts both
+      -- `DecidableEq` and `DecidablePred` instances explicitly and discharges the gap
+      -- via `Subsingleton.elim` (its proof is `convert ... using 4`), letting `simp_rw`
+      -- finally fire here.
+      simp_rw [Query.rewriting_valid_diff_inner_dd_inst AR₁ AR₂]
+      -- The remaining goal is a semijoin reduction:
+      --   map proj_outer (filter selFilter (Relation.cast _ (AR₁.toComposite * Big)))
+      --   = AnnotatedRelation.toComposite (filter (· ∉ map fst AR₂) AR₁)
+      -- where Big = map (Sum.inl-lift) (filter (· ∉ map fst AR₂) (map fst AR₁)).dedup.
+      -- Plan: reduce via `Multiset.ext` (count-based), using
+      -- `Multiset.count_map`/`Multiset.count_filter` for the LHS layers,
+      -- Sum.inl-lift injectivity for `count` on `Big`, and
+      -- `Tuple.fromComposite_toComposite` to bridge `AR₁.toComposite ↔ AR₁`.
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
