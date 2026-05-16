@@ -804,8 +804,10 @@ relational semijoin and is the structural identity behind the `unmatched_eq`
 half of the `Diff`-case rewriting correctness. -/
 lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
     (r : Multiset α) (s : Multiset β) (g : α → β) (hs : s.Nodup) :
-    ((r ×ˢ s).filter (fun pair : α × β ↦ g pair.1 = pair.2)).map Prod.fst
+    ((Multiset.product r s).filter (fun pair : α × β ↦ g pair.1 = pair.2)).map Prod.fst
     = r.filter (fun a ↦ g a ∈ s) := by
+  show ((r ×ˢ s).filter (fun pair : α × β ↦ g pair.1 = pair.2)).map Prod.fst
+       = r.filter (fun a ↦ g a ∈ s)
   induction r using Multiset.induction with
   | empty => simp
   | cons hd tl ih =>
@@ -1167,8 +1169,43 @@ theorem Query.rewriting_valid
       change Multiset.map Prod.fst
         (@Multiset.filter _ _ dp1 Prod1) = _
       rw [hcong]
-      trace_state
-      sorry
+      -- Apply the semijoin lemma. Need `Big.Nodup`.
+      have hBig_nodup :
+        (Multiset.map (fun (v : Tuple T n) (k : Fin n) ↦ (Sum.inl (v k) : T⊕K))
+          (Multiset.filter (fun v ↦ v ∉ Multiset.map Prod.fst AR₂)
+            (Multiset.map Prod.fst AR₁)).dedup).Nodup :=
+        (Multiset.nodup_dedup _).map Sum.inl_lift_injective
+      rw [hProd1]
+      refine (Multiset.semijoin_proj_eq_filter AR₁.toComposite _
+            (fun (p : Tuple (T⊕K) (n+1)) (k : Fin n) ↦ p (k.castLE (Nat.le_succ n)))
+            hBig_nodup).trans ?_
+      -- Show the two filter predicates are equivalent on AR₁.toComposite.
+      apply Multiset.filter_congr
+      intro t ht
+      -- t ∈ AR₁.toComposite: t = ap.toComposite for some ap ∈ AR₁.
+      obtain ⟨ap, hap, hap_eq⟩ := Multiset.mem_map.mp ht
+      subst hap_eq
+      -- Now t = ap.toComposite. Compute the first-n projection.
+      have hfirst_n :
+          (fun (k : Fin n) ↦ ap.toComposite (k.castLE (Nat.le_succ n)))
+          = fun (k : Fin n) ↦ (Sum.inl (ap.fst k) : T⊕K) := by
+        funext k
+        exact AnnotatedTuple.toComposite_castLE ap k
+      rw [hfirst_n, Tuple.fromComposite_toComposite]
+      -- Goal: Sum.inl-lift ap.fst ∈ Big_lifted ↔ ap.fst ∉ map fst AR₂
+      constructor
+      · intro hmem hcontra
+        obtain ⟨v, hv_in, hv_eq⟩ := Multiset.mem_map.mp hmem
+        rw [Multiset.mem_dedup, Multiset.mem_filter] at hv_in
+        -- v ∈ map fst AR₁ ∧ v ∉ map fst AR₂
+        have hv_eq_fst : v = ap.fst := Sum.inl_lift_injective hv_eq
+        rw [hv_eq_fst] at hv_in
+        exact hv_in.2 hcontra
+      · intro hnotin
+        refine Multiset.mem_map.mpr ⟨ap.fst, ?_, rfl⟩
+        rw [Multiset.mem_dedup, Multiset.mem_filter]
+        refine ⟨?_, hnotin⟩
+        exact Multiset.mem_map.mpr ⟨ap, hap, rfl⟩
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
       evaluate
