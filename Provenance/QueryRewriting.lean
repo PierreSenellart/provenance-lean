@@ -722,6 +722,63 @@ lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
   apply congrArg
   exact Fin.eq_of_val_eq rfl
 
+/-- Reading `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ k.val` (for `k : Fin n`)
+returns `p k.castSucc`. -/
+lemma cast_append_at_ofNat_left {α : Type} {n : ℕ}
+    (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) (k : Fin n)
+    [NeZero (2*n+1)] :
+    Tuple.cast h (Fin.append p q) (Fin.ofNat _ k.val) = p (k.castLE (Nat.le_succ n)) := by
+  rw [Tuple.cast_get]
+  have hk_mod : k.val % (2*n+1) = k.val := Nat.mod_eq_of_lt (by omega)
+  have hlt : ((Fin.ofNat (2*n+1) k.val).cast h.symm).val < n + 1 := by
+    show k.val % (2*n+1) < n + 1
+    rw [hk_mod]; exact Nat.lt_succ_of_lt k.isLt
+  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  apply congrArg
+  apply Fin.eq_of_val_eq
+  show k.val % (2*n+1) = k.val
+  exact hk_mod
+
+/-- Reading `Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ (k.val+n+1)` (for
+`k : Fin n`) returns `q k`. -/
+lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
+    (h : n+1+n = 2*n+1) (p : Tuple α (n+1)) (q : Tuple α n) (k : Fin n)
+    [NeZero (2*n+1)] :
+    Tuple.cast h (Fin.append p q) (Fin.ofNat _ (k.val + n + 1)) = q k := by
+  rw [Tuple.cast_get]
+  have hbnd : k.val + n + 1 < 2*n + 1 := by omega
+  have hmod : (k.val + n + 1) % (2*n+1) = k.val + n + 1 := Nat.mod_eq_of_lt hbnd
+  -- Show the recast index equals `Fin.natAdd (n+1) k`, then close with `Fin.append_right`.
+  have hidx_eq : (Fin.ofNat (2*n+1) (k.val + n + 1)).cast h.symm
+      = Fin.natAdd (n+1) k := by
+    apply Fin.eq_of_val_eq
+    show (k.val + n + 1) % (2*n+1) = (n+1) + k.val
+    rw [hmod]; omega
+  rw [hidx_eq, Fin.append_right]
+
+/-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterises the first-`n`
+projection equality between `p` and `q`. -/
+lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+    [HasAltLinearOrder K] {n : ℕ}
+    (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
+    [NeZero (2*n+1)] :
+    Filter.eval (((List.range n).map
+      (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+      (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast h (Fin.append p q))
+    ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n))) = q := by
+  classical
+  rw [Query.rewriting_valid_joinCond_eval]
+  constructor
+  · intro hForall
+    funext k
+    have := hForall k
+    rw [cast_append_at_ofNat_left, cast_append_at_ofNat_right] at this
+    exact this
+  · intro heq k
+    rw [cast_append_at_ofNat_left, cast_append_at_ofNat_right]
+    exact congrFun heq k
+
 /-- Filter pushes through `AnnotatedRelation.toComposite` via the
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
