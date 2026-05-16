@@ -841,6 +841,64 @@ lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
         exact hgmem (heq ▸ hb)
       rw [hfilter_eq, Multiset.map_zero]
 
+/-- The Agg of `q.rewriting` (the inner aggregation used in both the `Dedup` and
+`Diff` rewritings) evaluates to a map over the deduped data-projection of the
+inner annotated relation, with each row paired (via `AnnotatedTuple.toComposite`)
+with the semiring sum of the matching annotations. -/
+lemma Query.evaluate_agg_rewriting_eq
+    {T K : Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+    {n : ℕ} (q : Query T n) (hq : q.noAgg) (d : AnnotatedDatabase T K)
+    (ih : (q.evaluateAnnotated hq d).toComposite
+        = (q.rewriting hq).evaluate d.toComposite) :
+    evaluate (Query.Agg (fun k : Fin n ↦ k.castLE (Nat.le_succ n)) ![#(Fin.last n)]
+                ![AggFunc.sum] (q.rewriting hq)) d.toComposite
+    = Multiset.map (fun v : Tuple T n ↦ AnnotatedTuple.toComposite
+          (v, (Multiset.map Prod.snd
+                (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
+                  (q.evaluateAnnotated hq d))).sum))
+        ((q.evaluateAnnotated hq d).map Prod.fst).dedup := by
+  -- This proof mirrors `rhs_eq` in the `Dedup` case below.
+  unfold evaluate
+  simp only [evaluate, Term.eval]
+  rw [← ih]
+  apply Eq.trans (b := Multiset.map _
+    (Multiset.map (fun v ↦ (fun k : Fin _ ↦ (Sum.inl (v k) : T⊕K)))
+      (Multiset.dedup (Multiset.map Prod.fst (q.evaluateAnnotated hq d)))))
+  · apply congrArg
+    convert AnnotatedRelation.dedup_toComposite_proj_first_n
+      (q.evaluateAnnotated hq d) (Nat.le_succ _) using 2
+  · rw [Multiset.map_map]
+    apply Multiset.map_congr rfl
+    intro v _hv
+    simp only [Function.comp, Matrix.cons_val_fin_one, Term.eval]
+    rw [AnnotatedRelation.toComposite_filter_map_last]
+    simp only [AggFunc.eval]
+    rw [show (fun p : AnnotatedTuple T K _ ↦ (Sum.inr p.2 : T⊕K))
+          = (fun k ↦ (Sum.inr k : T⊕K)) ∘ Prod.snd from rfl]
+    unfold AnnotatedTuple.toComposite
+    funext k
+    by_cases hk : k = Fin.last n
+    · subst hk
+      simp [Fin.append, Fin.addCases]
+      show Multiset.fold addFn (0 : T⊕K)
+          (Multiset.map (fun x : AnnotatedTuple T K _ ↦ (Sum.inr x.2 : T⊕K))
+            (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+              (q.evaluateAnnotated hq d)))
+        = (Sum.inr (Multiset.map Prod.snd (Multiset.filter
+            (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+            (q.evaluateAnnotated hq d))).sum : T⊕K)
+      rw [show Multiset.map (fun x : AnnotatedTuple T K _ ↦ (Sum.inr x.2 : T⊕K))
+            (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+              (q.evaluateAnnotated hq d))
+          = Multiset.map (fun k : K ↦ (Sum.inr k : T⊕K))
+              (Multiset.map Prod.snd
+                (Multiset.filter (fun p : AnnotatedTuple T K _ ↦ p.1 = v)
+                  (q.evaluateAnnotated hq d))) from
+        (Multiset.map_map _ _ _).symm]
+      exact Multiset.fold_addFn_map_inr _
+    · have hlt : (k : ℕ) < n := Fin.val_lt_last hk
+      simp [Fin.append, Fin.addCases, hlt]
+
 /-- Instance-polymorphic restatement of `Query.rewriting_valid_diff_inner_dd`.
 Inside the `Diff` case of `rewriting_valid`, Lean's instance synthesis picks
 inconsistent `DecidableEq (T⊕K)` instances at different positions in the goal:
@@ -1227,6 +1285,15 @@ theorem Query.rewriting_valid
             (p.1, p.2 - (Multiset.map Prod.snd
               (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
                 (q₂.evaluateAnnotated hq'₂ d))).sum)) := by
+      -- TODO: the `Query.evaluate_agg_rewriting_eq` helper characterises the inner
+      -- Agg subquery (output is a `toComposite`-map of `(v, sum_v)` pairs over the
+      -- deduped data projection of `AR₂`). The remaining work mirrors `unmatched_eq`:
+      -- cast/HMul/filter_map/map_map reductions, Fin-arithmetic for the (2*n+2)-arity
+      -- selFilter and the (data, subtraction)-shaped proj_outer, the semijoin lemma
+      -- with `Big := AggOutput` (Nodup since built from a dedup), then the final
+      -- `Multiset.filter_congr` showing `(fromComposite t).1 ∈ map fst AR₂` matches
+      -- the lookup result, and `Query.rewriting_valid_sub_inr` to convert
+      -- `Sum.inr p.2 - Sum.inr sum_v = Sum.inr (p.2 - sum_v)`.
       sorry
     have rhs_eq :
       evaluate ((Diff q₁ q₂).rewriting hq) d.toComposite
