@@ -49,6 +49,23 @@ namespace Query
 variable {T : Type} [ValueType T] [AddCommSemigroup T] [Zero T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 
+/-- The aggregator body for a fixed group key `g`: filter the inner relation
+to tuples matching the grouping condition, then compute the per-aggregated-
+column `(value, K-tensor)` pair. Factored out of `evaluateAggSum` to allow
+proofs (notably hom commutation) to reason about the inner body separately
+from the outer `dedup ∘ map` structure. -/
+def aggSumRow {m n₁ n₂ : ℕ}
+    (is : Tuple (Fin m) n₁)
+    (ts : Tuple (Term T m) n₂)
+    (r : Multiset (Tuple T m × K))
+    (g : Tuple T n₁) :
+    Tuple T n₁ × Tuple (T × KTensor K T) n₂ :=
+  (g, fun k =>
+    (AggFunc.sum.eval ((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
+        (fun p => (ts k).eval p.fst)),
+     (r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
+        (fun p => (p.snd, (ts k).eval p.fst))))
+
 /-- Group-by + sum aggregation on a `K`-annotated relation.
 
 Given a non-aggregating inner query `q` on an annotated database, an
@@ -72,18 +89,8 @@ def evaluateAggSum
     (q : Query T m) (hq : q.noAgg)
     (d : AnnotatedDatabase T K) :
     Multiset (Tuple T n₁ × Tuple (T × KTensor K T) n₂) :=
-  let r_inner : Multiset (Tuple T m × K) := q.evaluateAnnotated hq d
-  let group_keys : Multiset (Tuple T n₁) :=
-    Multiset.dedup (r_inner.map (fun p => fun (k : Fin n₁) => p.fst (is k)))
-  group_keys.map (fun (g : Tuple T n₁) =>
-    let matching : Multiset (Tuple T m × K) :=
-      r_inner.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')
-    let agg_data : Tuple (T × KTensor K T) n₂ := fun k =>
-      let values : Multiset T := matching.map (fun p => (ts k).eval p.fst)
-      let agg_value : T := AggFunc.sum.eval values
-      let agg_tensor : KTensor K T :=
-        matching.map (fun p => (p.snd, (ts k).eval p.fst))
-      (agg_value, agg_tensor)
-    (g, agg_data))
+  let r : Multiset (Tuple T m × K) := q.evaluateAnnotated hq d
+  (Multiset.dedup (r.map (fun p => fun (k : Fin n₁) => p.fst (is k)))).map
+    (Query.aggSumRow is ts r)
 
 end Query

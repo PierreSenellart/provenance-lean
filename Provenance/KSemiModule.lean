@@ -135,6 +135,24 @@ unsafe instance [Repr K] [Repr M] : Repr (KTensor K M) :=
 /-- Embed a single monomial `(α, m)` as the formal sum `α ⊗ m`. -/
 def embed (α : K) (m : M) : KTensor K M := ({(α, m)} : Multiset (K × M))
 
+/-- Push a `KTensor K M` forward along a function `f : K → K'`, mapping each
+monomial's K-coefficient through `f`. Used in particular to push forward
+along a `SemiringWithMonusHom`. -/
+def mapHom {K' : Type} (f : K → K') (t : KTensor K M) : KTensor K' M :=
+  (t : Multiset (K × M)).map (fun p => (f p.fst, p.snd))
+
+@[simp] theorem mapHom_zero {K' : Type} (f : K → K') :
+    mapHom (M := M) f 0 = 0 := by
+  show (0 : Multiset (K × M)).map _ = 0
+  rw [Multiset.map_zero]
+
+@[simp] theorem mapHom_add {K' : Type} (f : K → K') (t u : KTensor K M) :
+    mapHom f (t + u) = mapHom f t + mapHom f u :=
+  Multiset.map_add (fun p : K × M => (f p.fst, p.snd)) t u
+
+@[simp] theorem mapHom_embed {K' : Type} (f : K → K') (α : K) (m : M) :
+    mapHom f (embed α m) = embed (f α) m := rfl
+
 variable [CommSemiringWithMonus K]
 
 /-- Scalar action of `K` on `KTensor K M`: multiply the `K`-coefficient of

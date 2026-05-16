@@ -16,6 +16,7 @@ import Provenance.QueryEvaluateInVK
 
 /- Annotated semantics of the aggregation operator (sum, top-level) -/
 import Provenance.QueryAggregation
+import Provenance.QueryAggregationHom
 
 /- HAVING algebraic identities -/
 import Provenance.Having
@@ -84,6 +85,10 @@ the provenance-aware relational database system
   -column `(value, K-tensor)` annotations, matching Definition 7 of
   [Sen, Maniu & Senellart][sen2026provsql]. First-cut scope: top-level
   aggregation only, `AggFunc.sum` only.
+- `Provenance.QueryAggregationHom` — hom commutation for `evaluateAggSum`:
+  pushing the database forward along a `SemiringWithMonusHom h : K → K'`
+  is the same as pushing the K-tensor coefficients of the aggregated
+  result forward along `h.toRingHom`.
 - `Provenance.LiftedTK` — the value type `LiftedTK T K` extending `T ⊕ K` with
   K-tensor monomials, used as the V_K interpretation domain for the rewriting
   of aggregate queries.
