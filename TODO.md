@@ -18,6 +18,33 @@ a complementary, mathematically distinct direction.
 the whole non-`Agg` fragment: Rel, Proj, Sel, Prod, Sum, Dedup,
 Diff. Zero sorries.
 
+### F. Prod case of `randomWorld_evaluateAnnotated`
+
+The last non-aggregation case of the structural-commutation theorem
+underlying Theorem 12 is now closed. The proof is a `Multiset.induction_on`
+on `r₁` (at the Prod-typed carrier, not Lex), where each cons step
+distributes `Multiset.product` via `Multiset.cons_bind` (Mathlib's
+`Multiset.cons_product` is stated with `×ˢ` notation which does not
+match `.product` syntactically; the `unfold` + `cons_bind` route
+sidesteps that). Two local helpers do the bookkeeping:
+
+- `hrw_cons`: random world of a Prod-typed cons (the unfolded form)
+  factors as an `if` on `a.snd v`. Used to expose the cons distribution
+  of `randomWorld v (p ::ₘ s)` on the RHS.
+- `h_head`: random world of the head slice `Multiset.product {p} r₂`
+  matches `Multiset.product {p.fst} (randomWorld v r₂)` (when
+  `p.snd v = true`) or vanishes (otherwise). Proved by induction on
+  `r₂'` and case-split on `p.snd v` / `q.snd v`; uses the `BoolFunc`
+  multiplication-is-pointwise-AND identity `(α * β) v = α v && β v`.
+
+The arity cast (`Eq.mp` inside the LHS map, `Relation.cast` on the RHS)
+is dispatched by `subst hn`, after which both wrappers reduce to identity.
+
+The result lifts `randomWorld_evaluateAnnotated` to a zero-sorry proof
+on the entire non-`Agg` fragment, which in turn upgrades Theorem 12
+(`ProbAssignment.theorem_12`) and Corollary 13 (`ProbAssignment.corollary_13`)
+to depend only on the parked R4/R5 `sorry`s in `QueryRewriting.lean`.
+
 ### C. δ on `SemiringWithMonus` + the 12 instances
 
 `Provenance/SemiringWithMonus.lean` now carries a `δ : α → α` field
@@ -68,10 +95,9 @@ and `groupByKey_value` publicly.
 Section IV-D of the paper. The probability foundation, Theorem 12 and
 Corollary 13 are now formalised in `Provenance/Probability.lean`. The
 proof of Theorem 12 reduces to a single structural-commutation lemma
-`randomWorld_evaluateAnnotated`, which is proven for **6 of 7
-non-aggregation cases**: `Rel`, `Proj`, `Sel`, `Sum`, `Dedup`, `Diff`.
-Only the `Prod` case remains as a `sorry`; see the **Remaining
-candidates** section below.
+`randomWorld_evaluateAnnotated`, which is proven for **all 7
+non-aggregation cases** (`Rel`, `Proj`, `Sel`, `Sum`, `Prod`, `Dedup`,
+`Diff`); the `Prod` case is closed in item F below.
 
 Concretely formalised:
 - `ProbAssignment X` (probabilities in `[0, 1]` on a finite var set),
@@ -125,25 +151,11 @@ to inventory every formal claim and check coverage. Defs 1/3/5,
 RA_k (Section III), the annotated semantics ⟪·⟫ (Section IV-B), the
 hom commutation of Section V-C, and Proposition 6 are all covered.
 Theorem 10 is partial (R1–R3 done, R4/R5 parked above). Theorem 12
-and Corollary 13 (item E above) are essentially done modulo one
-remaining structural case. The complexity content of Section V-D
+and Corollary 13 (items E and F above) are now complete for the
+non-aggregation fragment. The complexity content of Section V-D
 (tree-decomposition probability, knowledge compilers, linear-time
 read-once evaluation) and the #P-hardness statement are out of scope
 per the project conventions.
-
-### F. Close the Prod sorry in `randomWorld_evaluateAnnotated`
-
-The single remaining sorry in `Provenance/Probability.lean` for
-Theorem 12. The shape of the proof is clear (Diff-style induction on
-`r₁` with `Multiset.product` unfolded as `bind`, mirroring the
-existing Prod case of `Query.evaluateAnnotated_hom` in
-`QueryAnnotatedDatabaseHom.lean`), but it involves a non-trivial
-amount of bookkeeping: `Multiset.product` distribution over
-`Multiset.filter` and `Multiset.map`, the `BoolFunc`-multiplication-
-is-pointwise-AND identity `(α * β) v = α v && β v`, and the
-`Eq.mp _ (Fin.append …)` / `.cast hn` arity-cast shuffle. No new
-helpers required; expect ~50–80 lines following the patterns
-established for Diff. Lex/Prod workarounds from item E carry over.
 
 ### B. Aggregation provenance via K-semimodules (Amsterdamer-Deutch-Tannen)
 
@@ -198,7 +210,7 @@ equisatisfiability — not the knowledge-compiler call itself).
 
 ## Working order
 
-A done → C done → E essentially done → **F** (single sorry cleanup)
-→ B → D. F is a small, focused cleanup that finishes the last
-non-aggregation case of Theorem 12; B and D remain longer-horizon
-items.
+A done → C done → E done → F done → **B** → D. Theorem 12 and its
+corollary are now closed for the entire non-aggregation fragment.
+B (aggregation provenance) and D (d-DNNF correctness) remain
+longer-horizon items.

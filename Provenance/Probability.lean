@@ -672,7 +672,151 @@ theorem randomWorld_evaluateAnnotated :
         ih₂ (Query.noAggSum hq rfl).right Î v]
     rfl
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
-    intro _ _ _; sorry
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [← ih₁ (Query.noAggProd hq rfl).left Î v,
+        ← ih₂ (Query.noAggProd hq rfl).right Î v]
+    set r₁ := q₁.evaluateAnnotated (Query.noAggProd hq rfl).left Î with hr₁
+    set r₂ := q₂.evaluateAnnotated (Query.noAggProd hq rfl).right Î with hr₂
+    -- After `subst hn`, the `Eq.mp` cast inside the LHS map and the
+    -- `Relation.cast` on the RHS both reduce to identity.
+    subst hn
+    -- Local helper: `randomWorld v (a ::ₘ t)` is an `if` on `a.snd v`. Stated
+    -- in the bare-Multiset (unfolded `randomWorld`) form so all filters are
+    -- Prod-typed and the Lex/Prod typeclass mismatch never arises.
+    have hrw_cons : ∀ {k : ℕ} (a : Tuple T k × BoolFunc X)
+        (t : Multiset (Tuple T k × BoolFunc X)),
+        Multiset.map Prod.fst
+            (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) (a ::ₘ t))
+          = if a.snd v = true then
+              a.fst ::ₘ Multiset.map Prod.fst
+                  (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) t)
+            else Multiset.map Prod.fst
+                  (Multiset.filter (fun p : Tuple T k × BoolFunc X => p.snd v = true) t) := by
+      intro k a t
+      by_cases ha : a.snd v = true
+      · rw [Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T k × BoolFunc X => p.snd v = true) _ ha,
+            Multiset.map_cons]
+        simp [ha]
+      · rw [Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T k × BoolFunc X => p.snd v = true) _ ha]
+        simp [ha]
+    -- Helper for the cons-head: fixing the left annotated tuple `p`, the
+    -- random world of the product slice `Multiset.product {p} r₂'` matches
+    -- `Multiset.product {p.fst} (randomWorld v r₂')` (when `p.snd v = true`)
+    -- or vanishes (when `p.snd v = false`). Stated in fully unfolded form on
+    -- both sides so all filters are Prod-typed.
+    have h_head : ∀ (p : Tuple T n₁ × BoolFunc X)
+        (r₂' : Multiset (Tuple T n₂ × BoolFunc X)),
+        Multiset.map Prod.fst
+            (Multiset.filter (fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
+              (Multiset.map (fun pq : (Tuple T n₁ × BoolFunc X) × (Tuple T n₂ × BoolFunc X) =>
+                  ((Fin.append pq.fst.fst pq.snd.fst : Tuple T (n₁ + n₂)),
+                    pq.fst.snd * pq.snd.snd))
+                (Multiset.map (Prod.mk p) r₂')))
+          = if p.snd v = true then
+              Multiset.map (fun pq : Tuple T n₁ × Tuple T n₂ => Fin.append pq.fst pq.snd)
+                (Multiset.map (Prod.mk p.fst)
+                  (Multiset.map Prod.fst
+                    (Multiset.filter (fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) r₂')))
+            else 0 := by
+      intro p r₂'
+      induction r₂' using Multiset.induction_on with
+      | empty =>
+        by_cases hp : p.snd v = true
+        · rw [if_pos hp]; rfl
+        · rw [if_neg hp]; rfl
+      | cons q t ih_q =>
+        rw [Multiset.map_cons, Multiset.map_cons]
+        by_cases hpv : p.snd v = true
+        · by_cases hqv : q.snd v = true
+          · -- both annotations hold at v: head term survives both filters
+            have h_combined : (p.snd * q.snd) v = true := by
+              show (p.snd v && q.snd v) = true
+              rw [hpv, hqv]; rfl
+            rw [Multiset.filter_cons_of_pos
+                  (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
+                  _ h_combined,
+                Multiset.map_cons]
+            rw [if_pos hpv] at ih_q
+            rw [ih_q, if_pos hpv]
+            rw [Multiset.filter_cons_of_pos
+                  (p := fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) _ hqv,
+                Multiset.map_cons, Multiset.map_cons, Multiset.map_cons]
+            rfl
+          · -- p annotation true, q annotation false: head filtered out both sides
+            have h_combined : ¬ (p.snd * q.snd) v = true := by
+              show ¬ (p.snd v && q.snd v) = true
+              rw [hpv]; simp [hqv]
+            rw [Multiset.filter_cons_of_neg
+                  (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
+                  _ h_combined]
+            rw [if_pos hpv] at ih_q
+            rw [ih_q, if_pos hpv]
+            rw [Multiset.filter_cons_of_neg
+                  (p := fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) _ hqv]
+        · -- p annotation false: every combined annotation is false, total is 0
+          have hpv_false : p.snd v = false := by
+            cases h : p.snd v
+            · rfl
+            · exact absurd h hpv
+          have h_combined : ¬ (p.snd * q.snd) v = true := by
+            show ¬ (p.snd v && q.snd v) = true
+            rw [hpv_false]; simp
+          rw [Multiset.filter_cons_of_neg
+                (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
+                _ h_combined]
+          rw [if_neg hpv] at ih_q
+          rw [ih_q, if_neg hpv]
+    -- Now induct on r₁ at the bare-Multiset carrier; also expose `r₂` so its
+    -- type matches the helper signatures and the `Multiset.product` arguments.
+    let r₁' : Multiset (Tuple T n₁ × BoolFunc X) := r₁
+    let r₂' : Multiset (Tuple T n₂ × BoolFunc X) := r₂
+    show Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T (n₁ + n₂) × BoolFunc X => p.snd v = true)
+            (Multiset.map (fun p : (Tuple T n₁ × BoolFunc X) × (Tuple T n₂ × BoolFunc X) =>
+                ((Fin.append p.fst.fst p.snd.fst : Tuple T (n₁ + n₂)), p.fst.snd * p.snd.snd))
+              (Multiset.product r₁' r₂'))) =
+        Multiset.map (fun p : Tuple T n₁ × Tuple T n₂ => Fin.append p.fst p.snd)
+          (Multiset.product
+            (Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T n₁ × BoolFunc X => p.snd v = true) r₁'))
+            (Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T n₂ × BoolFunc X => p.snd v = true) r₂')))
+    induction r₁' using Multiset.induction_on with
+    | empty => rfl
+    | cons p s ih =>
+      -- `Multiset.cons_product` from Mathlib is stated with `×ˢ` notation; the
+      -- goal uses `.product` (the underlying `def`). They are definitionally
+      -- equal, so unfold `Multiset.product` to `bind` and use `cons_bind`.
+      have hcp_left : Multiset.product (p ::ₘ s) r₂'
+          = Multiset.map (Prod.mk p) r₂' + Multiset.product s r₂' := by
+        unfold Multiset.product
+        rw [Multiset.cons_bind]
+      -- LHS: distribute product/map/filter over the cons of `r₁`.
+      rw [hcp_left, Multiset.map_add, Multiset.filter_add, Multiset.map_add]
+      -- RHS: factor `randomWorld v (p ::ₘ s)` via `hrw_cons` and apply `h_head`.
+      rw [hrw_cons p s, h_head p r₂']
+      by_cases hpv : p.snd v = true
+      · -- Same form for the RHS product after `if_pos hpv` exposes a cons.
+        have hcp_rhs : Multiset.product (p.fst ::ₘ Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T n₁ × BoolFunc X => p.snd v = true) s))
+            (Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T n₂ × BoolFunc X => p.snd v = true) r₂'))
+          = Multiset.map (Prod.mk p.fst) (Multiset.map Prod.fst
+              (Multiset.filter (fun p : Tuple T n₂ × BoolFunc X => p.snd v = true) r₂'))
+            + Multiset.product (Multiset.map Prod.fst
+                (Multiset.filter (fun p : Tuple T n₁ × BoolFunc X => p.snd v = true) s))
+              (Multiset.map Prod.fst
+                (Multiset.filter (fun p : Tuple T n₂ × BoolFunc X => p.snd v = true) r₂')) := by
+          unfold Multiset.product
+          rw [Multiset.cons_bind]
+        rw [if_pos hpv, if_pos hpv, hcp_rhs, Multiset.map_add, ih]
+        rfl
+      · rw [if_neg hpv, if_neg hpv]
+        rw [ih]
+        exact (Multiset.zero_add _)
   | Dedup q' ih =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
