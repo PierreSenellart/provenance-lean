@@ -393,27 +393,27 @@ omit [Fintype X] [DecidableEq X] in
     randomWorld v (0 : AnnotatedRelation T (BoolFunc X) n) = 0 := rfl
 
 omit [Fintype X] [DecidableEq X] in
-/-- `randomWorld` is additive on relations. The plain Multiset proof is
-`filter_add` followed by `map_add`, but `AnnotatedRelation`'s `Add`
-instance comes from `inferInstanceAs` and `Multiset.filter_add`'s
-pattern `Multiset.filter ?p (?s + ?t)` does not match through that
-indirection without further coercion work. Left as cleanup. -/
+/-- `randomWorld` is additive on relations: filtering and projecting the
+data side commutes with multiset sum. -/
 lemma randomWorld_add (v : X → Bool)
     (r₁ r₂ : AnnotatedRelation T (BoolFunc X) n) :
     randomWorld v (r₁ + r₂) = randomWorld v r₁ + randomWorld v r₂ := by
-  sorry
+  unfold randomWorld
+  exact (congr_arg (Multiset.map Prod.fst)
+          (Multiset.filter_add (fun p : AnnotatedTuple T (BoolFunc X) n => p.snd v = true)
+            r₁ r₂)).trans
+    (Multiset.map_add _ _ _)
 
 omit [Fintype X] [DecidableEq X] in
-/-- Mapping the data side commutes with `randomWorld v`. -/
+/-- Mapping the data side commutes with `randomWorld v`. Stated for use in
+the `Proj` case of `randomWorld_evaluateAnnotated`. The natural proof
+(induction + `Multiset.filter_cons_of_pos`) is blocked by `DecidablePred`
+instance unification differences between the goal and the rewrite lemma;
+left as a future cleanup. -/
 lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
     (r : AnnotatedRelation T (BoolFunc X) n) :
     Multiset.map f (randomWorld v r) =
       randomWorld v (r.map (fun p : AnnotatedTuple T (BoolFunc X) n => (f p.fst, p.snd))) := by
-  unfold randomWorld
-  -- TODO: this should be a 1-line `simp [Multiset.filter_map, Multiset.map_map]`
-  -- but Lean's typeclass inference for the inner filter's decidability does
-  -- not always pick `Filter.evalDecidableAnnotated` cleanly. Leave as future
-  -- cleanup.
   sorry
 
 /-! ### Random world commutes with `find` -/
