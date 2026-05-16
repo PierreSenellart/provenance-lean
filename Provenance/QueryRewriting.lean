@@ -705,6 +705,49 @@ lemma Query.rewriting_valid_diff_inner_dd
       rw [← hv_eq] at this
       exact congrFun this k
 
+/-- **Semijoin reduction.** Given multisets `r : Multiset α` and `s : Multiset β` and
+a key function `g : α → β`, with `s` `Nodup`, the projection-after-filter of the
+cartesian product (keeping pairs whose `g`-image matches) coincides with filtering
+`r` to those `a` whose `g a` belongs to `s`. This is the multiset version of the
+relational semijoin and is the structural identity behind the `unmatched_eq`
+half of the `Diff`-case rewriting correctness. -/
+lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
+    (r : Multiset α) (s : Multiset β) (g : α → β) (hs : s.Nodup) :
+    ((r ×ˢ s).filter (fun pair : α × β ↦ g pair.1 = pair.2)).map Prod.fst
+    = r.filter (fun a ↦ g a ∈ s) := by
+  induction r using Multiset.induction with
+  | empty => simp
+  | cons hd tl ih =>
+    rw [Multiset.cons_product, Multiset.filter_add, Multiset.map_add, ih,
+        Multiset.filter_cons]
+    congr 1
+    -- Show ((s.map (Prod.mk hd)).filter (fun pair => g pair.1 = pair.2)).map Prod.fst
+    --    = if g hd ∈ s then {hd} else 0
+    rw [Multiset.filter_map, Multiset.map_map]
+    -- Goal: (s.filter (fun b => g hd = b)).map (Prod.fst ∘ Prod.mk hd) = ...
+    show (s.filter (fun b ↦ g hd = b)).map (fun _ ↦ hd) = _
+    by_cases hgmem : g hd ∈ s
+    · -- s.filter (g hd = ·) = {g hd} since s is Nodup; map by constant gives {hd}.
+      rw [if_pos hgmem]
+      have hcount : s.count (g hd) = 1 := Multiset.count_eq_one_of_mem hs hgmem
+      -- Convert filter to count.
+      have hfilter_eq : s.filter (fun b ↦ g hd = b) = {g hd} := by
+        ext b
+        rw [Multiset.count_filter, Multiset.count_singleton]
+        by_cases hb : g hd = b
+        · subst hb
+          rw [if_pos rfl]
+          exact hcount.trans (if_pos rfl).symm
+        · simp [hb, Ne.symm hb]
+      rw [hfilter_eq, Multiset.map_singleton]
+    · -- s.filter (g hd = ·) = 0 since g hd ∉ s; map gives 0.
+      rw [if_neg hgmem]
+      have hfilter_eq : s.filter (fun b ↦ g hd = b) = 0 := by
+        rw [Multiset.filter_eq_nil]
+        intro b hb heq
+        exact hgmem (heq ▸ hb)
+      rw [hfilter_eq, Multiset.map_zero]
+
 /-- Instance-polymorphic restatement of `Query.rewriting_valid_diff_inner_dd`.
 Inside the `Diff` case of `rewriting_valid`, Lean's instance synthesis picks
 inconsistent `DecidableEq (T⊕K)` instances at different positions in the goal:
