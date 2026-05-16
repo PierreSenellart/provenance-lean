@@ -263,7 +263,7 @@ this collapses to plain `sum`; the δ is only honoured by evaluators that
 know about an underlying `K` carrying a `SemiringWithMonus` structure
 (see `Query.evaluateInVK`). -/
 | sumDelta
-deriving Repr
+deriving Repr, DecidableEq
 
 def addFn (a b : T) := a + b
 instance : @Std.Commutative T addFn where

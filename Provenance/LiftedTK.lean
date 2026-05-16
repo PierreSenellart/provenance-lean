@@ -2,6 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Provenance.AnnotatedDatabase
 import Provenance.KSemiModule
 import Provenance.Util.ValueType
 
@@ -152,7 +153,7 @@ ktensor; ktensor wins over ann), and same-kind cases inherit commutativity. -/
 instance [AddCommSemigroup T] [AddCommSemigroup K] :
     @Std.Commutative (LiftedTK T K) (· + ·) where
   comm a b := by
-    cases a <;> cases b <;> simp <;> first | exact add_comm _ _ | rfl
+    cases a <;> cases b <;> simp <;> exact add_comm _ _
 
 /-- The `Add` on `LiftedTK T K` is associative whenever `T` and `K` are.
 The mixed cases follow the priority order "data > ktensor > ann"; same-kind
@@ -160,7 +161,7 @@ cases inherit associativity from the underlying carriers. -/
 instance [AddCommSemigroup T] [AddCommSemigroup K] :
     @Std.Associative (LiftedTK T K) (· + ·) where
   assoc a b c := by
-    cases a <;> cases b <;> cases c <;> simp <;> first | exact add_assoc _ _ _ | rfl
+    cases a <;> cases b <;> cases c <;> simp <;> exact add_assoc _ _ _
 
 /-! ## Subtraction
 
@@ -229,3 +230,62 @@ instance [DecidableEq T] [DecidableEq K] : DecidableEq (LiftedTK T K)
   | .ktensor _, .ann _ => isFalse (by intro h; injection h)
 
 end LiftedTK
+
+/-! ## Lifted view of an annotated relation
+
+`AnnotatedRelation.toLifted` is the `LiftedTK`-tuple view of an annotated
+relation: a row `(t, α)` becomes the `(n+1)`-tuple whose first `n`
+entries are `data (t i)` and whose last entry is `ann α`. This is the
+"Definition 7" representation of a non-aggregate `K`-annotated relation
+in `V_K`-lifted form, mirroring `AnnotatedRelation.toComposite` (which
+produces a `T ⊕ K`-tuple in the same shape).
+
+The bridge `toLifted_eq_map_ofSum_toComposite` says that lifting an
+annotated relation via `toLifted` agrees pointwise with
+"go through `toComposite` and then `LiftedTK.ofSum` each entry", which
+is exactly how `Query.evaluateInVK` interprets the non-Agg cases. This
+lets us upgrade the existing `Query.rewriting_valid` (stated in
+`toComposite` form) to the unified `Query.rewriting_valid_full` (stated
+in `toLifted` form). -/
+
+/-- Lifted view of an `AnnotatedTuple`: the `n` data entries become
+`data v_i`, with the annotation appended as `ann α` in the last slot. -/
+def AnnotatedTuple.toLifted {T K : Type} {n : ℕ} (p : AnnotatedTuple T K n) :
+    Tuple (LiftedTK T K) (n + 1) :=
+  Fin.append (fun k : Fin n => LiftedTK.data (p.fst k)) ![LiftedTK.ann p.snd]
+
+/-- Lifted view of an `AnnotatedRelation`: pointwise `toLifted` on tuples. -/
+def AnnotatedRelation.toLifted {T K : Type} {n : ℕ} (ar : AnnotatedRelation T K n) :
+    Multiset (Tuple (LiftedTK T K) (n + 1)) :=
+  ar.map AnnotatedTuple.toLifted
+
+/-- The bridge: lifting an annotated tuple agrees pointwise with composite-
+encoding followed by `LiftedTK.ofSum`. -/
+theorem AnnotatedTuple.toLifted_eq_ofSum_toComposite {T K : Type} {n : ℕ}
+    (p : AnnotatedTuple T K n) :
+    p.toLifted = fun k => LiftedTK.ofSum (p.toComposite k) := by
+  funext k
+  unfold AnnotatedTuple.toLifted AnnotatedTuple.toComposite
+  refine Fin.addCases ?_ ?_ k
+  · -- k = Fin.castAdd 1 i, with i : Fin n
+    intro i
+    rw [Fin.append_left, Fin.append_left]
+    rfl
+  · -- k = Fin.natAdd n j, with j : Fin 1
+    intro j
+    rw [Fin.append_right, Fin.append_right]
+    have hj : j = 0 := by
+      ext; exact Nat.lt_one_iff.mp j.isLt
+    subst hj
+    rfl
+
+/-- The bridge at the multiset level: `toLifted` agrees with
+`toComposite ∘ map ofSum-on-tuples`. -/
+theorem AnnotatedRelation.toLifted_eq_map_ofSum_toComposite {T K : Type} {n : ℕ}
+    (ar : AnnotatedRelation T K n) :
+    ar.toLifted = ar.toComposite.map (fun t => fun k => LiftedTK.ofSum (t k)) := by
+  unfold AnnotatedRelation.toLifted AnnotatedRelation.toComposite
+  rw [Multiset.map_map]
+  apply Multiset.map_congr rfl
+  intro p _
+  exact AnnotatedTuple.toLifted_eq_ofSum_toComposite p

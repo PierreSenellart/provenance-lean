@@ -94,8 +94,13 @@ the provenance-aware relational database system
   of aggregate queries.
 - `Provenance.QueryEvaluateInVK` — `Query.evaluateInVK`, the V_K-aware
   evaluator that interprets a rewritten query (in particular the (R5)
-  aggregation rewriting) in `LiftedTK`-valued tuples. Pairs with
-  `Query.rewritingAgg` in `Provenance.QueryRewriting` to realise (R5).
+  aggregation rewriting) in `LiftedTK`-valued tuples; together with
+  `Query.evaluateAnnotatedFull` (the unified Definition 7 annotated
+  semantics) and `Query.rewritingFull` (the unified rewriting of (R1)–(R5)
+  in `Provenance.QueryRewriting`), this realises the single rewriting
+  correctness theorem `Query.rewriting_valid_full`. R1–R3 are proven by
+  reduction to `Query.rewriting_valid` (the legacy non-Agg theorem,
+  retained as a helper); R4 and R5 inherit the existing parked `sorry`s.
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound

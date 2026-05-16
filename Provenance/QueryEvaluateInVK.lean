@@ -107,63 +107,151 @@ the design rationale and the scope (aggregation-at-root only). -/
 noncomputable def evaluateInVK : ∀ {n}, Query (T ⊕ K) n →
     AnnotatedDatabase T K → Multiset (Tuple (LiftedTK T K) n)
   | _, @Query.Agg _ m n₁ n₂ is ts as q_inner, d =>
-      -- By scope, `q_inner` is non-Agg and can be evaluated via the standard
-      -- `evaluate` on the composite database; we lift the resulting tuples
-      -- to `LiftedTK` pointwise.
-      let r_inner_TK : Multiset (Tuple (T ⊕ K) m) := q_inner.evaluate d.toComposite
-      let r_inner_VK : Multiset (Tuple (LiftedTK T K) m) :=
-        r_inner_TK.map (fun tuple => fun k => LiftedTK.ofSum (tuple k))
-      -- Group keys: distinct projections of `r_inner_VK` to the columns `is`.
-      let groupKeys : Multiset (Tuple (LiftedTK T K) n₁) :=
-        Multiset.dedup (r_inner_VK.map (fun tuple => fun k => tuple (is k)))
-      groupKeys.map (fun g =>
-        let matching : Multiset (Tuple (LiftedTK T K) m) :=
-          r_inner_VK.filter (fun tuple => ∀ k', tuple (is k') = g k')
-        let aggValues : Tuple (LiftedTK T K) n₂ := fun k =>
-          let perRow : Multiset (LiftedTK T K) :=
-            matching.map (fun u => (ts k).evalInVK u)
-          let summed : LiftedTK T K := perRow.fold (· + ·) 0
-          match as k with
-          | AggFunc.sum => summed
-          | AggFunc.sumDelta => LiftedTK.applyDelta summed
-        Fin.append g aggValues)
+      -- Dispatch on whether the aggregation requires the V_K interpretation.
+      -- Aggregations produced by (R3) and (R4) only use `AggFunc.sum`
+      -- (because their aggregator is the plain K-side `⊕`); for those we
+      -- fall through to the standard `evaluate ∘ toComposite ∘ ofSum-lift`,
+      -- which is correctness-preserving. Aggregations produced by (R5) have
+      -- at least one `AggFunc.sumDelta` aggregator (the δ-applied row
+      -- annotation column), signalling that the V_K-specific interpretation
+      -- is required to recover the K-tensor information.
+      if _h : ∃ k : Fin n₂, as k = AggFunc.sumDelta then
+        let r_inner_TK : Multiset (Tuple (T ⊕ K) m) := q_inner.evaluate d.toComposite
+        let r_inner_VK : Multiset (Tuple (LiftedTK T K) m) :=
+          r_inner_TK.map (fun tuple => fun k => LiftedTK.ofSum (tuple k))
+        let groupKeys : Multiset (Tuple (LiftedTK T K) n₁) :=
+          Multiset.dedup (r_inner_VK.map (fun tuple => fun k => tuple (is k)))
+        groupKeys.map (fun g =>
+          let matching : Multiset (Tuple (LiftedTK T K) m) :=
+            r_inner_VK.filter (fun tuple => ∀ k', tuple (is k') = g k')
+          let aggValues : Tuple (LiftedTK T K) n₂ := fun k =>
+            let perRow : Multiset (LiftedTK T K) :=
+              matching.map (fun u => (ts k).evalInVK u)
+            let summed : LiftedTK T K := perRow.fold (· + ·) 0
+            match as k with
+            | AggFunc.sum => summed
+            | AggFunc.sumDelta => LiftedTK.applyDelta summed
+          Fin.append g aggValues)
+      else
+        ((@Query.Agg _ m n₁ n₂ is ts as q_inner).evaluate d.toComposite).map
+          (fun tuple => fun k => LiftedTK.ofSum (tuple k))
   | _, q, d =>
       (q.evaluate d.toComposite).map (fun tuple => fun k => LiftedTK.ofSum (tuple k))
 
 end Query
 
-/-! ## (R5) Correctness (parked)
+/-! ## Unified annotated semantics
 
-The intended statement of (R5)'s correctness is
+`Query.evaluateAnnotatedFull` is the single annotated semantics that
+matches the rewriting target. For non-aggregating queries it coincides
+(via `AnnotatedRelation.toLifted`) with the existing
+`Query.evaluateAnnotated`, and for top-level aggregations it is the
+Definition 7 semantics of [Sen, Maniu & Senellart][sen2026provsql]:
+each output row carries `n₁` grouping data values, `n₂` K-tensor
+annotations (`Σ αᵤ ⊗ value_u_k`), and one δ-applied K annotation
+(`δ(Σ αᵤ)`). The shared output type is
+`Multiset (Tuple (LiftedTK T K) (n + 1))`. -/
 
-```
-⟪Agg is ts as q_inner⟫_Î = evaluateInVK (rewritingAgg is ts as q_inner hq_inner) Î
-```
+/-- Unified `K`-annotated semantics in `LiftedTK` form. Dispatches on
+whether the query is a top-level aggregation; otherwise lifts
+`Query.evaluateAnnotated`. -/
+noncomputable def Query.evaluateAnnotatedFull [AddCommSemigroup T] [Zero T] :
+    ∀ {n}, (q : Query T n) → q.wellFormed → AnnotatedDatabase T K →
+      Multiset (Tuple (LiftedTK T K) (n + 1))
+  | _, @Query.Agg _ m n₁ n₂ is ts _as q_inner, h, Î =>
+      -- Definition 7 (Sen-Maniu-Senellart): the per-column aggregator `f̂_k`
+      -- is fixed to K-tensor sum (multiset union) and the row-annotation
+      -- column is `δ(⊕)`; the user-specified `as` is irrelevant at this
+      -- semantic level (its only role is in the rewriting target, where it
+      -- distinguishes R3-style `sum` from R5-style `sumDelta`).
+      let r_inner : Multiset (Tuple T m × K) := q_inner.evaluateAnnotated h Î
+      let groupKeys : Multiset (Tuple T n₁) :=
+        Multiset.dedup (r_inner.map (fun p => fun k : Fin n₁ => p.fst (is k)))
+      groupKeys.map (fun g =>
+        let matching : Multiset (Tuple T m × K) :=
+          r_inner.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')
+        Fin.append
+          (Fin.append
+            (fun k : Fin n₁ => LiftedTK.data (g k))
+            (fun k : Fin n₂ =>
+              LiftedTK.ktensor
+                (matching.map (fun p => (p.snd, (ts k).eval p.fst)))))
+          ![LiftedTK.ann (SemiringWithMonus.delta (matching.map Prod.snd).sum)])
+  | _, Query.Rel n s, h, Î => ((Query.Rel n s).evaluateAnnotated h Î).toLifted
+  | _, Query.Proj ts q', h, Î => ((Query.Proj ts q').evaluateAnnotated h Î).toLifted
+  | _, Query.Sel φ q', h, Î => ((Query.Sel φ q').evaluateAnnotated h Î).toLifted
+  | _, @Query.Prod _ _ _ _ hn q₁ q₂, h, Î =>
+      ((@Query.Prod _ _ _ _ hn q₁ q₂).evaluateAnnotated h Î).toLifted
+  | _, Query.Sum q₁ q₂, h, Î => ((Query.Sum q₁ q₂).evaluateAnnotated h Î).toLifted
+  | _, Query.Dedup q', h, Î => ((Query.Dedup q').evaluateAnnotated h Î).toLifted
+  | _, Query.Diff q₁ q₂, h, Î => ((Query.Diff q₁ q₂).evaluateAnnotated h Î).toLifted
 
-where `⟪·⟫` is the paper's Definition 7 annotated semantics in the
-K-semimodule `V_K`. The codebase currently realises Definition 7
-partially: `Query.evaluateAggSum` carries the K-tensor information
-column-by-column but does not emit the δ-applied row-annotation column,
-and its output type
-`Multiset (Tuple T n₁ × Tuple (T × KTensor K T) n₂)` differs from
-`evaluateInVK`'s `Multiset (Tuple (LiftedTK T K) (n₁ + n₂ + 1))`. Stating
-a precise equality therefore requires a small bookkeeping bridge between
-the two representations that is left for future work.
+/-! ## Unified rewriting correctness
 
-We park a *cardinality* form of the correctness theorem below as a
-`sorry`: every group produces one row in both representations, so the
-multiset cardinalities agree. The full structural equality lifts this to
-agreement on data, K-tensor, and δ-applied annotation columns. -/
+The single theorem `Query.rewriting_valid_full` packages both the
+(R1)–(R4) correctness (existing `Query.rewriting_valid`, parked R4
+`sorry`s carried over) and the (R5) correctness (parked `sorry`) into a
+uniform statement: for any well-formed query (no aggregation, or a
+top-level aggregation with a non-aggregating inner query), the
+`LiftedTK`-form annotated semantics agrees with the V_K interpretation
+of the rewriting. -/
 
-/-- (R5) correctness, cardinality form. The rewriting in V_K produces the
-same number of output rows as `evaluateAggSum` (one per distinct group
-key). The full structural equality is left as future work. -/
-theorem Query.rewritingAgg_valid_card {m n₁ n₂ : ℕ}
+/-- **Unified rewriting correctness.** For any well-formed query `q`
+(non-aggregating, or top-level aggregation with non-aggregating inner
+query), the Def-7-style annotated semantics of `q` on `Î` matches the
+V_K interpretation of the rewritten query on `Î.toComposite`. R1-R3 are
+proven via the existing `Query.rewriting_valid` plus the bridge between
+`AnnotatedRelation.toLifted` and the composite-then-lift on tuples; R4
+and R5 are parked as `sorry`s alongside the existing ones. -/
+theorem Query.rewriting_valid_full
     [AddCommSemigroup T] [Zero T]
-    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂) (as : Tuple AggFunc n₂)
-    (q_inner : Query T m) (hq_inner : q_inner.noAgg)
+    [HasAltLinearOrder K] {n : ℕ} (q : Query T n) (hq : q.wellFormed)
     (Î : AnnotatedDatabase T K) :
-    Multiset.card
-        (Query.evaluateInVK (Query.rewritingAgg (K := K) is ts as q_inner hq_inner) Î)
-      = Multiset.card (Query.evaluateAggSum is ts q_inner hq_inner Î) := by
-  sorry
+    Query.evaluateAnnotatedFull q hq Î
+      = Query.evaluateInVK (Query.rewritingFull (K := K) q hq) Î := by
+  -- For non-aggregating constructors, the unified evaluator is the existing
+  -- `evaluateAnnotated` lifted via `toLifted`, and `evaluateInVK` on the
+  -- rewriting is `(evaluate ∘ toComposite) ∘ map ofSum-on-tuples`. The
+  -- `AnnotatedRelation.toLifted_eq_map_ofSum_toComposite` bridge plus the
+  -- existing `Query.rewriting_valid` close every case mechanically.
+  --
+  -- The Agg case is parked alongside the existing R4/R5 sorries.
+  induction q with
+  | Rel n s =>
+      show ((Query.Rel n s).evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Rel n s) hq Î]
+      rfl
+  | Proj ts q' _ =>
+      show ((Query.Proj ts q').evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Proj ts q') hq Î]
+      rfl
+  | Sel φ q' _ =>
+      show ((Query.Sel φ q').evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Sel φ q') hq Î]
+      rfl
+  | @Prod n₁ n₂ n hn q₁ q₂ _ _ =>
+      show ((@Query.Prod _ n₁ n₂ n hn q₁ q₂).evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (@Query.Prod _ n₁ n₂ n hn q₁ q₂) hq Î]
+      rfl
+  | Sum q₁ q₂ _ _ =>
+      show ((Query.Sum q₁ q₂).evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Sum q₁ q₂) hq Î]
+      rfl
+  | Dedup q' _ =>
+      show ((Query.Dedup q').evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Dedup q') hq Î]
+      rfl
+  | Diff q₁ q₂ _ _ =>
+      show ((Query.Diff q₁ q₂).evaluateAnnotated hq Î).toLifted = _
+      rw [AnnotatedRelation.toLifted_eq_map_ofSum_toComposite,
+          Query.rewriting_valid (Query.Diff q₁ q₂) hq Î]
+      rfl
+  | Agg _ _ _ _ _ =>
+      -- (R5) case, parked.
+      sorry

@@ -1103,3 +1103,30 @@ def Query.rewritingAgg [ValueType T] {m n₁ n₂ : ℕ}
   -- annotation column at the end).
   let is' : Tuple (Fin (m + 1)) n₁ := fun k => (is k).castLE (Nat.le_succ _)
   @Query.Agg (T ⊕ K) (m + 1) n₁ (n₂ + 1) is' ts' as' q_inner'
+
+/-! ## Unified rewriting for queries with at-most-top-level aggregation -/
+
+/-- A query is *well-formed for rewriting* if it has no aggregation at all
+(corresponding to the (R1)–(R4) cases) or if it is a top-level
+aggregation whose inner query has no aggregation (the (R5) case). This is
+the structural precondition imposed by the ICDE paper, which restricts
+the aggregation operator to the root of a query plan. -/
+def Query.wellFormed : ∀ {n}, Query T n → Prop
+  | _, @Query.Agg _ _ _ _ _ _ _ q_inner => q_inner.noAgg
+  | _, q => q.noAgg
+
+/-- Unified rewriting: dispatches between the (R1)–(R4) rewriting for
+non-aggregating queries and the (R5) rewriting for top-level
+aggregations. The single function realises the rewriting rules (R1)–(R5)
+of [Sen, Maniu & Senellart][sen2026provsql] together. -/
+def Query.rewritingFull [ValueType T] :
+    ∀ {n}, (q : Query T n) → q.wellFormed → Query (T ⊕ K) (n + 1)
+  | _, @Query.Agg _ _ _ _ is ts as q_inner, h =>
+      Query.rewritingAgg (K := K) is ts as q_inner h
+  | _, Query.Rel n s, h => (Query.Rel n s).rewriting h
+  | _, Query.Proj ts q', h => (Query.Proj ts q').rewriting h
+  | _, Query.Sel φ q', h => (Query.Sel φ q').rewriting h
+  | _, @Query.Prod _ _ _ _ hn q₁ q₂, h => (@Query.Prod _ _ _ _ hn q₁ q₂).rewriting h
+  | _, Query.Sum q₁ q₂, h => (Query.Sum q₁ q₂).rewriting h
+  | _, Query.Dedup q', h => (Query.Dedup q').rewriting h
+  | _, Query.Diff q₁ q₂, h => (Query.Diff q₁ q₂).rewriting h
