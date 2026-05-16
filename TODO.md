@@ -63,17 +63,87 @@ Key supporting lemmas (all proved):
 Side effect: `QueryRewriting.lean` now exposes `groupByKey_key_iff`
 and `groupByKey_value` publicly.
 
-## Candidates (after auditing ProvSQL against the Lean library)
+### E. Intensional probabilistic query evaluation (Theorem 12 + Corollary 13)
+
+Section IV-D of the paper. The probability foundation, Theorem 12 and
+Corollary 13 are now formalised in `Provenance/Probability.lean`. The
+proof of Theorem 12 reduces to a single structural-commutation lemma
+`randomWorld_evaluateAnnotated`, which is proven for **6 of 7
+non-aggregation cases**: `Rel`, `Proj`, `Sel`, `Sum`, `Dedup`, `Diff`.
+Only the `Prod` case remains as a `sorry`; see the **Remaining
+candidates** section below.
+
+Concretely formalised:
+- `ProbAssignment X` (probabilities in `[0, 1]` on a finite var set),
+  `valProb v` (independence-product over a valuation), `funcProb f`
+  (probability of a Boolean function as the sum over satisfying
+  valuations), with all basic properties (`sum_valProb_eq_one`,
+  `funcProb_nonneg`, `funcProb_le_one`, `funcProb_zero`,
+  `funcProb_one`, `funcProb_congr`).
+- `randomWorld v r` (data side of `r`'s annotated tuples whose
+  annotation evaluates to `true` at `v`), `AnnotatedDatabase.randomWorld`,
+  and the pointwise bridge `tupleAnnotation_apply_eq_true_iff`.
+- `marginalProb P q Î t` (sum-over-valuations definition of the
+  marginal probability).
+- **Theorem 12** (`ProbAssignment.theorem_12`): for any non-aggregation
+  `q ∈ RA_k`, any `BoolFunc X`-instance `Î` and any tuple `t`,
+  `Pr(t ∈ ⟦q⟧(Î)) = Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`. Modulo the `Prod`
+  case of `randomWorld_evaluateAnnotated`.
+- **Corollary 13** (`ProbAssignment.corollary_13`): the same identity
+  with the **plain** rewritten query `q̂` evaluated on the composite
+  database `Î.toComposite`, derived by composing Theorem 12 with
+  `Query.rewriting_valid` (Theorem 10 of the paper, R1–R5).
+  Modulo the same `Prod` sorry plus the parked R4 `Diff` sorry from
+  `Query.rewriting_valid`.
+
+Supporting helpers:
+- `randomWorld_add`, `randomWorld_map_data`, `randomWorld_filter_data`
+  (multiset distribution of `randomWorld`).
+- `diff_annotation_eq_false_iff` (the Diff subtraction-annotation
+  evaluates to `false` at `v` iff the data tuple is absent from the
+  random world of the subtracted relation).
+- `Tuple.fromComposite_toComposite` + `AnnotatedRelation.map_fromComposite_toComposite`
+  (composite-encoding roundtrip, lifted to multisets).
+
+A repeated technical hurdle (documented in
+`~/.claude/projects/.../memory/project_lex_prod_typeclass.md`): for
+concrete `K = BoolFunc X`, elaboration of `Multiset.filter` over
+`AnnotatedRelation` synthesises a different `DecidablePred` instance
+than the rewrite lemma's, even though `Lex α = α` definitionally. The
+recurring workarounds are (i) bind a `let r' : Multiset (Tuple T _ × K)
+:= r` at the unfolded `Prod` type before inducting, (ii) bridge
+instance-different filters via `Subsingleton.elim` on the
+`DecidablePred` (rewriting **into the helper** rather than into the
+goal), and (iii) always pass `(p := fun … => …)` named-arg to
+`Multiset.filter_cons_of_pos` / `_neg` so HOU does not pick the wrong
+predicate decomposition.
+
+## Candidates
 
 A pass over the ICDE 2026 paper (`sen2026provsql.pdf`) was performed
 to inventory every formal claim and check coverage. Defs 1/3/5,
 RA_k (Section III), the annotated semantics ⟪·⟫ (Section IV-B), the
 hom commutation of Section V-C, and Proposition 6 are all covered.
 Theorem 10 is partial (R1–R3 done, R4/R5 parked above). Theorem 12
-and Corollary 13 are new gaps — see item E. The complexity content
-of Section V-D (tree-decomposition probability, knowledge compilers,
-linear-time read-once evaluation) and the #P-hardness statement are
-out of scope per the project conventions.
+and Corollary 13 (item E above) are essentially done modulo one
+remaining structural case. The complexity content of Section V-D
+(tree-decomposition probability, knowledge compilers, linear-time
+read-once evaluation) and the #P-hardness statement are out of scope
+per the project conventions.
+
+### F. Close the Prod sorry in `randomWorld_evaluateAnnotated`
+
+The single remaining sorry in `Provenance/Probability.lean` for
+Theorem 12. The shape of the proof is clear (Diff-style induction on
+`r₁` with `Multiset.product` unfolded as `bind`, mirroring the
+existing Prod case of `Query.evaluateAnnotated_hom` in
+`QueryAnnotatedDatabaseHom.lean`), but it involves a non-trivial
+amount of bookkeeping: `Multiset.product` distribution over
+`Multiset.filter` and `Multiset.map`, the `BoolFunc`-multiplication-
+is-pointwise-AND identity `(α * β) v = α v && β v`, and the
+`Eq.mp _ (Fin.append …)` / `.cast hn` arity-cast shuffle. No new
+helpers required; expect ~50–80 lines following the patterns
+established for Diff. Lex/Prod workarounds from item E carry over.
 
 ### B. Aggregation provenance via K-semimodules (Amsterdamer-Deutch-Tannen)
 
@@ -89,26 +159,6 @@ out of scope per the project conventions.
 The δ prerequisite (item C) is already done. This is the formal
 semantics described in Section IV-B of the ICDE 2026 paper for the
 aggregation operator.
-
-### E. Intensional probabilistic query evaluation (Theorem 12 + Corollary 13)
-
-Section IV-D of the paper. Currently nothing on the probability side
-is formalised. To close this gap:
-- define `Pr : X → ℚ ∩ [0,1]` and its independence-extension to a
-  distribution over valuations `v : X → 𝔹`, i.e. the product
-  `∏_{v(x)=⊤} Pr(x) · ∏_{v(x)=⊥} (1 - Pr(x))`;
-- define `Pr(f)` for `f : BoolFunc X` as `∑_{v ⊨ f} Pr(v)`;
-- prove **Theorem 12**: for any non-aggregation `q ∈ RA_k`, any
-  `BoolFunc X`-instance `Î` and any tuple `t`,
-  `Pr(t ∈ ⟦q⟧(Î)) = Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`;
-- derive **Corollary 13** by composing with `Query.evaluateAnnotated_hom`
-  (the existing rewriting / hom commutation), giving the same identity
-  with `⟦q̂⟧^I` on the LHS for the rewriting `q̂` of `q`.
-
-Self-contained and does not depend on aggregation or on the parked
-R4/R5 sorries. This is the formal justification for ProvSQL's entire
-probabilistic-evaluation pipeline and is the largest single gap
-between the paper's formal claims and the Lean library.
 
 ### D. d-DNNF correctness (semantic, not complexity)
 
@@ -126,9 +176,9 @@ as the d-DNNF result but smaller; can land first.
 
 Would also give a foundation for later formalising the BID → TID
 rewrite (`rewriteMultivaluedGates` in `BooleanCircuit.cpp`) and, in
-combination with item E, the Tseitin-based CNF-encoding step of
-Section V-D step 3 (purely semantic — equisatisfiability — not the
-knowledge-compiler call itself).
+combination with the now-formalised Theorem 12, the Tseitin-based
+CNF-encoding step of Section V-D step 3 (purely semantic —
+equisatisfiability — not the knowledge-compiler call itself).
 
 ### Out of scope
 
@@ -148,7 +198,7 @@ knowledge-compiler call itself).
 
 ## Working order
 
-A done → C done → **E** → B → D. E is promoted ahead of B because it
-maximises paper coverage per unit effort: it does not depend on the
-aggregation infrastructure and unlocks Corollary 13 immediately via
-the existing hom commutation.
+A done → C done → E essentially done → **F** (single sorry cleanup)
+→ B → D. F is a small, focused cleanup that finishes the last
+non-aggregation case of Theorem 12; B and D remain longer-horizon
+items.
