@@ -35,23 +35,23 @@ This is the foundation needed to state and prove Theorem 12 of the paper
 non-aggregation query `q`, any `BoolFunc X`-instance `Î` and any tuple `t`,
 `Pr(t ∈ q(Î)) = Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`. The theorem itself is stated below
 and the algebraic-bridge lemmas are developed; the full proof depends on a
-"Bool-annotated semantics tracks plain semantics on the boolean-true support"
+“Bool-annotated semantics tracks plain semantics on the boolean-true support”
 result that is left as future work.
 
 ## Main definitions
 
-* `ProbAssignment X` — a probability assignment to each variable, bundled
+* `ProbAssignment X` – a probability assignment to each variable, bundled
   with `0 ≤ Pr(x) ≤ 1`.
-* `ProbAssignment.valProb` — `Pr(v)` for a single valuation `v : X → Bool`.
-* `ProbAssignment.funcProb` — `Pr(f)` for a Boolean function `f : BoolFunc X`.
+* `ProbAssignment.valProb` – `Pr(v)` for a single valuation `v : X → Bool`.
+* `ProbAssignment.funcProb` – `Pr(f)` for a Boolean function `f : BoolFunc X`.
 
 ## Main results
 
-* `ProbAssignment.valProb_nonneg`, `valProb_le_one`, `sum_valProb_eq_one` —
+* `ProbAssignment.valProb_nonneg`, `valProb_le_one`, `sum_valProb_eq_one` –
   basic properties of the valuation distribution.
 * `ProbAssignment.funcProb_zero`, `funcProb_one`, `funcProb_nonneg`,
-  `funcProb_le_one` — basic properties of `Pr(f)`.
-* `ProbAssignment.funcProb_congr` — pointwise-equal Boolean functions have
+  `funcProb_le_one` – basic properties of `Pr(f)`.
+* `ProbAssignment.funcProb_congr` – pointwise-equal Boolean functions have
   equal probabilities.
 
 ## References
@@ -348,7 +348,7 @@ theorem tupleAnnotation_apply_eq_true_iff
 
 The marginal probability `Pr(t ∈ q(Î))` is defined as the sum over valuations
 `v` of `Pr(v)` indexed by whether `t` appears in `q.evaluate (Î.randomWorld v)`.
-This is the standard "intensional" definition: enumerate possible worlds,
+This is the standard “intensional” definition: enumerate possible worlds,
 weight each by its probability, and accumulate the indicator that the query
 output contains `t`.
 

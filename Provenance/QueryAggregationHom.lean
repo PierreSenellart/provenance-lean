@@ -20,8 +20,8 @@ evaluateAggSum is ts q hq (h ⋆ d) =
 This is the aggregation analogue of `Query.evaluateAnnotated_hom`
 ([Green, Karvounarakis & Tannen, *Provenance Semirings*, Prop. 3.5][green2007provenance],
 [Geerts & Poggi, *On database query languages for K-relations*,
-Prop. 1][geerts2010database]) and continues the "compile once, evaluate
-many" theme of [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]: a
+Prop. 1][geerts2010database]) and continues the “compile once, evaluate
+many” theme of [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]: a
 single K-annotated computation can be specialised to any concrete
 m-semiring K' through an m-semiring homomorphism, including for the
 aggregation operator and its K-tensor row annotations.
@@ -30,7 +30,7 @@ The proof reduces to (i) the existing
 `Query.evaluateAnnotated_hom` on the inner non-aggregating query and
 (ii) the observation that the pushforward of an annotated relation
 leaves the data side untouched and applies `h.toRingHom` to each
-annotation — which means group keys, matching predicates and aggregated
+annotation – which means group keys, matching predicates and aggregated
 data values are unaffected, while each K-tensor coefficient is mapped
 through `h`.
 
@@ -61,7 +61,7 @@ omit [Zero T] in
 and any non-aggregating inner query `q`, evaluating the aggregation on
 `h ⋆ d` is the same as evaluating on `d` and then mapping each K-tensor
 coefficient through `h.toRingHom`. The aggregation operator therefore
-inherits the "compile once, evaluate many" property already established
+inherits the “compile once, evaluate many” property already established
 by `Query.evaluateAnnotated_hom` on the non-aggregating fragment. -/
 theorem evaluateAggSum_hom (h : SemiringWithMonusHom K K')
     {m n₁ n₂ : ℕ}

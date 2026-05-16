@@ -38,7 +38,7 @@ convention `A_∅ = 𝟙`. -/
 def A (α : ι → K) (W : Finset ι) : K :=
   ∏ x ∈ W, α x
 
-/-- `T_U(W) = A_W ⊖ ⊕_{x ∈ U \ W} A_{W ∪ {x}}`: the "exactly-`W`" contribution
+/-- `T_U(W) = A_W ⊖ ⊕_{x ∈ U \ W} A_{W ∪ {x}}`: the “exactly-`W`” contribution
 that removes from `A_W` all one-step extensions of `W` inside `U`. -/
 def T (α : ι → K) (U W : Finset ι) : K :=
   A α W - ∑ x ∈ U \ W, A α (insert x W)
@@ -520,11 +520,11 @@ theorem F_zero_eq_one (h_idem : idempotent K) (h_abs : absorptive K)
 absorptive commutative m-semiring with `mul_sub_left_distributive`, the
 possible-world provenance `F_C(U)` equals the join-based provenance
 `S_C(U)` for all `C ≥ 1`. Absorptive is a strictly stronger hypothesis
-than the bare "idempotent + distributive" combination one might wish for,
+than the bare “idempotent + distributive” combination one might wish for,
 but it is what makes the `C = 1` base of the recurrence-driven induction
 go through, via `F_zero_eq_one`. The absorptive hypothesis is essential:
 `Provenance.Semirings.Tropical.TropicalQ.F_ne_S` exhibits a non-absorptive
-(but idempotent and distributive) instance — `Tropical (WithTop ℚ)` — for
+(but idempotent and distributive) instance – `Tropical (WithTop ℚ)` – for
 which the conclusion fails. The idempotent m-semirings in the library
 with `mul_sub_left_distributive` that *are* absorptive (Bool, BoolFunc,
 IntervalUnion, `Tropical (WithTop ℕ)`, Viterbi, Łukasiewicz) all satisfy

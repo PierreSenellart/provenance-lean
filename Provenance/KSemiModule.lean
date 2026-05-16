@@ -16,14 +16,14 @@ aggregation operator on `K`-annotated relations, following the framework of
 
 ## Main definitions
 
-* `KSemiModule K M` — a left action of a `CommSemiringWithMonus K` on an
+* `KSemiModule K M` – a left action of a `CommSemiringWithMonus K` on an
   `AddCommMonoid M` satisfying the six standard semimodule axioms
   (`zero_smul`, `one_smul`, `add_smul`, `smul_add`, `smul_zero`,
   `mul_smul`). The same axioms as Mathlib's `Module`, exposed under our
   own name so that downstream provenance proofs depend on
   `CommSemiringWithMonus` directly (not on the more abstract `Semiring`).
 
-* `KTensor K M` — a representation of the free formal sums `∑ αᵢ ⊗ mᵢ`,
+* `KTensor K M` – a representation of the free formal sums `∑ αᵢ ⊗ mᵢ`,
   realised as a `Multiset (K × M)` of monomials. Has `Zero`, `Add` and
   `AddCommMonoid`, plus a scalar action `KTensor.smul`, an `embed` map
   `(K × M) → KTensor K M`, and a contraction `bind` operator.
@@ -39,7 +39,7 @@ aggregation operator on `K`-annotated relations, following the framework of
 
 ## Main results
 
-* `instance : KSemiModule K K` — the canonical action of a
+* `instance : KSemiModule K K` – the canonical action of a
   `CommSemiringWithMonus K` on itself via multiplication.
 
 ## References

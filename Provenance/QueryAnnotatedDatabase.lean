@@ -18,7 +18,7 @@ multiset semantics with explicit duplicate elimination and multiset difference.
 
 ## Main definitions
 
-* `Query.evaluateAnnotated` — evaluates a query over an `AnnotatedDatabase T K`,
+* `Query.evaluateAnnotated` – evaluates a query over an `AnnotatedDatabase T K`,
   propagating annotations through each relational operator according to the semiring
   structure of `K`
 

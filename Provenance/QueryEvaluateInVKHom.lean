@@ -24,7 +24,7 @@ where `mapAnnotatedFullRow h` is the pointwise pushforward on a
 This is the aggregation analogue of `Query.evaluateAnnotated_hom`
 ([Green, Karvounarakis & Tannen, *Provenance Semirings*,
 Prop. 3.5][green2007provenance]) extended to the (R5) aggregation case,
-and continues the "compile once, evaluate many" theme of
+and continues the “compile once, evaluate many” theme of
 [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]: a single
 K-annotated computation can be specialised to any concrete m-semiring
 `K'` through an m-semiring homomorphism `h`, *including* for aggregate
@@ -222,7 +222,7 @@ theorem evaluateAnnotatedFull_hom (h : SemiringWithMonusHom K K')
                   SemiringWithMonusHom.mapAnnotatedTuple KTensor.mapHom
           simp only [Multiset.map_map]
           rfl
-      · -- Last column: δ(Σ α) — the K-side cell. Uses `map_delta`.
+      · -- Last column: δ(Σ α) – the K-side cell. Uses `map_delta`.
         intro j
         simp only [Fin.append_right]
         have hj : j = 0 := by ext; exact Nat.lt_one_iff.mp j.isLt

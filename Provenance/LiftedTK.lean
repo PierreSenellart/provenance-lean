@@ -27,16 +27,16 @@ That is fine for the rules (R1)–(R4), which only multiply same-kind values
 (data × data in the projected products, annotation × annotation when combining
 two tuples' K-coordinates), but it loses information in (R5). The rewritten
 aggregate column term `t_j * #(k+1)` evaluates to `Sum.inl v_j * Sum.inr α`,
-which the current `Mul` collapses to `Sum.inl v_j` — the K-side `α` is gone
+which the current `Mul` collapses to `Sum.inl v_j` – the K-side `α` is gone
 before the aggregator `f̂_j` ever sees it.
 
 The paper resolves this by interpreting the rewritten aggregation *in the
 semimodule `V_K`*, which can represent formal sums `Σ vᵢ ⊗ αᵢ`. `LiftedTK T K`
 gives us a Lean encoding of that domain:
 
-* `LiftedTK.data v` — a plain value `v ∈ T`;
-* `LiftedTK.ann α` — a plain annotation `α ∈ K`;
-* `LiftedTK.ktensor t` — a formal K-tensor sum `t : KTensor K T`.
+* `LiftedTK.data v` – a plain value `v ∈ T`;
+* `LiftedTK.ann α` – a plain annotation `α ∈ K`;
+* `LiftedTK.ktensor t` – a formal K-tensor sum `t : KTensor K T`.
 
 The fixed `Mul` produces a `ktensor` monomial when given a data and an
 annotation:
@@ -51,14 +51,14 @@ them into the formal sum the paper prescribes.
 
 ## Notes
 
-* `LiftedTK` is not (yet) made into a `ValueType` — `ValueType` requires a
+* `LiftedTK` is not (yet) made into a `ValueType` – `ValueType` requires a
   `LinearOrder`, and a decidable total order on `KTensor K T` (a `Multiset`)
   is not naturally available. We provide the algebraic operations
   (`Zero`, `Add`, `Sub`, `Mul`) directly and skip the order requirement;
   the rewriting evaluator (`Query.evaluateInVK`, defined elsewhere) does
   not need to compare values via `≤`.
 * The lifting `T ⊕ K → LiftedTK T K` is **not** a `Mul`-homomorphism on
-  mixed cases — that is precisely the point. It *is* a homomorphism on
+  mixed cases – that is precisely the point. It *is* a homomorphism on
   same-kind cases, which is what justifies that `evaluateInVK` agrees with
   the standard `evaluate` on the non-aggregate fragment.
 
@@ -97,7 +97,7 @@ instance [Zero K] : Zero (LiftedTK T K) := ⟨.ann 0⟩
 /-! ## Addition
 
 The same-kind cases use the underlying additive structure on `T`, `K`, or
-`KTensor K T` (multiset union). The mixed cases follow the same "data wins"
+`KTensor K T` (multiset union). The mixed cases follow the same “data wins”
 convention as the existing `ValueType (T ⊕ K)` `Add`, with `0` (= `ann 0`)
 absorbing into the other operand so that `0 + x = x` for every kind. This
 is enough for the aggregation evaluator: the aggregator `f̂_j = sum`
@@ -156,7 +156,7 @@ instance [AddCommSemigroup T] [AddCommSemigroup K] :
     cases a <;> cases b <;> simp <;> exact add_comm _ _
 
 /-- The `Add` on `LiftedTK T K` is associative whenever `T` and `K` are.
-The mixed cases follow the priority order "data > ktensor > ann"; same-kind
+The mixed cases follow the priority order “data > ktensor > ann”; same-kind
 cases inherit associativity from the underlying carriers. -/
 instance [AddCommSemigroup T] [AddCommSemigroup K] :
     @Std.Associative (LiftedTK T K) (· + ·) where
@@ -179,7 +179,7 @@ instance [Sub T] [Sub K] : Sub (LiftedTK T K) where
     | .ann α, _ => .ann α
     | .ktensor t, _ => .ktensor t
 
-/-! ## Multiplication — the fix for R5
+/-! ## Multiplication – the fix for R5
 
 Same-kind multiplication uses the underlying `Mul` on `T`, `K`, or `KTensor`
 (the last being the `KTensor.smul`-style action; here we take `KTensor *
@@ -242,7 +242,7 @@ produces a `T ⊕ K`-tuple in the same shape).
 
 The bridge `toLifted_eq_map_ofSum_toComposite` says that lifting an
 annotated relation via `toLifted` agrees pointwise with
-"go through `toComposite` and then `LiftedTK.ofSum` each entry", which
+“go through `toComposite` and then `LiftedTK.ofSum` each entry”, which
 is exactly how `Query.evaluateInVK` interprets the non-Agg cases. This
 lets us upgrade the existing `Query.rewriting_valid` (stated in
 `toComposite` form) to the unified `Query.rewriting_valid_full` (stated

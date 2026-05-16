@@ -12,10 +12,10 @@ This file defines the basic relational model used throughout the library.
 
 ## Main definitions
 
-* `Tuple T n` — a tuple of arity `n` over value type `T`, represented as a function
+* `Tuple T n` – a tuple of arity `n` over value type `T`, represented as a function
   `Fin n → T`
-* `Relation T n` — a multiset of tuples of arity `n`
-* `Database T` — a mapping from relation names (natural numbers) to relations of the
+* `Relation T n` – a multiset of tuples of arity `n`
+* `Database T` – a mapping from relation names (natural numbers) to relations of the
   corresponding arities
 -/
 

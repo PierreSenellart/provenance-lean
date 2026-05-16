@@ -9,25 +9,25 @@ needed to build the interval-union semiring.
 
 ## Main definitions
 
-* `Endpoint α` — an endpoint of an interval: a value in `α` together with a
+* `Endpoint α` – an endpoint of an interval: a value in `α` together with a
   `closed` flag indicating whether the endpoint is included
-* `Interval α` — an interval with possibly open endpoints whose endpoints satisfy
+* `Interval α` – an interval with possibly open endpoints whose endpoints satisfy
   `lo.val < hi.val`, or `lo.val = hi.val` with both endpoints closed
-* `Interval.toSet` — the set of points belonging to an interval
-* `Interval.disjoint` — two intervals are disjoint when their point sets are disjoint
-* `Interval.before` — `I.before J` means `I` lies strictly to the left of `J`
+* `Interval.toSet` – the set of points belonging to an interval
+* `Interval.disjoint` – two intervals are disjoint when their point sets are disjoint
+* `Interval.before` – `I.before J` means `I` lies strictly to the left of `J`
   (no point is shared and they cannot be merged)
-* `Interval.inter` — intersection of two intervals
-* `Interval.diff` — difference of two intervals (a list of at most two intervals)
+* `Interval.inter` – intersection of two intervals
+* `Interval.diff` – difference of two intervals (a list of at most two intervals)
 
 ## Main results
 
-* `Interval.toSet_not_empty` — every well-formed interval contains at least one point
-* `Interval.ext_toSet` — two intervals with the same point set are equal
+* `Interval.toSet_not_empty` – every well-formed interval contains at least one point
+* `Interval.ext_toSet` – two intervals with the same point set are equal
   (requires `DenselyOrdered`)
-* `Interval.mem_inter` — membership in the intersection is conjunction of memberships
-* `Interval.mem_diff` — membership in the difference is membership minus exclusion
-* `Interval.disjoint_of_before` — `before` implies `disjoint`
+* `Interval.mem_inter` – membership in the intersection is conjunction of memberships
+* `Interval.mem_diff` – membership in the difference is membership minus exclusion
+* `Interval.disjoint_of_before` – `before` implies `disjoint`
 -/
 
 /-- An endpoint of an interval: a value together with a boolean flag indicating

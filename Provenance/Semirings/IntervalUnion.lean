@@ -24,28 +24,28 @@ set inclusion.
 
 ## Main definitions
 
-* `IntervalUnion α` — a finite union of pairwise-disjoint, sorted intervals
-* `IntervalUnion.toSet` — the corresponding point set
-* `IntervalUnion.union` — union of two interval unions (addition)
-* `IntervalUnion.inter` — intersection of two interval unions (multiplication)
-* `IntervalUnion.diff` — set difference of two interval unions (monus)
+* `IntervalUnion α` – a finite union of pairwise-disjoint, sorted intervals
+* `IntervalUnion.toSet` – the corresponding point set
+* `IntervalUnion.union` – union of two interval unions (addition)
+* `IntervalUnion.inter` – intersection of two interval unions (multiplication)
+* `IntervalUnion.diff` – set difference of two interval unions (monus)
 
 ## Main results
 
-* `IntervalUnion.ext_toSet` — two interval unions with the same point set are equal
+* `IntervalUnion.ext_toSet` – two interval unions with the same point set are equal
   (requires `DenselyOrdered`)
-* `IntervalUnion.mem_union` / `mem_inter` / `mem_diff` — membership characterizations
-* `instance : SemiringWithMonus (IntervalUnion α)` — interval unions form an m-semiring
+* `IntervalUnion.mem_union` / `mem_inter` / `mem_diff` – membership characterizations
+* `instance : SemiringWithMonus (IntervalUnion α)` – interval unions form an m-semiring
   for any `DenselyOrdered` and `BoundedOrder` linear order
-* `IntervalUnion.absorptive` — the semiring is absorptive (`1 + a = 1`): the whole
+* `IntervalUnion.absorptive` – the semiring is absorptive (`1 + a = 1`): the whole
   space absorbs any interval union under union
-* `IntervalUnion.mul_sub_left_distributive` — `a * (b - c) = a * b - a * c`, i.e.,
+* `IntervalUnion.mul_sub_left_distributive` – `a * (b - c) = a * b - a * c`, i.e.,
   `A ∩ (B \ C) = (A ∩ B) \ (A ∩ C)`
 
 ## Concrete instances
 
-* `SemiringWithMonus (IntervalUnion EReal)` — interval unions over the extended reals
-* `SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ)))` — interval unions over the
+* `SemiringWithMonus (IntervalUnion EReal)` – interval unions over the extended reals
+* `SemiringWithMonus (IntervalUnion (WithBot (WithTop ℚ)))` – interval unions over the
   extended rationals
 
 ## References

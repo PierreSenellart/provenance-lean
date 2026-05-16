@@ -20,11 +20,11 @@ explicit duplicate elimination, multiset difference, and aggregation.
 
 ## Main definitions
 
-* `Term T n` — an expression that evaluates to a value of type `T` in the context of
+* `Term T n` – an expression that evaluates to a value of type `T` in the context of
   a tuple of arity `n` (constants, tuple projections, and arithmetic operations)
-* `Query T` — a relational algebra query: selection, projection, union, join,
+* `Query T` – a relational algebra query: selection, projection, union, join,
   difference, and renaming
-* `Query.evaluate` — the standard set semantics of queries over `Database T`
+* `Query.evaluate` – the standard set semantics of queries over `Database T`
 
 ## References
 

@@ -13,9 +13,9 @@ multiplicative identity). This semiring models security levels or (dually) the f
 semiring.
 
 Also defined:
-* `MaxMin α = MinMax (OrderDual α)` — the dual semiring with `max` for addition and
+* `MaxMin α = MinMax (OrderDual α)` – the dual semiring with `max` for addition and
   `min` for multiplication
-* `TVL` — three-valued logic `{⊥, unknown, ⊤}`, an instance of `MaxMin`
+* `TVL` – three-valued logic `{⊥, unknown, ⊤}`, an instance of `MaxMin`
 
 `MinMax α` is absorptive and idempotent. The dual `MaxMin TVL` does **not** satisfy
 left-distributivity of multiplication over monus.

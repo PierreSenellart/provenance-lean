@@ -18,9 +18,9 @@ Provenance and Probability of Data*][sen2026provsql] (a multiset variant of the
 
 ## Main definitions
 
-* `AnnotatedTuple T K n` — a tuple of arity `n` paired with an annotation in `K`
-* `AnnotatedRelation T K n` — a multiset of annotated tuples of arity `n`
-* `AnnotatedDatabase T K` — a mapping from relation names to annotated relations
+* `AnnotatedTuple T K n` – a tuple of arity `n` paired with an annotation in `K`
+* `AnnotatedRelation T K n` – a multiset of annotated tuples of arity `n`
+* `AnnotatedDatabase T K` – a mapping from relation names to annotated relations
 
 ## References
 

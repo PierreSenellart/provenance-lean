@@ -13,7 +13,7 @@ the resulting relation forward along `h`:
   evaluateAnnotated q (h ⋆ d) = h ⋆ evaluateAnnotated q d
 ```
 
-This is the formal counterpart to ProvSQL's "compile once, evaluate many"
+This is the formal counterpart to ProvSQL's “compile once, evaluate many”
 architecture: each `sr_*` semiring evaluator is the application of a (different)
 homomorphism to the same persistent provenance representation, and this theorem
 says going through the homomorphism on the input side and on the output side
@@ -278,13 +278,13 @@ m-semiring homomorphism `h : K → K'`, evaluating a (non-aggregation) query on
 the pushed-forward annotated database equals pushing forward the result of
 evaluating on the original database.
 
-This is the "if" direction of [Green, Karvounarakis & Tannen, Proposition
+This is the “if” direction of [Green, Karvounarakis & Tannen, Proposition
 3.5][green2007provenance] for the positive cases (`Rel`, `Proj`, `Sel`, `Prod`,
 `Sum`, `Dedup`), and of [Geerts & Poggi, Proposition 1][geerts2010database]
 for the only case that needs monus (`Diff`). The `Dedup` case is the explicit
 form, in our multiset semantics, of the annotation-summing that is automatic
 in Green et al.'s set semantics; it still requires only that `h` respect `+`.
-The "only if" direction (that commutation forces `h` to be an m-hom) is not
+The “only if” direction (that commutation forces `h` to be an m-hom) is not
 formalised here.
 
 Aggregation (`Agg`) is excluded via the `noAgg` precondition; see the comment
