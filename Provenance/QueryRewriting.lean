@@ -1080,20 +1080,12 @@ theorem Query.rewriting_valid
       -- Move the RHS filter inside `toComposite` via `AnnotatedRelation.toComposite_filter`
       -- so both sides become filters on `AR₁.toComposite`.
       rw [AnnotatedRelation.toComposite_filter, Relation.cast_eq_map]
-      -- Unfold `r * s` (relation product = append-after-cartesian-product) and
-      -- collapse the two `Multiset.map`s into one.
       simp only [(·*·), Mul.mul, Multiset.map_map]
-      -- Push `Multiset.filter` through the map, then collapse with the outer map.
       rw [Multiset.filter_map, Multiset.map_map]
-      -- The LHS is now `Multiset.map F (Multiset.filter G (AR₁.toComposite ×ˢ Big))`
-      -- where `F = proj_outer ∘ Tuple.cast h ∘ uncurry Fin.append` collapses to `Prod.fst`
-      -- and `G = selFilter.eval ∘ Tuple.cast h ∘ uncurry Fin.append` collapses to
-      -- `fun (p, q) => p.first_n = q`. Both are pointwise Fin-arithmetic facts;
-      -- once established, `Multiset.semijoin_proj_eq_filter` (with `Big.Nodup` from
-      -- `Sum.inl_lift_injective.nodup_dedup`) reduces the LHS to
-      -- `AR₁.toComposite.filter (fun t => t.first_n ∈ Big)`, and the final
-      -- `Multiset.filter_congr` step uses `Tuple.fromComposite_toComposite` +
-      -- `Sum.inl_lift_injective` to match the RHS.
+      simp only [Function.comp_def]
+      -- Rewrite the outer map function to `Prod.fst` via the projection helper.
+      conv_lhs =>
+        rw [Multiset.map_congr (rfl) (fun x _ ↦ proj_outer_cast_append_eq_fst (by omega) x.1 x.2)]
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
