@@ -20,18 +20,31 @@ per the project conventions.
 
 ### B. Aggregation provenance via K-semimodules (Amsterdamer-Deutch-Tannen)
 
-`Query.evaluateAnnotated` currently rules out aggregation via the
-`q.noAgg` precondition. Filling this gap means:
-- adding a `K`-semimodule typeclass and the tensor product `K ⋆ M`
-  (or a concrete realisation thereof);
-- formalising Definition 7 of the paper (monoid aggregate function
-  as a monoid hom from `(Multiset V, ⊎)` into a target monoid);
-- giving a real `Agg` clause in `evaluateAnnotated`, matching the
-  semantics of `⟪γ_…[t₁,…,t_n : f₁,…,f_n](q)⟫` on p. 4 of the paper.
+First-cut scope is in (`Provenance.KSemiModule` + `Provenance.QueryAggregation`):
+- `KSemiModule K M` typeclass (six standard semimodule axioms) and
+  canonical instance `KSemiModule K K` via multiplication;
+- free formal-sum `KTensor K M := Multiset (K × M)` with `AddCommMonoid`,
+  `smul`, `embed` — un-quotiented (no bilinear relations enforced);
+- `Query.evaluateAggSum` for top-level aggregation with `AggFunc.sum`:
+  one row per group, per-aggregated-column `(value, K-tensor)` annotation.
+- Exercised end-to-end on `Provenance.Example.qc`.
 
-The δ prerequisite is already in place on `SemiringWithMonus` and on
-all 12 concrete instances. This is the formal semantics described in
-Section IV-B of the ICDE 2026 paper for the aggregation operator.
+Remaining for B:
+- General aggregation: other `AggFunc` constructors, nested aggregation
+  (Agg under a non-Agg parent). Currently `AggFunc` only has `sum`, so
+  this is mostly a scaffolding/refactor task.
+- Bilinear quotient for `KTensor`: replace the formal-sum representation
+  with the proper tensor product `K ⊗ M` (or use Mathlib's `TensorProduct`
+  where applicable). Required before stating correctness theorems that
+  compare to ProvSQL's intended semantics.
+- Correctness theorems: hom commutation (`evaluateAggSum_hom`),
+  random-world commutation (analogue of `randomWorld_evaluateAnnotated`
+  for the Agg case), rewriting correctness (R6 of the paper, currently
+  not formalised).
+
+The δ prerequisite on `SemiringWithMonus` (item C) is already in place
+on all 12 concrete instances and is used in `Provenance.Having` for the
+HAVING-count fragment.
 
 ### D. d-DNNF correctness (semantic, not complexity)
 

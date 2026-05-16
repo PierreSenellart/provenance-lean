@@ -3,6 +3,7 @@ import Mathlib.Data.Finsupp.Single
 import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Fintype
 
+import Provenance.QueryAggregation
 import Provenance.QueryAnnotatedDatabase
 import Provenance.QueryRewriting
 import Provenance.SemiringWithMonus
@@ -65,3 +66,7 @@ def d_tropical : AnnotatedDatabase String (Tropical (WithTop ℕ)) := [("Personn
 #eval! (q₀.rewriting (by decide)).evaluate d_count.toComposite
 #eval! (q₁.rewriting (by decide)).evaluate d_count.toComposite
 #eval! (q₂.rewriting (by decide)).evaluate d_count.toComposite
+
+/- Counts persons by city in the annotated semantics. Each row carries
+   the K-tensor `∑ α_u ⊗ (ts k).eval u` over tuples `u` in the group. -/
+#eval! Query.evaluateAggSum ![3] ![Term.const "1"] qPersonnel (by decide) d_count

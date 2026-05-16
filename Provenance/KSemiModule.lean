@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
+import Mathlib.Data.Multiset.Sort
 import Provenance.SemiringWithMonus
 
 /-!
@@ -125,6 +126,11 @@ instance : Add (KTensor K M) :=
 
 instance : AddCommMonoid (KTensor K M) :=
   inferInstanceAs (AddCommMonoid (Multiset (K × M)))
+
+-- Mathlib's `Repr (Multiset α)` is `unsafe`, so the propagated instance for
+-- `KTensor K M` is too. `#eval!` accepts unsafe instances.
+unsafe instance [Repr K] [Repr M] : Repr (KTensor K M) :=
+  inferInstanceAs (Repr (Multiset (K × M)))
 
 /-- Embed a single monomial `(α, m)` as the formal sum `α ⊗ m`. -/
 def embed (α : K) (m : M) : KTensor K M := ({(α, m)} : Multiset (K × M))

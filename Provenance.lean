@@ -10,6 +10,9 @@ import Provenance.QueryAnnotatedDatabaseHom
 /- K-semimodules and the free K-tensor (aggregation foundation) -/
 import Provenance.KSemiModule
 
+/- Annotated semantics of the aggregation operator (sum, top-level) -/
+import Provenance.QueryAggregation
+
 /- HAVING algebraic identities -/
 import Provenance.Having
 
@@ -72,6 +75,11 @@ the provenance-aware relational database system
   data structure `KTensor K M`, used to interpret the aggregation operator on
   `K`-annotated relations
   ([Amsterdamer, Deutch & Tannen][amsterdamer2011aggregate])
+- `Provenance.QueryAggregation` — annotated semantics of the aggregation
+  operator: `Query.evaluateAggSum` produces one row per group with per-aggregated
+  -column `(value, K-tensor)` annotations, matching Definition 7 of
+  [Sen, Maniu & Senellart][sen2026provsql]. First-cut scope: top-level
+  aggregation only, `AggFunc.sum` only.
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
