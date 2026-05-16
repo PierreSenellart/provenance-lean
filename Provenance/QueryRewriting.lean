@@ -1045,3 +1045,61 @@ theorem Query.rewriting_valid
       rfl
     exact lhs_eq.symm.trans rhs_eq.symm
   | Agg _ _ _ _ => simp[noAgg] at hq
+
+/-! ## (R5) Rewriting of top-level aggregation
+
+The aggregation rewriting rule (R5) of
+[Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]:
+
+> `γ_{i₁,…,iₘ}[t₁ : f₁, …, tₙ : fₙ](q)` is rewritten to
+> `γ_{i₁,…,iₘ}[t₁ * #(k+1) : f̂₁, …, tₙ * #(k+1) : f̂ₙ, #(k+1) : δ(⊕)](q)`.
+
+Unlike (R1)–(R4), which keep the rewriting target in `Query (T ⊕ K)` and
+the standard `evaluate` semantics, (R5)'s rewritten query is interpreted
+in the K-semimodule `V_K` — the per-column term `t_j * #(k+1)` evaluates
+to a K-tensor monomial `α ⊗ v_j`, not to a plain `T ⊕ K` value. The
+companion evaluator `Query.evaluateInVK` (in
+`Provenance.QueryEvaluateInVK`) carries that interpretation.
+
+`Query.rewritingAgg` here implements the rewriting **syntactically** as a
+`Query (T ⊕ K)`. Its semantic correctness — the analogue of `rewriting_valid`
+stating that `⟪Agg ...⟫_Î` matches `evaluateInVK (rewritingAgg ...) Î.toComposite`
+— is parked as a `sorry`, alongside the existing R4/R5 sorries for the
+diff/dedup cases of `rewriting_valid`. The proof requires building the
+K-tensor side of Definition 7 (semimodule `V_K`) carefully; the syntactic
+rewriting is what's needed to talk about R5 in the rest of the codebase.
+-/
+
+/-- (R5) Top-level aggregation rewriting. Produces a plain `Query (T ⊕ K)`
+representing `γ_{is}[t_j * #(k+1) : f̂_j, #(k+1) : δ(⊕)](q.rewriting)`.
+
+The inner query `q` is required to be `noAgg` (the ICDE paper imposes
+aggregation-at-root); `q.rewriting` handles its (R1)–(R4) rewriting and
+the resulting query operates on tuples of arity `m+1` (the original `m`
+data columns plus one annotation column). The output Agg has `n₁`
+grouping columns, `n₂+1` aggregated columns (the original `n₂` plus the
+`δ(⊕)` annotation column at the end), and arity `n₁ + n₂ + 1`. -/
+def Query.rewritingAgg [ValueType T] {m n₁ n₂ : ℕ}
+    (is : Tuple (Fin m) n₁)
+    (ts : Tuple (Term T m) n₂)
+    (as : Tuple AggFunc n₂)
+    (q_inner : Query T m) (hq_inner : q_inner.noAgg) :
+    Query (T ⊕ K) (n₁ + n₂ + 1) :=
+  let q_inner' : Query (T ⊕ K) (m + 1) := q_inner.rewriting hq_inner
+  -- Index of the annotation column on the rewritten inner query (= the last Fin).
+  let annIdx : Term (T ⊕ K) (m + 1) := Term.index (Fin.last m)
+  -- New aggregated-column terms.
+  let ts' : Tuple (Term (T ⊕ K) (m + 1)) (n₂ + 1) := fun k =>
+    if h : ↑k < n₂ then
+      Term.mul (ts ⟨k, h⟩).castToAnnotatedTuple annIdx
+    else
+      annIdx
+  -- New aggregators: f̂_j (= as j for the original aggregated columns; here
+  -- the lift is the identity on the AggFunc constructors), plus `sumDelta`
+  -- for the new annotation column.
+  let as' : Tuple AggFunc (n₂ + 1) := fun k =>
+    if h : ↑k < n₂ then as ⟨k, h⟩ else AggFunc.sumDelta
+  -- New grouping indices: lift `is k : Fin m` to `Fin (m + 1)` (one extra
+  -- annotation column at the end).
+  let is' : Tuple (Fin (m + 1)) n₁ := fun k => (is k).castLE (Nat.le_succ _)
+  @Query.Agg (T ⊕ K) (m + 1) n₁ (n₂ + 1) is' ts' as' q_inner'

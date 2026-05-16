@@ -10,6 +10,10 @@ import Provenance.QueryAnnotatedDatabaseHom
 /- K-semimodules and the free K-tensor (aggregation foundation) -/
 import Provenance.KSemiModule
 
+/- The V_K-lifted value type and the rewriting evaluator -/
+import Provenance.LiftedTK
+import Provenance.QueryEvaluateInVK
+
 /- Annotated semantics of the aggregation operator (sum, top-level) -/
 import Provenance.QueryAggregation
 
@@ -80,6 +84,13 @@ the provenance-aware relational database system
   -column `(value, K-tensor)` annotations, matching Definition 7 of
   [Sen, Maniu & Senellart][sen2026provsql]. First-cut scope: top-level
   aggregation only, `AggFunc.sum` only.
+- `Provenance.LiftedTK` — the value type `LiftedTK T K` extending `T ⊕ K` with
+  K-tensor monomials, used as the V_K interpretation domain for the rewriting
+  of aggregate queries.
+- `Provenance.QueryEvaluateInVK` — `Query.evaluateInVK`, the V_K-aware
+  evaluator that interprets a rewritten query (in particular the (R5)
+  aggregation rewriting) in `LiftedTK`-valued tuples. Pairs with
+  `Query.rewritingAgg` in `Provenance.QueryRewriting` to realise (R5).
 - `Provenance.Having` — algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound

@@ -255,6 +255,14 @@ instance : Coe (BoolTerm T n) (Filter T n) where
 
 inductive AggFunc
 | sum
+/-- The "δ(⊕)" aggregator used by the (R5) rewriting of aggregations
+([Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]): take the additive
+fold of the multiset, then apply the `SemiringWithMonus.delta` operator to
+the result. On a value type without an available `delta` (e.g., plain `T`)
+this collapses to plain `sum`; the δ is only honoured by evaluators that
+know about an underlying `K` carrying a `SemiringWithMonus` structure
+(see `Query.evaluateInVK`). -/
+| sumDelta
 deriving Repr
 
 def addFn (a b : T) := a + b
@@ -265,6 +273,7 @@ instance : @Std.Associative T addFn where
 
 def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
 | sum => m.fold (addFn: T→T→T) 0
+| sumDelta => m.fold (addFn: T→T→T) 0
 
 inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
