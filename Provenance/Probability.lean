@@ -560,7 +560,92 @@ theorem randomWorld_evaluateAnnotated :
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro _ _ _; sorry
   | Dedup q' ih =>
-    intro _ _ _; sorry
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [← ih (Query.noAggDedup hq rfl) Î v]
+    set r := q'.evaluateAnnotated (Query.noAggDedup hq rfl) Î with hr
+    -- Both sides are `Nodup` multisets of `Tuple T n`. We show element
+    -- equivalence: t ∈ LHS ↔ ∃ (t', α') ∈ r with t' = t and α' v = true ↔ t ∈ RHS.
+    have hgbk_nodup : (Multiset.ofList (groupByKey r).val :
+        Multiset (Tuple T _ × BoolFunc X)).Nodup := by
+      rw [Multiset.coe_nodup]
+      exact KeyValueList.nodup _ (groupByKey r).property
+    have hLNodup : (randomWorld v (Multiset.ofList (groupByKey r).val)).Nodup := by
+      show (Multiset.map Prod.fst _).Nodup
+      apply Multiset.Nodup.map_on
+      · -- Local injectivity: same-key entries of `groupByKey` agree.
+        intro p hp q hq hpq
+        rw [Multiset.mem_filter] at hp hq
+        have hp_list : p ∈ (groupByKey r).val := Multiset.mem_coe.mp hp.1
+        have hq_list : q ∈ (groupByKey r).val := Multiset.mem_coe.mp hq.1
+        have hsnd := KeyValueList.functional _ (groupByKey r).property
+          p hp_list q hq_list hpq
+        exact Prod.ext hpq hsnd
+      · exact Multiset.Nodup.filter _ hgbk_nodup
+    have hRNodup : (Multiset.dedup (randomWorld v r)).Nodup := Multiset.nodup_dedup _
+    rw [Multiset.Nodup.ext hLNodup hRNodup]
+    intro t
+    -- The membership condition on both sides reduces to:
+    -- `∃ (t', α') ∈ r with t' = t and α' v = true`.
+    constructor
+    · rintro ht
+      show t ∈ Multiset.dedup (randomWorld v r)
+      rw [Multiset.mem_dedup]
+      -- ht : t ∈ randomWorld v (ofList (groupByKey r).val)
+      show t ∈ randomWorld v r
+      unfold randomWorld at ht ⊢
+      rw [Multiset.mem_map] at ht
+      obtain ⟨p, hp, hpfst⟩ := ht
+      rw [Multiset.mem_filter] at hp
+      obtain ⟨hp_in, hp_snd⟩ := hp
+      have hp_list : p ∈ (groupByKey r).val := Multiset.mem_coe.mp hp_in
+      -- (p.fst, p.snd) ∈ (groupByKey r).val so groupByKey_value applies.
+      have hp_val : p.snd = (Multiset.map Prod.snd
+            (Multiset.filter (fun q : AnnotatedTuple T (BoolFunc X) _ ↦ q.fst = p.fst) r)).sum :=
+        groupByKey_value r p.fst p.snd hp_list
+      rw [hp_val, boolFunc_multiset_sum_apply, bool_multiset_sum_eq_true] at hp_snd
+      obtain ⟨b, hb_in, hb_true⟩ := hp_snd
+      rw [Multiset.mem_map] at hb_in
+      obtain ⟨α, hα_in, hα_eq⟩ := hb_in
+      rw [Multiset.mem_map] at hα_in
+      obtain ⟨α_pair, hα_pair_in, hα_pair_snd⟩ := hα_in
+      rw [Multiset.mem_filter] at hα_pair_in
+      obtain ⟨hα_r, hα_fst⟩ := hα_pair_in
+      -- α_pair ∈ r with α_pair.fst = p.fst and α_pair.snd v = true
+      rw [Multiset.mem_map]
+      refine ⟨α_pair, ?_, ?_⟩
+      · rw [Multiset.mem_filter]
+        refine ⟨hα_r, ?_⟩
+        rw [hα_pair_snd, hα_eq, hb_true]
+      · rw [hα_fst, hpfst]
+    · rintro ht
+      rw [Multiset.mem_dedup] at ht
+      show t ∈ randomWorld v (Multiset.ofList (groupByKey r).val)
+      unfold randomWorld at ht ⊢
+      rw [Multiset.mem_map] at ht
+      obtain ⟨α_pair, hα_in, hα_fst⟩ := ht
+      rw [Multiset.mem_filter] at hα_in
+      obtain ⟨hα_r, hα_v⟩ := hα_in
+      -- α_pair ∈ r with α_pair.fst = t and α_pair.snd v = true
+      have hmem_map : t ∈ Multiset.map Prod.fst r := by
+        rw [Multiset.mem_map]; exact ⟨α_pair, hα_r, hα_fst⟩
+      obtain ⟨w, hw_in⟩ := (groupByKey_key_iff r t).mpr hmem_map
+      have hw_val : w = (Multiset.map Prod.snd
+            (Multiset.filter (fun q : AnnotatedTuple T (BoolFunc X) _ ↦ q.fst = t) r)).sum :=
+        groupByKey_value r t w hw_in
+      have hw_v_true : w v = true := by
+        rw [hw_val, boolFunc_multiset_sum_apply, bool_multiset_sum_eq_true]
+        refine ⟨α_pair.snd v, ?_, hα_v⟩
+        rw [Multiset.mem_map]
+        refine ⟨α_pair.snd, ?_, rfl⟩
+        rw [Multiset.mem_map]
+        refine ⟨α_pair, ?_, rfl⟩
+        rw [Multiset.mem_filter]
+        exact ⟨hα_r, hα_fst⟩
+      rw [Multiset.mem_map]
+      refine ⟨(t, w), ?_, rfl⟩
+      rw [Multiset.mem_filter]
+      exact ⟨Multiset.mem_coe.mpr hw_in, hw_v_true⟩
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro _ _ _; sorry
   | Agg _ _ _ _ =>
