@@ -538,7 +538,19 @@ theorem randomWorld_evaluateAnnotated :
     rw [← randomWorld_map_data v (fun u : Tuple T _ => fun k => (ts k).eval u),
         ih (Query.noAggProj hq rfl) Î v]
   | Sel φ q' ih =>
-    intro _ _ _; sorry
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [← ih (Query.noAggSel hq rfl) Î v]
+    generalize q'.evaluateAnnotated (Query.noAggSel hq rfl) Î = r
+    -- Goal: `randomWorld v (filter_Lex r) = filter φ.eval (randomWorld v r)`.
+    -- `randomWorld_filter_data` gives the same equation with a different
+    -- `DecidablePred` instance on the inner filter; bridge via
+    -- `Subsingleton.elim` (`Decidable` is subsingleton-extensional).
+    have h := (randomWorld_filter_data v φ.eval r).symm
+    have hinst : (fun a : AnnotatedTuple T (BoolFunc X) _ => φ.evalDecidable a.fst)
+                  = φ.evalDecidableAnnotated := Subsingleton.elim _ _
+    rw [hinst] at h
+    exact h
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
