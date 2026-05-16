@@ -18,7 +18,13 @@ The rewriting implemented here realises rules (R1)–(R5) from
 and Probability of Data*][sen2026provsql].
 
 A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
-partially formalised (rules (R1), (R2), and (R3) are machine-checked).
+partially formalised: rules (R1), (R2), (R3) are machine-checked end-to-end; rule
+(R4) is proved modulo two `sorry`s in the `Diff` case (a typeclass-instance
+mismatch between `LinearOrder.toDecidableEq` and `instDecidableEqSum` blocks the
+last steps). The (R5) aggregation correctness lives in
+`Provenance.QueryEvaluateInVK` as `Query.rewriting_valid_full`, with its V_K
+interpretation; the syntactic (R5) rewriting itself is in this file as
+`Query.rewritingAgg`.
 
 ## References
 
@@ -776,7 +782,7 @@ theorem Query.rewriting_valid
     -- Lean v4.29's pattern unifier cannot find `Multiset.map (Multiset.map ...)` in either
     -- side because `Tuple.cast`/`Fin.append` hide the codomain through their motives.
     -- Reduce both sides to a single `Multiset.map` by exposing the head structure via
-    -- `Eq.trans` with the desired `Multiset.map_map` instance — letting Lean infer the
+    -- `Eq.trans` with the desired `Multiset.map_map` instance – letting Lean infer the
     -- specific function arguments avoids the failing higher-order match.
     refine Eq.trans (Multiset.map_map _ _ _) (Eq.trans ?_ (Multiset.map_map _ _ _).symm)
     apply Multiset.map_congr rfl
@@ -1056,18 +1062,18 @@ The aggregation rewriting rule (R5) of
 
 Unlike (R1)–(R4), which keep the rewriting target in `Query (T ⊕ K)` and
 the standard `evaluate` semantics, (R5)'s rewritten query is interpreted
-in the K-semimodule `V_K` — the per-column term `t_j * #(k+1)` evaluates
+in the K-semimodule `V_K` – the per-column term `t_j * #(k+1)` evaluates
 to a K-tensor monomial `α ⊗ v_j`, not to a plain `T ⊕ K` value. The
 companion evaluator `Query.evaluateInVK` (in
 `Provenance.QueryEvaluateInVK`) carries that interpretation.
 
 `Query.rewritingAgg` here implements the rewriting **syntactically** as a
-`Query (T ⊕ K)`. Its semantic correctness — the analogue of `rewriting_valid`
+`Query (T ⊕ K)`. Its semantic correctness – the analogue of `rewriting_valid`
 stating that `⟪Agg ...⟫_Î` matches `evaluateInVK (rewritingAgg ...) Î.toComposite`
-— is parked as a `sorry`, alongside the existing R4/R5 sorries for the
-diff/dedup cases of `rewriting_valid`. The proof requires building the
-K-tensor side of Definition 7 (semimodule `V_K`) carefully; the syntactic
-rewriting is what's needed to talk about R5 in the rest of the codebase.
+– is proved as the (R5) case of `Query.rewriting_valid_full` (in
+`Provenance.QueryEvaluateInVK`), packaged together with the (R1)–(R4)
+correctness. The R4 sorries in `Query.rewriting_valid` for the diff
+case are carried over there as the only remaining gap.
 -/
 
 /-- (R5) Top-level aggregation rewriting. Produces a plain `Query (T ⊕ K)`
