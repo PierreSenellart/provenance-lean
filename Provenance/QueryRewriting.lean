@@ -705,6 +705,10 @@ lemma Query.rewriting_valid_diff_inner_dd
       rw [← hv_eq] at this
       exact congrFun this k
 
+/-- `Relation.cast` rewrites to a `Multiset.map` of `Tuple.cast`. -/
+lemma Relation.cast_eq_map {T : Type} {n m : ℕ} (h : n = m) (r : Relation T n) :
+    r.cast h = r.map (Tuple.cast h) := (Relation.cast_eq r _ h).mp rfl
+
 /-- Filter pushes through `AnnotatedRelation.toComposite` via the
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
@@ -1060,10 +1064,23 @@ theorem Query.rewriting_valid
       --   map proj_outer (filter selFilter (Relation.cast _ (AR₁.toComposite * Big)))
       --   = AnnotatedRelation.toComposite (filter (· ∉ map fst AR₂) AR₁)
       -- where Big = map (Sum.inl-lift) (filter (· ∉ map fst AR₂) (map fst AR₁)).dedup.
-      -- Plan: reduce via `Multiset.ext` (count-based), using
-      -- `Multiset.count_map`/`Multiset.count_filter` for the LHS layers,
-      -- Sum.inl-lift injectivity for `count` on `Big`, and
-      -- `Tuple.fromComposite_toComposite` to bridge `AR₁.toComposite ↔ AR₁`.
+      -- Move the RHS filter inside `toComposite` via `AnnotatedRelation.toComposite_filter`
+      -- so both sides become filters on `AR₁.toComposite`.
+      rw [AnnotatedRelation.toComposite_filter, Relation.cast_eq_map]
+      -- Unfold `r * s` (relation product = append-after-cartesian-product) and
+      -- collapse the two `Multiset.map`s into one.
+      simp only [(·*·), Mul.mul, Multiset.map_map]
+      -- Push `Multiset.filter` through the map, then collapse with the outer map.
+      rw [Multiset.filter_map, Multiset.map_map]
+      -- The LHS is now `Multiset.map F (Multiset.filter G (AR₁.toComposite ×ˢ Big))`
+      -- where `F = proj_outer ∘ Tuple.cast h ∘ uncurry Fin.append` collapses to `Prod.fst`
+      -- and `G = selFilter.eval ∘ Tuple.cast h ∘ uncurry Fin.append` collapses to
+      -- `fun (p, q) => p.first_n = q`. Both are pointwise Fin-arithmetic facts;
+      -- once established, `Multiset.semijoin_proj_eq_filter` (with `Big.Nodup` from
+      -- `Sum.inl_lift_injective.nodup_dedup`) reduces the LHS to
+      -- `AR₁.toComposite.filter (fun t => t.first_n ∈ Big)`, and the final
+      -- `Multiset.filter_congr` step uses `Tuple.fromComposite_toComposite` +
+      -- `Sum.inl_lift_injective` to match the RHS.
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
