@@ -1143,6 +1143,31 @@ theorem Query.rewriting_valid
       -- Rewrite the outer map function to `Prod.fst` via the projection helper.
       conv_lhs =>
         rw [Multiset.map_congr (rfl) (fun x _ ↦ proj_outer_cast_append_eq_fst (by omega) x.1 x.2)]
+      -- Rewrite the filter predicate to `fun x => first_n x.1 = x.2` via the selFilter helper.
+      have hNeZero : NeZero (2 * n + 1) := ⟨by omega⟩
+      -- The product of multisets; we will filter and project it.
+      set Prod1 : Multiset (Tuple (T⊕K) (n+1) × Tuple (T⊕K) n) := Multiset.product AR₁.toComposite
+        (Multiset.map (fun (v : Tuple T n) (k : Fin n) ↦ (Sum.inl (v k) : T⊕K))
+          (Multiset.filter (fun v ↦ v ∉ Multiset.map Prod.fst AR₂)
+            (Multiset.map Prod.fst AR₁)).dedup) with hProd1
+      -- Provide DecidablePred instances for both predicates.
+      letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
+          Filter.eval (((List.range n).map
+            (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+            (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
+        fun x => Filter.evalDecidable _ _
+      letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
+          (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n))) = x.2) :=
+        fun x => decEq _ _
+      have hcong : @Multiset.filter _ _ dp1 Prod1 = @Multiset.filter _ _ dp2 Prod1 :=
+        Multiset.filter_congr (fun x _ ↦ selFilter_cast_append_iff (by omega) x.1 x.2)
+      -- Apply hcong via `change` + `rw`. First normalize `Nat.mul 2 n` to `2 * n` so the
+      -- LHS predicate matches.
+      change Multiset.map Prod.fst
+        (@Multiset.filter _ _ dp1 Prod1) = _
+      rw [hcong]
+      trace_state
       sorry
     -- The matched part of the rewriting (coming from `Proj ts₂ prod₂`).
     have matched_eq :
