@@ -1,18 +1,20 @@
 # TODO
 
-The Diff case of `Query.rewriting_valid` carries two remaining `sorry`s
+The Diff case of `Query.rewriting_valid` carries one remaining `sorry`
 (R4 only; R5 is fully proved in `Query.rewriting_valid_full` in
-`QueryEvaluateInVK.lean`), one each in the `unmatched_eq` and
-`matched_eq` halves. The original `DecidableEq (T⊕K)` instance-synthesis
-blocker (see commits `2dc8be2`, `d4ca753`) is now lifted via
-`Query.rewriting_valid_diff_inner_dd_inst`, an instance-polymorphic
-wrapper proven by `convert … using 4` that bridges
-`LinearOrder.toDecidableEq` and `instDecidableEqSum` through
-`Subsingleton.elim`. `simp_rw` with that wrapper rewrites the inner
-dedup in `unmatched_eq` cleanly. The remaining work is the semijoin
-reduction (`unmatched_eq`) and the aggregation step (`matched_eq`); both
-are concrete multiset-arithmetic obligations rather than Lean
-infrastructure ones.
+`QueryEvaluateInVK.lean`), in the `matched_eq` half. The `unmatched_eq`
+half is now fully proved, using the new helpers
+`Query.rewriting_valid_diff_inner_dd_inst` (instance-polymorphic
+wrapper bridging `LinearOrder.toDecidableEq` and `instDecidableEqSum`
+via `Subsingleton.elim`), `Multiset.semijoin_proj_eq_filter` (generic
+multiset semijoin), `AnnotatedRelation.toComposite_filter`,
+`Relation.cast_eq_map`, and the Fin-arithmetic
+`proj_outer_cast_append_eq_fst` / `cast_append_at_ofNat_{left,right}`
+/ `selFilter_cast_append_iff`. The remaining `matched_eq` involves a
+top-level `Query.Agg` and so needs unfolding the aggregation evaluator,
+matching the inner sum against the right-hand side's
+`(Multiset.map Prod.snd ∘ filter (·.1 = p.1))` form, then assembling
+the product-filter-projection on top.
 
 ## Candidates
 

@@ -19,17 +19,17 @@ and Probability of Data*][sen2026provsql].
 
 A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
 partially formalised: rules (R1), (R2), (R3) are machine-checked end-to-end; rule
-(R4) is proved modulo two `sorry`s in the `Diff` case, one each in the
-"unmatched" and "matched" halves of the rewriting. Both reduce to a semijoin
-identity over `Multiset.product`/`Multiset.filter`/`Multiset.map` (matching the
-join condition against the deduped key set produced by the inner rewriting).
-The instance-synthesis blocker on the inner dedup is now lifted via
-`Query.rewriting_valid_diff_inner_dd_inst` (an instance-polymorphic restatement
-of `Query.rewriting_valid_diff_inner_dd` that bridges the `LinearOrder.toDecidableEq`
-vs `instDecidableEqSum` mismatch through `Subsingleton.elim`-style conversion).
-The (R5) aggregation correctness lives in `Provenance.QueryEvaluateInVK` as
-`Query.rewriting_valid_full`, with its V_K interpretation; the syntactic (R5)
-rewriting itself is in this file as `Query.rewritingAgg`.
+(R4) is proved modulo one `sorry` in the `matched_eq` half of the `Diff` case.
+The `unmatched_eq` half is fully proved, using the semijoin identity
+`Multiset.semijoin_proj_eq_filter` after bridging the `LinearOrder.toDecidableEq`
+vs `instDecidableEqSum` mismatch on the inner dedup via the wrapper
+`Query.rewriting_valid_diff_inner_dd_inst` (`convert … using 4` collapses the
+remaining instance arguments via `Subsingleton.elim`). The remaining `matched_eq`
+involves a top-level `Query.Agg` and requires unfolding the aggregation
+evaluator. The (R5) aggregation correctness lives in
+`Provenance.QueryEvaluateInVK` as `Query.rewriting_valid_full`, with its V_K
+interpretation; the syntactic (R5) rewriting itself is in this file as
+`Query.rewritingAgg`.
 
 ## References
 
