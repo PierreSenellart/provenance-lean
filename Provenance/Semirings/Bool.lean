@@ -78,6 +78,7 @@ theorem Bool.homomorphism_from_BoolFunc :
       map_add'  := by intro a b; rfl
       map_mul'  := by intro a b; rfl
       map_sub   := by intro a b; rfl
+      map_delta := by intro a; rfl
     }
     simp
     by_contra heq
@@ -99,6 +100,7 @@ theorem Bool.homomorphism_to_BoolFunc {X : Type} :
     map_add'  := by intro a b; rfl
     map_mul'  := by intro a b; rfl
     map_sub   := by intro a b; rfl
+    map_delta := by intro a; rfl
   }, ?_⟩
   intro i
   rfl

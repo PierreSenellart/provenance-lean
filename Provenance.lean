@@ -13,6 +13,7 @@ import Provenance.KSemiModule
 /- The V_K-lifted value type and the rewriting evaluator -/
 import Provenance.LiftedTK
 import Provenance.QueryEvaluateInVK
+import Provenance.QueryEvaluateInVKHom
 
 /- Annotated semantics of the aggregation operator (sum, top-level) -/
 import Provenance.QueryAggregation
@@ -89,6 +90,12 @@ the provenance-aware relational database system
   pushing the database forward along a `SemiringWithMonusHom h : K → K'`
   is the same as pushing the K-tensor coefficients of the aggregated
   result forward along `h.toRingHom`.
+- `Provenance.QueryEvaluateInVKHom` — **unified hom commutation** for the
+  Definition 7 annotated semantics: `Query.evaluateAnnotatedFull_hom`
+  subsumes both `Query.evaluateAnnotated_hom` (non-Agg) and
+  `Query.evaluateAggSum_hom` (Agg) into a single theorem on the lifted
+  output, exploiting the new `SemiringWithMonusHom.map_delta` field
+  for the δ-applied row-annotation column.
 - `Provenance.LiftedTK` — the value type `LiftedTK T K` extending `T ⊕ K` with
   K-tensor monomials, used as the V_K interpretation domain for the rewriting
   of aggregate queries.

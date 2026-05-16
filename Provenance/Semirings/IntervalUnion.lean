@@ -1631,6 +1631,7 @@ theorem IntervalUnion.homomorphism_from_BoolFunc
     map_add'  := evalBF_add ν
     map_mul'  := evalBF_mul ν
     map_sub   := evalBF_sub ν
+    map_delta := by intro a; rfl
   }, ?_⟩
   intro i
   exact evalBF_var ν i

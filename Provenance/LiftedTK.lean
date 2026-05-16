@@ -289,3 +289,25 @@ theorem AnnotatedRelation.toLifted_eq_map_ofSum_toComposite {T K : Type} {n : �
   apply Multiset.map_congr rfl
   intro p _
   exact AnnotatedTuple.toLifted_eq_ofSum_toComposite p
+
+/-! ## Hom pushforward on `LiftedTK`
+
+The pointwise pushforward of a function `K → K'` on a `LiftedTK T K`
+value: `data v` is preserved, `ann α` becomes `ann (h α)`, and a tensor
+sum `ktensor t` becomes `ktensor (mapHom h t)` (each monomial's
+K-coefficient through `h`). -/
+
+/-- Pointwise hom pushforward on `LiftedTK`. -/
+def LiftedTK.mapHomFn {T K K' : Type} (h : K → K') : LiftedTK T K → LiftedTK T K'
+  | .data v => .data v
+  | .ann α => .ann (h α)
+  | .ktensor t => .ktensor (KTensor.mapHom h t)
+
+@[simp] theorem LiftedTK.mapHomFn_ofSum {T K K' : Type} (h : K → K')
+    (x : T ⊕ K) :
+    LiftedTK.mapHomFn h (LiftedTK.ofSum x)
+      = LiftedTK.ofSum (Sum.map id h x) := by
+  cases x <;> rfl
+
+-- The bridge between annotated-relation pushforward and `toLifted` lives
+-- in `Provenance/QueryEvaluateInVK.lean` (it needs `mapAnnotatedRelation`).

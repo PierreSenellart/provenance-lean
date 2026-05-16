@@ -287,6 +287,7 @@ theorem BoolFunc.homomorphism_from_BoolFunc {X Y : Type} :
     map_add'  := by intro a b; rfl
     map_mul'  := by intro a b; rfl
     map_sub   := by intro a b; rfl
+    map_delta := by intro a; rfl
   }, ?_⟩
   intro i
   funext τ

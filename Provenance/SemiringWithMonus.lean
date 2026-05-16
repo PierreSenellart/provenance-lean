@@ -517,10 +517,17 @@ instance (priority := 100) {K : Type} [h : CommSemiringWithMonus K] : CommMonoid
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/
 
-/-- Definition of a homomorphism of `SemiringWithMonus`s -/
+/-- Definition of a homomorphism of `SemiringWithMonus`s. Preserves the
+semiring structure (via `RingHom`), the monus (`map_sub`), and the δ
+operator (`map_delta`). The latter is required for hom commutation of the
+aggregation operator, where δ appears on the row-annotation column
+(Definition 7 / R5 of [Sen, Maniu & Senellart][sen2026provsql]). -/
 class SemiringWithMonusHom (α β : Type) [SemiringWithMonus α] [SemiringWithMonus β]
   extends RingHom α β where
   map_sub : ∀ (x y: α), toRingHom (x - y) = toRingHom x - toRingHom y
+  /-- The hom preserves `δ`: `h (δ a) = δ (h a)`. -/
+  map_delta : ∀ (a : α), toRingHom (SemiringWithMonus.delta a) =
+    SemiringWithMonus.delta (toRingHom a)
 
 instance (α β) [SemiringWithMonus α] [SemiringWithMonus β] :
 CoeFun (SemiringWithMonusHom α β) (fun _ ↦ α → β) where
