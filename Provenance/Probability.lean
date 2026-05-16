@@ -10,6 +10,7 @@ import Mathlib.Tactic.Linarith
 
 import Provenance.QueryAnnotatedDatabase
 import Provenance.QueryAnnotatedDatabaseHom
+import Provenance.QueryRewriting
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
 
@@ -518,5 +519,45 @@ theorem theorem_12
       · rfl
       · exact absurd h' h
     simp [hmem, hf]
+
+end ProbAssignment
+
+/-! ## Corollary 13: probability via the plain rewritten query
+
+Theorem 12 expresses the marginal probability `Pr(t ∈ q(Î))` as the
+probability of the disjunctive tuple annotation of `t` in the annotated query
+result `⟪q⟫^Î`. Combining it with the rewriting-correctness theorem
+`Query.rewriting_valid` (Theorem 10 of [Sen, Maniu & Senellart][sen2026provsql],
+rules R1–R5) gives the same identity using the **plain** rewritten query
+`q̂ = q.rewriting hq` evaluated on the composite-encoded database
+`Î.toComposite`. This is the form ProvSQL actually runs against PostgreSQL.
+
+The corollary statement requires `[HasAltLinearOrder (BoolFunc X)]` purely so
+that `Î.toComposite : Database (T ⊕ BoolFunc X)` typechecks (via the
+`ValueType (T ⊕ K)` instance in `Provenance.Util.ValueType`); any
+noncomputable linear order on `BoolFunc X` will do. -/
+
+namespace ProbAssignment
+
+variable (P : ProbAssignment X)
+
+/-- **Corollary 13** ([Sen, Maniu & Senellart][sen2026provsql], Section IV-D).
+For any non-aggregation query `q`, any `BoolFunc X`-annotated database `Î`
+and any tuple `t`, the marginal probability that `t` appears in the random
+output of `q` equals the probability of the disjunctive annotation of `t`
+in the result of evaluating the **plain rewritten query** `q̂` on the
+composite-encoded database.
+
+Combines `theorem_12` and `Query.rewriting_valid`. -/
+theorem corollary_13 [HasAltLinearOrder (BoolFunc X)]
+    (q : Query T n) (hq : q.noAgg)
+    (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
+    P.marginalProb q Î t
+      = P.funcProb (tupleAnnotation
+          (Multiset.map Tuple.fromComposite
+            ((q.rewriting hq).evaluate Î.toComposite)) t) := by
+  rw [P.theorem_12 q hq Î t,
+      ← Query.rewriting_valid q hq Î,
+      AnnotatedRelation.map_fromComposite_toComposite]
 
 end ProbAssignment

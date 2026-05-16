@@ -593,6 +593,34 @@ lemma AnnotatedTuple.toComposite_last
   rw[this, Fin.append_right]
   rfl
 
+/-- Roundtrip: `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id`. The
+composite encoding loses no information: peeling the data columns and the
+annotation column back out reconstructs the original annotated tuple. -/
+lemma Tuple.fromComposite_toComposite
+  {T K: Type} [ValueType T] [Zero K] {n: ℕ} (p: AnnotatedTuple T K n):
+  Tuple.fromComposite p.toComposite = p := by
+  apply Prod.ext
+  · funext k
+    show (match p.toComposite (k.castLE (Nat.le_succ n)) with
+            | Sum.inl x => x | Sum.inr _ => 0) = p.1 k
+    rw [AnnotatedTuple.toComposite_castLE]
+  · show (match p.toComposite (Fin.last n) with
+            | Sum.inl _ => 0 | Sum.inr x => x) = p.2
+    rw [AnnotatedTuple.toComposite_last]
+
+/-- Pushforward version of `Tuple.fromComposite_toComposite`: mapping
+`Tuple.fromComposite` over a composite-encoded annotated relation recovers
+the original annotated relation. -/
+lemma AnnotatedRelation.map_fromComposite_toComposite
+  {T K: Type} [ValueType T] [Zero K] {n: ℕ} (r: AnnotatedRelation T K n):
+  Multiset.map Tuple.fromComposite r.toComposite = r := by
+  unfold AnnotatedRelation.toComposite
+  rw [Multiset.map_map]
+  conv_rhs => rw [← Multiset.map_id r]
+  apply Multiset.map_congr rfl
+  intro p _
+  exact Tuple.fromComposite_toComposite p
+
 /-- Reduction of the inner `Dedup ∘ Diff ∘ Proj` block of the `Diff` rewriting:
     deduping the difference of first-`n` projections of `AR₁.toComposite` and `AR₂.toComposite`
     yields the `Sum.inl`-lift of the deduped "unmatched-keys" filter over the data part.
