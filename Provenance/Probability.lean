@@ -405,16 +405,90 @@ lemma randomWorld_add (v : X → Bool)
     (Multiset.map_add _ _ _)
 
 omit [Fintype X] [DecidableEq X] in
-/-- Mapping the data side commutes with `randomWorld v`. Stated for use in
-the `Proj` case of `randomWorld_evaluateAnnotated`. The natural proof
-(induction + `Multiset.filter_cons_of_pos`) is blocked by `DecidablePred`
-instance unification differences between the goal and the rewrite lemma;
-left as a future cleanup. -/
+/-- Filtering the data side commutes with `randomWorld v`. -/
+lemma randomWorld_filter_data (v : X → Bool)
+    (φ : Tuple T n → Prop) [DecidablePred φ]
+    (r : AnnotatedRelation T (BoolFunc X) n) :
+    Multiset.filter φ (randomWorld v r) =
+      randomWorld v (Multiset.filter (fun p : Tuple T n × BoolFunc X => φ p.fst) r) := by
+  let r' : Multiset (Tuple T n × BoolFunc X) := r
+  show Multiset.filter φ
+        (Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T n × BoolFunc X => p.snd v = true) r'))
+      = Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T n × BoolFunc X => p.snd v = true)
+            (Multiset.filter (fun p : Tuple T n × BoolFunc X => φ p.fst) r'))
+  induction r' using Multiset.induction_on with
+  | empty => rfl
+  | cons q s ih =>
+    by_cases hq : q.snd v = true
+    · by_cases hφ : φ q.fst
+      · -- both filters pos
+        rw [Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+            Multiset.map_cons,
+            Multiset.filter_cons_of_pos (p := φ) _ hφ,
+            Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T n × BoolFunc X => φ p.fst) s hφ,
+            Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) _ hq,
+            Multiset.map_cons, ih]
+      · -- snd-filter pos, fst-filter neg
+        rw [Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+            Multiset.map_cons,
+            Multiset.filter_cons_of_neg (p := φ) _ hφ,
+            Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T n × BoolFunc X => φ p.fst) s hφ, ih]
+    · by_cases hφ : φ q.fst
+      · -- snd-filter neg, fst-filter pos
+        rw [Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+            Multiset.filter_cons_of_pos
+              (p := fun p : Tuple T n × BoolFunc X => φ p.fst) s hφ,
+            Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) _ hq, ih]
+      · rw [Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+            Multiset.filter_cons_of_neg
+              (p := fun p : Tuple T n × BoolFunc X => φ p.fst) s hφ, ih]
+
+omit [Fintype X] [DecidableEq X] in
+/-- Mapping the data side commutes with `randomWorld v`. Proved by
+`Multiset.induction_on`, with all `Multiset.filter` / `Multiset.map` lemmas
+called with named `(p := ...)` / explicit-type arguments so Lean's HOU does
+not pick a wrong decomposition and so the underlying `Lex`-unfolded carrier
+type matches between goal and rewrite. -/
 lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
     (r : AnnotatedRelation T (BoolFunc X) n) :
     Multiset.map f (randomWorld v r) =
       randomWorld v (r.map (fun p : AnnotatedTuple T (BoolFunc X) n => (f p.fst, p.snd))) := by
-  sorry
+  -- Work with the underlying plain-`Prod` carrier so that all subterms agree
+  -- on the syntactic representation of the tuple type.
+  let r' : Multiset (Tuple T n × BoolFunc X) := r
+  show Multiset.map f
+        (Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T n × BoolFunc X => p.snd v = true) r'))
+      = Multiset.map Prod.fst
+          (Multiset.filter (fun p : Tuple T m × BoolFunc X => p.snd v = true)
+            (Multiset.map (fun p : Tuple T n × BoolFunc X => (f p.fst, p.snd)) r'))
+  induction r' using Multiset.induction_on with
+  | empty => rfl
+  | cons q s ih =>
+    by_cases hq : q.snd v = true
+    · have hq' : (f q.fst, q.snd).snd v = true := hq
+      rw [Multiset.map_cons (fun p : Tuple T n × BoolFunc X => (f p.fst, p.snd)) q s,
+          Multiset.filter_cons_of_pos
+            (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+          Multiset.filter_cons_of_pos
+            (p := fun p : Tuple T m × BoolFunc X => p.snd v = true) _ hq',
+          Multiset.map_cons, Multiset.map_cons, Multiset.map_cons, ih]
+    · have hq' : ¬ (f q.fst, q.snd).snd v = true := hq
+      rw [Multiset.map_cons (fun p : Tuple T n × BoolFunc X => (f p.fst, p.snd)) q s,
+          Multiset.filter_cons_of_neg
+            (p := fun p : Tuple T n × BoolFunc X => p.snd v = true) s hq,
+          Multiset.filter_cons_of_neg
+            (p := fun p : Tuple T m × BoolFunc X => p.snd v = true) _ hq', ih]
 
 /-! ### Random world commutes with `find` -/
 
@@ -459,7 +533,10 @@ theorem randomWorld_evaluateAnnotated :
     · rfl
     · simp
   | Proj ts q' ih =>
-    intro _ _ _; sorry
+    intro hq Î v
+    simp only [Query.evaluateAnnotated, Query.evaluate]
+    rw [← randomWorld_map_data v (fun u : Tuple T _ => fun k => (ts k).eval u),
+        ih (Query.noAggProj hq rfl) Î v]
   | Sel φ q' ih =>
     intro _ _ _; sorry
   | Sum q₁ q₂ ih₁ ih₂ =>
