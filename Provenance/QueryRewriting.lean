@@ -705,6 +705,23 @@ lemma Query.rewriting_valid_diff_inner_dd
       rw [← hv_eq] at this
       exact congrFun this k
 
+/-- Filter pushes through `AnnotatedRelation.toComposite` via the
+`Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
+filtering before taking the composite encoding equals filtering the composite
+encoding by the same predicate composed with `Tuple.fromComposite`. -/
+lemma AnnotatedRelation.toComposite_filter
+    {T K : Type} [ValueType T] [Zero K] {n : ℕ}
+    (ar : AnnotatedRelation T K n) (pred : AnnotatedTuple T K n → Prop)
+    [DecidablePred pred] :
+    AnnotatedRelation.toComposite (Multiset.filter pred ar)
+    = ar.toComposite.filter (fun t : Tuple (T⊕K) (n+1) ↦ pred (Tuple.fromComposite t)) := by
+  unfold AnnotatedRelation.toComposite
+  rw [Multiset.filter_map]
+  congr 1
+  apply Multiset.filter_congr
+  intro p _
+  rw [Function.comp_apply, Tuple.fromComposite_toComposite]
+
 /-- **Semijoin reduction.** Given multisets `r : Multiset α` and `s : Multiset β` and
 a key function `g : α → β`, with `s` `Nodup`, the projection-after-filter of the
 cartesian product (keeping pairs whose `g`-image matches) coincides with filtering
