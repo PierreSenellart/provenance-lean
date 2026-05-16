@@ -177,7 +177,4 @@ def smul (β : K) (t : KTensor K M) : KTensor K M :=
     funext p; rcases p with ⟨a, b⟩; simp
   rw [h, Multiset.map_id]
 
-theorem smul_embed (β α : K) (m : M) : smul β (embed α m) = embed (β * α) m :=
-  rfl
-
 end KTensor

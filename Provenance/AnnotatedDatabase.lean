@@ -179,12 +179,6 @@ lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
       simp[this]
       simp[(·*·),Mul.mul]
 
-lemma eq_imp_eq_equiv_eq:
-  y=z → (x=y ↔ x=z) := by
-    intro heq
-    subst heq
-    tauto
-
 theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
   [ValueType T] [HasAltLinearOrder K] [SemiringWithMonus K]
   (ar₁: AnnotatedRelation T K n₁) (ar₂: AnnotatedRelation T K n₂) :
