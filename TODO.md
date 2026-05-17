@@ -63,37 +63,48 @@ The δ prerequisite on `SemiringWithMonus` (item C) is already in place
 on all 12 concrete instances and is used in `Provenance.Having` for the
 HAVING-count fragment.
 
-### D. d-DNNF correctness (semantic, not complexity)
+### D. Read-once and d-D correctness (semantic, not complexity)
 
-The **read-once sub-piece** has landed in `Provenance.Circuit`:
+Both sub-pieces have landed in `Provenance.Circuit`, sorry-free.
+
+**Common infrastructure.**
 - `Circuit X` inductive type (`const` / `var` / `not` / `and` / `or`),
-  with `eval`, `toBoolFunc`, `vars`, `ReadOnce`, and the recursive
-  `prob` evaluator.
+  with `eval`, `toBoolFunc`, `vars`.
 - `BoolFunc.DependsOn` (variable support of a Boolean function) plus
   `Circuit.toBoolFunc_dependsOn_vars`.
 - `ProbAssignment.funcProb_var`, `funcProb_sub_self_const_one`,
   `funcProb_add_eq` (inclusion-exclusion).
-- The main correctness theorem `Circuit.readOnce_funcProb_eq_prob`:
-  for any `ReadOnce` circuit `c`, `Pr(c.toBoolFunc) = c.prob P`.
+- The **independence lemma** `ProbAssignment.funcProb_mul_disjoint`:
+  `Pr(f * g) = Pr(f) * Pr(g)` whenever `f`, `g` depend on disjoint
+  variable supports, proved by splitting valuations via
+  `Equiv.piEquivPiSubtypeProd`, factoring `valProb` along the partition,
+  and collapsing each unused half by marginalisation.
 
-Remaining for read-once: the independence lemma
-`ProbAssignment.funcProb_mul_disjoint` (`Pr(f * g) = Pr(f) * Pr(g)` under
-disjoint variable supports) is currently parked as a `sorry`. The
-mathematical argument is documented inline (`Equiv.piEquivPiSubtypeProd`
-to split valuations, `Finset.prod_compl_mul_prod` to factor `valProb`,
-then a double sum that factors via `Finset.sum_mul_sum`). The main
-theorem assumes it.
+**Read-once.**
+- `Circuit.ReadOnce` (gate-by-gate disjoint-supports predicate) and
+  the inclusion-exclusion evaluator `Circuit.prob`.
+- `Circuit.readOnce_funcProb_eq_prob`: for any `ReadOnce` circuit `c`,
+  `Pr(c.toBoolFunc) = c.prob P`.
 
-**Next d-DNNF steps (longer horizon).**
-Define smoothness / decomposability / determinism predicates on
-`Circuit X`, give the finite-sum-over-assignments probabilistic
-semantics, and prove the bottom-up evaluator agrees with it under
-those structural predicates. No complexity claim; pure semantic
-correctness. Would also give a foundation for later formalising the
-BID → TID rewrite (`rewriteMultivaluedGates` in `BooleanCircuit.cpp`)
-and, in combination with the formalised Theorem 12, the Tseitin-based
-CNF-encoding step of Section V-D step 3 (purely semantic –
-equisatisfiability – not the knowledge-compiler call itself).
+**d-D (decomposable + deterministic).** No NNF restriction; `not` is
+treated semantically via `funcProb_sub_self_const_one`.
+- `Circuit.Decomposable` (every AND has disjoint variable supports).
+- `Circuit.Deterministic` (every OR has mutually exclusive children,
+  i.e., `c₁.toBoolFunc * c₂.toBoolFunc = 0`).
+- The d-D evaluator `Circuit.probDD` (AND = product, OR = sum, no
+  inclusion-exclusion correction).
+- `Circuit.dD_funcProb_eq_probDD`: for any `Decomposable +
+  Deterministic` circuit `c`, `Pr(c.toBoolFunc) = c.probDD P`. The OR
+  case collapses the inclusion-exclusion correction `Pr(f * g)` to zero
+  using the determinism hypothesis.
+
+**Future directions (longer horizon).**
+Smoothness predicate on `Circuit X` and the corresponding correctness
+for smoothed sd-DNNF, the BID → TID rewrite
+(`rewriteMultivaluedGates` in `BooleanCircuit.cpp`), and, in combination
+with the formalised Theorem 12, the Tseitin-based CNF-encoding step of
+Section V-D step 3 (purely semantic – equisatisfiability – not the
+knowledge-compiler call itself).
 
 ### Out of scope
 
@@ -112,6 +123,7 @@ equisatisfiability – not the knowledge-compiler call itself).
 
 ## Working order
 
-**B** → D. B (aggregation provenance) completes the formal semantics
-of Section IV-B; D (d-DNNF correctness) is a longer-horizon item that
-also unlocks the Tseitin / BID → TID directions.
+**B** is the main open item; D (read-once and d-D semantic correctness)
+has landed. B (aggregation provenance) completes the formal semantics
+of Section IV-B. The longer-horizon D follow-ups (smoothness / sd-DNNF,
+Tseitin, BID → TID) can be taken on once B's bilinear quotient is in.

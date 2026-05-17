@@ -9,21 +9,29 @@ import Provenance.Probability
 import Provenance.Semirings.BoolFunc
 
 /-!
-# Boolean circuits and read-once correctness
+# Boolean circuits, read-once and d-D correctness
 
 This file formalises Boolean circuits over a set `X` of variables, together
-with a recursive bottom-up probability evaluator and the **read-once
-correctness theorem**: for any read-once circuit, the recursive evaluator
-(`Pr(c) = ⊙(Pr(c₁), Pr(c₂))` with `⊙` depending on the gate type) agrees with
-the sum-over-valuations probabilistic semantics of its denotation as a
-`BoolFunc X` (i.e., `Pr(c.toBoolFunc) = ∑_{v ⊨ c} Pr(v)`).
+with two recursive bottom-up probability evaluators and their correctness
+theorems:
 
-This is the formal counterpart of Section V-D step 1 of [Sen, Maniu &
+* The **read-once correctness theorem** `Circuit.readOnce_funcProb_eq_prob`:
+  for any read-once circuit, the inclusion-exclusion evaluator `Circuit.prob`
+  agrees with the sum-over-valuations semantics
+  `Pr(c.toBoolFunc) = ∑_{v ⊨ c} Pr(v)`.
+* The **d-D correctness theorem** `Circuit.dD_funcProb_eq_probDD`:
+  for any decomposable + deterministic circuit, the evaluator
+  `Circuit.probDD` (which sums the OR children's probabilities directly
+  rather than applying inclusion-exclusion) agrees with the same
+  sum-over-valuations semantics.
+
+These are the formal counterpart of Section V-D step 1 of [Sen, Maniu &
 Senellart, *ProvSQL: A General System for Keeping Track of the Provenance
-and Probability of Data*][sen2026provsql]: on a read-once Boolean circuit,
+and Probability of Data*][sen2026provsql]: on a read-once Boolean circuit
 each gate's probability is computed in `O(1)` from those of its two
-children. The bottom-up evaluator is correct under the independence
-induced by the read-once structure.
+children, and on a decomposable-deterministic circuit (d-D, the structural
+property targeted by knowledge compilers) the same is true with simpler
+OR formula.
 
 ## Main definitions
 
@@ -33,7 +41,13 @@ induced by the read-once structure.
 * `Circuit.toBoolFunc` – view a circuit as a `BoolFunc X`.
 * `Circuit.vars` – the variables used by a circuit (as a `Finset`).
 * `Circuit.ReadOnce` – the gate-by-gate disjoint-supports predicate.
-* `Circuit.prob` – the recursive bottom-up probability evaluator.
+* `Circuit.prob` – the read-once probability evaluator (OR uses
+  inclusion-exclusion).
+* `Circuit.Decomposable` – every AND gate has children with disjoint
+  variable supports.
+* `Circuit.Deterministic` – every OR gate has mutually exclusive children
+  (`c₁.toBoolFunc * c₂.toBoolFunc = 0`).
+* `Circuit.probDD` – the d-D probability evaluator (OR sums directly).
 
 ## Main results
 
@@ -46,6 +60,9 @@ induced by the read-once structure.
 * `Circuit.readOnce_funcProb_eq_prob` – the **read-once correctness
   theorem**: for any `ReadOnce` circuit `c`,
   `Pr(c.toBoolFunc) = c.prob P`.
+* `Circuit.dD_funcProb_eq_probDD` – the **d-D correctness theorem**: for
+  any `Decomposable` + `Deterministic` circuit `c`,
+  `Pr(c.toBoolFunc) = c.probDD P`.
 
 ## References
 
@@ -111,6 +128,44 @@ def prob {X : Type} (P : ProbAssignment X) : Circuit X → ℚ
   | .not c => 1 - c.prob P
   | .and c₁ c₂ => c₁.prob P * c₂.prob P
   | .or c₁ c₂ => c₁.prob P + c₂.prob P - c₁.prob P * c₂.prob P
+
+/-- A circuit is **decomposable** when every AND gate has children with
+disjoint variable supports. Constants, variables, NOT, and OR are
+decomposable as soon as their immediate children (if any) are. -/
+inductive Decomposable : Circuit X → Prop
+  | const : ∀ b, Decomposable (.const b)
+  | var : ∀ x, Decomposable (.var x)
+  | not : ∀ {c}, Decomposable c → Decomposable (.not c)
+  | and : ∀ {c₁ c₂}, Decomposable c₁ → Decomposable c₂ →
+      Disjoint c₁.vars c₂.vars → Decomposable (.and c₁ c₂)
+  | or : ∀ {c₁ c₂}, Decomposable c₁ → Decomposable c₂ →
+      Decomposable (.or c₁ c₂)
+
+/-- A circuit is **deterministic** when every OR gate has mutually exclusive
+children: the conjunction of their `BoolFunc` denotations is the constant
+`false`. Constants, variables, NOT, and AND are deterministic as soon as
+their immediate children (if any) are. NOTE: there is no NNF restriction;
+`not` is treated semantically (`Pr(¬c) = 1 - Pr(c)` always). -/
+inductive Deterministic : Circuit X → Prop
+  | const : ∀ b, Deterministic (.const b)
+  | var : ∀ x, Deterministic (.var x)
+  | not : ∀ {c}, Deterministic c → Deterministic (.not c)
+  | and : ∀ {c₁ c₂}, Deterministic c₁ → Deterministic c₂ →
+      Deterministic (.and c₁ c₂)
+  | or : ∀ {c₁ c₂}, Deterministic c₁ → Deterministic c₂ →
+      c₁.toBoolFunc * c₂.toBoolFunc = 0 → Deterministic (.or c₁ c₂)
+
+/-- The d-D bottom-up probability evaluator. Differs from `Circuit.prob`
+only at OR gates, which sum the two children's probabilities directly
+(no inclusion-exclusion correction term). Sound on `Decomposable +
+Deterministic` circuits: see `Circuit.dD_funcProb_eq_probDD`. -/
+def probDD {X : Type} (P : ProbAssignment X) : Circuit X → ℚ
+  | .const true => 1
+  | .const false => 0
+  | .var x => P.prob x
+  | .not c => 1 - c.probDD P
+  | .and c₁ c₂ => c₁.probDD P * c₂.probDD P
+  | .or c₁ c₂ => c₁.probDD P + c₂.probDD P
 
 end Circuit
 
@@ -481,5 +536,60 @@ theorem readOnce_funcProb_eq_prob (c : Circuit X) (hc : c.ReadOnce) :
           (toBoolFunc_dependsOn_vars c₂)
           hdisj]
     rw [ih₁, ih₂]
+
+/-! ### d-D correctness -/
+
+/-- **d-D correctness theorem.** For any decomposable + deterministic
+Boolean circuit `c`, the recursive bottom-up evaluator `c.probDD P` agrees
+with the sum-over-valuations semantics `Pr(c.toBoolFunc)`. Proved by
+structural induction on `c`, using:
+
+* `ProbAssignment.funcProb_var` for the variable leaves;
+* `ProbAssignment.funcProb_sub_self_const_one` for NOT (no structural
+  hypothesis needed: negation always satisfies `Pr(¬f) = 1 - Pr(f)`);
+* `ProbAssignment.funcProb_mul_disjoint` for AND (decomposability supplies
+  the disjoint supports);
+* `ProbAssignment.funcProb_add_eq` for OR, with the determinism
+  hypothesis `c₁.toBoolFunc * c₂.toBoolFunc = 0` collapsing the
+  inclusion-exclusion correction term `Pr(f * g)` to zero. -/
+theorem dD_funcProb_eq_probDD (c : Circuit X)
+    (hd : c.Decomposable) (hdet : c.Deterministic) :
+    P.funcProb c.toBoolFunc = c.probDD P := by
+  induction c with
+  | const b =>
+    cases b
+    · show P.funcProb (0 : BoolFunc X) = 0
+      exact P.funcProb_zero
+    · show P.funcProb (1 : BoolFunc X) = 1
+      exact P.funcProb_one
+  | var x =>
+    show P.funcProb (BoolFunc.var x) = P.prob x
+    exact P.funcProb_var x
+  | not c ih =>
+    cases hd with
+    | not hd' =>
+      cases hdet with
+      | not hdet' =>
+        show P.funcProb (1 - c.toBoolFunc) = 1 - c.probDD P
+        rw [P.funcProb_sub_self_const_one c.toBoolFunc, ih hd' hdet']
+  | and c₁ c₂ ih₁ ih₂ =>
+    cases hd with
+    | and hd₁ hd₂ hdisj =>
+      cases hdet with
+      | and hdet₁ hdet₂ =>
+        show P.funcProb (c₁.toBoolFunc * c₂.toBoolFunc) = c₁.probDD P * c₂.probDD P
+        rw [P.funcProb_mul_disjoint
+              (toBoolFunc_dependsOn_vars c₁)
+              (toBoolFunc_dependsOn_vars c₂)
+              hdisj,
+            ih₁ hd₁ hdet₁, ih₂ hd₂ hdet₂]
+  | or c₁ c₂ ih₁ ih₂ =>
+    cases hd with
+    | or hd₁ hd₂ =>
+      cases hdet with
+      | or hdet₁ hdet₂ hexcl =>
+        show P.funcProb (c₁.toBoolFunc + c₂.toBoolFunc) = c₁.probDD P + c₂.probDD P
+        rw [P.funcProb_add_eq c₁.toBoolFunc c₂.toBoolFunc, hexcl,
+            P.funcProb_zero, sub_zero, ih₁ hd₁ hdet₁, ih₂ hd₂ hdet₂]
 
 end Circuit
