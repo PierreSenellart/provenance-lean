@@ -98,13 +98,29 @@ treated semantically via `funcProb_sub_self_const_one`.
   case collapses the inclusion-exclusion correction `Pr(f * g)` to zero
   using the determinism hypothesis.
 
+**Tseitin CNF encoding (`Provenance.Tseitin`, sorry-free).** The
+semantic step of Section V-D step 3 (before the knowledge compiler is
+invoked):
+- `Literal`, `Clause`, `CNF` syntactic infrastructure with eval
+  semantics.
+- `Circuit.gateClauses`, `Circuit.tseitinClauses`, `Circuit.tseitin`
+  (Tseitin transformation, aux variables indexed by sub-circuits, with
+  the root assertion clause prepended).
+- `Circuit.tseitinValuation` (canonical lift of `v : X → Bool` to
+  `(X ⊕ Circuit X) → Bool`).
+- `Circuit.tseitin_eval_tseitinValuation`: the lifted valuation
+  satisfies the CNF iff the circuit is satisfied.
+- `Circuit.tseitin_models_restrict`: any CNF model restricts to a
+  circuit model via `Sum.inl`.
+- `Circuit.tseitin_equisat`: the bidirectional **equisatisfiability**
+  theorem.
+
 **Future directions (longer horizon).**
 Smoothness predicate on `Circuit X` and the corresponding correctness
-for smoothed sd-DNNF, the BID → TID rewrite
-(`rewriteMultivaluedGates` in `BooleanCircuit.cpp`), and, in combination
-with the formalised Theorem 12, the Tseitin-based CNF-encoding step of
-Section V-D step 3 (purely semantic – equisatisfiability – not the
-knowledge-compiler call itself).
+for smoothed sd-DNNF; the BID → TID rewrite (`rewriteMultivaluedGates`
+in `BooleanCircuit.cpp`); and a Tseitin-style refinement that bridges
+to **weighted** model counting (i.e., `Pr` rather than just
+satisfiability), pairing `tseitin_equisat` with Theorem 12.
 
 ### Out of scope
 

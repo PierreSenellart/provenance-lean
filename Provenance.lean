@@ -25,8 +25,11 @@ import Provenance.Having
 /- Probability distributions over Boolean variables -/
 import Provenance.Probability
 
-/- Boolean circuits and read-once correctness -/
+/- Boolean circuits, read-once and d-D correctness -/
 import Provenance.Circuit
+
+/- Tseitin CNF encoding (equisatisfiability) -/
+import Provenance.Tseitin
 
 /- Algorithms (HAVING enumeration) -/
 import Provenance.Algorithms.CountEnum
@@ -123,10 +126,20 @@ the provenance-aware relational database system
   statement of Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql] reducing
   `Pr(t ∈ q(Î))` to `Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`; the proof is reduced to a single
   structural commutation lemma `randomWorld_evaluateAnnotated`
-- `Provenance.Circuit` – Boolean circuits with the read-once predicate and a
-  recursive bottom-up probability evaluator; read-once correctness theorem
-  matching the sum-over-valuations semantics
-  ([Sen, Maniu & Senellart][sen2026provsql], Section V-D step 1)
+- `Provenance.Circuit` – Boolean circuits with structural predicates and
+  two recursive bottom-up probability evaluators: the **read-once**
+  evaluator with the inclusion-exclusion correction at OR gates
+  (`Circuit.prob`), and the **d-D** evaluator with direct summation at
+  OR gates under decomposability + determinism (`Circuit.probDD`). Both
+  evaluators are proved correct against the sum-over-valuations
+  semantics ([Sen, Maniu & Senellart][sen2026provsql], Section V-D
+  step 1).
+- `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
+  circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
+  syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,
+  and the bidirectional **equisatisfiability** theorem
+  `Circuit.tseitin_equisat` ([Sen, Maniu & Senellart][sen2026provsql],
+  Section V-D step 3, before the knowledge compiler is invoked).
 
 **Algorithms**
 
