@@ -327,12 +327,11 @@ noncomputable def Query.evaluateAnnotatedFull [AddCommSemigroup T] [Zero T] :
 /-! ## Unified rewriting correctness
 
 The single theorem `Query.rewriting_valid_full` packages both the
-(R1)–(R4) correctness (existing `Query.rewriting_valid`, parked R4
-`sorry`s carried over) and the (R5) correctness into a uniform
-statement: for any well-formed query (no aggregation, or a top-level
-aggregation with a non-aggregating inner query), the `LiftedTK`-form
-annotated semantics agrees with the V_K interpretation of the
-rewriting. -/
+(R1)–(R4) correctness (via `Query.rewriting_valid`) and the (R5)
+correctness into a uniform statement: for any well-formed query (no
+aggregation, or a top-level aggregation with a non-aggregating inner
+query), the `LiftedTK`-form annotated semantics agrees with the V_K
+interpretation of the rewriting. -/
 
 omit [HasAltLinearOrder K] in
 /-- **Unified rewriting correctness.** For any well-formed query `q`
@@ -340,12 +339,11 @@ omit [HasAltLinearOrder K] in
 query), the Def-7-style annotated semantics of `q` on `Î` matches the
 V_K interpretation of the rewritten query on `Î.toComposite`.
 
-R1–R3 are proven via the existing `Query.rewriting_valid` plus the
+R1–R4 are proven via the existing `Query.rewriting_valid` plus the
 bridge between `AnnotatedRelation.toLifted` and the composite-then-lift
-on tuples; R4 is parked as a `sorry` (carried over from
-`Query.rewriting_valid`). R5 is fully proved: the dedup/projection
-factor via `liftData : g k ↦ data (g k)`, the matching multisets bridge
-via `Multiset.filter_map` and `LiftedTK.data` injectivity, and the
+on tuples. R5 is fully proved: the dedup/projection factor via
+`liftData : g k ↦ data (g k)`, the matching multisets bridge via
+`Multiset.filter_map` and `LiftedTK.data` injectivity, and the
 per-column body equality follows from `Term.castToAnnotatedTuple_evalInVK`,
 `Term.evalInVK_index_last`, `LiftedTK.fold_add_ann`,
 `LiftedTK.fold_add_ktensor_nonempty`, and `KTensor.sum_map_embed`. -/

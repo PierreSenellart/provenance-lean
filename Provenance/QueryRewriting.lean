@@ -18,15 +18,14 @@ The rewriting implemented here realises rules (R1)–(R5) from
 and Probability of Data*][sen2026provsql].
 
 A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
-partially formalised: rules (R1), (R2), (R3) are machine-checked end-to-end; rule
-(R4) is proved modulo one `sorry` in the `matched_eq` half of the `Diff` case.
-The `unmatched_eq` half is fully proved, using the semijoin identity
-`Multiset.semijoin_proj_eq_filter` after bridging the `LinearOrder.toDecidableEq`
-vs `instDecidableEqSum` mismatch on the inner dedup via the wrapper
-`Query.rewriting_valid_diff_inner_dd_inst` (`convert … using 4` collapses the
-remaining instance arguments via `Subsingleton.elim`). The remaining `matched_eq`
-involves a top-level `Query.Agg` and requires unfolding the aggregation
-evaluator. The (R5) aggregation correctness lives in
+fully formalised for rules (R1)–(R4): each operator is machine-checked end-to-end.
+The `Diff` case splits into an `unmatched_eq` half (proved via the semijoin
+identity `Multiset.semijoin_proj_eq_filter`, after bridging the
+`LinearOrder.toDecidableEq` vs `instDecidableEqSum` mismatch on the inner dedup
+via `Query.rewriting_valid_diff_inner_dd_inst`) and a `matched_eq` half (proved
+via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, after
+substituting the inner aggregation with the closed-form
+`Query.evaluate_agg_rewriting_eq`). The (R5) aggregation correctness lives in
 `Provenance.QueryEvaluateInVK` as `Query.rewriting_valid_full`, with its V_K
 interpretation; the syntactic (R5) rewriting itself is in this file as
 `Query.rewritingAgg`.
@@ -779,6 +778,112 @@ lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     rw [cast_append_at_ofNat_left, cast_append_at_ofNat_right]
     exact congrFun heq k
 
+/-- Arity-`(2n+2)` analogue of `cast_append_at_ofNat_left`: reading
+`Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ k.val` (for `k : Fin n`)
+returns `p (k.castLE (Nat.le_succ n))`. Here `q : Tuple α (n+1)` (rather than
+`Tuple α n`). -/
+lemma cast_append_2n2_at_ofNat_left {α : Type} {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin n)
+    [NeZero (2*n+2)] :
+    Tuple.cast h (Fin.append p q) (Fin.ofNat _ k.val) = p (k.castLE (Nat.le_succ n)) := by
+  rw [Tuple.cast_get]
+  have hk_mod : k.val % (2*n+2) = k.val := Nat.mod_eq_of_lt (by omega)
+  have hlt : ((Fin.ofNat (2*n+2) k.val).cast h.symm).val < n + 1 := by
+    show k.val % (2*n+2) < n + 1
+    rw [hk_mod]; exact Nat.lt_succ_of_lt k.isLt
+  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  apply congrArg
+  apply Fin.eq_of_val_eq
+  show k.val % (2*n+2) = k.val
+  exact hk_mod
+
+/-- Arity-`(2n+2)` analogue of `cast_append_at_ofNat_right`: reading
+`Tuple.cast h (Fin.append p q)` at index `Fin.ofNat _ (k.val+n+1)` (for
+`k : Fin n`) returns `q (k.castLE (Nat.le_succ n))`. -/
+lemma cast_append_2n2_at_ofNat_right {α : Type} {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin n)
+    [NeZero (2*n+2)] :
+    Tuple.cast h (Fin.append p q) (Fin.ofNat _ (k.val + n + 1)) = q (k.castLE (Nat.le_succ n)) := by
+  rw [Tuple.cast_get]
+  have hbnd : k.val + n + 1 < 2*n + 2 := by omega
+  have hmod : (k.val + n + 1) % (2*n+2) = k.val + n + 1 := Nat.mod_eq_of_lt hbnd
+  -- Show the recast index equals `Fin.natAdd (n+1) (k.castLE _)`, then close with `Fin.append_right`.
+  have hidx_eq : (Fin.ofNat (2*n+2) (k.val + n + 1)).cast h.symm
+      = Fin.natAdd (n+1) (k.castLE (Nat.le_succ n)) := by
+    apply Fin.eq_of_val_eq
+    show (k.val + n + 1) % (2*n+2) = (n+1) + k.val
+    rw [hmod]; omega
+  rw [hidx_eq, Fin.append_right]
+
+/-- Arity-`(2n+2)` helper: reading `Tuple.cast h (Fin.append p q)` at index
+`Fin.ofNat _ n` returns `p (Fin.last n)`. -/
+lemma cast_append_2n2_at_ofNat_n {α : Type} {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1))
+    [NeZero (2*n+2)] :
+    Tuple.cast h (Fin.append p q) (Fin.ofNat _ n) = p (Fin.last n) := by
+  rw [Tuple.cast_get]
+  have hn_mod : n % (2*n+2) = n := Nat.mod_eq_of_lt (by omega)
+  have hlt : ((Fin.ofNat (2*n+2) n).cast h.symm).val < n + 1 := by
+    show n % (2*n+2) < n + 1
+    rw [hn_mod]; exact Nat.lt_succ_self _
+  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  apply congrArg
+  apply Fin.eq_of_val_eq
+  show n % (2*n+2) = n
+  exact hn_mod
+
+/-- Arity-`(2n+2)` helper: reading `Tuple.cast h (Fin.append p q)` at index
+`Fin.last (2*n+1)` (the last index of `Fin (2*n+2)`) returns `q (Fin.last n)`. -/
+lemma cast_append_2n2_at_last {α : Type} {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) :
+    Tuple.cast h (Fin.append p q) (Fin.last (2*n+1)) = q (Fin.last n) := by
+  rw [Tuple.cast_get]
+  -- The recast index has value `2*n+1`; it falls in the `q` side at offset `n`.
+  have hidx_eq : (Fin.last (2*n+1)).cast h.symm
+      = Fin.natAdd (n+1) (Fin.last n) := by
+    apply Fin.eq_of_val_eq
+    show 2*n+1 = (n+1) + n
+    omega
+  rw [hidx_eq, Fin.append_right]
+
+/-- Arity-`(2n+2)` projection helper: reading `Tuple.cast h (Fin.append p q)` at index
+`k.castLE _` (for `k : Fin (n+1)`) returns `p k`. This is the analogue of
+`proj_outer_cast_append_eq_fst` for the `2n+2` case (i.e., `q : Tuple α (n+1)`). -/
+lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple α (n+1)) (q : Tuple α (n+1)) (k : Fin (n+1)) :
+    Tuple.cast h (Fin.append p q) (k.castLE (by omega : n+1 ≤ 2*n+2)) = p k := by
+  rw [Tuple.cast_get]
+  have hlt : ((k.castLE (by omega : n+1 ≤ 2*n+2)).cast h.symm).val < n + 1 := by
+    simp [k.isLt]
+  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  apply congrArg
+  exact Fin.eq_of_val_eq rfl
+
+/-- Arity-`(2n+2)` analogue of `selFilter_cast_append_iff`: the join condition
+on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterises
+equality of the first-`n` projections of `p` and `q`. -/
+lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+    [HasAltLinearOrder K] {n : ℕ}
+    (h : (n+1)+(n+1) = 2*n+2) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) (n+1))
+    [NeZero (2*n+2)] :
+    Filter.eval (((List.range n).map
+      (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+      (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast h (Fin.append p q))
+    ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n)))
+      = (fun (k : Fin n) ↦ q (k.castLE (Nat.le_succ n))) := by
+  classical
+  rw [Query.rewriting_valid_joinCond_eval]
+  constructor
+  · intro hForall
+    funext k
+    have := hForall k
+    rw [cast_append_2n2_at_ofNat_left, cast_append_2n2_at_ofNat_right] at this
+    exact this
+  · intro heq k
+    rw [cast_append_2n2_at_ofNat_left, cast_append_2n2_at_ofNat_right]
+    exact congrFun heq k
+
 /-- Filter pushes through `AnnotatedRelation.toComposite` via the
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
@@ -840,6 +945,68 @@ lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
         intro b hb heq
         exact hgmem (heq ▸ hb)
       rw [hfilter_eq, Multiset.map_zero]
+
+/-- **Keyed-projection semijoin.** Generalizes `Multiset.semijoin_proj_eq_filter` in two
+directions: the right multiset is the image `S.map val` of a `Nodup` keyset `S` under a
+value function `val : β → γ`, and the projection is an arbitrary `mk : α → γ → δ` rather
+than `Prod.fst`. The compatibility hypothesis `h_val` asserts that `key_s ∘ val` is the
+identity on `S` (i.e., `val` reconstructs an element whose `key_s`-image is the original
+key). The semijoin then reduces to filtering `r` by `key_r a ∈ S` and projecting through
+`mk a (val (key_r a))` (the unique matching `γ`-value). This is the structural identity
+behind the `matched_eq` half of the `Diff`-case rewriting correctness. -/
+lemma Multiset.semijoin_keyed_proj_eq_filter
+    {α γ δ : Type*} {β : Type*} [DecidableEq β]
+    (r : Multiset α) (S : Multiset β) (val : β → γ)
+    (key_r : α → β) (key_s : γ → β) (mk : α → γ → δ)
+    (hS : S.Nodup)
+    (h_val : ∀ v ∈ S, key_s (val v) = v) :
+    ((Multiset.product r (S.map val)).filter
+        (fun pair : α × γ ↦ key_r pair.1 = key_s pair.2)).map
+      (fun pair ↦ mk pair.1 pair.2)
+    = (r.filter (fun a ↦ key_r a ∈ S)).map (fun a ↦ mk a (val (key_r a))) := by
+  show ((r ×ˢ (S.map val)).filter (fun pair : α × γ ↦ key_r pair.1 = key_s pair.2)).map
+        (fun pair ↦ mk pair.1 pair.2)
+      = (r.filter (fun a ↦ key_r a ∈ S)).map (fun a ↦ mk a (val (key_r a)))
+  induction r using Multiset.induction with
+  | empty => simp
+  | cons hd tl ih =>
+    rw [Multiset.cons_product, Multiset.filter_add, Multiset.map_add, ih,
+        Multiset.filter_cons, Multiset.map_add]
+    congr 1
+    -- First term: handle the head's contribution.
+    -- LHS: Multiset.map (fun pair ↦ mk pair.1 pair.2)
+    --        (Multiset.filter cond ((S.map val).map (Prod.mk hd)))
+    rw [Multiset.filter_map, Multiset.map_map]
+    show ((S.map val).filter (fun b ↦ key_r hd = key_s b)).map (fun b ↦ mk hd b) = _
+    rw [Multiset.filter_map]
+    -- Convert `key_r hd = key_s (val v)` to `key_r hd = v` on `S` via `h_val`.
+    have hcong : Multiset.filter (fun v ↦ key_r hd = key_s (val v)) S
+               = Multiset.filter (fun v ↦ key_r hd = v) S := by
+      apply Multiset.filter_congr
+      intro v hv
+      rw [h_val v hv]
+    show (Multiset.map val
+            (Multiset.filter ((fun b ↦ key_r hd = key_s b) ∘ val) S)).map (fun b ↦ mk hd b) = _
+    simp only [Function.comp]
+    rw [hcong, Multiset.map_map]
+    show (S.filter (fun v ↦ key_r hd = v)).map (fun v ↦ mk hd (val v)) = _
+    by_cases hmem : key_r hd ∈ S
+    · -- `S.filter (key_r hd = ·) = {key_r hd}` since `S` is `Nodup`.
+      rw [if_pos hmem]
+      have hcount : S.count (key_r hd) = 1 := Multiset.count_eq_one_of_mem hS hmem
+      have hfilter_eq : S.filter (fun v ↦ key_r hd = v) = {key_r hd} := by
+        ext b
+        rw [Multiset.count_filter, Multiset.count_singleton]
+        by_cases hb : key_r hd = b
+        · subst hb
+          rw [if_pos rfl]
+          exact hcount.trans (if_pos rfl).symm
+        · simp [hb, Ne.symm hb]
+      rw [hfilter_eq, Multiset.map_singleton, Multiset.map_singleton]
+    · rw [if_neg hmem]
+      have hfilter_eq : S.filter (fun v ↦ key_r hd = v) = 0 :=
+        Multiset.filter_eq_nil.mpr (fun v hv heq ↦ hmem (heq ▸ hv))
+      rw [hfilter_eq, Multiset.map_zero, Multiset.map_zero]
 
 /-- The Agg of `q.rewriting` (the inner aggregation used in both the `Dedup` and
 `Diff` rewritings) evaluates to a map over the deduped data-projection of the
@@ -1285,17 +1452,189 @@ theorem Query.rewriting_valid
             (p.1, p.2 - (Multiset.map Prod.snd
               (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
                 (q₂.evaluateAnnotated hq'₂ d))).sum)) := by
-      -- TODO: substitute the inner Agg via `Query.evaluate_agg_rewriting_eq`, then
-      -- mirror the `unmatched_eq` pipeline (cast/HMul/filter_map/map_map → Fin
-      -- arithmetic on the (2*n+2)-arity selFilter and the (data, subtraction)-shaped
-      -- proj_outer → semijoin lemma with `Big := AggOutput` (Nodup) → final
-      -- `Multiset.filter_congr` matching `(fromComposite t).1 ∈ map fst AR₂` against
-      -- the lookup result, using `Query.rewriting_valid_sub_inr` for the
-      -- `Sum.inr p.2 - Sum.inr sum_v` simplification). The substitution step is
-      -- itself blocked: `evaluate (Agg ...) d` lives behind Proj/Sel/Prod and the
-      -- top-level `simp only [evaluate, Term.eval]` unfolds the Agg too, producing
-      -- a form that doesn't syntactically match the helper's RHS.
-      sorry
+      set AR₁ := q₁.evaluateAnnotated hq'₁ d with hAR₁
+      set AR₂ := q₂.evaluateAnnotated hq'₂ d with hAR₂
+      -- Derive the unfolded-form Agg equation: after `simp only [evaluate, Term.eval]`,
+      -- the inner `evaluate (Agg ...) d.toComposite` matches the helper's LHS after
+      -- the same simp. Pre-compute it here so we can `rw` once the outer Proj/Sel/Prod
+      -- have been unfolded.
+      have hAggForm := Query.evaluate_agg_rewriting_eq q₂ hq'₂ d ih'₂
+      simp only [evaluate, Term.eval] at hAggForm
+      rw [← ih'₂] at hAggForm
+      -- Unfold the outer Proj/Sel/Prod (and the inner Agg, which gets re-folded via
+      -- `hAggForm`).
+      simp only [evaluate, Term.eval]
+      rw [← ih'₁, ← ih'₂]
+      -- Substitute the unfolded Agg form with its closed form via `hAggForm`.
+      rw [hAggForm]
+      -- Now: map (proj_outer) (filter (selFilter) (Relation.cast h (AR₁.toComposite * AggOutput))) = RHS
+      rw [Relation.cast_eq_map]
+      simp only [(·*·), Mul.mul, Multiset.map_map]
+      rw [Multiset.filter_map, Multiset.map_map]
+      simp only [Function.comp_def]
+      have hNeZero : NeZero (2 * n + 2) := ⟨by omega⟩
+      -- Provide DecidablePred instances for both filter predicates explicitly.
+      letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+          Filter.eval (((List.range n).map
+            (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+            (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
+        fun x => Filter.evalDecidable _ _
+      letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+          (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n)))
+          = (fun k : Fin n ↦ x.2 (k.castLE (Nat.le_succ n)))) :=
+        fun x => decEq _ _
+      -- Name the product of multisets for clarity.
+      set Prod2 : Multiset (Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1)) :=
+        Multiset.product AR₁.toComposite
+          (Multiset.map (fun v : Tuple T n ↦ AnnotatedTuple.toComposite
+              (v, (Multiset.map Prod.snd
+                    (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum))
+            ((AR₂.map Prod.fst).dedup)) with hProd2_def
+      -- Rewrite the filter cond using selFilter_cast_append_2n2_iff.
+      have hcong : @Multiset.filter _ _ dp1 Prod2 = @Multiset.filter _ _ dp2 Prod2 :=
+        Multiset.filter_congr (fun x _ ↦ selFilter_cast_append_2n2_iff (by omega) x.1 x.2)
+      change Multiset.map (fun (x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1)) (k : Fin (n+1)) ↦
+              (if ↑k < n then (#((Fin.castLE (by omega : n+1 ≤ 2*n+2)) k) : Term (T⊕K) (2*n+2))
+                else Term.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
+                  (Tuple.cast (by omega : (n+1)+(n+1) = 2*n+2) (Fin.append x.1 x.2)))
+            (@Multiset.filter _ _ dp1 Prod2) = _
+      rw [hcong]
+      -- Convert filter cond from `first-n p = first-n q` (in `Tuple (T⊕K) n`) to
+      -- `(fromComposite p).1 = (fromComposite q).1` (in `Tuple T n`) via Sum.inl-lift
+      -- injectivity, valid for pairs in `Prod2`.
+      letI dp3 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+          (Tuple.fromComposite x.1).1 = (Tuple.fromComposite x.2).1) :=
+        fun x => decEq _ _
+      have hcong2 : @Multiset.filter _ _ dp2 Prod2 = @Multiset.filter _ _ dp3 Prod2 := by
+        apply Multiset.filter_congr
+        intro pair hpair
+        rw [hProd2_def] at hpair
+        obtain ⟨hp1, hp2⟩ := Multiset.mem_product.mp hpair
+        obtain ⟨ap, _, hp1_eq⟩ := Multiset.mem_map.mp hp1
+        obtain ⟨v, _, hq_eq⟩ := Multiset.mem_map.mp hp2
+        have hfrom_p1 : (Tuple.fromComposite pair.1).1 = ap.1 := by
+          rw [← hp1_eq, Tuple.fromComposite_toComposite]
+        have hfrom_p2 : (Tuple.fromComposite pair.2).1 = v := by
+          rw [← hq_eq, Tuple.fromComposite_toComposite]
+        constructor
+        · intro heq
+          have hlift_eq :
+              (fun k : Fin n ↦ (Sum.inl (ap.1 k) : T⊕K))
+            = (fun k : Fin n ↦ (Sum.inl (v k) : T⊕K)) := by
+            funext k
+            have hcastle1 : pair.1 (k.castLE (Nat.le_succ n))
+                          = (Sum.inl (ap.1 k) : T⊕K) := by
+              rw [← hp1_eq]; exact AnnotatedTuple.toComposite_castLE ap k
+            have hcastle2 : pair.2 (k.castLE (Nat.le_succ n))
+                          = (Sum.inl (v k) : T⊕K) := by
+              rw [← hq_eq]
+              exact AnnotatedTuple.toComposite_castLE
+                (v, (Multiset.map Prod.snd
+                  (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum) k
+            calc (Sum.inl (ap.1 k) : T⊕K)
+                _ = pair.1 (k.castLE (Nat.le_succ n)) := hcastle1.symm
+                _ = pair.2 (k.castLE (Nat.le_succ n)) := congrFun heq k
+                _ = (Sum.inl (v k) : T⊕K) := hcastle2
+          have hap_eq_v : ap.1 = v := Sum.inl_lift_injective hlift_eq
+          rw [hfrom_p1, hfrom_p2, hap_eq_v]
+        · intro heq
+          rw [hfrom_p1, hfrom_p2] at heq
+          funext k
+          have hcastle1 : pair.1 (k.castLE (Nat.le_succ n))
+                        = (Sum.inl (ap.1 k) : T⊕K) := by
+            rw [← hp1_eq]; exact AnnotatedTuple.toComposite_castLE ap k
+          have hcastle2 : pair.2 (k.castLE (Nat.le_succ n))
+                        = (Sum.inl (v k) : T⊕K) := by
+            rw [← hq_eq]
+            exact AnnotatedTuple.toComposite_castLE
+              (v, (Multiset.map Prod.snd
+                (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum) k
+          rw [hcastle1, hcastle2, heq]
+      rw [hcong2]
+      -- Apply the keyed-projection semijoin lemma with:
+      --   r = AR₁.toComposite, S = (AR₂.map Prod.fst).dedup,
+      --   val v = ATC (v, sum_β v), key_r p = (fromComposite p).1, key_s q = (fromComposite q).1,
+      --   mk p q = the projection function we have.
+      rw [hProd2_def]
+      have hS_nodup : ((AR₂.map Prod.fst).dedup : Multiset (Tuple T n)).Nodup :=
+        Multiset.nodup_dedup _
+      have h_val_eq : ∀ v ∈ ((AR₂.map Prod.fst).dedup : Multiset (Tuple T n)),
+          (Tuple.fromComposite
+            (AnnotatedTuple.toComposite
+              (v, (Multiset.map Prod.snd
+                    (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum))).1
+            = v := by
+        intro v _
+        rw [Tuple.fromComposite_toComposite]
+      have hsemi := @Multiset.semijoin_keyed_proj_eq_filter
+        (Tuple (T⊕K) (n+1)) (Tuple (T⊕K) (n+1)) (Tuple (T⊕K) (n+1))
+        (Tuple T n) _
+        AR₁.toComposite ((AR₂.map Prod.fst).dedup)
+        (fun v : Tuple T n ↦ AnnotatedTuple.toComposite
+          (v, (Multiset.map Prod.snd
+                (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum))
+        (fun p : Tuple (T⊕K) (n+1) ↦ (Tuple.fromComposite p).1)
+        (fun q : Tuple (T⊕K) (n+1) ↦ (Tuple.fromComposite q).1)
+        (fun (p q : Tuple (T⊕K) (n+1)) ↦
+          fun (k : Fin (n+1)) ↦
+            (if ↑k < n then (#((Fin.castLE (by omega : n+1 ≤ 2*n+2)) k) : Term (T⊕K) (2*n+2))
+              else Term.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
+                (Tuple.cast (by omega : (n+1)+(n+1) = 2*n+2) (Fin.append p q)))
+        hS_nodup h_val_eq
+      -- Beta-reduce the map function in hsemi's LHS.
+      simp only [] at hsemi
+      -- Chain via hsemi.trans.
+      refine hsemi.trans ?_
+      -- Now: (AR₁.toComposite.filter (·.fromComposite.1 ∈ S)).map mk_after = RHS
+      -- where mk_after p = (proj_curry (p, val (fromComposite p).1)).
+      -- Unfold AR₁.toComposite = AR₁.map ATC and push filter/map through.
+      unfold AnnotatedRelation.toComposite
+      rw [Multiset.filter_map, Multiset.map_map]
+      -- After filter_map: (AR₁.filter (cond ∘ ATC)).map ATC.map(mk_after)
+      -- After map_map: (AR₁.filter (cond ∘ ATC)).map (mk_after ∘ ATC)
+      -- The filter predicate (cond ∘ ATC) ap = (fromComposite (ATC ap)).1 ∈ dedup
+      --                                      = ap.1 ∈ dedup
+      have hfilter_eq :
+          Multiset.filter
+            ((fun p : Tuple (T⊕K) (n+1) ↦ (Tuple.fromComposite p).1 ∈ (AR₂.map Prod.fst).dedup)
+              ∘ AnnotatedTuple.toComposite) AR₁
+          = Multiset.filter (fun p : AnnotatedTuple T K n ↦
+              p.1 ∈ Multiset.map Prod.fst AR₂) AR₁ := by
+        apply Multiset.filter_congr
+        intro ap _
+        rw [Function.comp_apply, Tuple.fromComposite_toComposite, Multiset.mem_dedup]
+      rw [hfilter_eq]
+      apply Multiset.map_congr rfl
+      intro ap _
+      -- Compute mk_after applied to ATC ap.
+      simp only [Function.comp, Tuple.fromComposite_toComposite]
+      funext k
+      by_cases hk : ↑k < n
+      · -- Data case: result is Sum.inl (ap.1 k).
+        simp only [hk, if_pos, Term.eval]
+        rw [proj_outer_2n2_cast_append_eq_fst]
+        -- Goal: ATC ap k = ATC (ap.1, ap.2 - sum_β ap.1) k for k.val < n.
+        -- Both reduce to Sum.inl (ap.1 ⟨k.val, hk⟩); the .2 component is unused.
+        unfold AnnotatedTuple.toComposite
+        have hkcast : k = (Fin.castAdd 1 (k.castLT hk) : Fin (n+1)) :=
+          Fin.eq_of_val_eq rfl
+        rw [hkcast, Fin.append_left, Fin.append_left]
+      · -- Annotation case: result is Sum.inr (ap.2 - sum_β ap.1).
+        have hk_eq : k = Fin.last n := by
+          apply Fin.eq_of_val_eq
+          rw [Fin.val_last]
+          have h1 : k.val < n + 1 := k.isLt
+          have h2 : ¬ k.val < n := hk
+          omega
+        subst hk_eq
+        simp only [Fin.val_last, lt_self_iff_false, if_false, Term.eval]
+        rw [cast_append_2n2_at_ofNat_n, cast_append_2n2_at_last]
+        -- Show: ATC ap (Fin.last n) - ATC (ap.1, sum_β ap.1) (Fin.last n)
+        --     = ATC (ap.1, ap.2 - sum_β ap.1) (Fin.last n)
+        rw [AnnotatedTuple.toComposite_last, AnnotatedTuple.toComposite_last,
+            AnnotatedTuple.toComposite_last]
+        rfl
     have rhs_eq :
       evaluate ((Diff q₁ q₂).rewriting hq) d.toComposite
       = AnnotatedRelation.toComposite
