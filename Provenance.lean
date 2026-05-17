@@ -25,6 +25,9 @@ import Provenance.Having
 /- Probability distributions over Boolean variables -/
 import Provenance.Probability
 
+/- Boolean circuits and read-once correctness -/
+import Provenance.Circuit
+
 /- Algorithms (HAVING enumeration) -/
 import Provenance.Algorithms.CountEnum
 import Provenance.Algorithms.SumDP
@@ -120,6 +123,10 @@ the provenance-aware relational database system
   statement of Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql] reducing
   `Pr(t ∈ q(Î))` to `Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`; the proof is reduced to a single
   structural commutation lemma `randomWorld_evaluateAnnotated`
+- `Provenance.Circuit` – Boolean circuits with the read-once predicate and a
+  recursive bottom-up probability evaluator; read-once correctness theorem
+  matching the sum-over-valuations semantics
+  ([Sen, Maniu & Senellart][sen2026provsql], Section V-D step 1)
 
 **Algorithms**
 
