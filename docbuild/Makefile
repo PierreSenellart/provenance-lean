@@ -19,6 +19,12 @@ docs:
 	  -e 's|<link rel="mask-icon" href="[^"]*favicon\.svg"[^>]*> *||g' {} +
 	# Inject site-wide footer nav into each HTML page (idempotent)
 	find $(DOCOUT) -name '*.html' -exec perl inject-footer.pl {} \;
+	# Backward-compat anchor: the ICDE 2026 paper hard-codes a Lean link
+	# to QueryRewriting.html#query.Rewriting (typo: lowercase q, capital R).
+	# Inject an empty <a id="query.Rewriting"> ahead of the real
+	# Query.rewriting declaration so the fragment still scrolls there.
+	# Idempotent: skipped on lines that already contain "query.Rewriting".
+	perl -i -pe 's|<div class="decl" id="Query\.rewriting"|<a id="query.Rewriting"></a><div class="decl" id="Query.rewriting"| unless /query\.Rewriting/' $(DOCOUT)/Provenance/QueryRewriting.html
 
 deploy: docs
 	rsync -avzP --delete-after $(DOCOUT)/ $(DEPLOY_HOST)
