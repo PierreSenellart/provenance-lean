@@ -65,23 +65,35 @@ HAVING-count fragment.
 
 ### D. d-DNNF correctness (semantic, not complexity)
 
-Define `Circuit Bool` + smoothness / decomposability / determinism
-predicates, give a finite-sum-over-assignments probabilistic
+The **read-once sub-piece** has landed in `Provenance.Circuit`:
+- `Circuit X` inductive type (`const` / `var` / `not` / `and` / `or`),
+  with `eval`, `toBoolFunc`, `vars`, `ReadOnce`, and the recursive
+  `prob` evaluator.
+- `BoolFunc.DependsOn` (variable support of a Boolean function) plus
+  `Circuit.toBoolFunc_dependsOn_vars`.
+- `ProbAssignment.funcProb_var`, `funcProb_sub_self_const_one`,
+  `funcProb_add_eq` (inclusion-exclusion).
+- The main correctness theorem `Circuit.readOnce_funcProb_eq_prob`:
+  for any `ReadOnce` circuit `c`, `Pr(c.toBoolFunc) = c.prob P`.
+
+Remaining for read-once: the independence lemma
+`ProbAssignment.funcProb_mul_disjoint` (`Pr(f * g) = Pr(f) * Pr(g)` under
+disjoint variable supports) is currently parked as a `sorry`. The
+mathematical argument is documented inline (`Equiv.piEquivPiSubtypeProd`
+to split valuations, `Finset.prod_compl_mul_prod` to factor `valProb`,
+then a double sum that factors via `Finset.sum_mul_sum`). The main
+theorem assumes it.
+
+**Next d-DNNF steps (longer horizon).**
+Define smoothness / decomposability / determinism predicates on
+`Circuit X`, give the finite-sum-over-assignments probabilistic
 semantics, and prove the bottom-up evaluator agrees with it under
 those structural predicates. No complexity claim; pure semantic
-correctness.
-
-A natural sub-piece is the read-once case (Section V-D step 1 of the
-paper): on a read-once Boolean circuit, recursive evaluation
-`Pr(g) = Pr(g_left) ⊙ Pr(g_right)` (with `⊙` depending on the gate
-type) agrees with the sum-over-valuations semantics. Same character
-as the d-DNNF result but smaller; can land first.
-
-Would also give a foundation for later formalising the BID → TID
-rewrite (`rewriteMultivaluedGates` in `BooleanCircuit.cpp`) and, in
-combination with the formalised Theorem 12, the Tseitin-based
-CNF-encoding step of Section V-D step 3 (purely semantic —
-equisatisfiability — not the knowledge-compiler call itself).
+correctness. Would also give a foundation for later formalising the
+BID → TID rewrite (`rewriteMultivaluedGates` in `BooleanCircuit.cpp`)
+and, in combination with the formalised Theorem 12, the Tseitin-based
+CNF-encoding step of Section V-D step 3 (purely semantic –
+equisatisfiability – not the knowledge-compiler call itself).
 
 ### Out of scope
 
