@@ -235,6 +235,60 @@ theorem funcProb_sub_self_const_one (f : BoolFunc X) :
       simp [hfv']
   rw [hstep, Finset.sum_sub_distrib, P.sum_valProb_eq_one]
 
+/-! ### Independence lemma
+
+The independence lemma `funcProb_mul_disjoint` is the technical heart of the
+read-once correctness theorem: `Pr(f * g) = Pr(f) * Pr(g)` whenever `f` and `g`
+depend on disjoint variable supports. The proof requires splitting
+`(X → Bool) ≃ ({x // x ∈ S} → Bool) × ({x // x ∉ S} → Bool)` via
+`Equiv.piEquivPiSubtypeProd` and factoring the valuation probability over the
+partition. The full Lean formalisation is currently parked as a `sorry`; the
+mathematical argument is documented below. -/
+
+/-- **Independence lemma (parked).** If `f`, `g : BoolFunc X` depend on disjoint
+variable supports `S`, `T`, then `Pr(f * g) = Pr(f) * Pr(g)`.
+
+**Proof sketch.** Use `Equiv.piEquivPiSubtypeProd` to split each valuation
+`v : X → Bool` into `(v|S, v|Sᶜ)`. The valuation probability factors as
+`valProb v = (∏_{x ∈ S} P̃_x(v x)) · (∏_{x ∉ S} P̃_x(v x))`
+via `Finset.prod_compl_mul_prod`. Since `f` depends only on `S`, the truth
+value of `f v` only depends on `v|S`; similarly `g v` only depends on
+`v|T ⊆ v|Sᶜ`. The double sum then factors as
+`Pr(f * g) = (∑_{vS} (∏_S P̃) · 1_f(vS)) · (∑_{vR} (∏_Sᶜ P̃) · 1_g(vR))
+           = Pr(f) · Pr(g)`,
+using `sum_valProb_eq_one` restricted to subsets for the marginalisation. -/
+theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
+    (_hf : f.DependsOn S) (_hg : g.DependsOn T) (_hST : Disjoint S T) :
+    P.funcProb (f * g) = P.funcProb f * P.funcProb g := by
+  sorry
+
+/-- `Pr(f + g) = Pr(f) + Pr(g) - Pr(f * g)`: the universal inclusion-exclusion
+identity for the BoolFunc disjunction (`+`) and conjunction (`*`). No
+disjointness hypothesis is needed; the formula holds pointwise on each summand
+via the Bool identity `(b₁ || b₂).toℚ = b₁.toℚ + b₂.toℚ - (b₁ && b₂).toℚ`. -/
+theorem funcProb_add_eq (f g : BoolFunc X) :
+    P.funcProb (f + g) = P.funcProb f + P.funcProb g - P.funcProb (f * g) := by
+  unfold funcProb
+  -- The Bool identity, lifted to the ℚ-weighted sum.
+  have hpoint : ∀ v : X → Bool,
+      (if ((f + g : BoolFunc X) v : Bool) then P.valProb v else 0)
+      = (if (f v : Bool) then P.valProb v else 0)
+        + (if (g v : Bool) then P.valProb v else 0)
+        - (if ((f * g : BoolFunc X) v : Bool) then P.valProb v else 0) := by
+    intro v
+    show (if (f v || g v : Bool) then P.valProb v else 0)
+        = (if (f v : Bool) then P.valProb v else 0)
+          + (if (g v : Bool) then P.valProb v else 0)
+          - (if ((f v && g v : Bool)) then P.valProb v else 0)
+    cases hfv : f v <;> cases hgv : g v <;> simp
+  rw [show (∑ v : X → Bool, if ((f + g : BoolFunc X) v : Bool) then P.valProb v else 0)
+        = ∑ v : X → Bool,
+            ((if (f v : Bool) then P.valProb v else 0)
+            + (if (g v : Bool) then P.valProb v else 0)
+            - (if ((f * g : BoolFunc X) v : Bool) then P.valProb v else 0)) from
+    Finset.sum_congr rfl (fun v _ => hpoint v)]
+  rw [Finset.sum_sub_distrib, ← Finset.sum_add_distrib]
+
 end ProbAssignment
 
 namespace Circuit
@@ -267,5 +321,48 @@ lemma toBoolFunc_dependsOn_vars (c : Circuit X) :
       fun x hx => heq x (Finset.mem_union_right _ hx)
     change (c₁.eval v₁ || c₂.eval v₁ : Bool) = (c₁.eval v₂ || c₂.eval v₂ : Bool)
     rw [ih₁ h₁, ih₂ h₂]
+
+/-! ### Read-once correctness -/
+
+/-- **Read-once correctness theorem.** For any read-once Boolean circuit `c`,
+the recursive bottom-up probability evaluator `c.prob P` agrees with the
+sum-over-valuations semantics `Pr(c.toBoolFunc)`. Proved by induction on the
+`ReadOnce` derivation, using:
+
+* `ProbAssignment.funcProb_var` for the variable leaves;
+* `ProbAssignment.funcProb_sub_self_const_one` for NOT (`Pr(¬f) = 1 - Pr(f)`);
+* `ProbAssignment.funcProb_mul_disjoint` for AND (independence under disjoint
+  supports);
+* `ProbAssignment.funcProb_add_eq` together with the independence lemma for OR. -/
+theorem readOnce_funcProb_eq_prob (c : Circuit X) (hc : c.ReadOnce) :
+    P.funcProb c.toBoolFunc = c.prob P := by
+  induction hc with
+  | const b =>
+    cases b
+    · show P.funcProb (0 : BoolFunc X) = 0
+      exact P.funcProb_zero
+    · show P.funcProb (1 : BoolFunc X) = 1
+      exact P.funcProb_one
+  | var x =>
+    show P.funcProb (BoolFunc.var x) = P.prob x
+    exact P.funcProb_var x
+  | @not c _ ih =>
+    show P.funcProb (1 - c.toBoolFunc) = 1 - c.prob P
+    rw [P.funcProb_sub_self_const_one c.toBoolFunc, ih]
+  | @and c₁ c₂ _ _ hdisj ih₁ ih₂ =>
+    show P.funcProb (c₁.toBoolFunc * c₂.toBoolFunc) = c₁.prob P * c₂.prob P
+    rw [P.funcProb_mul_disjoint
+          (toBoolFunc_dependsOn_vars c₁)
+          (toBoolFunc_dependsOn_vars c₂)
+          hdisj, ih₁, ih₂]
+  | @or c₁ c₂ _ _ hdisj ih₁ ih₂ =>
+    show P.funcProb (c₁.toBoolFunc + c₂.toBoolFunc)
+        = c₁.prob P + c₂.prob P - c₁.prob P * c₂.prob P
+    rw [P.funcProb_add_eq c₁.toBoolFunc c₂.toBoolFunc]
+    rw [P.funcProb_mul_disjoint
+          (toBoolFunc_dependsOn_vars c₁)
+          (toBoolFunc_dependsOn_vars c₂)
+          hdisj]
+    rw [ih₁, ih₂]
 
 end Circuit
