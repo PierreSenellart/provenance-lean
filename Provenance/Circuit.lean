@@ -1,6 +1,7 @@
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Algebra.BigOperators.Pi
 import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Data.Fintype.BigOperators
 import Mathlib.Data.Fintype.Pi
 import Mathlib.Logic.Equiv.Prod
 
@@ -239,28 +240,144 @@ theorem funcProb_sub_self_const_one (f : BoolFunc X) :
 
 The independence lemma `funcProb_mul_disjoint` is the technical heart of the
 read-once correctness theorem: `Pr(f * g) = Pr(f) * Pr(g)` whenever `f` and `g`
-depend on disjoint variable supports. The proof requires splitting
-`(X → Bool) ≃ ({x // x ∈ S} → Bool) × ({x // x ∉ S} → Bool)` via
-`Equiv.piEquivPiSubtypeProd` and factoring the valuation probability over the
-partition. The full Lean formalisation is currently parked as a `sorry`; the
-mathematical argument is documented below. -/
+depend on disjoint variable supports. The proof splits each valuation
+`v : X → Bool` into its restrictions on `S` and `Sᶜ` via
+`Equiv.piEquivPiSubtypeProd`, factors the valuation probability over the
+partition, and uses the marginalisation `∑_b (P̃_x b) = 1` to discard the
+unused half on each of the two factors. -/
 
-/-- **Independence lemma (parked).** If `f`, `g : BoolFunc X` depend on disjoint
+/-- **Independence lemma.** If `f`, `g : BoolFunc X` depend on disjoint
 variable supports `S`, `T`, then `Pr(f * g) = Pr(f) * Pr(g)`.
 
-**Proof sketch.** Use `Equiv.piEquivPiSubtypeProd` to split each valuation
-`v : X → Bool` into `(v|S, v|Sᶜ)`. The valuation probability factors as
-`valProb v = (∏_{x ∈ S} P̃_x(v x)) · (∏_{x ∉ S} P̃_x(v x))`
-via `Finset.prod_compl_mul_prod`. Since `f` depends only on `S`, the truth
-value of `f v` only depends on `v|S`; similarly `g v` only depends on
-`v|T ⊆ v|Sᶜ`. The double sum then factors as
-`Pr(f * g) = (∑_{vS} (∏_S P̃) · 1_f(vS)) · (∑_{vR} (∏_Sᶜ P̃) · 1_g(vR))
-           = Pr(f) · Pr(g)`,
-using `sum_valProb_eq_one` restricted to subsets for the marginalisation. -/
+The proof splits each valuation `v : X → Bool` into `(v|S, v|Sᶜ)` via
+`Equiv.piEquivPiSubtypeProd`, factors `valProb v` as the product of the two
+restricted products, and uses the marginalisations
+`∑_{vS} (∏_{x ∈ S} P̃_x(vS x)) = 1` and
+`∑_{vR} (∏_{x ∉ S} P̃_x(vR x)) = 1`
+(both proved via `Fintype.prod_sum` and `sum_factor_at`) to collapse the
+unused half on each side. -/
 theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
-    (_hf : f.DependsOn S) (_hg : g.DependsOn T) (_hST : Disjoint S T) :
+    (hf : f.DependsOn S) (hg : g.DependsOn T) (hST : Disjoint S T) :
     P.funcProb (f * g) = P.funcProb f * P.funcProb g := by
-  sorry
+  classical
+  -- Per-variable factor.
+  let h : X → Bool → ℚ := fun x b => if b then P.prob x else 1 - P.prob x
+  -- Equivalence splitting valuations along S.
+  let e : (X → Bool) ≃ ({x // x ∈ S} → Bool) × ({x // x ∉ S} → Bool) :=
+    Equiv.piEquivPiSubtypeProd (fun x => x ∈ S) _
+  -- Glue helper: stitch a Subtype-pair valuation back to a full one.
+  let glue : ({x // x ∈ S} → Bool) → ({x // x ∉ S} → Bool) → (X → Bool) :=
+    fun vS vR => e.symm (vS, vR)
+  -- Default fillers (used to define `fS` and `gR`).
+  let v0R : {x // x ∉ S} → Bool := fun _ => false
+  let v0S : {x // x ∈ S} → Bool := fun _ => false
+  -- "Restricted" Boolean functions on each half.
+  let fS : ({x // x ∈ S} → Bool) → Bool := fun vS => f (glue vS v0R)
+  let gR : ({x // x ∉ S} → Bool) → Bool := fun vR => g (glue v0S vR)
+  -- Per-side probability products.
+  let pS : ({x // x ∈ S} → Bool) → ℚ := fun vS => ∏ x : {x // x ∈ S}, h ↑x (vS x)
+  let pR : ({x // x ∉ S} → Bool) → ℚ := fun vR => ∏ x : {x // x ∉ S}, h ↑x (vR x)
+  -- Glue evaluates to vS on S and vR on Sᶜ.
+  have hglue_in : ∀ vS vR (x : X) (hx : x ∈ S), glue vS vR x = vS ⟨x, hx⟩ := by
+    intro vS vR x hx
+    show (e.symm (vS, vR)) x = vS ⟨x, hx⟩
+    simp [e, Equiv.piEquivPiSubtypeProd, hx]
+  have hglue_out : ∀ vS vR (x : X) (hx : x ∉ S), glue vS vR x = vR ⟨x, hx⟩ := by
+    intro vS vR x hx
+    show (e.symm (vS, vR)) x = vR ⟨x, hx⟩
+    simp [e, Equiv.piEquivPiSubtypeProd, hx]
+  -- f depends only on the S-half of the valuation.
+  have hfeq : ∀ vS vR, f (glue vS vR) = fS vS := fun vS vR =>
+    hf _ _ fun x hxS => by rw [hglue_in _ _ _ hxS, hglue_in _ _ _ hxS]
+  -- g depends only on the Sᶜ-half of the valuation (since T ⊆ Sᶜ).
+  have hgeq : ∀ vS vR, g (glue vS vR) = gR vR := fun vS vR =>
+    hg _ _ fun x hxT => by
+      have hxnS : x ∉ S := Finset.disjoint_right.mp hST hxT
+      rw [hglue_out _ _ _ hxnS, hglue_out _ _ _ hxnS]
+  -- Valuation probability factors along the partition.
+  have hval_split : ∀ vS vR, P.valProb (glue vS vR) = pS vS * pR vR := by
+    intro vS vR
+    show (∏ x, h x ((glue vS vR) x))
+          = (∏ x : {x // x ∈ S}, h ↑x (vS x)) * (∏ x : {x // x ∉ S}, h ↑x (vR x))
+    rw [← Finset.prod_mul_prod_compl S (fun x => h x ((glue vS vR) x))]
+    congr 1
+    · rw [Finset.prod_subtype (s := S) (p := fun x => x ∈ S) (fun _ => Iff.rfl)]
+      refine Finset.prod_congr rfl ?_
+      rintro ⟨x, hx⟩ _
+      rw [hglue_in _ _ _ hx]
+    · rw [Finset.prod_subtype (s := Sᶜ) (p := fun x => x ∉ S)
+            (fun _ => by simp)]
+      refine Finset.prod_congr rfl ?_
+      rintro ⟨x, hx⟩ _
+      rw [hglue_out _ _ _ hx]
+  -- Per-variable column sum: `∑_b h x b = P.prob x + (1 - P.prob x) = 1`.
+  have hsumcol : ∀ x, (∑ b : Bool, h x b) = 1 := by
+    intro x
+    show (∑ b : Bool, if b then P.prob x else 1 - P.prob x) = 1
+    have hu : (Finset.univ : Finset Bool) = {false, true} := by decide
+    rw [hu, Finset.sum_insert (by decide : (false : Bool) ∉ ({true} : Finset Bool)),
+        Finset.sum_singleton]
+    simp
+  -- Marginal sums on each half.
+  have sum_pS_eq_one : (∑ vS : {x // x ∈ S} → Bool, pS vS) = 1 := by
+    show (∑ vS : {x // x ∈ S} → Bool, ∏ x : {x // x ∈ S}, h ↑x (vS x)) = 1
+    rw [← Fintype.prod_sum (fun (x : {x // x ∈ S}) (b : Bool) => h ↑x b)]
+    exact Finset.prod_eq_one (fun x _ => hsumcol ↑x)
+  have sum_pR_eq_one : (∑ vR : {x // x ∉ S} → Bool, pR vR) = 1 := by
+    show (∑ vR : {x // x ∉ S} → Bool, ∏ x : {x // x ∉ S}, h ↑x (vR x)) = 1
+    rw [← Fintype.prod_sum (fun (x : {x // x ∉ S}) (b : Bool) => h ↑x b)]
+    exact Finset.prod_eq_one (fun x _ => hsumcol ↑x)
+  -- Sum-of-valuations rewriting along the split.
+  have hsum_iterated : ∀ F : (X → Bool) → ℚ,
+      (∑ v : X → Bool, F v)
+        = ∑ vS : {x // x ∈ S} → Bool, ∑ vR : {x // x ∉ S} → Bool, F (glue vS vR) := by
+    intro F
+    have h1 : (∑ v : X → Bool, F v)
+        = ∑ p : ({x // x ∈ S} → Bool) × ({x // x ∉ S} → Bool), F (e.symm p) :=
+      (Equiv.sum_comp e.symm F).symm
+    rw [h1]
+    exact Fintype.sum_prod_type' (fun vS vR => F (glue vS vR))
+  -- Pr(f) = ∑_vS (if fS vS then pS vS else 0).
+  have hPr_f : P.funcProb f = ∑ vS : {x // x ∈ S} → Bool,
+                                (if fS vS then pS vS else 0) := by
+    show (∑ v : X → Bool, if f v then P.valProb v else 0)
+        = ∑ vS : {x // x ∈ S} → Bool, (if fS vS then pS vS else 0)
+    rw [hsum_iterated (fun v => if f v then P.valProb v else 0)]
+    refine Finset.sum_congr rfl ?_
+    intro vS _
+    simp_rw [hfeq vS, hval_split vS]
+    by_cases hfs : fS vS
+    · simp_rw [if_pos hfs]
+      rw [← Finset.mul_sum, sum_pR_eq_one, mul_one]
+    · simp_rw [if_neg hfs]; simp
+  -- Pr(g) = ∑_vR (if gR vR then pR vR else 0).
+  have hPr_g : P.funcProb g = ∑ vR : {x // x ∉ S} → Bool,
+                                (if gR vR then pR vR else 0) := by
+    show (∑ v : X → Bool, if g v then P.valProb v else 0)
+        = ∑ vR : {x // x ∉ S} → Bool, (if gR vR then pR vR else 0)
+    rw [hsum_iterated (fun v => if g v then P.valProb v else 0)]
+    rw [Finset.sum_comm]
+    refine Finset.sum_congr rfl ?_
+    intro vR _
+    simp_rw [hgeq _ vR, hval_split _ vR]
+    by_cases hgs : gR vR
+    · simp_rw [if_pos hgs]
+      rw [← Finset.sum_mul, sum_pS_eq_one, one_mul]
+    · simp_rw [if_neg hgs]; simp
+  -- Pr(f * g) factors via Fintype.sum_mul_sum.
+  show (∑ v : X → Bool, if ((f * g) v : Bool) then P.valProb v else 0)
+      = P.funcProb f * P.funcProb g
+  rw [hsum_iterated (fun v => if ((f * g) v : Bool) then P.valProb v else 0)]
+  rw [hPr_f, hPr_g, Fintype.sum_mul_sum]
+  refine Finset.sum_congr rfl ?_
+  intro vS _
+  refine Finset.sum_congr rfl ?_
+  intro vR _
+  have hcomb : ((f * g) (glue vS vR) : Bool) = (fS vS && gR vR) := by
+    show (f (glue vS vR) && g (glue vS vR)) = (fS vS && gR vR)
+    rw [hfeq, hgeq]
+  rw [hcomb, hval_split]
+  cases hf' : fS vS <;> cases hg' : gR vR <;> simp
 
 /-- `Pr(f + g) = Pr(f) + Pr(g) - Pr(f * g)`: the universal inclusion-exclusion
 identity for the BoolFunc disjunction (`+`) and conjunction (`*`). No
