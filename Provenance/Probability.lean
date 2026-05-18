@@ -393,11 +393,11 @@ attribute [instance] Filter.evalDecidable Filter.evalDecidableAnnotated
 
 /-! ### Helper lemmas: random-world commutes with Multiset operations -/
 
-omit [Fintype X] [DecidableEq X] in
+omit [Fintype X] [DecidableEq X] [ValueType T] in
 @[simp] lemma randomWorld_zero (v : X → Bool) :
     randomWorld v (0 : AnnotatedRelation T (BoolFunc X) n) = 0 := rfl
 
-omit [Fintype X] [DecidableEq X] in
+omit [Fintype X] [DecidableEq X] [ValueType T] in
 /-- `randomWorld` is additive on relations: filtering and projecting the
 data side commutes with multiset sum. -/
 lemma randomWorld_add (v : X → Bool)
@@ -409,7 +409,7 @@ lemma randomWorld_add (v : X → Bool)
             r₁ r₂)).trans
     (Multiset.map_add _ _ _)
 
-omit [Fintype X] [DecidableEq X] in
+omit [Fintype X] [DecidableEq X] [ValueType T] in
 /-- Filtering the data side commutes with `randomWorld v`. -/
 lemma randomWorld_filter_data (v : X → Bool)
     (φ : Tuple T n → Prop) [DecidablePred φ]
@@ -458,7 +458,7 @@ lemma randomWorld_filter_data (v : X → Bool)
             Multiset.filter_cons_of_neg
               (p := fun p : Tuple T n × BoolFunc X => φ p.fst) s hφ, ih]
 
-omit [Fintype X] [DecidableEq X] in
+omit [Fintype X] [DecidableEq X] [ValueType T] in
 /-- Mapping the data side commutes with `randomWorld v`. Proved by
 `Multiset.induction_on`, with all `Multiset.filter` / `Multiset.map` lemmas
 called with named `(p := ...)` / explicit-type arguments so Lean's HOU does
@@ -497,7 +497,7 @@ lemma randomWorld_map_data (v : X → Bool) (f : Tuple T n → Tuple T m)
 
 /-! ### Random world commutes with `find` -/
 
-omit [Fintype X] [DecidableEq X] in
+omit [Fintype X] [DecidableEq X] [ValueType T] in
 lemma AnnotatedDatabase.find_randomWorld
     (n : ℕ) (s : String) (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
     (Î.randomWorld v).find n s = (Î.find n s).map (_root_.randomWorld v) := by
@@ -633,6 +633,7 @@ to be discharged. -/
 
 variable {K : Type} [SemiringWithMonus K] [DecidableEq K]
 
+omit [Fintype X] [DecidableEq X] in
 theorem randomWorld_evaluateAnnotated :
     ∀ {n} (q : Query T n) (hq : q.noAgg)
       (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool),
