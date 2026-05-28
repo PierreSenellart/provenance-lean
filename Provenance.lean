@@ -28,6 +28,9 @@ import Provenance.Probability
 /- Boolean circuits, read-once and d-D correctness -/
 import Provenance.Circuit
 
+/- Probability identities for HAVING aggregate comparisons under independence -/
+import Provenance.HavingProbability
+
 /- Tseitin CNF encoding (equisatisfiability) -/
 import Provenance.Tseitin
 
@@ -134,6 +137,14 @@ the provenance-aware relational database system
   evaluators are proved correct against the sum-over-valuations
   semantics ([Sen, Maniu & Senellart][sen2026provsql], Section V-D
   step 1).
+- `Provenance.HavingProbability` – probability identities for evaluating
+  `HAVING`-style aggregate comparisons under contributor independence:
+  given pairwise-disjoint contributor variable supports (so contributors
+  are independent Bernoullis with marginals `p i = P.funcProb (α i)`),
+  the MAX / MIN factorisation formulas (`funcProb_maxLeOnNonempty` /
+  `funcProb_minGeOnNonempty`) and the COUNT / SUM Poisson-binomial-style
+  recurrences (`countMass_insert_zero` / `countMass_insert_succ` /
+  `sumMass_insert_of_le` / `sumMass_insert_of_lt`).
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,
