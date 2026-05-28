@@ -8,19 +8,17 @@ import Mathlib.Data.List.Range
 import Provenance.Algorithms.CompOp
 
 /-!
-# Correctness of Algorithm 2: COUNT enumeration
+# Correctness of COUNT enumeration
 
-This file formalises Algorithm 2 of the HAVING / ProvSQL paper (Sen,
-Aryak & Senellart). The algorithm enumerates the non-empty subsets `W`
-of a finite set of occurrences `U` whose cardinality satisfies
-`|W| op C` for a fixed comparison operator `op ∈ {=, ≠, <, ≤, >, ≥}`
-and a constant `C ∈ ℕ`. The main result `countEnum_correct` shows
-that the list produced by `countEnum` coincides with that set, in the
-sense of membership.
+This file formalises a count-based enumeration algorithm. The algorithm
+enumerates the non-empty subsets `W` of a finite set of occurrences `U`
+whose cardinality satisfies `|W| op C` for a fixed comparison operator
+`op ∈ {=, ≠, <, ≤, >, ≥}` and a constant `C ∈ ℕ`. The main result
+`countEnum_correct` shows that the list produced by `countEnum`
+coincides with that set, in the sense of membership.
 
-The aggregate term `t` of the paper is irrelevant to COUNT and is
-dropped from the Lean signature; the paper notes this explicitly. The
-"distinct occurrences" hypothesis of the paper is encoded as
+An aggregate term `t` would be irrelevant to COUNT and is dropped from
+the Lean signature. The "distinct occurrences" hypothesis is encoded as
 `List.Nodup` and is needed in the spec only so that `Finset` cardinality
 matches list length: without it, the algorithm still returns subsets of
 `occs.toFinset`, but cardinality bookkeeping breaks.
@@ -30,27 +28,27 @@ namespace CountEnum
 
 variable {α : Type*} [DecidableEq α]
 
-/-- `Combinations(i, x, W)` of Algorithm 2, expressed with the suffix
-list `occs` (representing the occurrences `(uᵢ, αᵢ), …, (u_N, α_N)`)
-instead of an explicit index `i`. Returns the list of subsets obtained
-by extending the accumulator `W` with exactly `x` further elements drawn
-from `occs`. -/
+/-- `Combinations(i, x, W)`: expressed with the suffix list `occs`
+(representing the occurrences `(uᵢ, αᵢ), …, (u_N, α_N)`) instead of an
+explicit index `i`. Returns the list of subsets obtained by extending
+the accumulator `W` with exactly `x` further elements drawn from
+`occs`. -/
 def combinations : List α → ℕ → Finset α → List (Finset α)
   | _,         0,     W => [W]
   | [],        _ + 1, _ => []
   | u :: rest, x + 1, W => combinations rest (x + 1) W
                           ++ combinations rest x (insert u W)
 
-/-- `AddExact(x)` of Algorithm 2: enumerate the non-empty subsets of
-`occs` of cardinality exactly `x`. The `x = 0` case returns `[]` so
-that the empty world is excluded from the output. -/
+/-- `AddExact(x)`: enumerate the non-empty subsets of `occs` of
+cardinality exactly `x`. The `x = 0` case returns `[]` so that the
+empty world is excluded from the output. -/
 def addExact (occs : List α) (x : ℕ) : List (Finset α) :=
   if x = 0 then [] else combinations occs x ∅
 
-/-- `CountEnum(U, C, op)` of Algorithm 2: the top-level routine. The
-six cases of the algorithm collapse into a single `flatMap` over the
-satisfying cardinalities `x ∈ {0, …, N}` because `addExact occs 0` is
-already empty and `addExact occs x` is empty whenever `x > N`. -/
+/-- `CountEnum(U, C, op)`: top-level routine. The six cases of the
+algorithm collapse into a single `flatMap` over the satisfying
+cardinalities `x ∈ {0, …, N}` because `addExact occs 0` is already
+empty and `addExact occs x` is empty whenever `x > N`. -/
 def countEnum (occs : List α) (C : ℕ) (op : CompOp) : List (Finset α) :=
   ((List.range (occs.length + 1)).filter (fun x => decide (op.eval x C))).flatMap
     (addExact occs)
@@ -177,8 +175,7 @@ theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finse
     · rintro ⟨hSU, hcard, _⟩
       exact ⟨S, hSU, hcard, by simp⟩
 
-/-- **Correctness of Algorithm 2** (`thm:count-enum-correct` of the
-paper). For a list `occs` of distinct occurrences, a constant `C : ℕ`,
+/-- **Correctness of `countEnum`.** For a list `occs` of distinct occurrences, a constant `C : ℕ`,
 and a comparison operator `op`, the list `countEnum occs C op`
 enumerates exactly the non-empty subsets `S ⊆ occs.toFinset` whose
 cardinality satisfies `op.eval S.card C`. -/

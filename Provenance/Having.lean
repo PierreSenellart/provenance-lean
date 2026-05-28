@@ -516,7 +516,7 @@ theorem F_zero_eq_one (h_idem : idempotent K) (h_abs : absorptive K)
     rw [hfilter_eq] at h
     exact h
 
-/-- **Algebraic skeleton of Theorem 1(i)** for `HAVING count ≥ C`: in an
+/-- **Algebraic skeleton** for `HAVING count ≥ C`: in an
 absorptive commutative m-semiring with `mul_sub_left_distributive`, the
 possible-world provenance `F_C(U)` equals the join-based provenance
 `S_C(U)` for all `C ≥ 1`. Absorptive is a strictly stronger hypothesis

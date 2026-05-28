@@ -9,9 +9,8 @@ import Mathlib.Data.Nat.Init
 # Comparison operator for HAVING enumeration algorithms
 
 Shared definition used by both `Provenance.Algorithms.CountEnum` and
-`Provenance.Algorithms.SumDP`. Matches the operator parameter
-`op ∈ {=, ≠, <, ≤, >, ≥}` of the algorithms in the HAVING / ProvSQL
-paper.
+`Provenance.Algorithms.SumDP`. The operator parameter is
+`op ∈ {=, ≠, <, ≤, >, ≥}`.
 -/
 
 /-- Comparison operator on natural numbers, as used by the HAVING

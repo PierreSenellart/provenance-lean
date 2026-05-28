@@ -10,29 +10,28 @@ import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import Provenance.Algorithms.CompOp
 
 /-!
-# Correctness of Algorithm 1: SUM enumeration via dynamic programming
+# Correctness of SUM enumeration via dynamic programming
 
-This file formalises Algorithm 1 of the HAVING / ProvSQL paper. The
-algorithm enumerates the non-empty subsets `W` of a finite set of
-occurrences `U` whose weighted sum `∑_{u ∈ W} t u` satisfies
-`(∑ t) op C` for a fixed comparison operator `op` and constant `C : ℕ`.
-The main result `sumDP_correct` shows that the output coincides with
-that set in the sense of membership.
+This file formalises a subset-sum enumeration algorithm. The algorithm
+enumerates the non-empty subsets `W` of a finite set of occurrences `U`
+whose weighted sum `∑_{u ∈ W} t u` satisfies `(∑ t) op C` for a fixed
+comparison operator `op` and constant `C : ℕ`. The main result
+`sumDP_correct` shows that the output coincides with that set in the
+sense of membership.
 
-The paper presents the algorithm as an imperative subset-sum dynamic
-program with an in-place `dp[j]` array, bounded by `J` chosen per
-operator, with early returns for impossible operator/constant
-combinations. We use the mathematically equivalent functional
-formulation: `sumExact occs t j` is the list of subsets of
-`occs.toFinset` with weighted sum exactly `j` (i.e., the paper's
-`dp[j]` after iteration `N`), defined by direct recursion on `occs`.
-The six `op`-cases of the algorithm and all four early-return cases
-collapse into a single `flatMap` over satisfying sums in `{0, …, T}`,
-where `T = occs.toFinset.sum t`. Impossible sums simply contribute
-empty enumerations.
+The standard imperative presentation uses an in-place `dp[j]` array
+bounded by some `J` chosen per operator, with early returns for
+impossible operator/constant combinations. We use the mathematically
+equivalent functional formulation: `sumExact occs t j` is the list of
+subsets of `occs.toFinset` with weighted sum exactly `j` (i.e., `dp[j]`
+after iteration `N`), defined by direct recursion on `occs`. The six
+`op`-cases and all four early-return cases collapse into a single
+`flatMap` over satisfying sums in `{0, …, T}`, where
+`T = occs.toFinset.sum t`. Impossible sums simply contribute empty
+enumerations.
 
-The aggregate term `t` enters as `α → ℕ`; the annotation `α_i` of the
-paper is part of the occurrence type and does not enter the sum.
+The aggregate term `t` enters as `α → ℕ`; an annotation `α_i` would be
+part of the occurrence type and does not enter the sum.
 -/
 
 namespace SumDP
@@ -44,9 +43,10 @@ variable {α : Type*} [DecidableEq α]
 /-! ### Definitions -/
 
 /-- `sumExact occs t j`: enumerate the subsets of `occs.toFinset` whose
-weighted sum under `t` is exactly `j`. Mirrors `dp[j]` after the outer
-loop of Algorithm 1: every subset either omits the head `u` (left
-recursion) or includes it (right recursion, requires `t u ≤ j`). -/
+weighted sum under `t` is exactly `j`. Mirrors the dynamic-programming
+table `dp[j]` after the outer loop: every subset either omits the head
+`u` (left recursion) or includes it (right recursion, requires
+`t u ≤ j`). -/
 def sumExact : List α → (α → ℕ) → ℕ → List (Finset α)
   | [],        _, 0     => [∅]
   | [],        _, _ + 1 => []
@@ -54,10 +54,10 @@ def sumExact : List α → (α → ℕ) → ℕ → List (Finset α)
     sumExact rest t j ++
       (if t u ≤ j then (sumExact rest t (j - t u)).map (insert u) else [])
 
-/-- `SumDP(U, t, C, op)` of Algorithm 1. The six operator-cases of the
-paper (and the four early-return cases) collapse into a single
-`flatMap` over satisfying sums in `{0, …, T}`, where `T` is the total
-weight `occs.toFinset.sum t`. -/
+/-- `SumDP(U, t, C, op)`: top-level routine. The six operator-cases
+(and the four early-return cases of a more imperative presentation)
+collapse into a single `flatMap` over satisfying sums in `{0, …, T}`,
+where `T` is the total weight `occs.toFinset.sum t`. -/
 def sumDP (occs : List α) (t : α → ℕ) (C : ℕ) (op : CompOp) :
     List (Finset α) :=
   let T := occs.toFinset.sum t
@@ -171,7 +171,7 @@ theorem sumExact_mem :
           exact absurd this hle
         · exact List.mem_toFinset.mpr hvr
 
-/-- **Correctness of Algorithm 1** (`thm:sumdp-correct` of the paper).
+/-- **Correctness of `sumDP`.**
 For a list `occs` of distinct occurrences, a weight function `t`, a
 constant `C : ℕ`, and a comparison operator `op`, the list
 `sumDP occs t C op` enumerates exactly the non-empty subsets
