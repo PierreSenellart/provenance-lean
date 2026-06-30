@@ -28,6 +28,9 @@ import Provenance.Probability
 /- Boolean circuits, read-once and d-D correctness -/
 import Provenance.Circuit
 
+/- Categorical-block probability and deterministic-OR (mulinput) soundness -/
+import Provenance.CategoricalBlock
+
 /- Probability identities for HAVING aggregate comparisons under independence -/
 import Provenance.HavingProbability
 
@@ -137,6 +140,18 @@ the provenance-aware relational database system
   evaluators are proved correct against the sum-over-valuations
   semantics ([Sen, Maniu & Senellart][sen2026provsql], Section V-D
   step 1).
+- `Provenance.CategoricalBlock` – the categorical-block counterpart of
+  `Provenance.Circuit`'s d-D weighted-model-counting correctness: an
+  independent re-proof over **categorical block variables** (the **free
+  Boolean** case is the `κ ≡ fun _ => Bool` instance). A `CatAssignment`
+  gives each block its own categorical distribution, `CatCircuit` has
+  block-outcome literals,
+  and `CatCircuit.dD_eventProb_eq_probDD` proves the direct-summation
+  evaluator correct on decomposable + deterministic categorical circuits.
+  The three block lemmas (`CatAssignment.mulin_disjoint`, `mulin_or_prob`,
+  `mulin_none`) and `singleBlock_detOR_sound` back ProvSQL's trust in the
+  deterministic-OR (`plus(mulinputs)`) mark and the `1 - Σ pᵢ` none-branch
+  of the bounded-treewidth `repair_key` / BID route (`evaluateCertifiedIsland`).
 - `Provenance.HavingProbability` – probability identities for evaluating
   `HAVING`-style aggregate comparisons under contributor independence:
   given pairwise-disjoint contributor variable supports (so contributors
