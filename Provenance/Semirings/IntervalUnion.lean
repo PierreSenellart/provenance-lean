@@ -50,7 +50,7 @@ set inclusion.
 
 ## References
 
-* [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update Provenance through Temporal Databases*][DBLP:conf/pw/WidiaatmajaDDS25]
+* [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update Provenance through Temporal Databases*][widiaatmaja2025demonstration]
 -/
 
 /-- A finite union of pairwise-disjoint intervals sorted from left to right.
