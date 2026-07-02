@@ -1,4 +1,5 @@
 import Provenance.SemiringWithMonus
+import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
 
 /-!
@@ -86,6 +87,25 @@ which contradicts `var i + 1 = 1` in `BoolFunc X`. -/
 theorem Nat.no_hom_from_BoolFunc {X : Type} [Inhabited X] :
     ∃ ν : X → ℕ, ¬ ∃ φ : BoolFunc X →+* ℕ, ∀ i : X, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive Nat.not_absorptive
+
+/-- There is no m-semiring homomorphism from `ℕ` to `𝔹`. The unique *ring*
+homomorphism `ℕ → 𝔹` is the support map `n ↦ (n ≠ 0)` (the natural-number
+cast), but it does not preserve monus: `supp (2 ∸ 1) = ⊤` while
+`supp 2 ∸ supp 1 = ⊥`. This is the algebraic form of the fact that
+`ℕ`-adequacy of the annotated semantics stops at the monotone fragment:
+possible-worlds equalities transfer along monus-preserving homomorphisms
+into `𝔹` (as they exist for `BoolFunc X`, one per valuation), and `ℕ` has
+none. -/
+theorem Nat.no_monusHom_to_Bool : IsEmpty (SemiringWithMonusHom ℕ Bool) := by
+  constructor
+  intro h
+  have h2 : h.toRingHom 2 = 1 := by
+    have h11 : (2:ℕ) = 1 + 1 := rfl
+    rw [h11, RingHom.map_add, RingHom.map_one]
+    decide
+  have hsub := h.map_sub 2 1
+  rw [show (2:ℕ) - 1 = 1 from rfl, RingHom.map_one, h2] at hsub
+  exact absurd hsub (by decide)
 
 /-- Over `ℕ`, the two natural expansions of `HAVING (count = 2)` for a
 three-tuple group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕

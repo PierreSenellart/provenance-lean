@@ -419,6 +419,15 @@ def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
   (max d₁ d₂)+1
 | Agg _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
 
+/-- Standard multiset semantics of a query over a plain database.
+
+The `Diff` case is *all-or-nothing* difference: every copy of a tuple that
+occurs at all in `r₂` is removed from `r₁` (deliberately not `Multiset.sub`,
+which would subtract multiplicities as in SQL's `EXCEPT ALL`). This matches
+the monus-based annotated semantics of difference
+(`Query.evaluateAnnotated`) exactly on `0`/`1`-annotated inputs; on general
+annotations the two disagree over `ℕ` (see `Nat.counterexample_diff_adequacy`
+and `Provenance.QueryAdequacy`). -/
 def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
 | Rel   n  s  =>
   match d.find n s with

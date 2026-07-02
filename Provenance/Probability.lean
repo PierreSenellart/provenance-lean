@@ -30,13 +30,17 @@ of probabilities (with values in `[0, 1]`), we extend `Pr` to:
 * a probability of a Boolean function `f : BoolFunc X`, defined as the sum of
   `Pr(v)` over satisfying valuations: `Pr(f) = ∑_{v ⊨ f} Pr(v)`.
 
-This is the foundation needed to state and prove Theorem 12 of the paper
-(intensional probabilistic query evaluation correctness): for any
-non-aggregation query `q`, any `BoolFunc X`-instance `Î` and any tuple `t`,
-`Pr(t ∈ q(Î)) = Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`. The theorem itself is stated below
-and the algebraic-bridge lemmas are developed; the full proof depends on a
-“Bool-annotated semantics tracks plain semantics on the boolean-true support”
-result that is left as future work.
+This is the foundation for Theorem 12 of the paper (intensional
+probabilistic query evaluation correctness), proved below as
+`ProbAssignment.theorem_12`: for any non-aggregation query `q`, any
+`BoolFunc X`-instance `Î` and any tuple `t`,
+`Pr(t ∈ q(Î)) = Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`. Its structural core is
+`randomWorld_evaluateAnnotated`, the commutation of annotated evaluation
+with random-world projection, which doubles as the adequacy theorem of the
+annotated semantics for the full non-aggregation fragment (difference and
+duplicate elimination included); see the section
+“The structural commutation theorem” below for how this relates to the
+`ℕ`-adequacy theorem of [benzaken2021coq].
 
 ## Main definitions
 
@@ -53,10 +57,16 @@ result that is left as future work.
   `funcProb_le_one` – basic properties of `Pr(f)`.
 * `ProbAssignment.funcProb_congr` – pointwise-equal Boolean functions have
   equal probabilities.
+* `randomWorld_evaluateAnnotated` – annotated evaluation commutes with
+  random-world projection (adequacy of the `BoolFunc X`-annotated semantics).
+* `ProbAssignment.theorem_12`, `corollary_13` – correctness of intensional
+  probabilistic query evaluation, on the annotated and on the plain rewritten
+  query respectively.
 
 ## References
 
 * [Sen, Maniu & Senellart][sen2026provsql] (Section IV-D)
+* [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq]
 -/
 
 variable {X : Type} [Fintype X] [DecidableEq X]
@@ -628,8 +638,18 @@ lemma diff_annotation_eq_false_iff
 Random-world projection commutes with annotated query evaluation: for any
 non-aggregation query `q`, taking the random world `v` of the annotated
 result is the same as evaluating `q` on the random-world database. The proof
-is a structural induction, with the `Prod`, `Dedup`, and `Diff` cases still
-to be discharged. -/
+is a structural induction on `q`, covering all non-aggregation constructors
+(including `Prod`, `Dedup`, and `Diff`).
+
+This is the adequacy theorem for the non-monotone fragment: a bag-level
+equality between the annotated semantics (specialised to a possible world)
+and the plain semantics, valid in the presence of difference and duplicate
+elimination. It is the `𝔹`-valuation counterpart of the `ℕ`-adequacy theorem
+of [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq
+Formalization of Data Provenance*][benzaken2021coq], which is restricted to
+the positive fragment — necessarily so, since `ℕ`-adequacy fails as soon as
+monus-based difference interacts with duplicate elimination (see
+`Nat.counterexample_diff_adequacy` in `Provenance.QueryAdequacy`). -/
 
 variable {K : Type} [SemiringWithMonus K] [DecidableEq K]
 

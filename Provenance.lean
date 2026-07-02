@@ -7,6 +7,9 @@
 import Provenance.QueryAnnotatedDatabase
 import Provenance.QueryAnnotatedDatabaseHom
 
+/- Data-part adequacy of the annotated semantics -/
+import Provenance.QueryAdequacy
+
 /- K-semimodules and the free K-tensor (aggregation foundation) -/
 import Provenance.KSemiModule
 
@@ -24,6 +27,9 @@ import Provenance.Having
 
 /- Probability distributions over Boolean variables -/
 import Provenance.Probability
+
+/- Support adequacy over 𝔹 and transfer along monus homomorphisms -/
+import Provenance.SupportAdequacy
 
 /- Boolean circuits, read-once and d-D correctness -/
 import Provenance.Circuit
@@ -85,9 +91,16 @@ the provenance-aware relational database system
 - `Provenance.QueryAnnotatedDatabaseHom` – evaluation commutes with m-semiring
   homomorphisms ([Green, Karvounarakis & Tannen][green2007provenance],
   Proposition 3.5; [Geerts & Poggi][geerts2010database], Proposition 1)
+- `Provenance.QueryAdequacy` – data-part adequacy of the annotated semantics:
+  forgetting annotations turns annotated evaluation into plain evaluation of
+  the difference-stripped query, exactly on the positive fragment (the
+  annotation-generic analogue of the `ℕ`-adequacy theorem of
+  [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq])
+  and as a sub-multiset inclusion in general
 - `Provenance.QueryRewriting` – alternative query evaluation by rewriting plain queries
   on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
-  correctness proof partially formalised
+  `Query.rewriting_valid` proves the (R1)–(R4) cases, and the (R5) case is
+  handled by `Query.rewriting_valid_full` in `Provenance.QueryEvaluateInVK`
 - `Provenance.KSemiModule` – the `KSemiModule K M` typeclass (left action of a
   `CommSemiringWithMonus K` on a commutative monoid `M`) and the free `K`-tensor
   data structure `KTensor K M`, used to interpret the aggregation operator on
@@ -122,8 +135,7 @@ the provenance-aware relational database system
   retained as a helper); R5 is proven directly using the
   `Term.castToAnnotatedTuple_evalInVK`, `Term.evalInVK_index_last`,
   `LiftedTK.fold_add_ann`, `LiftedTK.fold_add_ktensor_nonempty`,
-  and `KTensor.sum_map_embed` helpers; R4 carries over the parked
-  `sorry`s from `Query.rewriting_valid`.
+  and `KTensor.sum_map_embed` helpers.
 - `Provenance.Having` – algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
@@ -132,6 +144,13 @@ the provenance-aware relational database system
   statement of Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql] reducing
   `Pr(t ∈ q(Î))` to `Pr(⋁_{(t,α) ∈ ⟪q⟫^Î} α)`; the proof is reduced to a single
   structural commutation lemma `randomWorld_evaluateAnnotated`
+- `Provenance.SupportAdequacy` – support adequacy over `𝔹`, for the full
+  non-aggregation fragment (difference and duplicate elimination included):
+  the support of the `𝔹`-annotated evaluation is the plain evaluation of the
+  support of the database, and this transfers along any m-semiring
+  homomorphism `K → 𝔹`. This is the equality that replaces `ℕ`-adequacy
+  ([Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq])
+  beyond the positive fragment.
 - `Provenance.Circuit` – Boolean circuits with structural predicates and
   two recursive bottom-up probability evaluators: the **read-once**
   evaluator with the inclusion-exclusion correction at OR gates
@@ -200,10 +219,34 @@ the provenance-aware relational database system
 
 See `Provenance.Example` for an example annotated database computation.
 
+## Related formalizations
+
+[Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq]
+formalize K-relations in Coq/Rocq, for the *positive* relational algebra extended
+with a single top-level aggregate, and prove an adequacy theorem: at `K = ℕ`,
+the annotated semantics computes exactly the standard bag semantics of the
+relational algebra. Their positivity restriction is essential to that theorem:
+`ℕ`-adequacy fails as soon as monus-based difference interacts with duplicate
+elimination (`Nat.counterexample_diff_adequacy` in
+`Provenance.QueryAdequacy`). This library covers the non-monotone m-semiring
+extension instead – monus difference, duplicate elimination, compositional
+aggregation – and therefore anchors correctness differently: through
+homomorphism commutation (`Provenance.QueryAnnotatedDatabaseHom`), the
+rewriting correctness theorems (`Query.rewriting_valid`,
+`Query.rewriting_valid_full`), the possible-worlds adequacy of the
+Boolean-function annotated semantics (`randomWorld_evaluateAnnotated` in
+`Provenance.Probability`), the `𝔹`-support adequacy and its transfer along
+monus homomorphisms (`Provenance.SupportAdequacy`), and the data-part
+adequacy results of `Provenance.QueryAdequacy`. Conversely, this library
+does not treat NULL
+values, correlated subqueries, or a SQL surface syntax, which the Coq/Rocq
+development inherits from Datacert.
+
 ## References
 
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 * [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
 * [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
 * [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
+* [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq formalization of data provenance*][benzaken2021coq]
 -/

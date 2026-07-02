@@ -40,6 +40,23 @@ variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 def groupByKey (m : Multiset (Tuple T n × K)) :=
   m.foldr KeyValueList.addKVFold ⟨[], by simp[KeyValueList]⟩
 
+/-- Annotated (m-semiring) semantics of a non-aggregation query.
+
+The `Diff` case follows ProvSQL: every tuple slot `(u, α)` of `r₁` is *kept*,
+with its annotation rewritten to `α ⊖ Σ β` where `Σ β` is the semiring sum of
+the annotations of all copies of `u` in `r₂`. Two consequences worth noting:
+
+* difference never removes tuple slots (only annotations change, possibly to
+  `0`), so the data part of the result is insensitive to `Diff` – this is
+  made precise in `Provenance.QueryAdequacy`;
+* each copy of `u` in `r₁` separately gets the full grouped sum subtracted,
+  so the result is not invariant under regrouping extensionally equal
+  annotated relations: over `ℕ`, `{(t,1),(t,1)} ∖ {(t,1)}` has total
+  annotation `0` while `{(t,2)} ∖ {(t,1)}` has total annotation `1`. As a
+  consequence, over `ℕ` the annotated semantics agrees with the
+  all-or-nothing plain difference of `Query.evaluate` on `0`/`1`-annotated
+  inputs, but not once `Dedup` has accumulated annotations
+  (see `Nat.counterexample_diff_adequacy`). -/
 def Query.evaluateAnnotated (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T K) : AnnotatedRelation T K n := match q with
 | Rel   n  s  =>
   match h : d.find n s with
