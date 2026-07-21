@@ -1,0 +1,3 @@
+# Keep GitHub's "Languages" bar representative of the Lean sources.
+# docbuild/ is the documentation build (theme CSS, footer injection), not code.
+docbuild/** linguist-documentation
