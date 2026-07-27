@@ -576,4 +576,140 @@ theorem F_eq_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
       | succ C' =>
         rw [ih (U'.erase u) hcard' C']
 
+/-! ### The `=` and `≤` cases
+
+`F_eq_S` settles `HAVING count ≥ C`. The `=` and `≤` cases do not follow from
+it formally; both rest on the per-world upper bound `world_bound` below.
+-/
+
+/-- **Per-world upper bound.** For `j ≤ |W| ≤ C`, the annotation of a
+single world `W` is already below `S_j(U) ⊖ S_{C+1}(U)`.
+
+The order of the steps matters: bounding `A_W` by `S_j(U)` inside the
+subtrahend of `T_U(W) = A_W ⊖ (A_W ⊗ E_W)` would move the monus the wrong way.
+The bound is applied instead to the factored form `T_U(W) = A_W ⊗ (𝟙 ⊖ E_W)`,
+whose second factor does not mention `A_W`. -/
+theorem world_bound (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+    (α : ι → K) {U W : Finset ι} (hWU : W ⊆ U) {j C : ℕ}
+    (hjW : j ≤ W.card) (hWC : W.card ≤ C) :
+    T α U W ≤ S α U j - S α U (C + 1) := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  -- (1) `A_W ≤ S_j(U)`: shrink `W` to a `j`-subset, which is a summand of `S_j(U)`.
+  obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq hjW
+  have hAW : A α W ≤ S α U j :=
+    le_trans (A_le_of_subset_absorptive h_abs α hW'W)
+      (Finset.single_le_sum (f := fun V => A α V) (fun _ _ => zero_le)
+        (Finset.mem_powersetCard.mpr ⟨hW'W.trans hWU, hW'card⟩))
+  -- (2) `S_{C+1}(U) ≤ S_j(U) ⊗ E_W`.
+  have hS : S α U (C + 1) ≤ S α U j * ∑ x ∈ U \ W, α x := by
+    refine sum_le_of_forall_le h_idem ?_
+    intro V hV
+    obtain ⟨hVU, hVcard⟩ := Finset.mem_powersetCard.mp hV
+    have hcard : W.card < V.card := by omega
+    obtain ⟨v, hvV, hvW⟩ := Finset.exists_mem_notMem_of_card_lt_card hcard
+    have hverase : j ≤ (V.erase v).card := by
+      rw [Finset.card_erase_of_mem hvV]; omega
+    obtain ⟨V', hV'sub, hV'card⟩ := Finset.exists_subset_card_eq hverase
+    have hvV' : v ∉ V' := fun h => Finset.notMem_erase v V (hV'sub h)
+    have hsub : insert v V' ⊆ V :=
+      Finset.insert_subset hvV (hV'sub.trans (Finset.erase_subset _ _))
+    have hAV' : A α V' ≤ S α U j :=
+      Finset.single_le_sum (f := fun X => A α X) (fun _ _ => zero_le)
+        (Finset.mem_powersetCard.mpr
+          ⟨(hV'sub.trans (Finset.erase_subset _ _)).trans hVU, hV'card⟩)
+    have hαv : α v ≤ ∑ x ∈ U \ W, α x :=
+      Finset.single_le_sum (f := fun x => α x) (fun _ _ => zero_le)
+        (Finset.mem_sdiff.mpr ⟨hVU hvV, hvW⟩)
+    calc A α V ≤ A α (insert v V') := A_le_of_subset_absorptive h_abs α hsub
+      _ = α v * A α V' := by simp only [A, Finset.prod_insert hvV']
+      _ ≤ α v * S α U j := mul_le_mul_left_canonical _ hAV'
+      _ = S α U j * α v := mul_comm _ _
+      _ ≤ S α U j * ∑ x ∈ U \ W, α x := mul_le_mul_left_canonical _ hαv
+  calc T α U W = A α W * (1 - ∑ x ∈ U \ W, α x) := T_eq_mul_one_monus_sum α h_distrib U W
+    _ = (1 - ∑ x ∈ U \ W, α x) * A α W := mul_comm _ _
+    _ ≤ (1 - ∑ x ∈ U \ W, α x) * S α U j := mul_le_mul_left_canonical _ hAW
+    _ = S α U j * (1 - ∑ x ∈ U \ W, α x) := mul_comm _ _
+    _ = S α U j - S α U j * ∑ x ∈ U \ W, α x := by rw [h_distrib, mul_one]
+    _ ≤ S α U j - S α U (C + 1) := monus_antitone hS _
+
+/-- `G_C(U) = ⊕_{W ⊆ U, |W| = C} T_U(W)`: the possible-world provenance of a
+`HAVING count = C` predicate. -/
+def G (α : ι → K) (U : Finset ι) (C : ℕ) : K :=
+  ∑ W ∈ U.powersetCard C, T α U W
+
+/-- Monus distributes over a finite sum with a fixed subtrahend: the `Finset`
+form of `add_monus_of_idempotent`. -/
+private theorem sum_monus {ι' : Type} [DecidableEq ι'] (h_idem : idempotent K)
+    (s : Finset ι') (f : ι' → K) (c : K) :
+    (∑ x ∈ s, f x) - c = ∑ x ∈ s, (f x - c) := by
+  induction s using Finset.induction with
+  | empty => simp [zero_monus]
+  | insert x t hxt ih =>
+      rw [Finset.sum_insert hxt, Finset.sum_insert hxt, add_monus_of_idempotent h_idem, ih]
+
+/-- `a ≤ b` forces `a ⊖ b = 𝟘`. -/
+private theorem monus_eq_zero_of_le {a b : K} (h : a ≤ b) : a - b = 0 :=
+  le_antisymm ((SemiringWithMonus.monus_spec a b 0).mpr (by simpa using h)) zero_le
+
+/-- A world of size at least `C + 1` is dominated by `S_{C+1}(U)`. -/
+private theorem T_le_S_of_card_le (h_abs : absorptive K) (α : ι → K)
+    {U W : Finset ι} (hWU : W ⊆ U) {C : ℕ} (hW : C + 1 ≤ W.card) :
+    T α U W ≤ S α U (C + 1) := by
+  obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq hW
+  exact le_trans (monus_le _ _)
+    (le_trans (A_le_of_subset_absorptive h_abs α hW'W)
+      (Finset.single_le_sum (f := fun V => A α V) (fun _ _ => zero_le)
+        (Finset.mem_powersetCard.mpr ⟨hW'W.trans hWU, hW'card⟩)))
+
+/-- **The `=` case.** The possible-world provenance of `HAVING count = C`
+is the join-side difference `S_C(U) ⊖ S_{C+1}(U)`. This does not follow from
+`F_eq_S`; the `≤` half is `world_bound` and the `≥` half replaces the
+subtrahend of each `T_U(W)` by the larger `S_{C+1}(U)`. -/
+theorem G_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+    (α : ι → K) (U : Finset ι) (C : ℕ) :
+    G α U C = S α U C - S α U (C + 1) := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  refine le_antisymm ?_ ?_
+  · refine sum_le_of_forall_le h_idem fun W hW => ?_
+    obtain ⟨hWU, hWcard⟩ := Finset.mem_powersetCard.mp hW
+    exact world_bound h_abs h_distrib α hWU (le_of_eq hWcard.symm) (le_of_eq hWcard)
+  · rw [S, sum_monus h_idem]
+    refine Finset.sum_le_sum fun W hW => ?_
+    obtain ⟨hWU, hWcard⟩ := Finset.mem_powersetCard.mp hW
+    have hP : ∑ x ∈ U \ W, A α (insert x W) ≤ S α U (C + 1) := by
+      refine sum_le_of_forall_le h_idem fun x hx => ?_
+      obtain ⟨hxU, hxW⟩ := Finset.mem_sdiff.mp hx
+      exact Finset.single_le_sum (f := fun V => A α V) (fun _ _ => zero_le)
+        (Finset.mem_powersetCard.mpr ⟨Finset.insert_subset hxU hWU, by
+          rw [Finset.card_insert_of_notMem hxW, hWcard]⟩)
+    exact monus_antitone hP _
+
+/-- **The `≤` case.** The possible-world provenance of `HAVING count ≤ C` on
+non-empty worlds is `S_1(U) ⊖ S_{C+1}(U)`. -/
+theorem atMost_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+    (α : ι → K) (U : Finset ι) (C : ℕ) :
+    ∑ W ∈ U.powerset.filter (fun W => 1 ≤ W.card ∧ W.card ≤ C), T α U W
+      = S α U 1 - S α U (C + 1) := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  refine le_antisymm ?_ ?_
+  · refine sum_le_of_forall_le h_idem fun W hW => ?_
+    obtain ⟨hWU, h1, h2⟩ := Finset.mem_filter.mp hW
+    exact world_bound h_abs h_distrib α (Finset.mem_powerset.mp hWU) h1 h2
+  · have hF : F α U 1 = S α U 1 := F_eq_S h_abs h_distrib α U 0
+    rw [← hF, F, sum_monus h_idem]
+    have hsub : ∑ W ∈ U.powerset.filter (fun W => 1 ≤ W.card ∧ W.card ≤ C),
+          (T α U W - S α U (C + 1))
+        = ∑ W ∈ U.powerset.filter (fun W => 1 ≤ W.card), (T α U W - S α U (C + 1)) := by
+      refine Finset.sum_subset (fun W hW => ?_) (fun W hW hW' => ?_)
+      · obtain ⟨hWU, h1, -⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_filter.mpr ⟨hWU, h1⟩
+      · obtain ⟨hWU, h1⟩ := Finset.mem_filter.mp hW
+        have h2 : C + 1 ≤ W.card := by
+          by_contra hc
+          exact hW' (Finset.mem_filter.mpr ⟨hWU, h1, by omega⟩)
+        exact monus_eq_zero_of_le
+          (T_le_S_of_card_le h_abs α (Finset.mem_powerset.mp hWU) h2)
+    rw [← hsub]
+    exact Finset.sum_le_sum fun W _ => monus_le _ _
+
 end Having

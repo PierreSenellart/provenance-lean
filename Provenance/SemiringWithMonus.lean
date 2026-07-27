@@ -327,6 +327,14 @@ theorem le_plus_monus [SemiringWithMonus α] :
   ∀ a b : α, a ≤ b + (a - b) := by
     simp[← SemiringWithMonus.monus_spec]
 
+/-- Monus is antitone in its second argument: subtracting more leaves less.
+Together with `monus_le` this is what lets a subtrahend be replaced by a
+larger one inside an upper bound. -/
+theorem monus_antitone [SemiringWithMonus α] {b b' : α} (h : b ≤ b') (a : α) :
+    a - b' ≤ a - b := by
+  rw [SemiringWithMonus.monus_spec]
+  exact le_trans (le_plus_monus a b) (add_le_add h le_rfl)
+
 /-! ## Characteristic of idempotent semirings
 
 In an idempotent semiring (`a + a = a`), every positive natural-number cast
