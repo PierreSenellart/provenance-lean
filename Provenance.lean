@@ -47,6 +47,9 @@ import Provenance.Tseitin
 import Provenance.Algorithms.CountEnum
 import Provenance.Algorithms.SumDP
 
+/- Complexity of the HAVING semantics -/
+import Provenance.HavingComplexity
+
 /- Various semirings -/
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
@@ -196,6 +199,17 @@ the provenance-aware relational database system
 - `Provenance.Algorithms.SumDP` – subset-sum enumeration of valid possible
   worlds for `HAVING sum(t) op C` predicates: definition of `sumExact` and
   `sumDP`, together with the correctness theorem `sumDP_correct`
+
+**Complexity**
+
+- `Provenance.HavingComplexity` – deciding whether `HAVING SUM` provenance over
+  an `ℕ[X]`-instance is non-`𝟘` is NP-complete, already in data complexity
+  (`havingSumNonzero_NP_complete`). Built on the
+  [descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity)
+  library: membership is `Knapsack` cut down by one first-order sentence, and
+  hardness is a padding FO reduction from `Knapsack`, hence stronger than a Karp
+  reduction. The bridge to the semiring semantics is
+  `havingSumProv_ne_zero_iff`
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 
