@@ -33,7 +33,7 @@ variable {K: Type} [Zero K]
 
 abbrev AnnotatedTuple (T K) (n: ℕ) := Tuple T n ×ₗ K
 
-instance [LinearOrder T] [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
+instance [LinearOrder K] : LinearOrder (AnnotatedTuple T K n) := inferInstance
 
 instance [ToString T] [ToString K] : ToString (AnnotatedTuple T K n)
 where
@@ -49,7 +49,7 @@ def AnnotatedRelation.cast (heq : n=m) (r: AnnotatedRelation T K n): AnnotatedRe
   subst heq
   exact r
 
-instance [LinearOrder T] [ToString T] [ToString K] [LinearOrder K] :
+instance [ToString T] [ToString K] [LinearOrder K] :
     ToString (AnnotatedRelation T K n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"
@@ -96,25 +96,25 @@ theorem AnnotatedDatabase.find_toComposite_none {T: Type} {K: Type} (n: ℕ) (s:
   d.find n s = none ↔ d.toComposite.find (n+1) s = none := by
     induction d with
     | nil =>
-      unfold find find.f Database.find Database.find.f toComposite
-      simp
+      unfold find Database.find toComposite
+      simp [find.f, Database.find.f]
     | cons hd tl ih =>
-      unfold find find.f Database.find Database.find.f toComposite
+      unfold find Database.find toComposite
       by_cases hhd: n=hd.snd.fst ∧ s=hd.fst
-      . simp[hhd]
-      . simp[hhd]
+      . simp[find.f, Database.find.f, hhd]
+      . simp[find.f, Database.find.f, hhd]
         exact ih
 
 theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s: String) (d: AnnotatedDatabase T K):
   ∀ r: AnnotatedRelation T K n, d.find n s = some r ↔ d.toComposite.find (n+1) s = some r.toComposite := by
     induction d with
     | nil =>
-      unfold find find.f Database.find Database.find.f toComposite
-      simp
+      unfold find Database.find toComposite
+      simp [find.f, Database.find.f]
     | cons hd tl ih =>
-      unfold find find.f Database.find Database.find.f toComposite
+      unfold find Database.find toComposite
       by_cases hhd: n=hd.snd.fst ∧ s=hd.fst
-      . simp[hhd]
+      . simp[find.f, Database.find.f, hhd]
         intro rn
         unfold AnnotatedRelation.toComposite
         have := hhd.left
@@ -145,7 +145,7 @@ theorem AnnotatedDatabase.find_toComposite_some {T: Type} {K: Type} (n: ℕ) (s:
           have map_eq : Multiset.map (f) hd.2.2 = Multiset.map (f) rn := h
           rw[Multiset.map_eq_map hf] at map_eq
           exact map_eq
-      . simp[hhd]
+      . simp[find.f, Database.find.f, hhd]
         exact ih
 
 lemma AnnotatedTuple.toComposite_join {K: Type} {T: Type}
@@ -195,7 +195,6 @@ theorem AnnotatedRelation.toComposite_map_product {K: Type} {T: Type}
   | empty =>
     unfold AnnotatedRelation.toComposite Multiset.product
     simp
-    rfl
   | @cons p tl ih =>
     unfold AnnotatedRelation.toComposite Multiset.product at *
     rw [Multiset.cons_bind, Multiset.map_add, Multiset.map_add, Multiset.map_cons,

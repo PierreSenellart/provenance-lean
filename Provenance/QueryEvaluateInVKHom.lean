@@ -48,13 +48,13 @@ The proof reduces:
 
 namespace Query
 
-variable {T : Type} [ValueType T] [AddCommSemigroup T] [Zero T]
+variable {T : Type} [ValueType T]
 variable {K K' : Type} [CommSemiringWithMonus K] [CommSemiringWithMonus K']
                        [DecidableEq K] [DecidableEq K']
 
 /-! ## Bridge: `mapAnnotatedRelation` and `toLifted` commute -/
 
-omit [ValueType T] [AddCommSemigroup T] [Zero T] [DecidableEq K] [DecidableEq K'] in
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The bridge between annotated-relation pushforward and `toLifted`:
 pushing `h` through and then lifting agrees with lifting and then
 applying `mapHomFn h.toRingHom` pointwise on each tuple cell. -/

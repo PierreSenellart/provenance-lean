@@ -78,12 +78,12 @@ single universal factorization through `ℕ[X]`.
 
 set_option linter.unusedSectionVars false
 
--- `Filter.evalDecidableAnnotated` (in `QueryAnnotatedDatabase.lean`) is a
+-- `Selection.evalDecidableAnnotated` (in `QueryAnnotatedDatabase.lean`) is a
 -- `@[reducible] def`, not an `instance`; we promote it here so that
 -- typeclass synthesis can find it inside `Multiset.filter` goals.
-attribute [instance] Filter.evalDecidableAnnotated
+attribute [instance] Selection.evalDecidableAnnotated
 
-variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
+variable {T: Type} [ValueType T]
 variable {K K': Type} [SemiringWithMonus K] [SemiringWithMonus K']
                      [DecidableEq K] [DecidableEq K']
 
@@ -172,12 +172,14 @@ theorem sum_filter_map_snd_mapAnnotatedRelation
   convert congrArg (Multiset.sum ∘ Multiset.map Prod.snd)
     (mapAnnotatedRelation_filter_fst (T := T) (K := K) (K' := K')
       h (P := fun x => x = v) r) using 1
-  rw [Function.comp_apply, map_snd_mapAnnotatedRelation]
-  exact (Multiset.sum_hom _ h.toRingHom).symm
+  · exact congrArg Multiset.sum (congrArg (Multiset.map Prod.snd)
+      (Multiset.filter_congr (fun x _ => Iff.rfl)))
+  · rw [Function.comp_apply, map_snd_mapAnnotatedRelation]
+    exact (Multiset.sum_hom _ h.toRingHom).symm
 
-/-- `Filter.eval` on the data side commutes with pushforward, in the form needed
+/-- `Selection.eval` on the data side commutes with pushforward, in the form needed
 to interchange `Multiset.filter` and `mapAnnotatedRelation` in the `Sel` case. -/
-theorem mapAnnotatedRelation_filter (φ : Filter T n) (r: AnnotatedRelation T K n) :
+theorem mapAnnotatedRelation_filter (φ : Selection T n) (r: AnnotatedRelation T K n) :
     @Multiset.filter _ (fun (ta: AnnotatedTuple T K' n) => φ.eval ta.fst)
         φ.evalDecidableAnnotated (mapAnnotatedRelation h r)
       = mapAnnotatedRelation h
@@ -301,7 +303,7 @@ theorem Query.evaluateAnnotated_hom
     unfold evaluateAnnotated
     rw [SemiringWithMonusHom.find_mapAnnotatedDatabase]
     cases hf : d.find n s with
-    | none => simp; rfl
+    | none => simp
     | some r => simp
   | Proj ts q' ih =>
     intro hq d

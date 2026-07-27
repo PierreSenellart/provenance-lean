@@ -33,8 +33,8 @@ def q₀ := ε (Π ![#3] qPersonnel)
 /- This query looks for cities with ≥2 persons -/
 def q₁ := ε ( Π ![#3]
   (
-    σ (Filter.BT (#0 < #4)) (
-      Query.Sel (Filter.BT (#3 == #7))
+    σ (Selection.BT (#0 < #4)) (
+      Query.Sel (Selection.BT (#3 == #7))
         (@Query.Prod _ _ _ 8 (by decide) qPersonnel qPersonnel)
     )
   )

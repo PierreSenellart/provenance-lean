@@ -109,8 +109,7 @@ instance : CommSemiring Lukasiewicz where
     have ha := a.property.left
     simp
     apply eq_of_le_of_ge
-    . simp
-      exact Bool.le_of_eq ha
+    . exact Bool.le_of_eq ha
     . simp
 
   add_zero := by
@@ -119,8 +118,7 @@ instance : CommSemiring Lukasiewicz where
     have ha := a.property.left
     simp
     apply eq_of_le_of_ge
-    . simp
-      exact Bool.le_of_eq ha
+    . exact Bool.le_of_eq ha
     . simp
 
   mul_assoc := by

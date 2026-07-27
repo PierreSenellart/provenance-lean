@@ -28,10 +28,10 @@ multiset semantics with explicit duplicate elimination and multiset difference.
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 -/
 
-variable {T: Type} [ValueType T] [AddCommSemigroup T] [Sub T] [Mul T]
+variable {T: Type} [ValueType T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]
 
-@[reducible] def Filter.evalDecidableAnnotated (φ : Filter T n) :
+@[reducible] def Selection.evalDecidableAnnotated (φ : Selection T n) :
   DecidablePred (λ (ta: AnnotatedTuple T K n) ↦ φ.eval ta.fst) :=
     λ t => match φ.evalDecidable t.fst with
       | isTrue h  => isTrue (by simp [h])

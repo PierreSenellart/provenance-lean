@@ -396,10 +396,10 @@ Once this holds, Theorem 12 follows by summing `Pr(v)` weighted by the
 matching indicators over `v`, using `tupleAnnotation_apply_eq_true_iff` on
 the right-hand side and the definition of `marginalProb` on the left. -/
 
--- Make `Filter.eval`'s decidability available as an instance (by default it
+-- Make `Selection.eval`'s decidability available as an instance (by default it
 -- is a `@[reducible] def`), so that `Multiset.filter`-by-`φ.eval` inside the
 -- query semantics can match `Multiset.filter`-by-`φ.eval` inside our helpers.
-attribute [instance] Filter.evalDecidable Filter.evalDecidableAnnotated
+attribute [instance] Selection.evalDecidable Selection.evalDecidableAnnotated
 
 /-! ### Helper lemmas: random-world commutes with Multiset operations -/
 
@@ -691,7 +691,6 @@ theorem randomWorld_evaluateAnnotated :
     simp only [Query.evaluateAnnotated, Query.evaluate]
     rw [randomWorld_add, ih₁ (Query.noAggSum hq rfl).left Î v,
         ih₂ (Query.noAggSum hq rfl).right Î v]
-    rfl
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
@@ -765,7 +764,6 @@ theorem randomWorld_evaluateAnnotated :
             rw [Multiset.filter_cons_of_pos
                   (p := fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) _ hqv,
                 Multiset.map_cons, Multiset.map_cons, Multiset.map_cons]
-            rfl
           · -- p annotation true, q annotation false: head filtered out both sides
             have h_combined : ¬ (p.snd * q.snd) v = true := by
               show ¬ (p.snd v && q.snd v) = true
@@ -834,7 +832,6 @@ theorem randomWorld_evaluateAnnotated :
           unfold Multiset.product
           rw [Multiset.cons_bind]
         rw [if_pos hpv, if_pos hpv, hcp_rhs, Multiset.map_add, ih]
-        rfl
       · rw [if_neg hpv, if_neg hpv]
         rw [ih]
         exact (Multiset.zero_add _)

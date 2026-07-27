@@ -179,7 +179,7 @@ theorem KeyValueList.eq_iff_forall_mem [DecidableEq β]
               . have hs := KeyValueList.sorted (hd₂::tl₂) h₂
                 rw[List.pairwise_cons] at hs
                 have hc := hs.left hd₁ h'₂
-                simp at hc
+                simp[LEByKey] at hc
                 have := lt_of_lt_of_le hlt hc
                 simp at this
             . apply le_of_not_gt at hlt
@@ -302,8 +302,7 @@ theorem KeyValueList.orderedInsert [DecidableEq β]
         simp[hnle]
         unfold KeyValueList
         constructor
-        . unfold List.addKV at ih
-          rw[List.find?_cons] at hp
+        . rw[List.find?_cons] at hp
           have hne := ne_comm.mp (ne_of_not_le hnle)
           simp[hne] at hp
           have hfindtl : List.find? (·.1=a) tl = none := by
@@ -496,7 +495,6 @@ lemma KeyValueList.addKV_spec_key_before [DecidableEq β] [Add β] (l: List (α�
           rw[this,hc] at hs
           rw[hzst] at hl
           have := List.nodup_append.mp (KeyValueList.nodup (s ++ (a, z) :: t) hl)
-          unfold List.Disjoint at this
           have problem := this.right.right
           simp at problem
           have := problem a z hs

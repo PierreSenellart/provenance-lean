@@ -62,16 +62,16 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
   let q'₂ := q₂.rewriting (noAggDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-      (λ t t' ↦ Filter.And t t') Filter.True
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+      (λ t t' ↦ Selection.And t t') Selection.True
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
   let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₁)
                             (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₂))
   let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k)==#(Fin.ofNat _ (k+n+1))))).foldr
-      (λ t t' ↦ Filter.And t t') Filter.True
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k)==#(Fin.ofNat _ (k+n+1))))).foldr
+      (λ t t' ↦ Selection.And t t') Selection.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
   let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
   let prod₂r := Agg (λ (k: Fin n) ↦ (k.castLE (by simp))) ![#(Fin.last n)] ![AggFunc.sum] q'₂
@@ -459,16 +459,16 @@ lemma Multiset.filter_eq_of_instances {α : Type*} (p : α → Prop)
   @Multiset.filter α p inst₁ m = @Multiset.filter α p inst₂ m := by
   congr
 
-/-- Folded `Filter.And` over a mapped list is equivalent to the universal conjunction. -/
-lemma Filter.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
-  (list: List α) (f: α → Filter T N) (t: Tuple T N):
-  Filter.eval
-    ((list.map f).foldr (λ t t' ↦ Filter.And t t') Filter.True) t
-  ↔ ∀ x ∈ list, Filter.eval (f x) t := by
+/-- Folded `Selection.And` over a mapped list is equivalent to the universal conjunction. -/
+lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
+  (list: List α) (f: α → Selection T N) (t: Tuple T N):
+  Selection.eval
+    ((list.map f).foldr (λ t t' ↦ Selection.And t t') Selection.True) t
+  ↔ ∀ x ∈ list, Selection.eval (f x) t := by
   induction list with
-  | nil => simp [Filter.eval]
+  | nil => simp [Selection.eval]
   | cons hd tl ih =>
-    simp only [List.map_cons, List.foldr_cons, Filter.eval, List.mem_cons]
+    simp only [List.map_cons, List.foldr_cons, Selection.eval, List.mem_cons]
     rw[ih]
     constructor
     · rintro ⟨hhd, htl⟩ x (rfl | hx)
@@ -482,22 +482,22 @@ tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`.
 lemma Query.rewriting_valid_joinCond_eval
   {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
-  Filter.eval
+  Selection.eval
     (((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) N
+      (λ k ↦ @Selection.BT (T⊕K) N
         (#(Fin.ofNat N k) == #(Fin.ofNat N (k+n+1))))).foldr
-      (λ t t' ↦ Filter.And t t') Filter.True) t
+      (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ k: Fin n, t (@Fin.ofNat N _ k)
               = t (@Fin.ofNat N _ (k+n+1)) := by
-  rw[Filter.eval_foldr_and_map]
+  rw[Selection.eval_foldr_and_map]
   simp only [List.mem_range]
   constructor
   · intro h k
     have := h k.val k.isLt
-    simpa [Filter.eval, BoolTerm.eval, Term.eval] using this
+    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
   · intro h k hk
     have := h ⟨k, hk⟩
-    simpa [Filter.eval, BoolTerm.eval, Term.eval] using this
+    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
 
 /-- Semiring-sum over the filter, via `groupByKey.find?`-based lookup. -/
 lemma Query.rewriting_valid_find_getD_eq_sum
@@ -761,10 +761,10 @@ lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
     [NeZero (2*n+1)] :
-    Filter.eval (((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+    Selection.eval (((List.range n).map
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
         (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-      (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast h (Fin.append p q))
+      (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n))) = q := by
   classical
   rw [Query.rewriting_valid_joinCond_eval]
@@ -866,10 +866,10 @@ lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonu
     [HasAltLinearOrder K] {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) (n+1))
     [NeZero (2*n+2)] :
-    Filter.eval (((List.range n).map
-      (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+    Selection.eval (((List.range n).map
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
         (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-      (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast h (Fin.append p q))
+      (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n)))
       = (fun (k : Fin n) ↦ q (k.castLE (Nat.le_succ n))) := by
   classical
@@ -884,7 +884,7 @@ lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonu
     rw [cast_append_2n2_at_ofNat_left, cast_append_2n2_at_ofNat_right]
     exact congrFun heq k
 
-/-- Filter pushes through `AnnotatedRelation.toComposite` via the
+/-- Selection pushes through `AnnotatedRelation.toComposite` via the
 `Tuple.fromComposite ∘ AnnotatedTuple.toComposite = id` roundtrip:
 filtering before taking the composite encoding equals filtering the composite
 encoding by the same predicate composed with `Tuple.fromComposite`. -/
@@ -1151,7 +1151,7 @@ theorem Query.rewriting_valid
       rhs
       congr
       . ext x
-        rw[Filter.castToAnnotatedTuple_eval φ]
+        rw[Selection.castToAnnotatedTuple_eval φ]
         skip
       . apply φ.evalDecidableAnnotated
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
@@ -1325,9 +1325,9 @@ theorem Query.rewriting_valid
       evaluate
         (Query.Proj (fun (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
           (Query.Sel (((List.range n).map
-              (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+              (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
                 (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-              (λ t t' ↦ Filter.And t t') Filter.True)
+              (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) n (2*n+1) (by omega) (q₁.rewriting hq'₁)
               (Query.Dedup (Query.Diff
                 (Query.Proj (λ (k: Fin n) ↦ Term.index (k.castLE (Nat.le_succ _)))
@@ -1379,11 +1379,11 @@ theorem Query.rewriting_valid
             (Multiset.map Prod.fst AR₁)).dedup) with hProd1
       -- Provide DecidablePred instances for both predicates.
       letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
-          Filter.eval (((List.range n).map
-            (λ k ↦ @Filter.BT (T⊕K) (2*n+1)
+          Selection.eval (((List.range n).map
+            (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
               (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-            (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
-        fun x => Filter.evalDecidable _ _
+            (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
+        fun x => Selection.evalDecidable _ _
       letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
           (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n))) = x.2) :=
         fun x => decEq _ _
@@ -1438,9 +1438,9 @@ theorem Query.rewriting_valid
             if ↑k < n then #(k.castLE (by omega))
             else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
           (Query.Sel (((List.range n).map
-              (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+              (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
                 (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-              (λ t t' ↦ Filter.And t t') Filter.True)
+              (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) (q₁.rewriting hq'₁)
               (Query.Agg (fun k: Fin n ↦ k.castLE (by simp)) ![#(Fin.last n)]
                 ![AggFunc.sum] (q₂.rewriting hq'₂)))))
@@ -1475,11 +1475,11 @@ theorem Query.rewriting_valid
       have hNeZero : NeZero (2 * n + 2) := ⟨by omega⟩
       -- Provide DecidablePred instances for both filter predicates explicitly.
       letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
-          Filter.eval (((List.range n).map
-            (λ k ↦ @Filter.BT (T⊕K) (2*n+2)
+          Selection.eval (((List.range n).map
+            (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
               (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
-            (λ t t' ↦ Filter.And t t') Filter.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
-        fun x => Filter.evalDecidable _ _
+            (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
+        fun x => Selection.evalDecidable _ _
       letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n)))
           = (fun k : Fin n ↦ x.2 (k.castLE (Nat.le_succ n)))) :=
@@ -1582,8 +1582,6 @@ theorem Query.rewriting_valid
               else Term.sub (#(Fin.ofNat (2*n+2) n)) (#(Fin.last (2*n+1)))).eval
                 (Tuple.cast (by omega : (n+1)+(n+1) = 2*n+2) (Fin.append p q)))
         hS_nodup h_val_eq
-      -- Beta-reduce the map function in hsemi's LHS.
-      simp only [] at hsemi
       -- Chain via hsemi.trans.
       refine hsemi.trans ?_
       -- Now: (AR₁.toComposite.filter (·.fromComposite.1 ∈ S)).map mk_after = RHS

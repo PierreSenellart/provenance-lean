@@ -1593,7 +1593,7 @@ private lemma evalBF_sub (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
   apply ext_toSet
   rw [sub_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_diff]
+  simp only [Set.mem_setOf_eq, Set.mem_sdiff]
   show ((f (sigOf ν x)) && !(g (sigOf ν x))) = true ↔ _
   rw [Bool.and_eq_true]
   refine and_congr_right (fun _ => ?_)

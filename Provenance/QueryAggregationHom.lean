@@ -43,7 +43,7 @@ through `h`.
 
 namespace Query
 
-variable {T : Type} [ValueType T] [AddCommSemigroup T] [Zero T]
+variable {T : Type} [ValueType T]
 variable {K K' : Type} [CommSemiringWithMonus K] [CommSemiringWithMonus K']
                        [DecidableEq K] [DecidableEq K']
 
@@ -56,7 +56,6 @@ def mapAggSumRow (h : SemiringWithMonusHom K K') {n₁ n₂ : ℕ}
     Tuple T n₁ × Tuple (T × KTensor K' T) n₂ :=
   (row.fst, fun k => ((row.snd k).fst, KTensor.mapHom h.toRingHom (row.snd k).snd))
 
-omit [Zero T] in
 /-- **Aggregation hom commutation.** For any `SemiringWithMonusHom h : K → K'`
 and any non-aggregating inner query `q`, evaluating the aggregation on
 `h ⋆ d` is the same as evaluating on `d` and then mapping each K-tensor

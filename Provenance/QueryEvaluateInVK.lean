@@ -53,7 +53,7 @@ K-semimodule `V_K`, where the product is the K-tensor monomial `α ⊗ v`.
   ICDE paper's convention and the constraint of the existing
   `Query.evaluateAggSum`. Nested aggregations (an `Agg` inside an
   `Agg`) are not exercised here.
-* Filter predicates (`Sel`) inside the rewritten query operate on
+* Selection predicates (`Sel`) inside the rewritten query operate on
   data-side values that were produced by `castToAnnotatedTuple`, so they
   never compare `ktensor` values. The reduction to the plain `evaluate`
   on `T ⊕ K` is safe for these.
@@ -293,7 +293,7 @@ annotations (`Σ αᵤ ⊗ value_u_k`), and one δ-applied K annotation
 /-- Unified `K`-annotated semantics in `LiftedTK` form. Dispatches on
 whether the query is a top-level aggregation; otherwise lifts
 `Query.evaluateAnnotated`. -/
-noncomputable def Query.evaluateAnnotatedFull [AddCommSemigroup T] [Zero T] :
+noncomputable def Query.evaluateAnnotatedFull :
     ∀ {n}, (q : Query T n) → q.wellFormed → AnnotatedDatabase T K →
       Multiset (Tuple (LiftedTK T K) (n + 1))
   | _, @Query.Agg _ m n₁ n₂ is ts _as q_inner, h, Î =>

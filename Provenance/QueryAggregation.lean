@@ -46,7 +46,7 @@ careful handling of bilinear equivalence; that work is deferred.
 
 namespace Query
 
-variable {T : Type} [ValueType T] [AddCommSemigroup T] [Zero T]
+variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 
 /-- The aggregator body for a fixed group key `g`: filter the inner relation

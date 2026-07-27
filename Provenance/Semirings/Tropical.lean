@@ -135,7 +135,6 @@ noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonu
     split_ifs with h
     . simp
       left
-      simp at h
       exact h
     . simp at h
       apply Iff.intro
@@ -414,8 +413,10 @@ private theorem T_ce_singleton_eq_zero (b : Bool) :
   show (if Tropical.untrop (Tropical.trop ((-1 : ℝ) : WithTop ℝ)) ≥
            Tropical.untrop (Tropical.trop ((-2 : ℝ) : WithTop ℝ)) then
         (⊤ : Tropical (WithTop ℝ)) else _) = 0
-  simp only [Tropical.untrop_trop]
-  rw [if_pos neg1_ge_neg2]
+  have hge : Tropical.untrop (Tropical.trop ((-1 : ℝ) : WithTop ℝ)) ≥
+      Tropical.untrop (Tropical.trop ((-2 : ℝ) : WithTop ℝ)) := by
+    simpa using neg1_ge_neg2
+  rw [if_pos hge]
   rfl
 
 /-- The maximal subset contributes `trop (-2)`: with `U \ {true, false} = ∅`,

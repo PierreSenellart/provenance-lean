@@ -187,71 +187,71 @@ theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMo
     . exact inferInstanceAs (Decidable (y.eval t ≤ x.eval t))
     . exact inferInstanceAs (Decidable (y.eval t < x.eval t))
 
-inductive Filter (T) (n: ℕ) where
-| BT   : BoolTerm T n   → Filter T n
-| Not  : Filter T n → Filter T n
-| And  : Filter T n → Filter T n → Filter T n
-| Or   : Filter T n → Filter T n → Filter T n
-| True : Filter T n
+inductive Selection (T) (n: ℕ) where
+| BT   : BoolTerm T n   → Selection T n
+| Not  : Selection T n → Selection T n
+| And  : Selection T n → Selection T n → Selection T n
+| Or   : Selection T n → Selection T n → Selection T n
+| True : Selection T n
 
-def Filter.repr [Repr T] : Filter T n → ℕ → Std.Format
+def Selection.repr [Repr T] : Selection T n → ℕ → Std.Format
 | BT t, p => t.repr p
 | Not f, p => "¬" ++ (Repr.addAppParen (f.repr p) p)
 | And t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "∧" ++ t₂.repr p) p
 | Or t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "∨" ++ t₂.repr p) p
 | True, _ => "True"
 
-instance [Repr α] : Repr (Filter α n) := ⟨Filter.repr⟩
+instance [Repr α] : Repr (Selection α n) := ⟨Selection.repr⟩
 
-def Filter.castToAnnotatedTuple (f: Filter T n): Filter (T⊕K) (n+1) := match f with
+def Selection.castToAnnotatedTuple (f: Selection T n): Selection (T⊕K) (n+1) := match f with
 | BT  t     => BT t.castToAnnotatedTuple
 | Not φ     => Not φ.castToAnnotatedTuple
 | And φ₁ φ₂ => And φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 | Or  φ₁ φ₂ => Or φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 | True      => True
 
-def Filter.eval (φ: Filter T n) (tuple: Tuple T n) := match φ with
+def Selection.eval (φ: Selection T n) (tuple: Tuple T n) := match φ with
 | BT  φ     => φ.eval tuple
 | Not φ     => ¬ (φ.eval tuple)
 | And φ₁ φ₂ => (φ₁.eval tuple) ∧ (φ₂.eval tuple)
 | Or  φ₁ φ₂ => (φ₁.eval tuple) ∨ (φ₂.eval tuple)
 | True      => true
 
-theorem Filter.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (φ: Filter T n) (tuple: Tuple T n) :
+theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) :
 ∀ α: K,
   φ.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = φ.eval tuple := by
     intro α
     induction φ with
     | BT t =>
-      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      simp[Selection.eval,Selection.castToAnnotatedTuple]
       rw[BoolTerm.castToAnnotatedTuple_eval]
     | Not φ ih =>
-      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      simp[Selection.eval,Selection.castToAnnotatedTuple]
       rw[ih]
     | And φ₁ φ₂ ih₁ ih₂ =>
-      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      simp[Selection.eval,Selection.castToAnnotatedTuple]
       rw[ih₁,ih₂]
     | Or φ₁ φ₂ ih₁ ih₂ =>
-      simp[Filter.eval,Filter.castToAnnotatedTuple]
+      simp[Selection.eval,Selection.castToAnnotatedTuple]
       rw[ih₁,ih₂]
     | True => trivial
 
-@[reducible] def Filter.evalDecidable (φ : Filter T n) : DecidablePred φ.eval :=
+@[reducible] def Selection.evalDecidable (φ : Selection T n) : DecidablePred φ.eval :=
   λ t => match φ with
-    | Filter.BT φ      => φ.evalDecidable t
-    | Filter.Not φ     => match φ.evalDecidable t with
-      | isTrue h  => isFalse (by simp [Filter.eval, h])
-      | isFalse h => isTrue  (by simp [Filter.eval, h])
-    | Filter.And φ₁ φ₂  => match φ₁.evalDecidable t, φ₂.evalDecidable t with
-      | isTrue h₁, isTrue h₂   => isTrue  (by simp [Filter.eval, h₁, h₂])
-      | isFalse h, _ | _, isFalse h => isFalse (by simp [Filter.eval, h])
-    | Filter.Or φ₁ φ₂   => match φ₁.evalDecidable t, φ₂.evalDecidable t with
-      | isTrue h, _ | _, isTrue h => isTrue (by simp [Filter.eval, h])
-      | isFalse h₁, isFalse h₂    => isFalse (by simp [Filter.eval, h₁, h₂])
-    | Filter.True       => isTrue (rfl)
+    | Selection.BT φ      => φ.evalDecidable t
+    | Selection.Not φ     => match φ.evalDecidable t with
+      | isTrue h  => isFalse (by simp [Selection.eval, h])
+      | isFalse h => isTrue  (by simp [Selection.eval, h])
+    | Selection.And φ₁ φ₂  => match φ₁.evalDecidable t, φ₂.evalDecidable t with
+      | isTrue h₁, isTrue h₂   => isTrue  (by simp [Selection.eval, h₁, h₂])
+      | isFalse h, _ | _, isFalse h => isFalse (by simp [Selection.eval, h])
+    | Selection.Or φ₁ φ₂   => match φ₁.evalDecidable t, φ₂.evalDecidable t with
+      | isTrue h, _ | _, isTrue h => isTrue (by simp [Selection.eval, h])
+      | isFalse h₁, isFalse h₂    => isFalse (by simp [Selection.eval, h₁, h₂])
+    | Selection.True       => isTrue (rfl)
 
-instance : Coe (BoolTerm T n) (Filter T n) where
-  coe bt := Filter.BT bt
+instance : Coe (BoolTerm T n) (Selection T n) where
+  coe bt := Selection.BT bt
 
 inductive AggFunc
 | sum
@@ -278,7 +278,7 @@ def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
 inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
-| Sel   : Filter T n → Query T n → Query T n
+| Sel   : Selection T n → Query T n → Query T n
 | Prod {hn: n₁+n₂=n} : Query T n₁ → Query T n₂ → Query T n
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n

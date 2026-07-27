@@ -210,10 +210,10 @@ theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
   split_ifs with hbc habc habc
   · simp
   · exfalso
-    exact habc (mul_le_mul_of_nonneg_left hbc (zero_le _))
+    exact habc (mul_le_mul_of_nonneg_left hbc zero_le)
   · by_cases ha0 : (a : NNReal) = 0
     · simp [ha0]
-    · have ha_pos : (0 : NNReal) < (a : NNReal) := lt_of_le_of_ne (zero_le _) (Ne.symm ha0)
+    · have ha_pos : (0 : NNReal) < (a : NNReal) := lt_of_le_of_ne zero_le (Ne.symm ha0)
       exact absurd (le_of_mul_le_mul_left habc ha_pos) hbc
   · rfl
 

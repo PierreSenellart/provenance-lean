@@ -178,10 +178,12 @@ instance : CanonicallyOrderedAdd (Which α) where
   le_self_add := by
     intro a b
     cases a <;> cases b <;> simp [(· ≤ ·)]
+    exact fun _ h => Or.inl h
 
   le_add_self := by
     intro a b
     cases a <;> cases b <;> simp [(· ≤ ·)]
+    exact fun _ h => Or.inr h
 
 instance : IsOrderedAddMonoid (Which α) where
   add_le_add_left := by
@@ -189,16 +191,18 @@ instance : IsOrderedAddMonoid (Which α) where
     simp[(· + ·),Add.add,(· ≤ ·)]
     cases a <;> cases b <;> intro h c <;> cases c <;> simp <;> simp at h
     . rename_i x y z
-      exact Finset.union_subset_union_left h
+      exact fun _ hx => hx.imp (fun hxx => h hxx) id
     . assumption
+    . exact fun _ hx => Or.inr hx
 
   add_le_add_right := by
     intro a b
     simp[(· + ·),Add.add,(· ≤ ·)]
     cases a <;> cases b <;> intro h c <;> cases c <;> simp <;> simp at h
     . rename_i x y z
-      exact Finset.union_subset_union_right h
+      exact fun _ hx => hx.imp id (fun hxx => h hxx)
     . assumption
+    . exact fun _ hx => Or.inl hx
 
 instance : SemiringWithMonus (Which α) where
   monus_spec := by
@@ -206,26 +210,25 @@ instance : SemiringWithMonus (Which α) where
     simp[(· + ·),Add.add,(· - ·),Sub.sub,(· ≤ ·)]
     cases ha : a <;> rename_i sa <;> cases hb : b <;> cases hc : c <;> simp
     . rename_i sb sc
-      by_cases h' : sa ⊆ sb <;> simp[h']
-      . intro x hx
-        exact Finset.mem_union_left sc (h' hx)
-      . apply Iff.intro
+      by_cases h' : ∀ ⦃x : α⦄, x ∈ sa → x ∈ sb
+      . rw [if_pos h']
+        exact iff_of_true trivial fun x hx => Or.inl (h' hx)
+      . rw [if_neg h']
+        constructor
         . intro h₁ x hx
           by_cases hxb : x ∈ sb
-          . exact Finset.mem_union_left sc hxb
-          . simp[hxb]
-            have hx₁ : x ∈ sa \ sb := by
-              simp[hx,hxb]
-            exact h₁ hx₁
+          . exact Or.inl hxb
+          . exact Or.inr (h₁ (Finset.mem_sdiff.mpr ⟨hx, hxb⟩))
         . intro h₁ x hx
-          simp at hx
-          have hx₁ : x ∈ sa := by
-            simp[hx]
-          have : x ∈ sb ∪ sc := h₁ hx₁
-          simp[hx] at this
-          assumption
+          rcases h₁ (Finset.mem_sdiff.mp hx).1 with hb | hc
+          . exact absurd hb (Finset.mem_sdiff.mp hx).2
+          . exact hc
     . rename_i sb
-      by_cases h' : sa ⊆ sb <;> simp[h']
+      by_cases h' : ∀ ⦃x : α⦄, x ∈ sa → x ∈ sb
+      . rw [if_pos h']
+        exact iff_of_true trivial fun x hx => h' hx
+      . rw [if_neg h']
+        exact iff_of_false id fun hf => h' hf
 
   /- δ matches ProvSQL's `Which::delta`: the identity. -/
   delta := id

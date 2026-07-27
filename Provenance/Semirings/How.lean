@@ -1,6 +1,5 @@
 import Mathlib.Algebra.MvPolynomial.Basic
 import Mathlib.Algebra.MvPolynomial.Eval
-import Mathlib.Data.Finsupp.ToDFinsupp
 
 import Provenance.SemiringWithMonus
 import Provenance.Semirings.BoolFunc
@@ -36,18 +35,15 @@ instance : LE (MvPolynomial X ℕ) where
   le a b := ∀ m, a.coeff m ≤ b.coeff m
 
 
-instance : Sub (MvPolynomial X ℕ) where
+noncomputable instance : Sub (MvPolynomial X ℕ) where
   sub a b :=
-    let aDF := a.toDFinsupp
-    let bDF := b.toDFinsupp
-    let rDF := DFinsupp.zipWith (λ m x y ↦ x - y) (by simp) aDF bDF
-    rDF.toFinsupp
+    .ofCoeff (Finsupp.zipWith (· - ·) (by simp)
+      (AddMonoidAlgebra.coeff a) (AddMonoidAlgebra.coeff b))
 
 
+omit [DecidableEq X] in
 theorem coeff_sub (p q : MvPolynomial X ℕ) (n : X →₀ ℕ) :
-  (p-q).coeff n = p.coeff n - q.coeff n := by
-    simp only[HSub.hSub, Sub.sub]
-    simp [MvPolynomial.coeff, DFinsupp.toFinsupp, DFinsupp.zipWith]
+  (p-q).coeff n = p.coeff n - q.coeff n := rfl
 
 
 instance : PartialOrder (MvPolynomial X ℕ) where
@@ -76,7 +72,8 @@ instance : IsOrderedAddMonoid (MvPolynomial X ℕ) where
 instance : CanonicallyOrderedAdd (MvPolynomial X ℕ) where
   exists_add_of_le := by
     intro a b hab
-    use Finsupp.zipWith (· - ·) (by simp) b a
+    use .ofCoeff (Finsupp.zipWith (· - ·) (by simp)
+      (AddMonoidAlgebra.coeff b) (AddMonoidAlgebra.coeff a))
     ext m
     exact (Nat.sub_eq_iff_eq_add' (hab m)).mp rfl
 

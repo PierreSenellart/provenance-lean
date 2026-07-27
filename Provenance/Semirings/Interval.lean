@@ -388,7 +388,6 @@ lemma toSet_not_empty [LinearOrder α] [DenselyOrdered α]
 theorem ext_toSet [LinearOrder α] [DenselyOrdered α] {I J : Interval α}
   (h: I.toSet = J.toSet) : I = J := by
   have hc := eq_closed h
-  simp at hc h
   unfold toSet at h
   ext <;> try simp[hc]
   . by_cases hlc: J.lo.closed
