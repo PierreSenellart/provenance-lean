@@ -1,6 +1,6 @@
 # Lean4 formalization of some provenance notions
 
-[![Continuous Integration](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml/badge.svg)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml)
+[![CI](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml/badge.svg?branch=main)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/lean.yml)
 
 This repository includes some Lean4 formal definitions and proofs
 relevant for provenance in databases. One of the goal of this project is
