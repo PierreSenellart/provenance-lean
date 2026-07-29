@@ -15,8 +15,11 @@ package "provenance" where
 
 require "leanprover-community" / "mathlib" @ git "v4.33.0-rc1"
 
+-- descriptive-complexity versions are its own semver, independent of the Lean
+-- toolchain: the `~1.0.0` range (patch releases only) is exactly the set of
+-- releases cut against the Mathlib pin above; `v1.0.0` is its current member.
 require "descriptive-complexity" from git
-  "https://github.com/PierreSenellart/descriptive-complexity" @ "v4.33.0-rc1"
+  "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.0.0"
 
 @[default_target]
 lean_lib «Provenance» where
