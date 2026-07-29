@@ -106,7 +106,7 @@ theorem SC_recurrence (α : ι → K) {U : Finset ι} {u : ι} (hu : u ∈ U) (C
 /-- In an idempotent `CommSemiringWithMonus`, if every summand of a `Finset.sum`
 is bounded above by `a`, then so is the sum. The empty sum is `0 ≤ a` by canonical
 ordering; the inductive step uses `a + a = a`. -/
-private theorem sum_le_of_forall_le (h_idem : idempotent K)
+theorem sum_le_of_forall_le (h_idem : idempotent K)
     {s : Finset ι} {f : ι → K} {a : K} (hle : ∀ x ∈ s, f x ≤ a) :
     ∑ x ∈ s, f x ≤ a := by
   induction s using Finset.induction with
@@ -421,7 +421,7 @@ inclusion, the canonical such `M` is the set of minimal elements of `F`.
 /-- Multiplication on the left is monotone in any `SemiringWithMonus` (the
 `CanonicallyOrderedAdd` structure makes the additive witness of `≤`
 multiply through). -/
-private theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
+theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
     a * b ≤ a * c := by
   obtain ⟨d, rfl⟩ := exists_add_of_le h
   rw [mul_add]
@@ -429,7 +429,7 @@ private theorem mul_le_mul_left_canonical (a : K) {b c : K} (h : b ≤ c) :
 
 /-- In an absorptive `CommSemiringWithMonus`, any finite product of
 annotations is bounded above by `𝟙`. -/
-private theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
+theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
     ∀ S : Finset ι, ∏ x ∈ S, α x ≤ 1 := by
   have h_idem : idempotent K := idempotent_of_absorptive h_abs
   have hα_le_one : ∀ x, α x ≤ 1 := fun x => by
@@ -447,7 +447,7 @@ private theorem prod_le_one_absorptive (h_abs : absorptive K) (α : ι → K) :
 /-- In an absorptive `CommSemiringWithMonus`, the monomial `A` is monotone
 *decreasing* under inclusion: enlarging a subset can only decrease its
 annotation, since each additional factor is bounded by `𝟙`. -/
-private theorem A_le_of_subset_absorptive (h_abs : absorptive K) (α : ι → K)
+theorem A_le_of_subset_absorptive (h_abs : absorptive K) (α : ι → K)
     {W W' : Finset ι} (hW'W : W' ⊆ W) :
     A α W ≤ A α W' := by
   have hdisj : Disjoint W' (W \ W') := Finset.disjoint_sdiff
@@ -639,7 +639,7 @@ def G (α : ι → K) (U : Finset ι) (C : ℕ) : K :=
 
 /-- Monus distributes over a finite sum with a fixed subtrahend: the `Finset`
 form of `add_monus_of_idempotent`. -/
-private theorem sum_monus {ι' : Type} [DecidableEq ι'] (h_idem : idempotent K)
+theorem sum_monus {ι' : Type} [DecidableEq ι'] (h_idem : idempotent K)
     (s : Finset ι') (f : ι' → K) (c : K) :
     (∑ x ∈ s, f x) - c = ∑ x ∈ s, (f x - c) := by
   induction s using Finset.induction with

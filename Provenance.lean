@@ -25,6 +25,9 @@ import Provenance.QueryAggregationHom
 /- HAVING algebraic identities -/
 import Provenance.Having
 
+/- Scan-computable HAVING provenance for MIN, MAX and PICKFIRST -/
+import Provenance.HavingMinMax
+
 /- Probability distributions over Boolean variables -/
 import Provenance.Probability
 
@@ -142,6 +145,14 @@ the provenance-aware relational database system
 - `Provenance.Having` – algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   and the upward-expansion bound
+- `Provenance.HavingMinMax` – the `HAVING` aggregate comparisons whose validity
+  is decided occurrence by occurrence: for `MIN`, `MAX` and `PICKFIRST`, and for
+  all six comparison operators, the possible-world provenance of a group
+  collapses, in an absorptive m-semiring, to a closed form computable by a
+  single scan over the occurrences (`minScan_correct`, `maxScan_correct`,
+  `firstScan_correct`), hence in polynomial time in data complexity. The
+  collapse rests on the identity `meet_family_eq` for the worlds that stay
+  inside a set `G` and meet a set `H`
 - `Provenance.Probability` – intensional probabilistic query evaluation: probability
   distribution over Boolean valuations, probability of a `BoolFunc X`, and the
   statement of Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql] reducing
