@@ -5,24 +5,29 @@
 import DescriptiveComplexity.Decoding
 import DescriptiveComplexity.Problems.Knapsack
 import Provenance.Having
+import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.How
 
 /-!
 # NP-completeness of deciding non-zero `HAVING` provenance
 
-Deciding whether the provenance of a `HAVING SUM` query over an `ℕ[X]`-instance
-is non-`𝟘` is NP-complete, already in data complexity: the query
-`SELECT DISTINCT 1 FROM R GROUP BY b HAVING SUM(v) = b` is fixed and only the
-instance varies.
+Deciding whether the provenance of a `HAVING SUM` query over an `ℕ[X]`- or
+`𝔹[X]`-instance is non-`𝟘` is NP-complete, already in data complexity: the
+query `SELECT DISTINCT 1 FROM R GROUP BY b HAVING SUM(v) = b` is fixed and
+only the instance varies.
 
 The development is in two halves.
 
-* The **bridge** (`havingSumProv_ne_zero_iff`): over `ℕ[X] = MvPolynomial X ℕ`
-  with pairwise distinct variables as annotations, the possible-world
-  provenance of `SUM(t) = B` on a group `U` is non-`𝟘` exactly when some
-  non-empty `W ⊆ U` satisfies `∑ i ∈ W, t i = B`. The monus factor of a world
-  annotation collapses to `𝟙` and the surviving monomials are pairwise
-  distinct, so no cancellation occurs.
+* The **bridges** (`havingSumProv_ne_zero_iff`,
+  `havingSumProvBool_ne_zero_iff`): over `ℕ[X] = MvPolynomial X ℕ` and over
+  `𝔹[X] = BoolFunc X`, with pairwise distinct variables as annotations, the
+  possible-world provenance of `SUM(t) = B` on a group `U` is non-`𝟘`
+  exactly when some non-empty `W ⊆ U` satisfies `∑ i ∈ W, t i = B`. Over
+  `ℕ[X]` the monus factor of a world annotation collapses to `𝟙` and the
+  surviving monomials are pairwise distinct, so no cancellation occurs;
+  over `𝔹[X]` the valuation realising exactly the occurrences of a
+  witnessing world satisfies the provenance, whose satisfiability is
+  non-`𝟘`-ness.
 * The **complexity** half: that combinatorial condition, read off a
   `Language.binWeights` structure, is a decision problem `HavingSumNonzero`,
   and it is NP-complete. Hardness is an FO reduction from `Knapsack`
@@ -35,11 +40,13 @@ semantics requires (the empty world is excluded from Definition 11).
 
 ## Main results
 
-* `havingSumProv_ne_zero_iff` – the bridge;
+* `havingSumProv_ne_zero_iff`, `havingSumProvBool_ne_zero_iff` – the two
+  bridges;
 * `HavingSumNonzero` – the bundled decision problem;
 * `hasNonemptySubsetSum_iff` – it is `Knapsack` cut down by one FO sentence;
 * `knapsack_fo_reduction_havingSumNonzero` – the padding FO reduction;
-* **`havingSumNonzero_NP_complete`** – Proposition 18, in data complexity.
+* **`havingSumNonzero_NP_complete`** – NP-completeness, in data
+  complexity.
 -/
 
 namespace Provenance.Complexity
@@ -166,6 +173,119 @@ theorem havingSumProv_ne_zero_iff (x : ι → X) (hx : Function.Injective x)
     simp [Finset.sum_ite_eq', hmem] at hco
 
 end How
+
+/-! ### Step 2': `𝔹[X]` with distinct variables – the same characterization -/
+
+section BoolProv
+
+variable {ι X : Type} [DecidableEq ι] [DecidableEq X]
+
+omit [DecidableEq X] in
+private lemma boolFunc_sum_eval (J : Finset ι) (β : ι → BoolFunc X)
+    (v : X → Bool) :
+    (∑ i ∈ J, β i) v = true ↔ ∃ i ∈ J, β i v = true := by
+  classical
+  induction J using Finset.induction with
+  | empty =>
+    rw [Finset.sum_empty]
+    exact iff_of_false (fun h => Bool.noConfusion h)
+      (fun ⟨i, hi, _⟩ => absurd hi (Finset.notMem_empty i))
+  | insert i J hi ih =>
+    rw [Finset.sum_insert hi]
+    show (β i v || (∑ j ∈ J, β j) v) = true ↔ _
+    rw [Bool.or_eq_true, ih]
+    constructor
+    · rintro (h | ⟨j, hj, h⟩)
+      · exact ⟨i, Finset.mem_insert_self i J, h⟩
+      · exact ⟨j, Finset.mem_insert_of_mem hj, h⟩
+    · rintro ⟨j, hj, h⟩
+      rcases Finset.mem_insert.mp hj with rfl | hjJ
+      · exact Or.inl h
+      · exact Or.inr ⟨j, hjJ, h⟩
+
+omit [DecidableEq X] in
+private lemma boolFunc_prod_eval (J : Finset ι) (β : ι → BoolFunc X)
+    (v : X → Bool) :
+    (∏ i ∈ J, β i) v = true ↔ ∀ i ∈ J, β i v = true := by
+  classical
+  induction J using Finset.induction with
+  | empty =>
+    rw [Finset.prod_empty]
+    exact iff_of_true rfl fun i hi => absurd hi (Finset.notMem_empty i)
+  | insert i J hi ih =>
+    rw [Finset.prod_insert hi]
+    show (β i v && (∏ j ∈ J, β j) v) = true ↔ _
+    rw [Bool.and_eq_true, ih]
+    constructor
+    · rintro ⟨h₁, h₂⟩ j hj
+      rcases Finset.mem_insert.mp hj with rfl | hjJ
+      · exact h₁
+      · exact h₂ j hjJ
+    · intro h
+      exact ⟨h i (Finset.mem_insert_self i J),
+        fun j hj => h j (Finset.mem_insert_of_mem hj)⟩
+
+/-- **The bridge, over `𝔹[X]`.** With pairwise distinct variables as
+annotations, the possible-world provenance of `SUM(t) = B` on a group `U`
+is non-`𝟘` in `𝔹[X]` exactly when some non-empty sub-world of `U` has
+aggregate `B`: the valuation making true exactly the variables of a
+witnessing world satisfies precisely that world's annotation. The
+combinatorial characterization is the same as over `ℕ[X]`
+(`havingSumProv_ne_zero_iff`), so the NP-completeness of the underlying
+decision problem covers both semirings. -/
+theorem havingSumProvBool_ne_zero_iff (x : ι → X) (hx : Function.Injective x)
+    (U : Finset ι) (t : ι → ℕ) (B : ℕ) :
+    havingSumProv (fun i => BoolFunc.var (x i)) U t B ≠ 0
+      ↔ ∃ W ⊆ U, W.Nonempty ∧ ∑ i ∈ W, t i = B := by
+  classical
+  constructor
+  · intro h
+    have hex : ∃ v : X → Bool,
+        havingSumProv (fun i => BoolFunc.var (x i)) U t B v = true := by
+      by_contra hc
+      push Not at hc
+      exact h (funext fun v => Bool.eq_false_iff.mpr (hc v))
+    obtain ⟨v, hv⟩ := hex
+    rw [havingSumProv] at hv
+    obtain ⟨W, hWmem, -⟩ := (boolFunc_sum_eval _ _ v).mp hv
+    obtain ⟨hWpow, hWP⟩ := Finset.mem_filter.mp hWmem
+    exact ⟨W, Finset.mem_powerset.mp hWpow, hWP.1, hWP.2⟩
+  · rintro ⟨W₀, hW₀U, hW₀ne, hW₀sum⟩
+    intro h
+    set v : X → Bool := fun y => decide (∃ i ∈ W₀, x i = y) with hvdef
+    have hA : (Having.A (fun i => BoolFunc.var (x i)) W₀) v = true :=
+      (boolFunc_prod_eval _ _ v).mpr fun i hi => by
+        show v (x i) = true
+        rw [hvdef]
+        exact decide_eq_true ⟨i, hi, rfl⟩
+    have hSub : ((∑ y ∈ U \ W₀,
+        Having.A (fun i => BoolFunc.var (x i)) (insert y W₀)) v) = false := by
+      cases hb : ((∑ y ∈ U \ W₀,
+          Having.A (fun i => BoolFunc.var (x i)) (insert y W₀)) v) with
+      | false => rfl
+      | true =>
+        obtain ⟨y, hy, hyv⟩ := (boolFunc_sum_eval _ _ v).mp hb
+        have hyx : v (x y) = true :=
+          (boolFunc_prod_eval _ _ v).mp hyv y (Finset.mem_insert_self y W₀)
+        rw [hvdef] at hyx
+        obtain ⟨j, hjW, hjx⟩ := of_decide_eq_true hyx
+        exact absurd (hx hjx ▸ hjW) (Finset.mem_sdiff.mp hy).2
+    have hT : (Having.T (fun i => BoolFunc.var (x i)) U W₀) v = true := by
+      show ((Having.A (fun i => BoolFunc.var (x i)) W₀) v
+        && !((∑ y ∈ U \ W₀,
+              Having.A (fun i => BoolFunc.var (x i)) (insert y W₀)) v)) = true
+      rw [hA, hSub]
+      rfl
+    have hmem : W₀ ∈ U.powerset.filter
+        (fun W => W.Nonempty ∧ ∑ i ∈ W, t i = B) :=
+      Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hW₀U, hW₀ne, hW₀sum⟩
+    have htrue : (havingSumProv (fun i => BoolFunc.var (x i)) U t B) v = true := by
+      rw [havingSumProv]
+      exact (boolFunc_sum_eval _ _ v).mpr ⟨W₀, hmem, hT⟩
+    rw [h] at htrue
+    exact Bool.noConfusion htrue
+
+end BoolProv
 
 /-! ### Step 3: the decision problem and its membership in NP -/
 
@@ -613,7 +733,11 @@ def knapsack_fo_reduction_havingSumNonzero : Knapsack ≤ᶠᵒ HavingSumNonzero
 theorem havingSumNonzero_NP_hard : NP.Hard HavingSumNonzero :=
   NP.hard_of_foReduction knapsack_fo_reduction_havingSumNonzero knapsack_NP_hard
 
-/-- **Proposition 18.** -/
+/-- **NP-completeness of non-zero `HAVING SUM` provenance**, in data
+complexity: membership and FO-hardness from `Knapsack`. Read through the
+bridges `havingSumProv_ne_zero_iff` and `havingSumProvBool_ne_zero_iff`,
+this is the NP-completeness of deciding non-`𝟘` provenance over `ℕ[X]`-
+and `𝔹[X]`-instances. -/
 theorem havingSumNonzero_NP_complete : NP.Complete HavingSumNonzero :=
   ⟨havingSumNonzero_mem_NP, havingSumNonzero_NP_hard⟩
 
