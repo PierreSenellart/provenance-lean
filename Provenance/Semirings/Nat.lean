@@ -107,14 +107,15 @@ theorem Nat.no_monusHom_to_Bool : IsEmpty (SemiringWithMonusHom ℕ Bool) := by
   rw [show (2:ℕ) - 1 = 1 from rfl, RingHom.map_one, h2] at hsub
   exact absurd hsub (by decide)
 
-/-- Over `ℕ`, the two natural expansions of `HAVING (count = 2)` for a
+/-- Over `ℕ`, the fused `HAVING (COUNT(*) = 2)` predicate provenance of a
 three-tuple group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕
-(t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)` and `(t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)`, differ.
-With `t₁ = t₂ = t₃ = 1`, the first expression evaluates to `0` while the
-second evaluates to `3`. -/
+(t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)`, differs from the annotation
+`((t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)) ⊖ (t₁ ⊗ t₂ ⊗ t₃)` produced by the
+join-based rewriting `Q₂^{≥2} − Q₂^{≥3}`. With `t₁ = t₂ = t₃ = 1`, the
+first expression evaluates to `0` while the second evaluates to `2`. -/
 theorem Nat.counterexample_having :
     let t₁ : ℕ := 1
     let t₂ : ℕ := 1
     let t₃ : ℕ := 1
     (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
-      ≠ t₁ * t₂ + t₁ * t₃ + t₂ * t₃ := by decide
+      ≠ (t₁ * t₂ + t₁ * t₃ + t₂ * t₃) - t₁ * t₂ * t₃ := by decide

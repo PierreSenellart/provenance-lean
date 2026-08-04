@@ -308,63 +308,56 @@ theorem Why.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] [Inhabited α] :
       ¬ ∃ φ : BoolFunc Y →+* Why α, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive (Why.not_absorptive ⟨default, trivial⟩)
 
-/-- The two natural expansions of `HAVING (count = 2)` for a three-tuple
-group, `(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕ (t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)`
-and `(t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)`, are inequivalent in `Why[X]`.
-With `t₁ = ⟨{{0}}⟩`, `t₂ = ⟨{{1}}⟩`, `t₃ = ⟨{∅}⟩ = 𝟙` over `X = Fin 2`, the
-first expression has carrier `{{0}, {1}}` while the second has the strictly
-larger carrier `{{0, 1}, {0}, {1}}`. The witness set `{0, 1}` separates
-them. -/
-theorem Why.counterexample_having :
-    ∃ t₁ t₂ t₃ : Why (Fin 2),
+/-- **The `=`-comparison correspondence fails in `Why[X]`.** For a
+three-tuple group with occurrence annotations `t₁`, `t₂`, `t₃`, the fused
+`HAVING (COUNT(*) = 2)` predicate provenance is
+`(t₁ ⊗ t₂) ⊗ (𝟙 ⊖ t₃) ⊕ (t₁ ⊗ t₃) ⊗ (𝟙 ⊖ t₂) ⊕ (t₂ ⊗ t₃) ⊗ (𝟙 ⊖ t₁)`,
+while the join-based rewriting `Q₂^{≥2} − Q₂^{≥3}` annotates the key with
+`((t₁ ⊗ t₂) ⊕ (t₁ ⊗ t₃) ⊕ (t₂ ⊗ t₃)) ⊖ (t₁ ⊗ t₂ ⊗ t₃)`. In `Why[X]` –
+idempotent, but without distributivity of `⊗` over `⊖`
+(`Why.not_mul_sub_left_distributive`) – the two disagree: with
+`t₁ = t₂ = t₃ = ⟨{{a}}⟩` for any witness `a`, every product equals
+`⟨{{a}}⟩` and every factor `𝟙 ⊖ tᵢ` equals `𝟙` (as `∅ ∉ {{a}}`), so the
+fused side keeps the witness, `⟨{{a}}⟩`, while on the join side the
+difference of the two `≥`-chains cancels it:
+`⟨{{a}}⟩ ⊖ ⟨{{a}}⟩ = 𝟘`. -/
+theorem Why.counterexample_having [Inhabited α] :
+    ∃ t₁ t₂ t₃ : Why α,
       (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
-        ≠ t₁ * t₂ + t₁ * t₃ + t₂ * t₃ := by
-  refine ⟨⟨{{0}}⟩, ⟨{{1}}⟩, ⟨{∅}⟩, ?_⟩
+        ≠ (t₁ * t₂ + t₁ * t₃ + t₂ * t₃) - t₁ * t₂ * t₃ := by
+  refine ⟨⟨{{default}}⟩, ⟨{{default}}⟩, ⟨{{default}}⟩, ?_⟩
+  have hmul : (⟨{{default}}⟩ : Why α) * ⟨{{default}}⟩ = ⟨{{default}}⟩ := by
+    ext z
+    show (∃ x y : Set α, x ∈ ({{default}} : Set (Set α))
+        ∧ y ∈ ({{default}} : Set (Set α)) ∧ z = x ∪ y)
+      ↔ z ∈ ({{default}} : Set (Set α))
+    constructor
+    · rintro ⟨x, y, hx, hy, rfl⟩
+      simp only [Set.mem_singleton_iff] at hx hy ⊢
+      rw [hx, hy, Set.union_self]
+    · intro hz
+      simp only [Set.mem_singleton_iff] at hz
+      exact ⟨{default}, {default}, rfl, rfl, by rw [hz, Set.union_self]⟩
+  have hone : (1 : Why α) - ⟨{{default}}⟩ = 1 := by
+    ext z
+    show z ∈ (({∅} : Set (Set α)) \ {{default}}) ↔ z ∈ ({∅} : Set (Set α))
+    constructor
+    · exact fun h => h.1
+    · intro h
+      refine ⟨h, fun hz => ?_⟩
+      simp only [Set.mem_singleton_iff] at h hz
+      rw [h] at hz
+      exact (Set.singleton_ne_empty (default : α)) hz.symm
+  have haa : ∀ a : Why α, a + a = a := by
+    intro a
+    ext z
+    show z ∈ a.carrier ∪ a.carrier ↔ z ∈ a.carrier
+    rw [Set.union_self]
+  have hsub : (⟨{{default}}⟩ : Why α) - ⟨{{default}}⟩ = 0 := by
+    ext z
+    show z ∈ (({{default}} : Set (Set α)) \ {{default}}) ↔ z ∈ (∅ : Set (Set α))
+    rw [Set.diff_self]
+  simp only [hmul, hone, mul_one, haa, hsub]
   intro h
-  -- `{0, 1}` lies in the RHS carrier via the `t₁ * t₂` summand …
-  have h01_eq : ({0, 1} : Set (Fin 2)) = ({0} : Set (Fin 2)) ∪ ({1} : Set (Fin 2)) :=
-    (Set.singleton_union).symm
-  have hRHS : ({0, 1} : Set (Fin 2)) ∈
-      ((⟨{{0}}⟩ * ⟨{{1}}⟩ + ⟨{{0}}⟩ * ⟨{∅}⟩ + ⟨{{1}}⟩ * ⟨{∅}⟩ : Why (Fin 2))).carrier := by
-    show ({0, 1} : Set (Fin 2)) ∈
-        (why_mul ⟨{{0}}⟩ ⟨{{1}}⟩).carrier ∪
-          (why_mul ⟨{{0}}⟩ ⟨{∅}⟩).carrier ∪
-            (why_mul ⟨{{1}}⟩ ⟨{∅}⟩).carrier
-    refine Or.inl (Or.inl ⟨{0}, {1}, ?_, ?_, h01_eq⟩)
-    · change ({0} : Set (Fin 2)) ∈ ({{0}} : Set (Set (Fin 2))); simp
-    · change ({1} : Set (Fin 2)) ∈ ({{1}} : Set (Set (Fin 2))); simp
-  -- … but it is absent from the LHS, by case analysis on the three summands.
   have hcarr := congrArg Why.carrier h
-  rw [← hcarr] at hRHS
-  rcases hRHS with hRHS | hRHS
-  · rcases hRHS with hRHS | hRHS
-    · -- First summand: `(1 - t₃).carrier = ({∅} \ {∅}) = ∅`, impossible.
-      obtain ⟨_, y, _, hy, _⟩ := hRHS
-      change y ∈ ({∅} \ {∅} : Set (Set (Fin 2))) at hy
-      simp at hy
-    · -- Second summand: `(t₁ * t₃) * (1 - t₂)` has carrier `{{0}}`.
-      obtain ⟨x, y, hx, hy, hxy⟩ := hRHS
-      obtain ⟨a, b, ha, hb, hab⟩ := hx
-      have hy_eq : y = (∅ : Set (Fin 2)) := hy.1
-      change a ∈ ({{0}} : Set (Set (Fin 2))) at ha
-      change b ∈ ({∅} : Set (Set (Fin 2))) at hb
-      simp at ha hb
-      subst ha; subst hb; subst hy_eq
-      have hx_eq : x = ({0} : Set (Fin 2)) := by rw [hab]; ext n; simp
-      have hbad : ({0, 1} : Set (Fin 2)) = ({0} : Set (Fin 2)) := by
-        rw [hxy, hx_eq]; ext n; simp
-      have h1mem : (1 : Fin 2) ∈ ({0, 1} : Set (Fin 2)) := by simp
-      rw [hbad] at h1mem; simp at h1mem
-  · -- Third summand: `(t₂ * t₃) * (1 - t₁)` has carrier `{{1}}`.
-    obtain ⟨x, y, hx, hy, hxy⟩ := hRHS
-    obtain ⟨a, b, ha, hb, hab⟩ := hx
-    have hy_eq : y = (∅ : Set (Fin 2)) := hy.1
-    change a ∈ ({{1}} : Set (Set (Fin 2))) at ha
-    change b ∈ ({∅} : Set (Set (Fin 2))) at hb
-    simp at ha hb
-    subst ha; subst hb; subst hy_eq
-    have hx_eq : x = ({1} : Set (Fin 2)) := by rw [hab]; ext n; simp
-    have hbad : ({0, 1} : Set (Fin 2)) = ({1} : Set (Fin 2)) := by
-      rw [hxy, hx_eq]; ext n; simp
-    have h0mem : (0 : Fin 2) ∈ ({0, 1} : Set (Fin 2)) := by simp
-    rw [hbad] at h0mem; simp at h0mem
+  exact (Set.singleton_ne_empty ({default} : Set α)) hcarr
