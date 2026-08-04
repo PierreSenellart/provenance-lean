@@ -1013,6 +1013,9 @@ theorem randomWorld_evaluateAnnotated :
   | Agg _ _ _ _ =>
     intro hq _ _
     exact False.elim (by simp [Query.noAgg] at hq)
+  | Having _ _ _ _ _ _ _ =>
+    intro hq _ _
+    exact False.elim (by simp [Query.noAgg] at hq)
 
 namespace ProbAssignment
 

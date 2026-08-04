@@ -238,5 +238,8 @@ theorem evaluateAnnotatedFull_hom (h : SemiringWithMonusHom K K')
         rw [SemiringWithMonusHom.map_snd_mapAnnotatedRelation h matching]
         rw [Multiset.sum_hom _ h.toRingHom]
         exact (h.map_delta _).symm
+  | Having _ _ _ _ _ _ _ =>
+      -- `wellFormed` of a `Having` query reduces to `noAgg`, which is `False`.
+      exact False.elim hq
 
 end Query

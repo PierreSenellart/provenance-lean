@@ -81,6 +81,7 @@ def Query.stripDiff : Query T n → Query T n
 | Dedup q => Dedup q.stripDiff
 | Diff q₁ _ => q₁.stripDiff
 | Agg is ts as q => Agg is ts as q.stripDiff
+| Having is ts fs op l s q => Having is ts fs op l s q.stripDiff
 
 /-- The `Diff`-free (positive) fragment of the relational algebra, mirroring
 `Query.noAgg`. -/
@@ -93,6 +94,7 @@ def Query.noDiff (q: Query T n): Prop := match q with
 | Dedup q => q.noDiff
 | Diff _ _ => False
 | Agg _ _ _ q => q.noDiff
+| Having _ _ _ _ _ _ q => q.noDiff
 
 /-- On `Diff`-free queries, `Query.stripDiff` is the identity. -/
 theorem Query.stripDiff_of_noDiff (q: Query T n) (hd: q.noDiff) :
@@ -117,6 +119,9 @@ theorem Query.stripDiff_of_noDiff (q: Query T n) (hd: q.noDiff) :
   | Diff q₁ q₂ ih₁ ih₂ =>
     simp only [noDiff] at hd
   | Agg is ts as q ih =>
+    simp only [noDiff] at hd
+    simp only [stripDiff, ih hd]
+  | Having is ts fs op l s q ih =>
     simp only [noDiff] at hd
     simp only [stripDiff, ih hd]
 
@@ -306,6 +311,9 @@ theorem Query.evaluateAnnotated_toPlain :
   | Agg is ts as q' ih =>
     intro hq d
     simp [Query.noAgg] at hq
+  | Having is ts fs op l s q' ih =>
+    intro hq d
+    simp [Query.noAgg] at hq
 
 /-- Plain evaluation is monotone (in the sub-multiset order) under stripping
 differences: the plain `Diff` is a `filter` of its left argument, and every
@@ -356,6 +364,9 @@ theorem Query.evaluate_le_stripDiff :
     simp only [Query.evaluate, Query.stripDiff]
     exact le_trans (Multiset.filter_le _ _) (ih₁ (Query.noAggDiff hq rfl).left d)
   | Agg is ts as q' ih =>
+    intro hq d
+    simp [Query.noAgg] at hq
+  | Having is ts fs op l s q' ih =>
     intro hq d
     simp [Query.noAgg] at hq
 

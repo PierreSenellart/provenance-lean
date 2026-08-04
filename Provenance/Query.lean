@@ -4,8 +4,10 @@ import Mathlib.Data.FunLike.Basic
 import Mathlib.Data.Vector.Basic
 import Mathlib.Data.Multiset.Dedup
 import Mathlib.Data.Multiset.Filter
+import Mathlib.Data.Multiset.Sort
 import Mathlib.Data.Prod.Lex
 
+import Provenance.Algorithms.CompOp
 import Provenance.Database
 
 /-!
@@ -275,6 +277,39 @@ def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
 | sum => m.fold (addFn: T→T→T) 0
 | sumDelta => m.fold (addFn: T→T→T) 0
 
+/-- An aggregate function on *sequences* of values: an arbitrary function
+from finite sequences over `T` to `T`. Unlike `AggFunc` (monoid-shaped,
+used by the terminal aggregation operator `Agg`), this interface covers
+non-commutative aggregates – such as `PICKFIRST`, whose result depends on
+the order of its input – and non-associative ones. It is the aggregate
+interface of the fused `Having` operator, whose possible-world semantics
+does not need any algebraic structure on the aggregate. -/
+def SeqAggFunc (T : Type) := List T → T
+
+namespace SeqAggFunc
+
+/-- `SUM` as a sequence aggregate. -/
+def sum : SeqAggFunc T := fun L => L.foldr (· + ·) 0
+
+/-- `COUNT(*)` as a sequence aggregate (over an `ℕ`-valued domain). -/
+def count : SeqAggFunc ℕ := List.length
+
+/-- `MIN`, with value `0` on the empty sequence (the possible-world
+semantics only ever applies it to non-empty sequences). -/
+def minD : SeqAggFunc T := fun L => match L with
+  | [] => 0
+  | x :: xs => xs.foldr min x
+
+/-- `MAX`, with value `0` on the empty sequence. -/
+def maxD : SeqAggFunc T := fun L => match L with
+  | [] => 0
+  | x :: xs => xs.foldr max x
+
+/-- `PICKFIRST`: the first value of the sequence, `0` if empty. -/
+def pickFirst : SeqAggFunc T := fun L => L.headD 0
+
+end SeqAggFunc
+
 inductive Query (T: Type) : ℕ → Type
 | Rel   : (n: ℕ) → String → Query T n
 | Proj  : Tuple (Term T n) m → Query T n → Query T m
@@ -284,6 +319,17 @@ inductive Query (T: Type) : ℕ → Type
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
 | Agg       : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple AggFunc n₂ → Query T m → Query T (n₁+n₂)
+/-- The fused `HAVING` operator: grouping by the indices of the first
+argument, computing the sequence aggregates of the third argument applied
+to the terms of the second (each group read in the canonical tuple order,
+which plays the role of the ordering `≼` of non-commutative aggregates),
+and keeping only the groups whose aggregate value in column `l` (the
+`Fin n₂` argument) compares, via the comparison operator, with the value of
+the regular term (the `Term T n₁` argument, evaluated on the group key –
+this covers both query constants and group-key attributes). The output has
+the group key followed by the aggregate values. -/
+| Having    : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple (SeqAggFunc T) n₂ →
+    CompOp → Fin n₂ → Term T n₁ → Query T m → Query T (n₁+n₂)
 
 def Query.repr [Repr T] : Query T n → ℕ → Std.Format
 | Rel _ s, p => s
@@ -298,6 +344,11 @@ def Query.repr [Repr T] : Query T n → ℕ → Std.Format
     ++ (Repr.addAppParen (ts.repr p) p)
     ++ (Repr.addAppParen (as.repr p) p)
     ++ (Repr.addAppParen (q.repr p) p)
+| Having is ts _ op l s q, p =>
+  "γHaving_" ++ (Repr.addAppParen (is.repr p) p)
+    ++ (Repr.addAppParen (ts.repr p) p)
+    ++ "[#" ++ (reprArg l) ++ (reprArg op) ++ (Repr.addAppParen (s.repr p) p) ++ "]"
+    ++ (Repr.addAppParen (q.repr p) p)
 
 instance [Repr α] : Repr (Query α n) := ⟨Query.repr⟩
 
@@ -310,6 +361,7 @@ def Query.noAgg (q: Query T n): Prop := match q with
 | Dedup q     => q.noAgg
 | Diff  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
 | Agg _ _ _ q => False
+| Having _ _ _ _ _ _ _ => False
 
 @[reducible] def Query.noAggDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.noAgg T n):=
   fun (q: Query T n) => match q with
@@ -336,6 +388,7 @@ def Query.noAgg (q: Query T n): Prop := match q with
     | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
     | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
   | Agg _ _ _ q' => isFalse (by simp[noAgg])
+  | Having _ _ _ _ _ _ _ => isFalse (by simp[noAgg])
 
 instance {T: Type} {n: ℕ} : DecidablePred (@Query.noAgg T n) := Query.noAggDecidable
 
@@ -418,6 +471,16 @@ def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
   let d₂ := q₂.aggdepth2_plus_depth
   (max d₁ d₂)+1
 | Agg _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
+| Having _ _ _ _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
+
+/-- The occurrences of the group of key `g` in relation `r`: the multiset of
+matching tuples, as a list sorted by the canonical linear order on tuples.
+The sort order plays the role of the ordering `≼` along which
+non-commutative sequence aggregates read the occurrences of a group; for
+commutative aggregates it is irrelevant. -/
+def Relation.groupSeq (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁) :
+    List (Tuple T m) :=
+  Multiset.sort (Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k') r) (· ≤ ·)
 
 /-- Standard multiset semantics of a query over a plain database.
 
@@ -453,6 +516,15 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
         (s.filter (λ u ↦ ∀ k': Fin n₁, u (is k') = t k')).map (λ u ↦ (ts k).eval u)
       ))
     ))
+| @Having _ m n₁ n₂ is ts fs op l s q =>
+    let keys := evaluate ε (Π (λ (k: Fin n₁) ↦ #(is k)) q) d
+    let r := evaluate q d
+    Multiset.map
+      (λ g ↦ Fin.append g
+        (λ (k: Fin n₂) ↦ (fs k) ((Relation.groupSeq is r g).map (ts k).eval)))
+      (Multiset.filter
+        (λ g ↦ op.eval ((fs l) ((Relation.groupSeq is r g).map (ts l).eval)) (s.eval g))
+        keys)
 termination_by q.aggdepth2_plus_depth
 decreasing_by
   all_goals simp[aggdepth2_plus_depth]

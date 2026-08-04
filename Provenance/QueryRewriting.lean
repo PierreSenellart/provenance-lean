@@ -1696,6 +1696,7 @@ theorem Query.rewriting_valid
       rfl
     exact lhs_eq.symm.trans rhs_eq.symm
   | Agg _ _ _ _ => simp[noAgg] at hq
+  | Having _ _ _ _ _ _ _ => simp[noAgg] at hq
 
 /-! ## (R5) Rewriting of top-level aggregation
 

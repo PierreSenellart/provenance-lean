@@ -637,3 +637,6 @@ theorem Query.rewriting_valid_full
             exact LiftedTK.fold_add_ann _
           rw [h_fold]
           rfl
+  | Having _ _ _ _ _ _ _ =>
+      -- `wellFormed` of a `Having` query reduces to `noAgg`, which is `False`.
+      exact False.elim hq
