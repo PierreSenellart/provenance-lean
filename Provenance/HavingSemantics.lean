@@ -422,6 +422,51 @@ theorem havingProv_count_le (h_distrib : mul_sub_left_distributive K)
   · exact fun h => ⟨Finset.card_pos.mp (by omega), h.2⟩
 
 omit [DecidableEq K] in
+/-- `COUNT(*) > c` is `COUNT(*) ≥ c + 1`. -/
+theorem havingProv_count_gt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
+    (c : ℕ) :
+    havingProv U t SeqAggFunc.count CompOp.gt c
+      = havingProv U t SeqAggFunc.count CompOp.ge (c + 1) := rfl
+
+omit [DecidableEq K] in
+/-- `COUNT(*) < c + 1` is `COUNT(*) ≤ c`. -/
+theorem havingProv_count_lt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
+    (c : ℕ) :
+    havingProv U t SeqAggFunc.count CompOp.lt (c + 1)
+      = havingProv U t SeqAggFunc.count CompOp.le c := by
+  unfold havingProv
+  refine Finset.sum_congr rfl fun W _ => ?_
+  congr 1
+  unfold chi
+  exact if_congr (by rw [aggValOn_count]; exact Nat.lt_succ_iff) rfl rfl
+
+omit [DecidableEq K] in
+/-- **The `≠` comparison splits.** For any aggregate and any m-semiring,
+the predicate provenance of `f(t) ≠ c` is the `⊕`-sum of those of
+`f(t) < c` and `f(t) > c`: the characteristic values agree world by
+world, by trichotomy of the linear order on the value domain. -/
+theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
+    (f : SeqAggFunc T) (c : T) :
+    havingProv U t f CompOp.ne c
+      = havingProv U t f CompOp.lt c + havingProv U t f CompOp.gt c := by
+  unfold havingProv
+  rw [← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl fun W _ => ?_
+  rw [← mul_add]
+  congr 1
+  unfold chi
+  rcases lt_trichotomy (aggValOn U t f W) c with h | h | h
+  · rw [if_pos (show CompOp.ne.eval _ c from ne_of_lt h),
+      if_pos (show CompOp.lt.eval _ c from h),
+      if_neg (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
+  · rw [if_neg (show ¬ CompOp.ne.eval _ c from not_not_intro h),
+      if_neg (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.ge),
+      if_neg (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
+  · rw [if_pos (show CompOp.ne.eval _ c from ne_of_gt h),
+      if_neg (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.le),
+      if_pos (show CompOp.gt.eval _ c from h), zero_add]
+
+omit [DecidableEq K] in
 /-- **`COUNT(*) ≥ 1` collapses to the group annotation sum.** In an
 absorptive m-semiring with `⊗` distributive over `⊖`, the fused
 `COUNT(*) ≥ 1` predicate provenance of a group sequence is the `⊕`-sum of

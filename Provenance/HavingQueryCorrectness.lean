@@ -1079,4 +1079,87 @@ theorem Query.joinChainDiff_count_le_correct [HasAltLinearOrder K]
         (q.evaluateAnnotated hq d) g) (ts 0) C).symm
   exact h₁.trans (h₂.trans (h₃.trans (h₄.trans h₅)))
 
+
+/-- The join-based query realising `COUNT(*) op (C + 1)`, for each
+comparison operator `op`: chains for `≥` and `>`, differences of two
+chains for `≤`, `<` and `=`, and the union of the `<`- and `>`-queries
+for `≠`. -/
+def Query.joinCountQuery (q : Query ℕ 3) : CompOp → ℕ → Query ℕ 1
+  | .lt, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q C)
+  | .le, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q (C + 1))
+  | .eq, C => Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))
+  | .ne, C => Query.Sum
+      (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
+      (joinChainQuery q (C + 1))
+  | .ge, C => joinChainQuery q C
+  | .gt, C => joinChainQuery q (C + 1)
+
+theorem Query.joinCountQuery_noAgg (q : Query ℕ 3) (hq : q.noAgg) :
+    ∀ (op : CompOp) (C : ℕ), (Query.joinCountQuery q op C).noAgg
+  | .lt, C => by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩
+  | .le, C => by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq (C + 1)⟩
+  | .eq, C => by exact ⟨joinChain_noAgg q hq C, joinChain_noAgg q hq (C + 1)⟩
+  | .ne, C => by exact ⟨⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩,
+      joinChain_noAgg q hq (C + 1)⟩
+  | .ge, C => q2_noAgg q hq C
+  | .gt, C => q2_noAgg q hq (C + 1)
+
+/-- Per-key annotation sums are additive across `Query.Sum`. -/
+theorem sum_perKeySum {T : Type} [ValueType T] {n : ℕ}
+    (q₁ q₂ : Query T n) (h₁ : q₁.noAgg) (h₂ : q₂.noAgg)
+    (hs : (Query.Sum q₁ q₂).noAgg)
+    (d : AnnotatedDatabase T K) (u : Tuple T n) :
+    (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
+        ((Query.Sum q₁ q₂).evaluateAnnotated hs d))).sum
+      = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
+          (q₁.evaluateAnnotated h₁ d))).sum
+        + (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
+            (q₂.evaluateAnnotated h₂ d))).sum := by
+  show (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
+      (q₁.evaluateAnnotated h₁ d + q₂.evaluateAnnotated h₂ d))).sum = _
+  rw [Multiset.filter_add, Multiset.map_add, Multiset.sum_add]
+
+/-- **Query-level correctness of the JOIN rewriting for `COUNT(*)`, for
+any comparison operator.** For every `op ∈ {<, ≤, =, ≠, ≥, >}`, every
+threshold `C + 1 ≥ 1` and every group key, in an absorptive commutative
+m-semiring whose `⊗` distributes over `⊖`, the join-based query
+`Query.joinCountQuery q op C` gives the group key the fused
+`COUNT(*) op (C + 1)` predicate provenance. -/
+theorem Query.joinCount_correct [HasAltLinearOrder K]
+    (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
+    (ts : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) (g : Tuple ℕ 1) :
+    (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
+        ((Query.joinCountQuery q op C).evaluateAnnotated
+          (Query.joinCountQuery_noAgg q hq op C) d))).sum
+      = havingProv
+          (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
+            (q.evaluateAnnotated hq d) g)
+          (ts 0) SeqAggFunc.count op (C + 1) := by
+  cases op with
+  | lt =>
+    rw [havingProv_count_lt]
+    exact Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts C g
+  | le =>
+    exact Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts
+      (C + 1) g
+  | eq =>
+    exact Query.joinChainDiff_count_eq_correct h_abs h_distrib q hq d hnodup ts C g
+  | ne =>
+    rw [havingProv_ne_split, havingProv_count_lt, havingProv_count_gt]
+    refine Eq.trans (sum_perKeySum
+      (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
+      (joinChainQuery q (C + 1))
+      (by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩)
+      (q2_noAgg q hq (C + 1)) _ d g) ?_
+    exact congrArg₂ (fun a b : K => a + b)
+      (Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts C g)
+      (Query.joinChain_count_correct h_abs h_distrib q hq d hnodup ts (C + 1) g)
+  | ge =>
+    exact Query.joinChain_count_correct h_abs h_distrib q hq d hnodup ts C g
+  | gt =>
+    rw [havingProv_count_gt]
+    exact Query.joinChain_count_correct h_abs h_distrib q hq d hnodup ts (C + 1) g
+
 end Assembly
