@@ -269,6 +269,39 @@ theorem prov_fiber (α : ι → K) (U : Finset ι) (P : Finset ι) (Q : ι → F
   rw [prov, hfam, Finset.sum_biUnion hpd]
   rfl
 
+/-- **Unsatisfiable predicates have provenance `𝟘`.** This is the
+algebraic content of the range-check short-circuit of the enumeration
+algorithms: when no world can satisfy the predicate, the possible-world
+`⊕`-sum is empty. No hypothesis on the m-semiring is needed. -/
+theorem prov_of_forall_not (α : ι → K) (U : Finset ι)
+    {P : Finset ι → Prop} [DecidablePred P]
+    (hP : ∀ W ⊆ U, W.Nonempty → ¬ P W) :
+    prov α U P = 0 := by
+  unfold prov
+  rw [Finset.filter_false_of_mem
+    (fun W hW h => hP W (Finset.mem_powerset.mp hW) h.1 h.2), Finset.sum_empty]
+
+/-- **Necessarily-true predicates have provenance `⊕_{i ∈ U} α i`.** This
+is the algebraic content of the complementary range-check short-circuit:
+when every non-empty world satisfies the predicate, the possible-world
+provenance is `F_1(U)`, which in an absorptive m-semiring collapses (by
+`F_eq_S` at `C = 1`) to the `⊕`-sum of the annotations of the group. -/
+theorem prov_of_forall (h_abs : absorptive K) (α : ι → K) (U : Finset ι)
+    {P : Finset ι → Prop} [DecidablePred P]
+    (hP : ∀ W ⊆ U, W.Nonempty → P W) :
+    prov α U P = ∑ i ∈ U, α i := by
+  have h1 : prov α U P = F α U 1 := by
+    unfold prov F
+    refine Finset.sum_congr (Finset.filter_congr fun W hW => ?_) fun _ _ => rfl
+    rw [Finset.one_le_card]
+    exact ⟨fun h => h.1, fun h => ⟨h, hP W (Finset.mem_powerset.mp hW) h⟩⟩
+  have h2 : S α U 1 = ∑ i ∈ U, α i := by
+    unfold S
+    rw [Finset.powersetCard_one, Finset.sum_map]
+    exact Finset.sum_congr rfl fun i _ => by simp [A]
+  rw [h1]
+  exact (F_eq_S h_abs α U 0).trans h2
+
 /-- **Occurrence-wise selection predicates are scan-computable.** If a
 non-empty world satisfies `P` exactly when all its occurrences satisfy `p` and
 at least one of them satisfies `q`, then the provenance of `P` is

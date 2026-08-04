@@ -22,8 +22,13 @@ For a finite ambient set `U : Finset ι` and a family `α : ι → K`, we define
 * `S α U C := ⊕_{W ⊆ U, |W| = C} A α W`,
 * `F α U C := ⊕_{W ⊆ U, |W| ≥ C} T α U W`.
 
-The main results are include/exclude-style recurrences for `S` and `F` and a
-bounding lemma `A_V ≤ ⊕_{V ⊆ W ⊆ U} T_U(W)` in an idempotent m-semiring.
+The main results are the bounding lemma `A_V ≤ ⊕_{V ⊆ W ⊆ U} T_U(W)` in an
+idempotent m-semiring (`upward_expansion`), the collapse of the `T`-weighted
+sum over any upward-closed family of worlds to the `A`-weighted sum over its
+minimal elements in an absorptive m-semiring (`upward_closed_collapse`, with
+`F_eq_S` as the `HAVING count ≥ C` instance), include/exclude-style
+recurrences for `S` and `F`, and the per-world bound `world_bound` behind the
+`=` and `≤` cases.
 -/
 
 namespace Having
@@ -480,14 +485,53 @@ theorem absorbing_subfamily (α : ι → K) (h_abs : absorptive K)
         Finset.single_le_sum_of_canonicallyOrdered (f := A α) hW'M
   · exact Finset.sum_le_sum_of_subset hM_sub
 
+/-- **Upward-closed collapse of the possible-world provenance.** In an
+absorptive commutative m-semiring, the `⊕`-sum of the world annotations
+`T_U(W)` over an upward-closed family `F` of subsets of `U` equals the
+`⊕`-sum of the *monomials* `A_V` over any subfamily `M ⊆ F` such that every
+element of `F` contains some element of `M` (canonically, the minimal
+elements of `F`).
+
+Unlike `absorbing_subfamily`, which relates two `A`-weighted sums, this is
+the statement needed to collapse a possible-world provenance (a `T`-weighted
+sum): the `≤` half bounds each `T_U(W) ≤ A_W ≤ A_V` (by `monus_le` and
+`A_le_of_subset_absorptive`), and the `≥` half recovers each `A_V` from
+`upward_expansion`, whose index set is contained in `F` by upward closure.
+Note that `mul_sub_left_distributive` is *not* needed. -/
+theorem upward_closed_collapse (α : ι → K) (h_abs : absorptive K)
+    {U : Finset ι} {F M : Finset (Finset ι)}
+    (hFU : ∀ W ∈ F, W ⊆ U)
+    (hF_up : ∀ W ∈ F, ∀ W' : Finset ι, W ⊆ W' → W' ⊆ U → W' ∈ F)
+    (hM_sub : M ⊆ F)
+    (hcover : ∀ W ∈ F, ∃ V ∈ M, V ⊆ W) :
+    ∑ W ∈ F, T α U W = ∑ V ∈ M, A α V := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  apply le_antisymm
+  · refine sum_le_of_forall_le h_idem fun W hW => ?_
+    obtain ⟨V, hVM, hVW⟩ := hcover W hW
+    calc T α U W ≤ A α W := monus_le _ _
+      _ ≤ A α V := A_le_of_subset_absorptive h_abs α hVW
+      _ ≤ ∑ V' ∈ M, A α V' :=
+        Finset.single_le_sum_of_canonicallyOrdered (f := A α) hVM
+  · refine sum_le_of_forall_le h_idem fun V hVM => ?_
+    have hVF : V ∈ F := hM_sub hVM
+    calc A α V ≤ ∑ W ∈ U.powerset.filter (V ⊆ ·), T α U W :=
+        upward_expansion α h_idem U V (hFU V hVF)
+      _ ≤ ∑ W ∈ F, T α U W := by
+        refine Finset.sum_le_sum_of_subset fun W hW => ?_
+        rw [Finset.mem_filter, Finset.mem_powerset] at hW
+        exact hF_up V hVF W hW.2 hW.1
+
 /-! ### F equals S: algebraic skeleton of `HAVING count ≥ C`
 
 The possible-world provenance `F_C(U)` agrees with the join-based provenance
-`S_C(U)` for all `C ≥ 1`, in any absorptive commutative m-semiring with
-left-distributivity of `⊗` over `⊖`. Proof by induction on `U.card` driven
-by the `FC_recurrence` and `SC_recurrence` recurrences; the `C = 1` base of
-the recurrence (where `F α U' 0` and `S α U' 0` appear on the right-hand
-side) is closed by the auxiliary fact `F_zero_eq_one`.
+`S_C(U)` for all `C ≥ 1`, in any absorptive commutative m-semiring: the family
+of worlds of cardinality `≥ C` is upward-closed with the worlds of cardinality
+exactly `C` as minimal elements, so `upward_closed_collapse` applies. An
+alternative, recurrence-driven proof goes through `FC_recurrence` and
+`SC_recurrence` (with `F_zero_eq_one` closing the `C = 1` base), at the price
+of the additional `mul_sub_left_distributive` hypothesis used by
+`FC_recurrence`; the recurrences are kept as results of independent interest.
 -/
 
 /-- In an absorptive idempotent m-semiring, `F α U 0 = 𝟙`: the
@@ -516,65 +560,40 @@ theorem F_zero_eq_one (h_idem : idempotent K) (h_abs : absorptive K)
     rw [hfilter_eq] at h
     exact h
 
-/-- **Algebraic skeleton** for `HAVING count ≥ C`: in an
-absorptive commutative m-semiring with `mul_sub_left_distributive`, the
-possible-world provenance `F_C(U)` equals the join-based provenance
-`S_C(U)` for all `C ≥ 1`. Absorptive is a strictly stronger hypothesis
-than the bare “idempotent + distributive” combination one might wish for,
-but it is what makes the `C = 1` base of the recurrence-driven induction
-go through, via `F_zero_eq_one`. The absorptive hypothesis is essential:
+/-- **Algebraic skeleton** for `HAVING count ≥ C`: in an absorptive
+commutative m-semiring, the possible-world provenance `F_C(U)` equals the
+join-based provenance `S_C(U)` for all `C ≥ 1`. This is the instance of
+`upward_closed_collapse` for the upward-closed family of worlds of
+cardinality `≥ C`, whose minimal elements are the worlds of cardinality
+exactly `C`; in particular `mul_sub_left_distributive` is *not* needed
+(it re-enters only when relating `T` to the factored form of the world
+annotation, see `T_eq_mul_one_monus_sum`). Absorptive is a strictly
+stronger hypothesis than the bare “idempotent + distributive” combination
+one might wish for, and it is essential:
 `Provenance.Semirings.Tropical.TropicalR.F_ne_S` exhibits a non-absorptive
 (but idempotent and distributive) instance – `Tropical (WithTop ℝ)` – for
 which the conclusion fails. The idempotent m-semirings in the library
-with `mul_sub_left_distributive` that *are* absorptive (Bool, BoolFunc,
-IntervalUnion, `Tropical (WithTop ℕ)`, Viterbi, Łukasiewicz) all satisfy
+that *are* absorptive (Bool, BoolFunc, IntervalUnion,
+`Tropical (WithTop ℕ)`, Viterbi, Łukasiewicz, MinMax) all satisfy
 the conclusion. -/
-theorem F_eq_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
+theorem F_eq_S (h_abs : absorptive K)
     (α : ι → K) (U : Finset ι) (C : ℕ) :
     F α U (C + 1) = S α U (C + 1) := by
-  have h_idem : idempotent K := idempotent_of_absorptive h_abs
-  suffices h : ∀ n : ℕ, ∀ U' : Finset ι, U'.card = n →
-      ∀ C : ℕ, F α U' (C + 1) = S α U' (C + 1) from
-    h U.card U rfl C
-  intro n
-  induction n with
-  | zero =>
-    intro U' hU' C
-    have hUempty : U' = ∅ := Finset.card_eq_zero.mp hU'
-    subst hUempty
-    have hF : F α (∅ : Finset ι) (C + 1) = 0 := by
-      unfold F
-      have : ((∅ : Finset ι).powerset.filter (fun W => C + 1 ≤ W.card)) = ∅ := by
-        ext W
-        simp only [Finset.mem_filter, Finset.mem_powerset, Finset.subset_empty,
-                   Finset.notMem_empty, iff_false, not_and]
-        intro hW
-        subst hW
-        simp
-      rw [this, Finset.sum_empty]
-    have hS : S α (∅ : Finset ι) (C + 1) = 0 := by
-      unfold S
-      have : ((∅ : Finset ι).powersetCard (C + 1)) = ∅ :=
-        Finset.powersetCard_eq_empty.mpr (by simp)
-      rw [this, Finset.sum_empty]
-    rw [hF, hS]
-  | succ n ih =>
-    intro U' hU' C
-    obtain ⟨u, hu⟩ : U'.Nonempty := Finset.card_pos.mp (hU' ▸ Nat.succ_pos _)
-    have hcard' : (U'.erase u).card = n := by
-      rw [Finset.card_erase_of_mem hu, hU']; omega
-    rw [FC_recurrence α h_idem h_distrib hu C, SC_recurrence α hu C]
-    congr 1
-    · exact ih (U'.erase u) hcard' C
-    · cases C with
-      | zero =>
-        rw [F_zero_eq_one h_idem h_abs α (U'.erase u)]
-        have hS0 : S α (U'.erase u) 0 = 1 := by
-          simp only [S, Finset.powersetCard_zero, Finset.sum_singleton,
-                     A, Finset.prod_empty]
-        rw [hS0]
-      | succ C' =>
-        rw [ih (U'.erase u) hcard' C']
+  show ∑ W ∈ U.powerset.filter (fun W => C + 1 ≤ W.card), T α U W
+    = ∑ V ∈ U.powersetCard (C + 1), A α V
+  refine upward_closed_collapse α h_abs ?_ ?_ ?_ ?_
+  · exact fun W hW => Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1
+  · intro W hW W' hWW' hW'U
+    exact Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hW'U,
+      (Finset.mem_filter.mp hW).2.trans (Finset.card_le_card hWW')⟩
+  · intro V hV
+    obtain ⟨hVU, hVcard⟩ := Finset.mem_powersetCard.mp hV
+    exact Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hVU, le_of_eq hVcard.symm⟩
+  · intro W hW
+    obtain ⟨hWU, hWcard⟩ := Finset.mem_filter.mp hW
+    obtain ⟨V, hVW, hVcard⟩ := Finset.exists_subset_card_eq hWcard
+    exact ⟨V, Finset.mem_powersetCard.mpr
+      ⟨hVW.trans (Finset.mem_powerset.mp hWU), hVcard⟩, hVW⟩
 
 /-! ### The `=` and `≤` cases
 
@@ -588,7 +607,14 @@ single world `W` is already below `S_j(U) ⊖ S_{C+1}(U)`.
 The order of the steps matters: bounding `A_W` by `S_j(U)` inside the
 subtrahend of `T_U(W) = A_W ⊖ (A_W ⊗ E_W)` would move the monus the wrong way.
 The bound is applied instead to the factored form `T_U(W) = A_W ⊗ (𝟙 ⊖ E_W)`,
-whose second factor does not mention `A_W`. -/
+whose second factor does not mention `A_W`.
+
+Unlike for `F_eq_S`, the `mul_sub_left_distributive` hypothesis here is
+essential and not an artifact of the proof:
+`Provenance.Semirings.ChainFive.ChainFive.not_world_bound` exhibits an
+absorptive commutative m-semiring without it in which the conclusion fails
+(and with it the conclusions of `G_eq_S_monus_S` and `atMost_eq_S_monus_S`,
+which rest on this bound). -/
 theorem world_bound (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) {U W : Finset ι} (hWU : W ⊆ U) {j C : ℕ}
     (hjW : j ≤ W.card) (hWC : W.card ≤ C) :
@@ -695,7 +721,7 @@ theorem atMost_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_dis
   · refine sum_le_of_forall_le h_idem fun W hW => ?_
     obtain ⟨hWU, h1, h2⟩ := Finset.mem_filter.mp hW
     exact world_bound h_abs h_distrib α (Finset.mem_powerset.mp hWU) h1 h2
-  · have hF : F α U 1 = S α U 1 := F_eq_S h_abs h_distrib α U 0
+  · have hF : F α U 1 = S α U 1 := F_eq_S h_abs α U 0
     rw [← hF, F, sum_monus h_idem]
     have hsub : ∑ W ∈ U.powerset.filter (fun W => 1 ≤ W.card ∧ W.card ≤ C),
           (T α U W - S α U (C + 1))
@@ -711,5 +737,200 @@ theorem atMost_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_dis
           (T_le_S_of_card_le h_abs α (Finset.mem_powerset.mp hWU) h2)
     rw [← hsub]
     exact Finset.sum_le_sum fun W _ => monus_le _ _
+
+/-! ### Collapse to minimal worlds, and the size of the index sets
+
+`upward_closed_collapse` specialises to any family of worlds cut out by a
+superset-monotone predicate: the provenance collapses to the `⊕`-sum of the
+monomials of the *minimal* valid worlds. For `SUM(t) op c` predicates over
+`ℕ`-weights with `op ∈ {≥, >}`, a bounded-ratio hypothesis on the weights
+(`c ≤ k ⊗ t i` for every occurrence) bounds the size of the minimal worlds
+by `k` (resp. `k + 1`), so the collapsed sum ranges over an index set of at
+most `∑_{i ≤ k} C(|U|, i)` terms. The cardinality facts are stated as
+`Finset.card` statements about the index sets of the sums; they say nothing
+about running time. -/
+
+/-- Minimality of a world with respect to a predicate is decidable: only
+the subsets of the world need inspecting. -/
+instance decidableMinimal {P : Finset ι → Prop} [DecidablePred P] (V : Finset ι) :
+    Decidable (∀ V' ⊂ V, ¬ P V') :=
+  decidable_of_iff (∀ V' ∈ V.powerset, V' ≠ V → ¬ P V') <| by
+    constructor
+    · intro h V' hss
+      exact h V' (Finset.mem_powerset.mpr hss.subset)
+        (Finset.ssubset_iff_subset_ne.mp hss).2
+    · intro h V' hV' hne
+      exact h V' (Finset.ssubset_iff_subset_ne.mpr ⟨Finset.mem_powerset.mp hV', hne⟩)
+
+omit [DecidableEq ι] in
+/-- Every world satisfying `P` contains a world satisfying `P` that is
+minimal among **all** worlds (not merely among its own subsets). Strong
+induction on the cardinality. -/
+theorem exists_minimal_subset {P : Finset ι → Prop} :
+    ∀ {W : Finset ι}, P W → ∃ V, V ⊆ W ∧ P V ∧ ∀ V' ⊂ V, ¬ P V' := by
+  suffices h : ∀ n : ℕ, ∀ W : Finset ι, W.card ≤ n → P W →
+      ∃ V, V ⊆ W ∧ P V ∧ ∀ V' ⊂ V, ¬ P V' from
+    fun {W} hW => h W.card W le_rfl hW
+  intro n
+  induction n with
+  | zero =>
+    intro W hcard hW
+    have hempty : W = ∅ := Finset.card_eq_zero.mp (Nat.le_zero.mp hcard)
+    subst hempty
+    exact ⟨∅, Finset.Subset.refl _, hW,
+      fun V' hV' => absurd hV' (Finset.not_ssubset_empty V')⟩
+  | succ n ih =>
+    intro W hcard hW
+    by_cases hex : ∃ V' ⊂ W, P V'
+    · obtain ⟨V', hss, hPV'⟩ := hex
+      have hcard' : V'.card ≤ n :=
+        Nat.lt_succ_iff.mp (lt_of_lt_of_le (Finset.card_lt_card hss) hcard)
+      obtain ⟨V, hVV', hPV, hmin⟩ := ih V' hcard' hPV'
+      exact ⟨V, hVV'.trans hss.subset, hPV, hmin⟩
+    · push Not at hex
+      exact ⟨W, Finset.Subset.refl _, hW, hex⟩
+
+/-- **Collapse to minimal worlds.** In an absorptive commutative
+m-semiring, for any predicate `P` on worlds that is monotone under
+supersets, the `T`-weighted possible-world provenance of the valid worlds
+inside `U` collapses to the `⊕`-sum of the monomials of the minimal valid
+worlds. This is the workhorse behind the tractable `COUNT ≥` and bounded-
+ratio `SUM ≥ / >` cases. -/
+theorem collapse_to_minimal (α : ι → K) (h_abs : absorptive K)
+    (U : Finset ι) {P : Finset ι → Prop} [DecidablePred P]
+    (hmono : ∀ ⦃W W'⦄, W ⊆ W' → P W → P W') :
+    ∑ W ∈ U.powerset.filter P, T α U W
+      = ∑ V ∈ (U.powerset.filter P).filter (fun V => ∀ V' ⊂ V, ¬ P V'), A α V := by
+  refine upward_closed_collapse α h_abs ?_ ?_ (Finset.filter_subset _ _) ?_
+  · exact fun W hW => Finset.mem_powerset.mp (Finset.mem_filter.mp hW).1
+  · intro W hW W' hWW' hW'U
+    exact Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hW'U,
+      hmono hWW' (Finset.mem_filter.mp hW).2⟩
+  · intro W hW
+    obtain ⟨hWU, hPW⟩ := Finset.mem_filter.mp hW
+    obtain ⟨V, hVW, hPV, hmin⟩ := exists_minimal_subset hPW
+    exact ⟨V, Finset.mem_filter.mpr
+      ⟨Finset.mem_filter.mpr
+        ⟨Finset.mem_powerset.mpr (hVW.trans (Finset.mem_powerset.mp hWU)), hPV⟩,
+       hmin⟩, hVW⟩
+
+/-- **`HAVING SUM(t) ≥ c` collapse.** Instance of `collapse_to_minimal`
+for the superset-monotone predicate `c ≤ ∑_{i ∈ W} t i` over `ℕ`-weights. -/
+theorem sum_ge_collapse (α : ι → K) (h_abs : absorptive K)
+    (U : Finset ι) (t : ι → ℕ) (c : ℕ) :
+    ∑ W ∈ U.powerset.filter (fun W => c ≤ ∑ i ∈ W, t i), T α U W
+      = ∑ V ∈ (U.powerset.filter (fun W => c ≤ ∑ i ∈ W, t i)).filter
+          (fun V => ∀ V' ⊂ V, ¬ (c ≤ ∑ i ∈ V', t i)), A α V :=
+  collapse_to_minimal α h_abs U fun _ _ hss h =>
+    h.trans (Finset.sum_le_sum_of_subset hss)
+
+/-- **`HAVING SUM(t) > c` collapse.** As `sum_ge_collapse`, for the strict
+comparison. -/
+theorem sum_gt_collapse (α : ι → K) (h_abs : absorptive K)
+    (U : Finset ι) (t : ι → ℕ) (c : ℕ) :
+    ∑ W ∈ U.powerset.filter (fun W => c < ∑ i ∈ W, t i), T α U W
+      = ∑ V ∈ (U.powerset.filter (fun W => c < ∑ i ∈ W, t i)).filter
+          (fun V => ∀ V' ⊂ V, ¬ (c < ∑ i ∈ V', t i)), A α V :=
+  collapse_to_minimal α h_abs U fun _ _ hss h =>
+    lt_of_lt_of_le h (Finset.sum_le_sum_of_subset hss)
+
+omit [DecidableEq ι] in
+/-- **Bounded ratio bounds the minimal worlds of `SUM(t) ≥ c`.** If every
+occurrence of the group satisfies `c ≤ k ⊗ t i` (read: `t i ≥ c / k`), then
+any minimal world with `∑ t ≥ c` has at most `k` occurrences: any `k`-subset
+already reaches the threshold (so the validity hypothesis on `W` itself is
+not even needed). -/
+theorem minimal_card_le_of_sum_ge {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
+    (hratio : ∀ i ∈ U, c ≤ k * t i) (hWU : W ⊆ U)
+    (_hW : c ≤ ∑ i ∈ W, t i) (hmin : ∀ W' ⊂ W, ¬ (c ≤ ∑ i ∈ W', t i)) :
+    W.card ≤ k := by
+  by_contra hcard
+  push Not at hcard
+  obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq (le_of_lt hcard)
+  have hss : W' ⊂ W := Finset.ssubset_iff_subset_ne.mpr
+    ⟨hW'W, fun h => by rw [h] at hW'card; omega⟩
+  refine hmin W' hss ?_
+  rcases Nat.eq_zero_or_pos k with rfl | hk
+  · obtain ⟨i, hiW⟩ := Finset.card_pos.mp (show 0 < W.card by omega)
+    have := hratio i (hWU hiW)
+    omega
+  · have hsum : k * c ≤ k * ∑ i ∈ W', t i := by
+      calc k * c = ∑ _i ∈ W', c := by
+            rw [Finset.sum_const_nat fun _ _ => rfl, hW'card]
+        _ ≤ ∑ i ∈ W', k * t i := Finset.sum_le_sum fun i hi => hratio i (hWU (hW'W hi))
+        _ = k * ∑ i ∈ W', t i := (Finset.mul_sum _ _ _).symm
+    exact Nat.le_of_mul_le_mul_left hsum hk
+
+omit [DecidableEq ι] in
+/-- **Bounded ratio bounds the minimal worlds of `SUM(t) > c`.** With the
+additional positivity `t i > 0` on the occurrences (needed when `c = 0`),
+any minimal world with `∑ t > c` has at most `k + 1` occurrences. -/
+theorem minimal_card_le_of_sum_gt {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
+    (hratio : ∀ i ∈ U, c ≤ k * t i) (hpos : ∀ i ∈ U, 0 < t i) (hWU : W ⊆ U)
+    (_hW : c < ∑ i ∈ W, t i) (hmin : ∀ W' ⊂ W, ¬ (c < ∑ i ∈ W', t i)) :
+    W.card ≤ k + 1 := by
+  by_contra hcard
+  push Not at hcard
+  obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq (le_of_lt hcard)
+  have hss : W' ⊂ W := Finset.ssubset_iff_subset_ne.mpr
+    ⟨hW'W, fun h => by rw [h] at hW'card; omega⟩
+  refine hmin W' hss ?_
+  obtain ⟨i, hiW'⟩ := Finset.card_pos.mp (show 0 < W'.card by omega)
+  have hipos : 0 < t i := hpos i (hWU (hW'W hiW'))
+  rcases Nat.eq_zero_or_pos c with rfl | hc
+  · exact lt_of_lt_of_le hipos
+      (Finset.single_le_sum (f := t) (fun _ _ => Nat.zero_le _) hiW')
+  · by_contra hnot
+    push Not at hnot
+    have h1 : (k + 1) * c ≤ k * ∑ i ∈ W', t i := by
+      calc (k + 1) * c = ∑ _i ∈ W', c := by
+            rw [Finset.sum_const_nat fun _ _ => rfl, hW'card]
+        _ ≤ ∑ j ∈ W', k * t j :=
+            Finset.sum_le_sum fun j hj => hratio j (hWU (hW'W hj))
+        _ = k * ∑ i ∈ W', t i := (Finset.mul_sum _ _ _).symm
+    have h2 : k * ∑ i ∈ W', t i ≤ k * c := Nat.mul_le_mul_left k hnot
+    have h13 := h1.trans h2
+    rw [Nat.add_mul, Nat.one_mul] at h13
+    omega
+
+/-- **Size of the `COUNT ≤ k` index set**: the worlds of cardinality at
+most `k` inside `U` number `∑_{i ≤ k} C(|U|, i)`. This is a statement about
+the number of terms of the possible-world `⊕`-sum, not about running
+time. -/
+theorem card_powerset_filter_card_le (U : Finset ι) (k : ℕ) :
+    (U.powerset.filter (fun W => W.card ≤ k)).card
+      = ∑ i ∈ Finset.range (k + 1), U.card.choose i := by
+  have hpart : U.powerset.filter (fun W => W.card ≤ k)
+      = (Finset.range (k + 1)).biUnion (fun i => U.powersetCard i) := by
+    ext W
+    simp only [Finset.mem_filter, Finset.mem_powerset, Finset.mem_biUnion,
+      Finset.mem_range, Finset.mem_powersetCard]
+    constructor
+    · rintro ⟨hWU, hcard⟩
+      exact ⟨W.card, by omega, hWU, rfl⟩
+    · rintro ⟨i, hik, hWU, hcard⟩
+      exact ⟨hWU, by omega⟩
+  rw [hpart, Finset.card_biUnion (fun i _ j _ hij => ?_)]
+  · exact Finset.sum_congr rfl fun i _ => Finset.card_powersetCard i U
+  · show Disjoint (Finset.powersetCard i U) (Finset.powersetCard j U)
+    rw [Finset.disjoint_left]
+    intro W hW hW'
+    rw [Finset.mem_powersetCard] at hW hW'
+    exact hij (by rw [← hW.2, hW'.2])
+
+/-- **Size of the collapsed `SUM(t) ≥ c` index set** under the bounded-
+ratio hypothesis: the minimal valid worlds number at most
+`∑_{i ≤ k} C(|U|, i)`. -/
+theorem card_minimal_sum_ge_le (U : Finset ι) (t : ι → ℕ) {c k : ℕ}
+    (hratio : ∀ i ∈ U, c ≤ k * t i) :
+    ((U.powerset.filter (fun W => c ≤ ∑ i ∈ W, t i)).filter
+        (fun V => ∀ V' ⊂ V, ¬ (c ≤ ∑ i ∈ V', t i))).card
+      ≤ ∑ i ∈ Finset.range (k + 1), U.card.choose i := by
+  rw [← card_powerset_filter_card_le U k]
+  refine Finset.card_le_card fun W hW => ?_
+  obtain ⟨hWF, hmin⟩ := Finset.mem_filter.mp hW
+  obtain ⟨hWU, hsum⟩ := Finset.mem_filter.mp hWF
+  exact Finset.mem_filter.mpr ⟨hWU,
+    minimal_card_le_of_sum_ge hratio (Finset.mem_powerset.mp hWU) hsum hmin⟩
 
 end Having
