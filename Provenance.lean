@@ -25,6 +25,9 @@ import Provenance.QueryAggregationHom
 /- HAVING algebraic identities -/
 import Provenance.Having
 
+/- Possible-world semantics of the fused Having operator -/
+import Provenance.HavingSemantics
+
 /- Scan-computable HAVING provenance for MIN, MAX and PICKFIRST -/
 import Provenance.HavingMinMax
 
@@ -43,6 +46,15 @@ import Provenance.CategoricalBlock
 /- Probability identities for HAVING aggregate comparisons under independence -/
 import Provenance.HavingProbability
 
+/- Worked examples: HAVING provenance collapse and Poisson-binomial probability -/
+import Provenance.HavingExample
+
+/- Query-level correctness of the fused Having operator vs the JOIN rewriting -/
+import Provenance.HavingQueryCorrectness
+
+/- Query-level counterexamples for the HAVING / JOIN correspondence -/
+import Provenance.HavingQueryCounterexamples
+
 /- Tseitin CNF encoding (equisatisfiability) -/
 import Provenance.Tseitin
 
@@ -56,6 +68,7 @@ import Provenance.HavingComplexity
 /- Various semirings -/
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
+import Provenance.Semirings.ChainFive
 import Provenance.Semirings.How
 import Provenance.Semirings.IntervalUnion
 import Provenance.Semirings.Lukasiewicz
@@ -144,7 +157,16 @@ the provenance-aware relational database system
   and `KTensor.sum_map_embed` helpers.
 - `Provenance.Having` – algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
-  and the upward-expansion bound
+  the upward-expansion bound, the upward-closed collapse
+  (`upward_closed_collapse`, `collapse_to_minimal`), and the index-set size facts
+- `Provenance.HavingSemantics` – the possible-world semantics of the fused
+  `Query.Having` operator (grouping + aggregate comparison) over annotated
+  databases: group-occurrence sequences, the bridge between subsequences and
+  `Finset`-of-positions worlds (`seqOf_sublist`, `sublist_eq_seqOf`,
+  `seqOf_injective`), the factored world annotation (`worldAnn`), the
+  predicate provenance (`havingProv`, `Query.evaluateHavingAnnotated`) with
+  its attachment to the query-free algebra (`havingProv_eq_prov`), and
+  Boolean combinations of aggregate comparisons (`HavingPred`)
 - `Provenance.HavingMinMax` – the `HAVING` aggregate comparisons whose validity
   is decided occurrence by occurrence: for `MIN`, `MAX` and `PICKFIRST`, and for
   all six comparison operators, the possible-world provenance of a group
@@ -189,10 +211,35 @@ the provenance-aware relational database system
   `HAVING`-style aggregate comparisons under contributor independence:
   given pairwise-disjoint contributor variable supports (so contributors
   are independent Bernoullis with marginals `p i = P.funcProb (α i)`),
-  the MAX / MIN factorisation formulas (`funcProb_maxLeOnNonempty` /
-  `funcProb_minGeOnNonempty`) and the COUNT / SUM Poisson-binomial-style
-  recurrences (`countMass_insert_zero` / `countMass_insert_succ` /
-  `sumMass_insert_of_le` / `sumMass_insert_of_lt`).
+  the MAX / MIN factorisation formulas for all six comparison operators
+  (`funcProb_maxLeOnNonempty` / `funcProb_minGeOnNonempty` and the
+  generic `funcProb_guardedSome` covering the remaining operators),
+  the COUNT / SUM Poisson-binomial-style recurrences
+  (`countMass_insert_zero` / `countMass_insert_succ` /
+  `sumMass_insert_of_le` / `sumMass_insert_of_lt`), and the CDF assembly
+  around them (`funcProb_count_filter`, empty-world mass `countMass_zero`,
+  and the shorter-tail identity `funcProb_count_ge_eq_absent_le`).
+- `Provenance.HavingExample` – worked examples on a three-occurrence group:
+  the `SUM ≥ 5` possible-world provenance in `𝔹[X]` and its collapse to
+  minimal worlds (both computed by kernel evaluation), and the
+  Poisson-binomial `Pr[COUNT(*) ≥ 2] = 7/24` computation via the
+  recurrence and CDF assembly.
+- `Provenance.HavingQueryCorrectness` – query-level correctness of the fused
+  `Having` operator against the JOIN-based rewriting, in absorptive
+  m-semirings with `⊗`-over-`⊖` distributivity: the `C = 1` case
+  (`Query.evaluateHavingAnnotated_count_ge_one`, the fused `COUNT(*) ≥ 1`
+  operator equals the duplicate-eliminated key projection) and the general
+  case (`Query.joinChain_count_correct`, the `C`-fold self-join chain with
+  a lexicographic occurrence-identifier tie-break gives every key the
+  `⊕`-sum of its `(C+1)`-element world monomials, the fused
+  `COUNT(*) ≥ C + 1` provenance), via the extensional characterisation
+  `groupByKey_eq_dedup_map` of duplicate elimination and the chain algebra
+  `chainAgg`/`esymm`
+- `Provenance.HavingQueryCounterexamples` – `decide`-checked counterexamples,
+  at the level of queries evaluated on concrete annotated databases, showing
+  that the HAVING / JOIN correspondence for `COUNT(*)` needs both
+  absorptivity (tropical over `ℤ ∪ {∞}`) and `⊗`-over-`⊖` distributivity
+  (`ChainFive`).
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,
@@ -232,13 +279,17 @@ the provenance-aware relational database system
   semiring
 - `Provenance.Semirings.Nat` – the counting m-semiring `ℕ`
 - `Provenance.Semirings.Tropical` – the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
-  `ℝ ∪ {∞}`; the `ℚ` instance is also used as a counterexample showing that the absorptive
-  hypothesis of `Having.F_eq_S` is genuinely required (idempotent + `⊗`-over-`⊖` distributive
+  `ℝ ∪ {∞}`; the `ℝ` instance is also used as a counterexample showing that the absorptive
+  hypothesis of `Having.F_eq_S` and of the `MIN`/`MAX`/`PICKFIRST` scan collapses
+  (`TropicalR.minScan_ne_prov`) is genuinely required (idempotent + `⊗`-over-`⊖` distributive
   is not enough)
 - `Provenance.Semirings.Viterbi` – the Viterbi m-semiring (max-times) over `[0,1]`
 - `Provenance.Semirings.MinMax` – the min-max semiring over any bounded linear order (security / access
   control semiring and dual fuzzy semiring)
 - `Provenance.Semirings.Lukasiewicz` – the Łukasiewicz (fuzzy logic) m-semiring over `ℚ ∩ [0,1]`
+- `Provenance.Semirings.ChainFive` – a five-element chain m-semiring, absorptive but without
+  `⊗`-over-`⊖` distributivity; witnesses that the distributivity hypothesis of
+  `Having.world_bound` (hence of the `HAVING count =`/`≤` identities) is genuinely required
 - `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` – intervals and finite unions of intervals over a dense
   linear order, used for temporal databases
 
