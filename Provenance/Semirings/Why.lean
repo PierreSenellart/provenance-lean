@@ -356,7 +356,7 @@ theorem Why.counterexample_having [Inhabited α] :
   have hsub : (⟨{{default}}⟩ : Why α) - ⟨{{default}}⟩ = 0 := by
     ext z
     show z ∈ (({{default}} : Set (Set α)) \ {{default}}) ↔ z ∈ (∅ : Set (Set α))
-    rw [Set.diff_self]
+    rw [Set.sdiff_self]
   simp only [hmul, hone, mul_one, haa, hsub]
   intro h
   have hcarr := congrArg Why.carrier h
