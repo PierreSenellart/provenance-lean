@@ -92,6 +92,20 @@ theorem monus_smallest [K : SemiringWithMonus α] :
       exact h
   }
 
+/-- **Uniqueness of monus.** The monus operation is determined by its
+adjunction property: any binary operation `s` satisfying
+`s a b ≤ c ↔ a ≤ b + c` coincides with `⊖`. Consequently, a naturally
+ordered semiring admits at most one monus operation. -/
+theorem monus_unique [K : SemiringWithMonus α] (s : α → α → α)
+    (hs : ∀ a b c : α, s a b ≤ c ↔ a ≤ b + c) :
+    ∀ a b : α, s a b = a - b := by
+  intro a b
+  apply le_antisymm
+  · rw [hs]
+    exact (monus_smallest a b).1
+  · rw [SemiringWithMonus.monus_spec]
+    exact (hs a b (s a b)).mp le_rfl
+
 /-- In a `SemiringWithMonus`, `δ 1 = 1`. -/
 theorem delta_one [K : SemiringWithMonus α] : K.delta 1 = 1 := by
   have h := K.delta_natCast_pos (n := 1) Nat.zero_lt_one
@@ -599,6 +613,16 @@ theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
 
 /-! ## Miscellaneous
 -/
+
+/-- On an arbitrary semiring the natural relation `a ≼ b ↔ ∃ c, b = a + c`
+is always a preorder (reflexive by `c = 0`, transitive by adding witnesses)
+but not always antisymmetric: on `ℤ`, any two elements are related in both
+directions, e.g. `0 ≼ 1 ≼ 0` with `0 ≠ 1`. This is why `SemiringWithMonus`
+*assumes* the canonically ordered structure instead of deriving an order
+from `+`. -/
+theorem natural_preorder_not_antisymm :
+    ∃ a b : ℤ, (∃ c, b = a + c) ∧ (∃ c, a = b + c) ∧ a ≠ b :=
+  ⟨0, 1, ⟨1, by omega⟩, ⟨-1, by omega⟩, by decide⟩
 
 class HasAltLinearOrder (α : Type u) where
   altOrder : LinearOrder α
