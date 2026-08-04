@@ -4,6 +4,7 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Tactic.Linarith
 
 import Provenance.Having
+import Provenance.HavingMinMax
 import Provenance.SemiringWithMonus
 import Provenance.Semirings.BoolFunc
 
@@ -232,6 +233,15 @@ noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℕ)) := infer
 /-- The tropical semiring over `ℚ ∪ {∞}` is a semiring with monus. -/
 noncomputable instance : SemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
 noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℚ)) := inferInstance
+
+/-- The tropical semiring over `ℤ ∪ {∞}` is a semiring with monus. Like
+the `ℚ` and `ℝ` variants it is idempotent and `⊗`-over-`⊖` distributive
+but not absorptive; unlike them its carrier is kernel-computable, which
+makes it the tropical semiring of choice for `decide`-checked
+counterexamples. -/
+noncomputable instance : SemiringWithMonus (Tropical (WithTop ℤ)) := inferInstance
+noncomputable instance : CommSemiringWithMonus (Tropical (WithTop ℤ)) := inferInstance
+instance : HasAltLinearOrder (Tropical (WithTop ℤ)) := ⟨inferInstance⟩
 
 /-- The tropical semiring over `ℝ ∪ {∞}` is a semiring with monus. Note
 that this contradicts [Geerts & Poggi, *On database query languages for
@@ -480,3 +490,63 @@ theorem TropicalR.F_ne_S :
   rw [TropicalR.F_ce_univ_one, TropicalR.S_ce_univ_one]
   intro h
   exact absurd (WithTop.coe_injective (Tropical.trop_injective h)) (by norm_num)
+
+namespace TropicalR
+
+/-- Counterexample aggregate term: the constant `t ≡ 0` on `Bool`. -/
+private noncomputable def t_ce : Bool → ℝ := fun _ => 0
+
+/-- On the counterexample instance, the possible-world provenance of
+`MIN(t) ≥ 0` sums over all non-empty worlds (the predicate holds
+everywhere since `t ≡ 0`), so it coincides with `F_1(U) = trop (-2)`. -/
+private theorem prov_min_ge_ce :
+    Having.prov α_ce (Finset.univ : Finset Bool)
+        (fun W => CompOp.ge.eval (Having.minAgg t_ce W) (((0 : ℝ) : WithTop ℝ)))
+      = Tropical.trop ((-2 : ℝ) : WithTop ℝ) := by
+  rw [← F_ce_univ_one]
+  show ∑ W ∈ _, _ = ∑ W ∈ _, _
+  refine Finset.sum_congr (Finset.filter_congr fun W _ => ?_) fun _ _ => rfl
+  have hP : CompOp.ge.eval (Having.minAgg t_ce W) (((0 : ℝ) : WithTop ℝ)) := by
+    show ((0 : ℝ) : WithTop ℝ) ≤ Having.minAgg t_ce W
+    rw [Having.le_minAgg_iff]
+    intro i _
+    simp [t_ce]
+  rw [Finset.one_le_card]
+  exact ⟨fun h => h.1, fun h => ⟨h, hP⟩⟩
+
+/-- On the counterexample instance, the `MIN` scan for `≥` returns
+`trop (-1)`: no occurrence has value `< 0`, so the scan degenerates to
+`𝟙 ⊗ (α true ⊕ α false) = trop (-1) ⊕ trop (-1) = trop (-1)`. -/
+private theorem minScan_ge_ce :
+    Having.minScan α_ce (Finset.univ : Finset Bool) t_ce CompOp.ge (0 : ℝ)
+      = Tropical.trop ((-1 : ℝ) : WithTop ℝ) := by
+  show (1 - ∑ x ∈ Finset.univ.filter (fun i => t_ce i < 0), α_ce x)
+      * ∑ i ∈ Finset.univ.filter (fun i => (0 : ℝ) ≤ t_ce i), α_ce i = _
+  have h₁ : (Finset.univ : Finset Bool).filter (fun i => t_ce i < 0) = ∅ :=
+    Finset.filter_false_of_mem (fun i _ => by simp [t_ce])
+  have h₂ : (Finset.univ : Finset Bool).filter (fun i => (0 : ℝ) ≤ t_ce i)
+      = Finset.univ :=
+    Finset.filter_true_of_mem (fun i _ => by simp [t_ce])
+  rw [h₁, h₂, Finset.sum_empty, monus_zero, one_mul,
+    show (Finset.univ : Finset Bool) = ({true, false} : Finset Bool) from by decide,
+    Finset.sum_pair (by decide : true ≠ false)]
+  exact Tropical.idempotent _
+
+/-- The `MIN`-scan collapse (`Having.minScan_correct`) fails in
+`Tropical (WithTop ℝ)`: on `U = {true, false}` with `α ≡ trop (-1)`,
+`t ≡ 0` and the predicate `MIN(t) ≥ 0`, the possible-world provenance is
+`trop (-2)` while the scan returns `trop (-1)`. This is the same instance
+as `TropicalR.F_ne_S`, and shows that the absorptivity hypothesis of
+`Having.minScan_correct` (and, by symmetry, of `Having.maxScan_correct`
+and `Having.firstScan_correct`) is genuinely required: the weaker
+"idempotent + `mul_sub_left_distributive`" combination satisfied by
+`Tropical (WithTop ℝ)` is insufficient. -/
+theorem minScan_ne_prov :
+    Having.prov α_ce (Finset.univ : Finset Bool)
+        (fun W => CompOp.ge.eval (Having.minAgg t_ce W) (((0 : ℝ) : WithTop ℝ)))
+      ≠ Having.minScan α_ce (Finset.univ : Finset Bool) t_ce CompOp.ge (0 : ℝ) := by
+  rw [prov_min_ge_ce, minScan_ge_ce]
+  intro h
+  exact absurd (WithTop.coe_injective (Tropical.trop_injective h)) (by norm_num)
+
+end TropicalR
