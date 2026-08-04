@@ -836,14 +836,22 @@ theorem sum_gt_collapse (α : ι → K) (h_abs : absorptive K)
 
 omit [DecidableEq ι] in
 /-- **Bounded ratio bounds the minimal worlds of `SUM(t) ≥ c`.** If every
-occurrence of the group satisfies `c ≤ k ⊗ t i` (read: `t i ≥ c / k`), then
-any minimal world with `∑ t ≥ c` has at most `k` occurrences: any `k`-subset
-already reaches the threshold (so the validity hypothesis on `W` itself is
-not even needed). -/
+occurrence of the group *with a nonzero value* satisfies `c ≤ k ⊗ t i`
+(read: `c / t i ≤ k`), then any minimal world with `∑ t ≥ c` has at most
+`k` occurrences: a zero-valued occurrence never belongs to a minimal
+world (removing it leaves the sum unchanged), and any `k`-subset of
+nonzero values already reaches the threshold. -/
 theorem minimal_card_le_of_sum_ge {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
-    (hratio : ∀ i ∈ U, c ≤ k * t i) (hWU : W ⊆ U)
+    (hratio : ∀ i ∈ U, t i ≠ 0 → c ≤ k * t i) (hWU : W ⊆ U)
     (_hW : c ≤ ∑ i ∈ W, t i) (hmin : ∀ W' ⊂ W, ¬ (c ≤ ∑ i ∈ W', t i)) :
     W.card ≤ k := by
+  classical
+  have hWnz : ∀ i ∈ W, t i ≠ 0 := by
+    intro i hiW hti
+    refine hmin (W.erase i) (Finset.erase_ssubset hiW) ?_
+    calc c ≤ ∑ j ∈ W, t j := _hW
+      _ = ∑ j ∈ W.erase i, t j := by
+          rw [← Finset.add_sum_erase W t hiW, hti, Nat.zero_add]
   by_contra hcard
   push Not at hcard
   obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq (le_of_lt hcard)
@@ -852,23 +860,34 @@ theorem minimal_card_le_of_sum_ge {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
   refine hmin W' hss ?_
   rcases Nat.eq_zero_or_pos k with rfl | hk
   · obtain ⟨i, hiW⟩ := Finset.card_pos.mp (show 0 < W.card by omega)
-    have := hratio i (hWU hiW)
+    have := hratio i (hWU hiW) (hWnz i hiW)
     omega
   · have hsum : k * c ≤ k * ∑ i ∈ W', t i := by
       calc k * c = ∑ _i ∈ W', c := by
             rw [Finset.sum_const_nat fun _ _ => rfl, hW'card]
-        _ ≤ ∑ i ∈ W', k * t i := Finset.sum_le_sum fun i hi => hratio i (hWU (hW'W hi))
+        _ ≤ ∑ i ∈ W', k * t i := Finset.sum_le_sum fun i hi =>
+            hratio i (hWU (hW'W hi)) (hWnz i (hW'W hi))
         _ = k * ∑ i ∈ W', t i := (Finset.mul_sum _ _ _).symm
     exact Nat.le_of_mul_le_mul_left hsum hk
 
 omit [DecidableEq ι] in
-/-- **Bounded ratio bounds the minimal worlds of `SUM(t) > c`.** With the
-additional positivity `t i > 0` on the occurrences (needed when `c = 0`),
-any minimal world with `∑ t > c` has at most `k + 1` occurrences. -/
+/-- **Bounded ratio bounds the minimal worlds of `SUM(t) > c`.** If every
+occurrence of the group *with a nonzero value* satisfies `c ≤ k ⊗ t i`,
+then any minimal world with `∑ t > c` has at most `k + 1` occurrences: a
+zero-valued occurrence never belongs to a minimal world, `k` nonzero
+values reach `c`, and one further nonzero value makes the comparison
+strict (which also covers the boundary case `c = 0`). -/
 theorem minimal_card_le_of_sum_gt {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
-    (hratio : ∀ i ∈ U, c ≤ k * t i) (hpos : ∀ i ∈ U, 0 < t i) (hWU : W ⊆ U)
+    (hratio : ∀ i ∈ U, t i ≠ 0 → c ≤ k * t i) (hWU : W ⊆ U)
     (_hW : c < ∑ i ∈ W, t i) (hmin : ∀ W' ⊂ W, ¬ (c < ∑ i ∈ W', t i)) :
     W.card ≤ k + 1 := by
+  classical
+  have hWnz : ∀ i ∈ W, t i ≠ 0 := by
+    intro i hiW hti
+    refine hmin (W.erase i) (Finset.erase_ssubset hiW) ?_
+    calc c < ∑ j ∈ W, t j := _hW
+      _ = ∑ j ∈ W.erase i, t j := by
+          rw [← Finset.add_sum_erase W t hiW, hti, Nat.zero_add]
   by_contra hcard
   push Not at hcard
   obtain ⟨W', hW'W, hW'card⟩ := Finset.exists_subset_card_eq (le_of_lt hcard)
@@ -876,7 +895,7 @@ theorem minimal_card_le_of_sum_gt {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
     ⟨hW'W, fun h => by rw [h] at hW'card; omega⟩
   refine hmin W' hss ?_
   obtain ⟨i, hiW'⟩ := Finset.card_pos.mp (show 0 < W'.card by omega)
-  have hipos : 0 < t i := hpos i (hWU (hW'W hiW'))
+  have hipos : 0 < t i := Nat.pos_of_ne_zero (hWnz i (hW'W hiW'))
   rcases Nat.eq_zero_or_pos c with rfl | hc
   · exact lt_of_lt_of_le hipos
       (Finset.single_le_sum (f := t) (fun _ _ => Nat.zero_le _) hiW')
@@ -886,7 +905,8 @@ theorem minimal_card_le_of_sum_gt {t : ι → ℕ} {c k : ℕ} {U W : Finset ι}
       calc (k + 1) * c = ∑ _i ∈ W', c := by
             rw [Finset.sum_const_nat fun _ _ => rfl, hW'card]
         _ ≤ ∑ j ∈ W', k * t j :=
-            Finset.sum_le_sum fun j hj => hratio j (hWU (hW'W hj))
+            Finset.sum_le_sum fun j hj =>
+              hratio j (hWU (hW'W hj)) (hWnz j (hW'W hj))
         _ = k * ∑ i ∈ W', t i := (Finset.mul_sum _ _ _).symm
     have h2 : k * ∑ i ∈ W', t i ≤ k * c := Nat.mul_le_mul_left k hnot
     have h13 := h1.trans h2
@@ -922,7 +942,7 @@ theorem card_powerset_filter_card_le (U : Finset ι) (k : ℕ) :
 ratio hypothesis: the minimal valid worlds number at most
 `∑_{i ≤ k} C(|U|, i)`. -/
 theorem card_minimal_sum_ge_le (U : Finset ι) (t : ι → ℕ) {c k : ℕ}
-    (hratio : ∀ i ∈ U, c ≤ k * t i) :
+    (hratio : ∀ i ∈ U, t i ≠ 0 → c ≤ k * t i) :
     ((U.powerset.filter (fun W => c ≤ ∑ i ∈ W, t i)).filter
         (fun V => ∀ V' ⊂ V, ¬ (c ≤ ∑ i ∈ V', t i))).card
       ≤ ∑ i ∈ Finset.range (k + 1), U.card.choose i := by
