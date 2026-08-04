@@ -175,6 +175,83 @@ theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finse
     · rintro ⟨hSU, hcard, _⟩
       exact ⟨S, hSU, hcard, by simp⟩
 
+/-- The enumeration `combinations` contains no duplicate subset. As in
+`combinations_mem`, the disjointness of the accumulator and the suffix list
+is preserved through the recursion; the two recursive calls produce sets
+that differ on membership of the head `u`. -/
+theorem combinations_nodup :
+    ∀ (occs : List α), occs.Nodup →
+    ∀ (x : ℕ) (W : Finset α), Disjoint W occs.toFinset →
+      (combinations occs x W).Nodup := by
+  intro occs hnodup x
+  induction occs generalizing x with
+  | nil =>
+    intro W _
+    cases x with
+    | zero => simp [combinations]
+    | succ x => simp [combinations]
+  | cons u rest ih =>
+    intro W hdisj
+    have hunodup : u ∉ rest := (List.nodup_cons.mp hnodup).1
+    have hrestnodup : rest.Nodup := (List.nodup_cons.mp hnodup).2
+    cases x with
+    | zero => simp [combinations]
+    | succ x =>
+      have huW : u ∉ W := fun hu =>
+        Finset.disjoint_left.mp hdisj hu (by simp)
+      have hdisj₁ : Disjoint W rest.toFinset := by
+        rw [Finset.disjoint_left] at hdisj ⊢
+        intro v hv hvr
+        exact hdisj hv (by simp [hvr])
+      have hdisj₂ : Disjoint (insert u W) rest.toFinset := by
+        rw [Finset.disjoint_left]
+        intro v hv hvr
+        rcases Finset.mem_insert.mp hv with rfl | hvW
+        · exact hunodup (List.mem_toFinset.mp hvr)
+        · exact Finset.disjoint_left.mp hdisj₁ hvW hvr
+      simp only [combinations]
+      rw [List.nodup_append]
+      refine ⟨ih hrestnodup (x + 1) W hdisj₁,
+        ih hrestnodup x (insert u W) hdisj₂, ?_⟩
+      intro S hS S' hS'
+      obtain ⟨T, hT, -, rfl⟩ :=
+        (combinations_mem rest hrestnodup (x + 1) W hdisj₁ S).mp hS
+      obtain ⟨T', hT', -, rfl⟩ :=
+        (combinations_mem rest hrestnodup x (insert u W) hdisj₂ S').mp hS'
+      have hu₁ : u ∉ W ∪ T := fun hu => by
+        rcases Finset.mem_union.mp hu with h | h
+        · exact huW h
+        · exact hunodup (List.mem_toFinset.mp (hT h))
+      exact fun heq =>
+        hu₁ (heq ▸ Finset.mem_union.mpr (Or.inl (Finset.mem_insert_self u W)))
+
+/-- The enumeration `addExact` contains no duplicate subset. -/
+theorem addExact_nodup (occs : List α) (hnodup : occs.Nodup) (x : ℕ) :
+    (addExact occs x).Nodup := by
+  unfold addExact
+  split_ifs with hx
+  · exact List.nodup_nil
+  · exact combinations_nodup occs hnodup x ∅ (by simp)
+
+/-- The top-level enumeration `countEnum` contains no duplicate subset:
+within one bucket `x` by `addExact_nodup`, and across buckets because a
+subset in bucket `x` has cardinality exactly `x`. This is not cosmetic: the
+provenance attached to the enumeration is the `⊕`-sum of the world
+annotations over the returned list, and in a non-idempotent m-semiring a
+duplicated world would change the value. -/
+theorem countEnum_nodup (occs : List α) (hnodup : occs.Nodup) (C : ℕ)
+    (op : CompOp) : (countEnum occs C op).Nodup := by
+  unfold countEnum
+  rw [List.nodup_flatMap]
+  refine ⟨fun x _ => addExact_nodup occs hnodup x, ?_⟩
+  have hpw : ((List.range (occs.length + 1)).filter
+      (fun x => decide (op.eval x C))).Pairwise (· ≠ ·) :=
+    (List.nodup_range).filter _
+  refine hpw.imp fun {x₁ x₂} hne S hS₁ hS₂ => hne ?_
+  have h₁ := ((addExact_mem occs hnodup x₁ S).mp hS₁).2.1
+  have h₂ := ((addExact_mem occs hnodup x₂ S).mp hS₂).2.1
+  omega
+
 /-- **Correctness of `countEnum`.** For a list `occs` of distinct occurrences, a constant `C : ℕ`,
 and a comparison operator `op`, the list `countEnum occs C op`
 enumerates exactly the non-empty subsets `S ⊆ occs.toFinset` whose
