@@ -6,6 +6,7 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Algebra.BigOperators.Ring.Finset
 import Mathlib.Data.Finset.Union
 import Provenance.Circuit
+import Provenance.HavingSemantics
 import Provenance.Probability
 import Provenance.Semirings.BoolFunc
 
@@ -141,6 +142,28 @@ theorem funcProb_prod_disjoint (P : ProbAssignment X)
       intro j hj
       exact hdisj (Set.mem_univ i) (Set.mem_univ j) (fun heq => hi (heq ▸ hj))
     rw [P.funcProb_mul_disjoint (hdep i) hprod hdisj_si, ih]
+
+/-- Additivity over pairwise-incompatible events: the probability of a
+`⊕`-sum (pointwise OR) of Boolean functions whose pairwise products vanish
+is the sum of the probabilities. -/
+theorem funcProb_sum_incompatible (P : ProbAssignment X)
+    {ι : Type} [DecidableEq ι]
+    (β : ι → BoolFunc X) (J : Finset ι)
+    (hpair : ∀ i ∈ J, ∀ j ∈ J, i ≠ j → β i * β j = 0) :
+    P.funcProb (∑ i ∈ J, β i) = ∑ i ∈ J, P.funcProb (β i) := by
+  classical
+  induction J using Finset.induction with
+  | empty => rw [Finset.sum_empty, Finset.sum_empty, P.funcProb_zero]
+  | insert i J hi ih =>
+    rw [Finset.sum_insert hi, Finset.sum_insert hi]
+    have hmulzero : β i * ∑ j ∈ J, β j = 0 := by
+      rw [Finset.mul_sum]
+      refine Finset.sum_eq_zero fun j hj => ?_
+      exact hpair i (Finset.mem_insert_self i J) j (Finset.mem_insert_of_mem hj)
+        (fun heq => hi (heq ▸ hj))
+    rw [P.funcProb_add_eq, hmulzero, P.funcProb_zero, sub_zero,
+      ih fun a ha b hb hab => hpair a (Finset.mem_insert_of_mem ha)
+        b (Finset.mem_insert_of_mem hb) hab]
 
 end ProbAssignment
 
@@ -862,5 +885,960 @@ theorem sumMass_insert_of_lt
       P.funcProb_sub_self_const_one]
 
 end Sum
+
+/-! ## The remaining MIN / MAX comparison operators
+
+`funcProb_maxLeOnNonempty` and `funcProb_minGeOnNonempty` treat `MAX ≤ C`
+and `MIN ≥ C`. The remaining comparisons all follow from two generic
+events: `guardedSome r q` – "no present contributor satisfies `r`, and
+some present contributor satisfies `q`" – and its unguarded special case
+`someOf q`. Under the disjoint-supports hypothesis, their probabilities
+factor exactly as before, and each remaining comparison is an instance:
+
+* `MAX < C` – guard `r i := C ≤ t i`, witness `q i := t i < C`;
+* `MAX = C` – guard `r i := C < t i`, witness `q i := t i = C`;
+* `MAX ≥ C` / `MAX > C` – unguarded witness `q i := C ≤ t i` / `C < t i`
+  (non-emptiness is implied by the witness);
+* `MAX ≠ C` on non-empty worlds – the disjoint union of `MAX < C` and
+  `MAX > C`, whose probabilities add;
+
+and dually for `MIN`. -/
+
+/-- Pointwise evaluation of `1 - f`: Boolean negation. -/
+lemma one_sub_eval (f : BoolFunc X) (v : X → Bool) : (1 - f) v = !(f v) := rfl
+
+section Guarded
+
+variable (r q : ι → Prop) [DecidablePred r] [DecidablePred q]
+
+/-- "No present contributor satisfies `r`": AND of the negated indicators
+over the contributors satisfying `r`. -/
+def noneOf : BoolFunc X :=
+  ∏ i ∈ Finset.univ.filter r, (1 - α i)
+
+/-- "Some present contributor satisfies `q`": OR of the indicators over the
+contributors satisfying `q`, expressed as `1 - ∏ (1 - α i)`. -/
+def someOf : BoolFunc X :=
+  1 - ∏ i ∈ Finset.univ.filter q, (1 - α i)
+
+/-- "No present contributor satisfies `r`, and some present contributor
+satisfies `q`". Every `MIN`/`MAX` aggregate comparison on non-empty random
+worlds is an instance of this event. -/
+def guardedSome : BoolFunc X :=
+  noneOf α r * someOf α q
+
+/-- Semantic reading of `noneOf`. -/
+lemma noneOf_eval_iff (v : X → Bool) :
+    (noneOf α r) v = true ↔ ∀ i, r i → α i v = false := by
+  unfold noneOf
+  rw [prod_eval_eq_true_iff]
+  constructor
+  · intro h i hri
+    have := h i (Finset.mem_filter.mpr ⟨Finset.mem_univ i, hri⟩)
+    rwa [one_sub_eval, Bool.not_eq_eq_eq_not, Bool.not_true] at this
+  · intro h i hi
+    rw [one_sub_eval, h i (Finset.mem_filter.mp hi).2]
+    rfl
+
+/-- Semantic reading of `someOf`. -/
+lemma someOf_eval_iff (v : X → Bool) :
+    (someOf α q) v = true ↔ ∃ i, q i ∧ α i v = true := by
+  unfold someOf
+  rw [one_sub_eval, Bool.not_eq_eq_eq_not, Bool.not_true]
+  constructor
+  · intro h
+    by_contra hne
+    push Not at hne
+    have hall : ∀ i ∈ Finset.univ.filter q, (1 - α i) v = true := by
+      intro i hi
+      rw [one_sub_eval, Bool.not_eq_eq_eq_not, Bool.not_true]
+      cases hα : α i v with
+      | false => rfl
+      | true => exact absurd hα (hne i (Finset.mem_filter.mp hi).2)
+    rw [(prod_eval_eq_true_iff _ _ _).mpr hall] at h
+    exact Bool.noConfusion h
+  · rintro ⟨i, hqi, hαi⟩
+    cases hp : (∏ i ∈ Finset.univ.filter q, (1 - α i)) v with
+    | false => rfl
+    | true =>
+      have := (prod_eval_eq_true_iff _ _ _).mp hp i
+        (Finset.mem_filter.mpr ⟨Finset.mem_univ i, hqi⟩)
+      rw [one_sub_eval, hαi] at this
+      exact Bool.noConfusion this
+
+/-- Semantic reading of `guardedSome`. -/
+lemma guardedSome_eval_iff (v : X → Bool) :
+    (guardedSome α r q) v = true ↔
+      (∀ i, r i → α i v = false) ∧ (∃ i, q i ∧ α i v = true) := by
+  show ((noneOf α r) v && (someOf α q) v) = true ↔ _
+  rw [Bool.and_eq_true, noneOf_eval_iff, someOf_eval_iff]
+
+variable (S : ι → Finset X)
+
+/-- Probability of `noneOf` under independence. -/
+lemma funcProb_noneOf
+    (hdep : ∀ i, (α i).DependsOn (S i))
+    (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) :
+    P.funcProb (noneOf α r) =
+      ∏ i ∈ Finset.univ.filter r, (1 - P.funcProb (α i)) := by
+  unfold noneOf
+  rw [P.funcProb_prod_disjoint (fun i => 1 - α i) S
+        (fun i => (hdep i).one_sub) hdisj]
+  exact Finset.prod_congr rfl fun i _ => P.funcProb_sub_self_const_one (α i)
+
+/-- Probability of `someOf` under independence. -/
+lemma funcProb_someOf
+    (hdep : ∀ i, (α i).DependsOn (S i))
+    (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) :
+    P.funcProb (someOf α q) =
+      1 - ∏ i ∈ Finset.univ.filter q, (1 - P.funcProb (α i)) := by
+  unfold someOf
+  rw [P.funcProb_sub_self_const_one,
+      P.funcProb_prod_disjoint (fun i => 1 - α i) S
+        (fun i => (hdep i).one_sub) hdisj]
+  congr 1
+  exact Finset.prod_congr rfl fun i _ => P.funcProb_sub_self_const_one (α i)
+
+/-- **Factorisation of `guardedSome` under independence.** When the guard
+`r` and the witness `q` are mutually exclusive, the probability of
+`guardedSome r q` is the product of an "every `r`-contributor is absent"
+term and a "some `q`-contributor is present" term. -/
+theorem funcProb_guardedSome
+    (hdep : ∀ i, (α i).DependsOn (S i))
+    (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
+    (hrq : ∀ i, r i → q i → False) :
+    P.funcProb (guardedSome α r q) =
+      (∏ i ∈ Finset.univ.filter r, (1 - P.funcProb (α i)))
+        * (1 - ∏ i ∈ Finset.univ.filter q, (1 - P.funcProb (α i))) := by
+  unfold guardedSome
+  have h_r : (noneOf α r).DependsOn ((Finset.univ.filter r).biUnion S) := by
+    unfold noneOf
+    exact BoolFunc.DependsOn.prod (fun i => (hdep i).one_sub) _
+  have h_q : (someOf α q).DependsOn ((Finset.univ.filter q).biUnion S) := by
+    unfold someOf
+    exact (BoolFunc.DependsOn.prod (fun i => (hdep i).one_sub) _).one_sub
+  have h_disj :
+      Disjoint ((Finset.univ.filter r).biUnion S)
+               ((Finset.univ.filter q).biUnion S) := by
+    rw [Finset.disjoint_biUnion_left]
+    intro i hi
+    rw [Finset.disjoint_biUnion_right]
+    intro j hj
+    have hij : i ≠ j := fun heq =>
+      hrq i (Finset.mem_filter.mp hi).2 (heq ▸ (Finset.mem_filter.mp hj).2)
+    exact hdisj (Set.mem_univ i) (Set.mem_univ j) hij
+  rw [P.funcProb_mul_disjoint h_r h_q h_disj,
+      funcProb_noneOf P α r S hdep hdisj,
+      funcProb_someOf P α q S hdep hdisj]
+
+end Guarded
+
+section MaxMinRemaining
+
+variable {V : Type} [LinearOrder V] (t : ι → V)
+
+/-- "Non-empty random world with `MAX(t) < C`". -/
+def maxLtOnNonempty (C : V) : BoolFunc X :=
+  guardedSome α (fun i => C ≤ t i) (fun i => t i < C)
+
+/-- "Non-empty random world with `MAX(t) = C`". -/
+def maxEqOnNonempty (C : V) : BoolFunc X :=
+  guardedSome α (fun i => C < t i) (fun i => t i = C)
+
+/-- "Random world with `MAX(t) > C`" (such a world is non-empty). -/
+def someAbove (C : V) : BoolFunc X :=
+  someOf α (fun i => C < t i)
+
+/-- "Random world with `MAX(t) < C`" (such a world is non-empty). -/
+def someBelow (C : V) : BoolFunc X :=
+  someOf α (fun i => t i < C)
+
+/-- "Non-empty random world with `MAX(t) ≠ C`": disjoint union of
+`MAX < C` and `MAX > C`. -/
+def maxNeOnNonempty (C : V) : BoolFunc X :=
+  maxLtOnNonempty α t C + someAbove α t C
+
+/-- "Non-empty random world with `MIN(t) > C`". -/
+def minGtOnNonempty (C : V) : BoolFunc X :=
+  guardedSome α (fun i => t i ≤ C) (fun i => C < t i)
+
+/-- "Non-empty random world with `MIN(t) = C`". -/
+def minEqOnNonempty (C : V) : BoolFunc X :=
+  guardedSome α (fun i => t i < C) (fun i => t i = C)
+
+/-- "Non-empty random world with `MIN(t) ≠ C`": disjoint union of
+`MIN < C` (i.e. some contributor below `C` is present) and `MIN > C`. -/
+def minNeOnNonempty (C : V) : BoolFunc X :=
+  minGtOnNonempty α t C + someBelow α t C
+
+/-- Semantic reading of `maxLtOnNonempty`. -/
+theorem maxLtOnNonempty_eval_iff (C : V) (v : X → Bool) :
+    (maxLtOnNonempty α t C) v = true ↔
+      (∃ i, α i v = true) ∧ ∀ i, α i v = true → t i < C := by
+  rw [maxLtOnNonempty, guardedSome_eval_iff]
+  constructor
+  · rintro ⟨hall, i, -, hαi⟩
+    refine ⟨⟨i, hαi⟩, fun j hαj => ?_⟩
+    by_contra hnot
+    rw [hall j (not_lt.mp hnot)] at hαj
+    exact Bool.noConfusion hαj
+  · rintro ⟨⟨i, hαi⟩, hall⟩
+    refine ⟨fun j hrj => ?_, i, hall i hαi, hαi⟩
+    cases hα : α j v with
+    | false => rfl
+    | true => exact absurd (hall j hα) (not_lt.mpr hrj)
+
+/-- Semantic reading of `maxEqOnNonempty`: no present contributor exceeds
+`C` and some present contributor attains it. -/
+theorem maxEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
+    (maxEqOnNonempty α t C) v = true ↔
+      (∀ i, α i v = true → t i ≤ C) ∧ ∃ i, t i = C ∧ α i v = true := by
+  rw [maxEqOnNonempty, guardedSome_eval_iff]
+  constructor
+  · rintro ⟨hall, hex⟩
+    refine ⟨fun j hαj => ?_, hex⟩
+    by_contra hnot
+    rw [hall j (not_le.mp hnot)] at hαj
+    exact Bool.noConfusion hαj
+  · rintro ⟨hall, hex⟩
+    refine ⟨fun j hrj => ?_, hex⟩
+    cases hα : α j v with
+    | false => rfl
+    | true => exact absurd (hall j hα) (not_le.mpr hrj)
+
+/-- Semantic reading of `minGtOnNonempty`. -/
+theorem minGtOnNonempty_eval_iff (C : V) (v : X → Bool) :
+    (minGtOnNonempty α t C) v = true ↔
+      (∃ i, α i v = true) ∧ ∀ i, α i v = true → C < t i := by
+  rw [minGtOnNonempty, guardedSome_eval_iff]
+  constructor
+  · rintro ⟨hall, i, -, hαi⟩
+    refine ⟨⟨i, hαi⟩, fun j hαj => ?_⟩
+    by_contra hnot
+    rw [hall j (not_lt.mp hnot)] at hαj
+    exact Bool.noConfusion hαj
+  · rintro ⟨⟨i, hαi⟩, hall⟩
+    refine ⟨fun j hrj => ?_, i, hall i hαi, hαi⟩
+    cases hα : α j v with
+    | false => rfl
+    | true => exact absurd (hall j hα) (not_lt.mpr hrj)
+
+/-- Semantic reading of `minEqOnNonempty`: no present contributor is below
+`C` and some present contributor attains it. -/
+theorem minEqOnNonempty_eval_iff (C : V) (v : X → Bool) :
+    (minEqOnNonempty α t C) v = true ↔
+      (∀ i, α i v = true → C ≤ t i) ∧ ∃ i, t i = C ∧ α i v = true := by
+  rw [minEqOnNonempty, guardedSome_eval_iff]
+  constructor
+  · rintro ⟨hall, hex⟩
+    refine ⟨fun j hαj => ?_, hex⟩
+    by_contra hnot
+    rw [hall j (not_le.mp hnot)] at hαj
+    exact Bool.noConfusion hαj
+  · rintro ⟨hall, hex⟩
+    refine ⟨fun j hrj => ?_, hex⟩
+    cases hα : α j v with
+    | false => rfl
+    | true => exact absurd (hall j hα) (not_le.mpr hrj)
+
+variable (S : ι → Finset X)
+variable (hdep : ∀ i, (α i).DependsOn (S i))
+variable (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
+
+include hdep hdisj
+
+/-- **`MAX < C` factorisation under independence.** -/
+theorem funcProb_maxLtOnNonempty (C : V) :
+    P.funcProb (maxLtOnNonempty α t C) =
+      (∏ i ∈ Finset.univ.filter (fun i => C ≤ t i),
+          (1 - P.funcProb (α i)))
+        * (1 - ∏ i ∈ Finset.univ.filter (fun i => t i < C),
+            (1 - P.funcProb (α i))) :=
+  funcProb_guardedSome P α _ _ S hdep hdisj
+    (fun _ h1 h2 => absurd h2 (not_lt.mpr h1))
+
+/-- **`MAX = C` factorisation under independence.** -/
+theorem funcProb_maxEqOnNonempty (C : V) :
+    P.funcProb (maxEqOnNonempty α t C) =
+      (∏ i ∈ Finset.univ.filter (fun i => C < t i),
+          (1 - P.funcProb (α i)))
+        * (1 - ∏ i ∈ Finset.univ.filter (fun i => t i = C),
+            (1 - P.funcProb (α i))) :=
+  funcProb_guardedSome P α _ _ S hdep hdisj
+    (fun _ h1 h2 => absurd (h2 ▸ h1) (lt_irrefl _))
+
+/-- **`MAX > C` under independence**: the complement of "every contributor
+above `C` is absent". -/
+theorem funcProb_someAbove (C : V) :
+    P.funcProb (someAbove α t C) =
+      1 - ∏ i ∈ Finset.univ.filter (fun i => C < t i),
+        (1 - P.funcProb (α i)) :=
+  funcProb_someOf P α _ S hdep hdisj
+
+/-- **`MIN < C` (equivalently `MAX`-dual) under independence**: the
+complement of "every contributor below `C` is absent". -/
+theorem funcProb_someBelow (C : V) :
+    P.funcProb (someBelow α t C) =
+      1 - ∏ i ∈ Finset.univ.filter (fun i => t i < C),
+        (1 - P.funcProb (α i)) :=
+  funcProb_someOf P α _ S hdep hdisj
+
+/-- **`MIN > C` factorisation under independence.** -/
+theorem funcProb_minGtOnNonempty (C : V) :
+    P.funcProb (minGtOnNonempty α t C) =
+      (∏ i ∈ Finset.univ.filter (fun i => t i ≤ C),
+          (1 - P.funcProb (α i)))
+        * (1 - ∏ i ∈ Finset.univ.filter (fun i => C < t i),
+            (1 - P.funcProb (α i))) :=
+  funcProb_guardedSome P α _ _ S hdep hdisj
+    (fun _ h1 h2 => absurd h1 (not_le.mpr h2))
+
+/-- **`MIN = C` factorisation under independence.** -/
+theorem funcProb_minEqOnNonempty (C : V) :
+    P.funcProb (minEqOnNonempty α t C) =
+      (∏ i ∈ Finset.univ.filter (fun i => t i < C),
+          (1 - P.funcProb (α i)))
+        * (1 - ∏ i ∈ Finset.univ.filter (fun i => t i = C),
+            (1 - P.funcProb (α i))) :=
+  funcProb_guardedSome P α _ _ S hdep hdisj
+    (fun _ h1 h2 => absurd (h2 ▸ h1) (lt_irrefl _))
+
+omit hdep hdisj in
+/-- The events `MAX < C` (on non-empty worlds) and `MAX > C` are
+incompatible: their product is the `𝟘` function. -/
+lemma maxLt_mul_someAbove_eq_zero (C : V) :
+    maxLtOnNonempty α t C * someAbove α t C = 0 := by
+  funext v
+  show ((maxLtOnNonempty α t C) v && (someAbove α t C) v) = (0 : BoolFunc X) v
+  cases hlt : (maxLtOnNonempty α t C) v with
+  | false => rfl
+  | true =>
+    rw [Bool.true_and]
+    obtain ⟨-, hall⟩ := (maxLtOnNonempty_eval_iff α t C v).mp hlt
+    cases hab : (someAbove α t C) v with
+    | false => rfl
+    | true =>
+      obtain ⟨i, hCi, hαi⟩ := (someOf_eval_iff α _ v).mp hab
+      exact absurd (hall i hαi) (not_lt.mpr (le_of_lt hCi))
+
+omit hdep hdisj in
+/-- The events `MIN > C` (on non-empty worlds) and `MIN < C` are
+incompatible: their product is the `𝟘` function. -/
+lemma minGt_mul_someBelow_eq_zero (C : V) :
+    minGtOnNonempty α t C * someBelow α t C = 0 := by
+  funext v
+  show ((minGtOnNonempty α t C) v && (someBelow α t C) v) = (0 : BoolFunc X) v
+  cases hgt : (minGtOnNonempty α t C) v with
+  | false => rfl
+  | true =>
+    rw [Bool.true_and]
+    obtain ⟨-, hall⟩ := (minGtOnNonempty_eval_iff α t C v).mp hgt
+    cases hab : (someBelow α t C) v with
+    | false => rfl
+    | true =>
+      obtain ⟨i, hCi, hαi⟩ := (someOf_eval_iff α _ v).mp hab
+      exact absurd (hall i hαi) (not_lt.mpr (le_of_lt hCi))
+
+/-- **`MAX ≠ C` on non-empty worlds under independence**: probabilities of
+the two disjoint cases `MAX < C` and `MAX > C` add. -/
+theorem funcProb_maxNeOnNonempty (C : V) :
+    P.funcProb (maxNeOnNonempty α t C) =
+      P.funcProb (maxLtOnNonempty α t C) + P.funcProb (someAbove α t C) := by
+  rw [maxNeOnNonempty, P.funcProb_add_eq,
+    maxLt_mul_someAbove_eq_zero α t C, P.funcProb_zero, sub_zero]
+
+/-- **`MIN ≠ C` on non-empty worlds under independence**: probabilities of
+the two disjoint cases `MIN > C` and `MIN < C` add. -/
+theorem funcProb_minNeOnNonempty (C : V) :
+    P.funcProb (minNeOnNonempty α t C) =
+      P.funcProb (minGtOnNonempty α t C) + P.funcProb (someBelow α t C) := by
+  rw [minNeOnNonempty, P.funcProb_add_eq,
+    minGt_mul_someBelow_eq_zero α t C, P.funcProb_zero, sub_zero]
+
+end MaxMinRemaining
+
+/-! ## CDF assembly for COUNT
+
+The recurrences `countMass_insert_zero` / `countMass_insert_succ` compute
+the point masses `ρ_J(j)`. The results below assemble them into the
+probability of an arbitrary comparison: the satisfying counts form a
+subset of `{0, …, |J|}` (an interval, for the six comparison operators)
+and the corresponding point masses add; the empty-world mass is
+`∏ (1 - p i)`; and the upper tail can be computed as a lower tail of the
+complemented contributors (`Pr[B ≥ C] = Pr[B' ≤ N − C]`), which is the
+shorter of the two summations when `C > N/2`. -/
+
+section CountCDF
+
+/-- Pointwise evaluation of a `Finset.sum` of `BoolFunc`s: the sum (OR)
+evaluates to `true` iff some summand does. -/
+lemma sum_eval_eq_true_iff {ι' : Type} [DecidableEq ι']
+    (J : Finset ι') (β : ι' → BoolFunc X) (v : X → Bool) :
+    (∑ i ∈ J, β i) v = true ↔ ∃ i ∈ J, β i v = true := by
+  classical
+  induction J using Finset.induction with
+  | empty =>
+    constructor
+    · intro h
+      exact Bool.noConfusion h
+    · rintro ⟨i, hi, -⟩
+      exact absurd hi (Finset.notMem_empty i)
+  | insert i J hi ih =>
+    rw [Finset.sum_insert hi]
+    show (β i v || (∑ j ∈ J, β j) v) = true ↔ _
+    rw [Bool.or_eq_true, ih]
+    constructor
+    · rintro (h | ⟨j, hj, h⟩)
+      · exact ⟨i, Finset.mem_insert_self i J, h⟩
+      · exact ⟨j, Finset.mem_insert_of_mem hj, h⟩
+    · rintro ⟨j, hj, h⟩
+      rcases Finset.mem_insert.mp hj with rfl | hjJ
+      · exact Or.inl h
+      · exact Or.inr ⟨j, hjJ, h⟩
+
+/-- Distinct count indicators are incompatible. -/
+lemma countEqIndicator_mul_eq_zero (J : Finset ι) {j j' : ℕ} (h : j ≠ j') :
+    countEqIndicator α J j * countEqIndicator α J j' = 0 := by
+  funext v
+  show ((countEqIndicator α J j) v && (countEqIndicator α J j') v)
+      = (0 : BoolFunc X) v
+  by_cases hj : (J.filter (fun i => α i v = true)).card = j
+  · rw [show (countEqIndicator α J j) v = true from decide_eq_true hj,
+      Bool.true_and]
+    exact decide_eq_false fun hj' => h (hj.symm.trans hj')
+  · rw [show (countEqIndicator α J j) v = false from decide_eq_false hj,
+      Bool.false_and]
+    rfl
+
+/-- **CDF assembly.** For any predicate `g` on counts, the probability that
+the number of present contributors satisfies `g` is the sum of the point
+masses `ρ_J(j)` over the satisfying counts `j ∈ {0, …, |J|}`. For the six
+comparison operators the satisfying set is an interval. -/
+theorem funcProb_count_filter (J : Finset ι) (g : ℕ → Prop) [DecidablePred g] :
+    P.funcProb (fun v => decide (g ((J.filter (fun i => α i v = true)).card)))
+      = ∑ j ∈ (Finset.range (J.card + 1)).filter g,
+          P.funcProb (countEqIndicator α J j) := by
+  have hfun : (fun v => decide (g ((J.filter (fun i => α i v = true)).card))
+        : BoolFunc X)
+      = ∑ j ∈ (Finset.range (J.card + 1)).filter g, countEqIndicator α J j := by
+    funext v
+    set n := (J.filter (fun i => α i v = true)).card with hn
+    by_cases hg : g n
+    · rw [decide_eq_true hg]
+      symm
+      rw [sum_eval_eq_true_iff]
+      refine ⟨n, Finset.mem_filter.mpr
+        ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le
+          (le_trans (Finset.card_filter_le _ _) le_rfl)), hg⟩, ?_⟩
+      exact decide_eq_true rfl
+    · rw [decide_eq_false hg]
+      symm
+      cases hs : (∑ j ∈ (Finset.range (J.card + 1)).filter g,
+          countEqIndicator α J j) v with
+      | false => rfl
+      | true =>
+        obtain ⟨j, hj, hjv⟩ := (sum_eval_eq_true_iff _ _ v).mp hs
+        have hnj : n = j := of_decide_eq_true hjv
+        exact absurd (hnj ▸ (Finset.mem_filter.mp hj).2) hg
+  rw [hfun,
+    P.funcProb_sum_incompatible _ _
+      (fun j _ j' _ hne => countEqIndicator_mul_eq_zero α J hne)]
+
+/-- **Empty-world mass.** The probability that no contributor of `J` is
+present is `∏_{i ∈ J} (1 - p i)`. -/
+theorem countMass_zero (S : ι → Finset X)
+    (hdep : ∀ i, (α i).DependsOn (S i))
+    (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
+    (J : Finset ι) :
+    P.funcProb (countEqIndicator α J 0) = ∏ i ∈ J, (1 - P.funcProb (α i)) := by
+  have hind : countEqIndicator α J 0 = ∏ i ∈ J, (1 - α i) := by
+    funext v
+    show (decide ((J.filter (fun i => α i v = true)).card = 0) : Bool)
+        = (∏ i ∈ J, (1 - α i)) v
+    by_cases hall : ∀ i ∈ J, α i v = false
+    · have hfe : J.filter (fun i => α i v = true) = ∅ :=
+        Finset.filter_false_of_mem fun i hi => by
+          rw [hall i hi]; exact Bool.false_ne_true
+      rw [decide_eq_true (by rw [hfe]; rfl :
+            (J.filter (fun i => α i v = true)).card = 0)]
+      symm
+      exact (prod_eval_eq_true_iff _ _ _).mpr fun i hi => by
+        rw [one_sub_eval, hall i hi]; rfl
+    · push Not at hall
+      obtain ⟨i, hiJ, hαi⟩ := hall
+      have hαi' : α i v = true := by
+        cases h : α i v with
+        | false => exact absurd h hαi
+        | true => rfl
+      have hne : (J.filter (fun i => α i v = true)).card ≠ 0 :=
+        Finset.card_ne_zero_of_mem (Finset.mem_filter.mpr ⟨hiJ, hαi'⟩)
+      rw [decide_eq_false hne]
+      symm
+      cases hp : (∏ i ∈ J, (1 - α i)) v with
+      | false => rfl
+      | true =>
+        have := (prod_eval_eq_true_iff _ _ _).mp hp i hiJ
+        rw [one_sub_eval, hαi'] at this
+        exact Bool.noConfusion this
+  rw [hind, P.funcProb_prod_disjoint (fun i => 1 - α i) S
+    (fun i => (hdep i).one_sub) hdisj]
+  exact Finset.prod_congr rfl fun i _ => P.funcProb_sub_self_const_one (α i)
+
+/-- **Shorter-tail identity, event form.** Counting the present
+contributors down from `C` is counting the absent contributors up to
+`|J| - C`: the two indicator functions coincide. -/
+theorem count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
+    (fun v => decide (C ≤ (J.filter (fun i => α i v = true)).card) : BoolFunc X)
+      = fun v =>
+          decide ((J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C) := by
+  funext v
+  have hcompl : J.filter (fun i => (1 - α i) v = true)
+      = J.filter (fun i => ¬ (α i v = true)) :=
+    Finset.filter_congr fun i _ => by rw [one_sub_eval]; simp
+  have hsplit : (J.filter (fun i => α i v = true)).card
+      + (J.filter (fun i => (1 - α i) v = true)).card = J.card := by
+    rw [hcompl]
+    exact Finset.card_filter_add_card_filter_not _
+  by_cases h : C ≤ (J.filter (fun i => α i v = true)).card
+  · rw [decide_eq_true h, decide_eq_true (by omega :
+      (J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C)]
+  · rw [decide_eq_false h, decide_eq_false (by omega :
+        ¬ (J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C)]
+
+/-- **Shorter-tail identity, probability form**: `Pr[B ≥ C] = Pr[B' ≤ N − C]`
+where `B` counts the present contributors and `B'` the absent ones. The
+right-hand side assembles from the point masses of the complemented
+contributors (`1 - α i`, marginals `1 - p i`), which is the shorter
+summation when `C` exceeds `N/2`. -/
+theorem funcProb_count_ge_eq_absent_le (J : Finset ι) {C : ℕ} (hC : C ≤ J.card) :
+    P.funcProb (fun v => decide (C ≤ (J.filter (fun i => α i v = true)).card))
+      = P.funcProb (fun v =>
+          decide ((J.filter (fun i => (1 - α i) v = true)).card ≤ J.card - C)) := by
+  rw [count_ge_eq_absent_le α J hC]
+
+end CountCDF
+
+/-! ## The possible-world HAVING provenance under a valuation
+
+The predicate provenance of an aggregate comparison
+(`Having.havingProv`, over `𝔹[X]`) is a `⊕`-sum of one disjunct per
+non-empty possible world. Under a fixed valuation of the Boolean
+variables, **exactly one** disjunct survives: the one of the *realised*
+world, formed of the occurrences whose annotation is true. Consequently
+the predicate provenance evaluates to true exactly when the realised
+world is non-empty and satisfies the comparison – the bridge between the
+intensional possible-world semantics and probabilistic query evaluation:
+the probability of the predicate provenance is the probability that the
+realised world is non-empty and satisfies the comparison.
+
+The section culminates in `booleanHaving_pqe`: for a Boolean query made
+of a Boolean combination of aggregate comparisons (`HavingPred`) applied
+on top of a non-aggregation query over a tuple-independent probabilistic
+database, the probability that a random world satisfies the query
+(`booleanHavingProb`, via the plain semantics `HavingPred.modelsBoolean`)
+equals the probability of its Boolean provenance
+(`HavingPred.booleanProv`). The non-aggregation operators are handled by
+`randomWorld_evaluateAnnotated` and the comparisons by the
+exactly-one-disjunct bridge, composed through the sorted-sublist
+identity `groupSeq_randomWorld` between the plain group sequence of a
+random world and the realised subsequence of the annotated group
+sequence. -/
+
+section HavingPQE
+
+open Having
+
+variable {T : Type} [ValueType T]
+
+/-- The world realised by a valuation `v`: the positions of the group
+sequence whose annotation evaluates to true under `v`. -/
+def realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
+    (v : X → Bool) : Finset (Fin U.length) :=
+  Finset.univ.filter (fun i => (U.get i).snd v = true)
+
+/-- **Exactly one world annotation survives**: under a valuation `v`, the
+factored world annotation of `W` is true iff `W` is the realised world. -/
+theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
+    (W : Finset (Fin N)) (v : X → Bool) :
+    (worldAnn α W) v = true ↔ W = Finset.univ.filter (fun i => α i v = true) := by
+  show ((∏ i ∈ W, α i) v && ((1 - ∑ i ∈ Wᶜ, α i) v)) = true ↔ _
+  rw [Bool.and_eq_true, prod_eval_eq_true_iff, one_sub_eval,
+    Bool.not_eq_eq_eq_not, Bool.not_true]
+  constructor
+  · rintro ⟨hall, hnone⟩
+    ext i
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    constructor
+    · exact fun hi => hall i hi
+    · intro hi
+      by_contra hiW
+      have hmem : (∑ j ∈ Wᶜ, α j) v = true :=
+        (sum_eval_eq_true_iff _ _ _).mpr ⟨i, Finset.mem_compl.mpr hiW, hi⟩
+      rw [hmem] at hnone
+      exact Bool.noConfusion hnone
+  · rintro rfl
+    refine ⟨fun i hi => (Finset.mem_filter.mp hi).2, ?_⟩
+    cases hs : (∑ j ∈ (Finset.univ.filter (fun i => α i v = true))ᶜ, α j) v with
+    | false => rfl
+    | true =>
+      obtain ⟨j, hj, hjv⟩ := (sum_eval_eq_true_iff _ _ _).mp hs
+      exact absurd (Finset.mem_filter.mpr ⟨Finset.mem_univ j, hjv⟩)
+        (Finset.mem_compl.mp hj)
+
+/-- Evaluation of the comparison characteristic `χ_op`. -/
+lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
+    (Having.chi (K := BoolFunc X) op a c) v = true ↔ op.eval a c := by
+  unfold Having.chi
+  split_ifs with h
+  · exact iff_of_true rfl h
+  · exact iff_of_false (fun hh => Bool.noConfusion hh) h
+
+/-- **PQE bridge for aggregate comparisons.** Under a valuation `v`, the
+predicate provenance of `f(t) op c` on the group sequence `U` evaluates to
+true iff the realised world is non-empty and its aggregate value satisfies
+the comparison. Composed with the probability semantics, the probability
+of the predicate provenance is the probability, over random worlds, that a
+non-empty realised group satisfies the `HAVING` comparison. -/
+theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
+    (t : Term T m) (f : SeqAggFunc T) (op : CompOp) (c : T) (v : X → Bool) :
+    (havingProv U t f op c) v = true
+      ↔ (realizedWorld U v).Nonempty
+        ∧ op.eval (aggValOn U t f (realizedWorld U v)) c := by
+  unfold havingProv
+  rw [sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨W, hW, hWv⟩
+    obtain ⟨-, hne⟩ := Finset.mem_filter.mp hW
+    have hsplit : ((worldAnn (fun i => (U.get i).snd) W) v
+        && (Having.chi (K := BoolFunc X) op (aggValOn U t f W) c) v) = true := hWv
+    rw [Bool.and_eq_true] at hsplit
+    have hWeq : W = realizedWorld U v :=
+      (worldAnn_eval_iff _ W v).mp hsplit.1
+    subst hWeq
+    exact ⟨hne, (chi_eval_iff op _ c v).mp hsplit.2⟩
+  · rintro ⟨hne, hP⟩
+    refine ⟨realizedWorld U v,
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, hne⟩, ?_⟩
+    have hgoal : ((worldAnn (fun i => (U.get i).snd) (realizedWorld U v)) v
+        && (Having.chi (K := BoolFunc X) op
+              (aggValOn U t f (realizedWorld U v)) c) v) = true := by
+      rw [Bool.and_eq_true]
+      exact ⟨(worldAnn_eval_iff _ _ v).mpr rfl, (chi_eval_iff op _ c v).mpr hP⟩
+    exact hgoal
+
+
+/-- Pointwise evaluation of a `Multiset.sum` of `BoolFunc`s: the sum (OR)
+evaluates to true iff some summand does. -/
+lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool) :
+    s.sum v = true ↔ ∃ f ∈ s, f v = true := by
+  induction s using Multiset.induction with
+  | empty =>
+    rw [Multiset.sum_zero]
+    exact iff_of_false (fun h => Bool.noConfusion h)
+      (fun ⟨f, hf, _⟩ => absurd hf (Multiset.notMem_zero f))
+  | cons a s ih =>
+    rw [Multiset.sum_cons]
+    show (a v || s.sum v) = true ↔ _
+    rw [Bool.or_eq_true, ih]
+    constructor
+    · rintro (h | ⟨f, hf, h⟩)
+      · exact ⟨a, Multiset.mem_cons_self a s, h⟩
+      · exact ⟨f, Multiset.mem_cons_of_mem hf, h⟩
+    · rintro ⟨f, hf, h⟩
+      rcases Multiset.mem_cons.mp hf with rfl | hfs
+      · exact Or.inl h
+      · exact Or.inr ⟨f, hfs, h⟩
+
+/-- Selecting the positions whose element satisfies a Boolean predicate
+yields the filtered list. -/
+theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
+    ∀ U : List β,
+      seqOf U (Finset.univ.filter (fun i => P (U.get i) = true)) = U.filter P
+  | [] => rfl
+  | a :: U => by
+    rw [seqOf]
+    have h0 : ((0 : Fin (U.length + 1)) ∈ Finset.univ.filter
+        (fun i => P ((a :: U).get i) = true)) ↔ P a = true := by
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, List.get_cons_zero]
+    have hsucc : Finset.univ.filter
+          (fun i : Fin U.length => i.succ ∈ Finset.univ.filter
+            (fun j => P ((a :: U).get j) = true))
+        = Finset.univ.filter (fun i => P (U.get i) = true) := by
+      ext i
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Fin.succ,
+        List.get_cons_succ]
+    rw [hsucc, seqOf_filter_positions P U]
+    by_cases hPa : P a = true
+    · rw [if_pos (h0.mpr hPa), List.filter_cons_of_pos hPa]
+      rfl
+    · rw [if_neg (fun h => hPa (h0.mp h)),
+        List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
+
+/-- The subsequence selected by the realised world is the sublist of
+occurrences whose annotation is true under the valuation. -/
+theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
+    (v : X → Bool) :
+    seqOf U (realizedWorld U v) = U.filter (fun p => p.snd v) := by
+  unfold realizedWorld
+  exact seqOf_filter_positions (fun p => p.snd v) U
+
+/-- The realised world of a group is non-empty iff some occurrence of the
+group survives the valuation. -/
+theorem realizedWorld_nonempty_iff {m : ℕ}
+    (U : List (AnnotatedTuple T (BoolFunc X) m)) (v : X → Bool) :
+    (realizedWorld U v).Nonempty ↔ ∃ p ∈ U, p.snd v = true := by
+  unfold realizedWorld
+  rw [Finset.filter_nonempty_iff]
+  constructor
+  · rintro ⟨i, -, hi⟩
+    exact ⟨U.get i, U.get_mem i, hi⟩
+  · rintro ⟨p, hp, hpv⟩
+    obtain ⟨i, hi⟩ := List.mem_iff_get.mp hp
+    exact ⟨i, Finset.mem_univ i, by rw [hi]; exact hpv⟩
+
+/-- **The plain group sequence of a random world is the realised
+subsequence of the annotated group sequence**: both are lists of the same
+multiset (the realised occurrences of the group), sorted along `≼`. -/
+theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
+    (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (v : X → Bool) :
+    Relation.groupSeq is (randomWorld v r) g
+      = (seqOf (havingGroup is r g) (realizedWorld (havingGroup is r g) v)).map
+          Prod.fst := by
+  rw [seqOf_realizedWorld]
+  have hpair : ((havingGroup is r g).filter (fun p => p.snd v)).Pairwise
+      (fun p q : AnnotatedTuple T (BoolFunc X) m => p.fst ≤ q.fst) :=
+    List.Pairwise.sublist List.filter_sublist
+      ((havingGroup_pairwise is r g).imp fun h => h.elim le_of_lt le_of_eq)
+  have hsorted : (((havingGroup is r g).filter (fun p => p.snd v)).map
+      Prod.fst).Pairwise (· ≤ ·) := List.pairwise_map.mpr hpair
+  have hcoe : (↑((havingGroup is r g).filter (fun p => p.snd v))
+        : Multiset (AnnotatedTuple T (BoolFunc X) m))
+      = Multiset.filter (fun p : AnnotatedTuple T (BoolFunc X) m =>
+          p.snd v = true)
+        (↑(havingGroup is r g) : Multiset (AnnotatedTuple T (BoolFunc X) m)) := by
+    rw [Multiset.filter_coe]
+    exact congrArg (fun l : List (AnnotatedTuple T (BoolFunc X) m) =>
+        (↑l : Multiset (AnnotatedTuple T (BoolFunc X) m)))
+      (List.filter_congr fun p _ => by cases p.snd v <;> rfl)
+  have hmul : Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')
+        (randomWorld v r)
+      = ↑(((havingGroup is r g).filter (fun p => p.snd v)).map Prod.fst) :=
+    calc Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')
+          (randomWorld v r)
+        = Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')
+            (Multiset.map Prod.fst
+              (Multiset.filter (fun p : AnnotatedTuple T (BoolFunc X) m =>
+                p.snd v = true) r)) := rfl
+      _ = Multiset.map Prod.fst (Multiset.filter
+            ((fun u => ∀ k' : Fin n₁, u (is k') = g k') ∘ Prod.fst)
+            (Multiset.filter (fun p : AnnotatedTuple T (BoolFunc X) m =>
+              p.snd v = true) r)) :=
+          Multiset.filter_map _ _ _
+      _ = Multiset.map Prod.fst (Multiset.filter
+            (fun p : AnnotatedTuple T (BoolFunc X) m =>
+              (∀ k' : Fin n₁, p.fst (is k') = g k') ∧ p.snd v = true) r) :=
+          congrArg _ (Multiset.filter_filter _ _ _)
+      _ = Multiset.map Prod.fst (Multiset.filter
+            (fun p : AnnotatedTuple T (BoolFunc X) m =>
+              p.snd v = true ∧ ∀ k' : Fin n₁, p.fst (is k') = g k') r) :=
+          congrArg _ (Multiset.filter_congr fun p _ => and_comm)
+      _ = Multiset.map Prod.fst (Multiset.filter
+            (fun p : AnnotatedTuple T (BoolFunc X) m => p.snd v = true)
+            (Multiset.filter (fun p : AnnotatedTuple T (BoolFunc X) m =>
+              ∀ k' : Fin n₁, p.fst (is k') = g k') r)) :=
+          congrArg _ (Multiset.filter_filter _ _ _).symm
+      _ = Multiset.map Prod.fst (Multiset.filter
+            (fun p : AnnotatedTuple T (BoolFunc X) m => p.snd v = true)
+            (↑(havingGroup is r g)
+              : Multiset (AnnotatedTuple T (BoolFunc X) m))) := by
+          rw [havingGroup_coe]
+      _ = Multiset.map Prod.fst
+            (↑((havingGroup is r g).filter (fun p => p.snd v))
+              : Multiset (AnnotatedTuple T (BoolFunc X) m)) := by rw [hcoe]
+      _ = ↑(((havingGroup is r g).filter (fun p => p.snd v)).map Prod.fst) :=
+          Multiset.map_coe _ _
+  show Multiset.sort _ (· ≤ ·) = _
+  exact List.Perm.eq_of_pairwise' (Multiset.pairwise_sort _ _) hsorted
+    (Multiset.coe_eq_coe.mp (by rw [Multiset.sort_eq]; exact hmul))
+
+/-- A key is realised in the random world iff the realised world of its
+group sequence is non-empty. -/
+theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
+    (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (v : X → Bool) :
+    g ∈ Multiset.map (fun u => fun k => u (is k)) (randomWorld v r)
+      ↔ (realizedWorld (havingGroup is r g) v).Nonempty := by
+  rw [realizedWorld_nonempty_iff]
+  constructor
+  · intro hg
+    obtain ⟨u, hu, hgu⟩ := Multiset.mem_map.mp hg
+    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hu
+    obtain ⟨hpr, hpv⟩ := Multiset.mem_filter.mp hp
+    refine ⟨p, ?_, hpv⟩
+    rw [← Multiset.mem_coe, havingGroup_coe]
+    exact Multiset.mem_filter.mpr ⟨hpr, fun k' => congrFun hgu k'⟩
+  · rintro ⟨p, hpU, hpv⟩
+    have hp : p ∈ Multiset.filter
+        (fun p : AnnotatedTuple T (BoolFunc X) m =>
+          ∀ k' : Fin n₁, p.fst (is k') = g k') r := by
+      rw [← havingGroup_coe is r g]
+      exact Multiset.mem_coe.mpr hpU
+    obtain ⟨hpr, hkey⟩ := Multiset.mem_filter.mp hp
+    exact Multiset.mem_map.mpr ⟨p.fst,
+      Multiset.mem_map.mpr ⟨p, Multiset.mem_filter.mpr ⟨hpr, hpv⟩, rfl⟩,
+      funext hkey⟩
+
+/-- **PQE bridge for Boolean combinations, with polarity.** Under a
+valuation, the polarity-aware predicate provenance of `ψ` is true iff the
+realised world of the group is non-empty and `ψ` (negated according to
+the polarity) holds classically on the realised occurrence sequence. -/
+theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
+    (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
+    (v : X → Bool) :
+    ∀ (negated : Bool) (ψ : HavingPred T m n₁),
+    (ψ.provAux U g negated) v = true
+      ↔ (realizedWorld U v).Nonempty
+        ∧ (if negated
+            then ¬ ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g
+            else ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g)
+  | negated, .cmp t f op s => by
+    show (havingProv U t f (if negated then op.negate else op) (s.eval g)) v
+        = true ↔ _
+    rw [havingProv_eval_iff]
+    have hagg : f (((seqOf U (realizedWorld U v)).map Prod.fst).map t.eval)
+        = aggValOn U t f (realizedWorld U v) := by
+      rw [List.map_map]
+      rfl
+    cases negated with
+    | false =>
+      rw [if_neg Bool.false_ne_true, if_neg Bool.false_ne_true]
+      simp only [HavingPred.holdsOnSeq]
+      rw [hagg]
+    | true =>
+      rw [if_pos rfl, if_pos rfl]
+      simp only [HavingPred.holdsOnSeq]
+      rw [CompOp.negate_eval, hagg]
+  | negated, .not ψ => by
+    show (ψ.provAux U g (!negated)) v = true ↔ _
+    rw [HavingPred.provAux_eval_iff U g v (!negated) ψ]
+    simp only [HavingPred.holdsOnSeq]
+    cases negated with
+    | false =>
+      rw [Bool.not_false, if_pos rfl, if_neg Bool.false_ne_true]
+    | true =>
+      rw [Bool.not_true, if_neg Bool.false_ne_true, if_pos rfl, not_not]
+  | negated, .and ψ₁ ψ₂ => by
+    have h₁ := HavingPred.provAux_eval_iff U g v negated ψ₁
+    have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
+    cases negated with
+    | false =>
+      rw [if_neg Bool.false_ne_true] at h₁ h₂
+      show ((ψ₁.provAux U g false) v && (ψ₂.provAux U g false) v) = true ↔ _
+      rw [Bool.and_eq_true, h₁, h₂, if_neg Bool.false_ne_true]
+      simp only [HavingPred.holdsOnSeq]
+      tauto
+    | true =>
+      rw [if_pos rfl] at h₁ h₂
+      show ((ψ₁.provAux U g true) v || (ψ₂.provAux U g true) v) = true ↔ _
+      rw [Bool.or_eq_true, h₁, h₂, if_pos rfl]
+      simp only [HavingPred.holdsOnSeq]
+      tauto
+  | negated, .or ψ₁ ψ₂ => by
+    have h₁ := HavingPred.provAux_eval_iff U g v negated ψ₁
+    have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
+    cases negated with
+    | false =>
+      rw [if_neg Bool.false_ne_true] at h₁ h₂
+      show ((ψ₁.provAux U g false) v || (ψ₂.provAux U g false) v) = true ↔ _
+      rw [Bool.or_eq_true, h₁, h₂, if_neg Bool.false_ne_true]
+      simp only [HavingPred.holdsOnSeq]
+      tauto
+    | true =>
+      rw [if_pos rfl] at h₁ h₂
+      show ((ψ₁.provAux U g true) v && (ψ₂.provAux U g true) v) = true ↔ _
+      rw [Bool.and_eq_true, h₁, h₂, if_pos rfl]
+      simp only [HavingPred.holdsOnSeq]
+      tauto
+
+/-- **PQE bridge for Boolean combinations of aggregate comparisons.**
+Under a valuation, the predicate provenance of `ψ` on the group sequence
+`U` is true iff the realised world is non-empty and `ψ` holds classically
+on the realised occurrence sequence. -/
+theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
+    (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
+    (v : X → Bool) (ψ : HavingPred T m n₁) :
+    (ψ.prov U g) v = true
+      ↔ (realizedWorld U v).Nonempty
+        ∧ ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g := by
+  have h := HavingPred.provAux_eval_iff U g v false ψ
+  rw [if_neg Bool.false_ne_true] at h
+  exact h
+
+/-- **Characteristic property of the Boolean provenance.** Under a
+valuation, the Boolean provenance of a Boolean `HAVING` query is true iff
+the query holds on the corresponding possible world. -/
+theorem HavingPred.booleanProv_eval_iff [HasAltLinearOrder (BoolFunc X)]
+    {m n₁ : ℕ} (q : Query T m) (hq : q.noAgg)
+    (Î : AnnotatedDatabase T (BoolFunc X)) (is : Tuple (Fin m) n₁)
+    (ψ : HavingPred T m n₁) (v : X → Bool) :
+    (ψ.booleanProv q hq Î is) v = true
+      ↔ ψ.modelsBoolean (Î.randomWorld v) q is := by
+  unfold HavingPred.booleanProv HavingPred.modelsBoolean
+  rw [← randomWorld_evaluateAnnotated q hq Î v, multiset_sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨fb, hfb, hfbv⟩
+    obtain ⟨g, -, rfl⟩ := Multiset.mem_map.mp hfb
+    rw [HavingPred.prov_eval_iff] at hfbv
+    obtain ⟨hne, hhold⟩ := hfbv
+    exact ⟨g, (randomWorld_key_mem_iff is _ g v).mpr hne,
+      by rw [groupSeq_randomWorld]; exact hhold⟩
+  · rintro ⟨g, hgmem, hhold⟩
+    have hkey : g ∈ ((q.evaluateAnnotated hq Î).map
+        (fun p => fun k => p.fst (is k))).dedup := by
+      rw [Multiset.mem_dedup]
+      obtain ⟨u, hu, hg⟩ := Multiset.mem_map.mp hgmem
+      obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hu
+      exact Multiset.mem_map.mpr ⟨p, (Multiset.mem_filter.mp hp).1, hg⟩
+    refine ⟨ψ.prov (havingGroup is (q.evaluateAnnotated hq Î) g) g,
+      Multiset.mem_map.mpr ⟨g, hkey, rfl⟩, ?_⟩
+    rw [HavingPred.prov_eval_iff]
+    exact ⟨(randomWorld_key_mem_iff is _ g v).mp hgmem,
+      by rw [← groupSeq_randomWorld]; exact hhold⟩
+
+/-- Probability that a random world of `Î` satisfies a Boolean `HAVING`
+query: the sum of `Pr(v)` over the valuations whose possible world does. -/
+noncomputable def booleanHavingProb {m n₁ : ℕ} (q : Query T m)
+    (Î : AnnotatedDatabase T (BoolFunc X)) (is : Tuple (Fin m) n₁)
+    (ψ : HavingPred T m n₁) : ℚ :=
+  ∑ v : X → Bool,
+    if ψ.modelsBoolean (Î.randomWorld v) q is then P.valProb v else 0
+
+/-- **Probabilistic query evaluation through the `HAVING` provenance.**
+For a Boolean query made of a Boolean combination `ψ` of aggregate
+comparisons applied on top of a non-aggregation query `q` grouped by
+`is`, over a tuple-independent probabilistic database, the probability
+that a random world satisfies the query equals the probability of its
+Boolean provenance (the `⊕`-sum, over the group keys, of the predicate
+provenance of `ψ`). The non-aggregation operators of `q` are handled by
+the correctness of intensional probabilistic query evaluation
+(`ProbAssignment.theorem_12` machinery via
+`randomWorld_evaluateAnnotated`), and the aggregate comparison by the
+exactly-one-disjunct bridge `HavingPred.prov_eval_iff`. -/
+theorem booleanHaving_pqe [HasAltLinearOrder (BoolFunc X)] {m n₁ : ℕ}
+    (q : Query T m) (hq : q.noAgg) (Î : AnnotatedDatabase T (BoolFunc X))
+    (is : Tuple (Fin m) n₁) (ψ : HavingPred T m n₁) :
+    booleanHavingProb P q Î is ψ = P.funcProb (ψ.booleanProv q hq Î is) := by
+  unfold booleanHavingProb ProbAssignment.funcProb
+  refine Finset.sum_congr rfl fun v _ => ?_
+  by_cases h : ψ.modelsBoolean (Î.randomWorld v) q is
+  · have hf : (ψ.booleanProv q hq Î is) v = true :=
+      (HavingPred.booleanProv_eval_iff q hq Î is ψ v).mpr h
+    rw [if_pos h, if_pos hf]
+  · have hf : ¬ (ψ.booleanProv q hq Î is) v = true :=
+      fun hf => h ((HavingPred.booleanProv_eval_iff q hq Î is ψ v).mp hf)
+    rw [if_neg h, if_neg hf]
+
+end HavingPQE
 
 end HavingProbability
