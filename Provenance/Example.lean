@@ -4,7 +4,7 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Data.Multiset.Fintype
 
 import Provenance.QueryAnnotatedDatabase
-import Provenance.QueryGenClosure
+import Provenance.AggQueryClosure
 import Provenance.QueryRewriting
 import Provenance.SemiringWithMonus
 
@@ -81,15 +81,15 @@ def d_tropical : AnnotatedDatabase String (Tropical (WithTop ℕ)) := [("Personn
 
 /-! ### The general (kind-indexed) syntax and its rewriting
 
-The same database, now through `QueryGen`: aggregation, `HAVING`, and the
+The same database, now through `AggQuery`: aggregation, `HAVING`, and the
 rewriting of both into the composite domain `String ⊕ ℕ`. -/
 
-def qgPersonnel : QueryGen String 4 (ColKind.allReg 4) :=
-  QueryGen.Rel 4 "Personnel"
+def qgPersonnel : AggQuery String 4 (ColKind.allReg 4) :=
+  AggQuery.Rel 4 "Personnel"
 
 /- This query counts persons by city: `γ_{city}[1 : SUM]`. Its output has
 one regular column (the group key) and one *aggregate-token* column. -/
-def qgCount := QueryGen.Gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+def qgCount := AggQuery.Gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
   qgPersonnel
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/
@@ -105,15 +105,15 @@ example : φexactlyTwo.aggOnly = true := rfl
 
 /- Plain semantics: a `HAVING` selection filters, so Paris (3 persons) is
 gone. -/
-#eval! hdr "QueryGen plain: HAVING COUNT(*) = 2"
-#eval! (QueryGen.Sel φexactlyTwo qgCount).evaluatePlain d
+#eval! hdr "AggQuery plain: HAVING COUNT(*) = 2"
+#eval! (AggQuery.Sel φexactlyTwo qgCount).evaluatePlain d
 
 /- Annotated semantics: the aggregate token collapses to the actual-world
 count, and the row *survives* with annotation `𝟘` – exactly as ProvSQL
 emits it, since in other possible worlds Paris may well have two
 persons. -/
-#eval! hdr "QueryGen annotated ℕ: HAVING COUNT(*) = 2"
-#eval! ((QueryGen.Sel φexactlyTwo qgCount).evaluateAnnotatedGen d_count
+#eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) = 2"
+#eval! ((AggQuery.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 2)
 
 /- Projecting the group key out of a grouping, of a `HAVING` site, and
@@ -123,32 +123,32 @@ def cityCols : Tuple (ProjCol String (ColKind.gammaKinds 1 1)) 1 :=
     (Fin.append_left (fun _ : Fin 1 => ColKind.reg)
       (fun _ : Fin 1 => ColKind.agg) 0))
 
-def qgAllCities : QueryGen String 1 (ColKind.allReg 1) :=
-  QueryGen.Proj cityCols qgCount
-def qgBigCities : QueryGen String 1 (ColKind.allReg 1) :=
-  QueryGen.Proj cityCols (QueryGen.Sel φatLeastThree qgCount)
-def qgSmallCities := QueryGen.Diff qgAllCities qgBigCities
+def qgAllCities : AggQuery String 1 (ColKind.allReg 1) :=
+  AggQuery.Proj cityCols qgCount
+def qgBigCities : AggQuery String 1 (ColKind.allReg 1) :=
+  AggQuery.Proj cityCols (AggQuery.Sel φatLeastThree qgCount)
+def qgSmallCities := AggQuery.Diff qgAllCities qgBigCities
 
-#eval! hdr "QueryGen annotated ℕ: all cities"
-#eval! (qgAllCities.evaluateAnnotatedGen d_count : AnnotatedRelation String ℕ 1)
-#eval! hdr "QueryGen annotated ℕ: cities with ≥ 3 persons"
-#eval! (qgBigCities.evaluateAnnotatedGen d_count : AnnotatedRelation String ℕ 1)
-#eval! hdr "QueryGen annotated ℕ: cities with < 3 persons"
-#eval! (qgSmallCities.evaluateAnnotatedGen d_count
+#eval! hdr "AggQuery annotated ℕ: all cities"
+#eval! (qgAllCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)
+#eval! hdr "AggQuery annotated ℕ: cities with ≥ 3 persons"
+#eval! (qgBigCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)
+#eval! hdr "AggQuery annotated ℕ: cities with < 3 persons"
+#eval! (qgSmallCities.evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 1)
 
-/- The rewritten world. `QueryGen.gammaRew` is the bare grouping – ProvSQL's
+/- The rewritten world. `AggQuery.gammaRew` is the bare grouping – ProvSQL's
 `provsql_agg` over the rewritten subquery – whose provenance column carries
-the group-existence guard `δ(⊕ U)`; `QueryGen.havingPredRew` replaces that
+the group-existence guard `δ(⊕ U)`; `AggQuery.havingPredRew` replaces that
 guard by the `provsql_having` gate of the predicate. Rows are printed
 through `AggValue.collapseSum`, which reads each aggregate token as its
 actual-world value. -/
-def qgCountRew : QueryGen (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  QueryGen.gammaRew ![3] ![Term.const "1"] ![SeqAggFunc.sum] qgPersonnel
+def qgCountRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
+  AggQuery.gammaRew ![3] ![Term.const "1"] ![SeqAggFunc.sum] qgPersonnel
     trivial
 
-def qgHavingRew : QueryGen (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  QueryGen.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+def qgHavingRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
+  AggQuery.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
     φexactlyTwo qgPersonnel trivial
 
 #eval! hdr "rewritten: bare GROUP BY (gammaRew), guard δ(⊕ U) in the last column"
@@ -177,12 +177,12 @@ example : φbigOrBerlin.hasAggAtom = true := rfl
 example : φbigOrBerlin.aggOnly = false := rfl
 example : φbigOrBerlin.entailsExistence false = false := rfl
 
-def qgMixedRew : QueryGen (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  QueryGen.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
+  AggQuery.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
     φbigOrBerlin qgPersonnel trivial
 
-#eval! hdr "QueryGen annotated ℕ: HAVING COUNT(*) ≥ 3 OR city = 'Berlin'"
-#eval! ((QueryGen.Sel φbigOrBerlin qgCount).evaluateAnnotatedGen d_count
+#eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) ≥ 3 OR city = 'Berlin'"
+#eval! ((AggQuery.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 2)
 #eval! hdr "rewritten: the same mixed predicate, gate ⊗ guard in the last column"
 #eval! (qgMixedRew.evaluateRew d_count.toComposite).map
@@ -190,18 +190,18 @@ def qgMixedRew : QueryGen (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
 
 /- The compositional closure applies to the whole difference query: its
 derivation composes the bare-grouping rule, the `HAVING`-site rule, a
-projection and a difference, and `QueryGen.rewritesTo_valid` transports
+projection and a difference, and `AggQuery.rewritesTo_valid` transports
 the correctness to it. -/
-example : ∃ q' : QueryGen (String ⊕ ℕ) 2
+example : ∃ q' : AggQuery (String ⊕ ℕ) 2
       (ColKind.rewKindsOf (ColKind.allReg 1)),
-    QueryGen.RewritesTo qgSmallCities q'
-      ∧ (qgSmallCities.evaluateGen d_count).map GenRow.toCompositeRow
+    AggQuery.RewritesTo qgSmallCities q'
+      ∧ (qgSmallCities.evaluate d_count).map GenRow.toCompositeRow
           = q'.evaluateRew d_count.toComposite :=
-  let h := QueryGen.RewritesTo.diff
-    (QueryGen.RewritesTo.proj cityCols
-      (QueryGen.RewritesTo.gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+  let h := AggQuery.RewritesTo.diff
+    (AggQuery.RewritesTo.proj cityCols
+      (AggQuery.RewritesTo.gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
         qgPersonnel trivial))
-    (QueryGen.RewritesTo.proj cityCols
-      (QueryGen.RewritesTo.havingPred ![3] ![Term.const "1"]
+    (AggQuery.RewritesTo.proj cityCols
+      (AggQuery.RewritesTo.havingPred ![3] ![Term.const "1"]
         ![SeqAggFunc.sum] φatLeastThree rfl qgPersonnel trivial))
-  ⟨_, h, QueryGen.rewritesTo_valid h d_count⟩
+  ⟨_, h, AggQuery.rewritesTo_valid h d_count⟩

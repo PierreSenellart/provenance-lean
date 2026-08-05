@@ -27,7 +27,7 @@ via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, afte
 substituting the inner aggregation with the closed-form
 `Query.evaluate_agg_rewriting_eq`). Rule (R5) – aggregation – is not part of
 this classical rewriting: it lives on the general syntax, in
-`Provenance.QueryGenAggRewriting`, where an aggregate output is a symbolic
+`Provenance.AggQueryGroupRewriting`, where an aggregate output is a symbolic
 token rather than a quotiented K-tensor.
 
 ## References

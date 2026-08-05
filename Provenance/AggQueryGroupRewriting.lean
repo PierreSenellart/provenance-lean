@@ -2,12 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryGenHavingRewriting
+import Provenance.AggQueryHavingRewriting
 
 /-!
 # Rewriting a bare grouping: aggregate results as output values
 
-The `HAVING` site rewriting of `Provenance.QueryGenHavingRewriting` covers
+The `HAVING` site rewriting of `Provenance.AggQueryHavingRewriting` covers
 the case where the aggregate tokens of a grouping are consumed by a
 comparison gate and never leave the site. This module covers the
 complementary – and, in SQL, far more common – case: a bare
@@ -19,10 +19,10 @@ syntax took a whole new value domain – data, annotation and `K`-tensor
 monomials, quotiented – together with its own evaluator. In the general
 framework no new value domain is needed: the rewritten
 world's evaluator already has aggregate tokens as first-class column
-values, and `QueryGen.GammaTok` – ProvSQL's `provsql_agg` – already
+values, and `AggQuery.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`
 produces. What was missing is the *correspondence at token level*: the
-statement of `QueryGen.havingRewrites_valid` folds an annotated relation
+statement of `AggQuery.havingRewrites_valid` folds an annotated relation
 into composite rows through `AnnotatedRelation.toComposite`, which reads
 tokens through their deterministic collapse and therefore cannot express
 a token-bearing output.
@@ -36,7 +36,7 @@ token-free rows it agrees with the old embedding
 extends the compositional rewriting correctness rather than sitting
 beside it.
 
-`QueryGen.gammaRew_valid` is then the (R5) analogue: for a classical
+`AggQuery.gammaRew_valid` is then the (R5) analogue: for a classical
 subquery, the general evaluator's grouping – tokens and pending
 group-existence factor included – is computed by the rewritten
 token-building grouping over the classically rewritten subquery, with the
@@ -57,7 +57,7 @@ def AggValue.toComposite (a : AggValue T K) : AggValue (T ⊕ K) K :=
 omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
 embedding of that group – the token the rewritten world's
-`QueryGen.GammaTok` builds. -/
+`AggQuery.GammaTok` builds. -/
 theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
     (t : Term T m) (U : List (AnnotatedTuple T K m)) :
     (AggValue.ofGroup f t U).toComposite
@@ -225,14 +225,14 @@ the classically rewritten subquery, reading the occurrence annotations
 off the subquery's provenance column. The output carries the group keys,
 one aggregate token per `(term, aggregate)` pair, and the group-existence
 guard `δ(⊕ U)` in the provenance column. -/
-def QueryGen.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+def AggQuery.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (qg : QueryGen T m (ColKind.allReg m)) (hq : qg.classical) :
-    QueryGen (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
-  QueryGen.Retag
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
+  AggQuery.Retag
     (fun k => congrArg ColKind.base
       (congrFun (ColKind.gammaTok_rew_kinds (n₂ := n₂) is) k))
-    (QueryGen.GammaTok
+    (AggQuery.GammaTok
       (fun k => (is k).castLE (Nat.le_succ m))
       (fun k => by
         rw [ColKind.rewKinds_lt (is k).isLt]
@@ -241,7 +241,7 @@ def QueryGen.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (fun j => (fs j).liftComposite)
       (TermG.provIndex (Fin.last m)
         (ColKind.rewKinds_of_not_lt (lt_irrefl m)))
-      (qg.rewritingGen hq))
+      (qg.rewriting hq))
 
 /-! ## Correctness -/
 
@@ -250,22 +250,22 @@ framework's rule (R5): for a classical subquery, the general evaluator's
 grouping, embedded row-wise into the composite domain (tokens included,
 finalized annotation appended), is computed by the rewritten world's
 token-building grouping over the classically rewritten subquery. -/
-theorem QueryGen.gammaRew_valid {m n₁ n₂ : ℕ}
+theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
-    (fs : Tuple (SeqAggFunc T) n₂) (qg : QueryGen T m (ColKind.allReg m))
+    (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
     (hq : qg.classical) (d : AnnotatedDatabase T K) :
-    ((QueryGen.Gamma is ts fs qg).evaluateGen d).map GenRow.toCompositeRow
-      = (QueryGen.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
-  have hA : Multiset.map GenRow.toAnnotated (qg.evaluateGen d)
+    ((AggQuery.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
+      = (AggQuery.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
+  have hA : Multiset.map GenRow.toAnnotated (qg.evaluate d)
       = (qg.strip hq).evaluateAnnotated (qg.strip_source hq) d :=
-    QueryGen.strip_bridge qg hq d
-  simp only [QueryGen.evaluateGen]
+    AggQuery.strip_bridge qg hq d
+  simp only [AggQuery.evaluate]
   rw [hA]
   conv_lhs => rw [Multiset.map_map]
-  unfold QueryGen.gammaRew
-  show _ = QueryGen.evaluateRew (QueryGen.Retag _ _) d.toComposite
-  simp only [QueryGen.evaluateRew]
-  rw [QueryGen.rewritingGen_provRel qg hq d, map_comp_fst_groupByKey]
+  unfold AggQuery.gammaRew
+  show _ = AggQuery.evaluateRew (AggQuery.Retag _ _) d.toComposite
+  simp only [AggQuery.evaluateRew]
+  rw [AggQuery.rewriting_provRel qg hq d, map_comp_fst_groupByKey]
   -- the rewritten side's key multiset is the `inl`-embedding of the
   -- annotated side's, so both sides map over the same groups
   simp only [Multiset.map_map]

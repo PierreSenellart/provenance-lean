@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryGen
+import Provenance.AggQuery
 import Provenance.QueryAdequacy
 
 /-!
@@ -12,7 +12,7 @@ Forgetting the annotations of the general annotated evaluation of a query
 yields the plain (classical) evaluation of the *stripped* query on the
 plain database:
 
-`(q.evaluateAnnotatedGen d).toPlain = q.stripGen.evaluatePlain d.toPlain`
+`(q.evaluateAnnotated d).toPlain = q.stripAgg.evaluatePlain d.toPlain`
 
 This generalizes `Query.evaluateAnnotated_toPlain` to the kind-indexed
 syntax. The stripping removes differences (annotated `Diff` never removes
@@ -212,16 +212,16 @@ theorem havingGroup_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
 /-- **Data-part adequacy of the general evaluator.** Forgetting the
 annotations of the general annotated evaluation yields the plain
 evaluation of the stripped query on the plain database. -/
-theorem QueryGen.evaluateAnnotatedGen_toPlain :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
+theorem AggQuery.evaluateAnnotated_toPlain :
+    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (d : AnnotatedDatabase T K),
-    (q.evaluateAnnotatedGen d).toPlain = q.stripGen.evaluatePlain d.toPlain := by
-  have hplain : ∀ {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
+    (q.evaluateAnnotated d).toPlain = q.stripAgg.evaluatePlain d.toPlain := by
+  have hplain : ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (d : AnnotatedDatabase T K),
-      (q.evaluateAnnotatedGen d).toPlain
-        = (q.evaluateGen d).map (fun r => GenRow.plainTuple r.fst) := by
+      (q.evaluateAnnotated d).toPlain
+        = (q.evaluate d).map (fun r => GenRow.plainTuple r.fst) := by
     intro n κ q d
-    unfold QueryGen.evaluateAnnotatedGen AnnotatedRelation.toPlain
+    unfold AggQuery.evaluateAnnotated AnnotatedRelation.toPlain
     rw [Multiset.map_map]
     rfl
   intro n κ q
@@ -229,7 +229,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Rel n s =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [AnnotatedDatabase.find_toPlain]
     cases hf : d.find n s
     · rfl
@@ -238,7 +238,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Proj ps q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [← ih d, hplain, Multiset.map_map, Multiset.map_map]
     apply Multiset.map_congr rfl
     intro r _
@@ -247,24 +247,24 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Sel φ q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg]
     by_cases hφ : φ.hasAggAtom
     · rw [if_pos hφ, if_pos hφ, ← ih d, hplain, Multiset.map_map]
       rfl
     · rw [if_neg hφ, if_neg hφ]
-      simp only [QueryGen.evaluatePlain]
+      simp only [AggQuery.evaluatePlain]
       rw [← ih d, hplain]
       exact map_filter_iff _ _ _
         (fun (r : GenRow T K _) => φ.holds_iff_holdsPlain r.fst) _
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [← ih₁ d, ← ih₂ d, hplain, hplain]
     show Multiset.map _ (Multiset.map _ (Multiset.product _ _))
       = Multiset.map _ (Multiset.product
-          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₁.evaluateGen d))
-          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₂.evaluateGen d)))
+          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₁.evaluate d))
+          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₂.evaluate d)))
     rw [Multiset.map_map, product_map_map, Multiset.map_map]
     apply Multiset.map_congr rfl
     intro xy _
@@ -278,12 +278,12 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [Multiset.map_add, ← ih₁ d, ← ih₂ d, hplain, hplain]
   | Dedup q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [Multiset.map_map, ← ih d, hplain]
     refine Eq.trans
       (Multiset.map_congr rfl
@@ -293,7 +293,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg]
     rw [Multiset.map_map, Multiset.map_map, Multiset.map_map, ← ih₁ d, hplain]
     apply Multiset.map_congr rfl
     intro r _
@@ -301,7 +301,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | @Gamma m n₁ n₂ is ts fs q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [← ih d, hplain]
     -- collapse the nested maps deterministically, outermost first
     conv_lhs => rw [Multiset.map_map]
@@ -309,17 +309,17 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
     conv_rhs => rw [Multiset.map_map]
     -- the plain view of the annotated intermediate relation
     have hview : AnnotatedRelation.toPlain
-        ((q.evaluateGen d).map GenRow.toAnnotated)
-        = (q.evaluateGen d).map (fun r => GenRow.plainTuple r.fst) := by
+        ((q.evaluate d).map GenRow.toAnnotated)
+        = (q.evaluate d).map (fun r => GenRow.plainTuple r.fst) := by
       unfold AnnotatedRelation.toPlain
       rw [Multiset.map_map]
       rfl
     -- the key multisets coincide
-    have hkeys : ((q.evaluateGen d).map
+    have hkeys : ((q.evaluate d).map
           ((fun u => (fun k => u (is k) : Tuple T n₁))
             ∘ (fun r : GenRow T K m => GenRow.plainTuple r.fst))).dedup
         = Multiset.map Prod.fst (Multiset.ofList (groupByKey
-            ((q.evaluateGen d).map
+            ((q.evaluate d).map
               ((fun p => ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T K n₁))
                 ∘ GenRow.toAnnotated))).val) := by
@@ -336,14 +336,14 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
     funext j
     rw [AggValue.collapse_ofGroup]
     have hg := congrArg (List.map (ts j).eval)
-      (havingGroup_map_fst is ((q.evaluateGen d).map GenRow.toAnnotated)
+      (havingGroup_map_fst is ((q.evaluate d).map GenRow.toAnnotated)
         kv.fst)
     rw [List.map_map, hview] at hg
     exact congrArg (fs j) hg
   | @ProvSum m n₁ κ' is his t q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [← ih d, hplain]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
@@ -368,22 +368,22 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | @GammaTok m n₁ n₂ κ' is his ts fs a q ih =>
     intro d
     rw [hplain]
-    simp only [QueryGen.evaluateGen, QueryGen.stripGen, QueryGen.evaluatePlain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
     rw [← ih d, hplain]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
     conv_rhs => rw [Multiset.map_map]
     have hview : AnnotatedRelation.toPlain
-        ((q.evaluateGen d).map GenRow.toAnnotated)
-        = (q.evaluateGen d).map (fun r => GenRow.plainTuple r.fst) := by
+        ((q.evaluate d).map GenRow.toAnnotated)
+        = (q.evaluate d).map (fun r => GenRow.plainTuple r.fst) := by
       unfold AnnotatedRelation.toPlain
       rw [Multiset.map_map]
       rfl
-    have hkeys : ((q.evaluateGen d).map
+    have hkeys : ((q.evaluate d).map
           ((fun u => (fun k => u (is k) : Tuple T n₁))
             ∘ (fun r : GenRow T K m => GenRow.plainTuple r.fst))).dedup
         = Multiset.map Prod.fst (Multiset.ofList (groupByKey
-            ((q.evaluateGen d).map
+            ((q.evaluate d).map
               ((fun p => ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T K n₁))
                 ∘ GenRow.toAnnotated))).val) := by
@@ -408,7 +408,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
         rw [AggValue.collapse_ofGroup]
         have hg := congrArg (List.map (ts j').eval)
           (havingGroup_map_fst is
-            ((q.evaluateGen d).map GenRow.toAnnotated) kv.fst)
+            ((q.evaluate d).map GenRow.toAnnotated) kv.fst)
         rw [List.map_map, hview] at hg
         exact congrArg (fs j') hg
     · show AggValue.collapseSum _ = _
@@ -423,7 +423,7 @@ theorem QueryGen.evaluateAnnotatedGen_toPlain :
   | Retag h q ih =>
     intro d
     rw [hplain]
-    show (q.evaluateGen d).map (fun r => GenRow.plainTuple r.fst)
-      = (q.stripGen.evaluatePlain d.toPlain : Relation T _)
+    show (q.evaluate d).map (fun r => GenRow.plainTuple r.fst)
+      = (q.stripAgg.evaluatePlain d.toPlain : Relation T _)
     rw [← hplain]
     exact ih d

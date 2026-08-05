@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryGenToGen
+import Provenance.QueryToAgg
 import Provenance.HavingJoinCompositional
 
 /-!
@@ -13,8 +13,8 @@ the general syntax, the key projection of `σ_ψ ∘ Gamma` – all-regular,
 since the projection drops the token columns – so it composes under every
 operator of the general syntax, and the ProvSQL-legal contexts around a
 site are exactly the expressible ones. `GenCountHavingRewrite` replaces
-such sites by the embedded padded join query (`Query.toGen`, from
-`Provenance.QueryGenToGen`), and
+such sites by the embedded padded join query (`Query.toAgg`, from
+`Provenance.QueryToAgg`), and
 `GenCountHavingRewrite.evaluateGen_eq` proves the replacement preserves
 the general evaluator's rows verbatim, in absorptive m-semirings whose
 `⊗` distributes over `⊖`. The expressible contexts around a site are
@@ -47,13 +47,13 @@ theorem tokenLists_eq_zero {n : ℕ} {u : Tuple (GenValue T K) n}
 comparison over the grouping, projected to its group key – all-regular
 output. -/
 def genCountHavingSite (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
-    (g : QueryGen ℕ 3 (ColKind.allReg 3)) : QueryGen ℕ 1 (ColKind.allReg 1) :=
-  QueryGen.castKind (funext fun _ => rfl)
-    (QueryGen.Proj
+    (g : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ 1 (ColKind.allReg 1) :=
+  AggQuery.castKind (funext fun _ => rfl)
+    (AggQuery.Proj
       (fun _ : Fin 1 => ProjCol.term
         ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
-      (QueryGen.Sel (GenPred.fusedCmp op (0 : Fin 1) (Term.const (C + 1)))
-        (QueryGen.Gamma keyIdx ts' (fun _ => SeqAggFunc.count) g)))
+      (AggQuery.Sel (GenPred.fusedCmp op (0 : Fin 1) (Term.const (C + 1)))
+        (AggQuery.Gamma keyIdx ts' (fun _ => SeqAggFunc.count) g)))
 
 omit [HasAltLinearOrder K] in
 /-- A projection whose columns are all regular terms embeds each row:
@@ -97,14 +97,14 @@ embedding image carries none on the other. -/
 theorem genCountHavingSite_eval
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
-    (g : QueryGen ℕ 3 (ColKind.allReg 3)) (q' : Query ℕ 3)
+    (g : AggQuery ℕ 3 (ColKind.allReg 3)) (q' : Query ℕ 3)
     (hq' : q'.source) (d : AnnotatedDatabase ℕ K)
-    (hbridge : g.evaluateAnnotatedGen d = q'.evaluateAnnotated hq' d)
+    (hbridge : g.evaluateAnnotated d = q'.evaluateAnnotated hq' d)
     (hnodup : ((q'.evaluateAnnotated hq' d).map Prod.fst).Nodup) :
-    (genCountHavingSite ts' op C g).evaluateGen d
-      = ((joinCountQueryPadded q' op C).toGen
-          (joinCountQueryPadded_source q' hq' op C)).evaluateGen d := by
-  rw [Query.toGen_evaluateGen_eq,
+    (genCountHavingSite ts' op C g).evaluate d
+      = ((joinCountQueryPadded q' op C).toAgg
+          (joinCountQueryPadded_source q' hq' op C)).evaluate d := by
+  rw [Query.toAgg_evaluate_eq,
     joinCountQueryPadded_correct h_abs h_distrib q' hq' d hnodup ts' op C,
     ← fused_key_proj g q' hq' d hbridge ts' op C]
   refine Eq.trans (Multiset.map_congr rfl (fun r _ =>
@@ -112,7 +112,7 @@ theorem genCountHavingSite_eval
       (fun _ : Fin 1 => ProjCol.term
         ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
       (fun _ => ⟨_, rfl⟩) r)) ?_
-  unfold QueryGen.evaluateAnnotatedGen
+  unfold AggQuery.evaluateAnnotated
   rw [Multiset.map_map, Multiset.map_map]
   exact Multiset.map_congr rfl (fun r _ => rfl)
 
@@ -122,47 +122,47 @@ embedded padded join query built over any classical query with the same
 annotated semantics as the site's grouped subquery. -/
 inductive GenCountHavingRewrite (d : AnnotatedDatabase ℕ K) :
     {n : ℕ} → {κ : Fin n → ColKind} →
-    QueryGen ℕ n κ → QueryGen ℕ n κ → Prop
-  | refl {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen ℕ n κ) :
+    AggQuery ℕ n κ → AggQuery ℕ n κ → Prop
+  | refl {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery ℕ n κ) :
       GenCountHavingRewrite d q q
   | proj {n m : ℕ} {κ : Fin n → ColKind} (ps : Tuple (ProjCol ℕ κ) m)
-      {q q' : QueryGen ℕ n κ} :
+      {q q' : AggQuery ℕ n κ} :
       GenCountHavingRewrite d q q' →
-      GenCountHavingRewrite d (QueryGen.Proj ps q) (QueryGen.Proj ps q')
+      GenCountHavingRewrite d (AggQuery.Proj ps q) (AggQuery.Proj ps q')
   | sel {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred ℕ κ)
-      {q q' : QueryGen ℕ n κ} :
+      {q q' : AggQuery ℕ n κ} :
       GenCountHavingRewrite d q q' →
-      GenCountHavingRewrite d (QueryGen.Sel φ q) (QueryGen.Sel φ q')
+      GenCountHavingRewrite d (AggQuery.Sel φ q) (AggQuery.Sel φ q')
   | prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
-      {q₁ q₁' : QueryGen ℕ n₁ κ₁} {q₂ q₂' : QueryGen ℕ n₂ κ₂} :
+      {q₁ q₁' : AggQuery ℕ n₁ κ₁} {q₂ q₂' : AggQuery ℕ n₂ κ₂} :
       GenCountHavingRewrite d q₁ q₁' → GenCountHavingRewrite d q₂ q₂' →
-      GenCountHavingRewrite d (QueryGen.Prod q₁ q₂)
-        (QueryGen.Prod q₁' q₂')
-  | sum {n : ℕ} {κ : Fin n → ColKind} {q₁ q₁' q₂ q₂' : QueryGen ℕ n κ} :
+      GenCountHavingRewrite d (AggQuery.Prod q₁ q₂)
+        (AggQuery.Prod q₁' q₂')
+  | sum {n : ℕ} {κ : Fin n → ColKind} {q₁ q₁' q₂ q₂' : AggQuery ℕ n κ} :
       GenCountHavingRewrite d q₁ q₁' → GenCountHavingRewrite d q₂ q₂' →
-      GenCountHavingRewrite d (QueryGen.Sum q₁ q₂)
-        (QueryGen.Sum q₁' q₂')
-  | dedup {n : ℕ} {q q' : QueryGen ℕ n (ColKind.allReg n)} :
+      GenCountHavingRewrite d (AggQuery.Sum q₁ q₂)
+        (AggQuery.Sum q₁' q₂')
+  | dedup {n : ℕ} {q q' : AggQuery ℕ n (ColKind.allReg n)} :
       GenCountHavingRewrite d q q' →
-      GenCountHavingRewrite d (QueryGen.Dedup q) (QueryGen.Dedup q')
-  | diff {n : ℕ} {q₁ q₁' q₂ q₂' : QueryGen ℕ n (ColKind.allReg n)} :
+      GenCountHavingRewrite d (AggQuery.Dedup q) (AggQuery.Dedup q')
+  | diff {n : ℕ} {q₁ q₁' q₂ q₂' : AggQuery ℕ n (ColKind.allReg n)} :
       GenCountHavingRewrite d q₁ q₁' → GenCountHavingRewrite d q₂ q₂' →
-      GenCountHavingRewrite d (QueryGen.Diff q₁ q₂)
-        (QueryGen.Diff q₁' q₂')
+      GenCountHavingRewrite d (AggQuery.Diff q₁ q₂)
+        (AggQuery.Diff q₁' q₂')
   | gamma {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) n₂)
       (fs : Tuple (SeqAggFunc ℕ) n₂)
-      {q q' : QueryGen ℕ m (ColKind.allReg m)} :
+      {q q' : AggQuery ℕ m (ColKind.allReg m)} :
       GenCountHavingRewrite d q q' →
-      GenCountHavingRewrite d (QueryGen.Gamma is ts fs q)
-        (QueryGen.Gamma is ts fs q')
+      GenCountHavingRewrite d (AggQuery.Gamma is ts fs q)
+        (AggQuery.Gamma is ts fs q')
   | site (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
-      {g g' : QueryGen ℕ 3 (ColKind.allReg 3)} (q' : Query ℕ 3)
+      {g g' : AggQuery ℕ 3 (ColKind.allReg 3)} (q' : Query ℕ 3)
       (hq' : q'.source) :
       GenCountHavingRewrite d g g' →
-      g'.evaluateAnnotatedGen d = q'.evaluateAnnotated hq' d →
+      g'.evaluateAnnotated d = q'.evaluateAnnotated hq' d →
       ((q'.evaluateAnnotated hq' d).map Prod.fst).Nodup →
       GenCountHavingRewrite d (genCountHavingSite ts' op C g)
-        ((joinCountQueryPadded q' op C).toGen
+        ((joinCountQueryPadded q' op C).toAgg
           (joinCountQueryPadded_source q' hq' op C))
 
 /-- **Compositional correctness of the JOIN rewriting, general syntax**:
@@ -172,23 +172,23 @@ preserves the general evaluator's rows verbatim. -/
 theorem GenCountHavingRewrite.evaluateGen_eq
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {d : AnnotatedDatabase ℕ K} :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} {q q' : QueryGen ℕ n κ},
+    ∀ {n : ℕ} {κ : Fin n → ColKind} {q q' : AggQuery ℕ n κ},
       GenCountHavingRewrite d q q' →
-      q.evaluateGen d = q'.evaluateGen d := by
+      q.evaluate d = q'.evaluate d := by
   intro n κ q q' hrw
   induction hrw with
   | refl q => rfl
-  | proj ps _ ih => simp only [QueryGen.evaluateGen]; rw [ih]
-  | sel φ _ ih => simp only [QueryGen.evaluateGen]; rw [ih]
-  | prod _ _ ih₁ ih₂ => simp only [QueryGen.evaluateGen]; rw [ih₁, ih₂]
-  | sum _ _ ih₁ ih₂ => simp only [QueryGen.evaluateGen]; rw [ih₁, ih₂]
-  | dedup _ ih => simp only [QueryGen.evaluateGen]; rw [ih]
-  | diff _ _ ih₁ ih₂ => simp only [QueryGen.evaluateGen]; rw [ih₁, ih₂]
-  | gamma is ts fs _ ih => simp only [QueryGen.evaluateGen]; rw [ih]
+  | proj ps _ ih => simp only [AggQuery.evaluate]; rw [ih]
+  | sel φ _ ih => simp only [AggQuery.evaluate]; rw [ih]
+  | prod _ _ ih₁ ih₂ => simp only [AggQuery.evaluate]; rw [ih₁, ih₂]
+  | sum _ _ ih₁ ih₂ => simp only [AggQuery.evaluate]; rw [ih₁, ih₂]
+  | dedup _ ih => simp only [AggQuery.evaluate]; rw [ih]
+  | diff _ _ ih₁ ih₂ => simp only [AggQuery.evaluate]; rw [ih₁, ih₂]
+  | gamma is ts fs _ ih => simp only [AggQuery.evaluate]; rw [ih]
   | @site ts' op C g g' q' hq' _ hbridge hnodup ih =>
-    have hbridge' : g.evaluateAnnotatedGen d
+    have hbridge' : g.evaluateAnnotated d
         = q'.evaluateAnnotated hq' d := by
-      unfold QueryGen.evaluateAnnotatedGen
+      unfold AggQuery.evaluateAnnotated
       rw [ih]
       exact hbridge
     exact genCountHavingSite_eval h_abs h_distrib ts' op C g q' hq' d
@@ -198,9 +198,9 @@ theorem GenCountHavingRewrite.evaluateGen_eq
 theorem GenCountHavingRewrite.evaluateAnnotatedGen_eq
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {d : AnnotatedDatabase ℕ K} {n : ℕ} {κ : Fin n → ColKind}
-    {q q' : QueryGen ℕ n κ} (hrw : GenCountHavingRewrite d q q') :
-    q.evaluateAnnotatedGen d = q'.evaluateAnnotatedGen d := by
-  unfold QueryGen.evaluateAnnotatedGen
+    {q q' : AggQuery ℕ n κ} (hrw : GenCountHavingRewrite d q q') :
+    q.evaluateAnnotated d = q'.evaluateAnnotated d := by
+  unfold AggQuery.evaluateAnnotated
   rw [hrw.evaluateGen_eq h_abs h_distrib]
 
 end GenRewrite

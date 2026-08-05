@@ -51,7 +51,7 @@ where `agg_{t,f}(W)` applies the sequence aggregate `f` to the `t`-values
 of the occurrences of `W` (in order) and `χ_op` sends a true comparison to
 `𝟙` and a false one to `𝟘`. The sum ranges over non-empty worlds only, so
 it already enforces group existence. The general evaluator's `HAVING`
-site (`QueryGen.havingSite`, in `Provenance.QueryGenBridges`) has exactly
+site (`AggQuery.havingSite`, in `Provenance.AggQueryBridges`) has exactly
 this closed form: one row per group of the inner query, whose data part
 carries the group key and the (whole-group) aggregate values, and whose
 annotation is the predicate provenance of its group.

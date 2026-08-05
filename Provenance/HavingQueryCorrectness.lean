@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryGenToGen
+import Provenance.QueryToAgg
 import Provenance.QueryAnnotatedDatabaseHom
 
 /-!
@@ -13,7 +13,7 @@ semantics of the fused `HAVING COUNT(*)` operator and its `JOIN`-based
 rewriting, in absorptive commutative m-semirings in which `⊗` distributes
 over `⊖`.
 
-* **`C = 1`** (`QueryGen.havingSite_count_ge_one`): the fused
+* **`C = 1`** (`AggQuery.havingSite_count_ge_one`): the fused
   `COUNT(*) ≥ 1` operator agrees – key by key, annotation by annotation –
   with the duplicate-eliminated key projection `ε(Π_{keys}(q))`, via the
   extensional characterisation `groupByKey_eq_dedup_map` of duplicate
@@ -112,16 +112,16 @@ key – computes exactly the duplicate-eliminated key projection
 query: one row per non-empty group, annotated by the `⊕`-sum of the
 group's annotations. Stated against any general subquery whose annotated
 evaluation is the classical inner query's. -/
-theorem QueryGen.havingSite_count_ge_one
+theorem AggQuery.havingSite_count_ge_one
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) 1)
     (q : Query ℕ m) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
-    ((QueryGen.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) (q.toGen hq)).evaluateAnnotatedGen d).map
+    ((AggQuery.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
+        (Term.const 1) (q.toAgg hq)).evaluateAnnotated d).map
       (fun p => ((fun k : Fin n₁ => p.fst (Fin.castAdd 1 k)), p.snd))
       = (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d := by
-  rw [QueryGen.havingSite_evaluateAnnotatedGen,
-    Query.toGenHaving_input q hq d]
+  rw [AggQuery.havingSite_evaluateAnnotated,
+    Query.toAggHaving_input q hq d]
   set r : AnnotatedRelation ℕ K m := q.evaluateAnnotated hq d with hr
   -- The right-hand side: `ε ∘ Π` unfolds to `groupByKey` of the projected
   -- relation, which `groupByKey_eq_dedup_map` characterises extensionally.

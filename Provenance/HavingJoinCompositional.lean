@@ -325,19 +325,19 @@ one-row-per-key relation the padded join query evaluates to: combined
 with `joinCountQueryPadded_correct`, the padded rewriting can be
 substituted for the key-projected fused operator inside any surrounding
 query. -/
-theorem fused_key_proj (qg : QueryGen ℕ 3 (ColKind.allReg 3))
+theorem fused_key_proj (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
-    (hin : qg.evaluateAnnotatedGen d = q.evaluateAnnotated hq d)
+    (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
-    ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
-        (Term.const (C + 1)) qg).evaluateAnnotatedGen d).map
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (Term.const (C + 1)) qg).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, Having.havingProv
             (Having.havingGroup keyIdx (q.evaluateAnnotated hq d) g)
             (ts' 0) SeqAggFunc.count op (C + 1)) : Tuple ℕ 1 × K)) := by
-  rw [QueryGen.havingSite_evaluateAnnotatedGen, hin]
+  rw [AggQuery.havingSite_evaluateAnnotated, hin]
   show ((Multiset.dedup ((q.evaluateAnnotated hq d).map
       (fun p => fun k : Fin 1 => p.fst (keyIdx k)))).map _).map _ = _
   rw [Multiset.map_map]
@@ -360,13 +360,13 @@ theorem countHaving_site_rewrite
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
-    ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
-        (Term.const (C + 1)) (q.toGen hq)).evaluateAnnotatedGen d).map
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (Term.const (C + 1)) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (joinCountQueryPadded q op C).evaluateAnnotated
           (joinCountQueryPadded_source q hq op C) d :=
-  (fused_key_proj (q.toGen hq) q hq d (Query.toGenHaving_input q hq d)
+  (fused_key_proj (q.toAgg hq) q hq d (Query.toAggHaving_input q hq d)
       ts' op C).trans
     (joinCountQueryPadded_correct h_abs h_distrib q hq d hnodup ts' op C).symm
 
