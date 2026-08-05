@@ -52,6 +52,7 @@ instance : SemiringWithMonus Bool where
   delta_zero := rfl
   delta_natCast_pos := fun hn => delta_natCast_pos_id (by decide) hn
   delta_regrouping := delta_regrouping_id
+  delta_absorb := by decide
 
 instance : CommSemiringWithMonus Bool where
   mul_comm := mul_comm

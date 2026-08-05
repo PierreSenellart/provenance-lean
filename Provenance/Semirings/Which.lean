@@ -204,6 +204,49 @@ instance : IsOrderedAddMonoid (Which α) where
     . assumption
     . exact fun _ hx => Or.inl hx
 
+/-- The support-indicator `δ` of which-provenance: `⊥` on `⊥`, the empty
+label set (`𝟙`) otherwise. The identity choice (ProvSQL's historical
+`Which::delta`) violates `delta_absorb` – `Which` is not absorptive,
+`⊗` and `⊕` both being union. -/
+private def Which.deltaInd : Which α → Which α
+  | .wbot => .wbot
+  | .wset _ => .wset ∅
+
+omit [DecidableEq α] in
+private lemma Which.deltaInd_of_ne {a : Which α} (h : a ≠ 0) :
+    Which.deltaInd a = 1 := by
+  cases a with
+  | wbot => exact absurd rfl h
+  | wset sa => rfl
+
+private lemma Which.zsf {a b : Which α} (h : a + b = 0) : a = 0 := by
+  cases a with
+  | wbot => rfl
+  | wset sa => cases b <;> exact absurd h (by simp [(· + ·), Add.add])
+
+private lemma Which.sum_eq_zero_iff (t : Multiset (Which α)) :
+    t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
+  induction t using Multiset.induction_on with
+  | empty => simp
+  | cons a t ih =>
+    rw [Multiset.sum_cons]
+    constructor
+    · intro h x hx
+      have ha : a = 0 := Which.zsf h
+      rcases Multiset.mem_cons.mp hx with rfl | hx
+      · exact ha
+      · rw [ha, zero_add] at h
+        exact ih.mp h x hx
+    · intro h
+      rw [h a (Multiset.mem_cons_self a t), zero_add,
+        ih.mpr fun x hx => h x (Multiset.mem_cons_of_mem hx)]
+
+omit [DecidableEq α] in
+private lemma Which.one_ne_zero' : (1 : Which α) ≠ 0 := by
+  intro h
+  have h' : Which.wset (∅ : Finset α) = Which.wbot := h
+  simp at h'
+
 instance : SemiringWithMonus (Which α) where
   monus_spec := by
     intro a b c
@@ -230,15 +273,39 @@ instance : SemiringWithMonus (Which α) where
       . rw [if_neg h']
         exact iff_of_false id fun hf => h' hf
 
-  /- δ matches ProvSQL's `Which::delta`: the identity. -/
-  delta := id
+  /- δ is the support indicator (see `Which.deltaInd`). -/
+  delta := Which.deltaInd
   delta_zero := rfl
   delta_natCast_pos :=
     let hidem : idempotent (Which α) := fun a => by
       simp [(· + ·), Add.add]
       cases ha: a <;> simp
-    fun hn => delta_natCast_pos_id hidem hn
-  delta_regrouping := delta_regrouping_id
+    fun hn => by
+      rw [natCast_pos_eq_one_of_idempotent hidem hn,
+        Which.deltaInd_of_ne Which.one_ne_zero']
+  delta_regrouping := fun s => by
+    by_cases hz : s.sum = 0
+    · have hmap : (s.map Which.deltaInd).sum = 0 :=
+        (Which.sum_eq_zero_iff _).mpr fun x hx => by
+          obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hx
+          rw [(Which.sum_eq_zero_iff s).mp hz a ha]
+          rfl
+      rw [hz, hmap]
+    · have hmapne : (s.map Which.deltaInd).sum ≠ 0 := by
+        intro h
+        apply hz
+        refine (Which.sum_eq_zero_iff s).mpr fun a ha => ?_
+        have hda := (Which.sum_eq_zero_iff _).mp h _
+          (Multiset.mem_map_of_mem _ ha)
+        by_contra hane
+        rw [Which.deltaInd_of_ne hane] at hda
+        exact Which.one_ne_zero' hda
+      rw [Which.deltaInd_of_ne hmapne, Which.deltaInd_of_ne hz]
+  delta_absorb := fun a b => by
+    by_cases ha : a = 0
+    · rw [ha, zero_mul]
+    · have habne : a + b ≠ 0 := fun h => ha (Which.zsf h)
+      rw [Which.deltaInd_of_ne habne, mul_one]
 
 instance : CommSemiringWithMonus (Which α) where
   mul_comm := mul_comm

@@ -177,6 +177,7 @@ instance : SemiringWithMonus Viterbi where
   delta_zero := Viterbi.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Viterbi.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Viterbi.deltaInd_isIndicator
+  delta_absorb := delta_absorb_indicator Viterbi.deltaInd_isIndicator
 
 noncomputable
 instance : CommSemiringWithMonus Viterbi where

@@ -330,6 +330,7 @@ instance : SemiringWithMonus Lukasiewicz where
   delta_zero := Lukasiewicz.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Lukasiewicz.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Lukasiewicz.deltaInd_isIndicator
+  delta_absorb := delta_absorb_indicator Lukasiewicz.deltaInd_isIndicator
 
 instance : CommSemiringWithMonus Lukasiewicz where
   mul_comm := mul_comm

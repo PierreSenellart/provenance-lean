@@ -77,6 +77,15 @@ class SemiringWithMonus (α : Type)
   under partition coarsening: re-grouping a fine partition to get a coarse
   one yields the same provenance as grouping directly. -/
   delta_regrouping : ∀ (s : Multiset α), delta (s.map delta).sum = delta s.sum
+  /-- A δ-guard is absorbed by any multiple of one of its summands:
+  `a ⊗ δ(a ⊕ b) = a`. This is what makes a group-existence factor
+  redundant next to any provenance that already contains an occurrence
+  of the group: `δ` really acts as "the group exists" and nothing more.
+  Both usual choices of `δ` satisfy it in their natural habitat: the
+  indicator (`δ x = 𝟙` for `x ≠ 𝟘`) in any canonically ordered semiring
+  (`delta_absorb_indicator`), and the identity in lattice-like
+  semirings, where it is absorption `a ⊓ (a ⊔ b) = a`. -/
+  delta_absorb : ∀ (a b : α), a * delta (a + b) = a
 
 /-! ## Main properties -/
 
@@ -454,6 +463,19 @@ theorem delta_regrouping_indicator
     intro heq
     rw [heq] at hle
     exact one_ne_zero (le_antisymm hle (by simp))
+
+/-- Any `δ` matching the indicator recipe satisfies `delta_absorb` in a
+canonically ordered semiring: if `a ⊕ b = 𝟘` then `a = 𝟘` by zero-sum
+freeness, and otherwise `δ(a ⊕ b) = 𝟙`. -/
+theorem delta_absorb_indicator
+    {K : Type} [Semiring K] [PartialOrder K] [IsOrderedAddMonoid K]
+    [CanonicallyOrderedAdd K]
+    {δ : K → K} (h : IsDeltaIndicator δ) (a b : K) :
+    a * δ (a + b) = a := by
+  by_cases hab : a + b = 0
+  · have ha : a = 0 := le_antisymm (hab ▸ le_self_add) zero_le
+    rw [ha, zero_mul]
+  · rw [h.nonzero _ hab, mul_one]
 
 /-! ## Existence of a `δ`-like operator
 

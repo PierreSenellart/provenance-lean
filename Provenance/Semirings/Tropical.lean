@@ -222,6 +222,16 @@ noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonu
     by_cases hs : s.sum = 0
     · rw [if_pos hs, if_pos (hzero_iff.mpr hs)]
     · rw [if_neg hs, if_neg (fun h => hs (hzero_iff.mp h))]
+  delta_absorb := fun a b => by
+    by_cases h : a + b = 0
+    · have hmin : min (Tropical.untrop a) (Tropical.untrop b) = ⊤ := by
+        rw [← Tropical.untrop_add, h, Tropical.untrop_zero]
+      have ha : a = 0 := Tropical.untrop_injective (by
+        rw [Tropical.untrop_zero]
+        exact le_antisymm le_top (by rw [← hmin]; exact min_le_left _ _))
+      rw [ha, zero_mul]
+    · show a * Tropical.deltaInd (a + b) = a
+      rw [Tropical.deltaInd, if_neg h, mul_one]
 
 noncomputable instance [LinearOrderedAddCommMonoidWithTop α] :
     CommSemiringWithMonus (Tropical α) where

@@ -121,6 +121,7 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
   delta_zero := How.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator How.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator How.deltaInd_isIndicator
+  delta_absorb := delta_absorb_indicator How.deltaInd_isIndicator
 
 noncomputable instance : CommSemiringWithMonus (MvPolynomial X ℕ) where
   mul_comm := mul_comm

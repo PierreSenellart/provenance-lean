@@ -178,6 +178,66 @@ instance : CommSemiring (Why α) where
 
   nsmul := nsmulRec
 
+/-- The support-indicator `δ` of why-provenance: `𝟘` on the empty
+witness family, `𝟙` otherwise. The witness-preserving identity choice
+(ProvSQL's historical `Why::delta`) violates `delta_absorb` – `Why` is
+not absorptive – so `δ` collapses group existence to a bare "exists". -/
+private def Why.deltaInd (a : Why α) : Why α :=
+  ⟨{s | s = ∅ ∧ a.carrier.Nonempty}⟩
+
+private lemma Why.deltaInd_zero : Why.deltaInd (0 : Why α) = 0 := by
+  ext z
+  show z ∈ {s | s = ∅ ∧ (∅ : Set (Set α)).Nonempty} ↔ z ∈ (∅ : Set (Set α))
+  simp
+
+private lemma Why.carrier_nonempty_of_ne {a : Why α} (h : a ≠ 0) :
+    a.carrier.Nonempty := by
+  rcases Set.eq_empty_or_nonempty a.carrier with he | hne
+  · exact absurd (by ext z; rw [he]; exact Iff.rfl) h
+  · exact hne
+
+private lemma Why.deltaInd_of_ne {a : Why α} (h : a ≠ 0) :
+    Why.deltaInd a = 1 := by
+  ext z
+  show z ∈ {s | s = ∅ ∧ a.carrier.Nonempty} ↔ z ∈ ({∅} : Set (Set α))
+  simp [Why.carrier_nonempty_of_ne h]
+
+private lemma Why.zsf {a b : Why α} (h : a + b = 0) : a = 0 := by
+  have hc : a.carrier ∪ b.carrier = (∅ : Set (Set α)) :=
+    congrArg Why.carrier h
+  have hx : a.carrier = ∅ := by
+    ext w
+    simp only [Set.mem_empty_iff_false, iff_false]
+    intro hw
+    have hmem : w ∈ a.carrier ∪ b.carrier := Set.mem_union_left _ hw
+    rw [hc] at hmem
+    exact hmem
+  ext z
+  rw [hx]
+  exact Iff.rfl
+
+private lemma Why.sum_eq_zero_iff (t : Multiset (Why α)) :
+    t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
+  induction t using Multiset.induction_on with
+  | empty => simp
+  | cons a t ih =>
+    rw [Multiset.sum_cons]
+    constructor
+    · intro h x hx
+      have ha : a = 0 := Why.zsf h
+      rcases Multiset.mem_cons.mp hx with rfl | hx
+      · exact ha
+      · rw [ha, zero_add] at h
+        exact ih.mp h x hx
+    · intro h
+      rw [h a (Multiset.mem_cons_self a t), zero_add,
+        ih.mpr fun x hx => h x (Multiset.mem_cons_of_mem hx)]
+
+private lemma Why.one_ne_zero' : (1 : Why α) ≠ 0 := by
+  intro h
+  have := congrArg Why.carrier h
+  exact Set.singleton_ne_empty (∅ : Set α) this
+
 instance : SemiringWithMonus (Why α) where
   le a b := a.carrier ⊆ b.carrier
   le_refl := by simp
@@ -247,14 +307,36 @@ instance : SemiringWithMonus (Why α) where
       simp at h'
       tauto
 
-  /- δ matches ProvSQL's `Why::delta`: identity on `Why α` (the C++ form
-  `x.empty() ? zero() : x` collapses to the identity since `zero = ⟨∅⟩`). -/
-  delta := id
-  delta_zero := rfl
+  /- δ is the support indicator (see `Why.deltaInd`). -/
+  delta := Why.deltaInd
+  delta_zero := Why.deltaInd_zero
   delta_natCast_pos :=
     let hidem : idempotent (Why α) := fun a => by simp [(· + ·), Add.add]
-    fun hn => delta_natCast_pos_id hidem hn
-  delta_regrouping := delta_regrouping_id
+    fun hn => by
+      rw [natCast_pos_eq_one_of_idempotent hidem hn,
+        Why.deltaInd_of_ne Why.one_ne_zero']
+  delta_regrouping := fun s => by
+    by_cases hz : s.sum = 0
+    · have hmap : (s.map Why.deltaInd).sum = 0 :=
+        (Why.sum_eq_zero_iff _).mpr fun x hx => by
+          obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hx
+          rw [(Why.sum_eq_zero_iff s).mp hz a ha, Why.deltaInd_zero]
+      rw [hz, hmap, Why.deltaInd_zero]
+    · have hmapne : (s.map Why.deltaInd).sum ≠ 0 := by
+        intro h
+        apply hz
+        refine (Why.sum_eq_zero_iff s).mpr fun a ha => ?_
+        have hda := (Why.sum_eq_zero_iff _).mp h _
+          (Multiset.mem_map_of_mem _ ha)
+        by_contra hane
+        rw [Why.deltaInd_of_ne hane] at hda
+        exact Why.one_ne_zero' hda
+      rw [Why.deltaInd_of_ne hmapne, Why.deltaInd_of_ne hz]
+  delta_absorb := fun a b => by
+    by_cases ha : a = 0
+    · rw [ha, zero_mul]
+    · have habne : a + b ≠ 0 := fun h => ha (Why.zsf h)
+      rw [Why.deltaInd_of_ne habne, mul_one]
 
 instance : CommSemiringWithMonus (Why α) where
   mul_comm := mul_comm

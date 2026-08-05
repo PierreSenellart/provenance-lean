@@ -28,6 +28,32 @@ import Provenance.Having
 /- Possible-world semantics of the fused Having operator -/
 import Provenance.HavingSemantics
 
+/- Symbolic aggregate tokens for the general HAVING semantics -/
+import Provenance.AggValue
+import Provenance.AggValueCongr
+
+/- Kind-indexed general queries and their annotated semantics -/
+import Provenance.QueryGen
+
+/- Data-part adequacy of the general evaluator -/
+import Provenance.QueryGenAdequacy
+
+/- Regression bridges: the fused Having recovered from the general syntax -/
+import Provenance.QueryGenBridges
+
+/- Possible-world foundations for the general evaluator -/
+import Provenance.QueryGenProbability
+
+/- Hom commutation for the general evaluator, token and annotation layer -/
+import Provenance.QueryGenHom
+import Provenance.QueryGenEmbedding
+
+/- Provenance-aware rewriting stated natively on the general syntax -/
+import Provenance.QueryGenRewriting
+
+/- The rewritten world's token-bearing evaluator (HAVING rewriting) -/
+import Provenance.QueryGenHavingRewriting
+
 /- Scan-computable HAVING provenance for MIN, MAX and PICKFIRST -/
 import Provenance.HavingMinMax
 
@@ -51,6 +77,7 @@ import Provenance.HavingExample
 
 /- Query-level correctness of the fused Having operator vs the JOIN rewriting -/
 import Provenance.HavingQueryCorrectness
+import Provenance.HavingJoinCompositional
 
 /- Query-level counterexamples for the HAVING / JOIN correspondence -/
 import Provenance.HavingQueryCounterexamples
@@ -116,6 +143,160 @@ the provenance-aware relational database system
   annotation-generic analogue of the `ℕ`-adequacy theorem of
   [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq])
   and as a sub-multiset inclusion in general
+**The general framework** (primary)
+
+The kind-indexed general syntax is the library's primary query
+framework. Its three column kinds – regular values, aggregate tokens,
+provenance values – mirror the three data types through which ProvSQL
+enforces its own discipline (regular SQL values, `agg_token`, uuid), so
+the system's scope restrictions on aggregate results (no deduplication,
+difference or re-grouping over them) are static typing here, not a
+formalization convenience. The classical query layer below remains the
+proven engine several general results reuse internally.
+
+- `Provenance.AggValue` – symbolic aggregate tokens for the general (non-fused)
+  HAVING semantics: `AggValue T K` packages an aggregate function with the
+  ≼-sorted occurrence payload of its originating group, with the
+  world-faithful (`specialize`), per-world (`valOn`) and deterministic
+  (`collapse`) readings, the predicate provenance of a comparison against
+  the token (`predProv`, agreeing with `havingProv` on a group via
+  `predProv_ofGroup`), the annotation pushforward (`mapAnn`), and lifted
+  column values `T ⊕ AggValue T K` mixing key and token columns
+- `Provenance.AggValueCongr` – congruence of the token readings under
+  tie-block permutations of the payload: `TiePerm`, the guarded analogue
+  of `List.Perm` whose swaps only exchange adjacent elements with equal
+  sort keys (`tiePerm_of_perm_of_sorted` produces one from two sorted
+  permuted lists), a recursion form of the predicate provenance
+  (`AggValue.predProvAux`, equal to the world-sum by
+  `AggValue.predProv_eq_predProvAux`), and the congruences
+  (`AggValue.predProv_congr`, `collapse_congr`, `annSum_congr`) making the
+  annotation tie-break of the group sort semantically invisible
+- `Provenance.QueryGen` – the general (non-fused) HAVING semantics:
+  kind-indexed queries `QueryGen` over three column kinds – regular
+  values, aggregate tokens, provenance values, ProvSQL's regular /
+  `agg_token` / uuid data types – enforcing the scope conditions
+  statically (`Gamma` over all-regular inputs only, no `Dedup`/`Diff`
+  over token columns, normal-form projections and selections), the
+  token-building grouping `GammaTok` and provenance aggregation
+  `ProvSum` of rewritten plans, the generalized selection grammar
+  `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
+  operator complementation), and the general evaluator
+  `QueryGen.evaluateGen` with factored row annotations `GenAnn`
+  implementing the replace-the-δ-factor combination rule: `Gamma` leaves
+  its group-existence factor pending, an aggregate selection supersedes
+  exactly the compared groups' factors with the predicate provenance, and
+  projections cash the factors of dropped token columns. Also the plain
+  evaluator `QueryGen.evaluatePlain` (classical filtering, aggregates
+  computed over the whole group) and the stripping `QueryGen.stripGen`
+- `Provenance.QueryGenAdequacy` – **data-part adequacy of the general
+  evaluator**: forgetting the annotations of `evaluateAnnotatedGen` yields
+  the plain evaluation of the stripped query
+  (`QueryGen.evaluateAnnotatedGen_toPlain`), the aggregate tokens
+  contributing through their deterministic `collapse` reading and the
+  fused group sequence projecting onto the plain one
+  (`havingGroup_map_fst`)
+- `Provenance.QueryGenBridges` – **regression bridge**: on its fragment –
+  one aggregate comparison directly above the grouping – the general
+  evaluator recovers the fused semantics,
+  `QueryGen.fused_having_bridge : (σ_{fusedCmp} ∘ Gamma).evaluateAnnotatedGen
+  = Query.evaluateHavingAnnotated`: the pending group factor is superseded
+  by the token's predicate provenance (`AggValue.predProv_ofGroup`) and the
+  data part collapses to the whole-group aggregates; every fused-semantics
+  theorem thereby transfers to the general evaluator
+- `Provenance.QueryGenProbability` – **the random-world commutation for
+  the general evaluator** over `𝔹[X]`:
+  `QueryGen.genRandomWorld_evaluateGen` – specializing the realized rows
+  of the general annotated evaluation is the plain evaluation of the
+  realized world (`genRandomWorld v (q.evaluateGen d) =
+  q.evaluatePlain (d.randomWorld v)`), for arbitrary queries with
+  aggregate comparisons anywhere. Built from the token-level PQE bridge
+  (`AggValue.predProv_eval_iff`), the predicate-provenance evaluation
+  under existence guards (`GenPred.predsem_eval_iff`, with `¬` handled by
+  polarity), the existence-entailment extraction
+  (`GenPred.entails_guard`), the σ-aggregate row lemma
+  (`GenPred.sel_finalize_eval_iff`), and the conformance and guardedness
+  invariants of the evaluator (`evaluateGen_conform`,
+  `evaluateGen_guarded`). As corollaries, **unrestricted probabilistic
+  query evaluation**: `QueryGen.boolean_pqe` (the probability that a
+  random world has a non-empty answer is the probability of the query's
+  Boolean provenance, the `⊕`-sum of the rows' finalized annotations) and
+  `QueryGen.tuple_pqe` (the marginal probability of an answer tuple, for
+  all-regular outputs) – both for arbitrary queries with aggregate
+  comparisons anywhere, removing the top-level restriction of the fused
+  `booleanHaving_pqe`
+- `Provenance.QueryGenHom` – hom commutation for the general evaluator,
+  token and annotation layer: the finalized factored annotation
+  (`GenAnn.finalize_mapHom`, through `map_delta`), the predicate
+  provenance of a token comparison (`AggValue.predProv_mapAnn`) and of a
+  whole generalized predicate (`GenPred.predsem_mapAnn`) commute with
+  every `SemiringWithMonusHom` –
+  the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of "compile once, evaluate
+  many". The evaluator-level commutation additionally hinges on the
+  many". The evaluator-level commutation
+  (`QueryGen.evaluateAnnotatedGen_hom`) holds hypothesis-free over every
+  m-semiring: the guard-absorption identities licensed by `delta_absorb`
+  (`AggValue.predProv_delta_absorb`, `GenPred.predsem_delta_absorb`)
+  neutralize the supersede decisions a non-injective hom can conflate,
+  the group-sequence transport (`havingGroup_tiePerm`,
+  `ofGroup_predProv_hom`, `havingGroup_annSum_hom`) neutralizes the
+  `≼`-tie-break of `havingGroup`, and a row-wise simulation
+  (`GenRow.Sim`, `QueryGen.evaluateGen_hom_rel`) carries both through
+  the evaluator
+- `Provenance.QueryGenEmbedding` – the embedding of the classical query
+  syntax into the general evaluator: `Query.toGen` translates the
+  non-aggregating fragment one to one over all-regular kinds, faithfully
+  (`Query.toGen_bridge` and, at the raw row level,
+  `Query.toGen_evaluateGen_eq`, via the row invariant `GenRow.Inv`); the
+  fused `HAVING` over an embedded subquery is computed by `σ_ψ ∘ Gamma`
+  (`Query.toGenHaving_bridge`). The compositional JOIN rewriting is
+  stated natively on the general syntax: `GenCountHavingRewrite` replaces
+  `HAVING COUNT(*)` sites – key projections of `σ_ψ ∘ Gamma`, all-regular
+  and hence composable under every operator – by the embedded padded join
+  query, and `GenCountHavingRewrite.evaluateGen_eq` proves the
+  replacement preserves the general evaluator's rows verbatim; the
+  expressible contexts around a site are exactly the ProvSQL-legal ones,
+  the kind discipline forbidding deduplication, difference and
+  re-grouping over aggregate values just as the system does
+- `Provenance.QueryGenRewriting` – **the provenance-aware rewriting,
+  natively on the general syntax**: the rewritten column layout
+  `ColKind.rewKinds` (`n` regular data columns plus one provenance
+  column), the fragment predicate `QueryGen.classical`, and the rewriting
+  `QueryGen.rewritingGen` mirroring the classical rules – with
+  deduplication and difference expressed through the native `ProvSum`
+  aggregation of provenance columns and the `Retag` cast. Correctness,
+  `QueryGen.rewritingGen_valid`, states that the annotated semantics
+  folded into composite `T ⊕ K` tuples agrees with the plain evaluation
+  of the rewritten query; it is proven by stripping to the classical
+  fragment (`QueryGen.strip`, faithful by `QueryGen.strip_bridge` through
+  the row invariant `GenRow.Inv`) and the plain-semantics agreement
+  `QueryGen.rewritingGen_plain` of the two rewritten queries
+- `Provenance.QueryGenHavingRewriting` – **the rewritten world's
+  evaluator, with tokens as first-class column values**: rewritten
+  queries run over rows `Tuple (GenValue (T ⊕ K) K) n`
+  (`QueryGen.evaluateRew`), where the token-building grouping `GammaTok`
+  is ProvSQL's `provsql_agg` (explicit annotation term, group guard
+  `δ(⊕ occs)` in the `prov` output column) and the term gate
+  `TermG.cmpAgg` is `provsql_having`, interpreted by the primitive
+  `AggValue.predProv` (`TermG.evalRew`). Off the token operators the
+  evaluator is the plain semantics through the `inl` embedding
+  (`QueryGen.evaluateRew_plain`), connecting it to the classical
+  rewriting correctness. The rewritten `HAVING` site
+  (`QueryGen.havingSiteRew`: token-building grouping over the rewritten
+  subquery, keys projected out, the gate applied to the compared token)
+  is proven correct relative to the gate primitive –
+  `QueryGen.havingSiteRew_valid` equates the annotated fused site,
+  folded into embedded composite rows, with the rewritten world's
+  evaluation, through the two embedding commutations
+  (`Having.havingProv_toComposite`, `Having.havingGroup_toComposite`) –
+  the query-level counterpart of ProvSQL's `GROUP BY … HAVING`
+  rewriting, whose correctness is relative to its gate semantics in the
+  same way. The closure `QueryGen.HavingRewrites` composes the two base
+  rewritings (classical rules, `HAVING` sites) under selection,
+  projection, product and union, and `QueryGen.havingRewrites_valid`
+  extends the correctness to every whole query so obtained
+
+**The classical rewriting and aggregation layer**
+
 - `Provenance.QueryRewriting` – alternative query evaluation by rewriting plain queries
   on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
   `Query.rewriting_valid` proves the (R1)–(R4) cases, and the (R5) case is
@@ -155,6 +336,8 @@ the provenance-aware relational database system
   `Term.castToAnnotatedTuple_evalInVK`, `Term.evalInVK_index_last`,
   `LiftedTK.fold_add_ann`, `LiftedTK.fold_add_ktensor_nonempty`,
   and `KTensor.sum_map_embed` helpers.
+**HAVING: algebra, possible worlds, probability, and correctness**
+
 - `Provenance.Having` – algebraic identities behind `HAVING (count)` aggregate
   provenance: include/exclude recurrences for the JOIN and possible-world expressions,
   the upward-expansion bound, the upward-closed collapse
@@ -235,6 +418,19 @@ the provenance-aware relational database system
   `COUNT(*) ≥ C + 1` provenance), via the extensional characterisation
   `groupByKey_eq_dedup_map` of duplicate elimination and the chain algebra
   `chainAgg`/`esymm`
+- `Provenance.HavingJoinCompositional` – the JOIN rewriting upgraded from
+  extensional (per-key annotation sums) to intensional, multiset-level
+  equality: the padded rewriting `joinCountQueryPadded` (the join query
+  unioned with the `𝟘`-annotated self-difference of the key query, then
+  duplicate-eliminated) evaluates to exactly one row per group key with
+  the fused predicate provenance (`joinCountQueryPadded_correct`), which
+  is precisely the key projection of the fused output (`fused_key_proj`);
+  the combined `countHaving_site_rewrite` makes the substitution
+  transparent to every surrounding operator – padding matters, since a
+  bare "equal up to `𝟘`-rows" relation is not a congruence for enclosing
+  aggregates. The compositional query-to-query form of the rewriting
+  lives on the general syntax (`GenCountHavingRewrite`, in
+  `Provenance.QueryGenEmbedding`)
 - `Provenance.HavingQueryCounterexamples` – `decide`-checked counterexamples,
   at the level of queries evaluated on concrete annotated databases, showing
   that the HAVING / JOIN correspondence for `COUNT(*)` needs both

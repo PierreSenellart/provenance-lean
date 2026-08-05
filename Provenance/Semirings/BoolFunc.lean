@@ -169,6 +169,9 @@ instance : SemiringWithMonus (BoolFunc X) where
       idempotent_of_absorptive (fun a => by simp [(· + ·), Add.add]; congr)
     fun hn => delta_natCast_pos_id hidem hn
   delta_regrouping := delta_regrouping_id
+  delta_absorb := fun a b => funext fun ν => by
+    show (a ν && (a ν || b ν)) = a ν
+    cases a ν <;> cases b ν <;> rfl
 
 instance : CommSemiringWithMonus (BoolFunc X) where
   mul_comm := mul_comm

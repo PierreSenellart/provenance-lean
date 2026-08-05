@@ -58,6 +58,7 @@ instance : SemiringWithMonus Nat where
   delta_zero := Nat.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Nat.deltaInd_isIndicator
   delta_regrouping := delta_regrouping_indicator Nat.deltaInd_isIndicator
+  delta_absorb := delta_absorb_indicator Nat.deltaInd_isIndicator
 
 instance : CommSemiringWithMonus Nat where
   mul_comm := mul_comm
