@@ -104,7 +104,7 @@ jobs:
         run: bash ./scripts/check-anchors.sh --site "$SITE"
 
       # One issue, reused: the next daily run edits it rather than filing a
-      # second copy, and closes nothing — a human deploys and closes.
+      # second copy, and closes nothing – a human deploys and closes.
       - name: Open or update the issue
         if: >-
           steps.live.outputs.status != 'ok' ||

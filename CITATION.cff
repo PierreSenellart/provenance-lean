@@ -31,8 +31,9 @@ abstract: >-
   enumeration algorithms, and the NP-completeness of non-zero HAVING SUM
   provenance in data complexity. The development is sorry-free.
 identifiers:
-  # The concept DOI is added here once Zenodo has archived a first release; it
-  # is minted on the release event and then resolves to the latest version.
+  - type: doi
+    value: "10.5281/zenodo.21809151"
+    description: "Concept DOI, resolving to the latest version of provenance-lean"
   - type: url
     value: "https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/PierreSenellart/provenance-lean"
     description: "Software Heritage archive of the repository"

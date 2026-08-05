@@ -19,15 +19,15 @@ links deliberately reach material that has grown *beyond* the paper. What has to
 be guaranteed is therefore narrower, and sharper, than "the docs still match the
 paper":
 
-1. the anchors still exist — checked by `scripts/check-anchors.sh`, which reads
+1. the anchors still exist – checked by `scripts/check-anchors.sh`, which reads
    the `Anchor:` lines below;
-2. the declarations they land on still **subsume** the paper's claims — checked
+2. the declarations they land on still **subsume** the paper's claims – checked
    by this file.
 
 This module is what makes the second half mechanical. Each claim the paper makes
 is restated here *in the paper's own form* and proved by applying the library
-declaration the paper cites. If the library generalizes — a wider fragment, an
-extra hypothesis discharged, a fused operator — the proof still goes through,
+declaration the paper cites. If the library generalizes – a wider fragment, an
+extra hypothesis discharged, a fused operator – the proof still goes through,
 which is the right answer: the paper's claim is still there, subsumed. If a
 statement is ever *weakened*, this file stops compiling and `lake build` fails.
 No textual or anchor-level check distinguishes those two cases.
@@ -70,7 +70,7 @@ variable {T : Type} [ValueType T] {K : Type} {α : Type} {n n₁ n₂ k k₁ k�
 The paper defines an m-semiring by three equations. In the library the monus is
 axiomatized instead by its Galois connection `a ⊖ b ≤ c ↔ a ≤ b ⊕ c`, which is
 strictly stronger: the three equations are theorems. That is exactly the shape
-of drift this file is meant to allow — a *generalization* of the cited
+of drift this file is meant to allow – a *generalization* of the cited
 declaration keeps these proofs one-liners.
 -/
 
@@ -106,7 +106,7 @@ theorem delta_axiom_ii [SemiringWithMonus K] {j : ℕ} (hj : 0 < j) :
 
 The paper's proposition: for a set `X`, the structure
 `(2^(2^X), ∅, {∅}, ∪, ⋓, ∖)` is an m-semiring. Exhibiting the instance is only
-half of that — the operations have to be the stated ones — so each of the six is
+half of that – the operations have to be the stated ones – so each of the six is
 pinned separately.
 -/
 

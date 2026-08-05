@@ -11,7 +11,7 @@ name: Update Mathlib
 # The fifth pin is what makes this repository different from its sibling. Lake
 # resolves one Mathlib per workspace, so this repository cannot precede
 # descriptive-complexity onto a new Mathlib. `release.sh next-pin` gates on
-# that, and prints nothing when the answer is "wait" — so a monthly run that
+# that, and prints nothing when the answer is "wait" – so a monthly run that
 # reports "waiting for descriptive-complexity" and does nothing is the **normal**
 # outcome, not a failure. Release there first.
 #
@@ -25,7 +25,7 @@ name: Update Mathlib
 # lines, a stable `v4.Y.0` is tagged mid-month and Mathlib follows Lean by 0 to
 # 4 days, doc-gen4 by a few more. The second half of the month is therefore the
 # first moment at which every pinned place can move together, and the 20th
-# leaves slack for the usual slippage — plus, here, room for
+# leaves slack for the usual slippage – plus, here, room for
 # descriptive-complexity to have released first. A month that slips past the
 # 20th is picked up by the next run.
 #
@@ -137,8 +137,8 @@ jobs:
             Review, then merge and run `scripts/release.sh publish` to tag and
             cut the release. Reviewing means reading the diff: `date-released`
             in `CITATION.cff` is the day this ran, the new release-table row has
-            empty paper and DOI cells on purpose, and the release notes drafted
-            from the log will need curating — describing what the release
+            an empty DOI cell on purpose, and the release notes drafted
+            from the log will need curating – describing what the release
             proves, never a paper that is not yet public.
 
       - name: File an issue when it does not build

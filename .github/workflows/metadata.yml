@@ -2,7 +2,7 @@ name: Release metadata
 
 # The cheap half of CI: `release.sh check` (every place that records the library
 # version, a pin, or a frozen paper statement agrees) and the CFF schema.
-# Seconds, no Lean, so it is split from `ci.yml` — that way a README-only or
+# Seconds, no Lean, so it is split from `ci.yml` – that way a README-only or
 # `scripts/`-only change runs this alone, and a library-only change runs the
 # Lean build alone.
 #
@@ -15,7 +15,7 @@ name: Release metadata
 #   - `CITATION.cff`       version, `date-released`, the DOI, and the schema
 #   - `README.md`          the `require` form, the release-table row, the
 #                          Mathlib badge, the descriptive-complexity tag link
-#                          and the DOI badge — which is why a README change is
+#                          and the DOI badge – which is why a README change is
 #                          not quite "requires nothing"
 #   - `Provenance/Papers/**` the frozen restatements, whose hash `check`
 #                          compares against `scripts/icde2026.sha256`

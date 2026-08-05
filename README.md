@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml)
 [![Mathlib](https://img.shields.io/badge/Mathlib-v4.33.0--rc1-blue)](https://github.com/leanprover-community/mathlib4/releases/tag/v4.33.0-rc1)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.21809151-007ec6)](https://doi.org/10.5281/zenodo.21809151)
 [![Archived in Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/PierreSenellart/provenance-lean/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/PierreSenellart/provenance-lean)
 
 A Lean 4 formalization of *database provenance* in the semiring framework of
@@ -38,7 +39,7 @@ the development is `sorry`-free.
 | m-semirings: monus from its Galois connection, the `δ` support operator, homomorphisms | `Provenance/SemiringWithMonus.lean` | `SemiringWithMonus`, `SemiringWithMonusHom` |
 | twelve concrete provenance m-semirings: `𝔹`, `𝔹[X]`, `Why[X]`, `Lin[X]`, `ℕ[X]`, `ℕ`, tropical, Viterbi, min-max, Łukasiewicz, intervals and interval unions | `Provenance/Semirings/` | one file per semiring |
 | annotated relational algebra with difference, and its provenance-aware rewriting into a plain query over `T ⊕ K` | `Provenance/QueryRewriting.lean` | `Query.rewriting_valid` |
-| query evaluation commutes with any m-semiring homomorphism on `RA⁺(∖)` — the formal counterpart of ProvSQL's compile-once/evaluate-many architecture | `Provenance/QueryAnnotatedDatabaseHom.lean` | `Query.evaluateAnnotated_hom` |
+| query evaluation commutes with any m-semiring homomorphism on `RA⁺(∖)` – the formal counterpart of ProvSQL's compile-once/evaluate-many architecture | `Provenance/QueryAnnotatedDatabaseHom.lean` | `Query.evaluateAnnotated_hom` |
 | data-part adequacy of the annotated semantics against the plain one, and `𝔹`-support adequacy with transfer along monus homomorphisms | `Provenance/QueryAdequacy.lean`, `Provenance/SupportAdequacy.lean` | `Nat.counterexample_diff_adequacy` bounds it |
 | probabilistic query evaluation: random worlds, the possible-worlds reading of `𝔹[X]` annotations, categorical blocks with deterministic-OR soundness | `Provenance/Probability.lean`, `Provenance/CategoricalBlock.lean` | `randomWorld_evaluateAnnotated` |
 | Boolean provenance circuits, read-once and deterministic-decomposable correctness, and the Tseitin CNF encoding | `Provenance/Circuit.lean`, `Provenance/Tseitin.lean` | `Circuit`, `tseitin_equisat` |
@@ -56,18 +57,18 @@ the library, so its `#eval!`s double as executable regression checks.
 
 The library is layered, and the core ripples downward when touched:
 
-1. **Algebra** — `SemiringWithMonus` and the concrete semirings under
+1. **Algebra** – `SemiringWithMonus` and the concrete semirings under
    `Provenance/Semirings/`.
-2. **Data** — `Database.lean` (tuples, relations, plain databases) and
+2. **Data** – `Database.lean` (tuples, relations, plain databases) and
    `AnnotatedDatabase.lean` (the same, annotated in an m-semiring `K`).
-3. **Queries** — `Query.lean` (the classical syntax and its plain semantics),
+3. **Queries** – `Query.lean` (the classical syntax and its plain semantics),
    `QueryAnnotatedDatabase.lean` (the annotated semantics),
    `QueryRewriting.lean` (the rewriting into `T ⊕ K`).
-4. **The general framework** — the `AggQuery*` family: the kind-indexed syntax,
+4. **The general framework** – the `AggQuery*` family: the kind-indexed syntax,
    its evaluator, and the aggregation and `HAVING` results. This is the primary
    interface; the classical layer remains the proven engine several of its
    results reuse internally.
-5. **Applications** — probability, circuits, algorithms, complexity.
+5. **Applications** – probability, circuits, algorithms, complexity.
 
 ## Releases
 
@@ -76,15 +77,15 @@ Version numbers are the library's own and follow
 to state: nothing depends on this library, and `lean-toolchain` **at each tag is
 authoritative** for the Mathlib the tag was checked against.
 
-What a tag is for here is freezing a citable state — the state a paper's claims
-were checked against, which stays reachable after the code has moved on. Papers
-cite the *version* DOI of their row, not the concept DOI.
+What a tag is for here is freezing a citable state, one that stays reachable
+after the code has moved on. A citation should name a *version* DOI below
+rather than the concept DOI, so that it points at a specific state of the code.
 
 <!-- release-table -->
-| Tag | Toolchain | Papers checked against it | Version DOI |
-| --- | --- | --- | --- |
-| `v1.0.0` | `leanprover/lean4:v4.33.0-rc1` | – | – |
-| `main` | see `lean-toolchain` | moves | – |
+| Tag | Toolchain | Version DOI |
+| --- | --- | --- |
+| `v1.0.0` | `leanprover/lean4:v4.33.0-rc1` | [10.5281/zenodo.21809152](https://doi.org/10.5281/zenodo.21809152) |
+| `main` | see `lean-toolchain` | – |
 
 ## Building
 
@@ -136,7 +137,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Contact
 
-Pierre Senellart <pierre@senellart.com> —
+Pierre Senellart <pierre@senellart.com> –
 <https://github.com/PierreSenellart/provenance-lean>
 
 Bug reports are welcome through GitHub *Issues*.

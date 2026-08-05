@@ -9,7 +9,7 @@
 #
 # The list is not maintained here. It lives in the frozen paper module
 # `Provenance/Papers/Icde2026.lean`, one `Anchor:` line per docstring, next to
-# the theorem that restates the claim the anchor points at — which is what ties
+# the theorem that restates the claim the anchor points at – which is what ties
 # the two layers together: layer 2 pins the content, layer 1 pins the link, and
 # they cannot drift apart because they are written in the same place. The paper
 # itself defines `\lean{module}{decl}` and `\leanmain`, so

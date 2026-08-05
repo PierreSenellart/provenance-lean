@@ -1,6 +1,6 @@
 name: CI
 
-# The Lean build, and nothing else — which for this library *is* the test suite:
+# The Lean build, and nothing else – which for this library *is* the test suite:
 # there is no separate one, and correctness is the kernel checking the proofs.
 # What it consumes is the library sources and the files Lake reads to build
 # them, so the `paths` below list exactly those: a change confined to

@@ -50,7 +50,7 @@ docs: graphs
 	    -e 's|rel="icon" href="\([^"]*\)favicon\.svg"|rel="icon" href="\1favicon.ico"|g' \
 	    -e 's|<link rel="mask-icon" href="[^"]*favicon\.svg"[^>]*> *||g' {} + ; \
 	else \
-	  echo "note: no favicon at $(BRANDING) — keeping the Lean default"; \
+	  echo "note: no favicon at $(BRANDING) – keeping the Lean default"; \
 	fi
 	# Inject site-wide footer nav into each HTML page (idempotent)
 	find $(DOCOUT) -name '*.html' -exec perl inject-footer.pl {} \;
@@ -62,7 +62,7 @@ docs: graphs
 	perl -i -pe 's|<div class="decl" id="Query\.rewriting"|<a id="query.Rewriting"></a><div class="decl" id="Query.rewriting"| unless /query\.Rewriting/' $(DOCOUT)/Provenance/QueryRewriting.html
 	# …and check that it actually landed. A `perl -i -pe` that matches nothing
 	# exits successfully, so without this the anchor would die silently the day
-	# `Query.rewriting` is renamed — and it is a link in a published PDF.
+	# `Query.rewriting` is renamed – and it is a link in a published PDF.
 	@grep -q 'id="query\.Rewriting"' $(DOCOUT)/Provenance/QueryRewriting.html || { \
 	  echo "error: the query.Rewriting back-compat anchor was not injected."; \
 	  echo "       Its hook is <div class=\"decl\" id=\"Query.rewriting\">, so the"; \
@@ -76,7 +76,7 @@ docs: graphs
 	  cat "$(RG_CSS)" >> $(DOCOUT)/style.css && \
 	  "$(RG_INJECT)" --doc $(DOCOUT) --graphs $(RG_OUT)/svg; \
 	else \
-	  echo "note: no figures in $(RG_OUT)/svg — skipping"; \
+	  echo "note: no figures in $(RG_OUT)/svg – skipping"; \
 	fi
 	# What is in this tree, in one line, so that "what is actually live?" is
 	# answerable with curl. `docs-stale.yml` reads it off the deployed site and
@@ -97,7 +97,7 @@ docs: graphs
 # turns the recipe into a no-op.
 $(RG_OUT)/deps.json: $(LEAN_SOURCES) $(wildcard $(RESULT_GRAPH))
 	@if [ ! -x "$(RESULT_GRAPH)" ]; then \
-	  echo "note: no result-graph at $(RESULT_GRAPH) — skipping dependency figures"; \
+	  echo "note: no result-graph at $(RESULT_GRAPH) – skipping dependency figures"; \
 	  exit 0; \
 	fi; \
 	set -e; mkdir -p $(RG_OUT); \

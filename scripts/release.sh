@@ -7,7 +7,7 @@
 # supports ProvSQL and the ProvSQL papers: a tag exists to freeze a state a
 # paper's claims were checked against, so that a citation still resolves after
 # the code has moved on or been rewritten. There is no downstream `require` to
-# serve, so the README states no version *range* contract — versions are the
+# serve, so the README states no version *range* contract – versions are the
 # library's own and `lean-toolchain` at each tag is authoritative. The
 # minor-on-pin-move rule survives inside this script anyway, since `next-minor`
 # costs nothing and `update.yml` wants it.
@@ -157,7 +157,7 @@ cmd_check() {
       printf '  FAIL  %-34s differs from %s\n' "$PAPER_MODULE" "$PAPER_HASH"
       printf '        The statements in that file are frozen: they are what a published\n'
       printf '        paper claims. Re-plumbing a *proof* is fine, and then the new hash\n'
-      printf '        is deliberate — record it with:\n'
+      printf '        is deliberate – record it with:\n'
       printf '            sha256sum %s > %s\n' "$PAPER_MODULE" "$PAPER_HASH"
       printf '        Changing a *statement* is not; restore it instead.\n'
       failed=1
@@ -341,26 +341,25 @@ cmd_prepare() {
   sed -i "s|^date-released: \".*\"|date-released: \"$today\"|" CITATION.cff
   sed -i "s|provenance-lean\" @ \"v$old\"|provenance-lean\" @ \"v$version\"|" README.md
   # Newest release first, directly under the marked table's header. The marker
-  # is what disambiguates it: other tables in the README have four columns too.
-  # The paper and DOI cells are left empty on purpose — a tag joins the paper
-  # table only once the paper it supports is public, and the version DOI does
-  # not exist until Zenodo has seen the release.
-  sed -i "/^<!-- release-table -->$/{n;n;s@\$@\n| \`v$version\` | \`leanprover/lean4:$pin\` | – | – |@}" README.md
+  # is what disambiguates it: other tables in the README have three columns too.
+  # The DOI cell is left empty on purpose – Zenodo mints the version DOI on the
+  # release event, which has not happened yet at `prepare` time.
+  sed -i "/^<!-- release-table -->$/{n;n;s@\$@\n| \`v$version\` | \`leanprover/lean4:$pin\` | – |@}" README.md
   # Badge tracks the pin; shields.io wants a literal hyphen doubled.
   sed -i "s|/badge/Mathlib-[^)]*-blue|/badge/Mathlib-${pin//-/--}-blue|" README.md
   sed -i "s|mathlib4/releases/tag/[^)]*|mathlib4/releases/tag/$pin|" README.md
 
   printf 'Bumped %s -> %s (Mathlib pin %s).\n\n' "$old" "$version" "$pin"
   cmd_check
-  printf '\nReview the diff — the new release-table row has empty paper and DOI cells,\n'
-  printf 'which is right until the paper is public and Zenodo has minted the version\n'
-  printf 'DOI. Then commit and run: %s publish\n' "$0"
+  printf '\nReview the diff – the new release-table row has an empty DOI cell, which is\n'
+  printf 'right until Zenodo has minted the version DOI for the release. Then commit\n'
+  printf 'and run: %s publish\n' "$0"
 }
 
 # --- notes -------------------------------------------------------------------
 # A draft, not the final word: the commit subjects are one line each and read
 # well as a changelog, but they are written for the log, not for a reader
-# arriving at the release page. Curate before publishing — and describe what the
+# arriving at the release page. Curate before publishing – and describe what the
 # release *proves*, never a paper that is not yet public.
 
 cmd_notes() {
