@@ -255,16 +255,14 @@ theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithM
 instance : Coe (BoolTerm T n) (Selection T n) where
   coe bt := Selection.BT bt
 
+/-- The aggregators of the classical terminal aggregation operator
+`Query.Agg`. Only the additive fold is needed: `Agg` survives in the
+classical syntax as the *target* of the (R1)–(R4) rewriting – the ⊕-gate
+creation of `ε` and `∖` (`Query.rewriting`) – for which `sum` is the whole
+story. Aggregation as a *source* operator lives on the general syntax
+(`QueryGen.Gamma`), whose aggregates are `SeqAggFunc`s. -/
 inductive AggFunc
 | sum
-/-- The "δ(⊕)" aggregator used by the (R5) rewriting of aggregations
-([Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]): take the additive
-fold of the multiset, then apply the `SemiringWithMonus.delta` operator to
-the result. On a value type without an available `delta` (e.g., plain `T`)
-this collapses to plain `sum`; the δ is only honoured by evaluators that
-know about an underlying `K` carrying a `SemiringWithMonus` structure
-(see `Query.evaluateInVK`). -/
-| sumDelta
 deriving Repr, DecidableEq
 
 def addFn (a b : T) := a + b
@@ -275,11 +273,10 @@ instance : @Std.Associative T addFn where
 
 def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
 | sum => m.fold (addFn: T→T→T) 0
-| sumDelta => m.fold (addFn: T→T→T) 0
 
 /-- An aggregate function on *sequences* of values: an arbitrary function
 from finite sequences over `T` to `T`. Unlike `AggFunc` (monoid-shaped,
-used by the terminal aggregation operator `Agg`), this interface covers
+used by the rewriting-target operator `Agg`), this interface covers
 non-commutative aggregates – such as `PICKFIRST`, whose result depends on
 the order of its input – and non-associative ones. It is the aggregate
 interface of the fused `Having` operator, whose possible-world semantics

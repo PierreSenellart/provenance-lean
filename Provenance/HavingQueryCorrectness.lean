@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.HavingSemantics
+import Provenance.QueryGenToGen
 import Provenance.QueryAnnotatedDatabaseHom
 
 /-!
@@ -13,7 +13,7 @@ semantics of the fused `HAVING COUNT(*)` operator and its `JOIN`-based
 rewriting, in absorptive commutative m-semirings in which `⊗` distributes
 over `⊖`.
 
-* **`C = 1`** (`Query.evaluateHavingAnnotated_count_ge_one`): the fused
+* **`C = 1`** (`QueryGen.havingSite_count_ge_one`): the fused
   `COUNT(*) ≥ 1` operator agrees – key by key, annotation by annotation –
   with the duplicate-eliminated key projection `ε(Π_{keys}(q))`, via the
   extensional characterisation `groupByKey_eq_dedup_map` of duplicate
@@ -106,19 +106,22 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder
 
 /-- **Query-level correctness for `COUNT(*) ≥ 1`.** In an absorptive
 commutative m-semiring in which `⊗` distributes over `⊖`, the fused
-`HAVING COUNT(*) ≥ 1` operator – with its output rows projected to the
-group key – computes exactly the duplicate-eliminated key projection
+`HAVING COUNT(*) ≥ 1` site – with its output rows projected to the group
+key – computes exactly the duplicate-eliminated key projection
 `ε(Π_{keys}(q))` of the inner query, which is the `C = 1` join-based
 query: one row per non-empty group, annotated by the `⊕`-sum of the
-group's annotations. -/
-theorem Query.evaluateHavingAnnotated_count_ge_one
+group's annotations. Stated against any general subquery whose annotated
+evaluation is the classical inner query's. -/
+theorem QueryGen.havingSite_count_ge_one
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) 1)
     (q : Query ℕ m) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K) :
-    (Query.evaluateHavingAnnotated is ts ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) q hq d).map
+    ((QueryGen.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
+        (Term.const 1) (q.toGen hq)).evaluateAnnotatedGen d).map
       (fun p => ((fun k : Fin n₁ => p.fst (Fin.castAdd 1 k)), p.snd))
       = (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d := by
+  rw [QueryGen.havingSite_evaluateAnnotatedGen,
+    Query.toGenHaving_input q hq d]
   set r : AnnotatedRelation ℕ K m := q.evaluateAnnotated hq d with hr
   -- The right-hand side: `ε ∘ Π` unfolds to `groupByKey` of the projected
   -- relation, which `groupByKey_eq_dedup_map` characterises extensionally.
@@ -127,16 +130,8 @@ theorem Query.evaluateHavingAnnotated_count_ge_one
           (Multiset.map (fun p : AnnotatedTuple ℕ K m =>
             ((fun k : Fin n₁ => p.fst (is k)), p.snd)) r)).val := rfl
   rw [hRHS, groupByKey_eq_dedup_map]
-  -- The left-hand side: unfold the fused evaluator and fuse the two maps.
-  have hLHS : (Query.evaluateHavingAnnotated is ts ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) q hq d)
-      = (Multiset.dedup (r.map (fun p => fun k : Fin n₁ => p.fst (is k)))).map
-          (fun g =>
-            (Fin.append g (fun k => (![SeqAggFunc.count] k)
-                ((havingGroup is r g).map (fun p => ((ts k).eval p.fst)))),
-             havingProv (havingGroup is r g) (ts 0) (![SeqAggFunc.count] 0)
-               CompOp.ge ((Term.const 1).eval g))) := rfl
-  rw [hLHS, Multiset.map_map]
+  -- The left-hand side is now the closed form; fuse the two maps.
+  rw [Multiset.map_map]
   -- The two key multisets are definitionally equal after fusing the maps;
   -- `Multiset.map_congr` takes the index equality and reduces the goal to
   -- the pointwise equality of the two row constructors.
@@ -527,7 +522,7 @@ theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.noAgg)
             (Multiset.filter (fun p : Tuple ℕ 3 × K => p.1 ⟨0, by omega⟩ = a)
               (q.evaluateAnnotated hq d)) := rfl
     rw [hstep, Multiset.filter_filter, Multiset.filter_map, Multiset.map_map,
-      chainAgg, ← ih, hGP, product_map_map, Multiset.filter_map,
+      chainAgg, ← ih, hGP, Having.product_map_map, Multiset.filter_map,
       Multiset.map_map, filter_product, Multiset.filter_filter]
     refine Multiset.map_congr (Multiset.filter_congr fun z _ => ?_) fun z _ => ?_
     · -- The chain predicate, transported through `chainCombine`.

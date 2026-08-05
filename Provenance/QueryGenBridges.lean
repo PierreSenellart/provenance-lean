@@ -10,19 +10,16 @@ import Provenance.QueryGenAdequacy
 The fused `HAVING` operator is recovered from the decomposed general
 syntax: on its fragment – one aggregate comparison directly above the
 grouping – the general evaluator `σ_ψ ∘ Gamma` computes exactly the fused
-semantics `Query.evaluateHavingAnnotated` (`QueryGen.fused_having_bridge`).
+semantics in closed form (`QueryGen.havingSite_evaluateAnnotatedGen`).
 Row by row, the pending group factor introduced by `Gamma` is superseded
 by the predicate provenance of the comparison (the token's `predProv`,
 which is the fused `Having.havingProv` by `AggValue.predProv_ofGroup`),
 and the data part collapses to the whole-group aggregate values.
 
 Every theorem about the fused semantics – the possible-world collapses of
-`Provenance.HavingSemantics`, the query-level correctness results – thus
-transfers to the general evaluator on this fragment instead of being
-reproved.
-
-The bridge is stated against an arbitrary general subquery whose
-annotated evaluation matches the fused operator's input relation; the
+`Provenance.HavingSemantics`, the query-level correctness results – is
+therefore stated directly against the general evaluator, with this closed
+form as the working lemma; no separate fused evaluator is needed. The
 kind transport `QueryGen.castKind` is transparent to evaluation
 (`QueryGen.evaluateGen_castKind`).
 -/
@@ -89,34 +86,51 @@ def GenPred.fusedCmp {n₁ n₂ : ℕ} (op : CompOp) (l : Fin n₂)
   GenPred.aggCmp (Fin.natAdd n₁ l) (by simp [ColKind.gammaKinds]) op
     (s.toGenKey n₂)
 
-/-- **The fused-operator regression bridge.** On its fragment – one
+/-- The fused `HAVING` site as a general query: one aggregate comparison
+directly above the grouping. -/
+abbrev QueryGen.havingSite {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+    (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
+    (op : CompOp) (l : Fin n₂) (s : Term T n₁)
+    (qg : QueryGen T m (ColKind.allReg m)) :
+    QueryGen T (n₁ + n₂) (ColKind.gammaKinds n₁ n₂) :=
+  QueryGen.Sel (GenPred.fusedCmp op l s) (QueryGen.Gamma is ts fs qg)
+
+/-- **Closed form of the fused `HAVING` site.** On its fragment – one
 aggregate comparison directly above the grouping – the general evaluator
-computes the fused `HAVING` semantics: for any general subquery whose
-annotated evaluation is the fused operator's input relation, applying
-`Gamma` then the selection `fusedCmp` yields, after finalization, exactly
-`Query.evaluateHavingAnnotated`. -/
-theorem QueryGen.fused_having_bridge {m n₁ n₂ : ℕ}
+produces one row per group key of the subquery, carrying the key followed
+by the whole-group aggregate values and annotated by the predicate
+provenance `Having.havingProv` of the group's occurrence sequence. This
+is the content that the separate fused evaluator used to carry: the
+pending group factor introduced by `Gamma` is superseded by the
+comparison's predicate provenance, and the data part collapses to the
+whole-group aggregate values. -/
+theorem QueryGen.havingSite_evaluateAnnotatedGen {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (op : CompOp) (l : Fin n₂)
     (s : Term T n₁) (qg : QueryGen T m (ColKind.allReg m))
-    (q : Query T m) (hq : q.noAgg) (d : AnnotatedDatabase T K)
-    (hin : (qg.evaluateGen d).map GenRow.toAnnotated
-      = q.evaluateAnnotated hq d) :
-    (QueryGen.Sel (GenPred.fusedCmp op l s)
-        (QueryGen.Gamma is ts fs qg)).evaluateAnnotatedGen d
-      = Query.evaluateHavingAnnotated is ts fs op l s q hq d := by
-  unfold QueryGen.evaluateAnnotatedGen Query.evaluateHavingAnnotated
+    (d : AnnotatedDatabase T K) :
+    (QueryGen.havingSite is ts fs op l s qg).evaluateAnnotatedGen d
+      = (Multiset.dedup ((qg.evaluateAnnotatedGen d).map
+            (fun p => fun k : Fin n₁ => p.fst (is k)))).map
+          (fun g =>
+            ((Fin.append g (fun k => (fs k)
+                ((Having.havingGroup is (qg.evaluateAnnotatedGen d) g).map
+                  (fun p => (ts k).eval p.fst))),
+              Having.havingProv
+                (Having.havingGroup is (qg.evaluateAnnotatedGen d) g)
+                (ts l) (fs l) op (s.eval g))
+              : AnnotatedTuple T K (n₁ + n₂))) := by
+  unfold QueryGen.evaluateAnnotatedGen
   simp only [QueryGen.evaluateGen]
   rw [if_pos (show (GenPred.fusedCmp (T := T) op l s).hasAggAtom = true
-    from rfl), hin]
-  -- collapse the three nested maps on the left, outermost first
+    from rfl)]
+  generalize Multiset.map GenRow.toAnnotated (qg.evaluateGen d) = A
   conv_lhs => rw [Multiset.map_map]
   conv_lhs => rw [Multiset.map_map]
-  -- identify the two key multisets
   have hkeys : Multiset.map Prod.fst (Multiset.ofList (groupByKey
-        ((q.evaluateAnnotated hq d).map (fun p =>
+        (A.map (fun p =>
           ((fun k => p.fst (is k), p.snd) : AnnotatedTuple T K n₁)))).val)
-      = Multiset.dedup ((q.evaluateAnnotated hq d).map
+      = Multiset.dedup (A.map
           (fun p => fun k : Fin n₁ => p.fst (is k))) := by
     rw [map_fst_groupByKey, Multiset.map_map]
     rfl
@@ -144,5 +158,4 @@ theorem QueryGen.fused_having_bridge {m n₁ n₂ : ℕ}
       GenAnn.finalize_of_pending_zero, one_mul, Term.toGenKey_eval,
       Bool.false_eq_true]
     exact AggValue.predProv_ofGroup (fs l) (ts l)
-      (Having.havingGroup is (q.evaluateAnnotated hq d) kv.fst) op
-      (s.eval kv.fst)
+      (Having.havingGroup is A kv.fst) op (s.eval kv.fst)

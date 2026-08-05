@@ -26,6 +26,10 @@ tokens.
 * `TermG.cmpAgg` is the cmp gate: `TermG.evalRew` interprets it by
   `AggValue.predProv`, the primitive the rewriting's correctness is
   stated against, faithfully to ProvSQL's own gate-relative correctness.
+
+The rewriting rules built on this evaluator live downstream:
+`Provenance.QueryGenAggRewriting` (the bare grouping and the `HAVING`
+site) and `Provenance.QueryGenClosure` (the compositional closure).
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
@@ -415,58 +419,6 @@ theorem Having.chi_inl (op : CompOp) (x y : T) :
   · rw [if_pos ((CompOp.eval_inl op x y).mpr h), if_pos h]
   · rw [if_neg (fun hc => h ((CompOp.eval_inl op x y).mp hc)), if_neg h]
 
-omit [DecidableEq K] in
-/-- **The fused predicate provenance under the composite embedding.** -/
-theorem Having.havingProv_toComposite {m : ℕ}
-    (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
-    (op : CompOp) (c : T) :
-    Having.havingProv
-      (U.map (fun p => ((p.toComposite, p.snd)
-        : AnnotatedTuple (T ⊕ K) K (m + 1))))
-      (t.castToAnnotatedTuple) (f.liftComposite) op (Sum.inl c)
-      = Having.havingProv U t f op c := by
-  have hlen : U.length = (U.map (fun p => ((p.toComposite, p.snd)
-      : AnnotatedTuple (T ⊕ K) K (m + 1)))).length := by
-    rw [List.length_map]
-  unfold Having.havingProv
-  rw [Finset.sum_filter, Finset.sum_filter]
-  refine (Fintype.sum_equiv (finCongr hlen).finsetCongr
-    (fun W => if W.Nonempty
-      then Having.worldAnn (fun i => (U.get i).snd) W
-        * Having.chi op (Having.aggValOn U t f W) c else 0)
-    _ (fun W => ?_)).symm
-  rw [Equiv.finsetCongr_apply]
-  by_cases hne : W.Nonempty
-  · rw [if_pos hne, if_pos (by rwa [Finset.map_nonempty])]
-    refine congrArg₂ (· * ·) ?_ ?_
-    · rw [AggValue.worldAnn_map_finCongr hlen]
-      exact congrArg (fun α : Fin U.length → K => Having.worldAnn α W)
-        (funext (fun i => by simp [List.getElem_map]))
-    · rw [show Having.aggValOn
-            (U.map (fun p => ((p.toComposite, p.snd)
-              : AnnotatedTuple (T ⊕ K) K (m + 1))))
-            (t.castToAnnotatedTuple) (f.liftComposite)
-            (W.map (finCongr hlen).toEmbedding)
-          = Sum.inl (Having.aggValOn U t f W) from ?_]
-      · exact (Having.chi_inl op _ c).symm
-      · unfold Having.aggValOn
-        rw [AggValue.seqOf_map _ U hlen W, List.map_map]
-        rw [show ((fun p : AnnotatedTuple (T ⊕ K) K (m + 1) =>
-              Term.eval t.castToAnnotatedTuple p.fst)
-            ∘ (fun p : AnnotatedTuple T K m =>
-                ((p.toComposite, p.snd)
-                  : AnnotatedTuple (T ⊕ K) K (m + 1))))
-            = (fun p : AnnotatedTuple T K m =>
-                Sum.inl (t.eval p.fst)) from
-          funext (fun p => Term.castToAnnotatedTuple_eval t p.fst p.snd)]
-        rw [show (fun p : AnnotatedTuple T K m =>
-              (Sum.inl (t.eval p.fst) : T ⊕ K))
-            = (Sum.inl ∘ fun p : AnnotatedTuple T K m => t.eval p.fst)
-          from rfl]
-        rw [← List.map_map]
-        exact SeqAggFunc.liftComposite_map_inl f _
-  · rw [if_neg hne, if_neg (by rwa [Finset.map_nonempty])]
-
 /-! ## The classical rewriting stays off the token operators -/
 
 omit [DecidableEq K] in
@@ -624,111 +576,7 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
         < m from (is k').isLt)]
     exact ⟨fun h => Sum.inl.inj h, fun h => congrArg Sum.inl h⟩
 
-/-! ## The HAVING site and its rewriting -/
-
-/-- A classical term over the group key, lifted to a composite term
-reading designated regular columns of a rewritten schema. -/
-def Term.liftKeys {n₁ N : ℕ} {κ' : Fin N → ColKind}
-    (pos : Fin n₁ → Fin N) (hpos : ∀ k, κ' (pos k) = ColKind.reg) :
-    Term T n₁ → TermG (T ⊕ K) κ'
-  | .const c => .const (Sum.inl c)
-  | .index k => .index (pos k) (hpos k)
-  | .add t₁ t₂ => .add (t₁.liftKeys pos hpos) (t₂.liftKeys pos hpos)
-  | .sub t₁ t₂ => .sub (t₁.liftKeys pos hpos) (t₂.liftKeys pos hpos)
-  | .mul t₁ t₂ => .mul (t₁.liftKeys pos hpos) (t₂.liftKeys pos hpos)
-
-/-- The lifted key term evaluates in the rewritten world as the original
-term on the key, when the designated columns hold the embedded key. -/
-theorem Term.liftKeys_evalRew {n₁ N : ℕ} {κ' : Fin N → ColKind}
-    (pos : Fin n₁ → Fin N) (hpos : ∀ k, κ' (pos k) = ColKind.reg)
-    (s : Term T n₁) (u : Tuple (GenValue (T ⊕ K) K) N) (g : Tuple T n₁)
-    (hu : ∀ k, u (pos k) = Sum.inl (Sum.inl (g k))) :
-    (s.liftKeys pos hpos).evalRew u = Sum.inl (s.eval g) := by
-  induction s with
-  | const c => rfl
-  | index k =>
-    show AggValue.collapseSum (u (pos k)) = Sum.inl (g k)
-    rw [hu k]
-    rfl
-  | add t₁ t₂ ih₁ ih₂ =>
-    show TermG.evalRew _ u + TermG.evalRew _ u = _
-    rw [ih₁, ih₂]
-    rfl
-  | sub t₁ t₂ ih₁ ih₂ =>
-    show HSub.hSub (TermG.evalRew _ u) (TermG.evalRew _ u) = _
-    rw [ih₁, ih₂]
-    rfl
-  | mul t₁ t₂ ih₁ ih₂ =>
-    show TermG.evalRew _ u * TermG.evalRew _ u = _
-    rw [ih₁, ih₂]
-    rfl
-
-
-/-- **The rewritten HAVING site**: the token-building grouping over the
-rewritten subquery (annotations read off the provenance column), the
-group keys projected out, and the cmp gate applied to the `l`-th token
-in the provenance output column – the query-level shape of ProvSQL's
-rewritten `GROUP BY … HAVING` block. -/
-def QueryGen.havingSiteRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
-    (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (op : CompOp) (l : Fin n₂) (s : Term T n₁)
-    (qg : QueryGen T m (ColKind.allReg m)) (hq : qg.classical) :
-    QueryGen (T ⊕ K) (n₁ + 1) (ColKind.rewKinds n₁) :=
-  QueryGen.retagToRew
-    (fun j => by
-      by_cases hj : (j : ℕ) < n₁
-      · rw [dif_pos hj]; rfl
-      · rw [dif_neg hj]; rfl)
-    (QueryGen.Proj
-      (fun j : Fin (n₁ + 1) =>
-        if hj : (j : ℕ) < n₁ then
-          ProjCol.term (TermG.index
-            (Fin.castAdd 1 (Fin.castAdd n₂ (⟨j, hj⟩ : Fin n₁)))
-            ((Fin.append_left _ _ _).trans
-              ((Fin.append_left _ _ _).trans
-                (ColKind.rewKinds_lt (is ⟨j, hj⟩).isLt))))
-        else
-          ProjCol.provTerm (TermG.cmpAgg
-            (Fin.castAdd 1 (Fin.natAdd n₁ l))
-            ((Fin.append_left _ _ _).trans (Fin.append_right _ _ _))
-            op
-            (s.liftKeys
-              (fun k => Fin.castAdd 1 (Fin.castAdd n₂ k))
-              (fun k => (Fin.append_left _ _ _).trans
-                ((Fin.append_left _ _ _).trans
-                  (ColKind.rewKinds_lt (is k).isLt))))))
-      (QueryGen.GammaTok
-        (fun k => (is k).castLE (Nat.le_succ m))
-        (fun k => by
-          rw [ColKind.rewKinds_lt (is k).isLt]
-          exact fun hc => ColKind.noConfusion hc)
-        (fun j => (ts j).castToAnnotatedTuple)
-        (fun j => (fs j).liftComposite)
-        (TermG.provIndex (Fin.last m)
-          (ColKind.rewKinds_of_not_lt (lt_irrefl m)))
-        (qg.rewritingGen hq)))
-
-/-- Key projections of a grouped result at the annotated level: the data
-part restricts to the key columns and the finalized annotation is
-unchanged (dropped token columns cash their pending guards). -/
-theorem QueryGen.evaluateAnnotatedGen_keyProj {n₁ n₂ : ℕ}
-    (X : QueryGen T (n₁ + n₂) (ColKind.gammaKinds n₁ n₂))
-    (d : AnnotatedDatabase T K) :
-    (QueryGen.Proj
-        (fun j : Fin n₁ => ProjCol.term (TermG.index (Fin.castAdd n₂ j)
-          (by simp [ColKind.gammaKinds])))
-        X).evaluateAnnotatedGen d
-      = (X.evaluateAnnotatedGen d).map (fun p =>
-          ((fun j => p.fst (Fin.castAdd n₂ j)), p.snd)) := by
-  unfold QueryGen.evaluateAnnotatedGen
-  simp only [QueryGen.evaluateGen]
-  rw [Multiset.map_map, Multiset.map_map]
-  refine Multiset.map_congr rfl (fun r _ => ?_)
-  simp only [Function.comp_apply]
-  refine Prod.ext ?_ ?_
-  · funext j
-    rfl
-  · exact GenAnn.finalize_cash _ _ _ Multiset.inter_le_left
+/-! ## Reading a rewritten evaluation back as an annotated relation -/
 
 /-- Mapping a key-only function over a grouped relation is mapping it
 over the deduplicated keys (the accumulated annotations are unread). -/
@@ -741,423 +589,39 @@ theorem map_comp_fst_groupByKey {n : ℕ} {β : Type}
     Multiset.map G (@Multiset.dedup _ i (Multiset.map Prod.fst Y)))
     (Subsingleton.elim _ _)
 
-/-- The gate on a row whose designated column holds a token. -/
-theorem TermG.evalRew_cmpAgg_inr {n : ℕ} {κ : Fin n → ColKind}
-    (k : Fin n) (hk : κ k = ColKind.agg) (op : CompOp)
-    (c : TermG (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n)
-    (a : AggValue (T ⊕ K) K) (hu : u k = Sum.inr a) :
-    (TermG.cmpAgg k hk op c).evalRew u
-      = Sum.inr (a.predProv op (c.evalRew u)) := by
-  show (match u k with
-    | Sum.inl _ => (Sum.inr 0 : T ⊕ K)
-    | Sum.inr a => Sum.inr (a.predProv op (c.evalRew u))) = _
-  rw [hu]
-
-/-- **Correctness of the HAVING site rewriting**, relative to the gate
-primitive: for a classical subquery, evaluating the annotated fused
-`HAVING` site and folding into embedded composite rows agrees with the
-rewritten world's evaluation of the rewritten site. -/
-theorem QueryGen.havingSiteRew_valid {m n₁ n₂ : ℕ}
-    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
-    (fs : Tuple (SeqAggFunc T) n₂) (op : CompOp) (l : Fin n₂)
-    (s : Term T n₁) (qg : QueryGen T m (ColKind.allReg m))
-    (hq : qg.classical) (d : AnnotatedDatabase T K) :
-    Multiset.map (fun t : Tuple (T ⊕ K) (n₁ + 1) =>
-        ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (n₁ + 1)))
-      ((QueryGen.Proj
-          (fun j : Fin n₁ => ProjCol.term (TermG.index (Fin.castAdd n₂ j)
-            (by simp [ColKind.gammaKinds])))
-          (QueryGen.Sel (GenPred.fusedCmp op l s)
-            (QueryGen.Gamma is ts fs qg))).evaluateAnnotatedGen
-        d).toComposite
-      = (QueryGen.havingSiteRew is ts fs op l s qg hq).evaluateRew
-          d.toComposite := by
-  rw [QueryGen.evaluateAnnotatedGen_keyProj,
-    QueryGen.fused_having_bridge is ts fs op l s qg (qg.strip hq)
-      (qg.strip_noAgg hq) d (QueryGen.strip_bridge qg hq d)]
-  unfold QueryGen.havingSiteRew QueryGen.retagToRew
-  show _ = QueryGen.evaluateRew (QueryGen.Proj _ _) d.toComposite
-  simp only [QueryGen.evaluateRew]
-  have hR : (qg.rewritingGen hq).evaluateRew d.toComposite
-      = Multiset.map (fun t : Tuple (T ⊕ K) (m + 1) =>
-          ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (m + 1)))
-        (((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq)
+/-- **The rewritten world reads back as an annotated relation.** Pairing
+the collapsed data columns of the rewritten evaluation of a classical
+rewriting with the annotation read off its provenance column recovers the
+composite embedding of the classical annotated semantics – the input the
+token-building groupings of the rewritten world consume. -/
+theorem QueryGen.rewritingGen_provRel {n : ℕ} {κ : Fin n → ColKind}
+    (q : QueryGen T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
+    Multiset.map (fun u => (GenRow.plainTuple u,
+        ((TermG.provIndex (Fin.last n)
+          (ColKind.rewKinds_of_not_lt (lt_irrefl n))).evalRew u).annPart))
+      ((q.rewritingGen hq).evaluateRew d.toComposite)
+      = ((q.strip hq).evaluateAnnotated (q.strip_noAgg hq) d).map
+          (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (n + 1))) := by
+  have hR : (q.rewritingGen hq).evaluateRew d.toComposite
+      = Multiset.map (fun t : Tuple (T ⊕ K) (n + 1) =>
+          ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (n + 1)))
+        (((q.strip hq).evaluateAnnotated (q.strip_noAgg hq)
           d).toComposite) := by
     rw [QueryGen.evaluateRew_plain _
-        (QueryGen.rewritingGen_noGammaTok qg hq) _,
-      QueryGen.rewritingGen_plain qg hq d.toComposite,
-      ← Query.rewriting_valid (qg.strip hq) (qg.strip_noAgg hq) d]
-  have har : Multiset.map (fun u => (GenRow.plainTuple u,
-        ((TermG.provIndex (Fin.last m)
-          (ColKind.rewKinds_of_not_lt (lt_irrefl m))).evalRew u).annPart))
-      ((qg.rewritingGen hq).evaluateRew d.toComposite)
-    = ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d).map
-        (fun p => ((p.toComposite, p.snd)
-          : AnnotatedTuple (T ⊕ K) K (m + 1))) := by
-    rw [hR]
-    unfold AnnotatedRelation.toComposite
-    rw [Multiset.map_map, Multiset.map_map]
-    refine Multiset.map_congr rfl (fun p _ => ?_)
-    refine Prod.ext ?_ ?_
-    · funext k
-      rfl
-    · show (AggValue.collapseSum
-          (Sum.inl (p.toComposite (Fin.last m)))).annPart = p.snd
-      rw [show p.toComposite (Fin.last m) = Sum.inr p.snd from by
-        rw [AnnotatedTuple.toComposite_coord,
-          dif_neg (by simp only [Fin.val_last]; omega)]]
-      rfl
-  rw [har, map_comp_fst_groupByKey]
-  simp only [Multiset.map_map]
-  rw [show ((Prod.fst
-        : AnnotatedTuple (T ⊕ K) K n₁ → Tuple (T ⊕ K) n₁)
-      ∘ ((fun x : AnnotatedTuple (T ⊕ K) K (m + 1) =>
-          ((fun k => x.fst ((is k).castLE (Nat.le_succ m)), x.snd)
-            : AnnotatedTuple (T ⊕ K) K n₁))
-        ∘ (fun p : AnnotatedTuple T K m =>
-            ((p.toComposite, p.snd)
-              : AnnotatedTuple (T ⊕ K) K (m + 1)))))
-    = ((fun g : Tuple T n₁ =>
-          ((fun k => Sum.inl (g k)) : Tuple (T ⊕ K) n₁))
-        ∘ (fun p : AnnotatedTuple T K m =>
-            ((fun k => p.fst (is k)) : Tuple T n₁))) from by
-    funext p
-    funext k
-    show p.toComposite ((is k).castLE (Nat.le_succ m))
-      = Sum.inl (p.fst (is k))
-    rw [AnnotatedTuple.toComposite_coord,
-      dif_pos (show (((is k).castLE (Nat.le_succ m)
-        : Fin (m + 1)) : ℕ) < m from (is k).isLt)]
-    exact congrArg (fun i => Sum.inl (p.fst i)) (Fin.ext rfl)]
-  rw [← Multiset.map_map
-      (g := fun g : Tuple T n₁ =>
-        ((fun k => Sum.inl (g k)) : Tuple (T ⊕ K) n₁))
-      (f := fun p : AnnotatedTuple T K m =>
-        ((fun k => p.fst (is k)) : Tuple T n₁)),
-    Multiset.dedup_map_of_injective
-      (f := fun g : Tuple T n₁ =>
-        ((fun k => Sum.inl (g k)) : Tuple (T ⊕ K) n₁))
-      (fun g₁ g₂ h => funext (fun k => Sum.inl.inj (congrFun h k))),
-    Multiset.map_map]
-  unfold Query.evaluateHavingAnnotated AnnotatedRelation.toComposite
-  simp only [Multiset.map_map]
-  refine Multiset.map_congr ?_ (fun g hg => ?_)
-  · rfl
-  · simp only [Function.comp_apply]
-    funext j
-    by_cases hj : (j : ℕ) < n₁
-    · rw [dif_pos hj]
-      refine Eq.trans (congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ j).trans (dif_pos hj))) ?_
-      refine Eq.trans (congrArg (fun v =>
-          (Sum.inl (Sum.inl v) : GenValue (T ⊕ K) K))
-        (Fin.append_left g
-          (fun k => fs k (List.map (fun p => (ts k).eval p.fst)
-            (Having.havingGroup is
-              ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d) g)))
-          (⟨(j : ℕ), hj⟩ : Fin n₁))) ?_
-      symm
-      simp only [ProjCol.evalRew, TermG.evalRew]
-      rw [Fin.append_left, Fin.append_left]
-      rfl
-    · rw [dif_neg hj]
-      refine Eq.trans (congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ j).trans (dif_neg hj))) ?_
-      refine congrArg Sum.inl ?_
-      rw [TermG.evalRew_cmpAgg_inr _ _ _ _ _
-        (AggValue.ofGroup (fs l).liftComposite
-          (ts l).castToAnnotatedTuple
-          (Having.havingGroup
-            (fun k => (is k).castLE (Nat.le_succ m))
-            (Multiset.map (fun p => ((p.toComposite, p.snd)
-              : AnnotatedTuple (T ⊕ K) K (m + 1)))
-              ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d))
-            (fun k => Sum.inl (g k))))
-        ((Fin.append_left _ _ (Fin.natAdd n₁ l)).trans
-          (Fin.append_right _ _ l))]
-      rw [Term.liftKeys_evalRew _ _ s _ g (fun k =>
-        (Fin.append_left _ _ (Fin.castAdd n₂ k)).trans
-          (Fin.append_left _ _ k))]
-      rw [AggValue.predProv_ofGroup, Having.havingGroup_toComposite,
-        Having.havingProv_toComposite]
-
-/-! ## Compositional closure: rewriting queries around HAVING sites
-
-ProvSQL rewrites whole queries in which `GROUP BY … HAVING` blocks occur
-as subqueries. The relation below closes the two base rewritings – the
-classical rules and the HAVING site – under the classical operators
-(mirroring the constructions of `QueryGen.rewritingGen`), and
-`QueryGen.havingRewrites_valid` extends the correctness to every query
-so obtained. Deduplication and difference *above* a site are not closed
-over (they are rarely meaningful over `HAVING` outputs); a site under
-them can still be handled by the classical rule when it is itself
-classical. -/
-
-/-- Value-kind projection columns strip faithfully. -/
-theorem ProjCol.strip_eval {n : ℕ} {κ : Fin n → ColKind} :
-    ∀ (p : ProjCol T κ), p.kind = ColKind.reg → ∀ (u : Tuple T n),
-      p.strip.eval u = p.evalPlain u
-  | .term t, _, u => TermG.strip_eval t u
-  | .token _ _, hp, _ => ColKind.noConfusion hp
-  | .provTerm _, hp, _ => ColKind.noConfusion hp
-
-/-- One-step-closed rewriting: classical queries and fused `HAVING`
-sites rewrite by their base rules, and the classical operators compose
-rewritten subqueries exactly as `QueryGen.rewritingGen` does. -/
-inductive QueryGen.HavingRewrites :
-    {n : ℕ} → {κ : Fin n → ColKind} → QueryGen T n κ →
-    QueryGen (T ⊕ K) (n + 1) (ColKind.rewKinds n) → Prop
-  | classical {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
-      (hq : q.classical) :
-      HavingRewrites q (q.rewritingGen hq)
-  | site {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
-      (fs : Tuple (SeqAggFunc T) n₂) (op : CompOp) (l : Fin n₂)
-      (s : Term T n₁) (qg : QueryGen T m (ColKind.allReg m))
-      (hq : qg.classical) :
-      HavingRewrites
-        (QueryGen.Proj
-          (fun j : Fin n₁ => ProjCol.term (TermG.index (Fin.castAdd n₂ j)
-            (by simp [ColKind.gammaKinds])))
-          (QueryGen.Sel (GenPred.fusedCmp op l s)
-            (QueryGen.Gamma is ts fs qg)))
-        (QueryGen.havingSiteRew is ts fs op l s qg hq)
-  | sum {n : ℕ} {κ : Fin n → ColKind} {q₁ q₂ : QueryGen T n κ}
-      {q₁' q₂' : QueryGen (T ⊕ K) (n + 1) (ColKind.rewKinds n)} :
-      HavingRewrites q₁ q₁' → HavingRewrites q₂ q₂' →
-      HavingRewrites (QueryGen.Sum q₁ q₂) (QueryGen.Sum q₁' q₂')
-  | sel {n : ℕ} {κ : Fin n → ColKind} {q : QueryGen T n κ}
-      {q' : QueryGen (T ⊕ K) (n + 1) (ColKind.rewKinds n)}
-      (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
-      (hκ : ∀ k, κ k = ColKind.reg) :
-      HavingRewrites q q' →
-      HavingRewrites (QueryGen.Sel φ q)
-        (QueryGen.Sel (φ.castComposite hκ hφ) q')
-  | proj {n m : ℕ} {κ : Fin n → ColKind} {q : QueryGen T n κ}
-      {q' : QueryGen (T ⊕ K) (n + 1) (ColKind.rewKinds n)}
-      (ps : Tuple (ProjCol T κ) m)
-      (hps : ∀ j, (ps j).kind = ColKind.reg)
-      (hκ : ∀ k, κ k = ColKind.reg) :
-      HavingRewrites q q' →
-      HavingRewrites (QueryGen.Proj ps q)
-        (QueryGen.retagToRew
-          (fun j => by
-            by_cases hj : (j : ℕ) < m
-            · rw [dif_pos hj, ProjCol.castComposite_kind]
-              rfl
-            · rw [dif_neg hj]
-              rfl)
-          (QueryGen.Proj
-            (fun j : Fin (m + 1) =>
-              if hj : (j : ℕ) < m then
-                (ps ⟨j, hj⟩).castComposite hκ (hps ⟨j, hj⟩)
-              else
-                ProjCol.provTerm (TermG.provIndex (Fin.last n)
-                  (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
-            q'))
-  | prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
-      {q₁ : QueryGen T n₁ κ₁} {q₂ : QueryGen T n₂ κ₂}
-      {q₁' : QueryGen (T ⊕ K) (n₁ + 1) (ColKind.rewKinds n₁)}
-      {q₂' : QueryGen (T ⊕ K) (n₂ + 1) (ColKind.rewKinds n₂)} :
-      HavingRewrites q₁ q₁' → HavingRewrites q₂ q₂' →
-      HavingRewrites (QueryGen.Prod q₁ q₂)
-        (QueryGen.retagToRew
-          (fun j => by
-            by_cases h₁ : (j : ℕ) < n₁
-            · rw [dif_pos h₁]; rfl
-            · rw [dif_neg h₁]
-              by_cases h₂ : (j : ℕ) < n₁ + n₂
-              · rw [dif_pos h₂]; rfl
-              · rw [dif_neg h₂]; rfl)
-          (QueryGen.Proj
-            (fun j : Fin (n₁ + n₂ + 1) =>
-              if h₁ : (j : ℕ) < n₁ then
-                ProjCol.term (TermG.index
-                  (Fin.castAdd (n₂ + 1)
-                    (⟨j, Nat.lt_succ_of_lt h₁⟩ : Fin (n₁ + 1)))
-                  ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt h₁)))
-              else if h₂ : (j : ℕ) < n₁ + n₂ then
-                ProjCol.term (TermG.index
-                  (Fin.natAdd (n₁ + 1)
-                    (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1)))
-                  ((Fin.append_right _ _ _).trans
-                    (ColKind.rewKinds_lt (by simp; omega))))
-              else
-                ProjCol.provTerm (TermG.mul
-                  (TermG.provIndex (Fin.castAdd (n₂ + 1) (Fin.last n₁))
-                    ((Fin.append_left _ _ _).trans
-                      (ColKind.rewKinds_of_not_lt (lt_irrefl n₁))))
-                  (TermG.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
-                    ((Fin.append_right _ _ _).trans
-                      (ColKind.rewKinds_of_not_lt (lt_irrefl n₂))))))
-            (QueryGen.Prod q₁' q₂')))
-
-/-- **Whole-query correctness of the compositional HAVING rewriting**:
-along the closure, the annotated general semantics folded into embedded
-composite rows agrees with the rewritten world's evaluation. -/
-theorem QueryGen.havingRewrites_valid {n : ℕ} {κ : Fin n → ColKind}
-    {q : QueryGen T n κ}
-    {q' : QueryGen (T ⊕ K) (n + 1) (ColKind.rewKinds n)}
-    (h : QueryGen.HavingRewrites q q') (d : AnnotatedDatabase T K) :
-    Multiset.map (fun t : Tuple (T ⊕ K) (n + 1) =>
-        ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (n + 1)))
-      ((q.evaluateAnnotatedGen d).toComposite)
-      = q'.evaluateRew d.toComposite := by
-  induction h with
-  | classical q hq =>
-    rw [QueryGen.rewritingGen_valid q hq d,
-      QueryGen.evaluateRew_plain _ (QueryGen.rewritingGen_noGammaTok q hq)]
-  | site is ts fs op l s qg hq =>
-    exact QueryGen.havingSiteRew_valid is ts fs op l s qg hq d
-  | sum h₁ h₂ ih₁ ih₂ =>
-    show Multiset.map _ ((AnnotatedRelation.toComposite
-      (QueryGen.evaluateAnnotatedGen _ d))) = _
-    unfold QueryGen.evaluateAnnotatedGen
-    simp only [QueryGen.evaluateGen, QueryGen.evaluateRew]
-    rw [Multiset.map_add, AnnotatedRelation.toComposite_add,
-      Multiset.map_add]
-    exact congrArg₂ (· + ·) ih₁ ih₂
-  | sel φ hφ hκ h ih =>
-    show Multiset.map _ ((QueryGen.evaluateAnnotatedGen _ d).toComposite)
-      = QueryGen.evaluateRew _ _
-    simp only [QueryGen.evaluateRew]
-    rw [← ih]
-    unfold QueryGen.evaluateAnnotatedGen AnnotatedRelation.toComposite
-    simp only [QueryGen.evaluateGen]
-    rw [if_neg (by simp [hφ])]
-    rw [Multiset.filter_map, Multiset.filter_map, Multiset.filter_map]
-    rw [Multiset.map_map, Multiset.map_map, Multiset.map_map,
-      Multiset.map_map]
-    refine congrArg _ (Multiset.filter_congr (fun r _ => ?_)).symm
-    refine Iff.trans (GenPred.holdsRew_inl _ _) ?_
-    refine Iff.trans (GenPred.castComposite_holdsPlain hκ φ hφ _) ?_
-    refine Iff.trans (iff_of_eq
-      (Selection.castToAnnotatedTuple_eval φ.strip
-        (GenRow.plainTuple r.fst) r.snd.finalize)) ?_
-    exact Iff.trans (GenPred.strip_eval φ hφ _)
-      (GenPred.holds_iff_holdsPlain φ r.fst).symm
-  | @proj n m κ q q' ps hps hκ h ih =>
-    show Multiset.map _ ((QueryGen.evaluateAnnotatedGen _ d).toComposite)
-      = QueryGen.evaluateRew _ _
-    unfold QueryGen.retagToRew
-    show _ = QueryGen.evaluateRew (QueryGen.Retag _ _) _
-    simp only [QueryGen.evaluateRew]
-    rw [← ih]
-    unfold QueryGen.evaluateAnnotatedGen AnnotatedRelation.toComposite
-    simp only [QueryGen.evaluateGen]
-    simp only [Multiset.map_map]
-    refine Multiset.map_congr rfl (fun r _ => ?_)
-    simp only [Function.comp_apply]
-    funext j
-    by_cases hj : (j : ℕ) < m
-    · rw [dif_pos hj]
-      refine Eq.trans (congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ j).trans (dif_pos hj))) ?_
-      refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inl v)
-          : GenValue (T ⊕ K) K))
-        (ProjCol.collapseSum_eval (ps ⟨(j : ℕ), hj⟩) r.fst)) ?_
-      refine Eq.symm ?_
-      refine Eq.trans (ProjCol.evalRew_inl _ _) ?_
-      refine congrArg Sum.inl ?_
-      refine Eq.trans (ProjCol.castComposite_evalPlain hκ _ (hps _) _) ?_
-      refine Eq.trans (Term.castToAnnotatedTuple_eval _ _ _) ?_
-      exact congrArg Sum.inl (ProjCol.strip_eval _ (hps _) _)
-    · rw [dif_neg hj]
-      refine Eq.trans (congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ j).trans (dif_neg hj))) ?_
-      refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
-          : GenValue (T ⊕ K) K))
-        (GenAnn.finalize_cash _ _ _ Multiset.inter_le_left)) ?_
-      refine Eq.symm ?_
-      refine Eq.trans (ProjCol.evalRew_inl _ _) ?_
-      refine congrArg Sum.inl ?_
-      exact (AnnotatedTuple.toComposite_coord _ _).trans
-        (dif_neg (by simp only [Fin.val_last]; omega))
-  | @prod n₁ n₂ κ₁ κ₂ q₁ q₂ q₁' q₂' h₁ h₂ ih₁ ih₂ =>
-    show Multiset.map _ ((QueryGen.evaluateAnnotatedGen _ d).toComposite)
-      = QueryGen.evaluateRew _ _
-    unfold QueryGen.retagToRew
-    show _ = QueryGen.evaluateRew (QueryGen.Retag _ _) _
-    simp only [QueryGen.evaluateRew]
-    rw [← ih₁, ← ih₂]
-    unfold QueryGen.evaluateAnnotatedGen AnnotatedRelation.toComposite
-    simp only [QueryGen.evaluateGen]
-    simp only [Multiset.map_map]
-    rw [Multiset.map_product_map]
-    simp only [Multiset.map_map]
-    refine Multiset.map_congr rfl (fun xy _ => ?_)
-    simp only [Function.comp_apply, Prod.map]
-    funext j
-    by_cases hj₁ : (j : ℕ) < n₁
-    · rw [dif_pos hj₁]
-      refine Eq.trans (congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ j).trans
-          (dif_pos (show (j : ℕ) < n₁ + n₂ by omega)))) ?_
-      refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inl
-          (AggValue.collapseSum v)) : GenValue (T ⊕ K) K))
-        ((congrArg (Fin.append xy.1.fst xy.2.fst)
-          (Fin.ext rfl : (⟨(j : ℕ), by omega⟩ : Fin (n₁ + n₂))
-            = Fin.castAdd n₂ (⟨(j : ℕ), hj₁⟩ : Fin n₁))).trans
-          (Fin.append_left xy.1.fst xy.2.fst
-            (⟨(j : ℕ), hj₁⟩ : Fin n₁)))) ?_
-      refine Eq.symm ?_
-      show Sum.inl (AggValue.collapseSum (Fin.append _ _
-        (Fin.castAdd (n₂ + 1)
-          (⟨(j : ℕ), Nat.lt_succ_of_lt hj₁⟩ : Fin (n₁ + 1))))) = _
-      rw [Fin.append_left]
-      exact congrArg Sum.inl
-        ((AnnotatedTuple.toComposite_coord _ _).trans (dif_pos hj₁))
-    · rw [dif_neg hj₁]
-      by_cases hj₂ : (j : ℕ) < n₁ + n₂
-      · rw [dif_pos hj₂]
-        refine Eq.trans (congrArg Sum.inl
-          ((AnnotatedTuple.toComposite_coord _ j).trans
-            (dif_pos hj₂))) ?_
-        refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inl
-            (AggValue.collapseSum v)) : GenValue (T ⊕ K) K))
-          ((congrArg (Fin.append xy.1.fst xy.2.fst)
-            (Fin.ext (by
-              simp only [Fin.val_natAdd]
-              omega) : (⟨(j : ℕ), by omega⟩ : Fin (n₁ + n₂))
-              = Fin.natAdd n₁ (⟨(j : ℕ) - n₁, by omega⟩ : Fin n₂))).trans
-            (Fin.append_right xy.1.fst xy.2.fst
-              (⟨(j : ℕ) - n₁, by omega⟩ : Fin n₂)))) ?_
-        refine Eq.symm ?_
-        show Sum.inl (AggValue.collapseSum (Fin.append _ _
-          (Fin.natAdd (n₁ + 1)
-            (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1))))) = _
-        rw [Fin.append_right]
-        exact congrArg Sum.inl
-          ((AnnotatedTuple.toComposite_coord _ _).trans
-            (dif_pos (by show LT.lt ((j : ℕ) - n₁) n₂; omega)))
-      · rw [dif_neg hj₂]
-        refine Eq.trans (congrArg Sum.inl
-          ((AnnotatedTuple.toComposite_coord _ j).trans
-            (dif_neg hj₂))) ?_
-        refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
-            : GenValue (T ⊕ K) K))
-          (GenAnn.finalize_prod _ _ _ _)) ?_
-        refine Eq.symm ?_
-        show Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _) = _
-        rw [show TermG.evalRew (TermG.provIndex
-              (Fin.castAdd (n₂ + 1) (Fin.last n₁))
-              ((Fin.append_left _ _ _).trans
-                (ColKind.rewKinds_of_not_lt (lt_irrefl n₁)))) _
-            = (Sum.inr (GenRow.toAnnotated xy.1).snd : T ⊕ K) from by
-          show AggValue.collapseSum (Fin.append _ _
-            (Fin.castAdd (n₂ + 1) (Fin.last n₁))) = _
-          rw [Fin.append_left]
-          exact congrArg AggValue.collapseSum
-            (congrArg Sum.inl ((AnnotatedTuple.toComposite_coord _ _).trans
-              (dif_neg (by simp only [Fin.val_last]; omega)))) |>.trans rfl]
-        rw [show TermG.evalRew (TermG.provIndex
-              (Fin.natAdd (n₁ + 1) (Fin.last n₂))
-              ((Fin.append_right _ _ _).trans
-                (ColKind.rewKinds_of_not_lt (lt_irrefl n₂)))) _
-            = (Sum.inr (GenRow.toAnnotated xy.2).snd : T ⊕ K) from by
-          show AggValue.collapseSum (Fin.append _ _
-            (Fin.natAdd (n₁ + 1) (Fin.last n₂))) = _
-          rw [Fin.append_right]
-          exact congrArg AggValue.collapseSum
-            (congrArg Sum.inl ((AnnotatedTuple.toComposite_coord _ _).trans
-              (dif_neg (by simp only [Fin.val_last]; omega)))) |>.trans rfl]
-        rfl
+        (QueryGen.rewritingGen_noGammaTok q hq) _,
+      QueryGen.rewritingGen_plain q hq d.toComposite,
+      ← Query.rewriting_valid (q.strip hq) (q.strip_noAgg hq) d]
+  rw [hR]
+  unfold AnnotatedRelation.toComposite
+  rw [Multiset.map_map, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  refine Prod.ext ?_ ?_
+  · funext k
+    rfl
+  · show (AggValue.collapseSum
+        (Sum.inl (p.toComposite (Fin.last n)))).annPart = p.snd
+    rw [show p.toComposite (Fin.last n) = Sum.inr p.snd from by
+      rw [AnnotatedTuple.toComposite_coord,
+        dif_neg (by simp only [Fin.val_last]; omega)]]
+    rfl

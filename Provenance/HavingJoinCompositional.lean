@@ -320,22 +320,24 @@ theorem joinCountQueryPadded_correct
     hzero) (add_zero _)
 
 /-- **The key-projected fused output.** Projecting the fused
-`HAVING COUNT(*) op (C + 1)` output to its group key yields the same
+`HAVING COUNT(*) op (C + 1)` site output to its group key yields the same
 one-row-per-key relation the padded join query evaluates to: combined
 with `joinCountQueryPadded_correct`, the padded rewriting can be
 substituted for the key-projected fused operator inside any surrounding
 query. -/
-theorem fused_key_proj (q : Query ℕ 3) (hq : q.noAgg)
-    (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (op : CompOp)
-    (C : ℕ) :
-    (Query.evaluateHavingAnnotated keyIdx ts' (fun _ => SeqAggFunc.count) op
-        0 (Term.const (C + 1)) q hq d).map
+theorem fused_key_proj (qg : QueryGen ℕ 3 (ColKind.allReg 3))
+    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (hin : qg.evaluateAnnotatedGen d = q.evaluateAnnotated hq d)
+    (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
+    ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (Term.const (C + 1)) qg).evaluateAnnotatedGen d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, Having.havingProv
             (Having.havingGroup keyIdx (q.evaluateAnnotated hq d) g)
             (ts' 0) SeqAggFunc.count op (C + 1)) : Tuple ℕ 1 × K)) := by
+  rw [QueryGen.havingSite_evaluateAnnotatedGen, hin]
   show ((Multiset.dedup ((q.evaluateAnnotated hq d).map
       (fun p => fun k : Fin 1 => p.fst (keyIdx k)))).map _).map _ = _
   rw [Multiset.map_map]
@@ -348,7 +350,8 @@ theorem fused_key_proj (q : Query ℕ 3) (hq : q.noAgg)
   exact congrArg g (Subsingleton.elim _ _)
 
 /-- **Site substitution.** The key-projected fused
-`HAVING COUNT(*) op (C + 1)` operator and the padded join-based rewriting
+`HAVING COUNT(*) op (C + 1)` site over the embedded classical query and
+the padded join-based rewriting
 evaluate to the *same multiset of annotated tuples*: substituting one for
 the other inside any surrounding query preserves the annotated semantics
 verbatim. -/
@@ -357,13 +360,14 @@ theorem countHaving_site_rewrite
     (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
-    (Query.evaluateHavingAnnotated keyIdx ts' (fun _ => SeqAggFunc.count) op
-        0 (Term.const (C + 1)) q hq d).map
+    ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
+        (Term.const (C + 1)) (q.toGen hq)).evaluateAnnotatedGen d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (joinCountQueryPadded q op C).evaluateAnnotated
           (joinCountQueryPadded_noAgg q hq op C) d :=
-  (fused_key_proj q hq d ts' op C).trans
+  (fused_key_proj (q.toGen hq) q hq d (Query.toGenHaving_input q hq d)
+      ts' op C).trans
     (joinCountQueryPadded_correct h_abs h_distrib q hq d hnodup ts' op C).symm
 
 end SiteCorrectness

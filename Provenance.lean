@@ -10,18 +10,6 @@ import Provenance.QueryAnnotatedDatabaseHom
 /- Data-part adequacy of the annotated semantics -/
 import Provenance.QueryAdequacy
 
-/- K-semimodules and the free K-tensor (aggregation foundation) -/
-import Provenance.KSemiModule
-
-/- The V_K-lifted value type and the rewriting evaluator -/
-import Provenance.LiftedTK
-import Provenance.QueryEvaluateInVK
-import Provenance.QueryEvaluateInVKHom
-
-/- Annotated semantics of the aggregation operator (sum, top-level) -/
-import Provenance.QueryAggregation
-import Provenance.QueryAggregationHom
-
 /- HAVING algebraic identities -/
 import Provenance.Having
 
@@ -46,6 +34,7 @@ import Provenance.QueryGenProbability
 
 /- Hom commutation for the general evaluator, token and annotation layer -/
 import Provenance.QueryGenHom
+import Provenance.QueryGenToGen
 import Provenance.QueryGenEmbedding
 
 /- Provenance-aware rewriting stated natively on the general syntax -/
@@ -53,6 +42,12 @@ import Provenance.QueryGenRewriting
 
 /- The rewritten world's token-bearing evaluator (HAVING rewriting) -/
 import Provenance.QueryGenHavingRewriting
+
+/- The bare-grouping rewriting: aggregate results as output values -/
+import Provenance.QueryGenAggRewriting
+
+/- Compositional closure of the rewriting rules -/
+import Provenance.QueryGenClosure
 
 /- Scan-computable HAVING provenance for MIN, MAX and PICKFIRST -/
 import Provenance.HavingMinMax
@@ -195,14 +190,14 @@ proven engine several general results reuse internally.
   contributing through their deterministic `collapse` reading and the
   fused group sequence projecting onto the plain one
   (`havingGroup_map_fst`)
-- `Provenance.QueryGenBridges` – **regression bridge**: on its fragment –
-  one aggregate comparison directly above the grouping – the general
-  evaluator recovers the fused semantics,
-  `QueryGen.fused_having_bridge : (σ_{fusedCmp} ∘ Gamma).evaluateAnnotatedGen
-  = Query.evaluateHavingAnnotated`: the pending group factor is superseded
-  by the token's predicate provenance (`AggValue.predProv_ofGroup`) and the
-  data part collapses to the whole-group aggregates; every fused-semantics
-  theorem thereby transfers to the general evaluator
+- `Provenance.QueryGenBridges` – **the fused `HAVING` site in closed
+  form**: `QueryGen.havingSite` is one aggregate comparison directly above
+  the grouping, and `QueryGen.havingSite_evaluateAnnotatedGen` computes it
+  – one row per group key, annotated by `Having.havingProv` – since the
+  pending group factor is superseded by the token's predicate provenance
+  (`AggValue.predProv_ofGroup`) and the data part collapses to the
+  whole-group aggregates. This is the content the separate fused evaluator
+  used to carry, now a theorem about the single annotated evaluator
 - `Provenance.QueryGenProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `QueryGen.genRandomWorld_evaluateGen` – specializing the realized rows
@@ -242,13 +237,16 @@ proven engine several general results reuse internally.
   `≼`-tie-break of `havingGroup`, and a row-wise simulation
   (`GenRow.Sim`, `QueryGen.evaluateGen_hom_rel`) carries both through
   the evaluator
-- `Provenance.QueryGenEmbedding` – the embedding of the classical query
+- `Provenance.QueryGenToGen` – the embedding of the classical query
   syntax into the general evaluator: `Query.toGen` translates the
   non-aggregating fragment one to one over all-regular kinds, faithfully
   (`Query.toGen_bridge` and, at the raw row level,
   `Query.toGen_evaluateGen_eq`, via the row invariant `GenRow.Inv`); the
-  fused `HAVING` over an embedded subquery is computed by `σ_ψ ∘ Gamma`
-  (`Query.toGenHaving_bridge`). The compositional JOIN rewriting is
+  fused `HAVING` site over an embedded subquery reads its input relation
+  off the classical one (`Query.toGenHaving_input`). The module sits
+  *below* the classical `HAVING` correctness files, so those state their
+  theorems over the embedded general query with no side hypothesis
+- `Provenance.QueryGenEmbedding` – the compositional JOIN rewriting,
   stated natively on the general syntax: `GenCountHavingRewrite` replaces
   `HAVING COUNT(*)` sites – key projections of `σ_ψ ∘ Gamma`, all-regular
   and hence composable under every operator – by the embedded padded join
@@ -280,62 +278,68 @@ proven engine several general results reuse internally.
   `AggValue.predProv` (`TermG.evalRew`). Off the token operators the
   evaluator is the plain semantics through the `inl` embedding
   (`QueryGen.evaluateRew_plain`), connecting it to the classical
-  rewriting correctness. The rewritten `HAVING` site
-  (`QueryGen.havingSiteRew`: token-building grouping over the rewritten
-  subquery, keys projected out, the gate applied to the compared token)
-  is proven correct relative to the gate primitive –
-  `QueryGen.havingSiteRew_valid` equates the annotated fused site,
-  folded into embedded composite rows, with the rewritten world's
-  evaluation, through the two embedding commutations
-  (`Having.havingProv_toComposite`, `Having.havingGroup_toComposite`) –
-  the query-level counterpart of ProvSQL's `GROUP BY … HAVING`
-  rewriting, whose correctness is relative to its gate semantics in the
-  same way. The closure `QueryGen.HavingRewrites` composes the two base
-  rewritings (classical rules, `HAVING` sites) under selection,
-  projection, product and union, and `QueryGen.havingRewrites_valid`
-  extends the correctness to every whole query so obtained
+  rewriting correctness. `QueryGen.rewritingGen_provRel` reads a rewritten
+  evaluation back as an annotated relation – the input the token-building
+  groupings consume – and `Having.havingGroup_toComposite` transports the
+  group sequence along the composite embedding; the rewriting rules built
+  on top live in `Provenance.QueryGenAggRewriting` and
+  `Provenance.QueryGenClosure`
+- `Provenance.QueryGenAggRewriting` – **the bare-grouping rewriting**, the
+  general framework's counterpart of rule (R5): a `GROUP BY` whose
+  aggregate columns flow onward as output values, rather than being
+  consumed by a comparison gate. No new value domain is needed – the
+  rewritten world already has tokens as column values – but the
+  correspondence must be stated at token level, since the composite
+  embedding of an annotated relation reads tokens through their
+  deterministic collapse. `GenRow.toCompositeRow` is the token-aware
+  embedding (`AggValue.toComposite` on token columns, the finalized
+  annotation appended as the provenance column), agreeing with the old
+  embedding on token-free rows (`GenRow.toCompositeRow_of_reg`);
+  `QueryGen.gammaRew` is the rewritten grouping (`GammaTok` over the
+  classically rewritten subquery) and `QueryGen.gammaRew_valid` its
+  correctness, resting on the reusable
+  `QueryGen.rewritingGen_provRel` – the rewritten world's reading of a
+  classical rewriting back as an annotated relation, and
+  `AggValue.predProv_toComposite` – a transported token is read by the
+  gate unchanged
+- `Provenance.QueryGenClosure` – **the compositional closure of the three
+  base rewritings** (classical blocks, `HAVING` sites, bare groupings).
+  Since the base rules no longer share an output shape – a bare grouping
+  emits token columns – the relation `QueryGen.RewritesTo` is indexed by
+  the rewritten query's own kind vector and correctness
+  (`QueryGen.rewritesTo_valid`) is stated at token level, specialising to
+  the earlier all-regular form as `QueryGen.rewritesTo_valid_reg`. The
+  uniform rewritten kind vector `ColKind.rewKindsOf κ` (source kinds plus
+  the provenance column) makes casting into the rewritten world
+  kind-preserving, so `TermG.castRew`, `GenPred.castRew` and
+  `ProjCol.castRew` need no all-regular hypothesis and selection,
+  projection and union close over token-bearing subqueries – the
+  `SELECT … FROM (GROUP BY …)` shape. The module also lifts the two
+  scope restrictions of the `HAVING` site: `QueryGen.havingPredRew` is
+  the site *with its aggregates exposed* (keys and tokens kept as output
+  columns, the `provsql_having` gate in the provenance column – the shape
+  ProvSQL actually emits) for an *arbitrary* aggregate-only predicate,
+  not just a single comparison. `GenPred.gateTerm` translates the
+  `predsem` algebra into a rewritten term (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed
+  to the atoms), and `GenPred.aggOnly_entailsExistence` is why the group
+  guard is always superseded there. Deduplication closes too, through
+  `QueryGen.dedupRew`/`QueryGen.dedupRew_valid`: ProvSQL's `ε` rule
+  (group by the data columns, `⊕`-sum the provenance column) proven
+  against an arbitrary rewritten subquery. So does product
+  (`QueryGen.prodRew`/`QueryGen.prodRew_valid`), whose join reassembly
+  uses the kind-dispatched column copy `ProjCol.copy`, faithful because
+  the operands' rows conform (`GenRow.toCompositeRow_conform` over
+  `QueryGen.evaluateGen_conform`). Only difference above a grouping is
+  left out
 
-**The classical rewriting and aggregation layer**
+**The classical rewriting layer**
 
-- `Provenance.QueryRewriting` – alternative query evaluation by rewriting plain queries
-  on `T ⊕ K`; implements rules (R1)–(R5) of [Sen, Maniu & Senellart][sen2026provsql];
-  `Query.rewriting_valid` proves the (R1)–(R4) cases, and the (R5) case is
-  handled by `Query.rewriting_valid_full` in `Provenance.QueryEvaluateInVK`
-- `Provenance.KSemiModule` – the `KSemiModule K M` typeclass (left action of a
-  `CommSemiringWithMonus K` on a commutative monoid `M`) and the free `K`-tensor
-  data structure `KTensor K M`, used to interpret the aggregation operator on
-  `K`-annotated relations
-  ([Amsterdamer, Deutch & Tannen][amsterdamer2011aggregate])
-- `Provenance.QueryAggregation` – annotated semantics of the aggregation
-  operator: `Query.evaluateAggSum` produces one row per group with per-aggregated
-  -column `(value, K-tensor)` annotations, matching Definition 7 of
-  [Sen, Maniu & Senellart][sen2026provsql]. First-cut scope: top-level
-  aggregation only, `AggFunc.sum` only.
-- `Provenance.QueryAggregationHom` – hom commutation for `evaluateAggSum`:
-  pushing the database forward along a `SemiringWithMonusHom h : K → K'`
-  is the same as pushing the K-tensor coefficients of the aggregated
-  result forward along `h.toRingHom`.
-- `Provenance.QueryEvaluateInVKHom` – **unified hom commutation** for the
-  Definition 7 annotated semantics: `Query.evaluateAnnotatedFull_hom`
-  subsumes both `Query.evaluateAnnotated_hom` (non-Agg) and
-  `Query.evaluateAggSum_hom` (Agg) into a single theorem on the lifted
-  output, exploiting the new `SemiringWithMonusHom.map_delta` field
-  for the δ-applied row-annotation column.
-- `Provenance.LiftedTK` – the value type `LiftedTK T K` extending `T ⊕ K` with
-  K-tensor monomials, used as the V_K interpretation domain for the rewriting
-  of aggregate queries.
-- `Provenance.QueryEvaluateInVK` – `Query.evaluateInVK`, the V_K-aware
-  evaluator that interprets a rewritten query (in particular the (R5)
-  aggregation rewriting) in `LiftedTK`-valued tuples; together with
-  `Query.evaluateAnnotatedFull` (the unified Definition 7 annotated
-  semantics) and `Query.rewritingFull` (the unified rewriting of (R1)–(R5)
-  in `Provenance.QueryRewriting`), this realises the single rewriting
-  correctness theorem `Query.rewriting_valid_full`. R1–R3 are proven by
-  reduction to `Query.rewriting_valid` (the legacy non-Agg theorem,
-  retained as a helper); R5 is proven directly using the
-  `Term.castToAnnotatedTuple_evalInVK`, `Term.evalInVK_index_last`,
-  `LiftedTK.fold_add_ann`, `LiftedTK.fold_add_ktensor_nonempty`,
-  and `KTensor.sum_map_embed` helpers.
+- `Provenance.QueryRewriting` – alternative query evaluation by rewriting plain
+  queries on `T ⊕ K`; implements rules (R1)–(R4) of
+  [Sen, Maniu & Senellart][sen2026provsql] on the classical syntax, with
+  correctness `Query.rewriting_valid`. Rule (R5) – aggregation – lives on the
+  general syntax instead (`Provenance.QueryGenAggRewriting`), where an
+  aggregate output is a symbolic token rather than a quotiented K-tensor
 **HAVING: algebra, possible worlds, probability, and correctness**
 
 - `Provenance.Having` – algebraic identities behind `HAVING (count)` aggregate
@@ -347,7 +351,7 @@ proven engine several general results reuse internally.
   databases: group-occurrence sequences, the bridge between subsequences and
   `Finset`-of-positions worlds (`seqOf_sublist`, `sublist_eq_seqOf`,
   `seqOf_injective`), the factored world annotation (`worldAnn`), the
-  predicate provenance (`havingProv`, `Query.evaluateHavingAnnotated`) with
+  predicate provenance (`havingProv`) with
   its attachment to the query-free algebra (`havingProv_eq_prov`), and
   Boolean combinations of aggregate comparisons (`HavingPred`)
 - `Provenance.HavingMinMax` – the `HAVING` aggregate comparisons whose validity
@@ -410,8 +414,8 @@ proven engine several general results reuse internally.
 - `Provenance.HavingQueryCorrectness` – query-level correctness of the fused
   `Having` operator against the JOIN-based rewriting, in absorptive
   m-semirings with `⊗`-over-`⊖` distributivity: the `C = 1` case
-  (`Query.evaluateHavingAnnotated_count_ge_one`, the fused `COUNT(*) ≥ 1`
-  operator equals the duplicate-eliminated key projection) and the general
+  (`QueryGen.havingSite_count_ge_one`, the fused `COUNT(*) ≥ 1` site
+  equals the duplicate-eliminated key projection) and the general
   case (`Query.joinChain_count_correct`, the `C`-fold self-join chain with
   a lexicographic occurrence-identifier tie-break gives every key the
   `⊕`-sum of its `(C+1)`-element world monomials, the fused

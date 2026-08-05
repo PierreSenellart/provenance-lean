@@ -25,10 +25,10 @@ identity `Multiset.semijoin_proj_eq_filter`, after bridging the
 via `Query.rewriting_valid_diff_inner_dd_inst`) and a `matched_eq` half (proved
 via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, after
 substituting the inner aggregation with the closed-form
-`Query.evaluate_agg_rewriting_eq`). The (R5) aggregation correctness lives in
-`Provenance.QueryEvaluateInVK` as `Query.rewriting_valid_full`, with its V_K
-interpretation; the syntactic (R5) rewriting itself is in this file as
-`Query.rewritingAgg`.
+`Query.evaluate_agg_rewriting_eq`). Rule (R5) – aggregation – is not part of
+this classical rewriting: it lives on the general syntax, in
+`Provenance.QueryGenAggRewriting`, where an aggregate output is a symbolic
+token rather than a quotiented K-tensor.
 
 ## References
 
@@ -1697,88 +1697,3 @@ theorem Query.rewriting_valid
     exact lhs_eq.symm.trans rhs_eq.symm
   | Agg _ _ _ _ => simp[noAgg] at hq
   | Having _ _ _ _ _ _ _ => simp[noAgg] at hq
-
-/-! ## (R5) Rewriting of top-level aggregation
-
-The aggregation rewriting rule (R5) of
-[Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]:
-
-> `γ_{i₁,…,iₘ}[t₁ : f₁, …, tₙ : fₙ](q)` is rewritten to
-> `γ_{i₁,…,iₘ}[t₁ * #(k+1) : f̂₁, …, tₙ * #(k+1) : f̂ₙ, #(k+1) : δ(⊕)](q)`.
-
-Unlike (R1)–(R4), which keep the rewriting target in `Query (T ⊕ K)` and
-the standard `evaluate` semantics, (R5)'s rewritten query is interpreted
-in the K-semimodule `V_K` – the per-column term `t_j * #(k+1)` evaluates
-to a K-tensor monomial `α ⊗ v_j`, not to a plain `T ⊕ K` value. The
-companion evaluator `Query.evaluateInVK` (in
-`Provenance.QueryEvaluateInVK`) carries that interpretation.
-
-`Query.rewritingAgg` here implements the rewriting **syntactically** as a
-`Query (T ⊕ K)`. Its semantic correctness – the analogue of `rewriting_valid`
-stating that `⟪Agg ...⟫_Î` matches `evaluateInVK (rewritingAgg ...) Î.toComposite`
-– is proved as the (R5) case of `Query.rewriting_valid_full` (in
-`Provenance.QueryEvaluateInVK`), packaged together with the (R1)–(R4)
-correctness. The R4 sorries in `Query.rewriting_valid` for the diff
-case are carried over there as the only remaining gap.
--/
-
-/-- (R5) Top-level aggregation rewriting. Produces a plain `Query (T ⊕ K)`
-representing `γ_{is}[t_j * #(k+1) : f̂_j, #(k+1) : δ(⊕)](q.rewriting)`.
-
-The inner query `q` is required to be `noAgg` (the ICDE paper imposes
-aggregation-at-root); `q.rewriting` handles its (R1)–(R4) rewriting and
-the resulting query operates on tuples of arity `m+1` (the original `m`
-data columns plus one annotation column). The output Agg has `n₁`
-grouping columns, `n₂+1` aggregated columns (the original `n₂` plus the
-`δ(⊕)` annotation column at the end), and arity `n₁ + n₂ + 1`. -/
-def Query.rewritingAgg [ValueType T] {m n₁ n₂ : ℕ}
-    (is : Tuple (Fin m) n₁)
-    (ts : Tuple (Term T m) n₂)
-    (as : Tuple AggFunc n₂)
-    (q_inner : Query T m) (hq_inner : q_inner.noAgg) :
-    Query (T ⊕ K) (n₁ + n₂ + 1) :=
-  let q_inner' : Query (T ⊕ K) (m + 1) := q_inner.rewriting hq_inner
-  -- Index of the annotation column on the rewritten inner query (= the last Fin).
-  let annIdx : Term (T ⊕ K) (m + 1) := Term.index (Fin.last m)
-  -- New aggregated-column terms.
-  let ts' : Tuple (Term (T ⊕ K) (m + 1)) (n₂ + 1) := fun k =>
-    if h : ↑k < n₂ then
-      Term.mul (ts ⟨k, h⟩).castToAnnotatedTuple annIdx
-    else
-      annIdx
-  -- New aggregators: f̂_j (= as j for the original aggregated columns; here
-  -- the lift is the identity on the AggFunc constructors), plus `sumDelta`
-  -- for the new annotation column.
-  let as' : Tuple AggFunc (n₂ + 1) := fun k =>
-    if h : ↑k < n₂ then as ⟨k, h⟩ else AggFunc.sumDelta
-  -- New grouping indices: lift `is k : Fin m` to `Fin (m + 1)` (one extra
-  -- annotation column at the end).
-  let is' : Tuple (Fin (m + 1)) n₁ := fun k => (is k).castLE (Nat.le_succ _)
-  @Query.Agg (T ⊕ K) (m + 1) n₁ (n₂ + 1) is' ts' as' q_inner'
-
-/-! ## Unified rewriting for queries with at-most-top-level aggregation -/
-
-/-- A query is *well-formed for rewriting* if it has no aggregation at all
-(corresponding to the (R1)–(R4) cases) or if it is a top-level
-aggregation whose inner query has no aggregation (the (R5) case). This is
-the structural precondition imposed by the ICDE paper, which restricts
-the aggregation operator to the root of a query plan. -/
-def Query.wellFormed : ∀ {n}, Query T n → Prop
-  | _, @Query.Agg _ _ _ _ _ _ _ q_inner => q_inner.noAgg
-  | _, q => q.noAgg
-
-/-- Unified rewriting: dispatches between the (R1)–(R4) rewriting for
-non-aggregating queries and the (R5) rewriting for top-level
-aggregations. The single function realises the rewriting rules (R1)–(R5)
-of [Sen, Maniu & Senellart][sen2026provsql] together. -/
-def Query.rewritingFull [ValueType T] :
-    ∀ {n}, (q : Query T n) → q.wellFormed → Query (T ⊕ K) (n + 1)
-  | _, @Query.Agg _ _ _ _ is ts as q_inner, h =>
-      Query.rewritingAgg (K := K) is ts as q_inner h
-  | _, Query.Rel n s, h => (Query.Rel n s).rewriting h
-  | _, Query.Proj ts q', h => (Query.Proj ts q').rewriting h
-  | _, Query.Sel φ q', h => (Query.Sel φ q').rewriting h
-  | _, @Query.Prod _ _ _ _ hn q₁ q₂, h => (@Query.Prod _ _ _ _ hn q₁ q₂).rewriting h
-  | _, Query.Sum q₁ q₂, h => (Query.Sum q₁ q₂).rewriting h
-  | _, Query.Dedup q', h => (Query.Dedup q').rewriting h
-  | _, Query.Diff q₁ q₂, h => (Query.Diff q₁ q₂).rewriting h

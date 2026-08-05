@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.HavingSemantics
+import Provenance.QueryGenToGen
 import Provenance.Semirings.ChainFive
 import Provenance.Semirings.Tropical
 
@@ -18,7 +18,7 @@ that both hypotheses are needed. All facts are checked by `decide`.
 
 The instances share the base relation `R(g, v)` of arity 2, grouped by the
 first column; on the fused side the query is
-`Query.evaluateHavingAnnotated` for `COUNT(*) op C` and on the join side
+the general `HAVING` site for `COUNT(*) op C` and on the join side
 the queries are
 
 * `Q₂^{≥1} = ε(Π_{#0}(R))`,
@@ -50,6 +50,9 @@ namespace HavingQueryCounterexamples
 /-- The two-column base relation `R(g, v)`. -/
 def qR : Query ℕ 2 := Query.Rel 2 "R"
 
+/-- The same base relation as a general query, for the `HAVING` site. -/
+def qgR : QueryGen ℕ 2 (ColKind.allReg 2) := QueryGen.Rel 2 "R"
+
 /-- `Q₂^{≥1} = ε(Π_{#0}(R))`. -/
 def q2ge1 : Query ℕ 1 := ε (Π ![#0] qR)
 
@@ -73,8 +76,8 @@ def dC : AnnotatedDatabase ℕ ChainFive :=
 singleton world contributes its own annotation, the factored
 discarded-occurrence factor `𝟙 ⊖ hi` being `𝟙` in the chain). -/
 theorem chainFive_fused :
-    (Query.evaluateHavingAnnotated ![0] ![#1] ![SeqAggFunc.count]
-        CompOp.eq 0 (Term.const 1) qR (by decide) dC).map (fun p => p.snd)
+    ((QueryGen.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
+        (Term.const 1) qgR).evaluateAnnotatedGen dC).map (fun p => p.snd)
       = {ChainFive.hi} := by
   decide
 
@@ -88,8 +91,8 @@ theorem chainFive_join :
 absorptive but non-distributive `ChainFive`, the fused `COUNT(*) = 1`
 query and its join-based rewriting disagree on a concrete instance. -/
 theorem ChainFive.query_counterexample :
-    (Query.evaluateHavingAnnotated ![0] ![#1] ![SeqAggFunc.count]
-        CompOp.eq 0 (Term.const 1) qR (by decide) dC).map (fun p => p.snd)
+    ((QueryGen.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
+        (Term.const 1) qgR).evaluateAnnotatedGen dC).map (fun p => p.snd)
       ≠ (q2eq1.evaluateAnnotated (by decide) dC).map (fun p => p.snd) := by
   decide
 
@@ -117,8 +120,8 @@ noncomputable def dZ : AnnotatedDatabase ℕ (Tropical (WithTop ℤ)) :=
 two singleton worlds have annotation `trop (-1) ⊗ (𝟙 ⊖ trop (-1)) = 𝟘`,
 and only the full world `trop (-1) ⊗ trop (-1) = trop (-2)` survives. -/
 theorem tropicalZ_fused :
-    (Query.evaluateHavingAnnotated ![0] ![#1] ![SeqAggFunc.count]
-        CompOp.ge 0 (Term.const 1) qR (by decide) dZ).map (fun p => p.snd)
+    ((QueryGen.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
+        (Term.const 1) qgR).evaluateAnnotatedGen dZ).map (fun p => p.snd)
       = {Tropical.trop ((-2 : ℤ) : WithTop ℤ)} := by
   decide
 
@@ -134,8 +137,8 @@ fused `COUNT(*) ≥ 1` query and its join-based rewriting disagree on a
 concrete instance. Same phenomenon as the algebra-level
 `TropicalR.F_ne_S`, here at the level of evaluated queries. -/
 theorem TropicalZ.query_counterexample :
-    (Query.evaluateHavingAnnotated ![0] ![#1] ![SeqAggFunc.count]
-        CompOp.ge 0 (Term.const 1) qR (by decide) dZ).map (fun p => p.snd)
+    ((QueryGen.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
+        (Term.const 1) qgR).evaluateAnnotatedGen dZ).map (fun p => p.snd)
       ≠ (q2ge1.evaluateAnnotated (by decide) dZ).map (fun p => p.snd) := by
   decide
 

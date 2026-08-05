@@ -474,7 +474,7 @@ def QueryGen.evaluateGen : {n : ℕ} → {κ : Fin n → ColKind} →
         AnnotatedTuple T K _))).map GenRow.ofAnnotated
   | _, _, @Gamma _ m n₁ n₂ is ts fs q, d =>
     let r : AnnotatedRelation T K m := (q.evaluateGen d).map GenRow.toAnnotated
-    -- one row per group key, in the style of `Query.evaluateHavingAnnotated`
+    -- one row per group key (the closed form is `havingSite_evaluateAnnotatedGen`)
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
       let g : Tuple T n₁ := kv.fst

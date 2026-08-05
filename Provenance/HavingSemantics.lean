@@ -50,10 +50,11 @@ For a group with occurrence sequence `U` and an atomic aggregate comparison
 where `agg_{t,f}(W)` applies the sequence aggregate `f` to the `t`-values
 of the occurrences of `W` (in order) and `χ_op` sends a true comparison to
 `𝟙` and a false one to `𝟘`. The sum ranges over non-empty worlds only, so
-it already enforces group existence. `Query.evaluateHavingAnnotated` then
-gives the fused operator's output: one row per group of the inner query,
-whose data part carries the group key and the (whole-group) aggregate
-values, and whose annotation is the predicate provenance of its group.
+it already enforces group existence. The general evaluator's `HAVING`
+site (`QueryGen.havingSite`, in `Provenance.QueryGenBridges`) has exactly
+this closed form: one row per group of the inner query, whose data part
+carries the group key and the (whole-group) aggregate values, and whose
+annotation is the predicate provenance of its group.
 Boolean combinations of aggregate comparisons are interpreted by
 `HavingPred.prov`: `∧ ↦ ⊗`, `∨ ↦ ⊕`, and `¬` is pushed to the atoms by
 De Morgan duality, complementing the comparison operator of an atom (as
@@ -491,35 +492,6 @@ theorem havingProv_count_ge_one (h_abs : absorptive K)
   simp [A]
 
 end Having
-
-/-! ### The fused operator's annotated semantics -/
-
-namespace Query
-
-variable [HasAltLinearOrder K]
-
-/-- **Annotated semantics of the fused `Having` operator.** One output row
-per group key of the inner (non-aggregating) query: the data part carries
-the group key followed by the whole-group aggregate values (the values the
-grouping `γ^≼` would output), and the annotation is the predicate
-provenance `Having.havingProv` of the group's occurrence sequence – the
-`⊕`-sum over its non-empty possible worlds of the factored world
-annotation times the characteristic value of the comparison. The regular
-side of the comparison is the term `s` evaluated on the group key, which
-covers query constants and group-key attributes alike. -/
-def evaluateHavingAnnotated {m n₁ n₂ : ℕ}
-    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
-    (fs : Tuple (SeqAggFunc T) n₂) (op : CompOp) (l : Fin n₂) (s : Term T n₁)
-    (q : Query T m) (hq : q.noAgg) (d : AnnotatedDatabase T K) :
-    AnnotatedRelation T K (n₁ + n₂) :=
-  let r : AnnotatedRelation T K m := q.evaluateAnnotated hq d
-  (Multiset.dedup (r.map (fun p => fun k : Fin n₁ => p.fst (is k)))).map
-    (fun g =>
-      let U := Having.havingGroup is r g
-      ⟨Fin.append g (fun k => (fs k) (U.map (fun p => (ts k).eval p.fst))),
-       Having.havingProv U (ts l) (fs l) op (s.eval g)⟩)
-
-end Query
 
 /-! ### Boolean combinations of aggregate comparisons -/
 
