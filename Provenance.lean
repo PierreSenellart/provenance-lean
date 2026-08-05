@@ -229,7 +229,6 @@ proven engine several general results reuse internally.
   whole generalized predicate (`GenPred.predsem_mapAnn`) commute with
   every `SemiringWithMonusHom` –
   the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of "compile once, evaluate
-  many". The evaluator-level commutation additionally hinges on the
   many". The evaluator-level commutation
   (`AggQuery.evaluateAnnotated_hom`) holds hypothesis-free over every
   m-semiring: the guard-absorption identities licensed by `delta_absorb`
