@@ -238,7 +238,13 @@ private lemma Why.one_ne_zero' : (1 : Why α) ≠ 0 := by
   have := congrArg Why.carrier h
   exact Set.singleton_ne_empty (∅ : Set α) this
 
-instance : SemiringWithMonus (Why α) where
+/-- Why-provenance is a semiring with monus: `∖` is set difference on the outer
+level, `2^(2^X)` ordered by inclusion.
+
+Named explicitly, and not to be renamed: this name is published as a link target
+in [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+Provenance and Probability of Data*, ICDE 2026][sen2026provsql]. -/
+instance instSemiringWithMonusWhy : SemiringWithMonus (Why α) where
   le a b := a.carrier ⊆ b.carrier
   le_refl := by simp
   le_trans := by

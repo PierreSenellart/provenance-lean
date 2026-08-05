@@ -1,0 +1,155 @@
+name: Documentation freshness
+
+# The one thing CI cannot do for this repository is publish the documentation:
+# https://provsql.org/lean-docs/ is rsync-writable from Pierre's machine only,
+# so `docs.yml` builds and uploads, and `make deploy-ci` publishes by hand. A
+# manual step that nobody is reminded of is a step that stops happening – the
+# live copy was three weeks behind `main` when this was written – so this job
+# does the reminding.
+#
+# It is possible precisely because the site is publicly *readable* even though
+# it is not publicly writable: `docs.yml` writes a one-line `BUILD-INFO` into
+# the tree, so what is live is answerable with `curl`.
+#
+# Two checks, both against the live site:
+#
+#   1. freshness – the commit in BUILD-INFO against `origin/main`, restricted to
+#      the paths that can change a page (the same list as `docs.yml`'s `paths`);
+#   2. anchors – the links published papers hard-code still resolve. `docs.yml`
+#      checks these against the tree it builds, which catches a rename; this
+#      catches the other failure, a deploy that never happened.
+on:
+  schedule:
+    - cron: "43 7 * * *" # 07:43 UTC daily (off the hour: runs scheduled on the
+                         # hour are queued behind a crowd)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: docs-stale
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Compare the live site with main
+    runs-on: ubuntu-latest
+    env:
+      SITE: https://provsql.org/lean-docs
+    steps:
+      # Full history: the comparison is `git diff <live commit>..HEAD`, and the
+      # live commit can be arbitrarily old.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Read what is live
+        id: live
+        run: |
+          if ! curl -fsSL --max-time 60 "$SITE/BUILD-INFO" -o BUILD-INFO; then
+            echo "status=unreachable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          cat BUILD-INFO
+          commit="$(sed -n 's/.*commit=\([0-9a-f]*\).*/\1/p' BUILD-INFO)"
+          date="$(sed -n 's/.*date=\([^ ]*\).*/\1/p' BUILD-INFO)"
+          if [ -z "$commit" ]; then
+            echo "status=unparseable" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            printf 'status=ok\n'
+            printf 'commit=%s\n' "$commit"
+            printf 'date=%s\n' "$date"
+          } >> "$GITHUB_OUTPUT"
+
+      # A rebuild is only *needed* when something a page is made of has moved.
+      # The path list is `docs.yml`'s, so the two agree by construction: a push
+      # that would not have triggered a build does not make the site stale.
+      - name: Compare with main
+        id: diff
+        if: steps.live.outputs.status == 'ok'
+        env:
+          LIVE: ${{ steps.live.outputs.commit }}
+        run: |
+          if ! git cat-file -e "$LIVE^{commit}" 2>/dev/null; then
+            echo "behind=unknown" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed="$(git diff --name-only "$LIVE..HEAD" -- \
+            Provenance.lean 'Provenance/**' lakefile.lean lake-manifest.json \
+            lean-toolchain 'docbuild/**' scripts/check-anchors.sh \
+            .github/workflows/docs.yml || true)"
+          if [ -z "$changed" ]; then
+            echo "behind=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "behind=yes" >> "$GITHUB_OUTPUT"
+            {
+              printf 'files<<EOF\n'
+              printf '%s\n' "$changed" | head -40
+              printf 'EOF\n'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      # Layer 1 of the paper-link check, against the deployed pages. Reported
+      # rather than failing the job, so that a stale *and* broken site produces
+      # one issue rather than a red run with no explanation.
+      - name: Check the published anchors
+        id: anchors
+        if: steps.live.outputs.status == 'ok'
+        continue-on-error: true
+        run: bash ./scripts/check-anchors.sh --site "$SITE"
+
+      # One issue, reused: the next daily run edits it rather than filing a
+      # second copy, and closes nothing — a human deploys and closes.
+      - name: Open or update the issue
+        if: >-
+          steps.live.outputs.status != 'ok' ||
+          steps.diff.outputs.behind != 'no' ||
+          steps.anchors.outcome != 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STATUS: ${{ steps.live.outputs.status }}
+          LIVE: ${{ steps.live.outputs.commit }}
+          LIVE_DATE: ${{ steps.live.outputs.date }}
+          BEHIND: ${{ steps.diff.outputs.behind }}
+          FILES: ${{ steps.diff.outputs.files }}
+          ANCHORS: ${{ steps.anchors.outcome }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="The deployed documentation needs attention"
+          body="$(
+            printf 'The live documentation at %s is out of step with `main`.\n\n' "$SITE"
+            case "$STATUS" in
+              unreachable)  printf -- '- **The site is unreachable**: `BUILD-INFO` could not be fetched.\n' ;;
+              unparseable)  printf -- '- **`BUILD-INFO` is unreadable**: it is there but records no commit.\n' ;;
+              *)            printf -- '- Live commit: `%s` (built %s).\n' "$LIVE" "$LIVE_DATE" ;;
+            esac
+            printf -- '- `main` is at `%s`.\n' "$GITHUB_SHA"
+            case "$BEHIND" in
+              yes)     printf -- '- **The site is behind** on paths that change a page.\n' ;;
+              unknown) printf -- '- The live commit is not in this history (force-push?), so the comparison is inconclusive.\n' ;;
+            esac
+            if [ "$ANCHORS" != "success" ]; then
+              printf -- '- **Anchors published papers link to do not resolve on the live site.** '
+              printf 'See [the run](%s). If they resolve against a freshly built tree, this is\n' "$RUN"
+              printf '  only the missing deploy; if they do not, a declaration was renamed.\n'
+            fi
+            if [ -n "$FILES" ]; then
+              printf '\nChanged since the live build:\n\n```\n%s\n```\n' "$FILES"
+            fi
+            printf '\nTo publish:\n\n```\ncd docbuild && make deploy-ci\n```\n'
+            printf '\nThis issue is reused by the daily run; close it once the site is current.\n'
+          )"
+          existing="$(gh issue list --state open --limit 100 \
+            --json number,title -q ".[] | select(.title == \"$title\") | .number" | head -1)"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body "$body"
+            echo "Updated issue #$existing."
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

@@ -1,0 +1,79 @@
+name: Release metadata
+
+# The cheap half of CI: `release.sh check` (every place that records the library
+# version, a pin, or a frozen paper statement agrees) and the CFF schema.
+# Seconds, no Lean, so it is split from `ci.yml` — that way a README-only or
+# `scripts/`-only change runs this alone, and a library-only change runs the
+# Lean build alone.
+#
+# The `paths` are exactly what `release.sh check` reads, plus `scripts/` itself:
+#
+#   - `lakefile.lean`      the library version, the Mathlib `require`, and the
+#                          `descriptive-complexity` require
+#   - `lean-toolchain`     the reference pin the others are checked against
+#   - `docbuild/lean-toolchain`, `docbuild/lakefile.toml`   two more pins
+#   - `CITATION.cff`       version, `date-released`, the DOI, and the schema
+#   - `README.md`          the `require` form, the release-table row, the
+#                          Mathlib badge, the descriptive-complexity tag link
+#                          and the DOI badge — which is why a README change is
+#                          not quite "requires nothing"
+#   - `Provenance/Papers/**` the frozen restatements, whose hash `check`
+#                          compares against `scripts/icde2026.sha256`
+#   - `scripts/**`         the checker itself, and that hash
+#
+# Prose that records none of these (`LICENSE`) triggers nothing at all.
+# Adding a sixth pinned place to `release.sh` means adding it
+# here too. As in `ci.yml`, the list is written twice because GitHub Actions
+# does not expand YAML anchors, and `workflow_dispatch` ignores it.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "CITATION.cff"
+      - "README.md"
+      - "lakefile.lean"
+      - "lean-toolchain"
+      - "docbuild/lean-toolchain"
+      - "docbuild/lakefile.toml"
+      - "Provenance/Papers/**"
+      - "scripts/**"
+      - ".github/workflows/metadata.yml"
+  pull_request:
+    paths:
+      - "CITATION.cff"
+      - "README.md"
+      - "lakefile.lean"
+      - "lean-toolchain"
+      - "docbuild/lean-toolchain"
+      - "docbuild/lakefile.toml"
+      - "Provenance/Papers/**"
+      - "scripts/**"
+      - ".github/workflows/metadata.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: metadata-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # The library version and the pins are each recorded in several files;
+      # this catches the one that was forgotten. It also compares the frozen
+      # paper module against its recorded hash, so a reworded claim shows up as
+      # a deliberate act rather than a quiet drift.
+      - name: Check that every version and pin location agrees
+        run: bash ./scripts/release.sh check
+
+      - name: Validate CITATION.cff
+        uses: citation-file-format/cffconvert-github-action@2.0.0
+        with:
+          args: "--validate"

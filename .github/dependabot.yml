@@ -1,0 +1,14 @@
+# Keeps the GitHub Actions used by the workflows current. This matters *more*
+# for a library that is expected to go quiet than for one under active
+# development: a workflow nobody looks at is exactly the one that breaks on a
+# retired action version.
+#
+# The Lean and Mathlib pins are deliberately *not* managed here: they move
+# together with the five pinned places, one release at a time, via `update.yml`
+# and `scripts/release.sh`.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

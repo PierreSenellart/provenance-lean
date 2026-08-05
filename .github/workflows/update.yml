@@ -1,0 +1,175 @@
+name: Update Mathlib
+
+# Monthly attempt at the pin move: take the newest stable Mathlib tag, move the
+# five places that pin a version to it (`lean-toolchain`, the Mathlib `require`
+# in `lakefile.lean`, `docbuild/lean-toolchain`, the doc-gen4 `rev` in
+# `docbuild/lakefile.toml`, and the `descriptive-complexity` require), bump the
+# library to its next minor, build, and open a PR if that build is green. On
+# failure an issue is filed instead. Publishing stays manual: `release.sh
+# publish` mints a permanent DOI.
+#
+# The fifth pin is what makes this repository different from its sibling. Lake
+# resolves one Mathlib per workspace, so this repository cannot precede
+# descriptive-complexity onto a new Mathlib. `release.sh next-pin` gates on
+# that, and prints nothing when the answer is "wait" — so a monthly run that
+# reports "waiting for descriptive-complexity" and does nothing is the **normal**
+# outcome, not a failure. Release there first.
+#
+# Why this drives `scripts/release.sh` rather than an update action: neither
+# `oliver-butterley/lean-update` nor `leanprover-community/lean-update` can
+# rewrite a Mathlib `require` fixed to a tag, which is the one thing that has to
+# happen here. `release.sh pins` can, and it moves the other four (five)
+# together.
+#
+# Why the 20th: measured in the sibling repository over the last ten Mathlib
+# lines, a stable `v4.Y.0` is tagged mid-month and Mathlib follows Lean by 0 to
+# 4 days, doc-gen4 by a few more. The second half of the month is therefore the
+# first moment at which every pinned place can move together, and the 20th
+# leaves slack for the usual slippage — plus, here, room for
+# descriptive-complexity to have released first. A month that slips past the
+# 20th is picked up by the next run.
+#
+# The monthly cadence is a choice, not a requirement: a released tag keeps
+# building against the Mathlib it was cut for. Widening the cron, or dropping
+# the `schedule:` block and keeping `workflow_dispatch`, leaves a deliberate pin
+# move one click away.
+on:
+  schedule:
+    - cron: "17 6 20 * *" # 06:17 UTC on the 20th of each month (off the hour:
+                          # runs scheduled on the hour are queued behind a crowd)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+# One pin move at a time: a manual run while the monthly one is building would
+# race for the same branch. Queue instead of cancelling, so neither is lost.
+concurrency:
+  group: update-mathlib
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Try moving the Mathlib pin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Prints the tag to move to, or nothing when the answer is "stay": no
+      # newer stable Mathlib, only a patch release of the pinned line (never
+      # chased automatically), doc-gen4 has not tagged it yet, or
+      # descriptive-complexity has no release cut against it.
+      - name: Look for a newer stable Mathlib
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pin="$(bash ./scripts/release.sh next-pin)"
+          printf 'pin=%s\n' "$pin" >> "$GITHUB_OUTPUT"
+
+      # `pins` looks the matching descriptive-complexity tag up itself, which is
+      # why this step needs a token too.
+      - name: Move the pins and bump the library version
+        if: steps.candidate.outputs.pin != ''
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PIN: ${{ steps.candidate.outputs.pin }}
+        run: |
+          version="$(bash ./scripts/release.sh next-minor)"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          bash ./scripts/release.sh pins "$PIN"
+          bash ./scripts/release.sh prepare "$version"
+
+      # `lake update` has to run before the build (the manifest still records
+      # the old Mathlib), and the manifest is tracked, so its new revision is
+      # part of the PR. elan is installed directly rather than by lean-action,
+      # which comes later.
+      - name: Install elan and update the manifest
+        if: steps.candidate.outputs.pin != ''
+        id: manifest
+        continue-on-error: true
+        run: |
+          curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          "$HOME/.elan/bin/lake" update
+
+      # Same build as `ci.yml`: `lake exe cache get` then build. The cache is a
+      # hit, since the toolchain now matches the Mathlib tag.
+      - name: Build against the new pin
+        if: steps.candidate.outputs.pin != '' && steps.manifest.outcome == 'success'
+        id: build
+        continue-on-error: true
+        uses: leanprover/lean-action@v1
+
+      # A PR opened with the default token does not itself trigger `ci.yml`,
+      # which is why the build above runs first. `metadata.yml`'s check is
+      # covered too: `release.sh prepare` ends by running `release.sh check`,
+      # and a disagreement there would already have failed that step. This step
+      # needs "Allow GitHub Actions to create and approve pull requests" under
+      # Settings → Actions → General.
+      - name: Open a PR when the build is green
+        if: steps.candidate.outputs.pin != '' && steps.build.outcome == 'success'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: auto/mathlib-${{ steps.candidate.outputs.pin }}
+          delete-branch: true
+          # One subject line, as everywhere in this repo; the default would be
+          # "[create-pull-request] automated change".
+          commit-message: "Take Mathlib ${{ steps.candidate.outputs.pin }}: move the five pins and the manifest, and prepare v${{ steps.bump.outputs.version }}"
+          title: "Move to Mathlib ${{ steps.candidate.outputs.pin }} and prepare v${{ steps.bump.outputs.version }}"
+          body: |
+            Mathlib `${{ steps.candidate.outputs.pin }}` is out and
+            descriptive-complexity has a release cut against it, so this moves
+            the five pinned places (`lean-toolchain`, the Mathlib `require`,
+            `docbuild/lean-toolchain`, the doc-gen4 `rev`, the
+            `descriptive-complexity` require), refreshes `lake-manifest.json`,
+            and bumps the library to `v${{ steps.bump.outputs.version }}`.
+
+            Built green in
+            [this run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            before the PR was opened; a PR from the default token does not
+            trigger `ci.yml` on its own.
+
+            Review, then merge and run `scripts/release.sh publish` to tag and
+            cut the release. Reviewing means reading the diff: `date-released`
+            in `CITATION.cff` is the day this ran, the new release-table row has
+            empty paper and DOI cells on purpose, and the release notes drafted
+            from the log will need curating — describing what the release
+            proves, never a paper that is not yet public.
+
+      - name: File an issue when it does not build
+        if: |
+          steps.candidate.outputs.pin != '' &&
+          (steps.manifest.outcome == 'failure' || steps.build.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PIN: ${{ steps.candidate.outputs.pin }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Moving the pin to Mathlib $PIN needs manual work"
+          # One issue per pin, not one per run: the next monthly run would
+          # otherwise file the same thing again.
+          if gh issue list --state open --limit 100 --json title -q '.[].title' \
+             | grep -Fxq "$title"; then
+            echo "Already filed; nothing to do."
+            exit 0
+          fi
+          gh issue create --title "$title" --body "$(printf '%s\n' \
+            "\`scripts/release.sh next-pin\` proposes \`$PIN\`, but the move does not build:" \
+            "see [the run]($RUN)." \
+            "" \
+            "To reproduce locally:" \
+            '```' \
+            "scripts/release.sh pins $PIN" \
+            "lake update" \
+            "lake build" \
+            '```' \
+            "" \
+            "Fix the library against the new Mathlib, then" \
+            "\`scripts/release.sh prepare\` the next minor. \`release.sh check\` lists" \
+            "every place a version, a pin or a frozen paper statement is recorded.")"

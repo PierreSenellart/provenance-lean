@@ -2,6 +2,12 @@ import Lake
 open Lake DSL
 
 package "provenance" where
+  version := v!"1.0.0"
+  description := "Database provenance in Lean 4: the semiring framework, an annotated relational algebra with difference and aggregation, ProvSQL's provenance-aware query rewriting, and HAVING provenance"
+  keywords := #["provenance", "semirings", "databases", "relational algebra",
+    "probabilistic databases", "ProvSQL"]
+  homepage := "https://provsql.org/lean-docs/Provenance.html"
+  license := "MIT"
   -- Settings applied to both builds and interactive editing
   leanOptions := #[
     ⟨`pp.unicode.fun, true⟩, -- pretty-prints `fun a ↦ b`

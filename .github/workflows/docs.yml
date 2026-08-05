@@ -1,0 +1,191 @@
+name: Documentation
+
+# Builds the API documentation and uploads it as a single artefact. It does
+# *not* publish: the site lives at https://provsql.org/lean-docs/, which is
+# rsync-writable from Pierre's machine only. The last hop is one local command,
+# `make deploy-ci` in `docbuild/`, which downloads the newest successful run of
+# this workflow, checks it, and rsyncs it. `docs-stale.yml` files an issue when
+# that hop has not happened.
+#
+# The site tracks `main`, so the published pages – and the commit-pinned source
+# links in them, line numbers included – never lag the code once deployed.
+# Manual runs trigger it too; pull requests never do.
+#
+# The build is heavy – doc-gen4 covers the whole import closure, Mathlib
+# included, and the dependency figures run `dot` once per declaration – so three
+# things keep the per-push cost down: the documentation database is carried
+# between runs (see the cache step), a superseded build is cancelled, and the
+# `paths` below skip the pushes that cannot change a page.
+#
+# What the site is made of is the library sources (doc-gen4 reads the docstrings
+# and renders the source links from them), the `docbuild/` project that renders
+# them, and `scripts/check-anchors.sh`, which `make docs` runs against the tree
+# it just built. Nothing else reaches a page: the landing page is
+# `Provenance.lean`'s module docstring, not `README.md`. As in `ci.yml`, the
+# list is written once (this workflow has a single trigger with `paths`), and
+# `workflow_dispatch` ignores it, so a forced rebuild is always one click away.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Provenance.lean"
+      - "Provenance/**"
+      - "lakefile.lean"
+      - "lake-manifest.json"
+      - "lean-toolchain"
+      - "docbuild/**"
+      - "scripts/check-anchors.sh"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+# Nothing here writes to the repository, and nothing here deploys.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the API documentation
+    runs-on: ubuntu-latest
+    # Collapse a burst of pushes onto the newest commit: an in-flight build is
+    # cancelled as soon as a later one starts.
+    concurrency:
+      group: docs-build-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Install elan/Lean, fetch the Mathlib cache and build the library, so
+      # that ../.lake/packages (shared with docbuild via packagesDir) is ready.
+      # Plain (auto-config) usage guarantees `lake exe cache get` runs – without
+      # the cache the doc build would recompile all of Mathlib from source.
+      - name: Build the library
+        uses: leanprover/lean-action@v1
+
+      # doc-gen4 is incremental, over exactly these two paths: `doc-data/` holds
+      # a Lake-traced marker and the serialized declaration data per module, and
+      # `api-docs.db` is the database the HTML is rendered from. Carrying them
+      # between runs means a push re-processes only the modules whose traces
+      # changed, instead of the entire Mathlib closure every time.
+      #
+      # Cache entries are immutable, so the key carries the commit (each run
+      # saves an updated entry) and `restore-keys` falls back to the newest
+      # entry built against the same toolchain and dependency pins. Bumping any
+      # of those four files therefore starts a fresh chain, which is the point:
+      # a new Mathlib means the whole closure must be re-documented anyway.
+      # `docbuild/lake-manifest.json` is deliberately not a key input – the
+      # `lake update` step below rewrites it – so the doc-gen4 pin is read from
+      # `docbuild/lakefile.toml`, where it is declared.
+      #
+      # A miss only costs time: the build is correct either way. Note that
+      # `make docs` deletes `doc-data/references.json` before building, which is
+      # what makes a restored cache usable at all: Lake tracks the bibliography
+      # prepass by an output under `doc-data/` while its real outputs sit under
+      # `doc/`, which this cache does not carry.
+      - name: Restore the documentation database
+        uses: actions/cache@v6
+        with:
+          path: |
+            docbuild/.lake/build/doc-data
+            docbuild/.lake/build/api-docs.db*
+          key: >-
+            docs-db-${{ hashFiles('lean-toolchain', 'lake-manifest.json',
+            'docbuild/lean-toolchain', 'docbuild/lakefile.toml') }}-${{ github.sha }}
+          restore-keys: >-
+            docs-db-${{ hashFiles('lean-toolchain', 'lake-manifest.json',
+            'docbuild/lean-toolchain', 'docbuild/lakefile.toml') }}-
+
+      # The per-declaration dependency figures: `dot` renders them, and
+      # result-graph produces them from the built oleans. It is not a
+      # dependency of this library and is kept outside the workspace, so that
+      # its own sources are never taken for part of it; it needs core Lean
+      # only, so this build is seconds and needs no cache.
+      - name: Build result-graph
+        run: |
+          sudo apt-get update && sudo apt-get install -y graphviz
+          git clone --depth 1 https://github.com/PierreSenellart/result-graph \
+            "$RUNNER_TEMP/result-graph"
+          cd "$RUNNER_TEMP/result-graph" && lake build
+
+      # The favicon, and nothing else, comes from the ProvSQL repository. The
+      # Makefile treats a missing branding directory as a note rather than an
+      # error, so this step failing would only cost the icon.
+      - name: Fetch the ProvSQL branding
+        continue-on-error: true
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/PierreSenellart/provsql "$RUNNER_TEMP/provsql"
+          cd "$RUNNER_TEMP/provsql" && git sparse-checkout set branding
+
+      # Pin/resolve doc-gen4 in the nested docbuild project. It is a separate
+      # step only so that the cache below can sit between the resolution and
+      # the build: `lake update` writes the manifest the cache key reads, and
+      # clones the packages whose build trees it restores.
+      # MATHLIB_NO_CACHE_ON_UPDATE=1 works around a Mathlib caching issue on
+      # `lake update` (doc-gen4 README).
+      - name: Resolve doc-gen4
+        run: |
+          cd docbuild
+          MATHLIB_NO_CACHE_ON_UPDATE=1 lake update doc-gen4
+
+      # doc-gen4 and the four packages that only it needs are compiled from
+      # source on every run – sqlite's C sources included – because `lake
+      # update` clones them into ../.lake/packages only here, long after
+      # `lean-action` has saved the `.lake` tree it caches. That is a minute
+      # per run, so carry their build trees under their own key.
+      #
+      # The key is the manifest `lake update` just wrote, which pins the exact
+      # revision of each, plus the toolchain that compiled them. Those are the
+      # only inputs, so an exact key with no `restore-keys` is right: anything
+      # else means different sources, and Lake would rebuild what it restored
+      # anyway. A miss only costs the minute back.
+      - name: Cache the doc-gen4 executable
+        uses: actions/cache@v6
+        with:
+          path: |
+            .lake/packages/doc-gen4/.lake/build
+            .lake/packages/leansqlite/.lake/build
+            .lake/packages/MD4Lean/.lake/build
+            .lake/packages/UnicodeBasic/.lake/build
+            .lake/packages/BibtexQuery/.lake/build
+          key: >-
+            docgen4-${{ runner.os }}-${{ runner.arch }}-${{
+            hashFiles('docbuild/lean-toolchain', 'docbuild/lake-manifest.json') }}
+
+      # `make docs` runs doc-gen4, splices a figure into each declaration's
+      # page, writes BUILD-INFO, and finally checks that every documentation
+      # anchor a published paper hard-codes still resolves – so a rename fails
+      # here, before a broken site could be deployed.
+      #
+      # A module carried over from the cache keeps the source URL it was
+      # documented with, which pins an *older* commit than this run's: doc-gen4
+      # fetches the `srcUri` facet inside its up-to-date check, not as part of
+      # the module's trace. That is correct, not stale – the module is in the
+      # cache precisely because its content has not changed since, so the
+      # permalink and its line numbers still resolve to what the page shows.
+      #
+      # What is *not* incremental is a change to docs/references.bib: every
+      # module's `docInfo` trace mixes in the bibliography prepass, so editing
+      # a citation re-documents the whole import closure, Mathlib included.
+      # Nothing here can avoid that; it is doc-gen4's dependency graph.
+      - name: Build the documentation
+        run: |
+          cd docbuild
+          make docs \
+            RESULT_GRAPH_REPO="$RUNNER_TEMP/result-graph" \
+            BRANDING="$RUNNER_TEMP/provsql/branding"
+
+      # One compressed blob, not a directory: the tree is some 432 MB over
+      # ~4,100 HTML files plus 17 MB of SVG, and `upload-artifact` on that many
+      # small files is far slower than on a single tarball. `make deploy-ci`
+      # expects exactly this shape.
+      - name: Pack the site
+        run: tar czf docs.tar.gz -C docbuild/.lake/build/doc .
+
+      - name: Upload the site
+        uses: actions/upload-artifact@v5
+        with:
+          name: docs-site
+          path: docs.tar.gz
+          retention-days: 7
+          if-no-files-found: error

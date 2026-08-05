@@ -101,6 +101,9 @@ import Provenance.Semirings.Viterbi
 import Provenance.Semirings.Which
 import Provenance.Semirings.Why
 
+/- Frozen restatements of the claims of published papers -/
+import Provenance.Papers.Icde2026
+
 /- Example -/
 import Provenance.Example
 
@@ -501,6 +504,15 @@ proven engine several general results reuse internally.
 - `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` – intervals and finite unions of intervals over a dense
   linear order, used for temporal databases
 
+**Published papers**
+
+- `Provenance.Papers.Icde2026` – a frozen restatement of the claims of
+  [Sen, Maniu & Senellart][sen2026provsql], each proved by applying the
+  declaration the paper links to. Its statements are fixed at publication and
+  never edited to follow the library, so a generalization keeps compiling while
+  a weakening breaks the build; together with `scripts/check-anchors.sh`, which
+  reads its `Anchor:` lines, it is what keeps the paper's hyperlinks honest
+
 See `Provenance.Example` for an example annotated database computation.
 
 ## Related formalizations
@@ -517,7 +529,7 @@ extension instead – monus difference, duplicate elimination, compositional
 aggregation – and therefore anchors correctness differently: through
 homomorphism commutation (`Provenance.QueryAnnotatedDatabaseHom`), the
 rewriting correctness theorems (`Query.rewriting_valid`,
-`Query.rewriting_valid_full`), the possible-worlds adequacy of the
+`AggQuery.rewritesTo_valid`), the possible-worlds adequacy of the
 Boolean-function annotated semantics (`randomWorld_evaluateAnnotated` in
 `Provenance.Probability`), the `𝔹`-support adequacy and its transfer along
 monus homomorphisms (`Provenance.SupportAdequacy`), and the data-part

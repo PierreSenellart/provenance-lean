@@ -1,0 +1,79 @@
+cff-version: 1.2.0
+title: "provenance-lean: Database Provenance in Lean 4"
+message: >-
+  If you use provenance-lean in academic work, please cite it using the metadata
+  in this file. Cite the version DOI of the tag you used rather than the concept
+  DOI, so that the citation names a specific state of the code.
+type: software
+authors:
+  - family-names: Senellart
+    given-names: Pierre
+    orcid: "https://orcid.org/0000-0002-7909-5369"
+    affiliation: "DI ENS, ENS-PSL, CNRS, Inria, Paris, France"
+    website: "https://pierre.senellart.com"
+repository-code: "https://github.com/PierreSenellart/provenance-lean"
+url: "https://provsql.org/lean-docs/Provenance.html"
+license: MIT
+version: "1.0.0"
+date-released: "2026-08-05"
+abstract: >-
+  A Lean 4 formalization of database provenance in the semiring framework of
+  Green, Karvounarakis and Tannen. It defines semirings with monus and twelve
+  concrete provenance semirings, an annotated relational algebra with difference
+  and aggregation, and the provenance-aware query rewriting implemented by the
+  ProvSQL extension to PostgreSQL, whose correctness it proves. A kind-indexed
+  general query syntax makes the scope restrictions on aggregate results a
+  matter of static typing, and carries the rewriting of grouping and HAVING
+  together with its compositional closure. Further results cover the
+  possible-worlds reading of Boolean-function annotations and probabilistic
+  query evaluation, provenance circuits and their Tseitin encoding, adequacy of
+  the annotated semantics against the plain one, HAVING provenance with its
+  enumeration algorithms, and the NP-completeness of non-zero HAVING SUM
+  provenance in data complexity. The development is sorry-free.
+identifiers:
+  # The concept DOI is added here once Zenodo has archived a first release; it
+  # is minted on the release event and then resolves to the latest version.
+  - type: url
+    value: "https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/PierreSenellart/provenance-lean"
+    description: "Software Heritage archive of the repository"
+references:
+  # The paper this library gives a machine-checked semantics for, and which
+  # links into its documentation. Listed as a related work, not as
+  # `preferred-citation`: a citation of the library should name a specific state
+  # of the code, through the version DOI of the tag used.
+  - type: conference-paper
+    title: >-
+      ProvSQL: A General System for Keeping Track of the Provenance and
+      Probability of Data
+    authors:
+      - family-names: Sen
+        given-names: Aryak
+        orcid: "https://orcid.org/0009-0009-2261-682X"
+      - family-names: Maniu
+        given-names: Silviu
+        orcid: "https://orcid.org/0000-0002-8623-1533"
+      - family-names: Senellart
+        given-names: Pierre
+        orcid: "https://orcid.org/0000-0002-7909-5369"
+    collection-title: >-
+      Proceedings of the IEEE 42nd International Conference on Data Engineering
+      (ICDE)
+    conference:
+      name: >-
+        IEEE 42nd International Conference on Data Engineering (ICDE)
+      city: "Montréal"
+      country: CA
+    year: 2026
+    month: 5
+    url: "https://arxiv.org/abs/2504.12058"
+keywords:
+  - data provenance
+  - provenance semirings
+  - annotated relations
+  - relational algebra
+  - probabilistic databases
+  - aggregation
+  - ProvSQL
+  - Lean
+  - Mathlib
+  - formalized mathematics

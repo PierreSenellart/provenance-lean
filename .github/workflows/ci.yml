@@ -1,0 +1,66 @@
+name: CI
+
+# The Lean build, and nothing else — which for this library *is* the test suite:
+# there is no separate one, and correctness is the kernel checking the proofs.
+# What it consumes is the library sources and the files Lake reads to build
+# them, so the `paths` below list exactly those: a change confined to
+# `docbuild/` (the documentation project), `scripts/`, or prose (`README.md`,
+# `LICENSE`) cannot change what this builds, and skipping it
+# saves a full Mathlib-closure build. The metadata checks that *do* care about
+# those files live in `metadata.yml`, which is filtered on its own inputs;
+# between the two, every push is covered.
+#
+# Note that `Provenance/Papers/Icde2026.lean` is in the default target on
+# purpose: it restates the claims of a published paper and proves them by
+# applying the declarations that paper links to, so a weakened statement fails
+# right here rather than at some later audit.
+#
+# The two lists are identical and have to be written twice: GitHub Actions does
+# not expand YAML anchors. `workflow_dispatch` ignores `paths`, so a manual run
+# is always available. Note that a run skipped by a path filter is *not*
+# reported as a check at all, so if these ever become required status checks,
+# the `paths` filters will have to be revisited.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Provenance.lean"
+      - "Provenance/**"
+      - "lakefile.lean"
+      - "lake-manifest.json"
+      - "lean-toolchain"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    paths:
+      - "Provenance.lean"
+      - "Provenance/**"
+      - "lakefile.lean"
+      - "lake-manifest.json"
+      - "lean-toolchain"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+# Nothing here writes to the repository; the docs and update workflows ask for
+# the extra scopes they need.
+permissions:
+  contents: read
+
+# Collapse a burst of pushes onto the newest commit: a full Lean + Mathlib build
+# is expensive, and a superseded one is of no interest. Pull requests are keyed
+# separately from branches by `github.ref`.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Installs elan/Lean from lean-toolchain, runs `lake exe cache get`
+      # (Mathlib is in the closure) and `lake build`.
+      - name: Build
+        uses: leanprover/lean-action@v1
