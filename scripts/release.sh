@@ -404,9 +404,19 @@ cmd_publish() {
   local notes_file=".git/RELEASE_NOTES-$tag.md"
   cmd_notes > "$notes_file"
   if [[ -t 0 ]]; then
+    # The editor git itself would use for a commit message: `core.editor`, then
+    # `GIT_EDITOR`/`VISUAL`/`EDITOR`, then the platform default. Asking git
+    # rather than reading `$EDITOR` directly means the release notes open where
+    # every other message in this repository does.
+    local editor edit_reply
+    editor="$(git var GIT_EDITOR)"
     printf '\nDrafted release notes from the log into %s.\n' "$notes_file"
-    read -r -p "Edit them in ${EDITOR:-vi} before publishing? [Y/n] " edit_reply || true
-    [[ "$edit_reply" == "n" || "$edit_reply" == "N" ]] || "${EDITOR:-vi}" "$notes_file"
+    read -r -p "Edit them in $editor before publishing? [Y/n] " edit_reply || true
+    # `git var` may return a command with arguments (`code --wait`, `emacsclient
+    # -c`), so it has to go through a shell; the file is passed as `$0` rather
+    # than interpolated, so a path with spaces survives.
+    [[ "$edit_reply" == "n" || "$edit_reply" == "N" ]] \
+      || sh -c "$editor \"\$0\"" "$notes_file"
   fi
   printf '\n--- release notes ---\n'; cat "$notes_file"; printf -- '--- end notes -------\n'
 
