@@ -224,6 +224,7 @@ theorem TermG.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
   induction t with
   | const a => rfl
   | cmpAgg k h op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | index k h =>
     obtain ⟨w, hw⟩ := GenValue.eq_inl_of_kindOf_reg
       ((hconf k).trans (by rw [h]; rfl))

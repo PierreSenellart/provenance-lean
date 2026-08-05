@@ -105,6 +105,7 @@ def TermG.castComposite {n : ℕ} {κ : Fin n → ColKind}
       absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
   | .cmpAgg k h _ _ =>
       absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
+  | .chiGate _ _ _ => .const (Sum.inl 0)
   | .add t₁ t₂ => .add (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .sub t₁ t₂ => .sub (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .mul t₁ t₂ => .mul (t₁.castComposite hκ) (t₂.castComposite hκ)
@@ -134,8 +135,51 @@ def ProjCol.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .token _ _, hp => ColKind.noConfusion hp
   | .provTerm _, hp => ColKind.noConfusion hp
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The composite cast emits no indicator gate: a source gate, whose
+generic semantics is the junk constant, casts to that constant. -/
+theorem TermG.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+    (hκ : ∀ k, κ k = ColKind.reg) :
+    ∀ (t : TermG T κ), (t.castComposite hκ (K := K)).chiFree
+  | .const _ => trivial
+  | .index _ _ => trivial
+  | .provIndex k h =>
+      absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
+  | .cmpAgg k h _ _ =>
+      absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
+  | .chiGate _ _ _ => trivial
+  | .add t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
+  | .sub t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
+  | .mul t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The composite cast of a predicate emits no indicator gate. -/
+theorem GenPred.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+    (hκ : ∀ k, κ k = ColKind.reg) :
+    ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false),
+      (φ.castComposite hκ hφ (K := K)).chiFree
+  | .cmp _ t₁ t₂, _ =>
+      ⟨TermG.castComposite_chiFree hκ t₁, TermG.castComposite_chiFree hκ t₂⟩
+  | .aggCmp _ _ _ _, hφ => Bool.noConfusion hφ
+  | .and φ ψ, hφ =>
+      ⟨castComposite_chiFree hκ φ (Bool.or_eq_false_iff.mp hφ).1,
+       castComposite_chiFree hκ ψ (Bool.or_eq_false_iff.mp hφ).2⟩
+  | .or φ ψ, hφ =>
+      ⟨castComposite_chiFree hκ φ (Bool.or_eq_false_iff.mp hφ).1,
+       castComposite_chiFree hκ ψ (Bool.or_eq_false_iff.mp hφ).2⟩
+  | .not φ, hφ => castComposite_chiFree hκ φ hφ
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The composite cast of a projection column emits no indicator gate. -/
+theorem ProjCol.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+    (hκ : ∀ k, κ k = ColKind.reg) :
+    ∀ (p : ProjCol T κ) (hp : p.kind = ColKind.reg),
+      (p.castComposite hκ hp (K := K)).chiFree
+  | .term t, _ => TermG.castComposite_chiFree hκ t
+  | .token _ _, hp => ColKind.noConfusion hp
+  | .provTerm _, hp => ColKind.noConfusion hp
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 theorem ProjCol.castComposite_kind {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) (p : ProjCol T κ)
     (hp : p.kind = ColKind.reg) :
@@ -159,6 +203,18 @@ def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
     GenPred.cmp CompOp.eq (TermG.index (posL k) (hL k))
       (TermG.index (posR k) (hR k)))).foldr GenPred.and
     (GenPred.cmp CompOp.eq (.const 0) (.const 0))
+
+/-- The join condition is a conjunction of column equalities: no
+indicator gate. -/
+theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
+    {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ (posL k) = ColKind.reg)
+    (hR : ∀ k, κ (posR k) = ColKind.reg) :
+    (keyJoinCond (T' := T') posL posR hL hR).chiFree := by
+  unfold keyJoinCond
+  induction List.finRange n with
+  | nil => exact ⟨trivial, trivial⟩
+  | cons k l ih => exact ⟨⟨trivial, trivial⟩, ih⟩
 
 /-! ## The rewriting -/
 
@@ -348,6 +404,7 @@ def TermG.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
   | .index k _ => .index k
   | .provIndex k _ => .index k
   | .cmpAgg _ _ _ _ => .const 0
+  | .chiGate _ _ _ => .const 0
   | .add t₁ t₂ => .add t₁.strip t₂.strip
   | .sub t₁ t₂ => .sub t₁.strip t₂.strip
   | .mul t₁ t₂ => .mul t₁.strip t₂.strip
@@ -360,6 +417,7 @@ theorem TermG.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | index k h => rfl
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
@@ -600,6 +658,7 @@ theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
     exact absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
   | cmpAgg k h op c ih =>
     exact absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ =>
     show (t₁.castComposite hκ).evalPlain u + (t₂.castComposite hκ).evalPlain u
       = _

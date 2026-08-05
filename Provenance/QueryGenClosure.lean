@@ -103,6 +103,7 @@ def TermG.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .provIndex k h =>
       .provIndex (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
   | .cmpAgg _ _ _ _ => .const (Sum.inl 0)
+  | .chiGate _ _ _ => .const (Sum.inl 0)
   | .add t₁ t₂ => .add t₁.castRew t₂.castRew
   | .sub t₁ t₂ => .sub t₁.castRew t₂.castRew
   | .mul t₁ t₂ => .mul t₁.castRew t₂.castRew
@@ -149,6 +150,7 @@ theorem TermG.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite]
     rfl
   | cmpAgg k h op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ => show _ + _ = _; rw [ih₁, ih₂]; rfl
   | sub t₁ t₂ ih₁ ih₂ =>
     show HSub.hSub _ _ = _
@@ -294,22 +296,26 @@ theorem ProjCol.copy_evalRew {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N)
     rw [hv]
     rfl
 
-/-! ## Aggregate-only `HAVING` predicates as gate terms
+/-! ## `HAVING` predicates as gate terms
 
 The `HAVING` site rewriting of `Provenance.QueryGenHavingRewriting` takes
-one aggregate comparison. An arbitrary Boolean combination of aggregate
-comparisons is just as expressible: the predicate provenance `predsem`
-is `∧ ↦ ⊗`, `∨ ↦ ⊕` and `¬` pushed to the atoms by De Morgan duality
-with operator complementation, and the rewritten world's terms have
-`mul`, `add` and the `provsql_having` gate. `GenPred.gateTerm` is that
-translation.
+one aggregate comparison. An arbitrary Boolean combination of atoms is
+just as expressible: the predicate provenance `predsem` is `∧ ↦ ⊗`,
+`∨ ↦ ⊕` and `¬` pushed to the atoms by De Morgan duality with operator
+complementation, and the rewritten world's terms have `mul`, `add` and
+the two gates – `provsql_having` for an aggregate atom, the indicator
+gate for a regular one. `GenPred.gateTerm` is that translation; it is
+faithful for an arbitrary predicate (`GenPred.gateTerm_evalRew`), the
+gates being the primitives the correctness is relative to.
 
-Predicates mixing in a *regular* atom are still out of scope: `predsem`
-gives such an atom its characteristic value `χ`, for which the term
-grammar has no primitive. They also behave differently on the group
-guard – `GenPred.entailsExistence` is false for them, so the `δ` factor
-survives – whereas an aggregate-only predicate always entails the
-group's existence and supersedes it. -/
+Regular atoms do change the fate of the group guard. An aggregate atom's
+predicate provenance ranges over non-empty worlds only, so it supersedes
+the guard; a regular atom's `χ` does not entail the group's existence
+(`GenPred.entailsExistence`), and mixing one in can leave the whole
+predicate non-entailing – `count(*) > 5 ∨ city = 'Paris'` fires in worlds
+where the group is empty. The site rewriting therefore keeps the guard as
+a factor in that case (`GenPred.siteProvTerm`), reproducing what the
+general evaluator does with the pending group factor. -/
 
 /-- A predicate all of whose atoms are aggregate comparisons. -/
 def GenPred.aggOnly {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
@@ -341,29 +347,35 @@ theorem GenPred.aggOnly_entailsExistence {n : ℕ} {κ : Fin n → ColKind} :
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
-/-- An aggregate-only predicate compares at least one token column. -/
-theorem GenPred.aggOnly_comparedCols_nonempty {n : ℕ} {κ : Fin n → ColKind} :
-    ∀ (φ : GenPred T κ), φ.aggOnly = true → φ.comparedCols.Nonempty
+/-- A predicate with an aggregate atom compares at least one token
+column. -/
+theorem GenPred.hasAggAtom_comparedCols_nonempty {n : ℕ}
+    {κ : Fin n → ColKind} :
+    ∀ (φ : GenPred T κ), φ.hasAggAtom = true → φ.comparedCols.Nonempty
   | .cmp _ _ _, hφ => Bool.noConfusion hφ
   | .aggCmp k _ _ _, _ => ⟨k, Finset.mem_singleton_self k⟩
   | .and φ ψ, hφ => by
-    obtain ⟨k, hk⟩ := aggOnly_comparedCols_nonempty φ
-      (Bool.and_eq_true_iff.mp hφ).1
-    exact ⟨k, Finset.mem_union_left _ hk⟩
+    rcases Bool.or_eq_true_iff.mp hφ with h | h
+    · obtain ⟨k, hk⟩ := hasAggAtom_comparedCols_nonempty φ h
+      exact ⟨k, Finset.mem_union_left _ hk⟩
+    · obtain ⟨k, hk⟩ := hasAggAtom_comparedCols_nonempty ψ h
+      exact ⟨k, Finset.mem_union_right _ hk⟩
   | .or φ ψ, hφ => by
-    obtain ⟨k, hk⟩ := aggOnly_comparedCols_nonempty φ
-      (Bool.and_eq_true_iff.mp hφ).1
-    exact ⟨k, Finset.mem_union_left _ hk⟩
-  | .not φ, hφ => aggOnly_comparedCols_nonempty φ hφ
+    rcases Bool.or_eq_true_iff.mp hφ with h | h
+    · obtain ⟨k, hk⟩ := hasAggAtom_comparedCols_nonempty φ h
+      exact ⟨k, Finset.mem_union_left _ hk⟩
+    · obtain ⟨k, hk⟩ := hasAggAtom_comparedCols_nonempty ψ h
+      exact ⟨k, Finset.mem_union_right _ hk⟩
+  | .not φ, hφ => hasAggAtom_comparedCols_nonempty φ hφ
 
 /-- **The predicate provenance as a rewritten term**: the `predsem`
-algebra – aggregate atoms to `provsql_having` gates, `∧ ↦ ⊗`, `∨ ↦ ⊕`,
-`¬` pushed down with operator complementation. Regular atoms have no
-counterpart and get the junk constant; `GenPred.gateTerm_evalRew` is
-stated on aggregate-only predicates. -/
+algebra – aggregate atoms to `provsql_having` gates, regular atoms to
+indicator gates, `∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed down with operator
+complementation. -/
 def GenPred.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
     GenPred T κ → Bool → TermG (T ⊕ K) (ColKind.rewKindsOf κ)
-  | .cmp _ _ _, _ => .const 0
+  | .cmp op t₁ t₂, neg =>
+      .chiGate (if neg then op.negate else op) t₁.castRew t₂.castRew
   | .aggCmp k h op t, neg =>
       .cmpAgg (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
         (if neg then op.negate else op) t.castRew
@@ -375,14 +387,20 @@ def GenPred.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
       else .add (φ.gateTerm neg) (ψ.gateTerm neg)
   | .not φ, neg => φ.gateTerm (!neg)
 
-/-- **The gate term computes the predicate provenance.** -/
+/-- **The gate term computes the predicate provenance**, for an
+arbitrary predicate: relative to the two gate primitives, which is
+exactly the sense in which ProvSQL's own rewriting is correct. -/
 theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
-    ∀ (φ : GenPred T κ), φ.aggOnly = true → ∀ (neg : Bool)
-      (r : GenRow T K n),
+    ∀ (φ : GenPred T κ) (neg : Bool) (r : GenRow T K n),
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
-  | .cmp _ _ _, hφ, _, _ => Bool.noConfusion hφ
-  | .aggCmp k h op t, _, neg, r => by
+  | .cmp op t₁ t₂, neg, r => by
+    show Sum.inr (Having.chi (if neg then op.negate else op)
+        (t₁.castRew.evalRew r.toCompositeRow)
+        (t₂.castRew.evalRew r.toCompositeRow)) = _
+    rw [t₁.castRew_evalRew r, t₂.castRew_evalRew r]
+    exact congrArg Sum.inr (Having.chi_inl _ _ _)
+  | .aggCmp k h op t, neg, r => by
     show (match r.toCompositeRow (Fin.castAdd 1 k) with
       | Sum.inl _ => (Sum.inr 0 : T ⊕ K)
       | Sum.inr a => Sum.inr (a.predProv (if neg then op.negate else op)
@@ -396,35 +414,33 @@ theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     | inr a =>
       show (Sum.inr (AggValue.toComposite a |>.predProv _ _) : T ⊕ K) = _
       rw [AggValue.predProv_toComposite]
-  | .and φ ψ, hφ, neg, r => by
-    have h := Bool.and_eq_true_iff.mp hφ
+  | .and φ ψ, neg, r => by
     show TermG.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
     cases neg with
     | false =>
       show TermG.evalRew (TermG.mul _ _) _ = _
       show TermG.evalRew _ _ * TermG.evalRew _ _ = _
-      rw [gateTerm_evalRew φ h.1 false r, gateTerm_evalRew ψ h.2 false r]
+      rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
       rfl
     | true =>
       show TermG.evalRew (TermG.add _ _) _ = _
       show TermG.evalRew _ _ + TermG.evalRew _ _ = _
-      rw [gateTerm_evalRew φ h.1 true r, gateTerm_evalRew ψ h.2 true r]
+      rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
       rfl
-  | .or φ ψ, hφ, neg, r => by
-    have h := Bool.and_eq_true_iff.mp hφ
+  | .or φ ψ, neg, r => by
     cases neg with
     | false =>
       show TermG.evalRew (TermG.add _ _) _ = _
       show TermG.evalRew _ _ + TermG.evalRew _ _ = _
-      rw [gateTerm_evalRew φ h.1 false r, gateTerm_evalRew ψ h.2 false r]
+      rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
       rfl
     | true =>
       show TermG.evalRew (TermG.mul _ _) _ = _
       show TermG.evalRew _ _ * TermG.evalRew _ _ = _
-      rw [gateTerm_evalRew φ h.1 true r, gateTerm_evalRew ψ h.2 true r]
+      rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
       rfl
-  | .not φ, hφ, neg, r => gateTerm_evalRew φ hφ (!neg) r
+  | .not φ, neg, r => gateTerm_evalRew φ (!neg) r
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -519,9 +535,25 @@ theorem GenAnn.finalize_supersede (b : K) (l₀ : List K)
 
 /-! ## The general `HAVING` site -/
 
+/-- **The provenance column of a rewritten `HAVING` site**: the
+predicate's gate term, times the group-existence guard `δ(⊕ U)` – which
+the rewritten grouping has left in the provenance column – unless the
+predicate already entails the group's existence, in which case the gate
+term supersedes it. This is ProvSQL's `having_entails_group_existence`
+test: the supersede of the `δ` gate is licensed exactly when every world
+the predicate accepts has the group non-empty. -/
+def GenPred.siteProvTerm {n₁ n₂ : ℕ}
+    (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) :
+    TermG (T ⊕ K) (ColKind.gammaRewKinds n₁ n₂) :=
+  if φ.entailsExistence false then φ.gateTerm false
+  else
+    TermG.mul (φ.gateTerm false)
+      (TermG.provIndex (Fin.last (n₁ + n₂))
+        (ColKind.rewKindsOf_last (ColKind.gammaKinds n₁ n₂)))
+
 /-- The output columns of a general `HAVING` site: the group keys and the
-aggregate tokens copied verbatim, and the predicate's gate term in the
-provenance column. -/
+aggregate tokens copied verbatim, and the predicate's provenance term in
+the provenance column. -/
 def QueryGen.havingPredCols {n₁ n₂ : ℕ}
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) :
     Tuple (ProjCol (T ⊕ K) (ColKind.gammaRewKinds n₁ n₂)) (n₁ + n₂ + 1) :=
@@ -529,9 +561,9 @@ def QueryGen.havingPredCols {n₁ n₂ : ℕ}
     if hj : (j : ℕ) < n₁ + n₂ then
       ProjCol.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)))
     else
-      ProjCol.provTerm (φ.gateTerm false)
+      ProjCol.provTerm (φ.siteProvTerm (K := K))
 
-omit [DecidableEq K] in
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The site's output columns have exactly the rewritten `Gamma` kinds. -/
 theorem QueryGen.havingPredCols_kind {n₁ n₂ : ℕ}
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (j : Fin (n₁ + n₂ + 1)) :
@@ -545,10 +577,12 @@ theorem QueryGen.havingPredCols_kind {n₁ n₂ : ℕ}
   · rw [dif_neg hj]
     exact (ColKind.rewKindsOf_of_not_lt (ColKind.gammaKinds n₁ n₂) hj).symm
 
-/-- **The rewritten `HAVING` site**, for an arbitrary aggregate-only
-predicate: the token-building grouping of `QueryGen.gammaRew`, with a
-projection keeping the group keys and the aggregate tokens and replacing
-the group-existence guard by the predicate's gate term. -/
+/-- **The rewritten `HAVING` site**, for an arbitrary predicate: the
+token-building grouping of `QueryGen.gammaRew`, with a projection keeping
+the group keys and the aggregate tokens and replacing the group-existence
+guard by the predicate's provenance term – the gate term alone when the
+predicate entails the group's existence, the gate term times the guard
+otherwise. -/
 def QueryGen.havingPredRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
@@ -560,12 +594,14 @@ def QueryGen.havingPredRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (QueryGen.gammaRew is ts fs qg hq))
 
 /-- **Correctness of the general `HAVING` site rewriting**, relative to
-the gate primitive: an aggregate-only predicate always entails its
-group's existence, so its predicate provenance supersedes the group
-guard, and the gate term computes exactly that provenance. -/
+the gate primitives, for an arbitrary predicate with an aggregate atom –
+regular atoms mixed in included. The gate term computes the predicate
+provenance; the group guard is superseded exactly when the predicate
+entails the group's existence, and kept as a factor otherwise, matching
+the general evaluator's treatment of the pending group factor. -/
 theorem QueryGen.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.aggOnly = true)
+    (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.hasAggAtom = true)
     (qg : QueryGen T m (ColKind.allReg m)) (hq : qg.classical)
     (d : AnnotatedDatabase T K) :
     ((QueryGen.Sel φ (QueryGen.Gamma is ts fs qg)).evaluateGen d).map
@@ -578,7 +614,7 @@ theorem QueryGen.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
   rw [← QueryGen.gammaRew_valid is ts fs qg hq d]
   show Multiset.map _ (QueryGen.evaluateGen (QueryGen.Sel _ _) d) = _
   simp only [QueryGen.evaluateGen]
-  rw [if_pos (GenPred.aggOnly_hasAggAtom φ hφ)]
+  rw [if_pos hφ]
   simp only [Multiset.map_map]
   refine Multiset.map_congr rfl (fun kv _ => ?_)
   simp only [Function.comp_apply]
@@ -593,12 +629,28 @@ theorem QueryGen.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
       GenRow.toCompositeRow_castAdd]
   · rw [dif_neg hj, dif_neg hj]
     show Sum.inl (Sum.inr (GenAnn.finalize ⟨1 * _, _⟩))
-      = Sum.inl (TermG.evalRew _ _)
-    rw [GenPred.aggOnly_entailsExistence φ hφ false, if_pos rfl]
+      = Sum.inl (TermG.evalRew (GenPred.siteProvTerm φ) _)
+    unfold GenPred.siteProvTerm
+    by_cases hE : φ.entailsExistence false = true
+    case neg =>
+      -- the predicate does not entail the group's existence: the guard
+      -- survives in the pending factor and as a factor of the gate term
+      rw [show φ.entailsExistence false = false by simpa using hE]
+      simp only [Bool.false_eq_true, if_false]
+      show _ = Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _)
+      rw [GenPred.gateTerm_evalRew (K := K) φ false _]
+      show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
+        (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
+      rw [GenRow.toCompositeRow_last]
+      show _ = (Sum.inl (Sum.inr (_ * GenAnn.finalize ⟨1, _⟩))
+        : GenValue (T ⊕ K) K)
+      simp only [GenAnn.finalize, Multiset.map_singleton,
+        Multiset.prod_singleton, one_mul]
+    rw [hE, if_pos rfl]
     refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
       : GenValue (T ⊕ K) K)) (GenAnn.finalize_supersede _ _ _ ?_ ?_)) ?_
     · intro h0
-      obtain ⟨k, hk⟩ := GenPred.aggOnly_comparedCols_nonempty φ hφ
+      obtain ⟨k, hk⟩ := GenPred.hasAggAtom_comparedCols_nonempty φ hφ
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluateGen d)) kv.fst)
@@ -621,7 +673,7 @@ theorem QueryGen.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
     · rw [one_mul]
       refine congrArg Sum.inl ?_
       symm
-      exact GenPred.gateTerm_evalRew (K := K) φ hφ false _
+      exact GenPred.gateTerm_evalRew (K := K) φ false _
 
 /-! ## Duplicate elimination in the rewritten world -/
 
@@ -1183,7 +1235,7 @@ theorem QueryGen.diffBranchU_evaluateRew {n : ℕ}
           = fun k => Sum.inl (Fin.append pr.1.toComposite
               ((fun k => Sum.inl (pr.2 k)) : Tuple (T ⊕ K) n) k) from
         inl_append _ _]
-      refine Iff.trans (GenPred.holdsRew_inl _ _) ?_
+      refine Iff.trans (GenPred.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
       refine Iff.trans (keyJoinCond_holdsPlain _ _ _ _ _) ?_
       constructor
       · intro h
@@ -1278,7 +1330,7 @@ theorem QueryGen.diffBranchM_evaluateRew {n : ℕ}
               : Tuple (GenValue (T ⊕ K) K) (n + 1))
           = fun k => Sum.inl (Fin.append pr.1.toComposite
               pr.2.toComposite k) from inl_append _ _]
-      refine Iff.trans (GenPred.holdsRew_inl _ _) ?_
+      refine Iff.trans (GenPred.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
       refine Iff.trans (keyJoinCond_holdsPlain _ _ _ _ _) ?_
       constructor
       · intro h
@@ -1521,7 +1573,7 @@ composed under union, selection, projection, deduplication, product and
 difference, with the kind-retagging of `QueryGen.Retag` available to
 adapt a subderivation's output kinds. The `HAVING`-site rule
 `havingPred` keeps the group keys and the aggregate tokens as output
-columns and admits any aggregate-only predicate. -/
+columns and admits any predicate with an aggregate atom. -/
 inductive QueryGen.RewritesTo :
     {n : ℕ} → {κ : Fin n → ColKind} → {κ' : Fin (n + 1) → ColKind} →
     QueryGen T n κ → QueryGen (T ⊕ K) (n + 1) κ' → Prop
@@ -1535,7 +1587,8 @@ inductive QueryGen.RewritesTo :
         (QueryGen.gammaRew is ts fs qg hq)
   | havingPred {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-      (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.aggOnly = true)
+      (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
+      (hφ : φ.hasAggAtom = true)
       (qg : QueryGen T m (ColKind.allReg m)) (hq : qg.classical) :
       RewritesTo (QueryGen.Sel φ (QueryGen.Gamma is ts fs qg))
         (QueryGen.havingPredRew is ts fs φ qg hq)
@@ -1614,7 +1667,8 @@ theorem QueryGen.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     simp only [QueryGen.evaluateRew]
     rw [QueryGen.map_toCompositeRow_of_reg q (QueryGen.classical_kinds q hq) d,
       QueryGen.rewritingGen_valid q hq d,
-      QueryGen.evaluateRew_plain _ (QueryGen.rewritingGen_noGammaTok q hq)]
+      QueryGen.evaluateRew_plain _ (QueryGen.rewritingGen_noGammaTok q hq)
+        (QueryGen.rewritingGen_chiFree q hq)]
   | gamma is ts fs qg hq =>
     exact QueryGen.gammaRew_valid is ts fs qg hq d
   | havingPred is ts fs φ hφ qg hq =>

@@ -14,10 +14,10 @@ complementary – and, in SQL, far more common – case: a bare
 `GROUP BY` whose aggregate columns flow onward as ordinary output
 columns.
 
-The classical counterpart is rule (R5), which rewrites the aggregation
-operator into a query over the lifted domain `LiftedTK T K` (data /
-annotation / `K`-tensor monomials) evaluated by `Query.evaluateInVK`. In
-the general framework no new value domain is needed: the rewritten
+Rule (R5) is the classical counterpart. Carrying it over the classical
+syntax took a whole new value domain – data, annotation and `K`-tensor
+monomials, quotiented – together with its own evaluator. In the general
+framework no new value domain is needed: the rewritten
 world's evaluator already has aggregate tokens as first-class column
 values, and `QueryGen.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`

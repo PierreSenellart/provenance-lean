@@ -155,6 +155,16 @@ inductive TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) where
   token-free kinds the constructor is unrepresentable. -/
   | cmpAgg : (k : Fin n) → κ k = ColKind.agg → CompOp → TermG T κ →
       TermG T κ
+  /-- The regular-comparison indicator gate: the characteristic value
+  `χ` of a comparison between two regular terms – `𝟙` if it holds on the
+  row, `𝟘` otherwise. It is the primitive a `HAVING` predicate
+  needs for its *regular* atoms, and like `cmpAgg` its faithful semantics
+  lives in the rewritten world's term evaluator – the generic evaluators
+  give it a total junk value. Unlike `cmpAgg` it carries no kind
+  constraint, so it is representable over all-regular columns: the
+  fragment on which the rewritten world's evaluator collapses to the
+  plain semantics is cut out by `TermG.chiFree` instead. -/
+  | chiGate : CompOp → TermG T κ → TermG T κ → TermG T κ
   | add : TermG T κ → TermG T κ → TermG T κ
   | sub : TermG T κ → TermG T κ → TermG T κ
   | mul : TermG T κ → TermG T κ → TermG T κ
@@ -170,6 +180,7 @@ def TermG.eval {κ : Fin n → ColKind} (t : TermG T κ)
   | .index k _ => AggValue.collapseSum (u k)
   | .provIndex k _ => AggValue.collapseSum (u k)
   | .cmpAgg _ _ _ _ => 0
+  | .chiGate _ _ _ => 0
   | .add t₁ t₂ => t₁.eval u + t₂.eval u
   | .sub t₁ t₂ => t₁.eval u - t₂.eval u
   | .mul t₁ t₂ => t₁.eval u * t₂.eval u
@@ -414,9 +425,41 @@ def TermG.evalPlain {κ : Fin n → ColKind} (t : TermG T κ)
   | .index k _ => u k
   | .provIndex k _ => u k
   | .cmpAgg _ _ _ _ => 0
+  | .chiGate _ _ _ => 0
   | .add t₁ t₂ => t₁.evalPlain u + t₂.evalPlain u
   | .sub t₁ t₂ => t₁.evalPlain u - t₂.evalPlain u
   | .mul t₁ t₂ => t₁.evalPlain u * t₂.evalPlain u
+
+/-! ## The gate-free fragment
+
+The indicator gate `TermG.chiGate` is the one term constructor whose
+faithful reading needs the rewritten world: it produces a provenance
+value out of a comparison between regular values, which the generic
+evaluators – having no annotation to return – can only approximate by
+the junk constant. The `cmpAgg` gate escapes the same fate only because
+its kind constraint keeps it off the columns the plain semantics sees.
+The predicates below cut out the fragment where no indicator gate occurs,
+on which the rewritten world's evaluator is the plain semantics
+(`QueryGen.evaluateRew_plain`). -/
+
+/-- No indicator gate in a term. -/
+def TermG.chiFree {T' : Type} {κ : Fin n → ColKind} : TermG T' κ → Prop
+  | .const _ | .index _ _ | .provIndex _ _ => True
+  | .cmpAgg _ _ _ t => t.chiFree
+  | .chiGate _ _ _ => False
+  | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
+
+/-- No indicator gate in a predicate. -/
+def GenPred.chiFree {T' : Type} {κ : Fin n → ColKind} : GenPred T' κ → Prop
+  | .cmp _ t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
+  | .aggCmp _ _ _ t => t.chiFree
+  | .and φ ψ | .or φ ψ => φ.chiFree ∧ ψ.chiFree
+  | .not φ => φ.chiFree
+
+/-- No indicator gate in a projection column. -/
+def ProjCol.chiFree {T' : Type} {κ : Fin n → ColKind} : ProjCol T' κ → Prop
+  | .term t | .provTerm t => t.chiFree
+  | .token _ _ => True
 
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/

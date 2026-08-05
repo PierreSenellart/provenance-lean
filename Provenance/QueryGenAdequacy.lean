@@ -50,6 +50,7 @@ theorem TermG.eval_eq_evalPlain {n : ℕ} {κ : Fin n → ColKind}
   | index k h => rfl
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]

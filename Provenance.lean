@@ -273,12 +273,15 @@ proven engine several general results reuse internally.
   queries run over rows `Tuple (GenValue (T ⊕ K) K) n`
   (`QueryGen.evaluateRew`), where the token-building grouping `GammaTok`
   is ProvSQL's `provsql_agg` (explicit annotation term, group guard
-  `δ(⊕ occs)` in the `prov` output column) and the term gate
-  `TermG.cmpAgg` is `provsql_having`, interpreted by the primitive
-  `AggValue.predProv` (`TermG.evalRew`). Off the token operators the
-  evaluator is the plain semantics through the `inl` embedding
-  (`QueryGen.evaluateRew_plain`), connecting it to the classical
-  rewriting correctness. `QueryGen.rewritingGen_provRel` reads a rewritten
+  `δ(⊕ occs)` in the `prov` output column) and the two term gates are
+  interpreted by their primitives (`TermG.evalRew`): `TermG.cmpAgg` is
+  `provsql_having`, read by `AggValue.predProv`, and `TermG.chiGate` is
+  the regular-atom indicator, read by `Having.chi`. Off the token
+  operators and the indicator gate the evaluator is the plain semantics
+  through the `inl` embedding (`QueryGen.evaluateRew_plain`, under
+  `QueryGen.noGammaTok` and `QueryGen.chiFree`), connecting it to the
+  classical rewriting correctness – the classical rewriting stays inside
+  that fragment (`QueryGen.rewritingGen_chiFree`). `QueryGen.rewritingGen_provRel` reads a rewritten
   evaluation back as an annotated relation – the input the token-building
   groupings consume – and `Having.havingGroup_toComposite` transports the
   group sequence along the composite embedding; the rewriting rules built
@@ -317,12 +320,17 @@ proven engine several general results reuse internally.
   `SELECT … FROM (GROUP BY …)` shape. The module also lifts the two
   scope restrictions of the `HAVING` site: `QueryGen.havingPredRew` is
   the site *with its aggregates exposed* (keys and tokens kept as output
-  columns, the `provsql_having` gate in the provenance column – the shape
-  ProvSQL actually emits) for an *arbitrary* aggregate-only predicate,
-  not just a single comparison. `GenPred.gateTerm` translates the
-  `predsem` algebra into a rewritten term (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed
-  to the atoms), and `GenPred.aggOnly_entailsExistence` is why the group
-  guard is always superseded there. Deduplication closes too, through
+  columns, the gates in the provenance column – the shape ProvSQL
+  actually emits) for an *arbitrary* predicate with an aggregate atom,
+  not just a single comparison, regular atoms mixed in included.
+  `GenPred.gateTerm` translates the `predsem` algebra into a rewritten
+  term (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed to the atoms), an aggregate atom
+  becoming a `provsql_having` gate and a regular one a `TermG.chiGate`
+  indicator gate. Whether the group-existence guard is superseded or
+  kept as a factor is decided by `GenPred.entailsExistence`, in
+  `GenPred.siteProvTerm`: an aggregate-only predicate always supersedes
+  it (`GenPred.aggOnly_entailsExistence`), one with a regular atom
+  reachable in an empty group does not. Deduplication closes too, through
   `QueryGen.dedupRew`/`QueryGen.dedupRew_valid`: ProvSQL's `ε` rule
   (group by the data columns, `⊕`-sum the provenance column) proven
   against an arbitrary rewritten subquery. So does product

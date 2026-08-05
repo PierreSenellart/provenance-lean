@@ -168,6 +168,7 @@ theorem TermG.eval_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
       = AggValue.collapseSum (u k)
     exact AggValue.collapseSum_mapAnnSum ⇑h.toRingHom (u k)
   | cmpAgg k hk op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
@@ -545,6 +546,7 @@ theorem TermG.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | index k hk => exact (hu k).collapseSum_eq
   | provIndex k hk => exact (hu k).collapseSum_eq
   | cmpAgg k hk op c ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | add t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
