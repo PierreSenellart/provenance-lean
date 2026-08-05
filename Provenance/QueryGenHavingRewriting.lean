@@ -691,19 +691,19 @@ theorem QueryGen.rewritingGen_provRel {n : ℕ} {κ : Fin n → ColKind}
         ((TermG.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n))).evalRew u).annPart))
       ((q.rewritingGen hq).evaluateRew d.toComposite)
-      = ((q.strip hq).evaluateAnnotated (q.strip_noAgg hq) d).map
+      = ((q.strip hq).evaluateAnnotated (q.strip_source hq) d).map
           (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (n + 1))) := by
   have hR : (q.rewritingGen hq).evaluateRew d.toComposite
       = Multiset.map (fun t : Tuple (T ⊕ K) (n + 1) =>
           ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (n + 1)))
-        (((q.strip hq).evaluateAnnotated (q.strip_noAgg hq)
+        (((q.strip hq).evaluateAnnotated (q.strip_source hq)
           d).toComposite) := by
     rw [QueryGen.evaluateRew_plain _
         (QueryGen.rewritingGen_noGammaTok q hq)
         (QueryGen.rewritingGen_chiFree q hq) _,
       QueryGen.rewritingGen_plain q hq d.toComposite,
-      ← Query.rewriting_valid (q.strip hq) (q.strip_noAgg hq) d]
+      ← Query.rewriting_valid (q.strip hq) (q.strip_source hq) d]
   rw [hR]
   unfold AnnotatedRelation.toComposite
   rw [Multiset.map_map, Multiset.map_map]

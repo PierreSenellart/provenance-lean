@@ -68,15 +68,15 @@ def joinCountQueryPadded (q : Query ℕ 3) (op : CompOp) (C : ℕ) :
     Query ℕ 1 :=
   Query.Dedup (Query.Sum (Query.joinCountQuery q op C) (zeroPadQuery q))
 
-theorem keysQuery_noAgg (q : Query ℕ 3) (hq : q.noAgg) :
-    (keysQuery q).noAgg := hq
+theorem keysQuery_source (q : Query ℕ 3) (hq : q.source) :
+    (keysQuery q).source := hq
 
-theorem zeroPadQuery_noAgg (q : Query ℕ 3) (hq : q.noAgg) :
-    (zeroPadQuery q).noAgg := ⟨hq, hq⟩
+theorem zeroPadQuery_source (q : Query ℕ 3) (hq : q.source) :
+    (zeroPadQuery q).source := ⟨hq, hq⟩
 
-theorem joinCountQueryPadded_noAgg (q : Query ℕ 3) (hq : q.noAgg)
-    (op : CompOp) (C : ℕ) : (joinCountQueryPadded q op C).noAgg :=
-  ⟨Query.joinCountQuery_noAgg q hq op C, hq, hq⟩
+theorem joinCountQueryPadded_source (q : Query ℕ 3) (hq : q.source)
+    (op : CompOp) (C : ℕ) : (joinCountQueryPadded q op C).source :=
+  ⟨Query.joinCountQuery_source q hq op C, hq, hq⟩
 
 /-! ## Key bookkeeping -/
 
@@ -87,23 +87,23 @@ variable [HasAltLinearOrder K]
 omit [HasAltLinearOrder K] in
 /-- Every row of the join chain carries the key of some base row in its
 key coordinate. -/
-theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.noAgg)
+theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
     ∀ (C : ℕ) (x : AnnotatedTuple ℕ K (3 * C + 3)),
-      x ∈ (joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d →
+      x ∈ (joinChain q C).evaluateAnnotated (joinChain_source q hq C) d →
       ∃ p ∈ q.evaluateAnnotated hq d,
         x.fst ⟨0, by omega⟩ = p.fst ⟨0, by omega⟩
   | 0, x, hx => ⟨x, hx, rfl⟩
   | C + 1, x, hx => by
     have hstep : (joinChain q (C + 1)).evaluateAnnotated
-          (joinChain_noAgg q hq (C + 1)) d
+          (joinChain_source q hq (C + 1)) d
         = @Multiset.filter _
             (fun ta : AnnotatedTuple ℕ K (3 * (C + 1) + 3) =>
               (chainCond C).eval ta.fst)
             ((chainCond C).evalDecidableAnnotated)
             (Multiset.map (chainCombine C)
               (Multiset.product
-                ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)
+                ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)
                 (q.evaluateAnnotated hq d))) := rfl
     rw [hstep] at hx
     obtain ⟨z, hz, hzx⟩ := Multiset.mem_map.mp (Multiset.mem_of_mem_filter hx)
@@ -117,7 +117,7 @@ theorem joinChain_key_mem (q : Query ℕ 3) (hq : q.noAgg)
 
 omit [HasAltLinearOrder K] in
 /-- The key multiset of the base query, through the key projection. -/
-theorem keyed_fst (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K) :
+theorem keyed_fst (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
     Multiset.map Prod.fst
         ((Query.Proj keyTerm q).evaluateAnnotated hq d)
       = (q.evaluateAnnotated hq d).map
@@ -129,15 +129,15 @@ theorem keyed_fst (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
 omit [HasAltLinearOrder K] in
 /-- Every row of the chain-projected key query carries a key of the base
 query. -/
-theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.noAgg)
+theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (C : ℕ) (x : AnnotatedTuple ℕ K 1)
-    (hx : x ∈ (joinChainQuery q C).evaluateAnnotated (q2_noAgg q hq C) d) :
+    (hx : x ∈ (joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d) :
     x.fst ∈ Multiset.dedup ((q.evaluateAnnotated hq d).map
       keyOf) := by
   have hx' : x ∈ Multiset.ofList (groupByKey
       ((Query.Proj (fun _ : Fin 1 => Term.index (⟨0, by omega⟩ : Fin (3 * C + 3)))
         (joinChain q C)).evaluateAnnotated
-        (Query.noAggDedup (q2_noAgg q hq C) rfl) d)).val :=
+        (Query.sourceDedup (q2_source q hq C) rfl) d)).val :=
     hx
   rw [groupByKey_eq_dedup_map] at hx'
   obtain ⟨v, hv, hvx⟩ := Multiset.mem_map.mp hx'
@@ -155,7 +155,7 @@ theorem joinChainQuery_key_mem (q : Query ℕ 3) (hq : q.noAgg)
 omit [HasAltLinearOrder K] in
 /-- Rows of a difference keep the data parts of its left argument. -/
 theorem diff_row_mem (q₁ q₂ : Query ℕ 1)
-    (h₁ : q₁.noAgg) (hd : (Query.Diff q₁ q₂).noAgg)
+    (h₁ : q₁.source) (hd : (Query.Diff q₁ q₂).source)
     (d : AnnotatedDatabase ℕ K) (y : AnnotatedTuple ℕ K 1)
     (hy : y ∈ (Query.Diff q₁ q₂).evaluateAnnotated hd d) :
     ∃ z ∈ q₁.evaluateAnnotated h₁ d, y.fst = z.fst := by
@@ -167,23 +167,23 @@ theorem diff_row_mem (q₁ q₂ : Query ℕ 1)
 omit [HasAltLinearOrder K] in
 /-- Every row of the join-based query, for any comparison operator,
 carries a key of the base query. -/
-theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.noAgg)
+theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (op : CompOp) (C : ℕ)
     (x : AnnotatedTuple ℕ K 1)
     (hx : x ∈ (Query.joinCountQuery q op C).evaluateAnnotated
-      (Query.joinCountQuery_noAgg q hq op C) d) :
+      (Query.joinCountQuery_source q hq op C) d) :
     x.fst ∈ Multiset.dedup ((q.evaluateAnnotated hq d).map
       keyOf) := by
   have hdiff : ∀ (C₁ C₂ : ℕ) (y : AnnotatedTuple ℕ K 1),
       y ∈ (Query.Diff (joinChainQuery q C₁) (joinChainQuery q C₂)
         ).evaluateAnnotated
-        ⟨q2_noAgg q hq C₁, q2_noAgg q hq C₂⟩ d →
+        ⟨q2_source q hq C₁, q2_source q hq C₂⟩ d →
       y.fst ∈ Multiset.dedup ((q.evaluateAnnotated hq d).map
         keyOf) := by
     intro C₁ C₂ y hy
     obtain ⟨z, hz, hfst⟩ :=
       diff_row_mem (joinChainQuery q C₁) (joinChainQuery q C₂)
-        (q2_noAgg q hq C₁) ⟨q2_noAgg q hq C₁, q2_noAgg q hq C₂⟩ d y hy
+        (q2_source q hq C₁) ⟨q2_source q hq C₁, q2_source q hq C₂⟩ d y hy
     rw [hfst]
     exact joinChainQuery_key_mem q hq d C₁ z hz
   cases op with
@@ -208,9 +208,9 @@ variable [HasAltLinearOrder K]
 omit [HasAltLinearOrder K] in
 /-- The key query evaluates to one row per distinct key with the summed
 annotation. -/
-theorem keysQuery_eval (q : Query ℕ 3) (hq : q.noAgg)
+theorem keysQuery_eval (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
-    (keysQuery q).evaluateAnnotated (keysQuery_noAgg q hq) d
+    (keysQuery q).evaluateAnnotated (keysQuery_source q hq) d
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map
           keyOf)).map
           (fun u => ((u, (Multiset.map Prod.snd
@@ -224,13 +224,13 @@ theorem keysQuery_eval (q : Query ℕ 3) (hq : q.noAgg)
 omit [HasAltLinearOrder K] in
 /-- The padding query evaluates to one `𝟘`-annotated row per distinct
 key. -/
-theorem zeroPadQuery_eval (q : Query ℕ 3) (hq : q.noAgg)
+theorem zeroPadQuery_eval (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) :
-    (zeroPadQuery q).evaluateAnnotated (zeroPadQuery_noAgg q hq) d
+    (zeroPadQuery q).evaluateAnnotated (zeroPadQuery_source q hq) d
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map
           keyOf)).map
           (fun u => ((u, (0 : K)) : Tuple ℕ 1 × K)) := by
-  show ((keysQuery q).evaluateAnnotated (keysQuery_noAgg q hq) d).map _ = _
+  show ((keysQuery q).evaluateAnnotated (keysQuery_source q hq) d).map _ = _
   rw [keysQuery_eval q hq d, Multiset.map_map]
   refine Multiset.map_congr rfl fun u hu => ?_
   dsimp only [Function.comp]
@@ -268,19 +268,19 @@ is the injective per-group occurrence identifiers (global
 row-distinctness of the base query's output). -/
 theorem joinCountQueryPadded_correct
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
     (joinCountQueryPadded q op C).evaluateAnnotated
-        (joinCountQueryPadded_noAgg q hq op C) d
+        (joinCountQueryPadded_source q hq op C) d
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, Having.havingProv
             (Having.havingGroup keyIdx (q.evaluateAnnotated hq d) g)
             (ts 0) SeqAggFunc.count op (C + 1)) : Tuple ℕ 1 × K)) := by
   show Multiset.ofList (groupByKey
       ((Query.joinCountQuery q op C).evaluateAnnotated
-        (Query.joinCountQuery_noAgg q hq op C) d
-      + (zeroPadQuery q).evaluateAnnotated (zeroPadQuery_noAgg q hq) d)).val
+        (Query.joinCountQuery_source q hq op C) d
+      + (zeroPadQuery q).evaluateAnnotated (zeroPadQuery_source q hq) d)).val
     = _
   rw [groupByKey_eq_dedup_map, zeroPadQuery_eval q hq d, Multiset.map_add,
     Multiset.dedup_add]
@@ -297,7 +297,7 @@ theorem joinCountQueryPadded_correct
     exact Multiset.dedup_eq_self.mpr (Multiset.nodup_dedup _)]
   have hsub : Multiset.map Prod.fst
       ((Query.joinCountQuery q op C).evaluateAnnotated
-        (Query.joinCountQuery_noAgg q hq op C) d)
+        (Query.joinCountQuery_source q hq op C) d)
       ⊆ Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf) := by
     intro x hx
     obtain ⟨y, hy, hyx⟩ := Multiset.mem_map.mp hx
@@ -326,7 +326,7 @@ with `joinCountQueryPadded_correct`, the padded rewriting can be
 substituted for the key-projected fused operator inside any surrounding
 query. -/
 theorem fused_key_proj (qg : QueryGen ℕ 3 (ColKind.allReg 3))
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hin : qg.evaluateAnnotatedGen d = q.evaluateAnnotated hq d)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
     ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
@@ -357,7 +357,7 @@ the other inside any surrounding query preserves the annotated semantics
 verbatim. -/
 theorem countHaving_site_rewrite
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) :
     ((QueryGen.havingSite keyIdx ts' (fun _ => SeqAggFunc.count) op 0
@@ -365,7 +365,7 @@ theorem countHaving_site_rewrite
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (joinCountQueryPadded q op C).evaluateAnnotated
-          (joinCountQueryPadded_noAgg q hq op C) d :=
+          (joinCountQueryPadded_source q hq op C) d :=
   (fused_key_proj (q.toGen hq) q hq d (Query.toGenHaving_input q hq d)
       ts' op C).trans
     (joinCountQueryPadded_correct h_abs h_distrib q hq d hnodup ts' op C).symm

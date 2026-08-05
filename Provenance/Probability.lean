@@ -655,7 +655,7 @@ variable {K : Type} [SemiringWithMonus K] [DecidableEq K]
 
 omit [Fintype X] [DecidableEq X] in
 theorem randomWorld_evaluateAnnotated :
-    ∀ {n} (q : Query T n) (hq : q.noAgg)
+    ∀ {n} (q : Query T n) (hq : q.source)
       (Î : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool),
     randomWorld v (q.evaluateAnnotated hq Î) = q.evaluate (Î.randomWorld v) := by
   intro n q
@@ -671,12 +671,12 @@ theorem randomWorld_evaluateAnnotated :
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
     rw [← randomWorld_map_data v (fun u : Tuple T _ => fun k => (ts k).eval u),
-        ih (Query.noAggProj hq rfl) Î v]
+        ih (Query.sourceProj hq rfl) Î v]
   | Sel φ q' ih =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
-    rw [← ih (Query.noAggSel hq rfl) Î v]
-    generalize q'.evaluateAnnotated (Query.noAggSel hq rfl) Î = r
+    rw [← ih (Query.sourceSel hq rfl) Î v]
+    generalize q'.evaluateAnnotated (Query.sourceSel hq rfl) Î = r
     -- Goal: `randomWorld v (filter_Lex r) = filter φ.eval (randomWorld v r)`.
     -- `randomWorld_filter_data` gives the same equation with a different
     -- `DecidablePred` instance on the inner filter; bridge via
@@ -689,15 +689,15 @@ theorem randomWorld_evaluateAnnotated :
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
-    rw [randomWorld_add, ih₁ (Query.noAggSum hq rfl).left Î v,
-        ih₂ (Query.noAggSum hq rfl).right Î v]
+    rw [randomWorld_add, ih₁ (Query.sourceSum hq rfl).left Î v,
+        ih₂ (Query.sourceSum hq rfl).right Î v]
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
-    rw [← ih₁ (Query.noAggProd hq rfl).left Î v,
-        ← ih₂ (Query.noAggProd hq rfl).right Î v]
-    set r₁ := q₁.evaluateAnnotated (Query.noAggProd hq rfl).left Î with hr₁
-    set r₂ := q₂.evaluateAnnotated (Query.noAggProd hq rfl).right Î with hr₂
+    rw [← ih₁ (Query.sourceProd hq rfl).left Î v,
+        ← ih₂ (Query.sourceProd hq rfl).right Î v]
+    set r₁ := q₁.evaluateAnnotated (Query.sourceProd hq rfl).left Î with hr₁
+    set r₂ := q₂.evaluateAnnotated (Query.sourceProd hq rfl).right Î with hr₂
     -- After `subst hn`, the `Eq.mp` cast inside the LHS map and the
     -- `Relation.cast` on the RHS both reduce to identity.
     subst hn
@@ -838,8 +838,8 @@ theorem randomWorld_evaluateAnnotated :
   | Dedup q' ih =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
-    rw [← ih (Query.noAggDedup hq rfl) Î v]
-    set r := q'.evaluateAnnotated (Query.noAggDedup hq rfl) Î with hr
+    rw [← ih (Query.sourceDedup hq rfl) Î v]
+    set r := q'.evaluateAnnotated (Query.sourceDedup hq rfl) Î with hr
     -- Both sides are `Nodup` multisets of `Tuple T n`. We show element
     -- equivalence: t ∈ LHS ↔ ∃ (t', α') ∈ r with t' = t and α' v = true ↔ t ∈ RHS.
     have hgbk_nodup : (Multiset.ofList (groupByKey r).val :
@@ -925,10 +925,10 @@ theorem randomWorld_evaluateAnnotated :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq Î v
     simp only [Query.evaluateAnnotated, Query.evaluate]
-    rw [← ih₁ (Query.noAggDiff hq rfl).left Î v,
-        ← ih₂ (Query.noAggDiff hq rfl).right Î v]
-    set r₁ := q₁.evaluateAnnotated (Query.noAggDiff hq rfl).left Î with hr₁
-    set r₂ := q₂.evaluateAnnotated (Query.noAggDiff hq rfl).right Î with hr₂
+    rw [← ih₁ (Query.sourceDiff hq rfl).left Î v,
+        ← ih₂ (Query.sourceDiff hq rfl).right Î v]
+    set r₁ := q₁.evaluateAnnotated (Query.sourceDiff hq rfl).left Î with hr₁
+    set r₂ := q₂.evaluateAnnotated (Query.sourceDiff hq rfl).right Î with hr₂
     -- Local helper: random-world of a cons splits via if-then-else.
     -- Stated in the bare-Multiset form (the unfolded `randomWorld`) so the
     -- pattern matches the goal's Lex-coerced filter+map term.
@@ -1010,12 +1010,12 @@ theorem randomWorld_evaluateAnnotated :
           rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv_false]; simp
         rw [if_neg hcond_lhs, if_neg hpv]
         exact ih
-  | Agg _ _ _ _ =>
+  | ProvSum _ _ _ =>
     intro hq _ _
-    exact False.elim (by simp [Query.noAgg] at hq)
+    exact False.elim (by simp [Query.source] at hq)
   | Having _ _ _ _ _ _ _ =>
     intro hq _ _
-    exact False.elim (by simp [Query.noAgg] at hq)
+    exact False.elim (by simp [Query.source] at hq)
 
 namespace ProbAssignment
 
@@ -1036,7 +1036,7 @@ The proof reduces to (a) `tupleAnnotation_apply_eq_true_iff`, the pointwise
 reading of the disjunctive annotation, and (b) `randomWorld_evaluateAnnotated`,
 the commutation of plain query evaluation with random-world projection. -/
 theorem theorem_12
-    (q : Query T n) (hq : q.noAgg)
+    (q : Query T n) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     P.marginalProb q Î t
       = P.funcProb (tupleAnnotation (q.evaluateAnnotated hq Î) t) := by
@@ -1089,7 +1089,7 @@ composite-encoded database.
 
 Combines `theorem_12` and `Query.rewriting_valid`. -/
 theorem corollary_13 [HasAltLinearOrder (BoolFunc X)]
-    (q : Query T n) (hq : q.noAgg)
+    (q : Query T n) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     P.marginalProb q Î t
       = P.funcProb (tupleAnnotation

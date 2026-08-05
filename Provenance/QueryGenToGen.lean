@@ -134,29 +134,29 @@ theorem ColKind.allReg_append (n₁ n₂ : ℕ) :
 /-- **The embedding of the non-aggregating fragment**: every classical
 operator translates to its general counterpart, over all-regular
 kinds. -/
-def Query.toGen : {n : ℕ} → (q : Query T n) → q.noAgg →
+def Query.toGen : {n : ℕ} → (q : Query T n) → q.source →
     QueryGen T n (ColKind.allReg n)
   | n, .Rel _ s, _ => QueryGen.Rel n s
   | _, .Proj ts q, hq =>
     QueryGen.castKind (funext fun _ => rfl)
       (QueryGen.Proj (fun j => ProjCol.term ((ts j).toGenReg))
-        (q.toGen (Query.noAggProj hq rfl)))
+        (q.toGen (Query.sourceProj hq rfl)))
   | _, .Sel φ q, hq =>
-    QueryGen.Sel φ.toGenPred (q.toGen (Query.noAggSel hq rfl))
+    QueryGen.Sel φ.toGenPred (q.toGen (Query.sourceSel hq rfl))
   | _, @Query.Prod _ n₁ n₂ n hn q₁ q₂, hq =>
     hn ▸ QueryGen.castKind (ColKind.allReg_append n₁ n₂)
-      (QueryGen.Prod (q₁.toGen (Query.noAggProd hq rfl).left)
-        (q₂.toGen (Query.noAggProd hq rfl).right))
+      (QueryGen.Prod (q₁.toGen (Query.sourceProd hq rfl).left)
+        (q₂.toGen (Query.sourceProd hq rfl).right))
   | _, .Sum q₁ q₂, hq =>
-    QueryGen.Sum (q₁.toGen (Query.noAggSum hq rfl).left)
-      (q₂.toGen (Query.noAggSum hq rfl).right)
-  | _, .Dedup q, hq => QueryGen.Dedup (q.toGen (Query.noAggDedup hq rfl))
+    QueryGen.Sum (q₁.toGen (Query.sourceSum hq rfl).left)
+      (q₂.toGen (Query.sourceSum hq rfl).right)
+  | _, .Dedup q, hq => QueryGen.Dedup (q.toGen (Query.sourceDedup hq rfl))
   | _, .Diff q₁ q₂, hq =>
-    QueryGen.Diff (q₁.toGen (Query.noAggDiff hq rfl).left)
-      (q₂.toGen (Query.noAggDiff hq rfl).right)
-  | _, .Agg _ _ _ _, hq => False.elim (by simp [Query.noAgg] at hq)
+    QueryGen.Diff (q₁.toGen (Query.sourceDiff hq rfl).left)
+      (q₂.toGen (Query.sourceDiff hq rfl).right)
+  | _, .ProvSum _ _ _, hq => False.elim (by simp [Query.source] at hq)
   | _, .Having _ _ _ _ _ _ _, hq =>
-    False.elim (by simp [Query.noAgg] at hq)
+    False.elim (by simp [Query.source] at hq)
 
 /-! ## Faithfulness -/
 
@@ -192,7 +192,7 @@ theorem rel_inv_ofAnnotated {n : ℕ} (X : AnnotatedRelation T K n) :
 on the embedded query produces rows satisfying the invariant against the
 classical annotated evaluation. -/
 theorem Query.toGen_rel :
-    ∀ {n : ℕ} (q : Query T n) (hq : q.noAgg) (d : AnnotatedDatabase T K),
+    ∀ {n : ℕ} (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv ((q.toGen hq).evaluateGen d)
         (q.evaluateAnnotated hq d)
   | n, .Rel _ s, hq, d => by
@@ -206,7 +206,7 @@ theorem Query.toGen_rel :
   | _, .Proj ts q, hq, d => by
     show Multiset.Rel _ ((QueryGen.castKind _ _).evaluateGen d) _
     rw [QueryGen.evaluateGen_castKind]
-    refine rel_map_of_rel (toGen_rel q (Query.noAggProj hq rfl) d)
+    refine rel_map_of_rel (toGen_rel q (Query.sourceProj hq rfl) d)
       (fun r p hr => ⟨?_, ?_, ?_⟩)
     · funext j
       show Sum.inl (((ts j).toGenReg).eval r.fst)
@@ -220,22 +220,22 @@ theorem Query.toGen_rel :
     show Multiset.Rel _
       (if (Selection.toGenPred φ).hasAggAtom then _ else
         Multiset.filter _ ((Query.toGen q
-          (Query.noAggSel hq rfl)).evaluateGen d)) _
+          (Query.sourceSel hq rfl)).evaluateGen d)) _
     rw [if_neg (by rw [Selection.toGenPred_hasAggAtom]; exact
       Bool.false_ne_true)]
-    refine rel_filter_of_iff (toGen_rel q (Query.noAggSel hq rfl) d)
+    refine rel_filter_of_iff (toGen_rel q (Query.sourceSel hq rfl) d)
       (fun r p hr => ?_)
     rw [hr.1]
     exact Selection.toGenPred_holds φ p.fst
   | _, @Query.Prod _ n₁ n₂ n hn q₁ q₂, hq, d => by
     subst hn
     show Multiset.Rel _ ((QueryGen.castKind _
-      (QueryGen.Prod (q₁.toGen (Query.noAggProd hq rfl).left)
-        (q₂.toGen (Query.noAggProd hq rfl).right))).evaluateGen d) _
+      (QueryGen.Prod (q₁.toGen (Query.sourceProd hq rfl).left)
+        (q₂.toGen (Query.sourceProd hq rfl).right))).evaluateGen d) _
     rw [QueryGen.evaluateGen_castKind]
     refine rel_map_of_rel
-      (rel_product (toGen_rel q₁ (Query.noAggProd hq rfl).left d)
-        (toGen_rel q₂ (Query.noAggProd hq rfl).right d)) ?_
+      (rel_product (toGen_rel q₁ (Query.sourceProd hq rfl).left d)
+        (toGen_rel q₂ (Query.sourceProd hq rfl).right d)) ?_
     rintro ⟨x, y⟩ ⟨p, p'⟩ ⟨hx, hy⟩
     refine ⟨?_, ?_, ?_⟩
     · funext k
@@ -257,31 +257,31 @@ theorem Query.toGen_rel :
       rw [hx.2.2, hy.2.2]
       rfl
   | _, .Sum q₁ q₂, hq, d =>
-    Multiset.Rel.add (toGen_rel q₁ (Query.noAggSum hq rfl).left d)
-      (toGen_rel q₂ (Query.noAggSum hq rfl).right d)
+    Multiset.Rel.add (toGen_rel q₁ (Query.sourceSum hq rfl).left d)
+      (toGen_rel q₂ (Query.sourceSum hq rfl).right d)
   | _, .Dedup q, hq, d => by
     show Multiset.Rel _ ((Multiset.ofList (groupByKey
-      (((q.toGen (Query.noAggDedup hq rfl)).evaluateGen d).map
+      (((q.toGen (Query.sourceDedup hq rfl)).evaluateGen d).map
         GenRow.toAnnotated)).val).map GenRow.ofAnnotated) _
-    rw [show ((q.toGen (Query.noAggDedup hq rfl)).evaluateGen
+    rw [show ((q.toGen (Query.sourceDedup hq rfl)).evaluateGen
           d).map GenRow.toAnnotated
-        = q.evaluateAnnotated (Query.noAggDedup hq rfl) d from
-      (map_eq_of_rel (toGen_rel q (Query.noAggDedup hq rfl) d)
+        = q.evaluateAnnotated (Query.sourceDedup hq rfl) d from
+      (map_eq_of_rel (toGen_rel q (Query.sourceDedup hq rfl) d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     exact rel_inv_ofAnnotated _
   | _, .Diff q₁ q₂, hq, d => by
     show Multiset.Rel _ ((((((q₁.toGen
-      (Query.noAggDiff hq rfl).left).evaluateGen d).map
+      (Query.sourceDiff hq rfl).left).evaluateGen d).map
         GenRow.toAnnotated)).map _).map GenRow.ofAnnotated) _
     rw [show ((q₁.toGen
-          (Query.noAggDiff hq rfl).left).evaluateGen d).map GenRow.toAnnotated
-        = q₁.evaluateAnnotated (Query.noAggDiff hq rfl).left d from
-      (map_eq_of_rel (toGen_rel q₁ (Query.noAggDiff hq rfl).left d)
+          (Query.sourceDiff hq rfl).left).evaluateGen d).map GenRow.toAnnotated
+        = q₁.evaluateAnnotated (Query.sourceDiff hq rfl).left d from
+      (map_eq_of_rel (toGen_rel q₁ (Query.sourceDiff hq rfl).left d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     rw [show ((q₂.toGen
-          (Query.noAggDiff hq rfl).right).evaluateGen d).map GenRow.toAnnotated
-        = q₂.evaluateAnnotated (Query.noAggDiff hq rfl).right d from
-      (map_eq_of_rel (toGen_rel q₂ (Query.noAggDiff hq rfl).right d)
+          (Query.sourceDiff hq rfl).right).evaluateGen d).map GenRow.toAnnotated
+        = q₂.evaluateAnnotated (Query.sourceDiff hq rfl).right d from
+      (map_eq_of_rel (toGen_rel q₂ (Query.sourceDiff hq rfl).right d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     rw [Multiset.map_map]
     refine rel_map_of_forall (fun p _ => ?_)
@@ -290,7 +290,7 @@ theorem Query.toGen_rel :
 
 /-- **Faithfulness of the embedding**: the general evaluator computes the
 classical annotated semantics on embedded queries. -/
-theorem Query.toGen_bridge {n : ℕ} (q : Query T n) (hq : q.noAgg)
+theorem Query.toGen_bridge {n : ℕ} (q : Query T n) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toGen hq).evaluateAnnotatedGen (K := K) d
       = q.evaluateAnnotated hq d := by
@@ -316,7 +316,7 @@ theorem GenRow.Inv.row_eq {n : ℕ} {r : GenRow T K n}
 
 /-- **The embedding at the row level**: the general evaluator on an
 embedded query produces exactly the embedded classical rows. -/
-theorem Query.toGen_evaluateGen_eq {n : ℕ} (q : Query T n) (hq : q.noAgg)
+theorem Query.toGen_evaluateGen_eq {n : ℕ} (q : Query T n) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toGen hq).evaluateGen d
       = (q.evaluateAnnotated hq d).map GenRow.ofAnnotated :=
@@ -329,7 +329,7 @@ theorem Query.toGen_evaluateGen_eq {n : ℕ} (q : Query T n) (hq : q.noAgg)
 relation is the classical subquery's annotated evaluation, so the closed
 form `QueryGen.havingSite_evaluateAnnotatedGen` specialises to the
 classical setting with no side hypothesis. -/
-theorem Query.toGenHaving_input {m : ℕ} (q : Query T m) (hq : q.noAgg)
+theorem Query.toGenHaving_input {m : ℕ} (q : Query T m) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toGen hq).evaluateAnnotatedGen d = q.evaluateAnnotated hq d :=
   Query.toGen_bridge q hq d

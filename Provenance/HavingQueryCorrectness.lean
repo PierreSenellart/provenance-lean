@@ -115,7 +115,7 @@ evaluation is the classical inner query's. -/
 theorem QueryGen.havingSite_count_ge_one
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) 1)
-    (q : Query ℕ m) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K) :
+    (q : Query ℕ m) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
     ((QueryGen.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
         (Term.const 1) (q.toGen hq)).evaluateAnnotatedGen d).map
       (fun p => ((fun k : Fin n₁ => p.fst (Fin.castAdd 1 k)), p.snd))
@@ -472,10 +472,10 @@ def joinChain (q : Query ℕ 3) : (C : ℕ) → Query ℕ (3 * C + 3)
     σ (chainCond C)
       (@Query.Prod ℕ (3 * C + 3) 3 (3 * (C + 1) + 3) rfl (joinChain q C) q)
 
-theorem joinChain_noAgg (q : Query ℕ 3) (hq : q.noAgg) :
-    ∀ C : ℕ, (joinChain q C).noAgg
+theorem joinChain_source (q : Query ℕ 3) (hq : q.source) :
+    ∀ C : ℕ, (joinChain q C).source
   | 0 => hq
-  | C + 1 => ⟨joinChain_noAgg q hq C, hq⟩
+  | C + 1 => ⟨joinChain_source q hq C, hq⟩
 
 /-- The combining map of one chain step: append the new copy's tuple and
 multiply the annotations. -/
@@ -495,11 +495,11 @@ def groupPairs (r : Multiset (Tuple ℕ 3 × K)) (a : ℕ) :
 the rows of the `C`-fold chain, viewed through their last (value,
 identifier) pair and their annotation, are exactly the annotated strictly
 increasing chains of length `C + 1` of the group. -/
-theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.noAgg)
+theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (a : ℕ) :
     ∀ C : ℕ,
     (Multiset.filter (fun p => p.1 ⟨0, by omega⟩ = a)
-        ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)).map
+        ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)).map
       (fun p => (toLex (p.1 ⟨3 * C + 1, by omega⟩, p.1 ⟨3 * C + 2, by omega⟩),
         p.2))
       = chainAgg (groupPairs (q.evaluateAnnotated hq d) a) C
@@ -507,14 +507,14 @@ theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.noAgg)
   | C + 1 => by
     have ih := joinChain_eval_filter q hq d a C
     have hstep : (joinChain q (C + 1)).evaluateAnnotated
-          (joinChain_noAgg q hq (C + 1)) d
+          (joinChain_source q hq (C + 1)) d
         = @Multiset.filter _
             (fun ta : AnnotatedTuple ℕ K (3 * (C + 1) + 3) =>
               (chainCond C).eval ta.fst)
             ((chainCond C).evalDecidableAnnotated)
             (Multiset.map (chainCombine C)
               (Multiset.product
-                ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)
+                ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)
                 (q.evaluateAnnotated hq d))) := rfl
     have hGP : groupPairs (q.evaluateAnnotated hq d) a
         = Multiset.map (fun p : Tuple ℕ 3 × K =>
@@ -663,13 +663,13 @@ theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
   · intro h
     exact h 0
 
-theorem piChain_noAgg (q : Query ℕ 3) (hq : q.noAgg) (C : ℕ) :
-    ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).noAgg := by
-  exact joinChain_noAgg q hq C
+theorem piChain_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
+    ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+  exact joinChain_source q hq C
 
-theorem q2_noAgg (q : Query ℕ 3) (hq : q.noAgg) (C : ℕ) :
-    (ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).noAgg := by
-  exact joinChain_noAgg q hq C
+theorem q2_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
+    (ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+  exact joinChain_source q hq C
 
 /-- **Query-level correctness of the join-based rewriting, general `C`.**
 In an absorptive commutative m-semiring in which `⊗` distributes over
@@ -686,12 +686,12 @@ has provenance `𝟘` on both sides – the fused operator gives its row a
 `𝟘` annotation while the join query simply has no row for it. -/
 theorem Query.joinChain_count_correct [HasAltLinearOrder K]
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
-          (joinChain q C))).evaluateAnnotated (q2_noAgg q hq C) d))).sum
+          (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
             (q.evaluateAnnotated hq d) g)
@@ -737,33 +737,33 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
     rfl
   calc (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
-          (joinChain q C))).evaluateAnnotated (q2_noAgg q hq C) d))).sum
+          (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
           (Multiset.ofList (groupByKey
             ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
-              (joinChain q C)).evaluateAnnotated (piChain_noAgg q hq C) d)).val))).sum
+              (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d)).val))).sum
         := rfl
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
           ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
-            (joinChain q C)).evaluateAnnotated (piChain_noAgg q hq C) d))).sum
+            (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d))).sum
         := perKeySum_groupByKey _ g
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
           (Multiset.map (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
               ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩), p.snd))
-            ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)))).sum
+            ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)))).sum
         := rfl
     _ = (Multiset.map Prod.snd (Multiset.map (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
             ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩), p.snd))
           (Multiset.filter ((fun p : AnnotatedTuple ℕ K 1 => p.fst = g)
               ∘ fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
                 ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩), p.snd))
-            ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)))).sum
+            ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)))).sum
         := by rw [Multiset.filter_map]; rfl
     _ = (Multiset.map Prod.snd
           (Multiset.filter ((fun p : AnnotatedTuple ℕ K 1 => p.fst = g)
               ∘ fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
                 ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩), p.snd))
-            ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d))).sum
+            ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d))).sum
         := congrArg (fun m : Multiset K => m.sum)
             (map_snd_map_pair
               (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
@@ -771,11 +771,11 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
               (Multiset.filter ((fun p : AnnotatedTuple ℕ K 1 => p.fst = g)
                   ∘ fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
                     ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩), p.snd))
-                ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)))
+                ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)))
     _ = (Multiset.map Prod.snd
           (Multiset.filter (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
               p.fst ⟨0, by omega⟩ = g 0)
-            ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d))).sum
+            ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d))).sum
         := congrArg (fun m => (Multiset.map Prod.snd m).sum)
             (Multiset.filter_congr fun p _ => hiff p)
     _ = (Multiset.map Prod.snd
@@ -784,14 +784,14 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
                 p.snd))
             (Multiset.filter (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
               p.fst ⟨0, by omega⟩ = g 0)
-              ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)))).sum
+              ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)))).sum
         := (congrArg (fun m : Multiset K => m.sum)
             (map_snd_map_pair
               (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
                 toLex (p.fst ⟨3 * C + 1, by omega⟩, p.fst ⟨3 * C + 2, by omega⟩))
               (Multiset.filter (fun p : AnnotatedTuple ℕ K (3 * C + 3) =>
                   p.fst ⟨0, by omega⟩ = g 0)
-                ((joinChain q C).evaluateAnnotated (joinChain_noAgg q hq C) d)))).symm
+                ((joinChain q C).evaluateAnnotated (joinChain_source q hq C) d)))).symm
     _ = (Multiset.map Prod.snd
           (chainAgg (groupPairs (q.evaluateAnnotated hq d) (g 0)) C)).sum
         := congrArg (fun m => (Multiset.map Prod.snd m).sum)
@@ -853,8 +853,8 @@ theorem perKeySum_map_pair {α β γ : Type} [DecidableEq α] [AddCommMonoid γ]
 difference is duplicate-eliminated (one row per key), the per-key
 annotation sum of the difference is the monus of the two per-key sums. -/
 theorem diff_perKeySum {T : Type} [ValueType T] {n : ℕ}
-    (q₁ q₂ : Query T n) (h₁ : q₁.noAgg) (h₂ : q₂.noAgg)
-    (hd : (Query.Diff (ε q₁) q₂).noAgg)
+    (q₁ q₂ : Query T n) (h₁ : q₁.source) (h₂ : q₂.source)
+    (hd : (Query.Diff (ε q₁) q₂).source)
     (d : AnnotatedDatabase T K) (u : Tuple T n) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
         ((Query.Diff (ε q₁) q₂).evaluateAnnotated hd d))).sum
@@ -921,30 +921,30 @@ query `Q₂^{≥C+1} − Q₂^{≥C+2}` gives every group key the fused
 `COUNT(*) = C + 1` predicate provenance. -/
 theorem Query.joinChainDiff_count_eq_correct [HasAltLinearOrder K]
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))).evaluateAnnotated
-          (by exact ⟨joinChain_noAgg q hq C, joinChain_noAgg q hq (C + 1)⟩) d))).sum
+          (by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
             (q.evaluateAnnotated hq d) g)
           (ts 0) SeqAggFunc.count CompOp.eq (C + 1) := by
   have h₁ : (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))).evaluateAnnotated
-          (by exact ⟨joinChain_noAgg q hq C, joinChain_noAgg q hq (C + 1)⟩) d))).sum
+          (by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩) d))).sum
       = ((Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-            ((joinChainQuery q C).evaluateAnnotated (q2_noAgg q hq C) d))).sum
+            ((joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d))).sum
           - (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
               ((joinChainQuery q (C + 1)).evaluateAnnotated
-                (q2_noAgg q hq (C + 1)) d))).sum : K) :=
-    diff_perKeySum _ _ (piChain_noAgg q hq C) (q2_noAgg q hq (C + 1)) _ d g
+                (q2_source q hq (C + 1)) d))).sum : K) :=
+    diff_perKeySum _ _ (piChain_source q hq C) (q2_source q hq (C + 1)) _ d g
   have h₂ : ((Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-            ((joinChainQuery q C).evaluateAnnotated (q2_noAgg q hq C) d))).sum
+            ((joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d))).sum
           - (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
               ((joinChainQuery q (C + 1)).evaluateAnnotated
-                (q2_noAgg q hq (C + 1)) d))).sum : K)
+                (q2_source q hq (C + 1)) d))).sum : K)
       = (havingProv
             (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
               (q.evaluateAnnotated hq d) g)
@@ -998,28 +998,28 @@ theorem Query.joinChainDiff_count_eq_correct [HasAltLinearOrder K]
 predicate provenance. -/
 theorem Query.joinChainDiff_count_le_correct [HasAltLinearOrder K]
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((Query.Diff (joinChainQuery q 0) (joinChainQuery q C)).evaluateAnnotated
-          (by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩) d))).sum
+          (by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
             (q.evaluateAnnotated hq d) g)
           (ts 0) SeqAggFunc.count CompOp.le C := by
   have h₁ : (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((Query.Diff (joinChainQuery q 0) (joinChainQuery q C)).evaluateAnnotated
-          (by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩) d))).sum
+          (by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩) d))).sum
       = ((Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-            ((joinChainQuery q 0).evaluateAnnotated (q2_noAgg q hq 0) d))).sum
+            ((joinChainQuery q 0).evaluateAnnotated (q2_source q hq 0) d))).sum
           - (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-              ((joinChainQuery q C).evaluateAnnotated (q2_noAgg q hq C) d))).sum : K) :=
-    diff_perKeySum _ _ (piChain_noAgg q hq 0) (q2_noAgg q hq C) _ d g
+              ((joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d))).sum : K) :=
+    diff_perKeySum _ _ (piChain_source q hq 0) (q2_source q hq C) _ d g
   have h₂ : ((Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-            ((joinChainQuery q 0).evaluateAnnotated (q2_noAgg q hq 0) d))).sum
+            ((joinChainQuery q 0).evaluateAnnotated (q2_source q hq 0) d))).sum
           - (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-              ((joinChainQuery q C).evaluateAnnotated (q2_noAgg q hq C) d))).sum : K)
+              ((joinChainQuery q C).evaluateAnnotated (q2_source q hq C) d))).sum : K)
       = (havingProv
             (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
               (q.evaluateAnnotated hq d) g)
@@ -1089,20 +1089,20 @@ def Query.joinCountQuery (q : Query ℕ 3) : CompOp → ℕ → Query ℕ 1
   | .ge, C => joinChainQuery q C
   | .gt, C => joinChainQuery q (C + 1)
 
-theorem Query.joinCountQuery_noAgg (q : Query ℕ 3) (hq : q.noAgg) :
-    ∀ (op : CompOp) (C : ℕ), (Query.joinCountQuery q op C).noAgg
-  | .lt, C => by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩
-  | .le, C => by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq (C + 1)⟩
-  | .eq, C => by exact ⟨joinChain_noAgg q hq C, joinChain_noAgg q hq (C + 1)⟩
-  | .ne, C => by exact ⟨⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩,
-      joinChain_noAgg q hq (C + 1)⟩
-  | .ge, C => q2_noAgg q hq C
-  | .gt, C => q2_noAgg q hq (C + 1)
+theorem Query.joinCountQuery_source (q : Query ℕ 3) (hq : q.source) :
+    ∀ (op : CompOp) (C : ℕ), (Query.joinCountQuery q op C).source
+  | .lt, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩
+  | .le, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq (C + 1)⟩
+  | .eq, C => by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩
+  | .ne, C => by exact ⟨⟨joinChain_source q hq 0, joinChain_source q hq C⟩,
+      joinChain_source q hq (C + 1)⟩
+  | .ge, C => q2_source q hq C
+  | .gt, C => q2_source q hq (C + 1)
 
 /-- Per-key annotation sums are additive across `Query.Sum`. -/
 theorem sum_perKeySum {T : Type} [ValueType T] {n : ℕ}
-    (q₁ q₂ : Query T n) (h₁ : q₁.noAgg) (h₂ : q₂.noAgg)
-    (hs : (Query.Sum q₁ q₂).noAgg)
+    (q₁ q₂ : Query T n) (h₁ : q₁.source) (h₂ : q₂.source)
+    (hs : (Query.Sum q₁ q₂).source)
     (d : AnnotatedDatabase T K) (u : Tuple T n) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u)
         ((Query.Sum q₁ q₂).evaluateAnnotated hs d))).sum
@@ -1122,12 +1122,12 @@ m-semiring whose `⊗` distributes over `⊖`, the join-based query
 `COUNT(*) op (C + 1)` predicate provenance. -/
 theorem Query.joinCount_correct [HasAltLinearOrder K]
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
-    (q : Query ℕ 3) (hq : q.noAgg) (d : AnnotatedDatabase ℕ K)
+    (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
         ((Query.joinCountQuery q op C).evaluateAnnotated
-          (Query.joinCountQuery_noAgg q hq op C) d))).sum
+          (Query.joinCountQuery_source q hq op C) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
             (q.evaluateAnnotated hq d) g)
@@ -1146,8 +1146,8 @@ theorem Query.joinCount_correct [HasAltLinearOrder K]
     refine Eq.trans (sum_perKeySum
       (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
       (joinChainQuery q (C + 1))
-      (by exact ⟨joinChain_noAgg q hq 0, joinChain_noAgg q hq C⟩)
-      (q2_noAgg q hq (C + 1)) _ d g) ?_
+      (by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩)
+      (q2_source q hq (C + 1)) _ d g) ?_
     exact congrArg₂ (fun a b : K => a + b)
       (Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts C g)
       (Query.joinChain_count_correct h_abs h_distrib q hq d hnodup ts (C + 1) g)

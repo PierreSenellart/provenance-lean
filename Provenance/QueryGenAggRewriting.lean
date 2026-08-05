@@ -257,7 +257,7 @@ theorem QueryGen.gammaRew_valid {m n₁ n₂ : ℕ}
     ((QueryGen.Gamma is ts fs qg).evaluateGen d).map GenRow.toCompositeRow
       = (QueryGen.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
   have hA : Multiset.map GenRow.toAnnotated (qg.evaluateGen d)
-      = (qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d :=
+      = (qg.strip hq).evaluateAnnotated (qg.strip_source hq) d :=
     QueryGen.strip_bridge qg hq d
   simp only [QueryGen.evaluateGen]
   rw [hA]
@@ -301,11 +301,11 @@ theorem QueryGen.gammaRew_valid {m n₁ n₂ : ℕ}
   -- and back from the deduplicated keys to the grouping
   rw [show (Multiset.map (fun p : AnnotatedTuple T K m =>
         ((fun k => p.fst (is k)) : Tuple T n₁))
-        ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d)).dedup
+        ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)).dedup
       = (Multiset.map Prod.fst (Multiset.map
           (fun p : AnnotatedTuple T K m =>
             ((fun k => p.fst (is k), p.snd) : AnnotatedTuple T K n₁))
-          ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq)
+          ((qg.strip hq).evaluateAnnotated (qg.strip_source hq)
             d))).dedup from by
     rw [Multiset.map_map]
     rfl,
@@ -313,7 +313,7 @@ theorem QueryGen.gammaRew_valid {m n₁ n₂ : ℕ}
   refine Multiset.map_congr rfl (fun kv _ => ?_)
   simp only [Function.comp_apply]
   rw [Having.havingGroup_toComposite is
-    ((qg.strip hq).evaluateAnnotated (qg.strip_noAgg hq) d) kv.fst]
+    ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d) kv.fst]
   unfold GenRow.toCompositeRow
   funext j
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j

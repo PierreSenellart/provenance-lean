@@ -35,31 +35,31 @@ token rather than a quotiented K-tensor.
 * [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
 -/
 
-def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (n+1) := match q with
+def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) (n+1) := match q with
 | Rel   n  s  => Rel (n+1) s
 | Proj  ts q  =>
   let ts :=
     (λ (k: Fin (n+1)) => if h : ↑k<n then (ts ⟨k,h⟩).castToAnnotatedTuple
                          else Term.index (Fin.last q.arity))
-  Proj ts (q.rewriting (noAggProj hq rfl))
-| Sel   φ  q  => Sel φ.castToAnnotatedTuple (q.rewriting (noAggSel hq rfl))
+  Proj ts (q.rewriting (sourceProj hq rfl))
+| Sel   φ  q  => Sel φ.castToAnnotatedTuple (q.rewriting (sourceSel hq rfl))
 | @Prod T n₁ n₂ n hn q₁ q₂ =>
   let tmp :=
-    @Query.Prod (T⊕K) (n₁+1) (n₂+1) (n+2) (by omega) (q₁.rewriting (noAggProd hq rfl).left)
-  let product := tmp (q₂.rewriting (noAggProd hq rfl).right)
+    @Query.Prod (T⊕K) (n₁+1) (n₂+1) (n+2) (by omega) (q₁.rewriting (sourceProd hq rfl).left)
+  let product := tmp (q₂.rewriting (sourceProd hq rfl).right)
   let ts : Tuple (Term (T⊕K) (n+2)) (n+1) :=
     (λ k: Fin (n+1) =>
       if ↑k<n₁ then #(k.castLE (by simp))
     else if (↑k<n: Prop) then #(Fin.ofNat _ (↑k+1))
     else Term.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n+1)))
   Proj ts product
-| Sum   q₁ q₂ => Sum (q₁.rewriting (noAggSum hq rfl).left) (rewriting q₂ (noAggSum hq rfl).right)
+| Sum   q₁ q₂ => Sum (q₁.rewriting (sourceSum hq rfl).left) (rewriting q₂ (sourceSum hq rfl).right)
 | Dedup q     =>
-  let q' := q.rewriting (noAggDedup hq rfl)
-  Agg (λ (k: Fin n) ↦ k.castLE (by simp)) ![#(Fin.last n)] ![AggFunc.sum] q'
+  let q' := q.rewriting (sourceDedup hq rfl)
+  ProvSum (λ (k: Fin n) ↦ k.castLE (by simp)) #(Fin.last n) q'
 | Diff  q₁ q₂ =>
-  let q'₁ := q₁.rewriting (noAggDiff hq rfl).left
-  let q'₂ := q₂.rewriting (noAggDiff hq rfl).right
+  let q'₁ := q₁.rewriting (sourceDiff hq rfl).left
+  let q'₂ := q₂.rewriting (sourceDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
@@ -74,13 +74,13 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.noAgg) : Query (T⊕K) (
       (λ t t' ↦ Selection.And t t') Selection.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
   let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
-  let prod₂r := Agg (λ (k: Fin n) ↦ (k.castLE (by simp))) ![#(Fin.last n)] ![AggFunc.sum] q'₂
+  let prod₂r := ProvSum (λ (k: Fin n) ↦ (k.castLE (by simp))) #(Fin.last n) q'₂
   let prod₂ := prod₂t (prod₂r)
   let ts₁ := (λ (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
   let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k.castLE (by omega))
                                  else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
-| Agg _ _ _ _ => by simp[noAgg] at hq
+| ProvSum _ _ _ => by simp[source] at hq
 
 lemma Query.rewriting_valid_prod_heqn (hn: n₁+n₂=n): n₁+1 + (n₂+1) = n+2 := by omega
 
@@ -1008,17 +1008,18 @@ lemma Multiset.semijoin_keyed_proj_eq_filter
         Multiset.filter_eq_nil.mpr (fun v hv heq ↦ hmem (heq ▸ hv))
       rw [hfilter_eq, Multiset.map_zero, Multiset.map_zero]
 
-/-- The Agg of `q.rewriting` (the inner aggregation used in both the `Dedup` and
-`Diff` rewritings) evaluates to a map over the deduped data-projection of the
-inner annotated relation, with each row paired (via `AnnotatedTuple.toComposite`)
-with the semiring sum of the matching annotations. -/
+/-- The `ProvSum` of `q.rewriting` (the inner ⊕-gate creation used in both
+the `Dedup` and `Diff` rewritings) evaluates to a map over the deduped
+data-projection of the inner annotated relation, with each row paired (via
+`AnnotatedTuple.toComposite`) with the semiring sum of the matching
+annotations. -/
 lemma Query.evaluate_agg_rewriting_eq
     {T K : Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
-    {n : ℕ} (q : Query T n) (hq : q.noAgg) (d : AnnotatedDatabase T K)
+    {n : ℕ} (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K)
     (ih : (q.evaluateAnnotated hq d).toComposite
         = (q.rewriting hq).evaluate d.toComposite) :
-    evaluate (Query.Agg (fun k : Fin n ↦ k.castLE (Nat.le_succ n)) ![#(Fin.last n)]
-                ![AggFunc.sum] (q.rewriting hq)) d.toComposite
+    evaluate (Query.ProvSum (fun k : Fin n ↦ k.castLE (Nat.le_succ n))
+                #(Fin.last n) (q.rewriting hq)) d.toComposite
     = Multiset.map (fun v : Tuple T n ↦ AnnotatedTuple.toComposite
           (v, (Multiset.map Prod.snd
                 (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
@@ -1037,9 +1038,8 @@ lemma Query.evaluate_agg_rewriting_eq
   · rw [Multiset.map_map]
     apply Multiset.map_congr rfl
     intro v _hv
-    simp only [Function.comp, Matrix.cons_val_fin_one, Term.eval]
+    simp only [Function.comp]
     rw [AnnotatedRelation.toComposite_filter_map_last]
-    simp only [AggFunc.eval]
     rw [show (fun p : AnnotatedTuple T K _ ↦ (Sum.inr p.2 : T⊕K))
           = (fun k ↦ (Sum.inr k : T⊕K)) ∘ Prod.snd from rfl]
     unfold AnnotatedTuple.toComposite
@@ -1093,7 +1093,7 @@ lemma Query.rewriting_valid_diff_inner_dd_inst
 
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
-  (q: Query T n) (hq: q.noAgg) :
+  (q: Query T n) (hq: q.source) :
   ∀ (d: AnnotatedDatabase T K), (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite := by
   intro d
   induction q with
@@ -1111,7 +1111,7 @@ theorem Query.rewriting_valid
   | @Proj m n' ts q ih =>
     unfold evaluateAnnotated evaluate rewriting
     simp
-    rw[← ih (noAggProj hq rfl)]
+    rw[← ih (sourceProj hq rfl)]
     unfold AnnotatedRelation.toComposite
     simp
     apply congrFun
@@ -1140,7 +1140,7 @@ theorem Query.rewriting_valid
   | Sel φ q' ih =>
     unfold evaluateAnnotated evaluate rewriting
     simp
-    rw[← ih (noAggSel hq rfl)]
+    rw[← ih (sourceSel hq rfl)]
     unfold AnnotatedRelation.toComposite
     rw[Multiset.filter_map]
     apply congrArg
@@ -1160,8 +1160,8 @@ theorem Query.rewriting_valid
     have heq : (Fin (n₁ + n₂) → T) = (Fin n → T) := by simp[hn]
     rw[Query.rewriting_valid_prod0 hn heq]
     rw[AnnotatedRelation.toComposite_map_product]
-    rw[ih₁ (noAggProd hq rfl).left]
-    rw[ih₂ (noAggProd hq rfl).right]
+    rw[ih₁ (sourceProd hq rfl).left]
+    rw[ih₂ (sourceProd hq rfl).right]
     simp
     rw[eq_comm]
     rw[Relation.cast_eq]
@@ -1220,10 +1220,10 @@ theorem Query.rewriting_valid
   | Sum q₁ q₂ ih₁ ih₂ =>
     unfold evaluateAnnotated evaluate rewriting
     simp
-    rw[ih₁ (noAggSum hq rfl).left]
-    rw[ih₂ (noAggSum hq rfl).right]
+    rw[ih₁ (sourceSum hq rfl).left]
+    rw[ih₂ (sourceSum hq rfl).right]
   | Dedup q ih =>
-    have hq' := noAggDedup hq rfl
+    have hq' := sourceDedup hq rfl
     have ih' := ih hq'
     -- LHS = common form
     have lhs_eq :
@@ -1262,9 +1262,8 @@ theorem Query.rewriting_valid
       · rw[Multiset.map_map]
         apply Multiset.map_congr rfl
         intro v _hv
-        simp only [Function.comp, Matrix.cons_val_fin_one, Term.eval]
+        simp only [Function.comp]
         rw[AnnotatedRelation.toComposite_filter_map_last]
-        simp only [AggFunc.eval]
         rw[show (fun p: AnnotatedTuple T K _ ↦ (Sum.inr p.2: T⊕K))
               = (fun k ↦ (Sum.inr k: T⊕K)) ∘ Prod.snd from rfl]
         -- Prove both sides equal via pointwise funext into the Fin.append/toComposite structure.
@@ -1297,8 +1296,8 @@ theorem Query.rewriting_valid
     unfold evaluateAnnotated
     exact rhs_eq.symm
   | Diff q₁ q₂ ih₁ ih₂ =>
-    have hq'₁ := (noAggDiff hq rfl).left
-    have hq'₂ := (noAggDiff hq rfl).right
+    have hq'₁ := (sourceDiff hq rfl).left
+    have hq'₂ := (sourceDiff hq rfl).right
     have ih'₁ := ih₁ hq'₁
     have ih'₂ := ih₂ hq'₂
     -- LHS: (ar₁.map (fun (u,α) ↦ (u, α - β_u))).toComposite
@@ -1442,8 +1441,8 @@ theorem Query.rewriting_valid
                 (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
               (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) (q₁.rewriting hq'₁)
-              (Query.Agg (fun k: Fin n ↦ k.castLE (by simp)) ![#(Fin.last n)]
-                ![AggFunc.sum] (q₂.rewriting hq'₂)))))
+              (Query.ProvSum (fun k: Fin n ↦ k.castLE (by simp))
+                #(Fin.last n) (q₂.rewriting hq'₂)))))
         d.toComposite
       = (Multiset.filter (fun p: AnnotatedTuple T K n ↦
             p.1 ∈ Multiset.map Prod.fst (q₂.evaluateAnnotated hq'₂ d))
@@ -1695,5 +1694,5 @@ theorem Query.rewriting_valid
       conv_rhs => rw[AnnotatedRelation.toComposite, Multiset.map_map, hsplit, Multiset.map_add]
       rfl
     exact lhs_eq.symm.trans rhs_eq.symm
-  | Agg _ _ _ _ => simp[noAgg] at hq
-  | Having _ _ _ _ _ _ _ => simp[noAgg] at hq
+  | ProvSum _ _ _ => simp[source] at hq
+  | Having _ _ _ _ _ _ _ => simp[source] at hq

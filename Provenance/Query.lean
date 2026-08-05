@@ -255,32 +255,22 @@ theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithM
 instance : Coe (BoolTerm T n) (Selection T n) where
   coe bt := Selection.BT bt
 
-/-- The aggregators of the classical terminal aggregation operator
-`Query.Agg`. Only the additive fold is needed: `Agg` survives in the
-classical syntax as the *target* of the (R1)–(R4) rewriting – the ⊕-gate
-creation of `ε` and `∖` (`Query.rewriting`) – for which `sum` is the whole
-story. Aggregation as a *source* operator lives on the general syntax
-(`QueryGen.Gamma`), whose aggregates are `SeqAggFunc`s. -/
-inductive AggFunc
-| sum
-deriving Repr, DecidableEq
-
+/-- Addition as a binary function, the fold of the `⊕`-sum performed by
+the rewriting-target operator `Query.ProvSum` (and by its general-syntax
+counterpart `QueryGen.ProvSum`). -/
 def addFn (a b : T) := a + b
 instance : @Std.Commutative T addFn where
   comm := add_comm
 instance : @Std.Associative T addFn where
   assoc := add_assoc
 
-def AggFunc.eval (a: AggFunc) (m: Multiset T) := match a with
-| sum => m.fold (addFn: T→T→T) 0
-
 /-- An aggregate function on *sequences* of values: an arbitrary function
-from finite sequences over `T` to `T`. Unlike `AggFunc` (monoid-shaped,
-used by the rewriting-target operator `Agg`), this interface covers
-non-commutative aggregates – such as `PICKFIRST`, whose result depends on
-the order of its input – and non-associative ones. It is the aggregate
-interface of the fused `Having` operator, whose possible-world semantics
-does not need any algebraic structure on the aggregate. -/
+from finite sequences over `T` to `T`. Beyond the monoid-shaped `⊕`-sum
+of `Query.ProvSum`, this interface covers non-commutative aggregates –
+such as `PICKFIRST`, whose result depends on the order of its input – and
+non-associative ones. It is the aggregate interface of the fused `Having`
+operator, whose possible-world semantics does not need any algebraic
+structure on the aggregate. -/
 def SeqAggFunc (T : Type) := List T → T
 
 namespace SeqAggFunc
@@ -315,7 +305,14 @@ inductive Query (T: Type) : ℕ → Type
 | Sum   : Query T n → Query T n → Query T n
 | Dedup : Query T n → Query T n
 | Diff  : Query T n → Query T n → Query T n
-| Agg       : Tuple (Fin m) n₁ → Tuple (Term T m) n₂ → Tuple AggFunc n₂ → Query T m → Query T (n₁+n₂)
+/-- Provenance aggregation: group by the key columns of the first
+argument and `⊕`-sum the term of the second over each group into a single
+trailing output column. It is not a *source* operator – aggregation as
+such lives on the general syntax (`QueryGen.Gamma`) – but the *target* of
+the (R1)–(R4) rewriting: the ⊕-gate creation of the `ε` and `∖` rules of
+`Query.rewriting`. Its general-syntax counterpart is
+`QueryGen.ProvSum`. -/
+| ProvSum   : Tuple (Fin m) n₁ → Term T m → Query T m → Query T (n₁+1)
 /-- The fused `HAVING` operator: grouping by the indices of the first
 argument, computing the sequence aggregates of the third argument applied
 to the terms of the second (each group read in the canonical tuple order,
@@ -336,10 +333,9 @@ def Query.repr [Repr T] : Query T n → ℕ → Std.Format
 | Sum q₁ q₂, p => Repr.addAppParen (q₁.repr p ++ "⊎" ++ q₂.repr p) p
 | Dedup q, p => "ε" ++ Repr.addAppParen (q.repr p) p
 | Diff q₁ q₂, p => Repr.addAppParen (q₁.repr p ++ "-" ++ q₂.repr p) p
-| Agg is ts as q, p =>
-  "γ_" ++ (Repr.addAppParen (is.repr p) p)
-    ++ (Repr.addAppParen (ts.repr p) p)
-    ++ (Repr.addAppParen (as.repr p) p)
+| ProvSum is t q, p =>
+  "γ⊕_" ++ (Repr.addAppParen (is.repr p) p)
+    ++ (Repr.addAppParen (t.repr p) p)
     ++ (Repr.addAppParen (q.repr p) p)
 | Having is ts _ op l s q, p =>
   "γHaving_" ++ (Repr.addAppParen (is.repr p) p)
@@ -349,93 +345,100 @@ def Query.repr [Repr T] : Query T n → ℕ → Std.Format
 
 instance [Repr α] : Repr (Query α n) := ⟨Query.repr⟩
 
-def Query.noAgg (q: Query T n): Prop := match q with
+/-- The **source fragment** of the classical syntax: the operators a
+query is *written* with, RA⁺(∖). It excludes the two operators that are
+not source operators – `ProvSum`, which the (R1)–(R4) rewriting *emits*,
+and the fused `Having`, whose semantics lives on the general syntax – and
+is exactly the fragment carrying an annotated semantics
+(`Query.evaluateAnnotated`) and accepted by `Query.rewriting`. Its
+general-syntax counterpart is `QueryGen.classical`. -/
+def Query.source (q: Query T n): Prop := match q with
 | Rel   n  s  => True
-| Proj  _ q   => q.noAgg
-| Sel   _  q  => q.noAgg
-| Prod  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-| Sum   q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-| Dedup q     => q.noAgg
-| Diff  q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-| Agg _ _ _ q => False
+| Proj  _ q   => q.source
+| Sel   _  q  => q.source
+| Prod  q₁ q₂ => q₁.source ∧ q₂.source
+| Sum   q₁ q₂ => q₁.source ∧ q₂.source
+| Dedup q     => q.source
+| Diff  q₁ q₂ => q₁.source ∧ q₂.source
+| ProvSum _ _ q => False
 | Having _ _ _ _ _ _ _ => False
 
-@[reducible] def Query.noAggDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.noAgg T n):=
+@[reducible] def Query.sourceDecidable {T: Type} {n: ℕ}: DecidablePred (@Query.source T n):=
   fun (q: Query T n) => match q with
-  | Rel n s => isTrue (by simp[noAgg])
-  | Proj  _ q'   => match q'.noAggDecidable with
-    | isTrue h => isTrue (by simp[noAgg]; exact h)
-    | isFalse h => isFalse (by simp[noAgg]; exact h)
-  | Sel   _  q'  => match q'.noAggDecidable with
-    | isTrue h => isTrue (by simp[noAgg]; exact h)
-    | isFalse h => isFalse (by simp[noAgg]; exact h)
-  | Prod  q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
-    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
-    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
-    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
-  | Sum   q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
-    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
-    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
-    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
-  | Dedup q'     => match q'.noAggDecidable with
-    | isTrue h => isTrue (by simp[noAgg]; exact h)
-    | isFalse h => isFalse (by simp[noAgg]; exact h)
-  | Diff  q₁ q₂ => match q₁.noAggDecidable, q₂.noAggDecidable with
-    | isTrue h₁,  isTrue h₂  => isTrue (by simp[noAgg]; exact ⟨h₁,h₂⟩)
-    | isFalse h₁, _          => isFalse (by simp[noAgg]; simp[h₁])
-    | _,          isFalse h₂ => isFalse (by simp[noAgg]; simp[h₂])
-  | Agg _ _ _ q' => isFalse (by simp[noAgg])
-  | Having _ _ _ _ _ _ _ => isFalse (by simp[noAgg])
+  | Rel n s => isTrue (by simp[source])
+  | Proj  _ q'   => match q'.sourceDecidable with
+    | isTrue h => isTrue (by simp[source]; exact h)
+    | isFalse h => isFalse (by simp[source]; exact h)
+  | Sel   _  q'  => match q'.sourceDecidable with
+    | isTrue h => isTrue (by simp[source]; exact h)
+    | isFalse h => isFalse (by simp[source]; exact h)
+  | Prod  q₁ q₂ => match q₁.sourceDecidable, q₂.sourceDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[source]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[source]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[source]; simp[h₂])
+  | Sum   q₁ q₂ => match q₁.sourceDecidable, q₂.sourceDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[source]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[source]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[source]; simp[h₂])
+  | Dedup q'     => match q'.sourceDecidable with
+    | isTrue h => isTrue (by simp[source]; exact h)
+    | isFalse h => isFalse (by simp[source]; exact h)
+  | Diff  q₁ q₂ => match q₁.sourceDecidable, q₂.sourceDecidable with
+    | isTrue h₁,  isTrue h₂  => isTrue (by simp[source]; exact ⟨h₁,h₂⟩)
+    | isFalse h₁, _          => isFalse (by simp[source]; simp[h₁])
+    | _,          isFalse h₂ => isFalse (by simp[source]; simp[h₂])
+  | ProvSum _ _ q' => isFalse (by simp[source])
+  | Having _ _ _ _ _ _ _ => isFalse (by simp[source])
 
-instance {T: Type} {n: ℕ} : DecidablePred (@Query.noAgg T n) := Query.noAggDecidable
+instance {T: Type} {n: ℕ} : DecidablePred (@Query.source T n) := Query.sourceDecidable
 
 set_option linter.unusedSectionVars false
 @[simp]
-theorem Query.noAggProd {q: Query T n} :
-  q.noAgg → ∀ {n₁} {q₁: Query T n₁} {q₂: Query T n₂} {hn: n₁+n₂=n}
-    (_: q = @Prod T n₁ n₂ n hn q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+theorem Query.sourceProd {q: Query T n} :
+  q.source → ∀ {n₁} {q₁: Query T n₁} {q₂: Query T n₂} {hn: n₁+n₂=n}
+    (_: q = @Prod T n₁ n₂ n hn q₁ q₂), q₁.source ∧ q₂.source  := by
     intro hna n₁ q₁ q₂ hn₁ hq
-    unfold noAgg at hna
+    unfold source at hna
     simp[hq] at hna
     assumption
 
 @[simp]
-theorem Query.noAggSum {q: Query T n} :
-  q.noAgg → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Sum q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+theorem Query.sourceSum {q: Query T n} :
+  q.source → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Sum q₁ q₂), q₁.source ∧ q₂.source  := by
     intro hna q₁ q₂ hq
-    unfold noAgg at hna
+    unfold source at hna
     simp[hq] at hna
     assumption
 
 @[simp]
-theorem Query.noAggDiff {q: Query T n} :
-  q.noAgg → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Diff q₁ q₂), q₁.noAgg ∧ q₂.noAgg  := by
+theorem Query.sourceDiff {q: Query T n} :
+  q.source → ∀ {q₁: Query T n} {q₂: Query T n} (_: q = Diff q₁ q₂), q₁.source ∧ q₂.source  := by
     intro hna q₁ q₂ hq
-    unfold noAgg at hna
+    unfold source at hna
     simp[hq] at hna
     assumption
 
 @[simp]
-theorem Query.noAggProj {q: Query T n} :
-  q.noAgg → ∀ {m} {t} {q': Query T m} (_: q = Proj t q'), q'.noAgg := by
+theorem Query.sourceProj {q: Query T n} :
+  q.source → ∀ {m} {t} {q': Query T m} (_: q = Proj t q'), q'.source := by
     intro hna m t q' hq
-    unfold noAgg at hna
+    unfold source at hna
     rw[hq] at hna
     assumption
 
 @[simp]
-theorem Query.noAggSel {q: Query T n} :
-  q.noAgg → ∀ {φ} {q': Query T n} (_: q = Sel φ q'), q'.noAgg := by
+theorem Query.sourceSel {q: Query T n} :
+  q.source → ∀ {φ} {q': Query T n} (_: q = Sel φ q'), q'.source := by
     intro hna φ q' hq
-    unfold noAgg at hna
+    unfold source at hna
     rw[hq] at hna
     assumption
 
 @[simp]
-theorem Query.noAggDedup {q: Query T n} :
-  q.noAgg → ∀ {q': Query T n} (_: q = Dedup q'), q'.noAgg := by
+theorem Query.sourceDedup {q: Query T n} :
+  q.source → ∀ {q': Query T n} (_: q = Dedup q'), q'.source := by
     intro hna q' hq
-    unfold noAgg at hna
+    unfold source at hna
     rw[hq] at hna
     assumption
 
@@ -467,7 +470,7 @@ def Query.aggdepth2_plus_depth (q: Query T n) : ℕ := match q with
   let d₁ := q₁.aggdepth2_plus_depth
   let d₂ := q₂.aggdepth2_plus_depth
   (max d₁ d₂)+1
-| Agg _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
+| ProvSum _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
 | Having _ _ _ _ _ _ q => let d := q.aggdepth2_plus_depth; (d+3)
 
 /-- The occurrences of the group of key `g` in relation `r`: the multiset of
@@ -505,13 +508,13 @@ def Query.evaluate (q: Query T n) (d: Database T): Relation T n := match q with
   let r₁ := evaluate q₁ d
   let r₂ : Multiset (Tuple T _) := evaluate q₂ d
   r₁.filter (fun t ↦ t ∉ r₂)
-| @Agg _ m n₁ n₂ is ts as q =>
+| @ProvSum _ m n₁ is t q =>
     let r := evaluate ε (Π (λ (k: Fin n₁) ↦ #(is k)) q) d
     let s := evaluate q d
-    r.map (λ t ↦ Fin.append t (
-      λ (k: Fin n₂) ↦ ((as k).eval (
-        (s.filter (λ u ↦ ∀ k': Fin n₁, u (is k') = t k')).map (λ u ↦ (ts k).eval u)
-      ))
+    r.map (λ g ↦ Fin.append g (
+      λ _: Fin 1 ↦ (
+        (s.filter (λ u ↦ ∀ k': Fin n₁, u (is k') = g k')).map (λ u ↦ t.eval u)
+      ).fold addFn 0
     ))
 | @Having _ m n₁ n₂ is ts fs op l s q =>
     let keys := evaluate ε (Π (λ (k: Fin n₁) ↦ #(is k)) q) d

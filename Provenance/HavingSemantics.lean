@@ -591,7 +591,7 @@ instance HavingPred.decidableModelsBoolean (d : Database T) (q : Query T m)
 annotations of the output rows of `σ_ψ(γ^≼(q))`: one summand per
 distinct group key of the inner query, carrying the predicate provenance
 of its group. -/
-def HavingPred.booleanProv [HasAltLinearOrder K] (q : Query T m) (hq : q.noAgg)
+def HavingPred.booleanProv [HasAltLinearOrder K] (q : Query T m) (hq : q.source)
     (d : AnnotatedDatabase T K) (is : Tuple (Fin m) n₁)
     (ψ : HavingPred T m n₁) : K :=
   (((q.evaluateAnnotated hq d).map (fun p => fun k => p.fst (is k))).dedup.map

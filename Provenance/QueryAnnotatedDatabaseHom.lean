@@ -289,11 +289,11 @@ in Green et al.'s set semantics; it still requires only that `h` respect `+`.
 The “only if” direction (that commutation forces `h` to be an m-hom) is not
 formalised here.
 
-Aggregation (`Agg`) is excluded via the `noAgg` precondition; see the comment
+Aggregation (`Agg`) is excluded via the `source` precondition; see the comment
 on `Query.evaluateAnnotated` for the underlying limitation. -/
 theorem Query.evaluateAnnotated_hom
     (h : SemiringWithMonusHom K K') :
-    ∀ {n} (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T K),
+    ∀ {n} (q: Query T n) (hq: q.source) (d: AnnotatedDatabase T K),
       evaluateAnnotated q hq (h.mapAnnotatedDatabase d)
         = h.mapAnnotatedRelation (evaluateAnnotated q hq d) := by
   intro n q
@@ -308,22 +308,22 @@ theorem Query.evaluateAnnotated_hom
   | Proj ts q' ih =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih (Query.noAggProj hq rfl) d]
+    rw [ih (Query.sourceProj hq rfl) d]
     unfold SemiringWithMonusHom.mapAnnotatedRelation
               SemiringWithMonusHom.mapAnnotatedTuple
     simp [Multiset.map_map]
   | Sel φ q' ih =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih (Query.noAggSel hq rfl) d]
+    rw [ih (Query.sourceSel hq rfl) d]
     exact h.mapAnnotatedRelation_filter φ _
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih₁ (Query.noAggProd hq rfl).left d,
-        ih₂ (Query.noAggProd hq rfl).right d]
-    generalize evaluateAnnotated q₁ (Query.noAggProd hq rfl).left d = r₁
-    generalize evaluateAnnotated q₂ (Query.noAggProd hq rfl).right d = r₂
+    rw [ih₁ (Query.sourceProd hq rfl).left d,
+        ih₂ (Query.sourceProd hq rfl).right d]
+    generalize evaluateAnnotated q₁ (Query.sourceProd hq rfl).left d = r₁
+    generalize evaluateAnnotated q₂ (Query.sourceProd hq rfl).right d = r₂
     unfold SemiringWithMonusHom.mapAnnotatedRelation
               SemiringWithMonusHom.mapAnnotatedTuple
     -- expose `Multiset.product` as a `bind` so `cons_bind` works in the recursion
@@ -343,13 +343,13 @@ theorem Query.evaluateAnnotated_hom
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih₁ (Query.noAggSum hq rfl).left d,
-        ih₂ (Query.noAggSum hq rfl).right d]
+    rw [ih₁ (Query.sourceSum hq rfl).left d,
+        ih₂ (Query.sourceSum hq rfl).right d]
     exact (SemiringWithMonusHom.mapAnnotatedRelation_add h _ _).symm
   | Dedup q' ih =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih (Query.noAggDedup hq rfl) d]
+    rw [ih (Query.sourceDedup hq rfl) d]
     -- Rewrite both sides via `groupByKey_multiset_eq` (from `QueryRewriting`).
     rw [groupByKey_multiset_eq, groupByKey_multiset_eq,
         SemiringWithMonusHom.map_fst_mapAnnotatedRelation]
@@ -366,8 +366,8 @@ theorem Query.evaluateAnnotated_hom
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [evaluateAnnotated]
-    rw [ih₁ (Query.noAggDiff hq rfl).left d,
-        ih₂ (Query.noAggDiff hq rfl).right d]
+    rw [ih₁ (Query.sourceDiff hq rfl).left d,
+        ih₂ (Query.sourceDiff hq rfl).right d]
     -- Push `mapAnnotatedRelation h` through the outer `r₁.map` on RHS.
     unfold SemiringWithMonusHom.mapAnnotatedRelation
               SemiringWithMonusHom.mapAnnotatedTuple
@@ -385,9 +385,9 @@ theorem Query.evaluateAnnotated_hom
     -- `sum_filter_map_snd_mapAnnotatedRelation`.
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u _
-  | Agg _ _ _ _ =>
+  | ProvSum _ _ _ =>
     intro hq _
-    exact False.elim (by simp [Query.noAgg] at hq)
+    exact False.elim (by simp [Query.source] at hq)
   | Having _ _ _ _ _ _ _ =>
     intro hq _
-    exact False.elim (by simp [Query.noAgg] at hq)
+    exact False.elim (by simp [Query.source] at hq)

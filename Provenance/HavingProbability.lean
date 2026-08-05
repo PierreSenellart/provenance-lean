@@ -1779,7 +1779,7 @@ theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
 valuation, the Boolean provenance of a Boolean `HAVING` query is true iff
 the query holds on the corresponding possible world. -/
 theorem HavingPred.booleanProv_eval_iff [HasAltLinearOrder (BoolFunc X)]
-    {m n₁ : ℕ} (q : Query T m) (hq : q.noAgg)
+    {m n₁ : ℕ} (q : Query T m) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (is : Tuple (Fin m) n₁)
     (ψ : HavingPred T m n₁) (v : X → Bool) :
     (ψ.booleanProv q hq Î is) v = true
@@ -1826,7 +1826,7 @@ the correctness of intensional probabilistic query evaluation
 `randomWorld_evaluateAnnotated`), and the aggregate comparison by the
 exactly-one-disjunct bridge `HavingPred.prov_eval_iff`. -/
 theorem booleanHaving_pqe [HasAltLinearOrder (BoolFunc X)] {m n₁ : ℕ}
-    (q : Query T m) (hq : q.noAgg) (Î : AnnotatedDatabase T (BoolFunc X))
+    (q : Query T m) (hq : q.source) (Î : AnnotatedDatabase T (BoolFunc X))
     (is : Tuple (Fin m) n₁) (ψ : HavingPred T m n₁) :
     booleanHavingProb P q Î is ψ = P.funcProb (ψ.booleanProv q hq Î is) := by
   unfold booleanHavingProb ProbAssignment.funcProb

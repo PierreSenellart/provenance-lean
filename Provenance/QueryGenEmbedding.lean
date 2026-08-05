@@ -98,12 +98,12 @@ theorem genCountHavingSite_eval
     (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
     (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
     (g : QueryGen ℕ 3 (ColKind.allReg 3)) (q' : Query ℕ 3)
-    (hq' : q'.noAgg) (d : AnnotatedDatabase ℕ K)
+    (hq' : q'.source) (d : AnnotatedDatabase ℕ K)
     (hbridge : g.evaluateAnnotatedGen d = q'.evaluateAnnotated hq' d)
     (hnodup : ((q'.evaluateAnnotated hq' d).map Prod.fst).Nodup) :
     (genCountHavingSite ts' op C g).evaluateGen d
       = ((joinCountQueryPadded q' op C).toGen
-          (joinCountQueryPadded_noAgg q' hq' op C)).evaluateGen d := by
+          (joinCountQueryPadded_source q' hq' op C)).evaluateGen d := by
   rw [Query.toGen_evaluateGen_eq,
     joinCountQueryPadded_correct h_abs h_distrib q' hq' d hnodup ts' op C,
     ← fused_key_proj g q' hq' d hbridge ts' op C]
@@ -157,13 +157,13 @@ inductive GenCountHavingRewrite (d : AnnotatedDatabase ℕ K) :
         (QueryGen.Gamma is ts fs q')
   | site (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
       {g g' : QueryGen ℕ 3 (ColKind.allReg 3)} (q' : Query ℕ 3)
-      (hq' : q'.noAgg) :
+      (hq' : q'.source) :
       GenCountHavingRewrite d g g' →
       g'.evaluateAnnotatedGen d = q'.evaluateAnnotated hq' d →
       ((q'.evaluateAnnotated hq' d).map Prod.fst).Nodup →
       GenCountHavingRewrite d (genCountHavingSite ts' op C g)
         ((joinCountQueryPadded q' op C).toGen
-          (joinCountQueryPadded_noAgg q' hq' op C))
+          (joinCountQueryPadded_source q' hq' op C))
 
 /-- **Compositional correctness of the JOIN rewriting, general syntax**:
 in an absorptive commutative m-semiring whose `⊗` distributes over `⊖`,

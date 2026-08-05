@@ -501,16 +501,16 @@ def QueryGen.strip :
 termination_by structural _ _ q _ => q
 
 /-- The strip is aggregation-free. -/
-theorem QueryGen.strip_noAgg :
+theorem QueryGen.strip_source :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
-      (hq : q.classical), (q.strip hq).noAgg
+      (hq : q.classical), (q.strip hq).source
   | _, _, .Rel _ _, _ => trivial
-  | _, _, .Proj _ q, hq => strip_noAgg q hq.2
-  | _, _, .Sel _ q, hq => strip_noAgg q hq.2
-  | _, _, .Prod q₁ q₂, hq => ⟨strip_noAgg q₁ hq.1, strip_noAgg q₂ hq.2⟩
-  | _, _, .Sum q₁ q₂, hq => ⟨strip_noAgg q₁ hq.1, strip_noAgg q₂ hq.2⟩
-  | _, _, .Dedup q, hq => strip_noAgg q hq
-  | _, _, .Diff q₁ q₂, hq => ⟨strip_noAgg q₁ hq.1, strip_noAgg q₂ hq.2⟩
+  | _, _, .Proj _ q, hq => strip_source q hq.2
+  | _, _, .Sel _ q, hq => strip_source q hq.2
+  | _, _, .Prod q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
+  | _, _, .Sum q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
+  | _, _, .Dedup q, hq => strip_source q hq
+  | _, _, .Diff q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
   | _, _, .Gamma _ _ _ _, hq => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
@@ -537,7 +537,7 @@ theorem QueryGen.strip_rel :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluateGen d)
-        ((q.strip hq).evaluateAnnotated (q.strip_noAgg hq) d)
+        ((q.strip hq).evaluateAnnotated (q.strip_source hq) d)
   | n, _, .Rel _ s, _, d => by
     show Multiset.Rel GenRow.Inv (match d.find n s with
       | none => (∅ : Multiset (GenRow T K n))
@@ -601,7 +601,7 @@ theorem QueryGen.strip_rel :
       ((q.evaluateGen d).map GenRow.toAnnotated)).val).map
         GenRow.ofAnnotated) _
     rw [show (q.evaluateGen d).map GenRow.toAnnotated
-        = (q.strip hq).evaluateAnnotated (q.strip_noAgg hq) d from
+        = (q.strip hq).evaluateAnnotated (q.strip_source hq) d from
       (map_eq_of_rel (strip_rel q hq d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     exact rel_inv_ofAnnotated _
@@ -610,11 +610,11 @@ theorem QueryGen.strip_rel :
       (((((q₁.evaluateGen d).map GenRow.toAnnotated)).map _).map
         GenRow.ofAnnotated) _
     rw [show (q₁.evaluateGen d).map GenRow.toAnnotated
-        = (q₁.strip hq.1).evaluateAnnotated (q₁.strip_noAgg hq.1) d from
+        = (q₁.strip hq.1).evaluateAnnotated (q₁.strip_source hq.1) d from
       (map_eq_of_rel (strip_rel q₁ hq.1 d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     rw [show (q₂.evaluateGen d).map GenRow.toAnnotated
-        = (q₂.strip hq.2).evaluateAnnotated (q₂.strip_noAgg hq.2) d from
+        = (q₂.strip hq.2).evaluateAnnotated (q₂.strip_source hq.2) d from
       (map_eq_of_rel (strip_rel q₂ hq.2 d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     rw [Multiset.map_map]
@@ -632,7 +632,7 @@ stripped query. -/
 theorem QueryGen.strip_bridge {n : ℕ} {κ : Fin n → ColKind}
     (q : QueryGen T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     q.evaluateAnnotatedGen d
-      = (q.strip hq).evaluateAnnotated (q.strip_noAgg hq) d := by
+      = (q.strip hq).evaluateAnnotated (q.strip_source hq) d := by
   unfold QueryGen.evaluateAnnotatedGen
   exact (map_eq_of_rel (QueryGen.strip_rel q hq d)
     (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)
@@ -792,7 +792,7 @@ theorem QueryGen.rewritingGen_plain :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : QueryGen T n κ)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewritingGen hq).evaluatePlain D
-        = ((q.strip hq).rewriting (q.strip_noAgg hq)).evaluate D
+        = ((q.strip hq).rewriting (q.strip_source hq)).evaluate D
   | n, _, .Rel _ s, _, D => by
     show (QueryGen.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
@@ -873,8 +873,7 @@ theorem QueryGen.rewritingGen_plain :
     · funext k
       refine Fin.addCases (fun i => ?_) (fun j => ?_) k
       · rw [Fin.append_left, Fin.append_left]
-      · rw [Fin.append_right, Fin.append_right,
-          Subsingleton.elim j (0 : Fin 1)]
+      · rw [Fin.append_right, Fin.append_right]
         show Multiset.fold addFn 0 _ = Multiset.fold addFn 0 _
         refine congrArg _ (Multiset.map_congr ?_ (fun u _ => rfl))
         congr 1
@@ -969,8 +968,7 @@ theorem QueryGen.rewritingGen_plain :
         · funext k
           refine Fin.addCases (fun i => ?_) (fun j => ?_) k
           · rw [Fin.append_left, Fin.append_left]
-          · rw [Fin.append_right, Fin.append_right,
-              Subsingleton.elim j (0 : Fin 1)]
+          · rw [Fin.append_right, Fin.append_right]
             show Multiset.fold addFn 0 _ = Multiset.fold addFn 0 _
             refine congrArg _ (Multiset.map_congr ?_ (fun u _ => rfl))
             congr 1
@@ -1015,7 +1013,7 @@ theorem QueryGen.rewritingGen_valid {n : ℕ} {κ : Fin n → ColKind}
     (q.evaluateAnnotatedGen d).toComposite
       = (q.rewritingGen hq).evaluatePlain d.toComposite := by
   rw [QueryGen.strip_bridge q hq d,
-    Query.rewriting_valid (q.strip hq) (q.strip_noAgg hq) d,
+    Query.rewriting_valid (q.strip hq) (q.strip_source hq) d,
     QueryGen.rewritingGen_plain q hq d.toComposite]
 
 end Correctness

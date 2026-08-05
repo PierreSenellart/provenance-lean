@@ -126,7 +126,7 @@ of the database. This is the equality that replaces the (positive-fragment
 only) `ℕ`-adequacy of [Benzaken, Cohen-Boulakia, Contejean, Keller &
 Zucchini][benzaken2021coq] once difference enters the language. -/
 theorem Query.evaluateAnnotated_support {n : ℕ}
-    (q : Query T n) (hq : q.noAgg) (d : AnnotatedDatabase T Bool) :
+    (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T Bool) :
     (q.evaluateAnnotated hq d).support = q.evaluate d.support := by
   rw [← randomWorld_constHom (X := Empty) (fun e => e.elim)
         (q.evaluateAnnotated hq d),
@@ -145,7 +145,7 @@ admits one such homomorphism per valuation
 at the positive fragment. -/
 theorem Query.evaluateAnnotated_support_hom {n : ℕ}
     (h : SemiringWithMonusHom K Bool)
-    (q : Query T n) (hq : q.noAgg) (d : AnnotatedDatabase T K) :
+    (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K) :
     (h.mapAnnotatedRelation (q.evaluateAnnotated hq d)).support
       = q.evaluate (h.mapAnnotatedDatabase d).support := by
   rw [← Query.evaluateAnnotated_hom h q hq d,

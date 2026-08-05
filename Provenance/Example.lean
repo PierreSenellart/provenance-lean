@@ -48,17 +48,12 @@ def q₁ := ε ( Π ![#3]
 /- This query looks for cities with ≤1 persons -/
 def q₂ := q₀ - q₁
 
-/- This aggregate query counts persons by cities -/
-def qc := Query.Agg ![3] ![Term.const "1"] ![AggFunc.sum] qPersonnel
-
 #eval! hdr "plain: q₀ – distinct cities"
 #eval! q₀.evaluate d
 #eval! hdr "plain: q₁ – cities with ≥ 2 persons"
 #eval! q₁.evaluate d
 #eval! hdr "plain: q₂ = q₀ ∖ q₁ – cities with ≤ 1 person"
 #eval! q₂.evaluate d
-#eval! hdr "plain: qc – count of persons by city"
-#eval! qc.evaluate d
 
 def r_count := r.annotate (λ _ ↦ 1)
 def d_count : AnnotatedDatabase String ℕ := [("Personnel", ⟨4, r_count⟩)]

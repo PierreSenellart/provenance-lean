@@ -44,7 +44,7 @@ annotated result both under- and over-approximate the plain result.
 
 * `Query.stripDiff` – replace every `Diff q₁ q₂` node with `q₁`
 * `Query.noDiff` – the `Diff`-free predicate on queries (mirroring
-  `Query.noAgg`)
+  `Query.source`)
 * `AnnotatedRelation.toPlain`, `AnnotatedDatabase.toPlain` – forget the
   annotations
 
@@ -80,11 +80,11 @@ def Query.stripDiff : Query T n → Query T n
 | Sum q₁ q₂ => Sum q₁.stripDiff q₂.stripDiff
 | Dedup q => Dedup q.stripDiff
 | Diff q₁ _ => q₁.stripDiff
-| Agg is ts as q => Agg is ts as q.stripDiff
+| ProvSum is t q => ProvSum is t q.stripDiff
 | Having is ts fs op l s q => Having is ts fs op l s q.stripDiff
 
 /-- The `Diff`-free (positive) fragment of the relational algebra, mirroring
-`Query.noAgg`. -/
+`Query.source`. -/
 def Query.noDiff (q: Query T n): Prop := match q with
 | Rel _ _ => True
 | Proj _ q => q.noDiff
@@ -93,7 +93,7 @@ def Query.noDiff (q: Query T n): Prop := match q with
 | Sum q₁ q₂ => q₁.noDiff ∧ q₂.noDiff
 | Dedup q => q.noDiff
 | Diff _ _ => False
-| Agg _ _ _ q => q.noDiff
+| ProvSum _ _ q => q.noDiff
 | Having _ _ _ _ _ _ q => q.noDiff
 
 /-- On `Diff`-free queries, `Query.stripDiff` is the identity. -/
@@ -118,7 +118,7 @@ theorem Query.stripDiff_of_noDiff (q: Query T n) (hd: q.noDiff) :
     simp only [stripDiff, ih hd]
   | Diff q₁ q₂ ih₁ ih₂ =>
     simp only [noDiff] at hd
-  | Agg is ts as q ih =>
+  | ProvSum is t q ih =>
     simp only [noDiff] at hd
     simp only [stripDiff, ih hd]
   | Having is ts fs op l s q ih =>
@@ -225,7 +225,7 @@ m-semiring `K`, forgetting the annotations of the annotated evaluation of
 plain database: annotated `Diff` never removes tuple slots, so all the
 differences disappear from the data part. -/
 theorem Query.evaluateAnnotated_toPlain :
-    ∀ {n} (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T K),
+    ∀ {n} (q: Query T n) (hq: q.source) (d: AnnotatedDatabase T K),
     (q.evaluateAnnotated hq d).toPlain = (q.stripDiff).evaluate d.toPlain := by
   intro n q
   induction q with
@@ -239,35 +239,35 @@ theorem Query.evaluateAnnotated_toPlain :
   | Proj ts q' ih =>
     intro hq d
     simp only [Query.evaluateAnnotated, Query.evaluate, Query.stripDiff]
-    rw [← ih (Query.noAggProj hq rfl) d]
+    rw [← ih (Query.sourceProj hq rfl) d]
     exact map_fst_map_data (fun u => (fun k => (ts k).eval u)) _
   | Sel φ q' ih =>
     intro hq d
     simp only [Query.evaluateAnnotated, Query.evaluate, Query.stripDiff]
-    rw [← ih (Query.noAggSel hq rfl) d]
+    rw [← ih (Query.sourceSel hq rfl) d]
     have hinst : φ.evalDecidableAnnotated
         = (fun ta : AnnotatedTuple T K _ => φ.evalDecidable ta.fst) :=
       Subsingleton.elim _ _
     rw [hinst]
     exact map_fst_filter_data φ.eval φ.evalDecidable
       (fun ta => φ.evalDecidable ta.1)
-      (q'.evaluateAnnotated (Query.noAggSel hq rfl) d)
+      (q'.evaluateAnnotated (Query.sourceSel hq rfl) d)
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro hq d
     subst hn
     simp only [Query.evaluateAnnotated, Query.evaluate, Query.stripDiff]
-    rw [← ih₁ (Query.noAggProd hq rfl).left d, ← ih₂ (Query.noAggProd hq rfl).right d]
+    rw [← ih₁ (Query.sourceProd hq rfl).left d, ← ih₂ (Query.sourceProd hq rfl).right d]
     exact product_map_fst (fun x y => Fin.append x y) _ _
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [Query.evaluateAnnotated, Query.evaluate, Query.stripDiff]
-    rw [← ih₁ (Query.noAggSum hq rfl).left d, ← ih₂ (Query.noAggSum hq rfl).right d]
+    rw [← ih₁ (Query.sourceSum hq rfl).left d, ← ih₂ (Query.sourceSum hq rfl).right d]
     exact Multiset.map_add _ _ _
   | Dedup q' ih =>
     intro hq d
     simp only [Query.evaluateAnnotated, Query.evaluate, Query.stripDiff]
-    rw [← ih (Query.noAggDedup hq rfl) d]
-    set r := q'.evaluateAnnotated (Query.noAggDedup hq rfl) d with hr
+    rw [← ih (Query.sourceDedup hq rfl) d]
+    set r := q'.evaluateAnnotated (Query.sourceDedup hq rfl) d with hr
     -- Both sides are `Nodup`; equality follows from membership equivalence,
     -- which is `groupByKey_key_iff`.
     have hL : (AnnotatedRelation.toPlain (Multiset.ofList (groupByKey r).val)).Nodup := by
@@ -303,23 +303,23 @@ theorem Query.evaluateAnnotated_toPlain :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [Query.evaluateAnnotated, Query.stripDiff]
-    rw [← ih₁ (Query.noAggDiff hq rfl).left d]
+    rw [← ih₁ (Query.sourceDiff hq rfl).left d]
     exact map_fst_map_sub
       (fun u => ((((groupByKey
-          (q₂.evaluateAnnotated (Query.noAggDiff hq rfl).right d)).val.find?
+          (q₂.evaluateAnnotated (Query.sourceDiff hq rfl).right d)).val.find?
         (·.1 = u)).map Prod.snd).getD 0)) _
-  | Agg is ts as q' ih =>
+  | ProvSum is t q' ih =>
     intro hq d
-    simp [Query.noAgg] at hq
+    simp [Query.source] at hq
   | Having is ts fs op l s q' ih =>
     intro hq d
-    simp [Query.noAgg] at hq
+    simp [Query.source] at hq
 
 /-- Plain evaluation is monotone (in the sub-multiset order) under stripping
 differences: the plain `Diff` is a `filter` of its left argument, and every
 other operator is monotone. -/
 theorem Query.evaluate_le_stripDiff :
-    ∀ {n} (q: Query T n), q.noAgg → ∀ (d: Database T),
+    ∀ {n} (q: Query T n), q.source → ∀ (d: Database T),
     @LE.le (Multiset (Tuple T n)) _ (q.evaluate d) ((q.stripDiff).evaluate d) := by
   intro n q
   induction q with
@@ -329,18 +329,18 @@ theorem Query.evaluate_le_stripDiff :
   | Proj ts q' ih =>
     intro hq d
     simp only [Query.evaluate, Query.stripDiff]
-    exact Multiset.map_le_map (ih (Query.noAggProj hq rfl) d)
+    exact Multiset.map_le_map (ih (Query.sourceProj hq rfl) d)
   | Sel φ q' ih =>
     intro hq d
     simp only [Query.evaluate, Query.stripDiff]
     exact @Multiset.filter_le_filter _ φ.eval φ.evalDecidable _ _
-      (ih (Query.noAggSel hq rfl) d)
+      (ih (Query.sourceSel hq rfl) d)
   | @Prod n₁ n₂ n hn q₁ q₂ ih₁ ih₂ =>
     intro hq d
     subst hn
     simp only [Query.evaluate, Query.stripDiff]
-    have h₁ := ih₁ (Query.noAggProd hq rfl).left d
-    have h₂ := ih₂ (Query.noAggProd hq rfl).right d
+    have h₁ := ih₁ (Query.sourceProd hq rfl).left d
+    have h₂ := ih₂ (Query.sourceProd hq rfl).right d
     show Multiset.map (fun x : Tuple T n₁ × Tuple T n₂ => Fin.append x.1 x.2)
         (Multiset.product (q₁.evaluate d) (q₂.evaluate d))
       ≤ Multiset.map (fun x : Tuple T n₁ × Tuple T n₂ => Fin.append x.1 x.2)
@@ -350,25 +350,25 @@ theorem Query.evaluate_le_stripDiff :
     intro hq d
     simp only [Query.evaluate, Query.stripDiff]
     exact le_trans
-      (Multiset.add_le_add_left (ih₂ (Query.noAggSum hq rfl).right d))
-      (Multiset.add_le_add_right (ih₁ (Query.noAggSum hq rfl).left d))
+      (Multiset.add_le_add_left (ih₂ (Query.sourceSum hq rfl).right d))
+      (Multiset.add_le_add_right (ih₁ (Query.sourceSum hq rfl).left d))
   | Dedup q' ih =>
     intro hq d
     simp only [Query.evaluate, Query.stripDiff]
-    have h := ih (Query.noAggDedup hq rfl) d
+    have h := ih (Query.sourceDedup hq rfl) d
     exact (Multiset.le_iff_subset (Multiset.nodup_dedup _)).mpr
       (fun t ht => Multiset.mem_dedup.mpr
         (Multiset.mem_of_le h (Multiset.mem_dedup.mp ht)))
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq d
     simp only [Query.evaluate, Query.stripDiff]
-    exact le_trans (Multiset.filter_le _ _) (ih₁ (Query.noAggDiff hq rfl).left d)
-  | Agg is ts as q' ih =>
+    exact le_trans (Multiset.filter_le _ _) (ih₁ (Query.sourceDiff hq rfl).left d)
+  | ProvSum is t q' ih =>
     intro hq d
-    simp [Query.noAgg] at hq
+    simp [Query.source] at hq
   | Having is ts fs op l s q' ih =>
     intro hq d
-    simp [Query.noAgg] at hq
+    simp [Query.source] at hq
 
 /-- **Data-part inclusion.** The plain evaluation of `q` on the underlying
 plain database is a sub-multiset of the data part of the annotated
@@ -378,7 +378,7 @@ annotation was zeroed remain on the right), and it cannot be strengthened to
 an equality on non-zero-annotated slots (see
 `Nat.counterexample_diff_adequacy`). -/
 theorem Query.evaluate_toPlain_le_evaluateAnnotated
-    (q: Query T n) (hq: q.noAgg) (d: AnnotatedDatabase T K) :
+    (q: Query T n) (hq: q.source) (d: AnnotatedDatabase T K) :
     @LE.le (Multiset (Tuple T n)) _ (q.evaluate d.toPlain)
       ((q.evaluateAnnotated hq d).toPlain) := by
   rw [Query.evaluateAnnotated_toPlain q hq d]
@@ -392,7 +392,7 @@ theorem of [Benzaken, Cohen-Boulakia, Contejean, Keller &
 Zucchini][benzaken2021coq] (there, multiplicities live in the annotations,
 so the statement is `ℕ`-specific; here they live in the multiset). -/
 theorem Query.evaluateAnnotated_toPlain_of_noDiff
-    (q: Query T n) (hq: q.noAgg) (hd: q.noDiff) (d: AnnotatedDatabase T K) :
+    (q: Query T n) (hq: q.source) (hd: q.noDiff) (d: AnnotatedDatabase T K) :
     (q.evaluateAnnotated hq d).toPlain = q.evaluate d.toPlain := by
   rw [Query.evaluateAnnotated_toPlain q hq d, Query.stripDiff_of_noDiff q hd]
 
@@ -424,7 +424,7 @@ theorem Nat.counterexample_diff_adequacy :
     let d : AnnotatedDatabase ℕ ℕ := [("R1", ⟨1, r₁⟩), ("R2", ⟨1, r₂⟩)]
     let q : Query ℕ 1 :=
       Query.Diff (Query.Dedup (Query.Rel 1 "R1")) (Query.Rel 1 "R2")
-    ∃ hq : q.noAgg,
+    ∃ hq : q.source,
       Multiset.map Prod.fst
           (Multiset.filter (fun p : AnnotatedTuple ℕ ℕ 1 => p.snd ≠ 0)
             (q.evaluateAnnotated hq d))
