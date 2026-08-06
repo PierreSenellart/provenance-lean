@@ -26,13 +26,26 @@ with every `SemiringWithMonusHom`:
   generalized predicate commutes (`∧ ↦ ⊗`, `∨ ↦ ⊕` through `map_mul`
   and `map_add`, `¬` by polarity).
 
-These are unconditional. The *evaluator-level* commutation
-`evaluate (h ⋆ d) = mapHom h ⋆ evaluate d` requires more: the
-evaluator's supersede and cashing decisions compare annotation lists for
-equality, which a non-injective hom can conflate (licensing supersedes on
-the target side that the source side does not take), and the `≼`-order's
-annotation tie-break in `havingGroup` need not be preserved. Its faithful
-scoping is future work; the lemmas here are the reusable core.
+These are unconditional, but they do not by themselves give the
+*evaluator-level* commutation `AggQuery.evaluateAnnotated_hom` at the
+bottom of this file: the evaluator's supersede and cashing decisions
+compare annotation lists for equality, which a non-injective hom can
+conflate (licensing supersedes on the target side that the source side
+does not take), and the `≼`-order's annotation tie-break in
+`havingGroup` need not be preserved. Both divergences are
+value-neutral, so the theorem holds with no hypothesis on the hom, the
+query or the m-semiring:
+
+* an extra supersede only drops a group guard standing next to an
+  annotation that already contains an occurrence of that group, which
+  `delta_absorb` makes redundant;
+* a changed tie-break only permutes occurrences carrying the same tuple
+  part, hence the same aggregated-term value, and the tie-block
+  congruence of `Provenance.AggValueCongr` shows such a permutation
+  leaves the predicate provenance alone. `GenRow.Sim` below carries that
+  slack row by row through the evaluator, and
+  `GenRow.Sim.toAnnotated_eq` cashes it into an equality of finalized
+  annotated tuples.
 -/
 
 variable {T : Type} [ValueType T]

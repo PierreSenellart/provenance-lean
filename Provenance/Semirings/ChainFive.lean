@@ -119,9 +119,11 @@ instance : SemiringWithMonus ChainFive where
   le_self_add := by decide
   le_add_self := by decide
   monus_spec := by decide
-  /- δ is the support indicator: the identity violates `delta_absorb`
-  here (`ChainFive` is idempotent but not absorptive – it is the
-  counterexample semiring). -/
+  /- δ is the support indicator, because the identity violates
+  `delta_absorb` here: `mid ⊗ (mid ⊕ mid) = mid ⊗ mid = 𝟘 ≠ mid`.
+  Absorptivity (`𝟙 ⊕ a = 𝟙`), which `ChainFive` does satisfy
+  (`ChainFive.absorptive`), is not the lattice law `a ⊗ (a ⊕ b) = a`
+  that `δ := id` needs. -/
   delta := fun a => if a = 0 then 0 else 1
   delta_zero := by decide
   delta_natCast_pos := fun hn => by
