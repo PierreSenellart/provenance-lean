@@ -22,10 +22,11 @@ package "provenance" where
 require "leanprover-community" / "mathlib" @ git "v4.33.0-rc1"
 
 -- descriptive-complexity versions are its own semver, independent of the Lean
--- toolchain: the `~1.0.0` range (patch releases only) is exactly the set of
--- releases cut against the Mathlib pin above; `v1.0.0` is its current member.
+-- toolchain: `v1.1.0` is cut against the Mathlib pin above, and is the floor,
+-- since the complexity results import its `Encoding.BinarySubsetSum`, added
+-- there. Later releases stay compatible as long as they keep that Mathlib pin.
 require "descriptive-complexity" from git
-  "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.0.0"
+  "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.1.0"
 
 @[default_target]
 lean_lib «Provenance» where

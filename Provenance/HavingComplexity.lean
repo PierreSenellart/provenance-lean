@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import DescriptiveComplexity.Decoding
+import DescriptiveComplexity.Encoding.BinarySubsetSum
 import DescriptiveComplexity.Problems.Knapsack
 import Provenance.Having
 import Provenance.Semirings.BoolFunc
@@ -16,7 +17,7 @@ Deciding whether the provenance of a `HAVING SUM` query over an `ℕ[X]`- or
 query `SELECT DISTINCT 1 FROM R GROUP BY b HAVING SUM(v) = b` is fixed and
 only the instance varies.
 
-The development is in two halves.
+The development is in three parts.
 
 * The **bridges** (`havingSumProv_ne_zero_iff`,
   `havingSumProvBool_ne_zero_iff`): over `ℕ[X] = MvPolynomial X ℕ` and over
@@ -32,11 +33,29 @@ The development is in two halves.
   `Language.binWeights` structure, is a decision problem `HavingSumNonzero`,
   and it is NP-complete. Hardness is an FO reduction from `Knapsack`
   (subset-sum with binary weights), so it is stronger than a Karp reduction.
+* The **encoding** half, which joins the two: a concrete group is a list of
+  aggregate values and a constant, encoded by
+  `DescriptiveComplexity.binarySubsetSumEncoding`, whose declared size is the
+  total *bit length* and whose no-padding/no-compression bounds are discharged
+  at construction. `havingSumNonzeroHow_faithful` and
+  `havingSumNonzeroBool_faithful` prove that `HavingSumNonzero` computes
+  exactly non-zero provenance on every encoded group, and
+  `exists_concreteNonemptySubsetSum_iff` – through the computable decoder of
+  `DescriptiveComplexity.bwDecode` – that *every* structure is such a group,
+  so both halves of the NP-completeness below are statements about concrete
+  groups.
+
+That last half is not bookkeeping. Values written in *unary* would make the
+problem tractable – `Provenance.Algorithms.SumDP` is the very dynamic program
+that solves it, and `DescriptiveComplexity.no_unary_encoding` shows the size
+bounds reject that reading – so the representation is part of the statement,
+and the encoding is where it is pinned down.
 
 Hardness is a *padding* interpretation: keep the instance and add one
 weight-zero item per element of the universe. Those items change no reachable
 total, but they make a solution non-empty, which is what the possible-world
-semantics requires (the empty world is excluded from Definition 11).
+semantics requires: `Having.havingProv` sums over the *non-empty* sub-worlds
+of a group only.
 
 ## Main results
 
@@ -46,7 +65,13 @@ semantics requires (the empty world is excluded from Definition 11).
 * `hasNonemptySubsetSum_iff` – it is `Knapsack` cut down by one FO sentence;
 * `knapsack_fo_reduction_havingSumNonzero` – the padding FO reduction;
 * **`havingSumNonzero_NP_complete`** – NP-completeness, in data
-  complexity.
+  complexity;
+* `havingSumNonzeroHow_faithful`, `havingSumNonzeroBool_faithful` – the
+  encoding of concrete groups is faithful, which carries *membership* to
+  concrete groups;
+* `havingSumNonzeroDecoding` and `exists_concreteNonemptySubsetSum_iff` – the
+  computable decoding back, which carries *hardness*: the problem is nowhere
+  hard on structures that are not groups.
 -/
 
 namespace Provenance.Complexity
@@ -333,7 +358,8 @@ theorem hasNonemptySubsetSum_iso (e : A ≃[Language.binWeights] B) :
 
 end Iso
 
-/-- The decision problem behind Proposition 18. -/
+/-- The decision problem behind the NP-completeness of non-zero `HAVING SUM`
+provenance: the isomorphism-invariant bundling of `HasNonemptySubsetSum`. -/
 def HavingSumNonzero : DecisionProblem Language.binWeights where
   Holds := fun A inst => @HasNonemptySubsetSum A inst
   iso_invariant := fun e => hasNonemptySubsetSum_iso e
@@ -735,10 +761,199 @@ theorem havingSumNonzero_NP_hard : NP.Hard HavingSumNonzero :=
 
 /-- **NP-completeness of non-zero `HAVING SUM` provenance**, in data
 complexity: membership and FO-hardness from `Knapsack`. Read through the
-bridges `havingSumProv_ne_zero_iff` and `havingSumProvBool_ne_zero_iff`,
-this is the NP-completeness of deciding non-`𝟘` provenance over `ℕ[X]`-
-and `𝔹[X]`-instances. -/
+bridges `havingSumProv_ne_zero_iff` and `havingSumProvBool_ne_zero_iff`, and
+through the faithful encoding of Step 5 below, this is the NP-completeness of
+deciding non-`𝟘` provenance of a concrete group over `ℕ[X]`- and
+`𝔹[X]`-instances, the values written in binary. -/
 theorem havingSumNonzero_NP_complete : NP.Complete HavingSumNonzero :=
   ⟨havingSumNonzero_mem_NP, havingSumNonzero_NP_hard⟩
+
+/-! ### Step 5: the concrete groups the theorem is about
+
+A `Language.binWeights` structure is not what a user has in hand: a `HAVING
+SUM` group is a list of aggregate values and the constant the predicate
+compares against. That is exactly
+`DescriptiveComplexity.SubsetSumInstance`, and
+`DescriptiveComplexity.binarySubsetSumEncoding` encodes it – with the two size
+obligations, no padding and no compression, discharged at construction against
+a declared size that counts *bit length*. What remains is the semantic
+obligation, `DescriptiveComplexity.Encoding.Faithful`: that the decision
+problem above computes non-zero provenance on every encoded group. Both
+semirings get it from the same encoding, the bridges having shown they have
+the same combinatorial content.
+-/
+
+section Concrete
+
+open DescriptiveComplexity
+
+/-- A concrete `HAVING SUM` group: the aggregate values of its occurrences,
+and the constant the predicate compares against. This is literally
+`DescriptiveComplexity.SubsetSumInstance`; naming it here records what the
+components mean on this side of the bridge. -/
+abbrev HavingSumInstance : Type := SubsetSumInstance
+
+/-- Some non-empty sub-world of the group aggregates to the constant: the
+combinatorial content the two bridges give the provenance, on concrete data.
+Non-emptiness is the possible-world semantics' exclusion of the empty world,
+not a technicality. -/
+def ConcreteNonemptySubsetSum (i : HavingSumInstance) : Prop :=
+  ∃ J : Finset (Fin i.1.length), J.Nonempty ∧ ∑ j ∈ J, i.1.get j = i.2
+
+/-- Non-zero `HAVING SUM` provenance of a concrete group over `ℕ[X]`, its
+occurrences annotated by pairwise distinct variables. -/
+def HavingSumNonzeroHow (i : HavingSumInstance) : Prop :=
+  havingSumProv (fun j : Fin i.1.length => (MvPolynomial.X j : MvPolynomial (Fin i.1.length) ℕ))
+    Finset.univ (fun j => i.1.get j) i.2 ≠ 0
+
+/-- Non-zero `HAVING SUM` provenance of a concrete group over `𝔹[X]`, its
+occurrences annotated by pairwise distinct variables. -/
+def HavingSumNonzeroBool (i : HavingSumInstance) : Prop :=
+  havingSumProv (fun j : Fin i.1.length => BoolFunc.var j) Finset.univ
+    (fun j => i.1.get j) i.2 ≠ 0
+
+/-- The `⊆ univ` of the bridge is vacuous on a concrete group: its
+occurrences are all of `Fin i.1.length`. -/
+private theorem subsetSum_univ_iff (i : HavingSumInstance) :
+    (∃ W ⊆ (Finset.univ : Finset (Fin i.1.length)), W.Nonempty ∧ ∑ j ∈ W, i.1.get j = i.2)
+      ↔ ConcreteNonemptySubsetSum i := by
+  constructor
+  · rintro ⟨W, -, hne, hsum⟩
+    exact ⟨W, hne, hsum⟩
+  · rintro ⟨J, hne, hsum⟩
+    exact ⟨J, Finset.subset_univ J, hne, hsum⟩
+
+theorem havingSumNonzeroHow_iff (i : HavingSumInstance) :
+    HavingSumNonzeroHow i ↔ ConcreteNonemptySubsetSum i :=
+  (havingSumProv_ne_zero_iff id Function.injective_id _ _ _).trans (subsetSum_univ_iff i)
+
+theorem havingSumNonzeroBool_iff (i : HavingSumInstance) :
+    HavingSumNonzeroBool i ↔ ConcreteNonemptySubsetSum i :=
+  (havingSumProvBool_ne_zero_iff id Function.injective_id _ _ _).trans (subsetSum_univ_iff i)
+
+/-- **The problem, read along an indexing of the items.** A selection of items
+is a set of indices, and conversely, with the same total and the same
+emptiness – the two halves of `selection_toIndex`/`selection_ofIndex`. This
+serves both the encoding (indexing by `itemPt`) and the decoding (indexing by
+a listing of a presented structure's items). -/
+theorem hasNonemptySubsetSum_iff_index {A : Type} [Language.binWeights.Structure A] [Finite A]
+    {n : ℕ} (f : Fin n → A) (hf : Function.Injective f)
+    (hrange : ∀ a, BWItem a ↔ ∃ j, f j = a) (hlin : IsLinOrd (BWLe (A := A))) :
+    HasNonemptySubsetSum A
+      ↔ ∃ J : Finset (Fin n), J.Nonempty ∧ ∑ j ∈ J, BWWeight (f j) = BWTarget A := by
+  constructor
+  · rintro ⟨-, -, S, hSne, hSi, hsum⟩
+    obtain ⟨J, hJ, hne⟩ := selection_toIndex f hf hrange S hSi
+    exact ⟨J, hne.mp hSne, by rw [← hJ, hsum]⟩
+  · rintro ⟨J, hJne, hJ⟩
+    obtain ⟨S, hSi, hsum, hne⟩ := selection_ofIndex f hf (fun j => (hrange _).mpr ⟨j, rfl⟩) J
+    exact ⟨inferInstance, hlin, S, hne.mpr hJne, hSi, by rw [hsum, hJ]⟩
+
+theorem concreteNonemptySubsetSum_iff (i : HavingSumInstance) :
+    ConcreteNonemptySubsetSum i ↔ HasNonemptySubsetSum (binarySubsetSumEncoding.Univ i) := by
+  refine Iff.symm ((hasNonemptySubsetSum_iff_index (BinarySubsetSum.itemPt i)
+    BinarySubsetSum.itemPt_injective BinarySubsetSum.item_iff_range
+    BinarySubsetSum.isLinOrd).trans ?_)
+  simp only [BinarySubsetSum.weight_itemPt, BinarySubsetSum.target]
+  exact Iff.rfl
+
+/-- **The encoding is faithful, over `ℕ[X]`**: on every encoded group,
+`HavingSumNonzero` computes exactly non-zero provenance of the concrete
+group. With the size bounds discharged at construction, this is what makes
+`havingSumNonzero_NP_complete` a statement about lists of binary-written
+aggregate values – and not about the unary reading, which
+`Provenance.Algorithms.SumDP` solves. -/
+theorem havingSumNonzeroHow_faithful :
+    binarySubsetSumEncoding.Faithful HavingSumNonzeroHow HavingSumNonzero :=
+  fun i => (havingSumNonzeroHow_iff i).trans (concreteNonemptySubsetSum_iff i)
+
+/-- **The encoding is faithful, over `𝔹[X]`**: the same encoding serves the
+Boolean-function semiring, the two bridges having given the same
+combinatorial characterization. -/
+theorem havingSumNonzeroBool_faithful :
+    binarySubsetSumEncoding.Faithful HavingSumNonzeroBool HavingSumNonzero :=
+  fun i => (havingSumNonzeroBool_iff i).trans (concreteNonemptySubsetSum_iff i)
+
+end Concrete
+
+/-! ### Step 6: reading the hardness back on concrete groups
+
+Faithfulness carries *membership* to concrete groups; hardness needs the
+converse – that the problem is not hard only on structures no group encodes.
+The decoder of `DescriptiveComplexity.bwDecode` is problem-independent, so it
+serves here unchanged: only its soundness has to be restated against
+`HavingSumNonzero`. There is again no junk to exclude, whence
+`exists_concreteNonemptySubsetSum_iff` for every nonempty finite structure.
+-/
+
+section Decoding
+
+open DescriptiveComplexity
+
+/-- Reindexing a decoded weight list, for the non-empty variant. -/
+theorem concreteNonemptySubsetSum_map {α : Type} (l : List α) (g : α → ℕ) (t : ℕ) :
+    ConcreteNonemptySubsetSum (l.map g, t)
+      ↔ ∃ J : Finset (Fin l.length), J.Nonempty ∧ ∑ j ∈ J, g (l.get j) = t := by
+  have h : (l.map g).length = l.length := l.length_map g
+  have key : ∀ J : Finset (Fin (l.map g).length),
+      ∑ j ∈ J, (l.map g).get j = ∑ j ∈ J.map (finCongr h).toEmbedding, g (l.get j) := fun J => by
+    rw [Finset.sum_map]
+    exact Finset.sum_congr rfl fun j _ => by simp [List.get_eq_getElem, List.getElem_map]
+  change (∃ J : Finset (Fin (l.map g).length), J.Nonempty ∧ ∑ j ∈ J, (l.map g).get j = t) ↔ _
+  constructor
+  · rintro ⟨J, hne, hJ⟩
+    exact ⟨J.map (finCongr h).toEmbedding, hne.map, (key J).symm.trans hJ⟩
+  · rintro ⟨J, hne, hJ⟩
+    refine ⟨J.map (finCongr h.symm).toEmbedding, hne.map, (key _).trans ?_⟩
+    rw [← hJ]
+    exact Finset.sum_congr (by ext j; simp) fun _ _ => rfl
+
+/-- A group with no occurrences cannot aggregate to a positive constant – what
+the decoder returns on a structure that is a no-instance for lack of a linear
+order. -/
+theorem not_concreteNonemptySubsetSum_empty : ¬ ConcreteNonemptySubsetSum ([], 1) := by
+  rintro ⟨J, hne, -⟩
+  obtain ⟨j, -⟩ := hne
+  exact j.elim0
+
+theorem bwDecode_sound_nonempty (S : FinPresentation Language.binWeights)
+    (i : SubsetSumInstance) (hi : i ∈ bwDecode S) :
+    ConcreteNonemptySubsetSum i ↔ HavingSumNonzero (Fin S.card) := by
+  unfold bwDecode at hi
+  split at hi
+  · next hlin =>
+    rw [Option.mem_def, Option.some.injEq] at hi
+    subst hi
+    rw [concreteNonemptySubsetSum_map]
+    refine Iff.symm ((hasNonemptySubsetSum_iff_index (BinarySubsetSum.items S).get
+      BinarySubsetSum.items_get_injective BinarySubsetSum.items_range
+      ((BinarySubsetSum.isLinOrdB_iff S).mp hlin)).trans ?_)
+    simp only [BinarySubsetSum.numB_bit, BinarySubsetSum.numB_tgt]
+  · next hlin =>
+    rw [Option.mem_def, Option.some.injEq] at hi
+    subst hi
+    refine iff_of_false not_concreteNonemptySubsetSum_empty ?_
+    rintro ⟨-, hl, -⟩
+    exact hlin ((BinarySubsetSum.isLinOrdB_iff S).mpr hl)
+
+/-- **The computable decoding of binary-weighted structures, for non-zero
+`HAVING SUM` provenance.** Every nonempty finite structure decodes, so the
+NP-hardness above is nowhere hardness on junk alone. -/
+def havingSumNonzeroDecoding : Decoding Language.binWeights
+    (DecisionProblem.ofSentence ⊤) ConcreteNonemptySubsetSum HavingSumNonzero where
+  dec := bwDecode
+  sound := bwDecode_sound_nonempty
+  total := bwDecode_total
+
+/-- **Hardness reads back to concrete groups**: every nonempty finite
+binary-weighted structure is decided by `HavingSumNonzero` exactly as some
+concrete group is by the non-empty subset-sum condition – equivalently, by the
+two bridges, as some concrete group's provenance is non-`𝟘`. -/
+theorem exists_concreteNonemptySubsetSum_iff (A : Type) [Language.binWeights.Structure A]
+    [Finite A] [Nonempty A] : ∃ i, ConcreteNonemptySubsetSum i ↔ HavingSumNonzero A :=
+  havingSumNonzeroDecoding.exists_conc_iff A (by simp)
+
+end Decoding
+
 
 end Provenance.Complexity

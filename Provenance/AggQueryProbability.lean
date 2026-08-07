@@ -1365,9 +1365,9 @@ noncomputable def AggQuery.tupleProb {n : ℕ} (P : ProbAssignment X)
 /-- **Unrestricted tuple-marginal PQE**: for a general query with
 all-regular output over a tuple-independent probabilistic database, the
 marginal probability of an answer tuple is the probability of its
-provenance. This is the general-evaluator counterpart of the paper's
-intensional-PQE theorem, with aggregate comparisons allowed anywhere in
-the query. -/
+provenance. This is the general-evaluator counterpart of the classical
+intensional-PQE theorem `ProbAssignment.theorem_12`, with aggregate
+comparisons allowed anywhere in the query. -/
 theorem AggQuery.tuple_pqe {n : ℕ} (P : ProbAssignment X)
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :

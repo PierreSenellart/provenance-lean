@@ -477,7 +477,13 @@ proven engine several general results reuse internally.
   library: membership is `Knapsack` cut down by one first-order sentence, and
   hardness is a padding FO reduction from `Knapsack`, hence stronger than a Karp
   reduction. The bridge to the semiring semantics is
-  `havingSumProv_ne_zero_iff`
+  `havingSumProv_ne_zero_iff`, and `havingSumNonzeroHow_faithful` closes the
+  loop on the other side: a concrete group – a list of aggregate values and a
+  constant – is encoded with its size bounds discharged, so the statement is
+  about values written in *binary*; `exists_concreteNonemptySubsetSum_iff`
+  closes it in the decoding direction, which is what carries the hardness back
+  to concrete groups. In unary the problem is tractable, by the
+  very dynamic program of `Provenance.Algorithms.SumDP`
 
 **Concrete m-semirings** (`Provenance.Semirings.*`)
 

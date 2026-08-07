@@ -47,7 +47,7 @@ the development is `sorry`-free.
 | symbolic aggregate tokens and their semantics, invariant under permutations of tied group elements | `Provenance/AggValue.lean`, `Provenance/AggValueCongr.lean` | `AggValue`, `AggValue.predProv_congr` |
 | the rewriting stated natively on that syntax, the rewriting of a bare `GROUP BY`, the `HAVING` site for a predicate mixing aggregate and regular atoms, and their **compositional closure** over arbitrary token-bearing plans | `Provenance/AggQueryRewriting.lean`, `Provenance/AggQueryGroupRewriting.lean`, `Provenance/AggQueryClosure.lean` | `AggQuery.rewritesTo_valid` |
 | provenance of `HAVING`: its possible-world semantics, the algebraic identities behind counting aggregates, the corresponding probability identities under independence, a scan-computable form for `MIN`/`MAX`/`PICKFIRST`, and the enumeration algorithms with their correctness | `Provenance/HavingSemantics.lean`, `Provenance/Having.lean`, `Provenance/HavingProbability.lean`, `Provenance/HavingMinMax.lean`, `Provenance/Algorithms/` | `Having.havingProv` |
-| complexity: non-zero `HAVING SUM` provenance is NP-complete in data complexity, with hardness by a first-order reduction | `Provenance/HavingComplexity.lean` | `havingSumProv_ne_zero_iff` |
+| complexity: non-zero `HAVING SUM` provenance is NP-complete in data complexity, with hardness by a first-order reduction and a size-honest encoding of concrete groups | `Provenance/HavingComplexity.lean` | `havingSumProv_ne_zero_iff`, `havingSumNonzeroHow_faithful` |
 
 `Provenance/Example.lean` works a full annotated-database computation end to
 end, in both the classical and the kind-indexed syntax; it is built as part of
@@ -115,7 +115,7 @@ require "provenance" from git
 Pin a tag or a commit rather than `main`, for reproducible builds. Then
 `import Provenance` brings in everything; import individual modules to keep
 build times down. Besides Mathlib, the library depends on
-[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.0.0),
+[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.1.0),
 used to state the complexity results; Lake resolves one Mathlib per workspace,
 so both must sit on the same pin.
 
