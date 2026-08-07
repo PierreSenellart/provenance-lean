@@ -51,8 +51,12 @@ instance : SemiringWithMonus Bool where
   delta := id
   delta_zero := rfl
   delta_natCast_pos := fun hn => delta_natCast_pos_id (by decide) hn
-  delta_regrouping := delta_regrouping_id
   delta_absorb := by decide
+
+/-- On `𝔹` the identity *is* an admissible `δ`, so it is the one used – the
+positive half of the choice recorded by the `not_isDelta_id` theorems of the
+indicator semirings. -/
+theorem Bool.isDelta_id : IsDelta (id : Bool → Bool) := isDelta_delta
 
 instance : CommSemiringWithMonus Bool where
   mul_comm := mul_comm

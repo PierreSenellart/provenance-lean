@@ -329,7 +329,6 @@ instance : SemiringWithMonus Lukasiewicz where
   delta := Lukasiewicz.deltaInd
   delta_zero := Lukasiewicz.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Lukasiewicz.deltaInd_isIndicator
-  delta_regrouping := delta_regrouping_indicator Lukasiewicz.deltaInd_isIndicator
   delta_absorb := delta_absorb_indicator Lukasiewicz.deltaInd_isIndicator
 
 instance : CommSemiringWithMonus Lukasiewicz where
@@ -352,6 +351,15 @@ theorem Lukasiewicz.not_mul_idempotent : ¬ ∀ a : Lukasiewicz, a * a = a := by
   have hpos : (0 : ℚ) < (2 : ℚ)⁻¹ := by
     rw [inv_pos]; norm_num
   exact hpos.ne h'
+
+/-- On the Łukasiewicz semiring the identity is not an admissible `δ`, even though
+the semiring is absorptive (`Lukasiewicz.absorptive`): what `delta_absorb` asks of
+`δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, which at `a = b = 1/2` reads
+`1/2 ⊗ 1/2 = max(0, 0) = 0 ≠ 1/2`. This is why the instance takes the support
+indicator (ProvSQL's `Lukasiewicz::delta`). -/
+theorem Lukasiewicz.not_isDelta_id : ¬ IsDelta (id : Lukasiewicz → Lukasiewicz) :=
+  not_isDelta_id_of_not_mul_idempotent Lukasiewicz.idempotent
+    Lukasiewicz.not_mul_idempotent
 
 /-- There is no semiring homomorphism from `BoolFunc Y` to the Łukasiewicz
 semiring sending the variables to arbitrary values: Łukasiewicz multiplication

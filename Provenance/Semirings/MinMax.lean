@@ -167,10 +167,14 @@ instance : SemiringWithMonus (MinMax α) where
         left
         rfl)
     fun hn => delta_natCast_pos_id hidem hn
-  delta_regrouping := delta_regrouping_id
   delta_absorb := fun a b => by
     show (⟨max a.val (min a.val b.val)⟩ : MinMax α) = a
     rw [max_eq_left (min_le_left a.val b.val)]
+
+/-- On `MinMax α` the identity is an admissible `δ`, so it is the one used
+(ProvSQL's `MinMax::delta`); `delta_absorb` is the lattice law
+`a ⊔ (a ⊓ b) = a`. -/
+theorem MinMax.isDelta_id : IsDelta (id : MinMax α → MinMax α) := isDelta_delta
 
 instance : CommSemiringWithMonus (MinMax α) where
   mul_comm := mul_comm

@@ -224,23 +224,6 @@ private lemma Which.zsf {a b : Which α} (h : a + b = 0) : a = 0 := by
   | wbot => rfl
   | wset sa => cases b <;> exact absurd h (by simp [(· + ·), Add.add])
 
-private lemma Which.sum_eq_zero_iff (t : Multiset (Which α)) :
-    t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
-  induction t using Multiset.induction_on with
-  | empty => simp
-  | cons a t ih =>
-    rw [Multiset.sum_cons]
-    constructor
-    · intro h x hx
-      have ha : a = 0 := Which.zsf h
-      rcases Multiset.mem_cons.mp hx with rfl | hx
-      · exact ha
-      · rw [ha, zero_add] at h
-        exact ih.mp h x hx
-    · intro h
-      rw [h a (Multiset.mem_cons_self a t), zero_add,
-        ih.mpr fun x hx => h x (Multiset.mem_cons_of_mem hx)]
-
 omit [DecidableEq α] in
 private lemma Which.one_ne_zero' : (1 : Which α) ≠ 0 := by
   intro h
@@ -283,24 +266,6 @@ instance : SemiringWithMonus (Which α) where
     fun hn => by
       rw [natCast_pos_eq_one_of_idempotent hidem hn,
         Which.deltaInd_of_ne Which.one_ne_zero']
-  delta_regrouping := fun s => by
-    by_cases hz : s.sum = 0
-    · have hmap : (s.map Which.deltaInd).sum = 0 :=
-        (Which.sum_eq_zero_iff _).mpr fun x hx => by
-          obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hx
-          rw [(Which.sum_eq_zero_iff s).mp hz a ha]
-          rfl
-      rw [hz, hmap]
-    · have hmapne : (s.map Which.deltaInd).sum ≠ 0 := by
-        intro h
-        apply hz
-        refine (Which.sum_eq_zero_iff s).mpr fun a ha => ?_
-        have hda := (Which.sum_eq_zero_iff _).mp h _
-          (Multiset.mem_map_of_mem _ ha)
-        by_contra hane
-        rw [Which.deltaInd_of_ne hane] at hda
-        exact Which.one_ne_zero' hda
-      rw [Which.deltaInd_of_ne hmapne, Which.deltaInd_of_ne hz]
   delta_absorb := fun a b => by
     by_cases ha : a = 0
     · rw [ha, zero_mul]
@@ -321,6 +286,14 @@ theorem Which.not_absorptive (h: ∃ (_: α), ⊤) : ¬(absorptive (Which α)) :
     rfl
   rw[← this]
   simp
+
+/-- On Lin[X] with a non-empty label set, the identity is not an admissible
+`δ`: `delta_absorb` at `a = 𝟙` is absorptivity, which Lin[X] lacks (`⊗` and
+`⊕` both being union). This is why the instance takes the support indicator
+rather than ProvSQL's historical `Which::delta`. -/
+theorem Which.not_isDelta_id (h : ∃ (_ : α), ⊤) :
+    ¬ IsDelta (id : Which α → Which α) :=
+  not_isDelta_id_of_not_absorptive (Which.not_absorptive h)
 
 /-- Which[∅] is absorptive -/
 theorem Which.absorptive (h: IsEmpty α): absorptive (Which α) := by

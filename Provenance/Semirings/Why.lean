@@ -216,23 +216,6 @@ private lemma Why.zsf {a b : Why α} (h : a + b = 0) : a = 0 := by
   rw [hx]
   exact Iff.rfl
 
-private lemma Why.sum_eq_zero_iff (t : Multiset (Why α)) :
-    t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
-  induction t using Multiset.induction_on with
-  | empty => simp
-  | cons a t ih =>
-    rw [Multiset.sum_cons]
-    constructor
-    · intro h x hx
-      have ha : a = 0 := Why.zsf h
-      rcases Multiset.mem_cons.mp hx with rfl | hx
-      · exact ha
-      · rw [ha, zero_add] at h
-        exact ih.mp h x hx
-    · intro h
-      rw [h a (Multiset.mem_cons_self a t), zero_add,
-        ih.mpr fun x hx => h x (Multiset.mem_cons_of_mem hx)]
-
 private lemma Why.one_ne_zero' : (1 : Why α) ≠ 0 := by
   intro h
   have := congrArg Why.carrier h
@@ -321,23 +304,6 @@ instance instSemiringWithMonusWhy : SemiringWithMonus (Why α) where
     fun hn => by
       rw [natCast_pos_eq_one_of_idempotent hidem hn,
         Why.deltaInd_of_ne Why.one_ne_zero']
-  delta_regrouping := fun s => by
-    by_cases hz : s.sum = 0
-    · have hmap : (s.map Why.deltaInd).sum = 0 :=
-        (Why.sum_eq_zero_iff _).mpr fun x hx => by
-          obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hx
-          rw [(Why.sum_eq_zero_iff s).mp hz a ha, Why.deltaInd_zero]
-      rw [hz, hmap, Why.deltaInd_zero]
-    · have hmapne : (s.map Why.deltaInd).sum ≠ 0 := by
-        intro h
-        apply hz
-        refine (Why.sum_eq_zero_iff s).mpr fun a ha => ?_
-        have hda := (Why.sum_eq_zero_iff _).mp h _
-          (Multiset.mem_map_of_mem _ ha)
-        by_contra hane
-        rw [Why.deltaInd_of_ne hane] at hda
-        exact Why.one_ne_zero' hda
-      rw [Why.deltaInd_of_ne hmapne, Why.deltaInd_of_ne hz]
   delta_absorb := fun a b => by
     by_cases ha : a = 0
     · rw [ha, zero_mul]
@@ -374,6 +340,14 @@ theorem Why.not_absorptive (hNotEmpty: ∃ (_: α), ⊤) : ¬(absorptive (Why α
   simp at h'
   have := congrArg (fun S => {x} ∈ S) h'
   simp at this
+
+/-- On Why[X] with a non-empty variable set, the identity is not an admissible
+`δ`: `delta_absorb` at `a = 𝟙` is absorptivity, which Why[X] lacks. This is why
+the instance takes the support indicator rather than ProvSQL's historical
+witness-preserving `Why::delta`. -/
+theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
+    ¬ IsDelta (id : Why α → Why α) :=
+  not_isDelta_id_of_not_absorptive (Why.not_absorptive hNotEmpty)
 
 /-- In Why[X], as long as X is non-empty, times is not distributive over
   monus. Note that this contradicts [Amsterdamer, Deutch & Tannen, *On

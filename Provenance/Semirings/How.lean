@@ -120,7 +120,6 @@ noncomputable instance : SemiringWithMonus (MvPolynomial X ℕ) where
   delta := How.deltaInd
   delta_zero := How.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator How.deltaInd_isIndicator
-  delta_regrouping := delta_regrouping_indicator How.deltaInd_isIndicator
   delta_absorb := delta_absorb_indicator How.deltaInd_isIndicator
 
 noncomputable instance : CommSemiringWithMonus (MvPolynomial X ℕ) where
@@ -138,6 +137,14 @@ theorem How.not_absorptive : ¬(absorptive (MvPolynomial X ℕ)) := by
   have h₂ : ¬(idempotent (MvPolynomial X ℕ)) := How.not_idempotent
   tauto
 
+
+omit [DecidableEq X] in
+/-- On `ℕ[X]` the identity is not an admissible `δ`: `δ(𝟙 ⊕ 𝟙) = 𝟙` would make
+the semiring idempotent, and `ℕ[X]` counts (`1 + 1 = 2 ≠ 1`). This is why the
+instance above takes the support indicator (ProvSQL's `How::delta`). -/
+theorem How.not_isDelta_id :
+    ¬ IsDelta (id : MvPolynomial X ℕ → MvPolynomial X ℕ) :=
+  not_isDelta_id_of_not_idempotent How.not_idempotent
 
 omit [DecidableEq X] in
 /-- The How[X] semiring is universal among commutative semirings. This

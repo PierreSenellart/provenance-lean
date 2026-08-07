@@ -1376,13 +1376,17 @@ instance [DenselyOrdered α] [BoundedOrder α]: SemiringWithMonus (IntervalUnion
       rw [add_eq_union, mem_union]
       simp [one_toSet]
     fun hn => delta_natCast_pos_id (idempotent_of_absorptive habs) hn
-  delta_regrouping := delta_regrouping_id
   delta_absorb := fun a b => by
     apply ext_toSet
     ext x
     rw [mul_eq_inter, add_eq_union]
     rw [mem_inter, id_eq, mem_union]
     tauto
+
+/-- On interval unions the identity is an admissible `δ`, so it is the one used
+(ProvSQL's `IntervalUnion::delta`); `delta_absorb` is `A ∩ (A ∪ B) = A`. -/
+theorem IntervalUnion.isDelta_id [DenselyOrdered α] [BoundedOrder α] :
+    IsDelta (id : IntervalUnion α → IntervalUnion α) := isDelta_delta
 
 instance [DenselyOrdered α] [BoundedOrder α] : CommSemiringWithMonus (IntervalUnion α) where
   mul_comm := mul_comm

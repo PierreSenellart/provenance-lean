@@ -57,7 +57,6 @@ instance : SemiringWithMonus Nat where
   delta := Nat.deltaInd
   delta_zero := Nat.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Nat.deltaInd_isIndicator
-  delta_regrouping := delta_regrouping_indicator Nat.deltaInd_isIndicator
   delta_absorb := delta_absorb_indicator Nat.deltaInd_isIndicator
 
 instance : CommSemiringWithMonus Nat where
@@ -77,6 +76,12 @@ theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
 theorem Nat.not_absorptive : ¬ (absorptive Nat) := by
   by_contra h
   exact Nat.not_idempotent (idempotent_of_absorptive h)
+
+/-- On `ℕ` the identity is not an admissible `δ`: `δ(𝟙 ⊕ 𝟙) = 𝟙` would make
+`ℕ` idempotent (`1 + 1 = 2 ≠ 1`). This is why the instance above takes the
+support indicator. -/
+theorem Nat.not_isDelta_id : ¬ IsDelta (id : ℕ → ℕ) :=
+  not_isDelta_id_of_not_idempotent Nat.not_idempotent
 
 /-- `ℕ` has characteristic 0: it satisfies `CharZero`, hence `CharP ℕ 0` via
 `CharP.ofCharZero`. -/

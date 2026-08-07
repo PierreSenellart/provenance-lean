@@ -151,11 +151,13 @@ noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonu
 
   /- δ matches ProvSQL's `Tropical::delta`: the support indicator
   (`0 = trop ⊤ ↦ 0`, any other element ↦ `1 = trop 0`).
-  The tropical semiring is idempotent, so a tropical `δ` could equally well be the
-  identity; we follow ProvSQL and use the indicator here.
+  The tropical semiring is additively idempotent, so `δ := id` does satisfy
+  `delta_zero` and `delta_natCast_pos`, but it fails `delta_absorb`, whose
+  content here is `a + min(a, b) = a` in the underlying monoid – see
+  `TropicalN.not_isDelta_id`. The indicator is therefore forced, as in ProvSQL.
 
   The proofs below are local rather than going through the generic helpers
-  `delta_natCast_pos_indicator` / `delta_regrouping_indicator`: the tropical order
+  `delta_natCast_pos_indicator` / `delta_absorb_indicator`: the tropical order
   that makes the semiring canonically ordered is the *reverse* of the Mathlib order on
   `Tropical α`, so we cannot expose a separate `CanonicallyOrderedAdd (Tropical α)`
   instance without clashing with `Mathlib.Algebra.Tropical.Basic`. -/
@@ -171,57 +173,6 @@ noncomputable instance [LinearOrderedAddCommMonoidWithTop α] : SemiringWithMonu
     split_ifs with hh
     · exact hh.symm
     · rfl
-  delta_regrouping := by
-    -- `Tropical α` analogue of `Multiset.sum_eq_zero_iff` (Mathlib only provides the
-    -- canonically-ordered version, but the tropical order here is reversed). Proved
-    -- by induction: zero in the tropical semiring is `trop ⊤`, addition is `min`,
-    -- and `min x y = ⊤ ↔ x = ⊤ ∧ y = ⊤`.
-    have hsum_zero : ∀ (t : Multiset (Tropical α)),
-        t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
-      intro t
-      induction t using Multiset.induction_on with
-      | empty => simp
-      | cons a r ih =>
-        rw [Multiset.sum_cons]
-        simp only [Multiset.mem_cons, forall_eq_or_imp]
-        constructor
-        · intro hadd
-          have h : min (Tropical.untrop a) (Tropical.untrop r.sum) = ⊤ := by
-            rw [← Tropical.untrop_add, hadd, Tropical.untrop_zero]
-          refine ⟨Tropical.untrop_injective ?_, ih.mp (Tropical.untrop_injective ?_)⟩
-          · rw [Tropical.untrop_zero]
-            exact le_antisymm le_top (by rw [← h]; exact min_le_left _ _)
-          · rw [Tropical.untrop_zero]
-            exact le_antisymm le_top (by rw [← h]; exact min_le_right _ _)
-        · rintro ⟨ha, hr⟩
-          rw [ha, ih.mpr hr, add_zero]
-    intro s
-    show Tropical.deltaInd (s.map Tropical.deltaInd).sum = Tropical.deltaInd s.sum
-    -- Both sides reduce to a single `if`; show the conditions coincide.
-    have hzero_iff : (s.map Tropical.deltaInd).sum = 0 ↔ s.sum = 0 := by
-      constructor
-      · intro h
-        refine (hsum_zero s).mpr (fun a ha => ?_)
-        by_contra hane
-        have h1eq : (1 : Tropical α) = 0 := by
-          have hmem : (1 : Tropical α) ∈ s.map Tropical.deltaInd :=
-            Multiset.mem_map.mpr ⟨a, ha, by simp [Tropical.deltaInd, hane]⟩
-          exact (hsum_zero _).mp h _ hmem
-        -- `1 = 0` in a semiring collapses everything to `0`.
-        apply hane
-        calc a = a * 1 := (mul_one a).symm
-          _ = a * 0 := by rw [h1eq]
-          _ = 0 := mul_zero a
-      · intro h
-        refine (hsum_zero _).mpr ?_
-        intro b hb
-        obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.mp hb
-        simp [Tropical.deltaInd, (hsum_zero s).mp h a ha]
-    show (if (s.map Tropical.deltaInd).sum = 0 then (0 : Tropical α) else 1) =
-         if s.sum = 0 then (0 : Tropical α) else 1
-    by_cases hs : s.sum = 0
-    · rw [if_pos hs, if_pos (hzero_iff.mpr hs)]
-    · rw [if_neg hs, if_neg (fun h => hs (hzero_iff.mp h))]
   delta_absorb := fun a b => by
     by_cases h : a + b = 0
     · have hmin : min (Tropical.untrop a) (Tropical.untrop b) = ⊤ := by
@@ -271,6 +222,21 @@ theorem Tropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [CanonicallyO
 
 theorem TropicalN.absorptive : absorptive (Tropical (WithTop ℕ)) := by
   exact Tropical.absorptive
+
+/-- On the tropical semiring over `ℕ ∪ {∞}` the identity is not an admissible `δ`,
+even though this semiring *is* absorptive (`TropicalN.absorptive`): what
+`delta_absorb` asks of `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, i.e.
+`a + min(a, b) = a` in `ℕ`, and at `a = b = trop 1` it reads `trop 2 ≠ trop 1`.
+This is why the instance takes the support indicator (ProvSQL's
+`Tropical::delta`). -/
+theorem TropicalN.not_isDelta_id :
+    ¬ IsDelta (id : Tropical (WithTop ℕ) → Tropical (WithTop ℕ)) := by
+  refine not_isDelta_id_of_absorb_ne
+    (a := Tropical.trop ((1 : ℕ) : WithTop ℕ))
+    (b := Tropical.trop ((1 : ℕ) : WithTop ℕ)) ?_
+  intro h
+  have h' := congrArg Tropical.untrop h
+  simp [Tropical.untrop_mul] at h'
 
 /-- Times distributes over monus on tropical semirings made of an order
   strictly compatible with addition, with an additional top element. -/

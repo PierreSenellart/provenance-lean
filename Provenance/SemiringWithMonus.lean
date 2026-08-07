@@ -48,7 +48,7 @@ We do not require the semiring to be necessarily commutative.
 
 In addition to monus, the class carries a `δ : α → α` operator subject
 to three axioms (`delta_zero`, `delta_natCast_pos`, and
-`delta_regrouping`). This is the duplicate-eliminating support
+`delta_absorb`). This is the duplicate-eliminating support
 operator used to interpret aggregation in the framework of
 [Amsterdamer, Deutch & Tannen, *Provenance for aggregate queries*][amsterdamer2011aggregate],
 mirroring ProvSQL's `Semiring::delta`. -/
@@ -63,20 +63,6 @@ class SemiringWithMonus (α : Type)
   /-- `δ` sends every positive integer iterate of `1` (i.e., every
   positive natural-number cast) to `1`. -/
   delta_natCast_pos : ∀ {n : ℕ}, 0 < n → delta ((n : α)) = 1
-  /-- `δ` is invariant under regrouping a fine partition into a coarse one:
-  computing δ on each fine group's sum, summing the results, and applying δ
-  again yields the same value as summing all the fine groups directly and
-  applying δ. Formally, `δ((Σᵢ δ(aᵢ))) = δ((Σᵢ aᵢ))` for any multiset of
-  annotations.
-
-  This strengthens the idempotence axiom of
-  [Amsterdamer, Deutch & Tannen, *Provenance for aggregate queries*,
-  Def. 3.6][amsterdamer2011aggregate]: idempotence is recovered by taking a
-  singleton multiset (see `delta_idempotent`). The stronger form is the
-  natural axiom for making grouped aggregation associative-up-to-equivalence
-  under partition coarsening: re-grouping a fine partition to get a coarse
-  one yields the same provenance as grouping directly. -/
-  delta_regrouping : ∀ (s : Multiset α), delta (s.map delta).sum = delta s.sum
   /-- A δ-guard is absorbed by any multiple of one of its summands:
   `a ⊗ δ(a ⊕ b) = a`. This is what makes a group-existence factor
   redundant next to any provenance that already contains an occurrence
@@ -118,15 +104,6 @@ theorem monus_unique [K : SemiringWithMonus α] (s : α → α → α)
 /-- In a `SemiringWithMonus`, `δ 1 = 1`. -/
 theorem delta_one [K : SemiringWithMonus α] : K.delta 1 = 1 := by
   have h := K.delta_natCast_pos (n := 1) Nat.zero_lt_one
-  simpa using h
-
-/-- In a `SemiringWithMonus`, `δ` is idempotent: applying it twice equals
-applying it once. This is the singleton case of `delta_regrouping`: the
-fine partition with a single group reduces to applying δ once or twice on
-the same value. -/
-theorem delta_idempotent [K : SemiringWithMonus α] (a : α) :
-    K.delta (K.delta a) = K.delta a := by
-  have h := K.delta_regrouping ({a} : Multiset α)
   simpa using h
 
 /-- In a `SemiringWithMonus`, `a - a = 0`. -/
@@ -396,7 +373,7 @@ In the m-semirings used for provenance the `δ` operator is invariably
 realized in one of two ways: as the identity (when the semiring is
 idempotent, so every positive natural cast already equals `1`) or as the
 indicator-of-nonzero (`a ↦ if a = 0 then 0 else 1`). The lemmas below
-package the proofs of the three `δ` axioms for both candidates so each
+package the proofs of the `δ` axioms for both candidates so each
 concrete instance can plug them in directly. -/
 
 /-- `δ := id` satisfies `delta_natCast_pos` in any idempotent semiring:
@@ -404,11 +381,6 @@ every positive natural-number cast collapses to `1`. -/
 theorem delta_natCast_pos_id {K : Type} [Semiring K] (h : idempotent K)
     {n : ℕ} (hn : 0 < n) : (id ((n : K)) : K) = 1 :=
   natCast_pos_eq_one_of_idempotent h hn
-
-/-- `δ := id` satisfies `delta_regrouping` in any semiring: both sides
-unfold to `s.sum`. -/
-theorem delta_regrouping_id {K : Type} [Semiring K] (s : Multiset K) :
-    (id ((s.map id).sum) : K) = id s.sum := by simp
 
 /-- The “indicator-of-nonzero” recipe: `δ a = 0` when `a = 0` and
 `δ a = 1` otherwise. Captured abstractly so a single set of axioms can
@@ -428,42 +400,6 @@ theorem delta_natCast_pos_indicator {K : Type} [Semiring K] [Nontrivial K] [Char
   rw [CharP.cast_eq_zero_iff K 0 n, zero_dvd_iff] at hzero
   omega
 
-/-- Any `δ` matching the indicator recipe satisfies `delta_regrouping`
-in a nontrivial canonically ordered semiring: a sum is zero exactly when
-every summand is, so applying `δ` after summing indicators agrees with
-applying `δ` after summing the original values. -/
-theorem delta_regrouping_indicator
-    {K : Type} [Semiring K] [PartialOrder K] [IsOrderedAddMonoid K]
-    [CanonicallyOrderedAdd K] [Nontrivial K]
-    {δ : K → K} (h : IsDeltaIndicator δ) (s : Multiset K) :
-    δ (s.map δ).sum = δ s.sum := by
-  by_cases hs : s.sum = 0
-  · rw [hs, h.zero]
-    have hall : ∀ a ∈ s, a = 0 := Multiset.sum_eq_zero_iff.mp hs
-    have hmap_eq : s.map δ = s.map (fun _ => (0 : K)) := by
-      refine Multiset.map_congr rfl (fun x hx => ?_)
-      rw [hall x hx, h.zero]
-    rw [hmap_eq, show (s.map (fun _ => (0 : K))).sum = 0 by
-      induction s using Multiset.induction_on with
-      | empty => simp
-      | cons _ _ _ => simp]
-    exact h.zero
-  · rw [h.nonzero _ hs]
-    refine h.nonzero _ ?_
-    obtain ⟨x, hxs, hxne⟩ : ∃ x ∈ s, x ≠ 0 := by
-      by_contra hcontra
-      apply hs
-      apply Multiset.sum_eq_zero_iff.mpr
-      intro a ha
-      by_contra hane
-      exact hcontra ⟨a, ha, hane⟩
-    have hone_mem : (1 : K) ∈ s.map δ :=
-      Multiset.mem_map.mpr ⟨x, hxs, h.nonzero x hxne⟩
-    have hle : (1 : K) ≤ (s.map δ).sum := Multiset.le_sum_of_mem hone_mem
-    intro heq
-    rw [heq] at hle
-    exact one_ne_zero (le_antisymm hle (by simp))
-
 /-- Any `δ` matching the indicator recipe satisfies `delta_absorb` in a
 canonically ordered semiring: if `a ⊕ b = 𝟘` then `a = 𝟘` by zero-sum
 freeness, and otherwise `δ(a ⊕ b) = 𝟙`. -/
@@ -477,17 +413,82 @@ theorem delta_absorb_indicator
     rw [ha, zero_mul]
   · rw [h.nonzero _ hab, mul_one]
 
+/-! ## Admissibility of a candidate `δ`
+
+`δ` is not determined by the axioms, and the two operators used in practice
+are the identity and the support indicator. `IsDelta` states the axioms as a
+predicate on a *candidate* operator, so that a semiring can record which of
+the two it must use: the identity is preferred where it is admissible, and
+the indicator is forced exactly where `¬ IsDelta id` holds. The three
+`not_isDelta_id_of_*` lemmas below cover the three ways the identity fails,
+in increasing order of subtlety. -/
+
+/-- A candidate operator `δ : K → K` satisfies the δ-axioms of
+`SemiringWithMonus`. -/
+structure IsDelta {K : Type} [Semiring K] (δ : K → K) : Prop where
+  /-- `δ` sends `𝟘` to `𝟘`. -/
+  zero : δ 0 = 0
+  /-- `δ` sends every positive natural-number cast to `𝟙`. -/
+  natCast_pos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1
+  /-- A δ-guard is absorbed by any multiple of one of its summands. -/
+  absorb : ∀ a b : K, a * δ (a + b) = a
+
+/-- The `δ` carried by a `SemiringWithMonus` is admissible, by definition of
+the class. In particular, in a semiring whose instance takes `δ := id` this
+gives `IsDelta id` for free. -/
+theorem isDelta_delta [K : SemiringWithMonus α] : IsDelta K.delta :=
+  ⟨K.delta_zero, K.delta_natCast_pos, K.delta_absorb⟩
+
+/-- To refute `δ := id`, exhibit a pair violating the lattice absorption law
+`a ⊗ (a ⊕ b) = a`, which is what `delta_absorb` demands of the identity. -/
+theorem not_isDelta_id_of_absorb_ne {K : Type} [Semiring K] {a b : K}
+    (h : a * (a + b) ≠ a) : ¬ IsDelta (id : K → K) :=
+  fun hd => h (by simpa using hd.absorb a b)
+
+/-- `δ := id` requires the semiring to be idempotent: `delta_natCast_pos` at
+`n = 2` reads `𝟙 ⊕ 𝟙 = 𝟙`, whence `a ⊕ a = a ⊗ (𝟙 ⊕ 𝟙) = a`. This is the
+crudest of the three obstructions, and the one that rules the identity out
+of the counting semirings (`ℕ`, `ℕ[X]`). -/
+theorem not_isDelta_id_of_not_idempotent {K : Type} [Semiring K]
+    (h : ¬ idempotent K) : ¬ IsDelta (id : K → K) := by
+  intro hd
+  have h2 : (1 : K) + 1 = 1 := by
+    have hcast := hd.natCast_pos (n := 2) (by omega)
+    simp only [id_eq] at hcast
+    push_cast at hcast
+    rwa [one_add_one_eq_two]
+  refine h (fun a => ?_)
+  calc a + a = a * 1 + a * 1 := by rw [mul_one]
+    _ = a * (1 + 1) := (mul_add a 1 1).symm
+    _ = a * 1 := by rw [h2]
+    _ = a := mul_one a
+
+/-- `δ := id` requires multiplicative idempotence as soon as addition is
+idempotent: `delta_absorb` at `b = a` reads `a ⊗ (a ⊕ a) = a ⊗ a = a`. This is
+the obstruction in the absorptive semirings whose `⊗` is a genuine product
+(Viterbi, Łukasiewicz), where the two coarser tests below say nothing. -/
+theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
+    (hadd : idempotent K) (h : ¬ ∀ a : K, a * a = a) : ¬ IsDelta (id : K → K) :=
+  fun hd => h (fun a => by simpa [hadd a] using hd.absorb a a)
+
+/-- `δ := id` requires absorptivity: `delta_absorb` at `a = 𝟙` reads
+`𝟙 ⊗ (𝟙 ⊕ b) = 𝟙`, i.e. `𝟙 ⊕ b = 𝟙`. -/
+theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
+    (h : ¬ absorptive K) : ¬ IsDelta (id : K → K) := by
+  intro hd
+  exact h (fun a => by simpa using hd.absorb 1 a)
+
 /-! ## Existence of a `δ`-like operator
 
 This is the abstract counterpart of the `SemiringWithMonus` δ-axioms: we
 characterise, in an arbitrary nontrivial semiring (no order assumed), when
 a function `δ : K → K` satisfying `δ 0 = 0` and `δ ((n : K)) = 1` for
-`0 < n` can exist. The class axiom `delta_regrouping` is strictly stronger,
-so the iff below should be read as a statement about how much of the
+`0 < n` can exist. The class also demands `delta_absorb`, which the iff
+below ignores, so it should be read as a statement about how much of the
 ProvSQL δ interface is consistent with a given characteristic, not as a
-full existence proof for the class axiom. (Constructing a witness for
-`delta_regrouping` itself requires more structure: in a canonically
-ordered semiring the indicator works, see `delta_regrouping_indicator`.) -/
+full existence proof for the class. (Constructing a witness for
+`delta_absorb` requires more structure: in a canonically ordered semiring
+the indicator works, see `delta_absorb_indicator`.) -/
 
 /-- In any nontrivial semiring, a function `δ : K → K` satisfying `δ 0 = 0`
 and `δ ((n : K)) = 1` for every positive natural cast `n` exists if and only
@@ -528,6 +529,40 @@ theorem delta_exists_iff_charP_zero {K : Type} [Semiring K] [Nontrivial K] :
         rw [CharP.cast_eq_zero_iff K 0 n, zero_dvd_iff] at h
         omega
       simp [hne]
+
+/-- **The third axiom is free.** In a canonically ordered semiring, a full
+`IsDelta` operator exists as soon as *some* function satisfies the first two
+axioms: the indicator witnessing `delta_exists_iff_charP_zero` satisfies
+`delta_absorb` as well (`delta_absorb_indicator`). So the admissibility
+question for a candidate δ is never one of existence – it is only about
+whether the *preferred* candidate, the identity, is among the admissible
+ones (`not_isDelta_id_of_*`). -/
+theorem isDelta_exists_of_natCast_axioms
+    {K : Type} [Semiring K] [PartialOrder K] [IsOrderedAddMonoid K]
+    [CanonicallyOrderedAdd K] [Nontrivial K] {δ : K → K}
+    (h0 : δ 0 = 0) (hpos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1) :
+    ∃ δ' : K → K, IsDelta δ' := by
+  classical
+  haveI : CharP K 0 := delta_exists_iff_charP_zero.mp ⟨δ, h0, hpos⟩
+  have hind : IsDeltaIndicator (fun x : K => if x = 0 then 0 else 1) :=
+    ⟨by simp, fun a ha => by simp [ha]⟩
+  exact ⟨_, hind.zero, delta_natCast_pos_indicator hind,
+    delta_absorb_indicator hind⟩
+
+/-- The companion of `delta_exists_iff_charP_zero` for the full axiom set: in a
+nontrivial canonically ordered semiring, an admissible `δ` exists if and only if
+the characteristic is `0`. -/
+theorem isDelta_exists_iff_charP_zero
+    {K : Type} [Semiring K] [PartialOrder K] [IsOrderedAddMonoid K]
+    [CanonicallyOrderedAdd K] [Nontrivial K] :
+    (∃ δ : K → K, IsDelta δ) ↔ CharP K 0 := by
+  constructor
+  · rintro ⟨δ, hd⟩
+    exact delta_exists_iff_charP_zero.mp ⟨δ, hd.zero, hd.natCast_pos⟩
+  · intro hchar
+    haveI : CharP K 0 := hchar
+    obtain ⟨δ, h0, hpos⟩ := delta_exists_iff_charP_zero.mpr hchar
+    exact isDelta_exists_of_natCast_axioms h0 hpos
 
 /-! ## Commutative `SemiringWithMonus`s
 

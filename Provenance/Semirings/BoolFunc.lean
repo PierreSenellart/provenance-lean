@@ -168,10 +168,13 @@ instance : SemiringWithMonus (BoolFunc X) where
     let hidem : idempotent (BoolFunc X) :=
       idempotent_of_absorptive (fun a => by simp [(· + ·), Add.add]; congr)
     fun hn => delta_natCast_pos_id hidem hn
-  delta_regrouping := delta_regrouping_id
   delta_absorb := fun a b => funext fun ν => by
     show (a ν && (a ν || b ν)) = a ν
     cases a ν <;> cases b ν <;> rfl
+
+/-- On `𝔹[X]` the identity is an admissible `δ`, so it is the one used
+(ProvSQL's `BoolExpr::delta`). -/
+theorem BoolFunc.isDelta_id : IsDelta (id : BoolFunc X → BoolFunc X) := isDelta_delta
 
 instance : CommSemiringWithMonus (BoolFunc X) where
   mul_comm := mul_comm

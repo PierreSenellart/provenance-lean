@@ -129,48 +129,19 @@ instance : SemiringWithMonus ChainFive where
   delta_natCast_pos := fun hn => by
     rw [natCast_pos_eq_one_of_idempotent (by decide) hn]
     decide
-  delta_regrouping := fun s => by
-    have hzsf : ∀ a b : ChainFive, a + b = 0 → a = 0 := by decide
-    have hsum : ∀ t : Multiset ChainFive, t.sum = 0 ↔ ∀ a ∈ t, a = 0 := by
-      intro t
-      induction t using Multiset.induction_on with
-      | empty => simp
-      | cons a t ih =>
-        rw [Multiset.sum_cons]
-        constructor
-        · intro h x hx
-          have ha : a = 0 := hzsf _ _ h
-          rcases Multiset.mem_cons.mp hx with rfl | hx
-          · exact ha
-          · rw [ha, zero_add] at h
-            exact ih.mp h x hx
-        · intro h
-          rw [h a (Multiset.mem_cons_self a t),
-            zero_add, ih.mpr fun x hx => h x (Multiset.mem_cons_of_mem hx)]
-    by_cases hz : s.sum = 0
-    · have hall := (hsum s).mp hz
-      have hmap : s.map (fun a => if a = 0 then (0 : ChainFive) else 1)
-          = s.map (fun _ => (0 : ChainFive)) :=
-        Multiset.map_congr rfl fun x hx => by rw [hall x hx]; decide
-      rw [hz, hmap, show (s.map (fun _ => (0 : ChainFive))).sum = 0 from
-        (hsum _).mpr fun x hx => by
-          obtain ⟨_, _, rfl⟩ := Multiset.mem_map.mp hx; rfl]
-    · have hne : (s.map (fun a => if a = 0 then (0 : ChainFive) else 1)).sum
-          ≠ 0 := by
-        intro h
-        apply hz
-        refine (hsum s).mpr fun x hx => ?_
-        have := (hsum _).mp h _ (Multiset.mem_map_of_mem _ hx)
-        by_contra hxne
-        rw [if_neg hxne] at this
-        exact absurd this (by decide)
-      rw [if_neg hne, if_neg hz]
   delta_absorb := fun a b => by
     have hzsf : ∀ x y : ChainFive, x + y = 0 → x = 0 := by decide
     by_cases h : a + b = 0
     · rw [hzsf a b h, zero_mul]
     · rw [if_neg h]
       exact mul_one a
+
+/-- On `ChainFive` the identity is not an admissible `δ`, even though the
+semiring is absorptive (`ChainFive.absorptive`): what `delta_absorb` asks of
+`δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, and `mid ⊗ (mid ⊕ mid) =
+mid ⊗ mid = 𝟘 ≠ mid`. -/
+theorem not_isDelta_id : ¬ IsDelta (id : ChainFive → ChainFive) :=
+  not_isDelta_id_of_absorb_ne (a := .mid) (b := .mid) (by decide)
 
 instance : CommSemiringWithMonus ChainFive where
   mul_comm := by decide

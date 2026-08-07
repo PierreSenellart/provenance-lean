@@ -176,7 +176,6 @@ instance : SemiringWithMonus Viterbi where
   delta := Viterbi.deltaInd
   delta_zero := Viterbi.deltaInd_isIndicator.zero
   delta_natCast_pos := delta_natCast_pos_indicator Viterbi.deltaInd_isIndicator
-  delta_regrouping := delta_regrouping_indicator Viterbi.deltaInd_isIndicator
   delta_absorb := delta_absorb_indicator Viterbi.deltaInd_isIndicator
 
 noncomputable
@@ -194,6 +193,13 @@ theorem not_mul_idempotent : ¬ ∀ a : Viterbi, a * a = a := by
     congrArg Subtype.val h
   field_simp at h'
   norm_num at h'
+
+/-- On `Viterbi` the identity is not an admissible `δ`, even though the semiring
+is absorptive (`Viterbi.absorptive`): what `delta_absorb` asks of `δ := id` is the
+lattice law `a ⊗ (a ⊕ b) = a`, which at `a = b = 1/2` reads `1/2 ⊗ 1/2 = 1/4 ≠ 1/2`.
+This is why the instance takes the support indicator (ProvSQL's `Viterbi::delta`). -/
+theorem not_isDelta_id : ¬ IsDelta (id : Viterbi → Viterbi) :=
+  not_isDelta_id_of_not_mul_idempotent Viterbi.idempotent Viterbi.not_mul_idempotent
 
 /-- There is no semiring homomorphism from `BoolFunc Y` to `Viterbi` sending the
 variables to arbitrary values: Viterbi multiplication (ordinary product on
