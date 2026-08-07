@@ -481,38 +481,36 @@ theorem delta_absorb_indicator
 
 This is the abstract counterpart of the `SemiringWithMonus` δ-axioms: we
 characterise, in an arbitrary nontrivial semiring (no order assumed), when
-a function `δ : K → K` satisfying `δ 0 = 0`, `δ ((n : K)) = 1` for `0 < n`,
-and idempotence `δ (δ a) = δ a` can exist. The class axiom
-`delta_regrouping` is strictly stronger than idempotence, so the iff
-below should be read as a statement about how much of the ProvSQL δ
-interface is consistent with a given characteristic, not as a full
-existence proof for the class axiom. (Constructing a witness for
+a function `δ : K → K` satisfying `δ 0 = 0` and `δ ((n : K)) = 1` for
+`0 < n` can exist. The class axiom `delta_regrouping` is strictly stronger,
+so the iff below should be read as a statement about how much of the
+ProvSQL δ interface is consistent with a given characteristic, not as a
+full existence proof for the class axiom. (Constructing a witness for
 `delta_regrouping` itself requires more structure: in a canonically
 ordered semiring the indicator works, see `delta_regrouping_indicator`.) -/
 
-/-- In any nontrivial semiring, a function `δ : K → K` satisfying `δ 0 = 0`,
-`δ ((n : K)) = 1` for every positive natural cast `n`, and idempotence
-`δ (δ a) = δ a` exists if and only if `K` has characteristic `0` in the
-`CharP` sense. The forward direction follows because `δ 0 = 0` and
-`δ ((n : K)) = 1` are inconsistent when `(n : K) = 0` for some `0 < n` (it
-would force `0 = 1`); idempotence plays no role here. The backward direction
-defines `δ` as the indicator of being nonzero, which is automatically a
-fixed point of itself.
+/-- In any nontrivial semiring, a function `δ : K → K` satisfying `δ 0 = 0`
+and `δ ((n : K)) = 1` for every positive natural cast `n` exists if and only
+if `K` has characteristic `0` in the `CharP` sense. The forward direction
+follows because `δ 0 = 0` and `δ ((n : K)) = 1` are inconsistent when
+`(n : K) = 0` for some `0 < n` (it would force `0 = 1`). The backward
+direction defines `δ` as the indicator of being nonzero.
 
 Note that the `δ` operator is not uniquely determined by these axioms: they
-only pin its values on the image of `ℕ` (plus the requirement that any
-chosen value be a fixed point of `δ`). Two typical choices are δ as the
+only pin its values on the image of `ℕ`. Two typical choices are δ as the
 indicator of being nonzero (`δ x = if x = 0 then 0 else 1`, used in the
 backward direction below) and, in an idempotent semiring, δ as the identity
 (since every positive natural cast then equals `1`, see
-`natCast_pos_eq_one_of_idempotent`). -/
+`natCast_pos_eq_one_of_idempotent`). Both are idempotent (`δ (δ a) = δ a`);
+adding idempotence as a third requirement would leave the statement
+unchanged, since the forward direction never uses it and the indicator
+witness satisfies it. -/
 theorem delta_exists_iff_charP_zero {K : Type} [Semiring K] [Nontrivial K] :
   (∃ δ : K → K,
     δ 0 = 0 ∧
-    (∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1) ∧
-    (∀ a : K, δ (δ a) = δ a)) ↔ CharP K 0 := by
+    (∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1)) ↔ CharP K 0 := by
     constructor
-    . rintro ⟨δ, h0, hpos, _⟩
+    . rintro ⟨δ, h0, hpos⟩
       refine ⟨fun n => ?_⟩
       rw [zero_dvd_iff]
       refine ⟨fun hn => ?_, fun hn => by rw [hn]; exact Nat.cast_zero⟩
@@ -523,17 +521,13 @@ theorem delta_exists_iff_charP_zero {K : Type} [Semiring K] [Nontrivial K] :
     . intro hchar
       classical
       haveI : CharP K 0 := hchar
-      refine ⟨fun x => if x = 0 then 0 else 1, by simp, ?_, ?_⟩
-      . intro n hn
-        have hne : (n : K) ≠ 0 := by
-          intro h
-          rw [CharP.cast_eq_zero_iff K 0 n, zero_dvd_iff] at h
-          omega
-        simp [hne]
-      . intro a
-        by_cases ha : a = 0
-        . simp [ha]
-        . simp [ha, one_ne_zero]
+      refine ⟨fun x => if x = 0 then 0 else 1, by simp, ?_⟩
+      intro n hn
+      have hne : (n : K) ≠ 0 := by
+        intro h
+        rw [CharP.cast_eq_zero_iff K 0 n, zero_dvd_iff] at h
+        omega
+      simp [hne]
 
 /-! ## Commutative `SemiringWithMonus`s
 
