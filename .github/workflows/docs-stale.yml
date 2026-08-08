@@ -18,6 +18,14 @@ name: Documentation freshness
 #   2. anchors – the links published papers hard-code still resolve. `docs.yml`
 #      checks these against the tree it builds, which catches a rename; this
 #      catches the other failure, a deploy that never happened.
+#
+# Both are preceded by a grace period, because the site is *expected* to lag
+# `main` for a while after every push: `docs.yml` takes some half an hour to
+# build, and only then is there anything for `make deploy-ci` to publish. A run
+# landing in that window reports a staleness the next deploy makes obsolete –
+# and since nothing here ever closes an issue, the reminder outlives what it
+# was reminding about. So a build still in flight, or finished less than three
+# hours ago, buys silence for that run.
 on:
   schedule:
     - cron: "43 7 * * *" # 07:43 UTC daily (off the hour: runs scheduled on the
@@ -27,6 +35,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: read # to see whether `docs.yml` has produced anything deployable yet
 
 concurrency:
   group: docs-stale
@@ -46,8 +55,50 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The deploy cannot happen before the build it publishes has finished, so
+      # a recent build is a deploy that is pending rather than missing. Note
+      # that the window is measured from the build, not from the push: it is the
+      # artifact that `make deploy-ci` downloads. A build newer than three hours
+      # suppresses this run entirely, anchors included – a stale site fails the
+      # anchor check for the same reason it fails the freshness one, and the
+      # next daily run reports both if the deploy never came.
+      - name: Allow a fresh build time to be deployed
+        id: grace
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          runs="$(gh api \
+            "repos/$GH_REPO/actions/workflows/docs.yml/runs?branch=main&per_page=20" \
+            --jq '.workflow_runs[] | [.status, .conclusion // "", .updated_at] | @tsv')"
+          if [ -z "$runs" ]; then
+            echo "No documentation build on record; nothing to wait for."
+            echo "active=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s\n' "$runs" | grep -qv '^completed'; then
+            echo "A documentation build is still in flight; deferring to the next run."
+            echo "active=yes" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          built="$(printf '%s\n' "$runs" \
+            | awk -F'\t' '$1 == "completed" && $2 == "success" { print $3; exit }')"
+          if [ -z "$built" ]; then
+            echo "No successful documentation build to deploy; checking the site anyway."
+            echo "active=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$(date -u -d "$built" +%s)" -gt "$(date -u -d '3 hours ago' +%s)" ]; then
+            echo "Newest build finished at $built, inside the grace period."
+            echo "active=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "Newest build finished at $built, old enough to have been deployed."
+            echo "active=no" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Read what is live
         id: live
+        if: steps.grace.outputs.active != 'yes'
         run: |
           if ! curl -fsSL --max-time 60 "$SITE/BUILD-INFO" -o BUILD-INFO; then
             echo "status=unreachable" >> "$GITHUB_OUTPUT"
@@ -107,9 +158,10 @@ jobs:
       # second copy, and closes nothing – a human deploys and closes.
       - name: Open or update the issue
         if: >-
-          steps.live.outputs.status != 'ok' ||
-          steps.diff.outputs.behind != 'no' ||
-          steps.anchors.outcome != 'success'
+          steps.grace.outputs.active != 'yes' && (
+            steps.live.outputs.status != 'ok' ||
+            steps.diff.outputs.behind != 'no' ||
+            steps.anchors.outcome != 'success' )
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
