@@ -100,11 +100,18 @@ jobs:
       # dependency of this library and is kept outside the workspace, so that
       # its own sources are never taken for part of it; it needs core Lean
       # only, so this build is seconds and needs no cache.
+      #
+      # It is built with *this library's* toolchain, overwriting the one it
+      # pins: an olean header is version-specific, so a reader built by a
+      # different Lean than the writer fails with `incompatible header`.
+      # Copying the pin makes the two agree by construction, at every future
+      # pin move, and core Lean is all it needs.
       - name: Build result-graph
         run: |
           sudo apt-get update && sudo apt-get install -y graphviz
           git clone --depth 1 https://github.com/PierreSenellart/result-graph \
             "$RUNNER_TEMP/result-graph"
+          cp lean-toolchain "$RUNNER_TEMP/result-graph/lean-toolchain"
           cd "$RUNNER_TEMP/result-graph" && lake build
 
       # The favicon, and nothing else, comes from the ProvSQL repository. The
