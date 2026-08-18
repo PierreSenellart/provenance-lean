@@ -100,8 +100,8 @@ aggregate comparison directly above the grouping – the general evaluator
 produces one row per group key of the subquery, carrying the key followed
 by the whole-group aggregate values and annotated by the predicate
 provenance `Having.havingProv` of the group's occurrence sequence. This
-is the content that the separate fused evaluator used to carry: the
-pending group factor introduced by `Gamma` is superseded by the
+is what makes the fused site a theorem rather than a semantics of its
+own: the pending group factor introduced by `Gamma` is superseded by the
 comparison's predicate provenance, and the data part collapses to the
 whole-group aggregate values. -/
 theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
