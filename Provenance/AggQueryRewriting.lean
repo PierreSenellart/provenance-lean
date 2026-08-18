@@ -816,7 +816,7 @@ theorem AggQuery.rewriting_plain :
     simp only [AggQuery.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q hq.2 D]
-    letI : DecidablePred (Selection.eval (φ.strip.castToAnnotatedTuple
+    let : DecidablePred (Selection.eval (φ.strip.castToAnnotatedTuple
         (K := K))) := (φ.strip.castToAnnotatedTuple).evalDecidable
     exact Multiset.filter_congr
       (fun u _ => GenPred.castComposite_holdsPlain
@@ -891,8 +891,8 @@ theorem AggQuery.rewriting_plain :
             (#(Fin.castLE (Nat.le_succ n) k)).eval (T := T ⊕ K) x) from
         funext fun x => funext fun j => rfl]
       rw [Relation.cast_filter, Relation.cast_eq_map, Multiset.map_map]
-      haveI : NeZero (2 * n + 1) := ⟨by omega⟩
-      haveI : ∀ {m : ℕ} (φ : Selection (T ⊕ K) m) (h : n + 1 + n = m),
+      have : NeZero (2 * n + 1) := ⟨by omega⟩
+      have : ∀ {m : ℕ} (φ : Selection (T ⊕ K) m) (h : n + 1 + n = m),
           DecidablePred fun t : Tuple (T ⊕ K) (n + 1 + n) =>
             φ.eval (Tuple.cast h t) :=
         fun φ h t => φ.evalDecidable (Tuple.cast h t)
@@ -935,8 +935,8 @@ theorem AggQuery.rewriting_plain :
               (#(Fin.castLE (Nat.le_succ n) k)).eval (T := T ⊕ K) t) from
         funext fun x => funext fun k => rfl]
       rw [Relation.cast_filter, Relation.cast_eq_map, Multiset.map_map]
-      haveI : NeZero (2 * n + 2) := ⟨by omega⟩
-      haveI : ∀ {m : ℕ} (φ : Selection (T ⊕ K) m) (h : n + 1 + (n + 1) = m),
+      have : NeZero (2 * n + 2) := ⟨by omega⟩
+      have : ∀ {m : ℕ} (φ : Selection (T ⊕ K) m) (h : n + 1 + (n + 1) = m),
           DecidablePred fun t : Tuple (T ⊕ K) (n + 1 + (n + 1)) =>
             φ.eval (Tuple.cast h t) :=
         fun φ h t => φ.evalDecidable (Tuple.cast h t)

@@ -254,7 +254,7 @@ theorem eventProb_and_disjoint {E F : ((b : ι) → κ b) → Bool} {S T : Finse
     intro b'
     by_contra hcon
     rw [not_nonempty_iff] at hcon
-    haveI := hcon
+    have := hcon
     have h1 : (∑ i : κ b', P.prob b' i) = 0 := by rw [Finset.univ_eq_empty, Finset.sum_empty]
     rw [P.sum_prob b'] at h1
     exact one_ne_zero h1

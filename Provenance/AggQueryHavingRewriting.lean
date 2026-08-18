@@ -591,10 +591,10 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
       = (Having.havingGroup is r g).map
           (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1))) := by
-  letI : LinearOrder K := HasAltLinearOrder.altOrder
-  letI ordm : LinearOrder (AnnotatedTuple T K m) :=
+  let : LinearOrder K := HasAltLinearOrder.altOrder
+  let ordm : LinearOrder (AnnotatedTuple T K m) :=
     inferInstanceAs (LinearOrder (Tuple T m ×ₗ K))
-  letI ordm1 : LinearOrder (AnnotatedTuple (T ⊕ K) K (m + 1)) :=
+  let ordm1 : LinearOrder (AnnotatedTuple (T ⊕ K) K (m + 1)) :=
     inferInstanceAs (LinearOrder (Tuple (T ⊕ K) (m + 1) ×ₗ K))
   have hmono : ∀ a b : AnnotatedTuple T K m, ordm.le a b →
       ordm1.le ((a.toComposite, a.snd)) ((b.toComposite, b.snd)) := by
@@ -634,7 +634,7 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
           simp only [AnnotatedTuple.toComposite_coord]
           rw [dif_neg hlm, dif_neg hlm]
           exact (Sum.inr_lt_inr_composite _ _).mpr hlt
-  haveI : Std.Antisymm (fun x y : AnnotatedTuple (T ⊕ K) K (m + 1) =>
+  have : Std.Antisymm (fun x y : AnnotatedTuple (T ⊕ K) K (m + 1) =>
       ordm1.le x y) :=
     ⟨fun _ _ h₁ h₂ => ordm1.le_antisymm _ _ h₁ h₂⟩
   refine List.Perm.eq_of_pairwise'

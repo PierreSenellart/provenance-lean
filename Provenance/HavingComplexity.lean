@@ -685,7 +685,7 @@ theorem weights_split [Finite A] (S' : hInterp.Map A → Prop) :
     (∑ᶠ q ∈ {q : hInterp.Map A | S' q}, BWWeight q)
       = ∑ᶠ a ∈ {a : A | S' (hPt .orig a)}, BWWeight a := by
   classical
-  haveI : Finite (hInterp.Map A) := hInterp.map_finite A
+  have : Finite (hInterp.Map A) := hInterp.map_finite A
   have hset : {q : hInterp.Map A | S' q}
       = (hPt .orig '' {a : A | S' (hPt .orig a)})
         ∪ (hPt .pad '' {a : A | S' (hPt .pad a)}) := by
@@ -726,7 +726,7 @@ theorem hasSubsetSum_iff_map (A : Type) [Language.binWeights.Structure A] [Nonem
   obtain ⟨a₀⟩ := ‹Nonempty A›
   constructor
   · rintro ⟨hfin, hlin, S, hSi, hsum⟩
-    haveI := hfin
+    have := hfin
     refine ⟨hInterp.map_finite A, isLinOrd_map_iff.mpr hlin,
       fun q => q.1 = HTag.pad ∨ S (q.2 0), ⟨hPt .pad a₀, Or.inl rfl⟩, ?_, ?_⟩
     · rintro q h
@@ -739,7 +739,7 @@ theorem hasSubsetSum_iff_map (A : Type) [Language.binWeights.Structure A] [Nonem
     · rw [weights_split, bwTarget_map, ← hsum]
       exact finsum_mem_congr (by ext a; simp [hPt]) fun _ _ => rfl
   · rintro ⟨hfin, hlin, S', -, hSi, hsum⟩
-    haveI : Finite A := Finite.of_injective (hPt (A := A) .orig) hPt_orig_inj
+    have : Finite A := Finite.of_injective (hPt (A := A) .orig) hPt_orig_inj
     refine ⟨inferInstance, isLinOrd_map_iff.mp hlin, fun a => S' (hPt .orig a),
       fun a ha => (bwItem_orig a).mp (hSi _ ha), ?_⟩
     rw [← weights_split S', hsum, bwTarget_map]

@@ -277,8 +277,8 @@ theorem havingGroup_coe [HasAltLinearOrder K] (is : Tuple (Fin m) n₁)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (↑(havingGroup is r g) : Multiset (AnnotatedTuple T K m))
       = Multiset.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k') r := by
-  letI : LinearOrder K := HasAltLinearOrder.altOrder
-  letI : LinearOrder (AnnotatedTuple T K m) :=
+  let : LinearOrder K := HasAltLinearOrder.altOrder
+  let : LinearOrder (AnnotatedTuple T K m) :=
     inferInstanceAs (LinearOrder (Tuple T m ×ₗ K))
   exact foldr_sortedInsert_coe _
 
@@ -290,8 +290,8 @@ theorem havingGroup_pairwise [HasAltLinearOrder K] (is : Tuple (Fin m) n₁)
     (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
     (havingGroup is r g).Pairwise
       (fun p q => (p.fst < q.fst) ∨ p.fst = q.fst) := by
-  letI : LinearOrder K := HasAltLinearOrder.altOrder
-  letI ord : LinearOrder (AnnotatedTuple T K m) :=
+  let : LinearOrder K := HasAltLinearOrder.altOrder
+  let ord : LinearOrder (AnnotatedTuple T K m) :=
     inferInstanceAs (LinearOrder (Tuple T m ×ₗ K))
   refine List.Pairwise.imp ?_
     (((Multiset.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k') r).foldr

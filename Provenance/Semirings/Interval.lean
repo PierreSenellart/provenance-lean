@@ -666,7 +666,7 @@ def inter [LinearOrder α] (I J : Interval α) : List (Interval α) :=
 
 lemma mem_inter [LinearOrder α] (I J : Interval α) (x : α) :
     (∃ K ∈ I.inter J, x ∈ K.toSet) ↔ x ∈ I.toSet ∧ x ∈ J.toSet := by
-  simp only [inter, toSet, Set.mem_setOf_eq]
+  simp only [inter, toSet, Set.mem_ofPred_eq]
   split_ifs with h
   · -- non-empty intersection
     simp only [List.mem_singleton, exists_eq_left]
@@ -725,7 +725,7 @@ private lemma mem_opt_interval [LinearOrder α] (lo hi : Endpoint α) (x : α) :
              else ([] : List (Interval α))), x ∈ K.toSet) ↔
     Endpoint.above x lo ∧ Endpoint.below x hi := by
   split_ifs with h
-  · simp only [List.mem_singleton, exists_eq_left, toSet, Set.mem_setOf_eq]
+  · simp only [List.mem_singleton, exists_eq_left, toSet, Set.mem_ofPred_eq]
   · simp only [List.not_mem_nil, false_and, exists_false, false_iff]
     rintro ⟨ha, hb⟩
     apply h
@@ -786,13 +786,13 @@ lemma mem_diff [LinearOrder α] (I J : Interval α) (x : α) :
       simp only [Bool.not_not] at hc
       exact ⟨⟨hIlo, hIhi⟩, fun ⟨_, hbJ⟩ => hc hbJ⟩
   · intro ⟨hxI, hxnotJ⟩
-    simp only [toSet, Set.mem_setOf_eq] at hxI
+    simp only [toSet, Set.mem_ofPred_eq] at hxI
     obtain ⟨hIlo, hIhi⟩ := hxI
     -- hxnotJ : ¬(above x J.lo ∧ below x J.hi)
     rcases Classical.em (Endpoint.above x J.lo) with haJ | hnaJ
     · -- above x J.lo, so ¬below x J.hi
       have hnbJ : ¬Endpoint.below x J.hi := by
-        simp only [toSet, Set.mem_setOf_eq] at hxnotJ
+        simp only [toSet, Set.mem_ofPred_eq] at hxnotJ
         exact fun hbJ => hxnotJ ⟨haJ, hbJ⟩
       -- x is in the right piece
       have habove_rlo : Endpoint.above x (Endpoint.maxLo I.lo ⟨J.hi.val, !J.hi.closed⟩) := by

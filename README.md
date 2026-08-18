@@ -1,7 +1,7 @@
 # Provenance in databases, in Lean 4
 
 [![CI](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PierreSenellart/provenance-lean/actions/workflows/ci.yml)
-[![Mathlib](https://img.shields.io/badge/Mathlib-v4.33.0--rc1-blue)](https://github.com/leanprover-community/mathlib4/releases/tag/v4.33.0-rc1)
+[![Mathlib](https://img.shields.io/badge/Mathlib-v4.33.0-blue)](https://github.com/leanprover-community/mathlib4/releases/tag/v4.33.0)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.21809151-007ec6)](https://doi.org/10.5281/zenodo.21809151)
 [![Archived in Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/PierreSenellart/provenance-lean/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/PierreSenellart/provenance-lean)
 
@@ -84,6 +84,7 @@ rather than the concept DOI, so that it points at a specific state of the code.
 <!-- release-table -->
 | Tag | Toolchain | Version DOI |
 | --- | --- | --- |
+| `v1.1.0` | `leanprover/lean4:v4.33.0` | – |
 | `v1.0.0` | `leanprover/lean4:v4.33.0-rc1` | [10.5281/zenodo.21809152](https://doi.org/10.5281/zenodo.21809152) |
 | `main` | see `lean-toolchain` | – |
 
@@ -109,13 +110,13 @@ In a `lakefile.lean`:
 
 ```lean
 require "provenance" from git
-  "https://github.com/PierreSenellart/provenance-lean" @ "v1.0.0"
+  "https://github.com/PierreSenellart/provenance-lean" @ "v1.1.0"
 ```
 
 Pin a tag or a commit rather than `main`, for reproducible builds. Then
 `import Provenance` brings in everything; import individual modules to keep
 build times down. Besides Mathlib, the library depends on
-[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.1.0),
+[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.2.0),
 used to state the complexity results; Lake resolves one Mathlib per workspace,
 so both must sit on the same pin.
 

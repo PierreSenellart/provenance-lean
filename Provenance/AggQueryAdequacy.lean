@@ -186,8 +186,8 @@ theorem havingGroup_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     (Having.havingGroup is r g).map Prod.fst
       = Relation.groupSeq is (AnnotatedRelation.toPlain r) g := by
   unfold Relation.groupSeq
-  letI : LinearOrder K := HasAltLinearOrder.altOrder
-  letI : LinearOrder (AnnotatedTuple T K m) :=
+  let : LinearOrder K := HasAltLinearOrder.altOrder
+  let : LinearOrder (AnnotatedTuple T K m) :=
     inferInstanceAs (LinearOrder (Tuple T m ×ₗ K))
   have hperm : List.Perm ((Having.havingGroup is r g).map Prod.fst)
       (Multiset.sort
