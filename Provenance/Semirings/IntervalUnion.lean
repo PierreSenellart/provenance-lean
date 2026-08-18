@@ -1548,7 +1548,7 @@ private lemma evalBF_toSet (ν : Y → IntervalUnion β) (f : BoolFunc Y) :
     (evalBF ν f).toSet = {x : β | f (sigOf ν x) = true} := by
   rw [evalBF, sum_toSet]
   ext x
-  simp only [Set.mem_iUnion, Set.mem_setOf_eq]
+  simp only [Set.mem_iUnion, Set.mem_ofPred_eq]
   constructor
   · rintro ⟨σ, _, hxσ⟩
     by_cases hfσ : f σ = true
@@ -1565,7 +1565,7 @@ private lemma evalBF_zero (ν : Y → IntervalUnion β) : evalBF ν 0 = 0 := by
   apply ext_toSet
   rw [evalBF_toSet, zero_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+  simp only [Set.mem_ofPred_eq, Set.mem_empty_iff_false, iff_false]
   show ¬ (false = true)
   decide
 
@@ -1574,7 +1574,7 @@ private lemma evalBF_one (ν : Y → IntervalUnion β) : evalBF ν 1 = 1 := by
   apply ext_toSet
   rw [evalBF_toSet, one_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_univ, iff_true]
+  simp only [Set.mem_ofPred_eq, Set.mem_univ, iff_true]
   rfl
 
 /-- `evalBF` preserves addition. -/
@@ -1583,7 +1583,7 @@ private lemma evalBF_add (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
   apply ext_toSet
   rw [add_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_union]
+  simp only [Set.mem_ofPred_eq, Set.mem_union]
   show ((f (sigOf ν x)) || (g (sigOf ν x))) = true ↔ _
   simp [Bool.or_eq_true]
 
@@ -1593,7 +1593,7 @@ private lemma evalBF_mul (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
   apply ext_toSet
   rw [mul_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_inter_iff]
+  simp only [Set.mem_ofPred_eq, Set.mem_inter_iff]
   show ((f (sigOf ν x)) && (g (sigOf ν x))) = true ↔ _
   simp [Bool.and_eq_true]
 
@@ -1603,7 +1603,7 @@ private lemma evalBF_sub (ν : Y → IntervalUnion β) (f g : BoolFunc Y) :
   apply ext_toSet
   rw [sub_toSet, evalBF_toSet, evalBF_toSet, evalBF_toSet]
   ext x
-  simp only [Set.mem_setOf_eq, Set.mem_sdiff]
+  simp only [Set.mem_ofPred_eq, Set.mem_sdiff]
   show ((f (sigOf ν x)) && !(g (sigOf ν x))) = true ↔ _
   rw [Bool.and_eq_true]
   refine and_congr_right (fun _ => ?_)
@@ -1615,7 +1615,7 @@ private lemma evalBF_var (ν : Y → IntervalUnion β) (i : Y) :
   apply ext_toSet
   rw [evalBF_toSet]
   ext x
-  simp only [Set.mem_setOf_eq]
+  simp only [Set.mem_ofPred_eq]
   show sigOf ν x i = true ↔ _
   rw [sigOf, Bool.decide_iff]
 

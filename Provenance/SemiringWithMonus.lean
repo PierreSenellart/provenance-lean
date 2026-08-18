@@ -521,7 +521,7 @@ theorem delta_exists_iff_charP_zero {K : Type} [Semiring K] [Nontrivial K] :
       exact one_ne_zero h1.symm
     . intro hchar
       classical
-      haveI : CharP K 0 := hchar
+      have : CharP K 0 := hchar
       refine ⟨fun x => if x = 0 then 0 else 1, by simp, ?_⟩
       intro n hn
       have hne : (n : K) ≠ 0 := by
@@ -543,7 +543,7 @@ theorem isDelta_exists_of_natCast_axioms
     (h0 : δ 0 = 0) (hpos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1) :
     ∃ δ' : K → K, IsDelta δ' := by
   classical
-  haveI : CharP K 0 := delta_exists_iff_charP_zero.mp ⟨δ, h0, hpos⟩
+  have : CharP K 0 := delta_exists_iff_charP_zero.mp ⟨δ, h0, hpos⟩
   have hind : IsDeltaIndicator (fun x : K => if x = 0 then 0 else 1) :=
     ⟨by simp, fun a ha => by simp [ha]⟩
   exact ⟨_, hind.zero, delta_natCast_pos_indicator hind,
@@ -560,7 +560,7 @@ theorem isDelta_exists_iff_charP_zero
   · rintro ⟨δ, hd⟩
     exact delta_exists_iff_charP_zero.mp ⟨δ, hd.zero, hd.natCast_pos⟩
   · intro hchar
-    haveI : CharP K 0 := hchar
+    have : CharP K 0 := hchar
     obtain ⟨δ, h0, hpos⟩ := delta_exists_iff_charP_zero.mpr hchar
     exact isDelta_exists_of_natCast_axioms h0 hpos
 

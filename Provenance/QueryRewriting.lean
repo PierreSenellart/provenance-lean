@@ -1377,13 +1377,13 @@ theorem Query.rewriting_valid
           (Multiset.filter (fun v ↦ v ∉ Multiset.map Prod.fst AR₂)
             (Multiset.map Prod.fst AR₁)).dedup) with hProd1
       -- Provide DecidablePred instances for both predicates.
-      letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
+      let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
               (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
-      letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
+      let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
           (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n))) = x.2) :=
         fun x => decEq _ _
       have hcong : @Multiset.filter _ _ dp1 Prod1 = @Multiset.filter _ _ dp2 Prod1 :=
@@ -1473,13 +1473,13 @@ theorem Query.rewriting_valid
       simp only [Function.comp_def]
       have hNeZero : NeZero (2 * n + 2) := ⟨by omega⟩
       -- Provide DecidablePred instances for both filter predicates explicitly.
-      letI dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+      let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
               (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
-      letI dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+      let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           (fun k : Fin n ↦ x.1 (k.castLE (Nat.le_succ n)))
           = (fun k : Fin n ↦ x.2 (k.castLE (Nat.le_succ n)))) :=
         fun x => decEq _ _
@@ -1502,7 +1502,7 @@ theorem Query.rewriting_valid
       -- Convert filter cond from `first-n p = first-n q` (in `Tuple (T⊕K) n`) to
       -- `(fromComposite p).1 = (fromComposite q).1` (in `Tuple T n`) via Sum.inl-lift
       -- injectivity, valid for pairs in `Prod2`.
-      letI dp3 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
+      let dp3 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           (Tuple.fromComposite x.1).1 = (Tuple.fromComposite x.2).1) :=
         fun x => decEq _ _
       have hcong2 : @Multiset.filter _ _ dp2 Prod2 = @Multiset.filter _ _ dp3 Prod2 := by
