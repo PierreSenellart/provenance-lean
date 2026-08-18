@@ -2,7 +2,7 @@ import Lake
 open Lake DSL
 
 package "provenance" where
-  version := v!"1.0.0"
+  version := v!"1.1.0"
   description := "Database provenance in Lean 4: the semiring framework, an annotated relational algebra with difference and aggregation, ProvSQL's provenance-aware query rewriting, and HAVING provenance"
   keywords := #["provenance", "semirings", "databases", "relational algebra",
     "probabilistic databases", "ProvSQL"]
@@ -19,14 +19,14 @@ package "provenance" where
   ]
   -- add any additional package configuration options here
 
-require "leanprover-community" / "mathlib" @ git "v4.33.0-rc1"
+require "leanprover-community" / "mathlib" @ git "v4.33.0"
 
 -- descriptive-complexity versions are its own semver, independent of the Lean
 -- toolchain: `v1.1.0` is cut against the Mathlib pin above, and is the floor,
 -- since the complexity results import its `Encoding.BinarySubsetSum`, added
 -- there. Later releases stay compatible as long as they keep that Mathlib pin.
 require "descriptive-complexity" from git
-  "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.1.0"
+  "https://github.com/PierreSenellart/descriptive-complexity" @ "v1.2.0"
 
 @[default_target]
 lean_lib «Provenance» where
