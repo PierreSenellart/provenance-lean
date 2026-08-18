@@ -12,6 +12,8 @@ name: Release metadata
 #                          `descriptive-complexity` require
 #   - `lean-toolchain`     the reference pin the others are checked against
 #   - `docbuild/lean-toolchain`, `docbuild/lakefile.toml`   two more pins
+#   - `lake-manifest.json`, `docbuild/lake-manifest.json`   what those pins
+#                          resolved to, which is what a fresh clone builds
 #   - `CITATION.cff`       version, `date-released`, the DOI, and the schema
 #   - `README.md`          the `require` form, the release-table row, the
 #                          Mathlib badge, the descriptive-complexity tag link
@@ -35,6 +37,8 @@ on:
       - "lean-toolchain"
       - "docbuild/lean-toolchain"
       - "docbuild/lakefile.toml"
+      - "lake-manifest.json"
+      - "docbuild/lake-manifest.json"
       - "Provenance/Papers/**"
       - "scripts/**"
       - ".github/workflows/metadata.yml"
@@ -46,6 +50,8 @@ on:
       - "lean-toolchain"
       - "docbuild/lean-toolchain"
       - "docbuild/lakefile.toml"
+      - "lake-manifest.json"
+      - "docbuild/lake-manifest.json"
       - "Provenance/Papers/**"
       - "scripts/**"
       - ".github/workflows/metadata.yml"

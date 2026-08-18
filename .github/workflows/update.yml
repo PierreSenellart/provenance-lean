@@ -72,23 +72,24 @@ jobs:
 
       # `pins` looks the matching descriptive-complexity tag up itself, which is
       # why this step needs a token too.
-      - name: Move the pins and bump the library version
+      - name: Move the pins
         if: steps.candidate.outputs.pin != ''
-        id: bump
         env:
           GH_TOKEN: ${{ github.token }}
           PIN: ${{ steps.candidate.outputs.pin }}
-        run: |
-          version="$(bash ./scripts/release.sh next-minor)"
-          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
-          bash ./scripts/release.sh pins "$PIN"
-          bash ./scripts/release.sh prepare "$version"
+        run: bash ./scripts/release.sh pins "$PIN"
 
-      # `lake update` has to run before the build (the manifest still records
-      # the old Mathlib), and the manifest is tracked, so its new revision is
-      # part of the PR. elan is installed directly rather than by lean-action,
-      # which comes later.
-      - name: Install elan and update the manifest
+      # The manifests have to be refreshed before the build (they still record
+      # the old pins), and both are tracked, so their new revisions are part of
+      # the PR. There are two workspaces and one update each: the root one, and
+      # `docbuild/`, whose manifest records doc-gen4 as well. elan is installed
+      # directly rather than by lean-action, which comes later.
+      #
+      # This sits *between* `pins` and `prepare` because `prepare` ends by
+      # running `check`, and `check` reads both manifests: run it while they
+      # still record the old pins and it fails, on a disagreement that this
+      # step is what resolves.
+      - name: Install elan and update the manifests
         if: steps.candidate.outputs.pin != ''
         id: manifest
         continue-on-error: true
@@ -96,11 +97,24 @@ jobs:
           curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
           "$HOME/.elan/bin/lake" update
+          # MATHLIB_NO_CACHE_ON_UPDATE=1 works around a Mathlib caching issue
+          # on `lake update`, as in `docs.yml`.
+          (cd docbuild && MATHLIB_NO_CACHE_ON_UPDATE=1 \
+             "$HOME/.elan/bin/lake" update doc-gen4)
+
+      - name: Bump the library version
+        if: steps.candidate.outputs.pin != '' && steps.manifest.outcome == 'success'
+        id: bump
+        continue-on-error: true
+        run: |
+          version="$(bash ./scripts/release.sh next-minor)"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          bash ./scripts/release.sh prepare "$version"
 
       # Same build as `ci.yml`: `lake exe cache get` then build. The cache is a
       # hit, since the toolchain now matches the Mathlib tag.
       - name: Build against the new pin
-        if: steps.candidate.outputs.pin != '' && steps.manifest.outcome == 'success'
+        if: steps.candidate.outputs.pin != '' && steps.bump.outcome == 'success'
         id: build
         continue-on-error: true
         uses: leanprover/lean-action@v1
@@ -108,7 +122,7 @@ jobs:
       # A PR opened with the default token does not itself trigger `ci.yml`,
       # which is why the build above runs first. `metadata.yml`'s check is
       # covered too: `release.sh prepare` ends by running `release.sh check`,
-      # and a disagreement there would already have failed that step. This step
+      # and a disagreement there would already have failed the bump step. This step
       # needs "Allow GitHub Actions to create and approve pull requests" under
       # Settings → Actions → General.
       - name: Open a PR when the build is green
@@ -119,15 +133,15 @@ jobs:
           delete-branch: true
           # One subject line, as everywhere in this repo; the default would be
           # "[create-pull-request] automated change".
-          commit-message: "Take Mathlib ${{ steps.candidate.outputs.pin }}: move the five pins and the manifest, and prepare v${{ steps.bump.outputs.version }}"
+          commit-message: "Take Mathlib ${{ steps.candidate.outputs.pin }}: move the five pins and both manifests, and prepare v${{ steps.bump.outputs.version }}"
           title: "Move to Mathlib ${{ steps.candidate.outputs.pin }} and prepare v${{ steps.bump.outputs.version }}"
           body: |
             Mathlib `${{ steps.candidate.outputs.pin }}` is out and
             descriptive-complexity has a release cut against it, so this moves
             the five pinned places (`lean-toolchain`, the Mathlib `require`,
             `docbuild/lean-toolchain`, the doc-gen4 `rev`, the
-            `descriptive-complexity` require), refreshes `lake-manifest.json`,
-            and bumps the library to `v${{ steps.bump.outputs.version }}`.
+            `descriptive-complexity` require), refreshes both manifests, and
+            bumps the library to `v${{ steps.bump.outputs.version }}`.
 
             Built green in
             [this run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -144,7 +158,8 @@ jobs:
       - name: File an issue when it does not build
         if: |
           steps.candidate.outputs.pin != '' &&
-          (steps.manifest.outcome == 'failure' || steps.build.outcome == 'failure')
+          (steps.manifest.outcome == 'failure' || steps.bump.outcome == 'failure' ||
+           steps.build.outcome == 'failure')
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -167,6 +182,8 @@ jobs:
             '```' \
             "scripts/release.sh pins $PIN" \
             "lake update" \
+            "(cd docbuild && lake update doc-gen4)" \
+            "scripts/release.sh prepare <next minor>" \
             "lake build" \
             '```' \
             "" \

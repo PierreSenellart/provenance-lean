@@ -12,12 +12,21 @@
 # minor-on-pin-move rule survives inside this script anyway, since `next-minor`
 # costs nothing and `update.yml` wants it.
 #
-# One Mathlib version is pinned in *five* places here, one more than in
+# One Mathlib version is pinned in *five* declared places here, one more than in
 # descriptive-complexity, which is itself the fifth:
 #
 #   /lean-toolchain            /lakefile.lean          (the Mathlib `require`)
 #   /docbuild/lean-toolchain   /docbuild/lakefile.toml (the doc-gen4 `rev`)
 #   /lakefile.lean             (the descriptive-complexity `require`)
+#
+# Two manifests then *record* what those declarations resolved to, and a fresh
+# clone builds against them, so `check` compares those records as well:
+#
+#   /lake-manifest.json           (mathlib, descriptive-complexity)
+#   /docbuild/lake-manifest.json  (mathlib, doc-gen4, descriptive-complexity)
+#
+# `pins` cannot write them – only `lake update` can, in each workspace – so
+# `check` stays red between the two steps, by design.
 #
 # Lake resolves one Mathlib per workspace, so this repository can only move to a
 # Mathlib that descriptive-complexity has already released against. That
@@ -68,6 +77,19 @@ pin_toolchain()  { grep -oP '(?<=leanprover/lean4:)\S+' lean-toolchain; }
 pin_docbuild()   { grep -oP '(?<=leanprover/lean4:)\S+' docbuild/lean-toolchain; }
 pin_mathlib()    { grep -oP '(?<=/ "mathlib" @ git ")[^"]+' lakefile.lean; }
 pin_docgen()     { grep -oP '(?<=^rev = ")[^"]+' docbuild/lakefile.toml; }
+# The manifests are what a fresh clone resolves against, so a stale one ships a
+# pin nobody declared. Read the `inputRev` recorded for a dependency by matching
+# its repository url, which is unique in the file and, unlike the package name,
+# is not wrapped in guillemets.
+manifest_rev()   { # manifest url
+  grep -A11 -F "$2" "$1" | grep -oP '(?<="inputRev": ")[^"]+' | head -1 || true
+}
+readonly MATHLIB_URL="github.com/leanprover-community/mathlib4"
+readonly DOCGEN_URL="github.com/leanprover/doc-gen4"
+readonly DC_URL="github.com/PierreSenellart/descriptive-complexity"
+pin_manifest()          { manifest_rev lake-manifest.json          "$MATHLIB_URL"; }
+pin_docbuild_mathlib()  { manifest_rev docbuild/lake-manifest.json "$MATHLIB_URL"; }
+pin_docbuild_docgen()   { manifest_rev docbuild/lake-manifest.json "$DOCGEN_URL"; }
 pin_readme_row() {
   readme_table | sed -n 's/^| `[^`]*` | `leanprover\/lean4:\([^`]*\)`.*/\1/p' | head -1
 }
@@ -78,6 +100,9 @@ pin_readme_badge() { grep -oP '(?<=/badge/Mathlib-)[^-][^)]*?(?=-blue\))' README
 # that must name the same one.
 dc_lakefile()    { grep -oP '(?<=descriptive-complexity" @ ")[^"]+' lakefile.lean; }
 dc_readme()      { grep -oP '(?<=descriptive-complexity/releases/tag/)v[0-9][^)]*' README.md | head -1; }
+# and the two manifests, which record the tag that require resolved to.
+dc_manifest()          { manifest_rev lake-manifest.json          "$DC_URL"; }
+dc_docbuild_manifest() { manifest_rev docbuild/lake-manifest.json "$DC_URL"; }
 
 # The concept DOI: minted once by Zenodo, then the same for every later version.
 # Empty until the first release exists, which `check` reports as a skip.
@@ -113,11 +138,16 @@ cmd_check() {
   report "docbuild/lean-toolchain"       "$pin" "$(pin_docbuild)"
   report "lakefile.lean mathlib require" "$pin" "$(pin_mathlib)"
   report "docbuild doc-gen4 rev"         "$pin" "$(pin_docgen)"
+  report "lake-manifest mathlib"         "$pin" "$(pin_manifest)"
+  report "docbuild manifest mathlib"     "$pin" "$(pin_docbuild_mathlib)"
+  report "docbuild manifest doc-gen4"    "$pin" "$(pin_docbuild_docgen)"
   report "README table, toolchain col"   "$pin" "$(pin_readme_row)"
   report "README Mathlib badge"          "$pin" "$(pin_readme_badge)"
 
   printf 'descriptive-complexity pin (from lakefile.lean): %s\n' "$(dc_lakefile)"
   report "README descriptive-complexity" "$(dc_lakefile)" "$(dc_readme)"
+  report "lake-manifest dc"              "$(dc_lakefile)" "$(dc_manifest)"
+  report "docbuild manifest dc"          "$(dc_lakefile)" "$(dc_docbuild_manifest)"
 
   printf 'Other:\n'
   if [[ -n "$(doi_citation)" ]]; then
@@ -310,7 +340,8 @@ cmd_pins() {
 
   printf 'Moved the Mathlib pin %s -> %s in the four Mathlib places,\n' "$old" "$ver"
   printf 'and descriptive-complexity %s -> %s in the fifth.\n\n' "$olddc" "$dc"
-  printf 'Next: `lake update` (the manifest still records the old Mathlib), let the\n'
+  printf 'Next: `lake update` here and `lake update doc-gen4` in `docbuild/` (both\n'
+  printf 'manifests still record the old pins, and `check` reads them), let the\n'
   printf 'build go green, then `%s prepare %s`. The README badge and table\n' "$0" "$(cmd_next_minor)"
   printf 'follow the pin from there, so `check` stays red until that runs.\n'
 }
