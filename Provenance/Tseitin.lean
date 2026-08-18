@@ -114,7 +114,7 @@ namespace Circuit
 variable {X : Type}
 
 /-- Per-gate Tseitin clauses encoding `aux(c) ↔ <gate operation on aux of children>`.
-Does not recurse into sub-circuits — see `Circuit.tseitinClauses` for the
+Does not recurse into sub-circuits – see `Circuit.tseitinClauses` for the
 full recursive collection. -/
 def gateClauses : Circuit X → CNF (X ⊕ Circuit X)
   | .const true =>

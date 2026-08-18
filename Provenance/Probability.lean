@@ -647,7 +647,7 @@ and the plain semantics, valid in the presence of difference and duplicate
 elimination. It is the `𝔹`-valuation counterpart of the `ℕ`-adequacy theorem
 of [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq
 Formalization of Data Provenance*][benzaken2021coq], which is restricted to
-the positive fragment — necessarily so, since `ℕ`-adequacy fails as soon as
+the positive fragment – necessarily so, since `ℕ`-adequacy fails as soon as
 monus-based difference interacts with duplicate elimination (see
 `Nat.counterexample_diff_adequacy` in `Provenance.QueryAdequacy`). -/
 
