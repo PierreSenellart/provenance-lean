@@ -26,7 +26,8 @@ differences*, Table on p. 4][amsterdamer2011limitations].
 
 * [Green, Karnouvarakis & Tannen, *Provenance Semirings*][green2007provenance]
 * [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
-* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries with differences*][amsterdamer2011limitations]
+* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries
+  with differences*][amsterdamer2011limitations]
 -/
 
 variable {X: Type} [DecidableEq X]

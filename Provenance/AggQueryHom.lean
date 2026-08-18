@@ -11,7 +11,7 @@ import Provenance.AggQueryBridges
 /-!
 # Hom commutation, token and annotation layer
 
-The value-level content of "compile once, evaluate many" for the general
+The value-level content of “compile once, evaluate many” for the general
 evaluator: every ingredient of a row's annotation is an
 `⊕`/`⊗`/`⊖`/`δ`-polynomial in the occurrence annotations, so it commutes
 with every `SemiringWithMonusHom`:

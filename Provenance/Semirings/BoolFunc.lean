@@ -14,7 +14,8 @@ is `f ≤ g ↔ ∀ a, f a → g a` (pointwise implication).
 
 This semiring is used in
 [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance] and
-surveyed in [Senellart, *Provenance and Probabilities in Relational Databases*][senellart2017provenance].
+surveyed in [Senellart, *Provenance and Probabilities in Relational
+Databases*][senellart2017provenance].
 
 ## References
 

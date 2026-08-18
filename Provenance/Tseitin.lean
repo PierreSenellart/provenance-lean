@@ -3,7 +3,7 @@ import Provenance.Circuit
 /-!
 # Tseitin CNF encoding of Boolean circuits
 
-This file formalises the **Tseitin transformation**, which encodes a Boolean
+This file formalizes the **Tseitin transformation**, which encodes a Boolean
 circuit `c : Circuit X` as an equisatisfiable CNF over the extended variable
 set `X ⊕ Circuit X`. Each sub-circuit becomes an auxiliary variable, and the
 CNF clauses encode `aux(g) ↔ <gate operation on aux variables of children>`.

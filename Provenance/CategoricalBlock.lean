@@ -408,7 +408,7 @@ def eval : CatCircuit ι κ → ((b : ι) → κ b) → Bool
 /-- The event a circuit denotes. -/
 def toEvent (c : CatCircuit ι κ) : ((b : ι) → κ b) → Bool := c.eval
 
-/-- The set of blocks a circuit reads (the categorical "variable support"). -/
+/-- The set of blocks a circuit reads (the categorical “variable support”). -/
 def blocks : CatCircuit ι κ → Finset ι
   | .const _ => ∅
   | .lit b _ => {b}

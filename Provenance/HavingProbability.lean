@@ -15,7 +15,7 @@ set_option linter.unusedSectionVars false
 /-!
 # Probability identities for HAVING aggregate comparisons under independence
 
-This file formalises the algebraic identities for evaluating
+This file formalizes the algebraic identities for evaluating
 `HAVING`-style aggregate comparisons when the contributors are
 independent. Given a `B[X]`-instance in which each contributor
 `i : ι` carries an annotation `α i : BoolFunc X` and the annotations
@@ -24,7 +24,7 @@ have pairwise disjoint variable supports (so the contributors are
 give closed-form / recurrence expressions for the probability that the
 aggregate-comparison atom holds on the contributors of a single group:
 
-* **MAX / MIN factorisation**
+* **MAX / MIN factorization**
   (`funcProb_maxLeOnNonempty`, `funcProb_minGeOnNonempty`):
   `Pr[max ≤ C on nonempty] = (∏_{t i > C}(1 - p i)) · (1 - ∏_{t i ≤ C}(1 - p i))`
   and the dual for `min`.
@@ -211,26 +211,26 @@ lemma prod_eval_eq_true_iff {ι : Type} [DecidableEq ι]
       intro k hk
       exact h k (Finset.mem_insert_of_mem hk)
 
-/-! ## MAX factorisation -/
+/-! ## MAX factorization -/
 
 section MaxMin
 
 variable {V : Type} [LinearOrder V]
 variable (t : ι → V)
 
-/-- "Random world contains no contributor with value > C": the AND over the
+/-- “Random world contains no contributor with value > C”: the AND over the
 indicators `1 - α i` for all contributors with `t i > C`. Evaluates to `true`
 iff every such contributor's annotation is `false`. -/
 def maxNoneAbove (C : V) : BoolFunc X :=
   ∏ i ∈ Finset.univ.filter (fun i => C < t i), (1 - α i)
 
-/-- "Random world contains some contributor with value ≤ C": the OR over
+/-- “Random world contains some contributor with value ≤ C”: the OR over
 the indicators `α i` for all contributors with `t i ≤ C`, expressed as
 `1 - ∏ (1 - α i)`. -/
 def someAtMost (C : V) : BoolFunc X :=
   1 - ∏ i ∈ Finset.univ.filter (fun i => t i ≤ C), (1 - α i)
 
-/-- "Random world is nonempty and `max_{i ∈ world} t i ≤ C`": the conjunction
+/-- “Random world is nonempty and `max_{i ∈ world} t i ≤ C`”: the conjunction
 of the two pieces above. The semantic meaning is recorded in
 `maxLeOnNonempty_eval_iff`. -/
 def maxLeOnNonempty (C : V) : BoolFunc X :=
@@ -272,8 +272,8 @@ lemma someAtMost_eval_iff (C : V) (v : X → Bool) :
   rw [h1v, Bool.true_and]
   -- Goal: !((∏ ...) v) = true ↔ ∃ i, t i ≤ C ∧ α i v = true
   constructor
-  · -- !(p v) = true means p v ≠ true, i.e. p v = false. So some factor is false,
-    -- i.e. some `(1 - α i) v = false`, i.e. some `α i v = true`.
+  · -- !(p v) = true means p v ≠ true, i.e., p v = false. So some factor is false,
+    -- i.e., some `(1 - α i) v = false`, i.e., some `α i v = true`.
     intro hnot
     have hp_false : (∏ i ∈ Finset.univ.filter (fun i => t i ≤ C), (1 - α i)) v = false := by
       cases hp : (∏ i ∈ Finset.univ.filter (fun i => t i ≤ C), (1 - α i)) v with
@@ -357,10 +357,10 @@ lemma funcProb_someAtMost (S : ι → Finset X)
   intro i _
   exact P.funcProb_sub_self_const_one (α i)
 
-/-- **MAX factorisation under independence.** The probability of the
-"`max ≤ C` on a nonempty world" event factors as a product of an "all
-above-`C` contributors are absent" term and a "some at-most-`C` contributor
-is present" term. -/
+/-- **MAX factorization under independence.** The probability of the
+“`max ≤ C` on a nonempty world” event factors as a product of an “all
+above-`C` contributors are absent” term and a “some at-most-`C` contributor
+is present” term. -/
 theorem funcProb_maxLeOnNonempty (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
@@ -396,18 +396,18 @@ theorem funcProb_maxLeOnNonempty (S : ι → Finset X)
       funcProb_maxNoneAbove P α t S hdep hdisj C,
       funcProb_someAtMost P α t S hdep hdisj C]
 
-/-! ## MIN factorisation -/
+/-! ## MIN factorization -/
 
-/-- "Random world contains no contributor with value < C": the AND over the
+/-- “Random world contains no contributor with value < C”: the AND over the
 indicators `1 - α i` for all contributors with `t i < C`. -/
 def minNoneBelow (C : V) : BoolFunc X :=
   ∏ i ∈ Finset.univ.filter (fun i => t i < C), (1 - α i)
 
-/-- "Random world contains some contributor with value ≥ C". -/
+/-- “Random world contains some contributor with value ≥ C”. -/
 def someAtLeast (C : V) : BoolFunc X :=
   1 - ∏ i ∈ Finset.univ.filter (fun i => C ≤ t i), (1 - α i)
 
-/-- "Random world is nonempty and `min_{i ∈ world} t i ≥ C`". -/
+/-- “Random world is nonempty and `min_{i ∈ world} t i ≥ C`”. -/
 def minGeOnNonempty (C : V) : BoolFunc X :=
   minNoneBelow α t C * someAtLeast α t C
 
@@ -521,7 +521,7 @@ lemma funcProb_someAtLeast (S : ι → Finset X)
   intro i _
   exact P.funcProb_sub_self_const_one (α i)
 
-/-- **MIN factorisation under independence.** -/
+/-- **MIN factorization under independence.** -/
 theorem funcProb_minGeOnNonempty (S : ι → Finset X)
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j))) (C : V) :
@@ -890,8 +890,8 @@ end Sum
 
 `funcProb_maxLeOnNonempty` and `funcProb_minGeOnNonempty` treat `MAX ≤ C`
 and `MIN ≥ C`. The remaining comparisons all follow from two generic
-events: `guardedSome r q` – "no present contributor satisfies `r`, and
-some present contributor satisfies `q`" – and its unguarded special case
+events: `guardedSome r q` – “no present contributor satisfies `r`, and
+some present contributor satisfies `q`” – and its unguarded special case
 `someOf q`. Under the disjoint-supports hypothesis, their probabilities
 factor exactly as before, and each remaining comparison is an instance:
 
@@ -911,18 +911,18 @@ section Guarded
 
 variable (r q : ι → Prop) [DecidablePred r] [DecidablePred q]
 
-/-- "No present contributor satisfies `r`": AND of the negated indicators
+/-- “No present contributor satisfies `r`”: AND of the negated indicators
 over the contributors satisfying `r`. -/
 def noneOf : BoolFunc X :=
   ∏ i ∈ Finset.univ.filter r, (1 - α i)
 
-/-- "Some present contributor satisfies `q`": OR of the indicators over the
+/-- “Some present contributor satisfies `q`”: OR of the indicators over the
 contributors satisfying `q`, expressed as `1 - ∏ (1 - α i)`. -/
 def someOf : BoolFunc X :=
   1 - ∏ i ∈ Finset.univ.filter q, (1 - α i)
 
-/-- "No present contributor satisfies `r`, and some present contributor
-satisfies `q`". Every `MIN`/`MAX` aggregate comparison on non-empty random
+/-- “No present contributor satisfies `r`, and some present contributor
+satisfies `q`”. Every `MIN`/`MAX` aggregate comparison on non-empty random
 worlds is an instance of this event. -/
 def guardedSome : BoolFunc X :=
   noneOf α r * someOf α q
@@ -999,10 +999,10 @@ lemma funcProb_someOf
   congr 1
   exact Finset.prod_congr rfl fun i _ => P.funcProb_sub_self_const_one (α i)
 
-/-- **Factorisation of `guardedSome` under independence.** When the guard
+/-- **Factorization of `guardedSome` under independence.** When the guard
 `r` and the witness `q` are mutually exclusive, the probability of
-`guardedSome r q` is the product of an "every `r`-contributor is absent"
-term and a "some `q`-contributor is present" term. -/
+`guardedSome r q` is the product of an “every `r`-contributor is absent”
+term and a “some `q`-contributor is present” term. -/
 theorem funcProb_guardedSome
     (hdep : ∀ i, (α i).DependsOn (S i))
     (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
@@ -1037,37 +1037,37 @@ section MaxMinRemaining
 
 variable {V : Type} [LinearOrder V] (t : ι → V)
 
-/-- "Non-empty random world with `MAX(t) < C`". -/
+/-- “Non-empty random world with `MAX(t) < C`”. -/
 def maxLtOnNonempty (C : V) : BoolFunc X :=
   guardedSome α (fun i => C ≤ t i) (fun i => t i < C)
 
-/-- "Non-empty random world with `MAX(t) = C`". -/
+/-- “Non-empty random world with `MAX(t) = C`”. -/
 def maxEqOnNonempty (C : V) : BoolFunc X :=
   guardedSome α (fun i => C < t i) (fun i => t i = C)
 
-/-- "Random world with `MAX(t) > C`" (such a world is non-empty). -/
+/-- “Random world with `MAX(t) > C`” (such a world is non-empty). -/
 def someAbove (C : V) : BoolFunc X :=
   someOf α (fun i => C < t i)
 
-/-- "Random world with `MAX(t) < C`" (such a world is non-empty). -/
+/-- “Random world with `MAX(t) < C`” (such a world is non-empty). -/
 def someBelow (C : V) : BoolFunc X :=
   someOf α (fun i => t i < C)
 
-/-- "Non-empty random world with `MAX(t) ≠ C`": disjoint union of
+/-- “Non-empty random world with `MAX(t) ≠ C`”: disjoint union of
 `MAX < C` and `MAX > C`. -/
 def maxNeOnNonempty (C : V) : BoolFunc X :=
   maxLtOnNonempty α t C + someAbove α t C
 
-/-- "Non-empty random world with `MIN(t) > C`". -/
+/-- “Non-empty random world with `MIN(t) > C`”. -/
 def minGtOnNonempty (C : V) : BoolFunc X :=
   guardedSome α (fun i => t i ≤ C) (fun i => C < t i)
 
-/-- "Non-empty random world with `MIN(t) = C`". -/
+/-- “Non-empty random world with `MIN(t) = C`”. -/
 def minEqOnNonempty (C : V) : BoolFunc X :=
   guardedSome α (fun i => t i < C) (fun i => t i = C)
 
-/-- "Non-empty random world with `MIN(t) ≠ C`": disjoint union of
-`MIN < C` (i.e. some contributor below `C` is present) and `MIN > C`. -/
+/-- “Non-empty random world with `MIN(t) ≠ C`”: disjoint union of
+`MIN < C` (i.e., some contributor below `C` is present) and `MIN > C`. -/
 def minNeOnNonempty (C : V) : BoolFunc X :=
   minGtOnNonempty α t C + someBelow α t C
 
@@ -1147,7 +1147,7 @@ variable (hdisj : Set.Pairwise Set.univ (fun i j => Disjoint (S i) (S j)))
 
 include hdep hdisj
 
-/-- **`MAX < C` factorisation under independence.** -/
+/-- **`MAX < C` factorization under independence.** -/
 theorem funcProb_maxLtOnNonempty (C : V) :
     P.funcProb (maxLtOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => C ≤ t i),
@@ -1157,7 +1157,7 @@ theorem funcProb_maxLtOnNonempty (C : V) :
   funcProb_guardedSome P α _ _ S hdep hdisj
     (fun _ h1 h2 => absurd h2 (not_lt.mpr h1))
 
-/-- **`MAX = C` factorisation under independence.** -/
+/-- **`MAX = C` factorization under independence.** -/
 theorem funcProb_maxEqOnNonempty (C : V) :
     P.funcProb (maxEqOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => C < t i),
@@ -1167,8 +1167,8 @@ theorem funcProb_maxEqOnNonempty (C : V) :
   funcProb_guardedSome P α _ _ S hdep hdisj
     (fun _ h1 h2 => absurd (h2 ▸ h1) (lt_irrefl _))
 
-/-- **`MAX > C` under independence**: the complement of "every contributor
-above `C` is absent". -/
+/-- **`MAX > C` under independence**: the complement of “every contributor
+above `C` is absent”. -/
 theorem funcProb_someAbove (C : V) :
     P.funcProb (someAbove α t C) =
       1 - ∏ i ∈ Finset.univ.filter (fun i => C < t i),
@@ -1176,14 +1176,14 @@ theorem funcProb_someAbove (C : V) :
   funcProb_someOf P α _ S hdep hdisj
 
 /-- **`MIN < C` (equivalently `MAX`-dual) under independence**: the
-complement of "every contributor below `C` is absent". -/
+complement of “every contributor below `C` is absent”. -/
 theorem funcProb_someBelow (C : V) :
     P.funcProb (someBelow α t C) =
       1 - ∏ i ∈ Finset.univ.filter (fun i => t i < C),
         (1 - P.funcProb (α i)) :=
   funcProb_someOf P α _ S hdep hdisj
 
-/-- **`MIN > C` factorisation under independence.** -/
+/-- **`MIN > C` factorization under independence.** -/
 theorem funcProb_minGtOnNonempty (C : V) :
     P.funcProb (minGtOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => t i ≤ C),
@@ -1193,7 +1193,7 @@ theorem funcProb_minGtOnNonempty (C : V) :
   funcProb_guardedSome P α _ _ S hdep hdisj
     (fun _ h1 h2 => absurd h1 (not_le.mpr h2))
 
-/-- **`MIN = C` factorisation under independence.** -/
+/-- **`MIN = C` factorization under independence.** -/
 theorem funcProb_minEqOnNonempty (C : V) :
     P.funcProb (minEqOnNonempty α t C) =
       (∏ i ∈ Finset.univ.filter (fun i => t i < C),
@@ -1423,13 +1423,13 @@ end CountCDF
 The predicate provenance of an aggregate comparison
 (`Having.havingProv`, over `𝔹[X]`) is a `⊕`-sum of one disjunct per
 non-empty possible world. Under a fixed valuation of the Boolean
-variables, **exactly one** disjunct survives: the one of the *realised*
+variables, **exactly one** disjunct survives: the one of the *realized*
 world, formed of the occurrences whose annotation is true. Consequently
-the predicate provenance evaluates to true exactly when the realised
+the predicate provenance evaluates to true exactly when the realized
 world is non-empty and satisfies the comparison – the bridge between the
 intensional possible-world semantics and probabilistic query evaluation:
 the probability of the predicate provenance is the probability that the
-realised world is non-empty and satisfies the comparison.
+realized world is non-empty and satisfies the comparison.
 
 The section culminates in `booleanHaving_pqe`: for a Boolean query made
 of a Boolean combination of aggregate comparisons (`HavingPred`) applied
@@ -1441,7 +1441,7 @@ equals the probability of its Boolean provenance
 `randomWorld_evaluateAnnotated` and the comparisons by the
 exactly-one-disjunct bridge, composed through the sorted-sublist
 identity `groupSeq_randomWorld` between the plain group sequence of a
-random world and the realised subsequence of the annotated group
+random world and the realized subsequence of the annotated group
 sequence. -/
 
 section HavingPQE
@@ -1450,14 +1450,14 @@ open Having
 
 variable {T : Type} [ValueType T]
 
-/-- The world realised by a valuation `v`: the positions of the group
+/-- The world realized by a valuation `v`: the positions of the group
 sequence whose annotation evaluates to true under `v`. -/
 def realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
     (v : X → Bool) : Finset (Fin U.length) :=
   Finset.univ.filter (fun i => (U.get i).snd v = true)
 
 /-- **Exactly one world annotation survives**: under a valuation `v`, the
-factored world annotation of `W` is true iff `W` is the realised world. -/
+factored world annotation of `W` is true iff `W` is the realized world. -/
 theorem worldAnn_eval_iff {N : ℕ} (α : Fin N → BoolFunc X)
     (W : Finset (Fin N)) (v : X → Bool) :
     (worldAnn α W) v = true ↔ W = Finset.univ.filter (fun i => α i v = true) := by
@@ -1495,10 +1495,10 @@ lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
 
 /-- **PQE bridge for aggregate comparisons.** Under a valuation `v`, the
 predicate provenance of `f(t) op c` on the group sequence `U` evaluates to
-true iff the realised world is non-empty and its aggregate value satisfies
+true iff the realized world is non-empty and its aggregate value satisfies
 the comparison. Composed with the probability semantics, the probability
 of the predicate provenance is the probability, over random worlds, that a
-non-empty realised group satisfies the `HAVING` comparison. -/
+non-empty realized group satisfies the `HAVING` comparison. -/
 theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
     (t : Term T m) (f : SeqAggFunc T) (op : CompOp) (c : T) (v : X → Bool) :
     (havingProv U t f op c) v = true
@@ -1574,7 +1574,7 @@ theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
     · rw [if_neg (fun h => hPa (h0.mp h)),
         List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
 
-/-- The subsequence selected by the realised world is the sublist of
+/-- The subsequence selected by the realized world is the sublist of
 occurrences whose annotation is true under the valuation. -/
 theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))
     (v : X → Bool) :
@@ -1582,7 +1582,7 @@ theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
   unfold realizedWorld
   exact seqOf_filter_positions (fun p => p.snd v) U
 
-/-- The realised world of a group is non-empty iff some occurrence of the
+/-- The realized world of a group is non-empty iff some occurrence of the
 group survives the valuation. -/
 theorem realizedWorld_nonempty_iff {m : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (v : X → Bool) :
@@ -1596,9 +1596,9 @@ theorem realizedWorld_nonempty_iff {m : ℕ}
     obtain ⟨i, hi⟩ := List.mem_iff_get.mp hp
     exact ⟨i, Finset.mem_univ i, by rw [hi]; exact hpv⟩
 
-/-- **The plain group sequence of a random world is the realised
+/-- **The plain group sequence of a random world is the realized
 subsequence of the annotated group sequence**: both are lists of the same
-multiset (the realised occurrences of the group), sorted along `≼`. -/
+multiset (the realized occurrences of the group), sorted along `≼`. -/
 theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
     (g : Tuple T n₁) (v : X → Bool) :
@@ -1662,7 +1662,7 @@ theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
   exact List.Perm.eq_of_pairwise' (Multiset.pairwise_sort _ _) hsorted
     (Multiset.coe_eq_coe.mp (by rw [Multiset.sort_eq]; exact hmul))
 
-/-- A key is realised in the random world iff the realised world of its
+/-- A key is realized in the random world iff the realized world of its
 group sequence is non-empty. -/
 theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
@@ -1691,8 +1691,8 @@ theorem randomWorld_key_mem_iff {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
 
 /-- **PQE bridge for Boolean combinations, with polarity.** Under a
 valuation, the polarity-aware predicate provenance of `ψ` is true iff the
-realised world of the group is non-empty and `ψ` (negated according to
-the polarity) holds classically on the realised occurrence sequence. -/
+realized world of the group is non-empty and `ψ` (negated according to
+the polarity) holds classically on the realized occurrence sequence. -/
 theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
     (v : X → Bool) :
@@ -1763,8 +1763,8 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
 
 /-- **PQE bridge for Boolean combinations of aggregate comparisons.**
 Under a valuation, the predicate provenance of `ψ` on the group sequence
-`U` is true iff the realised world is non-empty and `ψ` holds classically
-on the realised occurrence sequence. -/
+`U` is true iff the realized world is non-empty and `ψ` holds classically
+on the realized occurrence sequence. -/
 theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
     (U : List (AnnotatedTuple T (BoolFunc X) m)) (g : Tuple T n₁)
     (v : X → Bool) (ψ : HavingPred T m n₁) :

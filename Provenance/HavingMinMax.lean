@@ -26,7 +26,7 @@ Everything rests on one identity, `meet_family_eq`: for `H ⊆ G ⊆ U`,
 
 `⊕_{W ⊆ G, W ∩ H ≠ ∅} T_U(W) = (𝟙 ⊖ ⊕_{x ∈ U \ G} α x) ⊗ (⊕_{i ∈ H} α i)`,
 
-i.e. the provenance of “the world stays inside `G` and meets `H`” is the
+i.e., the provenance of “the world stays inside `G` and meets `H`” is the
 product of two running sums. Both hypotheses of the absorptive setting are
 used: `≤` follows from `A_W ≤ α i ≤ ⊕_H α` (absorptivity makes `A` decreasing
 under inclusion), and `≥` from `upward_expansion` in the universe `G`,
@@ -47,7 +47,7 @@ The first use is not a proof convenience: in `MaxMin TVL` (absorptive but not
 world annotation part company.
 
 The six comparison operators then instantiate this with the right pair
-`(G, H)`; e.g. `MIN(t) ≥ c` keeps the worlds inside `G = {i | t i ≥ c}`, while
+`(G, H)`; e.g., `MIN(t) ≥ c` keeps the worlds inside `G = {i | t i ≥ c}`, while
 `MIN(t) ≤ c` keeps the worlds meeting `H = {i | t i ≤ c}`, and `MIN(t) = c`
 uses both. `PICKFIRST` splits the worlds according to their first occurrence
 and applies the identity to each fiber.

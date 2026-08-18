@@ -26,7 +26,7 @@ The development is in three parts.
   exactly when some non-empty `W ⊆ U` satisfies `∑ i ∈ W, t i = B`. Over
   `ℕ[X]` the monus factor of a world annotation collapses to `𝟙` and the
   surviving monomials are pairwise distinct, so no cancellation occurs;
-  over `𝔹[X]` the valuation realising exactly the occurrences of a
+  over `𝔹[X]` the valuation realizing exactly the occurrences of a
   witnessing world satisfies the provenance, whose satisfiability is
   non-`𝟘`-ness.
 * The **complexity** half: that combinatorial condition, read off a

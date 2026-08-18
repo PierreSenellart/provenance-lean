@@ -26,7 +26,7 @@ annotated tuples* to the key projection of the fused `HAVING` output
 (`proj_fused_eq_keyed`), so the substitution is transparent to every
 surrounding operator – including annotation-sensitive ones like `Diff`
 and further `HAVING`s, which are *not* congruences for the naive
-"equal up to `𝟘`-rows" relation (a `𝟘`-annotated row still changes the
+“equal up to `𝟘`-rows” relation (a `𝟘`-annotated row still changes the
 deterministic aggregate values of an enclosing group).
 -/
 

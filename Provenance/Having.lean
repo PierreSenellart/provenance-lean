@@ -570,7 +570,7 @@ exactly `C`; in particular `mul_sub_left_distributive` is *not* needed
 annotation, see `T_eq_mul_one_monus_sum`). Absorptive is a strictly
 stronger hypothesis than the bare “idempotent + distributive” combination
 one might wish for, and it is essential:
-`Provenance.Semirings.Tropical.TropicalR.F_ne_S` exhibits a non-absorptive
+`TropicalR.F_ne_S` exhibits a non-absorptive
 (but idempotent and distributive) instance – `Tropical (WithTop ℝ)` – for
 which the conclusion fails. The idempotent m-semirings in the library
 that *are* absorptive (Bool, BoolFunc, IntervalUnion,
@@ -611,7 +611,7 @@ whose second factor does not mention `A_W`.
 
 Unlike for `F_eq_S`, the `mul_sub_left_distributive` hypothesis here is
 essential and not an artifact of the proof:
-`Provenance.Semirings.ChainFive.ChainFive.not_world_bound` exhibits an
+`ChainFive.not_world_bound` exhibits an
 absorptive commutative m-semiring without it in which the conclusion fails
 (and with it the conclusions of `G_eq_S_monus_S` and `atMost_eq_S_monus_S`,
 which rest on this bound). -/
@@ -740,7 +740,7 @@ theorem atMost_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_dis
 
 /-! ### Collapse to minimal worlds, and the size of the index sets
 
-`upward_closed_collapse` specialises to any family of worlds cut out by a
+`upward_closed_collapse` specializes to any family of worlds cut out by a
 superset-monotone predicate: the provenance collapses to the `⊕`-sum of the
 monomials of the *minimal* valid worlds. For `SUM(t) op c` predicates over
 `ℕ`-weights with `op ∈ {≥, >}`, a bounded-ratio hypothesis on the weights

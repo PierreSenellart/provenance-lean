@@ -16,7 +16,7 @@ over `⊖`.
 * **`C = 1`** (`AggQuery.havingSite_count_ge_one`): the fused
   `COUNT(*) ≥ 1` operator agrees – key by key, annotation by annotation –
   with the duplicate-eliminated key projection `ε(Π_{keys}(q))`, via the
-  extensional characterisation `groupByKey_eq_dedup_map` of duplicate
+  extensional characterization `groupByKey_eq_dedup_map` of duplicate
   elimination, `Having.havingGroup_coe`, and
   `Having.havingProv_count_ge_one`.
 
@@ -24,11 +24,11 @@ over `⊖`.
   self-join chain `ε(Π_{#0}(joinChain q C))` gives every group key the
   `⊕`-sum `S_{C+1}` of the monomials of its `(C+1)`-element worlds, which
   is the fused `COUNT(*) ≥ C + 1` predicate provenance. The tie-broken
-  comparison `<*` of the rewriting is materialised by an *occurrence
+  comparison `<*` of the rewriting is materialized by an *occurrence
   identifier* column: the base query has columns (key, value, identifier)
   and the chain condition compares (value, identifier) pairs
   lexicographically, so any injective assignment of identifiers within
-  each group – the sole hypothesis – realises an arbitrary resolution of
+  each group – the sole hypothesis – realizes an arbitrary resolution of
   ties between equal values; duplicate values are fully supported. The
   statement is per key: a group with fewer than `C + 1` occurrences has
   provenance `𝟘` on both sides (the fused operator annotates its row with
@@ -57,7 +57,7 @@ section GroupByKey
 
 variable {K : Type} [SemiringWithMonus K] [DecidableEq K]
 
-/-- **Extensional characterisation of duplicate elimination.**
+/-- **Extensional characterization of duplicate elimination.**
 `groupByKey` produces exactly one row per distinct key of the input,
 whose annotation is the `⊕`-sum of the annotations of the matching
 rows. -/
@@ -124,7 +124,7 @@ theorem AggQuery.havingSite_count_ge_one
     Query.toAggHaving_input q hq d]
   set r : AnnotatedRelation ℕ K m := q.evaluateAnnotated hq d with hr
   -- The right-hand side: `ε ∘ Π` unfolds to `groupByKey` of the projected
-  -- relation, which `groupByKey_eq_dedup_map` characterises extensionally.
+  -- relation, which `groupByKey_eq_dedup_map` characterizes extensionally.
   have hRHS : (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d
       = Multiset.ofList (groupByKey
           (Multiset.map (fun p : AnnotatedTuple ℕ K m =>
@@ -432,10 +432,10 @@ end ChainAlgebra
 
 The `C`-fold self-join chain of the join-based rewriting, over an arity-3
 base query whose columns are (group key, compared value, occurrence
-identifier). The identifier column materialises the tie-broken comparison
+identifier). The identifier column materializes the tie-broken comparison
 `<*`: the chain condition compares (value, identifier) pairs
 lexicographically, so any injective assignment of identifiers within each
-group realises an arbitrary resolution of ties between equal values –
+group realizes an arbitrary resolution of ties between equal values –
 duplicate values (and duplicate whole occurrences) are fully supported. -/
 
 section JoinChain
@@ -1075,7 +1075,7 @@ theorem Query.joinChainDiff_count_le_correct [HasAltLinearOrder K]
   exact h₁.trans (h₂.trans (h₃.trans (h₄.trans h₅)))
 
 
-/-- The join-based query realising `COUNT(*) op (C + 1)`, for each
+/-- The join-based query realizing `COUNT(*) op (C + 1)`, for each
 comparison operator `op`: chains for `≥` and `>`, differences of two
 chains for `≤`, `<` and `=`, and the union of the `<`- and `>`-queries
 for `≠`. -/

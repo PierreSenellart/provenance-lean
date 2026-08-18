@@ -56,7 +56,7 @@ The genuine extension, covering `Diff` (the only case that requires monus),
 is [Geerts & Poggi, *On database query languages for K-relations*,
 Proposition 1][geerts2010database]: for any m-semiring map `h : K → K'`, the
 transformation commutes with every `RA⁺(\)` query *if and only if* `h` is an
-*m-semiring* homomorphism (i.e. it preserves monus in addition to addition
+*m-semiring* homomorphism (i.e., it preserves monus in addition to addition
 and multiplication). The `Diff` case of `Query.evaluateAnnotated_hom`
 crucially uses `SemiringWithMonusHom`'s `map_sub` field; this is the only
 case that goes beyond Green et al.'s setting.
@@ -287,7 +287,7 @@ for the only case that needs monus (`Diff`). The `Dedup` case is the explicit
 form, in our multiset semantics, of the annotation-summing that is automatic
 in Green et al.'s set semantics; it still requires only that `h` respect `+`.
 The “only if” direction (that commutation forces `h` to be an m-hom) is not
-formalised here.
+formalized here.
 
 Aggregation (`Agg`) is excluded via the `source` precondition; see the comment
 on `Query.evaluateAnnotated` for the underlying limitation. -/

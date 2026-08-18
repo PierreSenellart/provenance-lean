@@ -13,12 +13,12 @@ instead of directly interpreting operators over annotated tuples, a query on `T`
 rewritten into a query on `T ⊕ K` that operates on plain tuples whose values encode
 both data and provenance.
 
-The rewriting implemented here realises rules (R1)–(R5) from
+The rewriting implemented here realizes rules (R1)–(R5) from
 [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance
 and Probability of Data*][sen2026provsql].
 
 A correctness proof that `Query.rewriting` agrees with `Query.evaluateAnnotated` is
-fully formalised for rules (R1)–(R4): each operator is machine-checked end-to-end.
+fully formalized for rules (R1)–(R4): each operator is machine-checked end-to-end.
 The `Diff` case splits into an `unmatched_eq` half (proved via the semijoin
 identity `Multiset.semijoin_proj_eq_filter`, after bridging the
 `LinearOrder.toDecidableEq` vs `instDecidableEqSum` mismatch on the inner dedup
@@ -32,7 +32,8 @@ token rather than a quotiented K-tensor.
 
 ## References
 
-* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
+* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+  Provenance and Probability of Data*][sen2026provsql]
 -/
 
 def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) (n+1) := match q with
@@ -155,7 +156,7 @@ lemma Query.rewriting_append_right
   refine Fin.eq_of_val_eq ?_
   simp
 
-/-- `Tuple.cast`-flavoured variant of `rewriting_append_left`. Both `Tuple.cast`'s and `▸`'s
+/-- `Tuple.cast`-flavored variant of `rewriting_append_left`. Both `Tuple.cast`'s and `▸`'s
 `Eq.rec` motives must syntactically agree for `rw` to fire on Lean v4.29; this version
 matches the motive produced by `Tuple.cast`. -/
 lemma Query.tupleCast_append_left
@@ -169,7 +170,7 @@ lemma Query.tupleCast_append_left
   unfold Tuple.cast
   simp[Fin.append,Fin.addCases,hk]
 
-/-- `Tuple.cast`-flavoured variant of `rewriting_append_right`. -/
+/-- `Tuple.cast`-flavored variant of `rewriting_append_right`. -/
 lemma Query.tupleCast_append_right
   (t₁: Tuple T n₁)
   (t₂: Tuple T n₂)
@@ -204,7 +205,7 @@ lemma Multiset.fold_addFn_map_inr
     show addFn (Sum.inr hd : T⊕K) (Sum.inr tl.sum) = Sum.inr (hd + tl.sum)
     rfl
 
-/-- Filtering `ar.toComposite` by "first-n columns match `Sum.inl ∘ v`" and projecting to the
+/-- Filtering `ar.toComposite` by “first-n columns match `Sum.inl ∘ v`” and projecting to the
 last column yields the `Sum.inr`-wrapped annotations of the matching entries of `ar`. -/
 lemma AnnotatedRelation.toComposite_filter_map_last
   {T K: Type} [ValueType T] [DecidableEq K] {n: ℕ}
@@ -573,7 +574,7 @@ lemma Sum.inl_lift_injective {T K: Type} {n: ℕ}:
   funext k
   exact Sum.inl.inj (congrFun heq k)
 
-/-- Filtering by "not a member of an injective image" pulls through the map. -/
+/-- Filtering by “not a member of an injective image” pulls through the map. -/
 lemma Multiset.filter_notMem_map_of_injective
   {α β: Type*} [DecidableEq α] [DecidableEq β] {f: α → β} (hf: Function.Injective f)
   (m: Multiset α) (s: Multiset α):
@@ -633,7 +634,7 @@ lemma AnnotatedRelation.map_fromComposite_toComposite
 
 /-- Reduction of the inner `Dedup ∘ Diff ∘ Proj` block of the `Diff` rewriting:
     deduping the difference of first-`n` projections of `AR₁.toComposite` and `AR₂.toComposite`
-    yields the `Sum.inl`-lift of the deduped "unmatched-keys" filter over the data part.
+    yields the `Sum.inl`-lift of the deduped “unmatched-keys” filter over the data part.
     Stated using `Fin.castLE` (function form) and dot notation (`.dedup`) so the LHS
     pattern matches what `simp only [evaluate]` produces in the `Diff` case of
     `rewriting_valid`. -/
@@ -755,7 +756,7 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
     rw [hmod]; omega
   rw [hidx_eq, Fin.append_right]
 
-/-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterises the first-`n`
+/-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterizes the first-`n`
 projection equality between `p` and `q`. -/
 lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
@@ -807,7 +808,8 @@ lemma cast_append_2n2_at_ofNat_right {α : Type} {n : ℕ}
   rw [Tuple.cast_get]
   have hbnd : k.val + n + 1 < 2*n + 2 := by omega
   have hmod : (k.val + n + 1) % (2*n+2) = k.val + n + 1 := Nat.mod_eq_of_lt hbnd
-  -- Show the recast index equals `Fin.natAdd (n+1) (k.castLE _)`, then close with `Fin.append_right`.
+  -- Show the recast index equals `Fin.natAdd (n+1) (k.castLE _)`, then close
+  -- with `Fin.append_right`.
   have hidx_eq : (Fin.ofNat (2*n+2) (k.val + n + 1)).cast h.symm
       = Fin.natAdd (n+1) (k.castLE (Nat.le_succ n)) := by
     apply Fin.eq_of_val_eq
@@ -860,7 +862,7 @@ lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
   exact Fin.eq_of_val_eq rfl
 
 /-- Arity-`(2n+2)` analogue of `selFilter_cast_append_iff`: the join condition
-on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterises
+on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterizes
 equality of the first-`n` projections of `p` and `q`. -/
 lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
@@ -1466,7 +1468,8 @@ theorem Query.rewriting_valid
       rw [← ih'₁, ← ih'₂]
       -- Substitute the unfolded Agg form with its closed form via `hAggForm`.
       rw [hAggForm]
-      -- Now: map (proj_outer) (filter (selFilter) (Relation.cast h (AR₁.toComposite * AggOutput))) = RHS
+      -- Now: map (proj_outer) (filter (selFilter)
+      --   (Relation.cast h (AR₁.toComposite * AggOutput))) = RHS
       rw [Relation.cast_eq_map]
       simp only [(·*·), Mul.mul, Multiset.map_map]
       rw [Multiset.filter_map, Multiset.map_map]
@@ -1677,7 +1680,8 @@ theorem Query.rewriting_valid
               (q₂.evaluateAnnotated hq'₂ d) = 0 :=
           Multiset.filter_eq_nil.mpr (fun q hq hqeq =>
             hunmatched (Multiset.mem_map.mpr ⟨q, hq, hqeq⟩))
-        -- Avoid direct `rw` on filter (DecidablePred instance divergence). Convert sum to 0 instead.
+        -- Avoid direct `rw` on filter (DecidablePred instance divergence).
+        -- Convert sum to 0 instead.
         have hsum_zero : (Multiset.map Prod.snd
             (Multiset.filter (fun q: AnnotatedTuple T K n ↦ q.1 = p.1)
               (q₂.evaluateAnnotated hq'₂ d))).sum = 0 := by

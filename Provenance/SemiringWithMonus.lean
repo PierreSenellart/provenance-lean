@@ -66,7 +66,7 @@ class SemiringWithMonus (α : Type)
   /-- A δ-guard is absorbed by any multiple of one of its summands:
   `a ⊗ δ(a ⊕ b) = a`. This is what makes a group-existence factor
   redundant next to any provenance that already contains an occurrence
-  of the group: `δ` really acts as "the group exists" and nothing more.
+  of the group: `δ` really acts as “the group exists” and nothing more.
   Both usual choices of `δ` satisfy it in their natural habitat: the
   indicator (`δ x = 𝟙` for `x ≠ 𝟘`) in any canonically ordered semiring
   (`delta_absorb_indicator`), and the identity in lattice-like
@@ -472,7 +472,7 @@ theorem not_isDelta_id_of_not_mul_idempotent {K : Type} [Semiring K]
   fun hd => h (fun a => by simpa [hadd a] using hd.absorb a a)
 
 /-- `δ := id` requires absorptivity: `delta_absorb` at `a = 𝟙` reads
-`𝟙 ⊗ (𝟙 ⊕ b) = 𝟙`, i.e. `𝟙 ⊕ b = 𝟙`. -/
+`𝟙 ⊗ (𝟙 ⊕ b) = 𝟙`, i.e., `𝟙 ⊕ b = 𝟙`. -/
 theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
     (h : ¬ absorptive K) : ¬ IsDelta (id : K → K) := by
   intro hd
@@ -481,7 +481,7 @@ theorem not_isDelta_id_of_not_absorptive {K : Type} [Semiring K]
 /-! ## Existence of a `δ`-like operator
 
 This is the abstract counterpart of the `SemiringWithMonus` δ-axioms: we
-characterise, in an arbitrary nontrivial semiring (no order assumed), when
+characterize, in an arbitrary nontrivial semiring (no order assumed), when
 a function `δ : K → K` satisfying `δ 0 = 0` and `δ ((n : K)) = 1` for
 `0 < n` can exist. The class also demands `delta_absorb`, which the iff
 below ignores, so it should be read as a statement about how much of the
@@ -668,7 +668,7 @@ theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
 /-- On an arbitrary semiring the natural relation `a ≼ b ↔ ∃ c, b = a + c`
 is always a preorder (reflexive by `c = 0`, transitive by adding witnesses)
 but not always antisymmetric: on `ℤ`, any two elements are related in both
-directions, e.g. `0 ≼ 1 ≼ 0` with `0 ≠ 1`. This is why `SemiringWithMonus`
+directions, e.g., `0 ≼ 1 ≼ 0` with `0 ≠ 1`. This is why `SemiringWithMonus`
 *assumes* the canonically ordered structure instead of deriving an order
 from `+`. -/
 theorem natural_preorder_not_antisymm :

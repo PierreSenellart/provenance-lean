@@ -241,7 +241,7 @@ needed: the **random world** of a `BoolFunc X`-annotated relation under a
 valuation `v : X → Bool` (the plain relation containing exactly the data
 parts of the annotated tuples whose annotation evaluates to `true` at `v`),
 and the **disjunctive tuple annotation** `⋁_{(t,α) ∈ r} α` (a single Boolean
-function summarising all the ways `t` can appear in `r`). -/
+function summarizing all the ways `t` can appear in `r`). -/
 
 variable {T : Type} [ValueType T]
 
@@ -527,7 +527,7 @@ lemma AnnotatedDatabase.find_randomWorld
 /-! ### Diff annotation helper
 
 For the `Diff` case of the structural commutation theorem we need to
-characterise when the annotation subtracted from `r₁`'s entries evaluates to
+characterize when the annotation subtracted from `r₁`'s entries evaluates to
 `false` at the valuation `v`: this happens exactly when the data tuple is
 not in the random world of `r₂`. -/
 
@@ -642,7 +642,7 @@ is a structural induction on `q`, covering all non-aggregation constructors
 (including `Prod`, `Dedup`, and `Diff`).
 
 This is the adequacy theorem for the non-monotone fragment: a bag-level
-equality between the annotated semantics (specialised to a possible world)
+equality between the annotated semantics (specialized to a possible world)
 and the plain semantics, valid in the presence of difference and duplicate
 elimination. It is the `𝔹`-valuation counterpart of the `ℕ`-adequacy theorem
 of [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq

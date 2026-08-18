@@ -54,7 +54,7 @@ This factoring implements the *replace-the-δ-factor* combination rule:
   predicate provenance does not entail each group's existence (a
   disjunction guards only the disjunct that fires), and likewise a
   predicate that does not *entail existence* at all
-  (`GenPred.entailsExistence` – e.g. an aggregate atom `∨`-mixed with a
+  (`GenPred.entailsExistence` – e.g., an aggregate atom `∨`-mixed with a
   regular atom, whose `χ` can fire in worlds where the group is empty)
   supersedes nothing. This mirrors ProvSQL's structural supersede
   (`cmp_supersede.cpp` with `having_entails_group_existence`), which
@@ -274,7 +274,7 @@ a regular atom's `χ` does not. A conjunction (`∧` positively, `∨` under
 negation) entails as soon as one factor does; a disjunction only if every
 disjunct does. Mirrors ProvSQL's `having_entails_group_existence`: the
 supersede of the group-existence factor is licensed only when this holds,
-since e.g. `agg-atom ∨ regular-atom` can fire in worlds where the group
+since e.g., `agg-atom ∨ regular-atom` can fire in worlds where the group
 is empty. -/
 def entailsExistence : GenPred T κ → Bool → Bool
   | cmp _ _ _, _ => false

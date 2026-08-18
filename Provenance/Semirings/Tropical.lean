@@ -225,7 +225,7 @@ theorem TropicalN.absorptive : absorptive (Tropical (WithTop ℕ)) := by
 
 /-- On the tropical semiring over `ℕ ∪ {∞}` the identity is not an admissible `δ`,
 even though this semiring *is* absorptive (`TropicalN.absorptive`): what
-`delta_absorb` asks of `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, i.e.
+`delta_absorb` asks of `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, i.e.,
 `a + min(a, b) = a` in `ℕ`, and at `a = b = trop 1` it reads `trop 2 ≠ trop 1`.
 This is why the instance takes the support indicator (ProvSQL's
 `Tropical::delta`). -/
@@ -315,8 +315,8 @@ Unlike `Tropical (WithTop ℕ)` (canonically ordered, hence absorptive via
 `a = trop (-1)` we have `1 + a = trop (min 0 (-1)) = trop (-1) ≠ trop 0 = 1`.
 
 The tropical m-semiring over `ℝ` is still idempotent and satisfies
-`mul_sub_left_distributive`, so it satisfies the "idempotent + ⊗-over-⊖
-distributive" hypotheses one might hope to suffice for `Having.F_eq_S`.
+`mul_sub_left_distributive`, so it satisfies the “idempotent + ⊗-over-⊖
+distributive” hypotheses one might hope to suffice for `Having.F_eq_S`.
 The witness below shows that the strengthened hypothesis (absorptivity) is
 genuinely required: on `U = {true, false} ⊆ Bool` and `α ≡ trop (-1)` we
 have `S_1(U) = trop (-1)` but `F_1(U) = trop (-2)`. -/
@@ -379,7 +379,7 @@ private theorem neg1_ge_neg2 :
     ((-1 : ℝ) : WithTop ℝ) ≥ ((-2 : ℝ) : WithTop ℝ) := by
   exact_mod_cast (by norm_num : (-1 : ℝ) ≥ -2)
 
-/-- The "exactly-`{b}`" contribution vanishes for both singletons: the
+/-- The “exactly-`{b}`” contribution vanishes for both singletons: the
 monus `trop (-1) ⊖ trop (-2)` collapses to `0` because `-1 ≥ -2` puts
 `trop (-2)` above `trop (-1)` in the natural (reverse) order. -/
 private theorem T_ce_singleton_eq_zero (b : Bool) :
@@ -458,7 +458,7 @@ fails in `Tropical (WithTop ℝ)`: with `U = Finset.univ : Finset Bool`,
 `α ≡ trop (-1)`, and `C = 1`, we have `F_1(U) = trop (-2)` while
 `S_1(U) = trop (-1)`. This shows that `Having.F_eq_S` genuinely needs the
 absorptivity hypothesis (cf. `TropicalR.not_absorptive`): the weaker
-"idempotent + `mul_sub_left_distributive`" combination satisfied by
+“idempotent + `mul_sub_left_distributive`” combination satisfied by
 `Tropical (WithTop ℝ)` (and likewise by `Tropical (WithTop ℚ)`) is insufficient. -/
 theorem TropicalR.F_ne_S :
     Having.F TropicalR.α_ce (Finset.univ : Finset Bool) 1 ≠
@@ -515,7 +515,7 @@ private theorem minScan_ge_ce :
 as `TropicalR.F_ne_S`, and shows that the absorptivity hypothesis of
 `Having.minScan_correct` (and, by symmetry, of `Having.maxScan_correct`
 and `Having.firstScan_correct`) is genuinely required: the weaker
-"idempotent + `mul_sub_left_distributive`" combination satisfied by
+“idempotent + `mul_sub_left_distributive`” combination satisfied by
 `Tropical (WithTop ℝ)` is insufficient. -/
 theorem minScan_ne_prov :
     Having.prov α_ce (Finset.univ : Finset Bool)

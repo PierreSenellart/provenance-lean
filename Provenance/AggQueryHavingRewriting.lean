@@ -1,7 +1,7 @@
 import Provenance.AggQueryRewriting
 import Provenance.AggQueryBridges
 
-/-! # The rewritten world's evaluator: tokens as first-class column values
+/-! # The rewritten world's evaluator: tokens as ordinary column values
 
 ProvSQL evaluates rewritten plans over a value universe that contains,
 next to the regular values and the provenance identifiers, the aggregate

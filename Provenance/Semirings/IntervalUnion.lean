@@ -50,7 +50,8 @@ set inclusion.
 
 ## References
 
-* [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update Provenance through Temporal Databases*][widiaatmaja2025demonstration]
+* [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update
+  Provenance through Temporal Databases*][widiaatmaja2025demonstration]
 -/
 
 /-- A finite union of pairwise-disjoint intervals sorted from left to right.
@@ -155,7 +156,8 @@ theorem ext_toSet [LinearOrder α] [DenselyOrdered α]
           -- y in I.toSet or L ∈ tl
           cases List.mem_cons.mp hLconsI with
           | inr hLtl =>
-            -- y ∈ L.toSet with I.before L → I.hi.val ≤ L.lo.val ≤ y ≤ J.hi.val and x ≤ I.hi.val but x ≥ K.lo.val > J.hi.val
+            -- y ∈ L.toSet with I.before L → I.hi.val ≤ L.lo.val ≤ y ≤ J.hi.val
+            -- and x ≤ I.hi.val but x ≥ K.lo.val > J.hi.val
             have hIbL := (List.pairwise_cons.mp hpb₁).1 L hLtl
             -- I.hi.val ≤ L.lo.val
             have hIhiLlo : I.hi.val ≤ L.lo.val := by
@@ -1447,7 +1449,7 @@ with `f σ = true` and `var_i^true = var_i`, `var_i^false = 1 - var_i`. Define
 `atomIU ν σ := ∏_i (if σ i then ν i else 1 - ν i)`. This is a finite Boolean
 combination of the `ν(i)`'s, hence lies in `IntervalUnion β`.
 
-The correctness rests on the set-theoretic characterisation
+The correctness rests on the set-theoretic characterization
 `mem_atomIU_iff_sig`: `x ∈ (atomIU ν σ).toSet` iff `σ` is the ν-signature of
 `x`, where the ν-signature `sigOf ν x` sends each `i` to `decide (x ∈ ν i)`.
 This yields `(evalBF ν f).toSet = {x : β | f (sigOf ν x) = true}`
@@ -1543,7 +1545,7 @@ the set of `x : β` such that `f` holds on `x`'s ν-signature. -/
 private noncomputable def evalBF (ν : Y → IntervalUnion β) (f : BoolFunc Y) : IntervalUnion β :=
   ∑ σ : Y → Bool, if f σ then atomIU ν σ else 0
 
-/-- toSet characterisation of `evalBF`. -/
+/-- toSet characterization of `evalBF`. -/
 private lemma evalBF_toSet (ν : Y → IntervalUnion β) (f : BoolFunc Y) :
     (evalBF ν f).toSet = {x : β | f (sigOf ν x) = true} := by
   rw [evalBF, sum_toSet]
@@ -1646,7 +1648,7 @@ theorem IntervalUnion.homomorphism_from_BoolFunc
   intro i
   exact evalBF_var ν i
 
-/-- Specialisation of `IntervalUnion.homomorphism_from_BoolFunc` to the
+/-- Specialization of `IntervalUnion.homomorphism_from_BoolFunc` to the
 extended rationals. -/
 theorem IntervalUnion.homomorphism_from_BoolFunc_rat
     (Y : Type) [Fintype Y] [DecidableEq Y] :

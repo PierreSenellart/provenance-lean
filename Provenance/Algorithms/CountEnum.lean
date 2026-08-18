@@ -10,7 +10,7 @@ import Provenance.Algorithms.CompOp
 /-!
 # Correctness of COUNT enumeration
 
-This file formalises a count-based enumeration algorithm. The algorithm
+This file formalizes a count-based enumeration algorithm. The algorithm
 enumerates the non-empty subsets `W` of a finite set of occurrences `U`
 whose cardinality satisfies `|W| op C` for a fixed comparison operator
 `op ∈ {=, ≠, <, ≤, >, ≥}` and a constant `C ∈ ℕ`. The main result
@@ -18,7 +18,7 @@ whose cardinality satisfies `|W| op C` for a fixed comparison operator
 coincides with that set, in the sense of membership.
 
 An aggregate term `t` would be irrelevant to COUNT and is dropped from
-the Lean signature. The "distinct occurrences" hypothesis is encoded as
+the Lean signature. The “distinct occurrences” hypothesis is encoded as
 `List.Nodup` and is needed in the spec only so that `Finset` cardinality
 matches list length: without it, the algorithm still returns subsets of
 `occs.toFinset`, but cardinality bookkeeping breaks.
@@ -55,7 +55,7 @@ def countEnum (occs : List α) (C : ℕ) (op : CompOp) : List (Finset α) :=
 
 /-! ### Correctness lemmas -/
 
-/-- Membership characterisation of `combinations`. Under disjointness of
+/-- Membership characterization of `combinations`. Under disjointness of
 the accumulator and the suffix list, the output enumerates exactly the
 sets of the form `W ∪ T` with `T` a subset of `occs.toFinset` of size
 `x`. `Nodup occs` is needed so that the disjointness is preserved on
@@ -150,7 +150,7 @@ theorem combinations_mem :
           · exact absurd hv huT
           · exact List.mem_toFinset.mpr hvr
 
-/-- Membership characterisation of `addExact`: the output enumerates
+/-- Membership characterization of `addExact`: the output enumerates
 the non-empty subsets of `occs` of cardinality exactly `x`. -/
 theorem addExact_mem (occs : List α) (hnodup : occs.Nodup) (x : ℕ) (S : Finset α) :
     S ∈ addExact occs x ↔ S ⊆ occs.toFinset ∧ S.card = x ∧ S ≠ ∅ := by

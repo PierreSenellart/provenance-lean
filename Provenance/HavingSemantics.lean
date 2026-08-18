@@ -213,7 +213,7 @@ end Bridge
 /-- The `K`-annotation of a possible world, in the factored form of the
 possible-world semantics: the product of the annotations of the kept
 occurrences times `𝟙 ⊖` the sum of the annotations of the discarded ones.
-`worldAnn_eq_T` normalises it into the `Having.T` form used by the
+`worldAnn_eq_T` normalizes it into the `Having.T` form used by the
 algebraic development. -/
 def worldAnn {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) : K :=
   (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i)
@@ -331,10 +331,10 @@ omit [DecidableEq K] in
 /-- **Attachment of the algebra to the semantics.** In an m-semiring where
 `⊗` left-distributes over `⊖`, the predicate provenance is exactly the
 possible-world provenance `Having.prov` of the predicate
-"`f(t) op c` holds in the world", over the universe of positions of `U`
+“`f(t) op c` holds in the world”, over the universe of positions of `U`
 annotated by the occurrence annotations. All the collapse results of
 `Provenance.Having` and `Provenance.HavingMinMax` (`F_eq_S`,
-`G_eq_S_monus_S`, `collapse_to_minimal`, `minScan_correct`, …) thereby
+`G_eq_S_monus_S`, `collapse_to_minimal`, `minScan_correct` …) thereby
 apply to the fused operator's semantics. -/
 theorem havingProv_eq_prov (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
@@ -353,7 +353,7 @@ theorem havingProv_eq_prov (h_distrib : mul_sub_left_distributive K)
   · simp only [hne, if_false, false_and]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-/-- The `COUNT(*)` specialisation: on the world `W`, the sequence aggregate
+/-- The `COUNT(*)` specialization: on the world `W`, the sequence aggregate
 `List.length` computes `|W|`, so a `COUNT` comparison depends on the world
 only through its cardinality. Together with `havingProv_eq_prov` this
 attaches the `Having.F`/`Having.G` algebra to the fused semantics. -/
@@ -565,7 +565,7 @@ instance HavingPred.decidableHoldsOnSeq (L : List (Tuple T m)) (g : Tuple T n₁
 
 /-- Plain possible-world satisfaction of a Boolean `HAVING` query: the
 query grouping the output of `q` by the columns `is` and keeping the
-groups satisfying `ψ` holds on the database `d` iff some realised group
+groups satisfying `ψ` holds on the database `d` iff some realized group
 key satisfies `ψ` – equivalently, iff its output is non-empty. -/
 def HavingPred.modelsBoolean (d : Database T) (q : Query T m)
     (is : Tuple (Fin m) n₁) (ψ : HavingPred T m n₁) : Prop :=

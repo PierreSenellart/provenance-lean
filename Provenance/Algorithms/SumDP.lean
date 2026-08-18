@@ -12,7 +12,7 @@ import Provenance.Algorithms.CompOp
 /-!
 # Correctness of SUM enumeration via dynamic programming
 
-This file formalises a subset-sum enumeration algorithm. The algorithm
+This file formalizes a subset-sum enumeration algorithm. The algorithm
 enumerates the non-empty subsets `W` of a finite set of occurrences `U`
 whose weighted sum `∑_{u ∈ W} t u` satisfies `(∑ t) op C` for a fixed
 comparison operator `op` and constant `C : ℕ`. The main result
@@ -66,7 +66,7 @@ def sumDP (occs : List α) (t : α → ℕ) (C : ℕ) (op : CompOp) :
 
 /-! ### Correctness lemmas -/
 
-/-- Membership characterisation of `sumExact`. Under `occs.Nodup`,
+/-- Membership characterization of `sumExact`. Under `occs.Nodup`,
 the output enumerates exactly the subsets of `occs.toFinset` with
 weighted sum equal to `j`. The Nodup hypothesis is used in the
 inductive step to guarantee that the head `u` does not appear later in

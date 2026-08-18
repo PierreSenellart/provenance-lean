@@ -15,7 +15,8 @@ queries with differences*, Table on p. 4][amsterdamer2011limitations].
 
 ## References
 
-* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries with differences*][amsterdamer2011limitations]
+* [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries
+  with differences*][amsterdamer2011limitations]
 -/
 
 @[ext]
@@ -181,7 +182,7 @@ instance : CommSemiring (Why α) where
 /-- The support-indicator `δ` of why-provenance: `𝟘` on the empty
 witness family, `𝟙` otherwise. The witness-preserving identity choice
 (ProvSQL's historical `Why::delta`) violates `delta_absorb` – `Why` is
-not absorptive – so `δ` collapses group existence to a bare "exists". -/
+not absorptive – so `δ` collapses group existence to a bare “exists”. -/
 private def Why.deltaInd (a : Why α) : Why α :=
   ⟨{s | s = ∅ ∧ a.carrier.Nonempty}⟩
 

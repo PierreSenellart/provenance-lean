@@ -11,10 +11,10 @@ package "provenance" where
   -- Settings applied to both builds and interactive editing
   leanOptions := #[
     ⟨`pp.unicode.fun, true⟩, -- pretty-prints `fun a ↦ b`
-    -- The library's carriers (`Tuple`, `Relation`, `KTensor`, …) are deliberately
+    -- The library's carriers (`Tuple`, `Relation`, `KTensor` …) are deliberately
     -- opaque `def`s; since Lean v4.31 instance search and rewriting respect
     -- transparency and cannot see through them, so restore the pre-4.31
-    -- behaviour (as Mathlib does in similar situations).
+    -- behavior (as Mathlib does in similar situations).
     ⟨`backward.isDefEq.respectTransparency, false⟩
   ]
   -- add any additional package configuration options here

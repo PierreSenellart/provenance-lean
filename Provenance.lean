@@ -199,8 +199,8 @@ proven engine several general results reuse internally.
   – one row per group key, annotated by `Having.havingProv` – since the
   pending group factor is superseded by the token's predicate provenance
   (`AggValue.predProv_ofGroup`) and the data part collapses to the
-  whole-group aggregates. This is the content the separate fused evaluator
-  used to carry, now a theorem about the single annotated evaluator
+  whole-group aggregates. The fused site is thereby a theorem about the
+  single annotated evaluator, not a semantics of its own
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
@@ -228,8 +228,8 @@ proven engine several general results reuse internally.
   provenance of a token comparison (`AggValue.predProv_mapAnn`) and of a
   whole generalized predicate (`GenPred.predsem_mapAnn`) commute with
   every `SemiringWithMonusHom` –
-  the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of "compile once, evaluate
-  many". The evaluator-level commutation
+  the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of “compile once, evaluate
+  many”. The evaluator-level commutation
   (`AggQuery.evaluateAnnotated_hom`) holds hypothesis-free over every
   m-semiring: the guard-absorption identities licensed by `delta_absorb`
   (`AggValue.predProv_delta_absorb`, `GenPred.predsem_delta_absorb`)
@@ -271,7 +271,7 @@ proven engine several general results reuse internally.
   the row invariant `GenRow.Inv`) and the plain-semantics agreement
   `AggQuery.rewriting_plain` of the two rewritten queries
 - `Provenance.AggQueryHavingRewriting` – **the rewritten world's
-  evaluator, with tokens as first-class column values**: rewritten
+  evaluator, with tokens as ordinary column values**: rewritten
   queries run over rows `Tuple (GenValue (T ⊕ K) K) n`
   (`AggQuery.evaluateRew`), where the token-building grouping `GammaTok`
   is ProvSQL's `provsql_agg` (explicit annotation term, group guard
@@ -309,11 +309,11 @@ proven engine several general results reuse internally.
   gate unchanged
 - `Provenance.AggQueryClosure` – **the compositional closure of the three
   base rewritings** (classical blocks, `HAVING` sites, bare groupings).
-  Since the base rules no longer share an output shape – a bare grouping
+  Since the base rules do not share an output shape – a bare grouping
   emits token columns – the relation `AggQuery.RewritesTo` is indexed by
   the rewritten query's own kind vector and correctness
-  (`AggQuery.rewritesTo_valid`) is stated at token level, specialising to
-  the earlier all-regular form as `AggQuery.rewritesTo_valid_reg`. The
+  (`AggQuery.rewritesTo_valid`) is stated at token level, specializing to
+  the all-regular form as `AggQuery.rewritesTo_valid_reg`. The
   uniform rewritten kind vector `ColKind.rewKindsOf κ` (source kinds plus
   the provenance column) makes casting into the rewritten world
   kind-preserving, so `TermG.castRew`, `GenPred.castRew` and
@@ -408,7 +408,7 @@ proven engine several general results reuse internally.
   `HAVING`-style aggregate comparisons under contributor independence:
   given pairwise-disjoint contributor variable supports (so contributors
   are independent Bernoullis with marginals `p i = P.funcProb (α i)`),
-  the MAX / MIN factorisation formulas for all six comparison operators
+  the MAX / MIN factorization formulas for all six comparison operators
   (`funcProb_maxLeOnNonempty` / `funcProb_minGeOnNonempty` and the
   generic `funcProb_guardedSome` covering the remaining operators),
   the COUNT / SUM Poisson-binomial-style recurrences
@@ -429,7 +429,7 @@ proven engine several general results reuse internally.
   case (`Query.joinChain_count_correct`, the `C`-fold self-join chain with
   a lexicographic occurrence-identifier tie-break gives every key the
   `⊕`-sum of its `(C+1)`-element world monomials, the fused
-  `COUNT(*) ≥ C + 1` provenance), via the extensional characterisation
+  `COUNT(*) ≥ C + 1` provenance), via the extensional characterization
   `groupByKey_eq_dedup_map` of duplicate elimination and the chain algebra
   `chainAgg`/`esymm`
 - `Provenance.HavingJoinCompositional` – the JOIN rewriting upgraded from
@@ -441,7 +441,7 @@ proven engine several general results reuse internally.
   is precisely the key projection of the fused output (`fused_key_proj`);
   the combined `countHaving_site_rewrite` makes the substitution
   transparent to every surrounding operator – padding matters, since a
-  bare "equal up to `𝟘`-rows" relation is not a congruence for enclosing
+  bare “equal up to `𝟘`-rows” relation is not a congruence for enclosing
   aggregates. The compositional query-to-query form of the rewriting
   lives on the general syntax (`GenCountHavingRewrite`, in
   `Provenance.AggQueryEmbedding`)
@@ -491,8 +491,8 @@ proven engine several general results reuse internally.
 - `Provenance.Semirings.BoolFunc` – the Boolean-function m-semiring `𝔹[X]`
 - `Provenance.Semirings.Why` – the Why[X] m-semiring (sets of witness sets)
 - `Provenance.Semirings.Which` – the Which[X] m-semiring (lineage / Lin[X])
-- `Provenance.Semirings.How` – the ℕ[X] m-semiring of multivariate polynomials; the universal provenance
-  semiring
+- `Provenance.Semirings.How` – the ℕ[X] m-semiring of multivariate
+  polynomials; the universal provenance semiring
 - `Provenance.Semirings.Nat` – the counting m-semiring `ℕ`
 - `Provenance.Semirings.Tropical` – the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
   `ℝ ∪ {∞}`; the `ℝ` instance is also used as a counterexample showing that the absorptive
@@ -500,14 +500,15 @@ proven engine several general results reuse internally.
   (`TropicalR.minScan_ne_prov`) is genuinely required (idempotent + `⊗`-over-`⊖` distributive
   is not enough)
 - `Provenance.Semirings.Viterbi` – the Viterbi m-semiring (max-times) over `[0,1]`
-- `Provenance.Semirings.MinMax` – the min-max semiring over any bounded linear order (security / access
-  control semiring and dual fuzzy semiring)
+- `Provenance.Semirings.MinMax` – the min-max semiring over any bounded linear
+  order (security / access control semiring and dual fuzzy semiring)
 - `Provenance.Semirings.Lukasiewicz` – the Łukasiewicz (fuzzy logic) m-semiring over `ℚ ∩ [0,1]`
 - `Provenance.Semirings.ChainFive` – a five-element chain m-semiring, absorptive but without
   `⊗`-over-`⊖` distributivity; witnesses that the distributivity hypothesis of
   `Having.world_bound` (hence of the `HAVING count =`/`≤` identities) is genuinely required
-- `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` – intervals and finite unions of intervals over a dense
-  linear order, used for temporal databases
+- `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` –
+  intervals and finite unions of intervals over a dense linear order, used for
+  temporal databases
 
 **Published papers**
 
@@ -548,6 +549,8 @@ development inherits from Datacert.
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 * [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
 * [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
-* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data*][sen2026provsql]
-* [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq formalization of data provenance*][benzaken2021coq]
+* [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
+  Provenance and Probability of Data*][sen2026provsql]
+* [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq formalization
+  of data provenance*][benzaken2021coq]
 -/

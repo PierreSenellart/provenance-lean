@@ -20,12 +20,12 @@ obtained.
 
 ## Token-bearing outputs
 
-The base rules no longer share an output shape: a classical or `HAVING`
+The base rules do not share an output shape: a classical or `HAVING`
 block produces all-regular data columns, whereas a bare grouping produces
 aggregate-token columns. The relation is therefore indexed by the
 rewritten query's own kind vector, and correctness is stated at the token
 level, through `GenRow.toCompositeRow`. On all-regular outputs this
-specialises to the earlier statement, `AggQuery.rewritesTo_valid_reg`.
+specializes to the all-regular statement, `AggQuery.rewritesTo_valid_reg`.
 
 The natural rewritten kind vector of a query of kinds `κ` is
 `ColKind.rewKindsOf κ` – the source kinds followed by the provenance
@@ -1710,7 +1710,7 @@ theorem AggQuery.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
       rfl
   | prod h₁ h₂ ih₁ ih₂ => exact AggQuery.prodRew_valid d ih₁ ih₂
 
-/-- On an all-regular source the correctness specialises to the shape of
+/-- On an all-regular source the correctness specializes to the shape of
 the classical and `HAVING`-site statements: the annotated semantics,
 folded into composite tuples and embedded by `inl`. -/
 theorem AggQuery.rewritesTo_valid_reg {n : ℕ} {κ : Fin n → ColKind}

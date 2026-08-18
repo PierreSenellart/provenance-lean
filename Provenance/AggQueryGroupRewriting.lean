@@ -18,7 +18,7 @@ Rule (R5) is the classical counterpart. Carrying it over the classical
 syntax took a whole new value domain – data, annotation and `K`-tensor
 monomials, quotiented – together with its own evaluator. In the general
 framework no new value domain is needed: the rewritten
-world's evaluator already has aggregate tokens as first-class column
+world's evaluator already has aggregate tokens as ordinary column
 values, and `AggQuery.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`
 produces. What was missing is the *correspondence at token level*: the

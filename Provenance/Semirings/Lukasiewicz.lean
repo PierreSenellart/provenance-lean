@@ -16,11 +16,13 @@ The Łukasiewicz semiring is absorptive and idempotent, and satisfies left-distr
 of multiplication over monus.
 
 This semiring is discussed as a provenance semiring in
-[Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order Logic*][gradel2005provenance].
+[Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order
+Logic*][gradel2005provenance].
 
 ## References
 
-* [Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order Logic*][gradel2005provenance]
+* [Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order
+  Logic*][gradel2005provenance]
 -/
 
 /-- The Łukasiewicz semiring: rationals in `[0,1]` with `max` as addition and the

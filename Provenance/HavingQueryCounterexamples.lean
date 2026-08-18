@@ -31,13 +31,15 @@ distinct. The fused operator's output carries the group key and the
 aggregate value while the join queries return the key only, so the
 comparison is on the multisets of annotations.
 
-* **Distributivity is needed** (`ChainFive.query_counterexample`): in the
+* **Distributivity is needed**
+  (`HavingQueryCounterexamples.ChainFive.query_counterexample`): in the
   five-element chain semiring – absorptive, hence idempotent, but not
   `⊗`-over-`⊖` distributive (`ChainFive.not_mul_sub_left_distributive`) –
   with annotations `(mid, hi, hi)` on one group, `COUNT(*) = 1` yields
   annotation `hi` on the fused side but `𝟘` on the join side.
 
-* **Absorptivity is needed** (`TropicalZ.query_counterexample`): in the
+* **Absorptivity is needed**
+  (`HavingQueryCounterexamples.TropicalZ.query_counterexample`): in the
   tropical semiring over `ℤ ∪ {∞}` – idempotent and distributive
   (`TropicalZ.mul_sub_left_distributive`) but not absorptive
   (`TropicalZ.not_absorptive_witness`) – with two occurrences annotated

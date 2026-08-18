@@ -327,7 +327,7 @@ theorem Query.toAgg_evaluate_eq {n : ℕ} (q : Query T n) (hq : q.source)
 
 /-- **The fused `HAVING` site over an embedded subquery**: its input
 relation is the classical subquery's annotated evaluation, so the closed
-form `AggQuery.havingSite_evaluateAnnotated` specialises to the
+form `AggQuery.havingSite_evaluateAnnotated` specializes to the
 classical setting with no side hypothesis. -/
 theorem Query.toAggHaving_input {m : ℕ} (q : Query T m) (hq : q.source)
     (d : AnnotatedDatabase T K) :

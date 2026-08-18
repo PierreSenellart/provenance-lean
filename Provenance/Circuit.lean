@@ -11,7 +11,7 @@ import Provenance.Semirings.BoolFunc
 /-!
 # Boolean circuits, read-once and d-D correctness
 
-This file formalises Boolean circuits over a set `X` of variables, together
+This file formalizes Boolean circuits over a set `X` of variables, together
 with two recursive bottom-up probability evaluators and their correctness
 theorems:
 
@@ -172,7 +172,7 @@ end Circuit
 /-! ### `BoolFunc.DependsOn`: support of a Boolean function -/
 
 /-- `f` depends only on the variables in `S`: any two valuations agreeing
-on `S` produce the same value. This is the standard notion of "support". -/
+on `S` produce the same value. This is the standard notion of “support”. -/
 def BoolFunc.DependsOn {X : Type} (f : BoolFunc X) (S : Finset X) : Prop :=
   ∀ v₁ v₂ : X → Bool, (∀ x ∈ S, v₁ x = v₂ x) → f v₁ = f v₂
 
@@ -193,7 +193,7 @@ namespace ProbAssignment
 variable (P : ProbAssignment X)
 
 /-- `Pr(var i) = Pr(i)`: the probability of the single-variable Boolean function
-equals the variable's own probability. Proved by reorganising the sum
+equals the variable's own probability. Proved by reorganizing the sum
 `∑_v if v i then valProb v else 0` as a product `∏_y h_y(v y)` and applying
 `Fintype.prod_sum` (the same swap used in `sum_valProb_eq_one`). -/
 theorem funcProb_var (i : X) :
@@ -298,7 +298,7 @@ read-once correctness theorem: `Pr(f * g) = Pr(f) * Pr(g)` whenever `f` and `g`
 depend on disjoint variable supports. The proof splits each valuation
 `v : X → Bool` into its restrictions on `S` and `Sᶜ` via
 `Equiv.piEquivPiSubtypeProd`, factors the valuation probability over the
-partition, and uses the marginalisation `∑_b (P̃_x b) = 1` to discard the
+partition, and uses the marginalization `∑_b (P̃_x b) = 1` to discard the
 unused half on each of the two factors. -/
 
 /-- **Independence lemma.** If `f`, `g : BoolFunc X` depend on disjoint
@@ -306,7 +306,7 @@ variable supports `S`, `T`, then `Pr(f * g) = Pr(f) * Pr(g)`.
 
 The proof splits each valuation `v : X → Bool` into `(v|S, v|Sᶜ)` via
 `Equiv.piEquivPiSubtypeProd`, factors `valProb v` as the product of the two
-restricted products, and uses the marginalisations
+restricted products, and uses the marginalizations
 `∑_{vS} (∏_{x ∈ S} P̃_x(vS x)) = 1` and
 `∑_{vR} (∏_{x ∉ S} P̃_x(vR x)) = 1`
 (both proved via `Fintype.prod_sum` and `sum_factor_at`) to collapse the
@@ -326,7 +326,7 @@ theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
   -- Default fillers (used to define `fS` and `gR`).
   let v0R : {x // x ∉ S} → Bool := fun _ => false
   let v0S : {x // x ∈ S} → Bool := fun _ => false
-  -- "Restricted" Boolean functions on each half.
+  -- “Restricted” Boolean functions on each half.
   let fS : ({x // x ∈ S} → Bool) → Bool := fun vS => f (glue vS v0R)
   let gR : ({x // x ∉ S} → Bool) → Bool := fun vR => g (glue v0S vR)
   -- Per-side probability products.
