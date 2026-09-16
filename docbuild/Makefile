@@ -134,8 +134,8 @@ deploy-ci:
 	tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
 	run="$(RUN)"; \
 	if [ -z "$$run" ]; then \
-	  run=$$(gh run list --workflow $(DOCS_WORKFLOW) --branch $(DOCS_BRANCH) \
-	           --status success --limit 1 --json databaseId -q '.[0].databaseId'); \
+	  run=$$(gh api "repos/{owner}/{repo}/actions/workflows/$(DOCS_WORKFLOW)/runs?branch=$(DOCS_BRANCH)&status=success&per_page=1" \
+	           -q '.workflow_runs[0].id'); \
 	fi; \
 	[ -n "$$run" ] || { echo "no successful $(DOCS_WORKFLOW) run on $(DOCS_BRANCH); pass RUN=<id>"; exit 1; }; \
 	echo "Downloading artefact $(DOCS_ARTIFACT) from run $$run…"; \
