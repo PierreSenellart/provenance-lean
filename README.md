@@ -126,6 +126,28 @@ opaque `def`s that instance search must nevertheless see through. Package
 options do **not** propagate to dependants, so a downstream project that
 manipulates those carriers directly may need to set it too.
 
+## Authorship, sources, and axioms
+
+The definitions follow Green, Karvounarakis and Tannen and the later
+provenance literature, and the results on query rewriting follow the
+ProvSQL papers; each module cites the source it follows. The Lean
+formalization is original throughout. **If a result here is traceable to
+a paper whose citation is missing, that is an oversight: please open an
+issue.**
+
+Part of the Lean code, including proofs and docstrings, was written with
+the assistance of generative models: some early proofs with models from
+OpenAI (*GPT*), and much of the more recent code with models from
+Anthropic (*Claude*). Formalization choices, the library architecture,
+the main definitions and theorems, and their alignment with the standard
+ones, were designed and written or reviewed by the author. Responsibility
+for the whole rests with the author.
+
+All proofs are checked by Lean, locally and in continuous integration.
+The library does not depend on any axioms apart from standard Lean ones:
+`propext`, `Classical.choice` and `Quot.sound`. Neither `sorry`,
+`admit`, nor `native_decide` is used.
+
 ## Citing
 
 Use the metadata in [`CITATION.cff`](CITATION.cff), and cite the version DOI of
