@@ -201,8 +201,12 @@ proven engine several general results reuse internally.
   language's and not as their meanings on `Prop`, comparisons elaborate
   straight to `GenPred` atoms, column references `#i` carry their own
   regularity proof, and `ε` and `∖` retag their argument to the all-regular
-  kind vector their constructors ask for (`allReg`). What a query costs to
-  write is then the query
+  kind vector their constructors ask for (`allReg`). Grouping reads its keys
+  and its aggregated columns as two lists, `γ[#i, … ; t : f, …]`, the
+  aggregates being ordinary Lean terms so that the catalog stays open; the
+  same term syntax is read into `TermG` under a selection and into the
+  classical `Term` under a grouping, which is what the aggregated columns of
+  an all-regular input are. What a query costs to write is then the query
 - `Provenance.AggQueryAdequacy` – **data-part adequacy of the general
   evaluator**: forgetting the annotations of `Query.evaluateAnnotated` yields
   the plain evaluation of the stripped query

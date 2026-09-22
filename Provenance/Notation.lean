@@ -72,6 +72,22 @@ syntax:max "¬" raPred : raPred
 syntax:35 raPred " ∧ " raPred : raPred
 syntax:30 raPred " ∨ " raPred : raPred
 
+/-! ### Columns and aggregated columns
+
+Grouping reads two lists that are not terms: the key *columns*, which are
+indices, and the aggregated columns, each a term paired with the aggregate
+applied to it. -/
+
+/-- A column of the query being read. -/
+declare_syntax_cat raCol
+syntax:max "#" num : raCol
+
+/-- One aggregated column: a term and the aggregate applied to it. The
+aggregate is an ordinary Lean term of type `SeqAggFunc`, so the catalog is
+open – `SeqAggFunc.sum`, `SeqAggFunc.count`, and anything else of that type. -/
+declare_syntax_cat raAgg
+syntax raTerm " : " term : raAgg
+
 /-! ### Queries -/
 
 syntax:max "(" raQuery ")" : raQuery
@@ -81,6 +97,7 @@ syntax:max "`(" term ")" : raQuery
 syntax:80 "π[" raTerm,* "] " raQuery : raQuery
 syntax:80 "σ[" raPred "] " raQuery : raQuery
 syntax:80 "ε " raQuery : raQuery
+syntax:80 "γ[" raCol,* " ; " raAgg,* "] " raQuery : raQuery
 syntax:70 raQuery " × " raQuery : raQuery
 syntax:60 raQuery " ⊎ " raQuery : raQuery
 syntax:60 raQuery " ∖ " raQuery : raQuery
@@ -116,6 +133,7 @@ def allReg {T : Type} {n : ℕ} {κ : Fin n → ColKind}
   q.castKind h
 
 scoped syntax:max "ra_term% " raTerm : term
+scoped syntax:max "ra_cterm% " raTerm : term
 scoped syntax:max "ra_pred% " raPred : term
 scoped syntax:max "ra_query% " raQuery : term
 
@@ -126,6 +144,18 @@ macro_rules
   | `(ra_term% $a:raTerm + $b:raTerm)     => `(TermG.add (ra_term% $a) (ra_term% $b))
   | `(ra_term% $a:raTerm - $b:raTerm)     => `(TermG.sub (ra_term% $a) (ra_term% $b))
   | `(ra_term% $a:raTerm * $b:raTerm)     => `(TermG.mul (ra_term% $a) (ra_term% $b))
+
+/-- The same term syntax, read into the classical `Term`: what a grouping
+aggregates is a term over the columns of its all-regular input, which carries
+no kinds and so needs no regularity proof. One surface category, two
+readings. -/
+macro_rules
+  | `(ra_cterm% #$i:num)     => `(Term.index $i)
+  | `(ra_cterm% ($t:raTerm)) => `(ra_cterm% $t)
+  | `(ra_cterm% `($t:term))  => `(Term.const $t)
+  | `(ra_cterm% $a:raTerm + $b:raTerm) => `(Term.add (ra_cterm% $a) (ra_cterm% $b))
+  | `(ra_cterm% $a:raTerm - $b:raTerm) => `(Term.sub (ra_cterm% $a) (ra_cterm% $b))
+  | `(ra_cterm% $a:raTerm * $b:raTerm) => `(Term.mul (ra_cterm% $a) (ra_cterm% $b))
 
 macro_rules
   | `(ra_pred% ($p:raPred)) => `(ra_pred% $p)
@@ -149,6 +179,17 @@ macro_rules
   | `(ra_query% $a:raQuery × $b:raQuery) => `(AggQuery.Prod (ra_query% $a) (ra_query% $b))
   | `(ra_query% $a:raQuery ⊎ $b:raQuery) => `(AggQuery.Sum (ra_query% $a) (ra_query% $b))
   | `(ra_query% ε $q:raQuery)    => `(AggQuery.Dedup (allReg (ra_query% $q)))
+  | `(ra_query% γ[$ks,* ; $as,*] $q:raQuery) => do
+      let keys ← ks.getElems.mapM fun k => match k with
+        | `(raCol| #$i:num) => `(($i : Fin _))
+        | _ => Lean.Macro.throwUnsupported
+      let ts ← as.getElems.mapM fun a => match a with
+        | `(raAgg| $t:raTerm : $_:term) => `(ra_cterm% $t)
+        | _ => Lean.Macro.throwUnsupported
+      let fs ← as.getElems.mapM fun a => match a with
+        | `(raAgg| $_:raTerm : $f:term) => pure f
+        | _ => Lean.Macro.throwUnsupported
+      `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
       `(AggQuery.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))
 
