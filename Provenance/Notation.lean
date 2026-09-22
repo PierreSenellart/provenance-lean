@@ -82,6 +82,11 @@ applied to it. -/
 declare_syntax_cat raCol
 syntax:max "#" num : raCol
 
+/-- One output column of a projection: a term, or a bare column reference
+carried through whatever its kind. -/
+declare_syntax_cat raProj
+syntax raTerm : raProj
+
 /-- One aggregated column: a term and the aggregate applied to it. The
 aggregate is an ordinary Lean term of type `SeqAggFunc`, so the catalog is
 open – `SeqAggFunc.sum`, `SeqAggFunc.count`, and anything else of that type. -/
@@ -94,7 +99,7 @@ syntax:max "(" raQuery ")" : raQuery
 syntax:max "rel " num str : raQuery
 /-- A query already written in Lean. -/
 syntax:max "`(" term ")" : raQuery
-syntax:80 "π[" raTerm,* "] " raQuery : raQuery
+syntax:80 "π[" raProj,* "] " raQuery : raQuery
 syntax:80 "σ[" raPred "] " raQuery : raQuery
 syntax:80 "ε " raQuery : raQuery
 syntax:80 "γ[" raCol,* " ; " raAgg,* "] " raQuery : raQuery
@@ -134,6 +139,7 @@ def allReg {T : Type} {n : ℕ} {κ : Fin n → ColKind}
 
 scoped syntax:max "ra_term% " raTerm : term
 scoped syntax:max "ra_cterm% " raTerm : term
+scoped syntax:max "ra_proj% " raProj : term
 scoped syntax:max "ra_pred% " raPred : term
 scoped syntax:max "ra_query% " raQuery : term
 
@@ -157,14 +163,64 @@ macro_rules
   | `(ra_cterm% $a:raTerm - $b:raTerm) => `(Term.sub (ra_cterm% $a) (ra_cterm% $b))
   | `(ra_cterm% $a:raTerm * $b:raTerm) => `(Term.mul (ra_cterm% $a) (ra_cterm% $b))
 
+/-! ### Reading a column
+
+A column reference says which column, not what is in it. Which atom, or which
+projection column, that becomes is settled by the kind vector, and the kind
+vector is concrete on any query one can write – so the two functions below
+decide it by computation. The surface syntax therefore does not change with
+the kinds: a comparison against a grouped aggregate is written like any other
+comparison, as it is in SQL. -/
+
+/-- The atom comparing column `k` against a term, whichever kind the column
+has: a regular comparison on a value column, an aggregate atom on a token
+column. -/
+def atomAt {T : Type} {n : ℕ} {κ : Fin n → ColKind} (k : Fin n) (op : CompOp)
+    (t : TermG T κ) : GenPred T κ :=
+  match h : κ k with
+  | ColKind.reg  => GenPred.cmp op (TermG.index k h) t
+  | ColKind.agg  => GenPred.aggCmp k h op t
+  | ColKind.prov => GenPred.cmp op (TermG.provIndex k h) t
+
+/-- The projection column carrying column `k` through, whichever kind it
+has. -/
+def projAt {T : Type} {n : ℕ} {κ : Fin n → ColKind} (k : Fin n) : ProjCol T κ :=
+  match h : κ k with
+  | ColKind.reg  => ProjCol.term (TermG.index k h)
+  | ColKind.agg  => ProjCol.token k h
+  | ColKind.prov => ProjCol.provTerm (TermG.provIndex k h)
+
+/-- A bare column reference, if that is what the term is. -/
+private def asCol : Lean.TSyntax `raTerm → Option (Lean.TSyntax `num)
+  | `(raTerm| #$i:num) => some i
+  | _ => none
+
+/-- Build a comparison, reading a bare column reference on either side
+through `atomAt`. The converse operator is used for the flipped case, so that
+`t ≤ #i` is the atom `#i ≥ t`. -/
+private def mkCmp (op conv : Lean.TSyntax `term) (a b : Lean.TSyntax `raTerm) :
+    Lean.MacroM (Lean.TSyntax `term) := do
+  if let some i := asCol a then `($(Lean.mkIdent ``atomAt) $i $op (ra_term% $b))
+  else if let some j := asCol b then `($(Lean.mkIdent ``atomAt) $j $conv (ra_term% $a))
+  else `(GenPred.cmp $op (ra_term% $a) (ra_term% $b))
+
+/-- A projection column: a bare column reference is carried through by
+`projAt`, anything else is a term. -/
+private def mkProj (t : Lean.TSyntax `raTerm) : Lean.MacroM (Lean.TSyntax `term) := do
+  if let some i := asCol t then `($(Lean.mkIdent ``projAt) $i)
+  else `(ProjCol.term (ra_term% $t))
+
+macro_rules
+  | `(ra_proj% $t:raTerm) => mkProj t
+
 macro_rules
   | `(ra_pred% ($p:raPred)) => `(ra_pred% $p)
-  | `(ra_pred% $a:raTerm = $b:raTerm)  => `(GenPred.cmp CompOp.eq (ra_term% $a) (ra_term% $b))
-  | `(ra_pred% $a:raTerm ≠ $b:raTerm)  => `(GenPred.cmp CompOp.ne (ra_term% $a) (ra_term% $b))
-  | `(ra_pred% $a:raTerm < $b:raTerm)  => `(GenPred.cmp CompOp.lt (ra_term% $a) (ra_term% $b))
-  | `(ra_pred% $a:raTerm ≤ $b:raTerm)  => `(GenPred.cmp CompOp.le (ra_term% $a) (ra_term% $b))
-  | `(ra_pred% $a:raTerm > $b:raTerm)  => `(GenPred.cmp CompOp.gt (ra_term% $a) (ra_term% $b))
-  | `(ra_pred% $a:raTerm ≥ $b:raTerm)  => `(GenPred.cmp CompOp.ge (ra_term% $a) (ra_term% $b))
+  | `(ra_pred% $a:raTerm = $b:raTerm)  => do mkCmp (← `(CompOp.eq)) (← `(CompOp.eq)) a b
+  | `(ra_pred% $a:raTerm ≠ $b:raTerm)  => do mkCmp (← `(CompOp.ne)) (← `(CompOp.ne)) a b
+  | `(ra_pred% $a:raTerm < $b:raTerm)  => do mkCmp (← `(CompOp.lt)) (← `(CompOp.gt)) a b
+  | `(ra_pred% $a:raTerm ≤ $b:raTerm)  => do mkCmp (← `(CompOp.le)) (← `(CompOp.ge)) a b
+  | `(ra_pred% $a:raTerm > $b:raTerm)  => do mkCmp (← `(CompOp.gt)) (← `(CompOp.lt)) a b
+  | `(ra_pred% $a:raTerm ≥ $b:raTerm)  => do mkCmp (← `(CompOp.ge)) (← `(CompOp.le)) a b
   | `(ra_pred% ¬$p:raPred)      => `(GenPred.not (ra_pred% $p))
   | `(ra_pred% $a:raPred ∧ $b:raPred)  => `(GenPred.and (ra_pred% $a) (ra_pred% $b))
   | `(ra_pred% $a:raPred ∨ $b:raPred)  => `(GenPred.or (ra_pred% $a) (ra_pred% $b))
@@ -174,7 +230,7 @@ macro_rules
   | `(ra_query% rel $n:num $s:str) => `(AggQuery.Rel $n $s)
   | `(ra_query% `($q:term)) => `($q)
   | `(ra_query% π[$ts,*] $q:raQuery) =>
-      `(AggQuery.Proj ![$[ProjCol.term (ra_term% $ts)],*] (ra_query% $q))
+      `(AggQuery.Proj ![$[ra_proj% $ts],*] (ra_query% $q))
   | `(ra_query% σ[$p:raPred] $q:raQuery) => `(AggQuery.Sel (ra_pred% $p) (ra_query% $q))
   | `(ra_query% $a:raQuery × $b:raQuery) => `(AggQuery.Prod (ra_query% $a) (ra_query% $b))
   | `(ra_query% $a:raQuery ⊎ $b:raQuery) => `(AggQuery.Sum (ra_query% $a) (ra_query% $b))

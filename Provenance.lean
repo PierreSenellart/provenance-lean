@@ -201,7 +201,12 @@ proven engine several general results reuse internally.
   language's and not as their meanings on `Prop`, comparisons elaborate
   straight to `GenPred` atoms, column references `#i` carry their own
   regularity proof, and `ε` and `∖` retag their argument to the all-regular
-  kind vector their constructors ask for (`allReg`). Grouping reads its keys
+  kind vector their constructors ask for (`allReg`). A column reference says
+  which column and not what is in it: `atomAt` and `projAt` decide by
+  computation on the kind vector whether `#i` is a value comparison or an
+  aggregate atom, a projected term or a token carried through, so the syntax
+  of a query does not change with the kinds of its columns, as it does not
+  in SQL. Grouping reads its keys
   and its aggregated columns as two lists, `γ[#i, … ; t : f, …]`, the
   aggregates being ordinary Lean terms so that the catalog stays open; the
   same term syntax is read into `TermG` under a selection and into the
