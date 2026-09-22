@@ -444,7 +444,7 @@ theorem Query.sourceDedup {q: Query T n} :
 
 prefix:max "Π " => Query.Proj
 prefix:max "σ " => Query.Sel
-infix:80 " × " => Query.Prod
+infix:80 " × " => fun q₁ q₂ => Query.Prod (hn := by first | rfl | omega) q₁ q₂
 infix:50 " ⊎ " => Query.Sum
 prefix:max "ε " => Query.Dedup
 infix:50 " - " => Query.Diff

@@ -40,7 +40,7 @@ def q₁ := ε ( Π ![#3]
   (
     σ (Selection.BT (#0 < #4)) (
       Query.Sel (Selection.BT (#3 == #7))
-        (@Query.Prod _ _ _ 8 (by decide) qPersonnel qPersonnel)
+        (qPersonnel × qPersonnel)
     )
   )
 )
