@@ -184,46 +184,46 @@ theorem existential_site_rewrite (h_abs : absorptive K) {f : SeqAggFunc ℕ} {op
 /-- `MIN(t) ≤ c`. -/
 theorem minLe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.minD) CompOp.le 0
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.le 0
         (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.le c) q).evaluateAnnotated
           (keyPadded_source _ q (existentialQuery_source (ts' 0) CompOp.le c q hq) hq) d :=
-  existential_site_rewrite h_abs existential_minD_le q hq d ts' c
+  existential_site_rewrite h_abs existential_min_le q hq d ts' c
 
 /-- `MIN(t) < c`. -/
 theorem minLt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.minD) CompOp.lt 0
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.lt 0
         (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.lt c) q).evaluateAnnotated
           (keyPadded_source _ q (existentialQuery_source (ts' 0) CompOp.lt c q hq) hq) d :=
-  existential_site_rewrite h_abs existential_minD_lt q hq d ts' c
+  existential_site_rewrite h_abs existential_min_lt q hq d ts' c
 
 /-- `MAX(t) ≥ c`. -/
 theorem maxGe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.maxD) CompOp.ge 0
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.ge 0
         (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.ge c) q).evaluateAnnotated
           (keyPadded_source _ q (existentialQuery_source (ts' 0) CompOp.ge c q hq) hq) d :=
-  existential_site_rewrite h_abs existential_maxD_ge q hq d ts' c
+  existential_site_rewrite h_abs existential_max_ge q hq d ts' c
 
 /-- `MAX(t) > c`. -/
 theorem maxGt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.maxD) CompOp.gt 0
+    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.gt 0
         (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.gt c) q).evaluateAnnotated
           (keyPadded_source _ q (existentialQuery_source (ts' 0) CompOp.gt c q hq) hq) d :=
-  existential_site_rewrite h_abs existential_maxD_gt q hq d ts' c
+  existential_site_rewrite h_abs existential_max_gt q hq d ts' c
 
 /-! ## Boolean closure: join on the group key and set union
 

@@ -298,15 +298,15 @@ def count : SeqAggFunc ℕ := List.length
 
 /-- `MIN`, with the zero of the value type as its default on the empty
 sequence, where SQL has `null`. -/
-def minD : SeqAggFunc T := fun L => match L with
+def min : SeqAggFunc T := fun L => match L with
   | [] => 0
-  | x :: xs => xs.foldr min x
+  | x :: xs => xs.foldr Min.min x
 
 /-- `MAX`, with the zero of the value type as its default on the empty
 sequence, where SQL has `null`. -/
-def maxD : SeqAggFunc T := fun L => match L with
+def max : SeqAggFunc T := fun L => match L with
   | [] => 0
-  | x :: xs => xs.foldr max x
+  | x :: xs => xs.foldr Max.max x
 
 /-- `PICKFIRST`: the first value of the sequence, with the zero of the value
 type as its default on the empty one, where SQL has `null`. -/

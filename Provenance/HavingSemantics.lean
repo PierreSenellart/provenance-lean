@@ -691,7 +691,7 @@ theorem lt_foldr_max_iff {V : Type} [LinearOrder V] (x c : V) :
     tauto
 
 /-- `MIN(t) ≤ c` is existential. -/
-theorem existential_minD_le : Existential (SeqAggFunc.minD (T := T)) CompOp.le := by
+theorem existential_min_le : Existential (SeqAggFunc.min (T := T)) CompOp.le := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -701,7 +701,7 @@ theorem existential_minD_le : Existential (SeqAggFunc.minD (T := T)) CompOp.le :
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MIN(t) < c` is existential. -/
-theorem existential_minD_lt : Existential (SeqAggFunc.minD (T := T)) CompOp.lt := by
+theorem existential_min_lt : Existential (SeqAggFunc.min (T := T)) CompOp.lt := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -711,7 +711,7 @@ theorem existential_minD_lt : Existential (SeqAggFunc.minD (T := T)) CompOp.lt :
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MAX(t) ≥ c` is existential. -/
-theorem existential_maxD_ge : Existential (SeqAggFunc.maxD (T := T)) CompOp.ge := by
+theorem existential_max_ge : Existential (SeqAggFunc.max (T := T)) CompOp.ge := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
@@ -721,7 +721,7 @@ theorem existential_maxD_ge : Existential (SeqAggFunc.maxD (T := T)) CompOp.ge :
     simp only [List.mem_cons, exists_eq_or_imp]
 
 /-- `MAX(t) > c` is existential. -/
-theorem existential_maxD_gt : Existential (SeqAggFunc.maxD (T := T)) CompOp.gt := by
+theorem existential_max_gt : Existential (SeqAggFunc.max (T := T)) CompOp.gt := by
   intro L c hL
   cases L with
   | nil => exact absurd rfl hL
