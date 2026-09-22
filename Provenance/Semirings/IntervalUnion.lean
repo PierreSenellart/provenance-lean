@@ -1662,6 +1662,25 @@ theorem IntervalUnion.homomorphism_from_BoolFunc
   intro i
   exact evalBF_var ν i
 
+/-- **Exclusivity of interval unions is forced, not coincidental.** Every
+interval union `u` is the image of the single variable of `BoolFunc Unit`
+under the homomorphism of `IntervalUnion.homomorphism_from_BoolFunc` at the
+assignment `fun _ => u`, and `BoolFunc` is exclusive; exclusivity is a unary
+equation, so it transfers to `u` without any surjectivity
+(`mul_one_monus_self_eq_zero_of_range`). This reproves
+`IntervalUnion.exclusive`, which is established directly from the point sets,
+and explains it: an m-semiring reached from `BoolFunc` by a homomorphism at
+every one of its elements has no choice about the property. `Bool` is forced
+by `BoolFunc` as well, but on the other route: it is a subalgebra of it
+(`Bool.exclusive_of_boolFunc`). Surjectivity is unavailable here, the
+homomorphism above having a finite domain. -/
+theorem IntervalUnion.exclusive_of_boolFunc [DenselyOrdered α] [BoundedOrder α] :
+    _root_.exclusive (IntervalUnion α) := by
+  intro u
+  obtain ⟨h, hh⟩ := IntervalUnion.homomorphism_from_BoolFunc α Unit (fun _ => u)
+  exact mul_one_monus_self_eq_zero_of_range h BoolFunc.exclusive
+    (BoolFunc.var ()) (hh ())
+
 /-- Specialization of `IntervalUnion.homomorphism_from_BoolFunc` to the
 extended rationals. -/
 theorem IntervalUnion.homomorphism_from_BoolFunc_rat

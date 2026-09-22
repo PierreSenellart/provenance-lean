@@ -226,6 +226,22 @@ the alternatives of an occurrence exclude each other. It holds in `Bool`,
 `Viterbi`, `MinMax`, `Lukasiewicz`, `Tropical` and `ChainFive` (the catalog
 theorems named `exclusive` and `not_exclusive` in `Provenance.Semirings.*`).
 
+Those five are not five independent facts. Exclusivity is a unary equation,
+so it passes both to subalgebras and to the elements reached by a
+homomorphism out of an exclusive semiring. `Bool` and `IntervalUnion` inherit
+it from `BoolFunc` on those two routes: `Bool` embeds in `BoolFunc` as the
+constant functions (`Bool.exclusive_of_boolFunc`, by
+`exclusive_of_injective_homomorphism_exclusive`), while every interval union
+is the image of a variable under a homomorphism from `BoolFunc`
+(`IntervalUnion.exclusive_of_boolFunc`, by
+`mul_one_monus_self_eq_zero_of_range` – that homomorphism has a finite domain
+and is never onto, so the element-by-element form is what applies, not the
+surjective one). `Nat` and `Which`
+are beyond that reach, neither being absorptive
+(`BoolFunc.no_hom_of_not_absorptive`), and are exclusive for the other of the
+two reasons: their monus against `𝟙` collapses to `𝟘` rather than
+complementing.
+
 Note that `How` – the universal semiring, in which provenance circuits are
 built – is *not* exclusive, so the terms exclusivity cancels are carried by a
 circuit and vanish only on evaluation into a semiring that has the property,
@@ -793,6 +809,53 @@ theorem mul_sub_left_of_surjective_homomorphism_mul_sub_left
     rw[← ha, ← hb, ← hc]
     simp only[← SemiringWithMonusHom.map_sub, ← RingHom.map_mul]
     simp[hα]
+
+/-- If ν is an injective m-semiring homomorphism from α to β,
+  and β is exclusive, so is α. -/
+theorem exclusive_of_injective_homomorphism_exclusive
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hνi : Function.Injective ν) :
+  exclusive β → exclusive α := by
+    intro hβ a
+    apply hνi
+    simp[SemiringWithMonusHom.map_sub]
+    exact hβ _
+
+/-- Exclusivity is a *unary* equation, so it holds of every element in the
+range of a homomorphism out of an exclusive m-semiring – surjectivity is not
+needed, one preimage of the element is enough.
+
+This is what makes several entries of the exclusive column of the catalog
+forced rather than independent: wherever every element of a semiring is the
+image of a variable under some homomorphism from `BoolFunc`, exclusivity
+follows from `BoolFunc.exclusive` and nothing else
+(`IntervalUnion.exclusive_of_boolFunc`). -/
+theorem mul_one_monus_self_eq_zero_of_range
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hα : exclusive α) {x : β} (a : α) (ha : ν a = x) :
+  x * (1 - x) = 0 := by
+    have key : ν (a * (1 - a)) = x * (1 - x) := by
+      rw [← ha]
+      simp only [RingHom.map_mul, SemiringWithMonusHom.map_sub, RingHom.map_one]
+    rw [← key]
+    simp[hα a]
+
+/-- If ν is an m-semiring homomorphism from α onto β,
+  and α is exclusive, so is β. Exclusivity passes to quotients as idempotence
+  and distributivity do, being likewise an equation. -/
+theorem exclusive_of_surjective_homomorphism_exclusive
+  [SemiringWithMonus α]
+  [SemiringWithMonus β]
+  (ν: SemiringWithMonusHom α β)
+  (hνs : Function.Surjective ν) :
+  exclusive α → exclusive β := by
+    intro hα x
+    obtain ⟨a, ha⟩ := hνs x
+    exact mul_one_monus_self_eq_zero_of_range ν hα a ha
 
 /-! ## Miscellaneous
 -/

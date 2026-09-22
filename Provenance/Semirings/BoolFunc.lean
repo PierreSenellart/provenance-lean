@@ -195,15 +195,6 @@ theorem BoolFunc.mul_sub_left_distributive : mul_sub_left_distributive (BoolFunc
   intro ν
   by_cases hx: x ν <;> by_cases hy: y ν <;> by_cases hz: z ν <;> simp[hx,hy,hz]
 
-/-- `𝔹[X]` is exclusive, pointwise as `Bool` is: `𝟙 ⊖ a` is the negation
-of `a`, a genuine complement. -/
-theorem BoolFunc.exclusive : exclusive (BoolFunc X) := by
-  intro a
-  simp[(· * ·),Mul.mul,(· - ·),Sub.sub]
-  apply funext
-  intro ν
-  by_cases ha : a ν <;> simp[ha] <;> rfl
-
 instance : Nontrivial (BoolFunc X) := ⟨0, 1, by
   intro h
   have : (0 : BoolFunc X) (fun _ => false) = (1 : BoolFunc X) (fun _ => false) := by rw [h]
@@ -249,6 +240,21 @@ lemma BoolFunc.mul_sub_self {X : Type} (f : BoolFunc X) : f * (1 - f) = 0 := by
   have h0 : (0 : BoolFunc X) τ = false := rfl
   rw [h1, h0]
   cases f τ <;> simp
+
+/-- `𝔹[X]` is exclusive: `𝟙 ⊖ a` is the negation of `a`, a genuine
+complement, so the two meet nowhere. This is `BoolFunc.mul_sub_self` under
+the name of the property.
+
+`BoolFunc` is the source of several other entries of the exclusive column:
+exclusivity is a unary equation, so any m-semiring each of whose elements is
+the image of a variable under a homomorphism from `BoolFunc` inherits it
+(`mul_one_monus_self_eq_zero_of_range`, and
+`IntervalUnion.exclusive_of_boolFunc` for the instance). `Nat` and `Which`
+are out of that reach, neither being absorptive
+(`BoolFunc.no_hom_of_not_absorptive`); they are exclusive for the other
+reason, their monus against `𝟙` collapsing to `𝟘`. -/
+theorem BoolFunc.exclusive : _root_.exclusive (BoolFunc X) :=
+  fun f => BoolFunc.mul_sub_self f
 
 /-- If the target `K` is not absorptive, there is no semiring homomorphism
 from `BoolFunc X` (with `X` inhabited) sending the variables to arbitrary

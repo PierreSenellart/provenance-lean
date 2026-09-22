@@ -114,4 +114,14 @@ theorem Bool.homomorphism_to_BoolFunc {X : Type} :
   intro i
   rfl
 
+/-- **Exclusivity of `Bool` is forced, not coincidental.** `Bool` embeds in
+`BoolFunc` as the constant functions (`Bool.homomorphism_from_BoolFunc`, an
+injective m-semiring homomorphism), and a sub-m-semiring of an exclusive one
+is exclusive, the property being an equation. This reproves `Bool.exclusive`,
+which `decide` settles directly, and explains it: `Bool` has no more choice
+about the property than any other subalgebra of `BoolFunc` has. -/
+theorem Bool.exclusive_of_boolFunc : _root_.exclusive Bool := by
+  obtain ⟨ν, hinj⟩ := Bool.homomorphism_from_BoolFunc (X := Unit)
+  exact exclusive_of_injective_homomorphism_exclusive ν hinj BoolFunc.exclusive
+
 end Bool
