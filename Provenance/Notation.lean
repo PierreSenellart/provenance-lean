@@ -88,12 +88,22 @@ syntax:60 raQuery " ∖ " raQuery : raQuery
 /-- Bracket around a query of the surface syntax. -/
 syntax "RA[" raQuery "]" : term
 
+/-- The same, naming the value type. Only a base relation leaves the value
+type undetermined – every other operator takes it from its argument – so this
+is what a query written from the ground up needs, in place of an ascription. -/
+syntax "RA[" term " | " raQuery "]" : term
+
 /-! ### Elaboration
 
 Each category expands through an internal marker in the term category, which
 is what lets a rule recurse into its own sub-syntax. Column references become
 `TermG.index` with the regularity proof discharged by `rfl`, which is what a
 concrete kind vector makes available. -/
+
+/-- A query all of whose columns are regular. This is the shape of a source
+query before any grouping, and the one an ascription on a base relation
+needs: the arity determines the kind vector, so naming it again is noise. -/
+abbrev RegQuery (T : Type) (n : ℕ) := AggQuery T n (ColKind.allReg n)
 
 /-- Retag a query whose kind vector is all-regular by computation into the
 `ColKind.allReg` form that `Dedup` and `Diff` ask for. The obligation is
@@ -144,5 +154,6 @@ macro_rules
 
 macro_rules
   | `(RA[ $q:raQuery ]) => `(ra_query% $q)
+  | `(RA[ $t:term | $q:raQuery ]) => `((ra_query% $q : AggQuery $t _ _))
 
 end Provenance.Notation
