@@ -23,6 +23,9 @@ import Provenance.AggValueCongr
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
 
+/- Surface syntax for kind-indexed queries -/
+import Provenance.Notation
+
 /- Data-part adequacy of the general evaluator -/
 import Provenance.AggQueryAdequacy
 
@@ -192,6 +195,14 @@ proven engine several general results reuse internally.
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`
+- `Provenance.Notation` – **surface syntax** for kind-indexed queries:
+  a bracketed `RA[ … ]` with categories of its own for terms, predicates and
+  queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
+  language's and not as their meanings on `Prop`, comparisons elaborate
+  straight to `GenPred` atoms, column references `#i` carry their own
+  regularity proof, and `ε` and `∖` retag their argument to the all-regular
+  kind vector their constructors ask for (`allReg`). What a query costs to
+  write is then the query
 - `Provenance.AggQueryAdequacy` – **data-part adequacy of the general
   evaluator**: forgetting the annotations of `Query.evaluateAnnotated` yields
   the plain evaluation of the stripped query
