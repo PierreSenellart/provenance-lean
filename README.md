@@ -116,7 +116,7 @@ require "provenance" from git
 Pin a tag or a commit rather than `main`, for reproducible builds. Then
 `import Provenance` brings in everything; import individual modules to keep
 build times down. Besides Mathlib, the library depends on
-[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.2.0),
+[descriptive-complexity](https://github.com/PierreSenellart/descriptive-complexity/releases/tag/v1.3.0),
 used to state the complexity results; Lake resolves one Mathlib per workspace,
 so both must sit on the same pin.
 
