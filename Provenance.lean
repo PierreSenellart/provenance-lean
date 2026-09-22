@@ -159,7 +159,12 @@ proven engine several general results reuse internally.
   world-faithful (`specialize`), per-world (`valOn`) and deterministic
   (`collapse`) readings, the predicate provenance of a comparison against
   the token (`predProv`, agreeing with `havingProv` on a group via
-  `predProv_ofGroup`), the annotation pushforward (`mapAnn`), and lifted
+  `predProv_ofGroup`), its scalar counterpart `predProvScalar` summing over
+  *all* worlds, the empty one included, where the aggregate reads the empty
+  sequence (`valOn_empty`) – the reading a row needs when it exists
+  independently of its aggregate having anything to range over, the two
+  differing by exactly that one term (`predProvScalar_eq_predProv_add`) –
+  the annotation pushforward (`mapAnn`), and lifted
   column values `T ⊕ AggValue T K` mixing key and token columns
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue

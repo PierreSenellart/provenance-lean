@@ -109,6 +109,24 @@ def predProv [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin a.occs.length) => W.Nonempty),
     Having.worldAnn a.anns W * Having.chi op (a.valOn W) c
 
+/-- **Predicate provenance in the scalar convention**: the same `⊕`-sum as
+`predProv`, but over *all* worlds of the occurrence payload, the empty one
+included, where the aggregate reads the empty sequence (`valOn_empty`).
+
+The two conventions answer to two situations. Where a row exists only
+because its group does – a `GROUP BY` key – the comparison is never read in
+a world without occurrences, and `predProv` is the reading. Where the row
+exists on its own and the aggregate may range over nothing – an aggregation
+with no grouping, whose single row survives an empty input, or a frame that
+may exclude the row it is computed for – the empty world is a world, and the
+comparison must be given a value there. `predProvScalar` is that reading;
+the two differ by exactly the empty world's term
+(`predProvScalar_eq_predProv_add`). -/
+def predProvScalar [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (op : CompOp) (c : T) : K :=
+  ∑ W : Finset (Fin a.occs.length),
+    Having.worldAnn a.anns W * Having.chi op (a.valOn W) c
+
 /-! ## Reindexing bridges
 
 The occurrence payload of `ofGroup` is a `List.map` image of the group
@@ -170,6 +188,18 @@ theorem seqOf_univ : ∀ (U : List β), Having.seqOf U Finset.univ = U
     rw [this, seqOf_univ U]
     simp
 
+/-- The empty world selects nothing. -/
+theorem seqOf_empty : ∀ (U : List β), Having.seqOf U (∅ : Finset (Fin U.length)) = []
+  | [] => rfl
+  | b :: U => by
+    rw [Having.seqOf]
+    have hf : (Finset.univ.filter
+        (fun i : Fin U.length => i.succ ∈ (∅ : Finset (Fin (U.length + 1)))))
+        = (∅ : Finset (Fin U.length)) := by
+      ext i; simp
+    rw [hf, seqOf_empty U]
+    simp
+
 /-- Filtering a list is taking the subsequence of the positions whose
 element satisfies the predicate. -/
 theorem filter_eq_seqOf (p : β → Bool) :
@@ -202,6 +232,17 @@ theorem collapse_eq_valOn_univ (a : AggValue T K) :
   unfold collapse valOn
   rw [seqOf_univ]
 
+/-- The deterministic reading is the world-faithful one under the valuation
+that realizes every occurrence. So `specialize` is the general form of the
+*displayed* value of an aggregate – its value in the family of occurrences a
+given valuation realizes – and `collapse` is the case where every occurrence
+is realized. The two part company as soon as a token carries occurrences that
+hold in no world: those a difference or a rejected comparison leaves behind. -/
+theorem collapse_eq_specialize_true (a : AggValue T K) :
+    a.collapse = a.specialize (fun _ => true) := by
+  unfold collapse specialize
+  simp
+
 /-- `specialize` is the aggregate value of the world of realized
 occurrences. -/
 theorem specialize_eq_valOn (a : AggValue T K) (ν : K → Bool) :
@@ -209,6 +250,33 @@ theorem specialize_eq_valOn (a : AggValue T K) (ν : K → Bool) :
   unfold specialize valOn
   rw [filter_eq_seqOf (fun o => ν o.snd) a.occs]
   rfl
+
+/-- The empty world reads the aggregate over no occurrence: `f` of the empty
+sequence. This is the value a comparison sees where the group exists in no
+world. -/
+theorem valOn_empty (a : AggValue T K) : a.valOn ∅ = a.agg [] := by
+  unfold valOn
+  rw [seqOf_empty]
+  rfl
+
+/-- The scalar convention adds exactly one term to the grouped one: the
+empty world, annotated `𝟙 ⊖ ⊕ᵢ αᵢ` and reading `f` of the empty sequence. In
+particular the two agree whenever that term vanishes – when the comparison
+fails on `f []`, and in any semiring where no world is empty of annotation. -/
+theorem predProvScalar_eq_predProv_add [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T) :
+    a.predProvScalar op c
+      = a.predProv op c + Having.worldAnn a.anns ∅ * Having.chi op (a.agg []) c := by
+  rw [predProvScalar, predProv]
+  rw [← Finset.sum_filter_add_sum_filter_not
+    (Finset.univ : Finset (Finset (Fin a.occs.length)))
+    (fun W => W.Nonempty)]
+  congr 1
+  have hempty : (Finset.univ.filter
+      (fun W : Finset (Fin a.occs.length) => ¬ W.Nonempty)) = {∅} := by
+    ext W
+    simp [Finset.not_nonempty_iff_eq_empty]
+  rw [hempty, Finset.sum_singleton, valOn_empty]
 
 /-! ## `ofGroup` bridges to the fused semantics -/
 

@@ -159,6 +159,26 @@ theorem predProv_mapAnn (h : SemiringWithMonusHom K K')
         = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
   · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
 
+/-- **Token-level hom commutation, scalar convention.** As
+`predProv_mapAnn`, for the reading in which the empty world is a world: the
+sum ranges over every world instead of the non-empty ones, and the argument
+loses its case split. -/
+theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
+    (a : AggValue T K) (op : CompOp) (c : T) :
+    (a.mapAnn ⇑h.toRingHom).predProvScalar op c
+      = h.toRingHom (a.predProvScalar op c) := by
+  unfold predProvScalar
+  rw [map_sum]
+  refine (Fintype.sum_equiv (finCongr (length_mapAnn_occs h a)).finsetCongr
+    (fun W => h.toRingHom (Having.worldAnn a.anns W
+      * Having.chi op (a.valOn W) c))
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply, valOn_mapAnn h a W, worldAnn_map_finCongr,
+    map_mul, worldAnn_hom, chi_hom,
+    show (fun i => (a.mapAnn ⇑h.toRingHom).anns
+        (finCongr (length_mapAnn_occs h a) i))
+      = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
+
 end AggValue
 
 /-! ## The predicate pushforward -/
