@@ -201,6 +201,28 @@ theorem How.not_universal_m [Inhabited X] :
     simp[h₁] at h₂'
 
 
+/-- ℕ[X] is not exclusive: the monus is coefficientwise truncated
+subtraction, so `𝟙 ⊖ X` keeps the constant term and is `𝟙`, whence
+`X ⊗ (𝟙 ⊖ X) = X ≠ 𝟘`.
+
+This is the counterexample the possible-world readings turn on: the
+universal semiring, the one every provenance circuit is built in, is exactly
+the one where two distinct worlds of an aggregate value fail to annihilate
+each other. The spurious terms vanish under any homomorphism into an
+exclusive semiring, since homomorphisms commute with `⊖`. -/
+theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := by
+  intro h
+  have hsub : (1 : MvPolynomial X ℕ) - MvPolynomial.X (default : X) = 1 := by
+    apply MvPolynomial.ext
+    intro m
+    rw [coeff_sub]
+    rcases eq_or_ne m 0 with rfl | hm
+    · simp [MvPolynomial.coeff_X, MvPolynomial.coeff_one]
+    · simp [MvPolynomial.coeff_one, Ne.symm hm]
+  have key := h (MvPolynomial.X (default : X))
+  rw [hsub, mul_one] at key
+  exact MvPolynomial.X_ne_zero _ key
+
 /-- In How[X], as long as X is non-empty, times is not distributive over
   monus. Note that this contradicts [Amsterdamer, Deutch & Tannen, *On
   the limitations of provenance for queries with differences*, table page

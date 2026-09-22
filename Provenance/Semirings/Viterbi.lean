@@ -210,6 +210,19 @@ theorem no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
       ¬ ∃ φ : BoolFunc Y →+* Viterbi, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_mul_idem not_mul_idempotent
 
+/-- The Viterbi semiring is not exclusive. It is absorptive and totally
+ordered, so `not_exclusive_of_absorptive_of_total` applies to any probability
+strictly between `0` and `1`; concretely `½ ⊗ (𝟙 ⊖ ½) = ½ ⊗ 𝟙 = ½`, since
+`𝟙 ⊖ ½ = 𝟙` on a chain. As Viterbi is also left-distributive
+(`Viterbi.mul_sub_left_distributive`), exclusivity follows from neither
+absorptivity nor distributivity. -/
+theorem not_exclusive : ¬ exclusive Viterbi :=
+  not_exclusive_of_absorptive_of_total absorptive
+    (fun a b => le_total (a : NNReal) (b : NNReal))
+    (a := ⟨1/2, by norm_num⟩)
+    (fun h => by simpa using congrArg (fun x : Viterbi => (x : NNReal)) h)
+    (fun h => by simpa using congrArg (fun x : Viterbi => (x : NNReal)) h)
+
 theorem mul_sub_left_distributive : mul_sub_left_distributive Viterbi := by
   intro a b c
   ext

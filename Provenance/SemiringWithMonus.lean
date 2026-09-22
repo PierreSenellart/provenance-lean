@@ -206,11 +206,49 @@ The following properties do not always hold in an arbitrary m-semiring.
 /-- A `Semiring` is idempotent if `a + a = a`. -/
 abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
 
-/-- A `Semiring` is absorptive (also called 0-closed or 0-bounded) if `1 + a = a`. -/
+/-- A `Semiring` is absorptive (also called 0-closed or 0-bounded) if `1 + a = 1`. -/
 abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
 
 /-- We define left-distributivity of times over monus in a `SemiringWithMonus`. -/
 abbrev mul_sub_left_distributive (α) [SemiringWithMonus α] := ∀ a b c : α, a * (b - c) = a*b - a*c
+
+/-- A `SemiringWithMonus` is *exclusive* when every element is orthogonal to
+what `𝟙` retains after removing it: `a ⊗ (𝟙 ⊖ a) = 𝟘`.
+
+This is weaker than asking `𝟙 ⊖ a` to be a complement of `a`, which would
+also require `a ⊕ (𝟙 ⊖ a) = 𝟙`: `ℕ` is exclusive, and there `𝟙 ⊖ 2 = 𝟘`
+joins with `2` to `2`, not to `𝟙`.
+
+Exclusivity is what makes two distinct possible worlds of one occurrence
+family annihilate each other (`worldAnn_mul_eq_zero_of_ne`), hence what makes
+the alternatives of an occurrence exclude each other. It holds in `Bool`,
+`BoolFunc`, `Nat`, `Which` and `IntervalUnion`, and fails in `How`, `Why`,
+`Viterbi`, `MinMax`, `Lukasiewicz`, `Tropical` and `ChainFive` (the catalog
+theorems named `exclusive` and `not_exclusive` in `Provenance.Semirings.*`).
+
+Note that `How` – the universal semiring, in which provenance circuits are
+built – is *not* exclusive, so the terms exclusivity cancels are carried by a
+circuit and vanish only on evaluation into a semiring that has the property,
+homomorphisms commuting with `⊖`.
+
+## Independence
+
+Exclusivity is independent of each of the three properties above, every
+combination being realized in the catalog:
+
+| | exclusive | not exclusive |
+| --- | --- | --- |
+| absorptive | `Bool` | `Viterbi` |
+| not absorptive | `Nat` | `How` |
+| idempotent | `Bool` | `Why` |
+| not idempotent | `Nat` | `How` |
+| `mul_sub_left_distributive` | `Bool` | `Viterbi` |
+| not `mul_sub_left_distributive` | `Which` | `Why` |
+
+Independence is not absence of interaction: absorptivity and exclusivity
+constrain each other jointly without either implying the other, by
+`eq_zero_or_one_of_exclusive_of_absorptive`. -/
+abbrev exclusive (α) [SemiringWithMonus α] := ∀ a : α, a * (1 - a) = 0
 
 /-- Absorptivity implies idempotence -/
 theorem idempotent_of_absorptive [K: Semiring α] :
@@ -334,6 +372,100 @@ theorem monus_antitone [SemiringWithMonus α] {b b' : α} (h : b ≤ b') (a : α
     a - b' ≤ a - b := by
   rw [SemiringWithMonus.monus_spec]
   exact le_trans (le_plus_monus a b) (add_le_add h le_rfl)
+
+/-! ## Exclusivity
+
+`exclusive` says `a ⊗ (𝟙 ⊖ a) = 𝟘`. The possible-world arguments consume a
+two-argument form, `a ⊗ (𝟙 ⊖ (a ⊕ b)) = 𝟘`: an occurrence present in one
+world and absent from another contributes `a` to the first world's annotation
+and `𝟙 ⊖ (a ⊕ b)` to the second's. The two forms are equivalent, so the
+one-argument form is what a semiring is checked against and the two-argument
+form is what the proofs use. -/
+
+/-- Multiplication is monotone: the order of a `SemiringWithMonus` is the
+natural one, so a larger factor differs from a smaller one by a summand that
+multiplication distributes over. -/
+theorem mul_le_mul_left_of_le [SemiringWithMonus α] {x y : α} (h : x ≤ y) (z : α) :
+    z * x ≤ z * y := by
+  obtain ⟨c, rfl⟩ := exists_add_of_le h
+  rw [mul_add]
+  exact le_self_add
+
+/-- In an exclusive m-semiring an element is orthogonal to the complement of
+*any* sum containing it, not only of itself. Monus is antitone in its
+subtrahend, so the larger subtrahend `a ⊕ b` leaves a smaller complement than
+`a` does, and multiplication by `a` preserves that. -/
+theorem mul_one_monus_add_eq_zero [SemiringWithMonus α] (h : exclusive α) (a b : α) :
+    a * (1 - (a + b)) = 0 :=
+  le_antisymm
+    (calc a * (1 - (a + b)) ≤ a * (1 - a) :=
+            mul_le_mul_left_of_le (monus_antitone le_self_add 1) a
+      _ = 0 := h a)
+    zero_le
+
+/-- The two-argument form is no stronger: exclusivity is its instance at
+`b = 𝟘`. -/
+theorem exclusive_of_mul_one_monus_add [SemiringWithMonus α]
+    (h : ∀ a b : α, a * (1 - (a + b)) = 0) : exclusive α := by
+  intro a
+  simpa using h a 0
+
+/-! ### Exclusivity against absorptivity
+
+An absorptive m-semiring has `𝟙` at the top of its natural order, so `𝟙 ⊖ a`
+is the least element joining with `a` to `𝟙` – the least relative complement.
+Exclusivity then asks that least complement to be orthogonal to `a`, which a
+chain cannot deliver: there the join of two elements is one of them, so the
+only complement of a non-`𝟙` element is `𝟙` itself. -/
+
+/-- In an absorptive semiring `𝟙` is the greatest element of the natural
+order. -/
+theorem le_one_of_absorptive [SemiringWithMonus α] (h : absorptive α) (a : α) :
+    a ≤ 1 :=
+  le_iff_exists_add.mpr ⟨1, by rw [add_comm a 1]; exact (h a).symm⟩
+
+/-- In an absorptive m-semiring, `𝟙 ⊖ a` joins with `a` to `𝟙`; by
+`monus_smallest` it is the least element that does. -/
+theorem add_one_monus_eq_one_of_absorptive [SemiringWithMonus α]
+    (h : absorptive α) (a : α) : a + (1 - a) = 1 :=
+  le_antisymm (le_one_of_absorptive h _) (le_plus_monus 1 a)
+
+/-- `𝟙` is join-irreducible whenever addition is idempotent and the natural
+order is total: the sum is then the join of a chain, hence one of its two
+arguments. -/
+theorem one_join_irreducible_of_total [SemiringWithMonus α] (hidem : idempotent α)
+    (htot : ∀ a b : α, a ≤ b ∨ b ≤ a) (a z : α) (h : a + z = 1) : a = 1 ∨ z = 1 := by
+  rcases htot a z with hle | hle
+  · right
+    rw [← h, (le_iff_add_eq hidem a z).mp hle]
+  · left
+    rw [← h, add_comm, (le_iff_add_eq hidem z a).mp hle]
+
+/-- **Absorptivity and exclusivity together are restrictive.** If `𝟙` is
+join-irreducible – as it is in every absorptive m-semiring whose natural order
+is total – then an exclusive one has no element besides `𝟘` and `𝟙`. -/
+theorem eq_zero_or_one_of_exclusive_of_absorptive [SemiringWithMonus α]
+    (habs : absorptive α) (hirr : ∀ a z : α, a + z = 1 → a = 1 ∨ z = 1)
+    (hexcl : exclusive α) (a : α) : a = 0 ∨ a = 1 := by
+  rcases hirr a (1 - a) (add_one_monus_eq_one_of_absorptive habs a) with h | h
+  · exact Or.inr h
+  · left
+    have hz := hexcl a
+    rwa [h, mul_one] at hz
+
+/-- The contrapositive, in the form the catalog uses: a totally ordered
+absorptive m-semiring with an element other than `𝟘` and `𝟙` is not
+exclusive. This one argument covers `Viterbi`, `MinMax`, `Lukasiewicz`,
+`Tropical` and `ChainFive`. -/
+theorem not_exclusive_of_absorptive_of_total [SemiringWithMonus α]
+    (habs : absorptive α) (htot : ∀ a b : α, a ≤ b ∨ b ≤ a)
+    {a : α} (h0 : a ≠ 0) (h1 : a ≠ 1) : ¬ exclusive α := by
+  intro hexcl
+  rcases eq_zero_or_one_of_exclusive_of_absorptive habs
+      (one_join_irreducible_of_total (idempotent_of_absorptive habs) htot)
+      hexcl a with h | h
+  · exact h0 h
+  · exact h1 h
 
 /-! ## Characteristic of idempotent semirings
 

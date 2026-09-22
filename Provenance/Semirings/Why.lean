@@ -350,6 +350,24 @@ theorem Why.not_isDelta_id (hNotEmpty : ∃ (_ : α), ⊤) :
     ¬ IsDelta (id : Why α → Why α) :=
   not_isDelta_id_of_not_absorptive (Why.not_absorptive hNotEmpty)
 
+/-- Why[X] is not exclusive as soon as there is one label: `𝟙` is `{∅}` and
+a token `{{x}}` does not contain `∅`, so `𝟙 ⊖ {{x}} = 𝟙` and
+`{{x}} ⊗ 𝟙 = {{x}} ≠ 𝟘`. Why[X] is neither absorptive nor distributive, so
+this is a failure for reasons unrelated to the absorptive chains. -/
+theorem Why.not_exclusive [Inhabited α] : ¬ exclusive (Why α) := by
+  intro h
+  have hsub : (1 : Why α) - ⟨{{default}}⟩ = 1 := by
+    apply Why.ext
+    show ({∅} : Set (Set α)) \ {{default}} = ({∅} : Set (Set α))
+    rw [Set.sdiff_singleton_eq_self]
+    simp
+  have key := h ⟨{{default}}⟩
+  rw [hsub, mul_one] at key
+  have hmem : ({default} : Set α) ∈ ({{default}} : Set (Set α)) := rfl
+  have hc : ({{default}} : Set (Set α)) = (∅ : Set (Set α)) := congrArg Why.carrier key
+  rw [hc] at hmem
+  exact hmem
+
 /-- In Why[X], as long as X is non-empty, times is not distributive over
   monus. Note that this contradicts [Amsterdamer, Deutch & Tannen, *On
   the limitations of provenance for queries with differences*, table page

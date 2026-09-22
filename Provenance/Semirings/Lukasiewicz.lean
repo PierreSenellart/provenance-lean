@@ -372,6 +372,26 @@ theorem Lukasiewicz.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
       ¬ ∃ φ : BoolFunc Y →+* Lukasiewicz, ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_mul_idem Lukasiewicz.not_mul_idempotent
 
+/-- The Łukasiewicz semiring is not exclusive: absorptive and totally
+ordered, with `½` neither `𝟘` nor `𝟙`, so `𝟙 ⊖ ½ = 𝟙` and `½ ⊗ 𝟙 = ½`. -/
+theorem Lukasiewicz.not_exclusive : ¬ exclusive Lukasiewicz := by
+  have h0 : (0 : ℚ) ≤ (1 : ℚ) / 2 := by
+    rw [le_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+  have h1 : (1 : ℚ) / 2 ≤ 1 := by
+    rw [div_le_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+  refine not_exclusive_of_absorptive_of_total Lukasiewicz.absorptive le_total
+    (a := ⟨(1 : ℚ) / 2, ⟨h0, h1⟩⟩) ?_ ?_
+  · intro h
+    have h' : (1 : ℚ) / 2 = 0 := congrArg Subtype.val h
+    have hpos : (0 : ℚ) < (1 : ℚ) / 2 := by
+      rw [lt_div_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+    exact hpos.ne' h'
+  · intro h
+    have h' : (1 : ℚ) / 2 = 1 := congrArg Subtype.val h
+    have hlt : (1 : ℚ) / 2 < 1 := by
+      rw [div_lt_iff₀ (by norm_num : (0 : ℚ) < 2)]; norm_num
+    exact hlt.ne h'
+
 theorem Lukasiewicz.mul_sub_left_distributive :
   mul_sub_left_distributive Lukasiewicz := by
     intro a b c

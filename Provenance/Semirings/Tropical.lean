@@ -223,6 +223,15 @@ theorem Tropical.absorptive [LinearOrderedAddCommMonoidWithTop α] [CanonicallyO
 theorem TropicalN.absorptive : absorptive (Tropical (WithTop ℕ)) := by
   exact Tropical.absorptive
 
+/-- The tropical semiring over `WithTop ℕ` is not exclusive: absorptive and
+totally ordered, with `trop 1` neither `𝟘 = trop ⊤` nor `𝟙 = trop 0`, so
+`𝟙 ⊖ trop 1 = 𝟙` and `trop 1 ⊗ 𝟙 = trop 1`. -/
+theorem TropicalN.not_exclusive : ¬ exclusive (Tropical (WithTop ℕ)) :=
+  not_exclusive_of_absorptive_of_total TropicalN.absorptive
+    (fun a b => le_total (Tropical.untrop b) (Tropical.untrop a))
+    (a := Tropical.trop ((1 : ℕ) : WithTop ℕ))
+    (by decide) (by decide)
+
 /-- On the tropical semiring over `ℕ ∪ {∞}` the identity is not an admissible `δ`,
 even though this semiring *is* absorptive (`TropicalN.absorptive`): what
 `delta_absorb` asks of `δ := id` is the lattice law `a ⊗ (a ⊕ b) = a`, i.e.,

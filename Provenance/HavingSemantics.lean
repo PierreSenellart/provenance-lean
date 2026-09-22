@@ -263,6 +263,46 @@ theorem worldAnn_eq_ann {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
     worldAnn α W = Having.ann α Finset.univ W := by
   rw [worldAnn, Having.ann, Having.A, Finset.compl_eq_univ_sdiff]
 
+omit [DecidableEq K] in
+/-- **Distinct worlds of one occurrence family annihilate each other**, in an
+exclusive m-semiring. A position kept by one world and dropped by the other
+contributes a factor `α u` to the first annotation and a factor
+`𝟙 ⊖ (α u ⊕ …)` to the second, and exclusivity makes that pair `𝟘`.
+
+This is what makes the alternatives of an occurrence mutually exclusive when
+an aggregate value is read as a key, and the same identity governs the
+worlds of a frame that contains its current row. It fails in `How`
+(`How.not_exclusive`), which is the universal semiring every provenance
+circuit is built in, so the spurious terms are carried by the circuit and
+die only on evaluation into an exclusive semiring, homomorphisms commuting
+with `⊖`. -/
+theorem worldAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
+    (α : Fin N → K) {W W' : Finset (Fin N)} (h : W ≠ W') :
+    worldAnn α W * worldAnn α W' = 0 := by
+  -- One direction of the asymmetry; the statement follows by commutativity.
+  have key : ∀ (V V' : Finset (Fin N)) (u : Fin N), u ∈ V → u ∉ V' →
+      worldAnn α V * worldAnn α V' = 0 := by
+    intro V V' u huV huV'
+    have hprod : ∏ i ∈ V, α i = α u * ∏ i ∈ V.erase u, α i :=
+      (Finset.mul_prod_erase V α huV).symm
+    have hsum : ∑ i ∈ V'ᶜ, α i = α u + ∑ i ∈ (V'ᶜ).erase u, α i :=
+      (Finset.add_sum_erase (V'ᶜ) α (Finset.mem_compl.mpr huV')).symm
+    have hzero : α u * (1 - (α u + ∑ i ∈ (V'ᶜ).erase u, α i)) = 0 :=
+      mul_one_monus_add_eq_zero hexcl _ _
+    -- Collect the two offending factors next to each other, then kill them.
+    have hring : (α u * ∏ i ∈ V.erase u, α i) * (1 - ∑ i ∈ Vᶜ, α i) *
+          ((∏ i ∈ V', α i) * (1 - (α u + ∑ i ∈ (V'ᶜ).erase u, α i)))
+        = ((∏ i ∈ V.erase u, α i) * (1 - ∑ i ∈ Vᶜ, α i) * ∏ i ∈ V', α i) *
+          (α u * (1 - (α u + ∑ i ∈ (V'ᶜ).erase u, α i))) := by
+      simp [mul_comm, mul_assoc, mul_left_comm]
+    rw [worldAnn, worldAnn, hprod, hsum, hring, hzero, mul_zero]
+  rw [Ne, Finset.ext_iff, not_forall] at h
+  obtain ⟨u, hu⟩ := h
+  by_cases huW : u ∈ W
+  · exact key W W' u huW (by tauto)
+  · rw [mul_comm]
+    exact key W' W u (by tauto) huW
+
 /-! ### Group extraction and aggregate values -/
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in

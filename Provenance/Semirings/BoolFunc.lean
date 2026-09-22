@@ -195,6 +195,15 @@ theorem BoolFunc.mul_sub_left_distributive : mul_sub_left_distributive (BoolFunc
   intro ν
   by_cases hx: x ν <;> by_cases hy: y ν <;> by_cases hz: z ν <;> simp[hx,hy,hz]
 
+/-- `𝔹[X]` is exclusive, pointwise as `Bool` is: `𝟙 ⊖ a` is the negation
+of `a`, a genuine complement. -/
+theorem BoolFunc.exclusive : exclusive (BoolFunc X) := by
+  intro a
+  simp[(· * ·),Mul.mul,(· - ·),Sub.sub]
+  apply funext
+  intro ν
+  by_cases ha : a ν <;> simp[ha] <;> rfl
+
 instance : Nontrivial (BoolFunc X) := ⟨0, 1, by
   intro h
   have : (0 : BoolFunc X) (fun _ => false) = (1 : BoolFunc X) (fun _ => false) := by rw [h]

@@ -1411,6 +1411,20 @@ theorem IntervalUnion.mul_sub_left_distributive [DenselyOrdered α] [BoundedOrde
   simp only [mul_eq_inter, sub_eq_diff, mem_inter, mem_diff]
   tauto
 
+/-- The interval-union semiring is exclusive: `𝟙 ⊖ a` is the complement of `a` in
+the whole space, which meets `a` nowhere. This is the complementing route to
+exclusivity, as in `Bool`; it is open to an absorptive semiring only because `𝟙` is
+not join-irreducible here – a proper interval union and its complement join to the
+whole space – which is what separates this case from the absorptive chains
+(`MinMax.not_exclusive`). -/
+theorem IntervalUnion.exclusive [DenselyOrdered α] [BoundedOrder α] :
+    exclusive (IntervalUnion α) := by
+  intro a
+  apply ext_toSet; ext x
+  simp only [mul_eq_inter, sub_eq_diff, mem_inter, mem_diff, zero_toSet,
+    Set.mem_empty_iff_false]
+  tauto
+
 /-- The interval-union semiring is idempotent: `a + a = a` (derived from absorptivity). -/
 theorem IntervalUnion.idempotent [DenselyOrdered α] [BoundedOrder α] :
     idempotent (IntervalUnion α) :=

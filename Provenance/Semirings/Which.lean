@@ -330,6 +330,16 @@ theorem Which.not_mul_sub_left_distributive [Inhabited α] :
   use wset {x}, wset {x}, wset ∅
   simp[(· * ·),Mul.mul,(· - ·),Sub.sub]
 
+/-- Lin[X] is exclusive: `𝟙` is `wset ∅`, which is below every `wset s`, so
+`𝟙 ⊖ a` is `𝟘` for every `a ≠ 𝟘`, and `𝟘` annihilates. As in `ℕ` this is the
+collapsing route to exclusivity rather than the complementing one – and
+unlike `ℕ`, Lin[X] is not distributive
+(`Which.not_mul_sub_left_distributive`), so exclusivity and distributivity
+are independent. -/
+theorem Which.exclusive : exclusive (Which α) := by
+  intro a
+  cases a <;> simp[(· * ·),Mul.mul,(· - ·),Sub.sub] <;> rfl
+
 /-- There is no semiring homomorphism from `BoolFunc Y` to `Which α` (with `α`
 inhabited) sending the variables to arbitrary values: `Which α` is not
 absorptive (`Which.not_absorptive`), which contradicts `var i + 1 = 1` in

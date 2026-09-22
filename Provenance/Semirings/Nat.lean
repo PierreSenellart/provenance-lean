@@ -68,6 +68,17 @@ instance : HasAltLinearOrder Nat where
 theorem Nat.mul_sub_left_distributive : mul_sub_left_distributive Nat :=
   Nat.mul_sub_left_distrib
 
+/-- `ℕ` is exclusive: `𝟙 ⊖ a` is `0` as soon as `a` is positive, and `a`
+itself is `0` otherwise.
+
+Unlike in `Bool`, `𝟙 ⊖ a` is not a complement of `a` here: `2 + (1 - 2) = 2`
+and not `1`. Exclusivity asks only for orthogonality, so it holds in a
+semiring where the monus against `𝟙` collapses as well as in one where it
+complements. -/
+theorem Nat.exclusive : exclusive Nat := by
+  intro a
+  rcases a with _ | n <;> simp
+
 theorem Nat.not_idempotent : ¬ (idempotent Nat) := by
   simp
   use 1

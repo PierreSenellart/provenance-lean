@@ -187,6 +187,16 @@ theorem MinMax.absorptive : absorptive (MinMax α) := by
   left
   rfl
 
+/-- `MinMax α` is not exclusive as soon as the chain has an element other
+than its two bounds: it is absorptive and totally ordered, so
+`not_exclusive_of_absorptive_of_total` applies. Here `𝟘 = ⊤` and `𝟙 = ⊥`. -/
+theorem MinMax.not_exclusive {a : α} (h0 : a ≠ ⊤) (h1 : a ≠ ⊥) :
+    ¬ exclusive (MinMax α) :=
+  not_exclusive_of_absorptive_of_total MinMax.absorptive le_total
+    (a := ⟨a⟩)
+    (fun h => h0 (congrArg MinMax.val h))
+    (fun h => h1 (congrArg MinMax.val h))
+
 theorem MinMax.idempotent : idempotent (MinMax α) :=
   idempotent_of_absorptive MinMax.absorptive
 

@@ -68,6 +68,10 @@ theorem Bool.idempotent : idempotent Bool := by decide
 
 theorem Bool.mul_sub_left_distributive : mul_sub_left_distributive Bool := by decide
 
+/-- `𝔹` is exclusive: `a ∧ ¬a = ⊥`. Here `𝟙 ⊖ a` is a genuine complement
+of `a`, which is the stronger of the two ways a semiring can be exclusive. -/
+theorem Bool.exclusive : exclusive Bool := by decide
+
 /-- `Bool` has characteristic 0 in the `CharP` sense: it is idempotent and nontrivial
 (`true ≠ false`), so every positive natural-number cast equals `1 = true`. It is not
 `CharZero` since the cast `ℕ → Bool` is not injective. -/

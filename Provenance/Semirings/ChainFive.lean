@@ -160,6 +160,12 @@ theorem ChainFive.idempotent : idempotent ChainFive :=
 theorem ChainFive.not_mul_sub_left_distributive :
     ¬ mul_sub_left_distributive ChainFive := by decide
 
+/-- `ChainFive` is not exclusive: `hi ⊗ (𝟙 ⊖ hi) = hi`, the computation the
+module docstring already performs for a different purpose. It is absorptive
+and not distributive, where `Viterbi` is absorptive and distributive and
+`Bool` is both and exclusive. -/
+theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
+
 namespace ChainFive
 
 /-- The witness family `α = (mid, hi, hi)` on a three-element universe. -/
