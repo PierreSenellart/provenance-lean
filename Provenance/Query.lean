@@ -275,24 +275,41 @@ def SeqAggFunc (T : Type) := List T → T
 
 namespace SeqAggFunc
 
-/-- `SUM` as a sequence aggregate. -/
+/-! An aggregate is a total function on sequences, so each one has to say
+what it does with the empty sequence. Where a row exists only because its
+group does, that value is never read and the choice is immaterial. Where the
+row exists on its own – an aggregation over no grouping, a frame that may
+exclude the row it is computed for – it is read, by the scalar convention of
+`AggValue.predProvScalar`.
+
+Only `count` currently gives what SQL gives there. SQL evaluates `MIN`, `MAX`
+and `SUM` over no row to `null`, and the `D` aggregates below give the zero
+of the value type instead, for want of a null to give: the suffix is Lean's
+"with a default", as in `List.headD`. So the scalar reading of those three is
+faithful only on non-empty worlds until the value domain has a null. -/
+
+/-- `SUM` as a sequence aggregate; `0` on the empty sequence, where SQL has
+`null`. -/
 def sum : SeqAggFunc T := fun L => L.foldr (· + ·) 0
 
-/-- `COUNT(*)` as a sequence aggregate (over an `ℕ`-valued domain). -/
+/-- `COUNT(*)` as a sequence aggregate (over an `ℕ`-valued domain); `0` on
+the empty sequence, as SQL has. -/
 def count : SeqAggFunc ℕ := List.length
 
-/-- `MIN`, with value `0` on the empty sequence (the possible-world
-semantics only ever applies it to non-empty sequences). -/
+/-- `MIN`, with the zero of the value type as its default on the empty
+sequence, where SQL has `null`. -/
 def minD : SeqAggFunc T := fun L => match L with
   | [] => 0
   | x :: xs => xs.foldr min x
 
-/-- `MAX`, with value `0` on the empty sequence. -/
+/-- `MAX`, with the zero of the value type as its default on the empty
+sequence, where SQL has `null`. -/
 def maxD : SeqAggFunc T := fun L => match L with
   | [] => 0
   | x :: xs => xs.foldr max x
 
-/-- `PICKFIRST`: the first value of the sequence, `0` if empty. -/
+/-- `PICKFIRST`: the first value of the sequence, with the zero of the value
+type as its default on the empty one, where SQL has `null`. -/
 def pickFirst : SeqAggFunc T := fun L => L.headD 0
 
 end SeqAggFunc
