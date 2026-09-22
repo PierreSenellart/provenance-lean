@@ -179,6 +179,24 @@ theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
         (finCongr (length_mapAnn_occs h a) i))
       = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
 
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- The pushforward keeps a token's convention. -/
+@[simp] theorem scalar_mapAnn (h : SemiringWithMonusHom K K') (a : AggValue T K) :
+    (a.mapAnn ⇑h.toRingHom).scalar = a.scalar := rfl
+
+/-- **Token-level hom commutation, in the token's own convention.** Whichever
+reading the token carries, the predicate provenance of a comparison against
+it commutes with every `SemiringWithMonusHom`. -/
+theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
+    (a : AggValue T K) (op : CompOp) (c : T) :
+    (a.mapAnn ⇑h.toRingHom).predProvOf op c
+      = h.toRingHom (a.predProvOf op c) := by
+  unfold AggValue.predProvOf
+  rw [scalar_mapAnn]
+  cases a.scalar
+  · simpa using predProv_mapAnn h a op c
+  · simpa using predProvScalar_mapAnn h a op c
+
 end AggValue
 
 /-! ## The predicate pushforward -/

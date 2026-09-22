@@ -167,7 +167,12 @@ proven engine several general results reuse internally.
   sequence (`valOn_empty`) – the reading a row needs when it exists
   independently of its aggregate having anything to range over, the two
   differing by exactly that one term (`predProvScalar_eq_predProv_add`) –
-  the annotation pushforward (`mapAnn`), and lifted
+  with the choice between them carried by the token's own `scalar` field,
+  since a comparison may be far downstream of the operator that built it:
+  `ofGroup` and `ofScalarGroup` settle it, the pushforward and the composite
+  transport preserve it, and `predProvOf` reads a token in its own
+  convention, commuting with homomorphisms either way
+  (`predProvOf_mapAnn`); the annotation pushforward (`mapAnn`), and lifted
   column values `T ⊕ AggValue T K` mixing key and token columns
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue

@@ -62,6 +62,17 @@ structure AggValue (T K : Type) where
   /-- The occurrence payload: values of the aggregated term paired with
   the occurrence annotations, in the group's ≼-order. -/
   occs : List (T × K)
+  /-- Whether the empty world is one of this token's worlds.
+
+  A token whose row exists only because its group does is never read where
+  the group is empty, and the reading skips that world. A token whose row
+  exists on its own – an aggregation with no grouping, whose single row
+  survives an empty input, or a window frame that may exclude the row it is
+  computed for – is read there too, and the aggregate then sees the empty
+  sequence. The flag travels with the token because a comparison may be far
+  from the operator that built it, past projections and joins, and cannot
+  otherwise tell which reading applies. -/
+  scalar : Bool := false
 
 namespace AggValue
 
@@ -71,7 +82,7 @@ variable {T K K' : Type} {m : ℕ}
 term `t` with `f`: the projection of the group payload. -/
 def ofGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
     (U : List (AnnotatedTuple T K m)) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst, p.snd))⟩
+  ⟨f, U.map (fun p => (t.eval p.fst, p.snd)), false⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=
@@ -96,7 +107,7 @@ def specialize (a : AggValue T K) (ν : K → Bool) : T :=
 /-- Pushforward of `h : K → K'` through the annotations of a token; the
 values are untouched. -/
 def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
-  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd))⟩
+  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar⟩
 
 /-- **Predicate provenance of an atomic comparison against a token**: the
 `⊕`-sum, over the non-empty possible worlds of the token's group, of the
@@ -126,6 +137,32 @@ def predProvScalar [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (a : AggValue T K) (op : CompOp) (c : T) : K :=
   ∑ W : Finset (Fin a.occs.length),
     Having.worldAnn a.anns W * Having.chi op (a.valOn W) c
+
+/-- The token of a group, read in the scalar convention: the same payload,
+with the empty world among its worlds. This is what an aggregation with no
+grouping produces, and what a window frame that may exclude its current row
+produces. -/
+def ofScalarGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
+    (U : List (AnnotatedTuple T K m)) : AggValue T K :=
+  { ofGroup f t U with scalar := true }
+
+/-- **Predicate provenance in the token's own convention.** A comparison
+reads a token by the flag it carries, so that an operator settles the
+convention once, where the token is built, and every comparison downstream
+follows it. -/
+def predProvOf [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (op : CompOp) (c : T) : K :=
+  if a.scalar then a.predProvScalar op c else a.predProv op c
+
+@[simp] theorem predProvOf_of_grouped [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] {a : AggValue T K} (h : a.scalar = false) (op : CompOp) (c : T) :
+    a.predProvOf op c = a.predProv op c := by
+  simp [predProvOf, h]
+
+@[simp] theorem predProvOf_of_scalar [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] {a : AggValue T K} (h : a.scalar = true) (op : CompOp) (c : T) :
+    a.predProvOf op c = a.predProvScalar op c := by
+  simp [predProvOf, h]
 
 /-! ## Reindexing bridges
 

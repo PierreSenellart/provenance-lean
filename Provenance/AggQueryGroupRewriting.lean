@@ -52,7 +52,7 @@ variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
 the aggregated values are embedded by `Sum.inl`, the aggregate function is
 lifted, and the occurrence annotations are unchanged. -/
 def AggValue.toComposite (a : AggValue T K) : AggValue (T ⊕ K) K :=
-  ⟨a.agg.liftComposite, a.occs.map (fun o => (Sum.inl o.fst, o.snd))⟩
+  ⟨a.agg.liftComposite, a.occs.map (fun o => (Sum.inl o.fst, o.snd)), a.scalar⟩
 
 omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
@@ -65,7 +65,7 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
           (U.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
   unfold AggValue.toComposite AggValue.ofGroup
-  refine congrArg (AggValue.mk _) ?_
+  refine congrArg (fun l => (AggValue.mk _ l false : AggValue (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
