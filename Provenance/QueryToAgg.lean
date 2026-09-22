@@ -221,7 +221,7 @@ theorem Query.toAgg_rel :
       (if (Selection.toGenPred φ).hasAggAtom then _ else
         Multiset.filter _ ((Query.toAgg q
           (Query.sourceSel hq rfl)).evaluate d)) _
-    rw [if_neg (by rw [Selection.toGenPred_hasAggAtom]; exact
+    rw [ite_eq_right (by rw [Selection.toGenPred_hasAggAtom]; exact
       Bool.false_ne_true)]
     refine rel_filter_of_iff (toAgg_rel q (Query.sourceSel hq rfl) d)
       (fun r p hr => ?_)

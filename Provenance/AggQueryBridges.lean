@@ -122,7 +122,7 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
               : AnnotatedTuple T K (n₁ + n₂))) := by
   unfold AggQuery.evaluateAnnotated
   simp only [AggQuery.evaluate]
-  rw [if_pos (show (GenPred.fusedCmp (T := T) op l s).hasAggAtom = true
+  rw [ite_eq_left (show (GenPred.fusedCmp (T := T) op l s).hasAggAtom = true
     from rfl)]
   generalize Multiset.map GenRow.toAnnotated (qg.evaluate d) = A
   conv_lhs => rw [Multiset.map_map]
@@ -153,8 +153,8 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       Multiset.filter_cons, Multiset.filter_zero, Multiset.cons_ne_zero,
       ne_eq, not_false_eq_true, Multiset.forall_mem_cons,
       Multiset.notMem_zero, IsEmpty.forall_iff, implies_true, and_true,
-      true_and, not_true, if_false,
-      GenPred.entailsExistence, if_true,
+      true_and, not_true, ite_false,
+      GenPred.entailsExistence, ite_true,
       GenAnn.finalize_of_pending_zero, one_mul, Term.toGenKey_eval,
       Bool.false_eq_true]
     exact AggValue.predProv_ofGroup (fs l) (ts l)

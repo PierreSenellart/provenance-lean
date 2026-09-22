@@ -1,4 +1,4 @@
-import Mathlib.Data.NNReal.Basic
+import Mathlib.Basic.NNReal.Basic
 import Mathlib.Algebra.Order.Ring.Basic
 
 import Provenance.SemiringWithMonus

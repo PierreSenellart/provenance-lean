@@ -322,7 +322,7 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
         show Having.seqOf ((v, ann) :: t)
             (insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length))) = _
         simp only [Having.seqOf]
-        rw [if_pos (Finset.mem_insert_self _ _), filter_succ_insert]
+        rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
         rfl
       rw [hprod, hsum, hseq, List.map_cons]
       dsimp only
@@ -380,7 +380,7 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
           = Having.seqOf t W' := by
         show Having.seqOf ((v, ann) :: t) (W'.map (succEmb t.length)) = _
         simp only [Having.seqOf]
-        rw [if_neg (notMem_map_succ _), filter_succ_map]
+        rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
         rfl
       rw [hprod, hsum, hseq, ← add_assoc]
     rw [← Finset.sum_filter_add_sum_filter_not

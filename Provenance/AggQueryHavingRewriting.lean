@@ -449,8 +449,8 @@ theorem Having.chi_inl (op : CompOp) (x y : T) :
       = Having.chi op x y := by
   unfold Having.chi
   by_cases h : op.eval x y
-  · rw [if_pos ((CompOp.eval_inl op x y).mpr h), if_pos h]
-  · rw [if_neg (fun hc => h ((CompOp.eval_inl op x y).mp hc)), if_neg h]
+  · rw [ite_eq_left ((CompOp.eval_inl op x y).mpr h), ite_eq_left h]
+  · rw [ite_eq_right (fun hc => h ((CompOp.eval_inl op x y).mp hc)), ite_eq_right h]
 
 /-! ## The classical rewriting stays off the token operators -/
 
@@ -494,9 +494,9 @@ theorem AggQuery.rewriting_chiFree :
     ⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < m)
-        · rw [dif_pos hj]
+        · rw [dite_eq_left hj]
           exact ProjCol.castComposite_chiFree _ _ _
-        · rw [dif_neg hj]
+        · rw [dite_eq_right hj]
           exact trivial,
      rewriting_chiFree q hq.2⟩
   | _, _, .Sel _ q, hq =>
@@ -505,11 +505,11 @@ theorem AggQuery.rewriting_chiFree :
     ⟨fun j => by
         dsimp only
         by_cases h₁ : ((j : ℕ) < n₁)
-        · rw [dif_pos h₁]; exact trivial
-        · rw [dif_neg h₁]
+        · rw [dite_eq_left h₁]; exact trivial
+        · rw [dite_eq_right h₁]
           by_cases h₂ : ((j : ℕ) < n₁ + n₂)
-          · rw [dif_pos h₂]; exact trivial
-          · rw [dif_neg h₂]; exact ⟨trivial, trivial⟩,
+          · rw [dite_eq_left h₂]; exact trivial
+          · rw [dite_eq_right h₂]; exact ⟨trivial, trivial⟩,
      ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩⟩
   | _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩
@@ -518,8 +518,8 @@ theorem AggQuery.rewriting_chiFree :
     ⟨⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < n)
-        · rw [dif_pos hj]; exact trivial
-        · rw [dif_neg hj]; exact trivial,
+        · rw [dite_eq_left hj]; exact trivial
+        · rw [dite_eq_right hj]; exact trivial,
       ⟨keyJoinCond_chiFree _ _ _ _,
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨⟨fun _ => trivial, rewriting_chiFree q₁ hq.1⟩,
@@ -527,8 +527,8 @@ theorem AggQuery.rewriting_chiFree :
      ⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < n)
-        · rw [dif_pos hj]; exact trivial
-        · rw [dif_neg hj]; exact ⟨trivial, trivial⟩,
+        · rw [dite_eq_left hj]; exact trivial
+        · rw [dite_eq_right hj]; exact ⟨trivial, trivial⟩,
       ⟨keyJoinCond_chiFree _ _ _ _,
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨trivial, rewriting_chiFree q₂ hq.2⟩⟩⟩⟩⟩
@@ -550,11 +550,11 @@ theorem AnnotatedTuple.toComposite_coord {m : ℕ}
         else Sum.inr p.snd := by
   unfold AnnotatedTuple.toComposite
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
-  · rw [Fin.append_left, dif_pos (by
+  · rw [Fin.append_left, dite_eq_left (by
       simp only [Fin.val_castAdd]
       exact i.isLt)]
     exact congrArg (fun k => Sum.inl (p.fst k)) (Fin.ext rfl)
-  · rw [Fin.append_right, dif_neg (by
+  · rw [Fin.append_right, dite_eq_right (by
       simp only [Fin.val_natAdd]
       omega)]
     rw [Subsingleton.elim i (0 : Fin 1)]
@@ -606,13 +606,13 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
       · have hjm : (j : ℕ) < m := by
           have := (Fin.lt_def.mp hj); omega
         simp only [AnnotatedTuple.toComposite_coord]
-        rw [dif_pos hjm, dif_pos hjm]
+        rw [dite_eq_left hjm, dite_eq_left hjm]
         exact congrArg Sum.inl (hbelow ⟨j, hjm⟩
           (Fin.lt_def.mpr (Fin.lt_def.mp hj)))
       · have him : ((⟨(i : ℕ), by omega⟩ : Fin (m + 1)) : ℕ) < m :=
           i.isLt
         simp only [AnnotatedTuple.toComposite_coord]
-        rw [dif_pos him, dif_pos him]
+        rw [dite_eq_left him, dite_eq_left him]
         exact (Sum.inl_lt_inl_composite _ _).mpr hi
     · rcases eq_or_ne b₁ b₂ with heq2 | hne
       · rw [heq2]
@@ -628,11 +628,11 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
             simp only [Fin.val_last] at this
             exact this
           simp only [AnnotatedTuple.toComposite_coord]
-          rw [dif_pos hjm, dif_pos hjm]
+          rw [dite_eq_left hjm, dite_eq_left hjm]
         · have hlm : ¬ ((Fin.last m : Fin (m + 1)) : ℕ) < m := by
             simp only [Fin.val_last]; omega
           simp only [AnnotatedTuple.toComposite_coord]
-          rw [dif_neg hlm, dif_neg hlm]
+          rw [dite_eq_right hlm, dite_eq_right hlm]
           exact (Sum.inr_lt_inr_composite _ _).mpr hlt
   have : Std.Antisymm (fun x y : AnnotatedTuple (T ⊕ K) K (m + 1) =>
       ordm1.le x y) :=
@@ -663,7 +663,7 @@ theorem Having.havingGroup_toComposite {m n₁ : ℕ}
     refine propext (forall_congr' (fun k' => ?_))
     dsimp only
     rw [AnnotatedTuple.toComposite_coord,
-      dif_pos (show (((is k').castLE (Nat.le_succ m) : Fin (m + 1)) : ℕ)
+      dite_eq_left (show (((is k').castLE (Nat.le_succ m) : Fin (m + 1)) : ℕ)
         < m from (is k').isLt)]
     exact ⟨fun h => Sum.inl.inj h, fun h => congrArg Sum.inl h⟩
 
@@ -715,5 +715,5 @@ theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
         (Sum.inl (p.toComposite (Fin.last n)))).annPart = p.snd
     rw [show p.toComposite (Fin.last n) = Sum.inr p.snd from by
       rw [AnnotatedTuple.toComposite_coord,
-        dif_neg (by simp only [Fin.val_last]; omega)]]
+        dite_eq_right (by simp only [Fin.val_last]; omega)]]
     rfl

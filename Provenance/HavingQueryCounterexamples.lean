@@ -43,10 +43,10 @@ comparison is on the multisets of annotations.
   requires: distributivity is needed for `=`, not for `≥`.
 
 * **Absorptivity is needed**
-  (`HavingQueryCounterexamples.TropicalZ.query_counterexample`): in the
+  (`HavingQueryCounterexamples.MinTropicalZ.query_counterexample`): in the
   tropical semiring over `ℤ ∪ {∞}` – idempotent and distributive
-  (`TropicalZ.mul_sub_left_distributive`) but not absorptive
-  (`TropicalZ.not_absorptive_witness`) – with two occurrences annotated
+  (`MinTropicalZ.mul_sub_left_distributive`) but not absorptive
+  (`MinTropicalZ.not_absorptive_witness`) – with two occurrences annotated
   `trop (-1)` in one group, `COUNT(*) ≥ 1` yields annotation `trop (-2)`
   on the fused side but `trop (-1)` on the join side.
 -/
@@ -134,21 +134,21 @@ theorem ChainFive.query_ge_two_agree :
 
 /-- The tropical semiring over `ℤ ∪ {∞}` is not absorptive:
 `𝟙 ⊕ trop (-1) = trop (-1) ≠ 𝟙`. -/
-theorem TropicalZ.not_absorptive_witness :
-    (1 : Tropical (WithTop ℤ)) + Tropical.trop ((-1 : ℤ) : WithTop ℤ)
-      ≠ (1 : Tropical (WithTop ℤ)) := by
+theorem MinTropicalZ.not_absorptive_witness :
+    (1 : MinTropical (WithTop ℤ)) + MinTropical.trop ((-1 : ℤ) : WithTop ℤ)
+      ≠ (1 : MinTropical (WithTop ℤ)) := by
   decide
 
 /-- The tropical semiring over `ℤ ∪ {∞}` is `⊗`-over-`⊖` distributive. -/
-theorem TropicalZ.mul_sub_left_distributive :
-    mul_sub_left_distributive (Tropical (WithTop ℤ)) :=
-  Tropical.mul_sub_left_distributive
+theorem MinTropicalZ.mul_sub_left_distributive :
+    mul_sub_left_distributive (MinTropical (WithTop ℤ)) :=
+  MinTropical.mul_sub_left_distributive
 
 /-- One group with key `0`, values `1, 2`, both annotated `trop (-1)`. -/
-noncomputable def dZ : AnnotatedDatabase ℕ (Tropical (WithTop ℤ)) :=
-  [("R", ⟨2, ({⟨![0, 1], Tropical.trop ((-1 : ℤ) : WithTop ℤ)⟩,
-      ⟨![0, 2], Tropical.trop ((-1 : ℤ) : WithTop ℤ)⟩}
-      : Multiset (AnnotatedTuple ℕ (Tropical (WithTop ℤ)) 2))⟩)]
+noncomputable def dZ : AnnotatedDatabase ℕ (MinTropical (WithTop ℤ)) :=
+  [("R", ⟨2, ({⟨![0, 1], MinTropical.trop ((-1 : ℤ) : WithTop ℤ)⟩,
+      ⟨![0, 2], MinTropical.trop ((-1 : ℤ) : WithTop ℤ)⟩}
+      : Multiset (AnnotatedTuple ℕ (MinTropical (WithTop ℤ)) 2))⟩)]
 
 /-- Fused side: `COUNT(*) ≥ 1` has predicate provenance `trop (-2)`: the
 two singleton worlds have annotation `trop (-1) ⊗ (𝟙 ⊖ trop (-1)) = 𝟘`,
@@ -156,21 +156,21 @@ and only the full world `trop (-1) ⊗ trop (-1) = trop (-2)` survives. -/
 theorem tropicalZ_fused :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
         (Term.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
-      = {Tropical.trop ((-2 : ℤ) : WithTop ℤ)} := by
+      = {MinTropical.trop ((-2 : ℤ) : WithTop ℤ)} := by
   decide
 
 /-- Join side: `Q₂^{≥1}` has annotation `trop (-1) ⊕ trop (-1) = trop (-1)`. -/
 theorem tropicalZ_join :
     (q2ge1.evaluateAnnotated (by decide) dZ).map (fun p => p.snd)
-      = {Tropical.trop ((-1 : ℤ) : WithTop ℤ)} := by
+      = {MinTropical.trop ((-1 : ℤ) : WithTop ℤ)} := by
   decide
 
 /-- **Query-level part of the absorptivity necessity**: in the idempotent
 and distributive but non-absorptive tropical semiring over `ℤ ∪ {∞}`, the
 fused `COUNT(*) ≥ 1` query and its join-based rewriting disagree on a
 concrete instance. Same phenomenon as the algebra-level
-`TropicalR.F_ne_S`, here at the level of evaluated queries. -/
-theorem TropicalZ.query_counterexample :
+`MinTropicalR.F_ne_S`, here at the level of evaluated queries. -/
+theorem MinTropicalZ.query_counterexample :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
         (Term.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
       ≠ (q2ge1.evaluateAnnotated (by decide) dZ).map (fun p => p.snd) := by

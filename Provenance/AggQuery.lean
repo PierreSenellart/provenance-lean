@@ -748,10 +748,10 @@ theorem AggQuery.evaluate_conform :
     intro d r hr k
     simp only [AggQuery.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
-    · rw [if_pos hφ] at hr
+    · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
       exact ih d r₀ hr₀ k
-    · rw [if_neg hφ] at hr
+    · rw [ite_eq_right hφ] at hr
       exact ih d r (Multiset.mem_of_mem_filter hr) k
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d r hr k

@@ -58,8 +58,8 @@ def q₂ := q₀ - q₁
 def r_count := r.annotate (λ _ ↦ 1)
 def d_count : AnnotatedDatabase String ℕ := [("Personnel", ⟨4, r_count⟩)]
 
-def r_tropical := r.annotate (λ _ ↦ (Tropical.trop 1: Tropical (WithTop ℕ)))
-def d_tropical : AnnotatedDatabase String (Tropical (WithTop ℕ)) := [("Personnel", ⟨4, r_tropical⟩)]
+def r_tropical := r.annotate (λ _ ↦ (MinTropical.trop 1: MinTropical (WithTop ℕ)))
+def d_tropical : AnnotatedDatabase String (MinTropical (WithTop ℕ)) := [("Personnel", ⟨4, r_tropical⟩)]
 
 #eval! hdr "input: Personnel annotated in ℕ (counting semiring)"
 #eval! r_count

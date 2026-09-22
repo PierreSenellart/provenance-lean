@@ -119,7 +119,7 @@ theorem valProb_le_one (v : X → Bool) : P.valProb v ≤ 1 := by
   unfold valProb
   calc ∏ x, (if v x then P.prob x else 1 - P.prob x)
       ≤ ∏ _x : X, (1 : ℚ) :=
-        Finset.prod_le_prod
+        Finset.prod_le_prod₀
           (fun x _ => P.valProb_factor_nonneg v x)
           (fun x _ => P.valProb_factor_le_one v x)
     _ = 1 := by simp
@@ -745,8 +745,8 @@ theorem randomWorld_evaluateAnnotated :
       induction r₂' using Multiset.induction_on with
       | empty =>
         by_cases hp : p.snd v = true
-        · rw [if_pos hp]; rfl
-        · rw [if_neg hp]; rfl
+        · rw [ite_eq_left hp]; rfl
+        · rw [ite_eq_right hp]; rfl
       | cons q t ih_q =>
         rw [Multiset.map_cons, Multiset.map_cons]
         by_cases hpv : p.snd v = true
@@ -759,8 +759,8 @@ theorem randomWorld_evaluateAnnotated :
                   (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
                   _ h_combined,
                 Multiset.map_cons]
-            rw [if_pos hpv] at ih_q
-            rw [ih_q, if_pos hpv]
+            rw [ite_eq_left hpv] at ih_q
+            rw [ih_q, ite_eq_left hpv]
             rw [Multiset.filter_cons_of_pos
                   (p := fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) _ hqv,
                 Multiset.map_cons, Multiset.map_cons, Multiset.map_cons]
@@ -771,8 +771,8 @@ theorem randomWorld_evaluateAnnotated :
             rw [Multiset.filter_cons_of_neg
                   (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
                   _ h_combined]
-            rw [if_pos hpv] at ih_q
-            rw [ih_q, if_pos hpv]
+            rw [ite_eq_left hpv] at ih_q
+            rw [ih_q, ite_eq_left hpv]
             rw [Multiset.filter_cons_of_neg
                   (p := fun q : Tuple T n₂ × BoolFunc X => q.snd v = true) _ hqv]
         · -- p annotation false: every combined annotation is false, total is 0
@@ -786,8 +786,8 @@ theorem randomWorld_evaluateAnnotated :
           rw [Multiset.filter_cons_of_neg
                 (p := fun q : Tuple T (n₁ + n₂) × BoolFunc X => q.snd v = true)
                 _ h_combined]
-          rw [if_neg hpv] at ih_q
-          rw [ih_q, if_neg hpv]
+          rw [ite_eq_right hpv] at ih_q
+          rw [ih_q, ite_eq_right hpv]
     -- Now induct on r₁ at the bare-Multiset carrier; also expose `r₂` so its
     -- type matches the helper signatures and the `Multiset.product` arguments.
     let r₁' : Multiset (Tuple T n₁ × BoolFunc X) := r₁
@@ -818,7 +818,7 @@ theorem randomWorld_evaluateAnnotated :
       -- RHS: factor `randomWorld v (p ::ₘ s)` via `hrw_cons` and apply `h_head`.
       rw [hrw_cons p s, h_head p r₂']
       by_cases hpv : p.snd v = true
-      · -- Same form for the RHS product after `if_pos hpv` exposes a cons.
+      · -- Same form for the RHS product after `ite_eq_left hpv` exposes a cons.
         have hcp_rhs : Multiset.product (p.fst ::ₘ Multiset.map Prod.fst
               (Multiset.filter (fun p : Tuple T n₁ × BoolFunc X => p.snd v = true) s))
             (Multiset.map Prod.fst
@@ -831,8 +831,8 @@ theorem randomWorld_evaluateAnnotated :
                 (Multiset.filter (fun p : Tuple T n₂ × BoolFunc X => p.snd v = true) r₂')) := by
           unfold Multiset.product
           rw [Multiset.cons_bind]
-        rw [if_pos hpv, if_pos hpv, hcp_rhs, Multiset.map_add, ih]
-      · rw [if_neg hpv, if_neg hpv]
+        rw [ite_eq_left hpv, ite_eq_left hpv, hcp_rhs, Multiset.map_add, ih]
+      · rw [ite_eq_right hpv, ite_eq_right hpv]
         rw [ih]
         exact (Multiset.zero_add _)
   | Dedup q' ih =>
@@ -985,7 +985,7 @@ theorem randomWorld_evaluateAnnotated :
           have hp_notin : p.fst ∉ randomWorld v r₂ := hβ_iff.mp hbv
           have hcond_lhs : (p.snd - β) v = true := by
             rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv]; rfl
-          rw [if_pos hcond_lhs, if_pos hpv, ih]
+          rw [ite_eq_left hcond_lhs, ite_eq_left hpv, ih]
           rw [Multiset.filter_cons_of_pos
                 (p := fun t : Tuple T _ => t ∉ randomWorld v r₂) _ hp_notin]
         · -- β v ≠ false, so β v = true; p.fst ∈ rw v r₂.
@@ -998,7 +998,7 @@ theorem randomWorld_evaluateAnnotated :
           have hcond_lhs : ¬ (p.snd - β) v = true := by
             rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv_true]
             simp
-          rw [if_neg hcond_lhs, if_pos hpv, ih]
+          rw [ite_eq_right hcond_lhs, ite_eq_left hpv, ih]
           rw [Multiset.filter_cons_of_neg
                 (p := fun t : Tuple T _ => t ∉ randomWorld v r₂) _ hp_in]
       · -- p.snd v = false: cond on LHS reduces to `false`.
@@ -1008,7 +1008,7 @@ theorem randomWorld_evaluateAnnotated :
           · exact absurd h hpv
         have hcond_lhs : ¬ (p.snd - β) v = true := by
           rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv_false]; simp
-        rw [if_neg hcond_lhs, if_neg hpv]
+        rw [ite_eq_right hcond_lhs, ite_eq_right hpv]
         exact ih
   | ProvSum _ _ _ =>
     intro hq _ _

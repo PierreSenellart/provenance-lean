@@ -1,4 +1,5 @@
 import Mathlib.Algebra.Group.Defs
+import Mathlib.Logic.OpClass
 import Mathlib.Data.List.Sort
 import Mathlib.Order.Defs.LinearOrder
 import Mathlib.Data.List.Nodup

@@ -571,11 +571,11 @@ of the world annotation, which `T_eq_mul_one_monus_sum` relates to `T`
 only under distributivity). Absorptive is a strictly
 stronger hypothesis than the bare “idempotent + distributive” combination
 one might wish for, and it is essential:
-`TropicalR.F_ne_S` exhibits a non-absorptive
-(but idempotent and distributive) instance – `Tropical (WithTop ℝ)` – for
+`MinTropicalR.F_ne_S` exhibits a non-absorptive
+(but idempotent and distributive) instance – `MinTropical (WithTop ℝ)` – for
 which the conclusion fails. The idempotent m-semirings in the library
 that *are* absorptive (Bool, BoolFunc, IntervalUnion,
-`Tropical (WithTop ℕ)`, Viterbi, Łukasiewicz, MinMax) all satisfy
+`MinTropical (WithTop ℕ)`, Viterbi, Łukasiewicz, MinMax) all satisfy
 the conclusion. -/
 theorem F_eq_S (h_abs : absorptive K)
     (α : ι → K) (U : Finset ι) (C : ℕ) :

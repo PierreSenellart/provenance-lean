@@ -133,7 +133,7 @@ instance : SemiringWithMonus ChainFive where
     have hzsf : ∀ x y : ChainFive, x + y = 0 → x = 0 := by decide
     by_cases h : a + b = 0
     · rw [hzsf a b h, zero_mul]
-    · rw [if_neg h]
+    · rw [ite_eq_right h]
       exact mul_one a
 
 /-- On `ChainFive` the identity is not an admissible `δ`, even though the

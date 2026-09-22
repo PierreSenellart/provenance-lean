@@ -237,9 +237,9 @@ instance : SemiringWithMonus (Which α) where
     cases ha : a <;> rename_i sa <;> cases hb : b <;> cases hc : c <;> simp
     . rename_i sb sc
       by_cases h' : ∀ ⦃x : α⦄, x ∈ sa → x ∈ sb
-      . rw [if_pos h']
+      . rw [ite_eq_left h']
         exact iff_of_true trivial fun x hx => Or.inl (h' hx)
-      . rw [if_neg h']
+      . rw [ite_eq_right h']
         constructor
         . intro h₁ x hx
           by_cases hxb : x ∈ sb
@@ -251,9 +251,9 @@ instance : SemiringWithMonus (Which α) where
           . exact hc
     . rename_i sb
       by_cases h' : ∀ ⦃x : α⦄, x ∈ sa → x ∈ sb
-      . rw [if_pos h']
+      . rw [ite_eq_left h']
         exact iff_of_true trivial fun x hx => h' hx
-      . rw [if_neg h']
+      . rw [ite_eq_right h']
         exact iff_of_false id fun hf => h' hf
 
   /- δ is the support indicator (see `Which.deltaInd`). -/

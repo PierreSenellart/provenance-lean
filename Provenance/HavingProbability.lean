@@ -594,7 +594,7 @@ lemma countEqIndicator_insert_zero {i : ι} {J : Finset ι} (hi : i ∉ J) :
       = ((1 - α i) v && decide ((J.filter (fun k => α k v = true)).card = 0))
   rw [Finset.filter_insert]
   by_cases h : α i v = true
-  · rw [if_pos h]
+  · rw [ite_eq_left h]
     have hifJ : i ∉ J.filter (fun k => α k v = true) :=
       fun hin => hi (Finset.mem_filter.mp hin).1
     rw [Finset.card_insert_of_notMem hifJ]
@@ -607,7 +607,7 @@ lemma countEqIndicator_insert_zero {i : ι} {J : Finset ι} (hi : i ∉ J) :
     have : (J.filter (fun k => α k v = true)).card + 1 ≠ 0 := Nat.succ_ne_zero _
     exact decide_eq_false this
   · have h' : α i v = false := by cases h' : α i v; rfl; exact absurd h' h
-    rw [if_neg ?_]
+    rw [ite_eq_right ?_]
     swap; · rw [h']; decide
     have h1sub : (1 - α i) v = true := by
       show ((1 : BoolFunc X) v && !(α i v)) = true
@@ -629,7 +629,7 @@ lemma countEqIndicator_insert_succ {i : ι} {J : Finset ι} (hi : i ∉ J) (j : 
               && decide ((J.filter (fun k => α k v = true)).card = j + 1)))
   rw [Finset.filter_insert]
   by_cases h : α i v = true
-  · rw [if_pos h]
+  · rw [ite_eq_left h]
     have hifJ : i ∉ J.filter (fun k => α k v = true) :=
       fun hin => hi (Finset.mem_filter.mp hin).1
     rw [Finset.card_insert_of_notMem hifJ]
@@ -647,7 +647,7 @@ lemma countEqIndicator_insert_succ {i : ι} {J : Finset ι} (hi : i ∉ J) (j : 
         fun heq' => heq (Nat.succ_injective heq')
       rw [decide_eq_false h1, decide_eq_false heq]
   · have h' : α i v = false := by cases h' : α i v; rfl; exact absurd h' h
-    rw [if_neg ?_]
+    rw [ite_eq_right ?_]
     swap; · rw [h']; decide
     have h1sub : (1 - α i) v = true := by
       show ((1 : BoolFunc X) v && !(α i v)) = true
@@ -757,7 +757,7 @@ lemma sumEqIndicator_insert_of_lt {i : ι} {J : Finset ι} (hi : i ∉ J)
       = ((1 - α i) v && decide ((J.filter (fun k => α k v = true)).sum t = s))
   rw [Finset.filter_insert]
   by_cases h : α i v = true
-  · rw [if_pos h]
+  · rw [ite_eq_left h]
     have hifJ : i ∉ J.filter (fun k => α k v = true) :=
       fun hin => hi (Finset.mem_filter.mp hin).1
     rw [Finset.sum_insert hifJ]
@@ -772,7 +772,7 @@ lemma sumEqIndicator_insert_of_lt {i : ι} {J : Finset ι} (hi : i ∉ J)
       exact absurd this (not_le.mpr hs)
     exact decide_eq_false hne
   · have h' : α i v = false := by cases h' : α i v; rfl; exact absurd h' h
-    rw [if_neg ?_]
+    rw [ite_eq_right ?_]
     swap; · rw [h']; decide
     have h1sub : (1 - α i) v = true := by
       show ((1 : BoolFunc X) v && !(α i v)) = true
@@ -795,7 +795,7 @@ lemma sumEqIndicator_insert_of_le {i : ι} {J : Finset ι} (hi : i ∉ J)
               && decide ((J.filter (fun k => α k v = true)).sum t = s)))
   rw [Finset.filter_insert]
   by_cases h : α i v = true
-  · rw [if_pos h]
+  · rw [ite_eq_left h]
     have hifJ : i ∉ J.filter (fun k => α k v = true) :=
       fun hin => hi (Finset.mem_filter.mp hin).1
     rw [Finset.sum_insert hifJ]
@@ -815,7 +815,7 @@ lemma sumEqIndicator_insert_of_le {i : ι} {J : Finset ι} (hi : i ∉ J)
         omega
       rw [decide_eq_false h1, decide_eq_false heq]
   · have h' : α i v = false := by cases h' : α i v; rfl; exact absurd h' h
-    rw [if_neg ?_]
+    rw [ite_eq_right ?_]
     swap; · rw [h']; decide
     have h1sub : (1 - α i) v = true := by
       show ((1 : BoolFunc X) v && !(α i v)) = true
@@ -1569,9 +1569,9 @@ theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
         List.get_cons_succ]
     rw [hsucc, seqOf_filter_positions P U]
     by_cases hPa : P a = true
-    · rw [if_pos (h0.mpr hPa), List.filter_cons_of_pos hPa]
+    · rw [ite_eq_left (h0.mpr hPa), List.filter_cons_of_pos hPa]
       rfl
-    · rw [if_neg (fun h => hPa (h0.mp h)),
+    · rw [ite_eq_right (fun h => hPa (h0.mp h)),
         List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
 
 /-- The subsequence selected by the realized world is the sublist of
@@ -1712,11 +1712,11 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
       rfl
     cases negated with
     | false =>
-      rw [if_neg Bool.false_ne_true, if_neg Bool.false_ne_true]
+      rw [ite_eq_right Bool.false_ne_true, ite_eq_right Bool.false_ne_true]
       simp only [HavingPred.holdsOnSeq]
       rw [hagg]
     | true =>
-      rw [if_pos rfl, if_pos rfl]
+      rw [ite_eq_left rfl, ite_eq_left rfl]
       simp only [HavingPred.holdsOnSeq]
       rw [CompOp.negate_eval, hagg]
   | negated, .not ψ => by
@@ -1725,23 +1725,23 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     simp only [HavingPred.holdsOnSeq]
     cases negated with
     | false =>
-      rw [Bool.not_false, if_pos rfl, if_neg Bool.false_ne_true]
+      rw [Bool.not_false, ite_eq_left rfl, ite_eq_right Bool.false_ne_true]
     | true =>
-      rw [Bool.not_true, if_neg Bool.false_ne_true, if_pos rfl, not_not]
+      rw [Bool.not_true, ite_eq_right Bool.false_ne_true, ite_eq_left rfl, not_not]
   | negated, .and ψ₁ ψ₂ => by
     have h₁ := HavingPred.provAux_eval_iff U g v negated ψ₁
     have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
     cases negated with
     | false =>
-      rw [if_neg Bool.false_ne_true] at h₁ h₂
+      rw [ite_eq_right Bool.false_ne_true] at h₁ h₂
       show ((ψ₁.provAux U g false) v && (ψ₂.provAux U g false) v) = true ↔ _
-      rw [Bool.and_eq_true, h₁, h₂, if_neg Bool.false_ne_true]
+      rw [Bool.and_eq_true, h₁, h₂, ite_eq_right Bool.false_ne_true]
       simp only [HavingPred.holdsOnSeq]
       tauto
     | true =>
-      rw [if_pos rfl] at h₁ h₂
+      rw [ite_eq_left rfl] at h₁ h₂
       show ((ψ₁.provAux U g true) v || (ψ₂.provAux U g true) v) = true ↔ _
-      rw [Bool.or_eq_true, h₁, h₂, if_pos rfl]
+      rw [Bool.or_eq_true, h₁, h₂, ite_eq_left rfl]
       simp only [HavingPred.holdsOnSeq]
       tauto
   | negated, .or ψ₁ ψ₂ => by
@@ -1749,15 +1749,15 @@ theorem HavingPred.provAux_eval_iff {m n₁ : ℕ}
     have h₂ := HavingPred.provAux_eval_iff U g v negated ψ₂
     cases negated with
     | false =>
-      rw [if_neg Bool.false_ne_true] at h₁ h₂
+      rw [ite_eq_right Bool.false_ne_true] at h₁ h₂
       show ((ψ₁.provAux U g false) v || (ψ₂.provAux U g false) v) = true ↔ _
-      rw [Bool.or_eq_true, h₁, h₂, if_neg Bool.false_ne_true]
+      rw [Bool.or_eq_true, h₁, h₂, ite_eq_right Bool.false_ne_true]
       simp only [HavingPred.holdsOnSeq]
       tauto
     | true =>
-      rw [if_pos rfl] at h₁ h₂
+      rw [ite_eq_left rfl] at h₁ h₂
       show ((ψ₁.provAux U g true) v && (ψ₂.provAux U g true) v) = true ↔ _
-      rw [Bool.and_eq_true, h₁, h₂, if_pos rfl]
+      rw [Bool.and_eq_true, h₁, h₂, ite_eq_left rfl]
       simp only [HavingPred.holdsOnSeq]
       tauto
 
@@ -1772,7 +1772,7 @@ theorem HavingPred.prov_eval_iff {m n₁ : ℕ}
       ↔ (realizedWorld U v).Nonempty
         ∧ ψ.holdsOnSeq ((seqOf U (realizedWorld U v)).map Prod.fst) g := by
   have h := HavingPred.provAux_eval_iff U g v false ψ
-  rw [if_neg Bool.false_ne_true] at h
+  rw [ite_eq_right Bool.false_ne_true] at h
   exact h
 
 /-- **Characteristic property of the Boolean provenance.** Under a
@@ -1834,10 +1834,10 @@ theorem booleanHaving_pqe [HasAltLinearOrder (BoolFunc X)] {m n₁ : ℕ}
   by_cases h : ψ.modelsBoolean (Î.randomWorld v) q is
   · have hf : (ψ.booleanProv q hq Î is) v = true :=
       (HavingPred.booleanProv_eval_iff q hq Î is ψ v).mpr h
-    rw [if_pos h, if_pos hf]
+    rw [ite_eq_left h, ite_eq_left hf]
   · have hf : ¬ (ψ.booleanProv q hq Î is) v = true :=
       fun hf => h ((HavingPred.booleanProv_eval_iff q hq Î is ψ v).mp hf)
-    rw [if_neg h, if_neg hf]
+    rw [ite_eq_right h, ite_eq_right hf]
 
 end HavingPQE
 

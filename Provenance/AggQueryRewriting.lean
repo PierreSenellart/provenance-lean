@@ -36,10 +36,10 @@ def ColKind.rewKinds (n : ℕ) : Fin (n + 1) → ColKind :=
   fun k => if (k : ℕ) < n then ColKind.reg else ColKind.prov
 
 theorem ColKind.rewKinds_lt {n : ℕ} {k : Fin (n + 1)} (h : (k : ℕ) < n) :
-    ColKind.rewKinds n k = ColKind.reg := if_pos h
+    ColKind.rewKinds n k = ColKind.reg := ite_eq_left h
 
 theorem ColKind.rewKinds_of_not_lt {n : ℕ} {k : Fin (n + 1)}
-    (h : ¬ (k : ℕ) < n) : ColKind.rewKinds n k = ColKind.prov := if_neg h
+    (h : ¬ (k : ℕ) < n) : ColKind.rewKinds n k = ColKind.prov := ite_eq_right h
 
 theorem ColKind.rewKinds_base {n : ℕ} (k : Fin (n + 1)) :
     (ColKind.rewKinds n k).base = ColKind.reg := by
@@ -235,9 +235,9 @@ def AggQuery.rewriting :
     AggQuery.retagToRew
       (fun j => by
         by_cases hj : (j : ℕ) < m
-        · rw [dif_pos hj, ProjCol.castComposite_kind]
+        · rw [dite_eq_left hj, ProjCol.castComposite_kind]
           rfl
-        · rw [dif_neg hj]
+        · rw [dite_eq_right hj]
           rfl)
       (AggQuery.Proj
         (fun j : Fin (m + 1) =>
@@ -255,11 +255,11 @@ def AggQuery.rewriting :
     AggQuery.retagToRew
       (fun j => by
         by_cases h₁ : (j : ℕ) < n₁
-        · rw [dif_pos h₁]; rfl
-        · rw [dif_neg h₁]
+        · rw [dite_eq_left h₁]; rfl
+        · rw [dite_eq_right h₁]
           by_cases h₂ : (j : ℕ) < n₁ + n₂
-          · rw [dif_pos h₂]; rfl
-          · rw [dif_neg h₂]; rfl)
+          · rw [dite_eq_left h₂]; rfl
+          · rw [dite_eq_right h₂]; rfl)
       (AggQuery.Proj
         (fun j : Fin (n₁ + n₂ + 1) =>
           if h₁ : (j : ℕ) < n₁ then
@@ -325,8 +325,8 @@ def AggQuery.rewriting :
       AggQuery.retagToRew
         (fun j => by
           by_cases hj : (j : ℕ) < n
-          · rw [dif_pos hj]; rfl
-          · rw [dif_neg hj]; rfl)
+          · rw [dite_eq_left hj]; rfl
+          · rw [dite_eq_right hj]; rfl)
         (AggQuery.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
@@ -365,8 +365,8 @@ def AggQuery.rewriting :
       AggQuery.retagToRew
         (fun j => by
           by_cases hj : (j : ℕ) < n
-          · rw [dif_pos hj]; rfl
-          · rw [dif_neg hj]; rfl)
+          · rw [dite_eq_left hj]; rfl
+          · rw [dite_eq_right hj]; rfl)
         (AggQuery.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
@@ -567,7 +567,7 @@ theorem AggQuery.strip_rel :
     show Multiset.Rel _
       (if φ.hasAggAtom then _ else
         Multiset.filter _ (q.evaluate d)) _
-    rw [if_neg (by rw [hq.1]; exact Bool.false_ne_true)]
+    rw [ite_eq_right (by rw [hq.1]; exact Bool.false_ne_true)]
     refine rel_filter_of_iff (strip_rel q hq.2 d) (fun r p hr => ?_)
     rw [GenPred.holds_iff_holdsPlain, hr.plainTuple_eq]
     exact (GenPred.strip_eval φ hq.1 p.fst).symm
@@ -807,9 +807,9 @@ theorem AggQuery.rewriting_plain :
     funext j
     dsimp only
     by_cases hj : (j : ℕ) < m
-    · rw [dif_pos hj, dif_pos hj]
+    · rw [dite_eq_left hj, dite_eq_left hj]
       exact ProjCol.castComposite_evalPlain _ _ _ u
-    · rw [dif_neg hj, dif_neg hj]
+    · rw [dite_eq_right hj, dite_eq_right hj]
       rfl
   | _, _, .Sel φ q, hq, D => by
     unfold AggQuery.rewriting AggQuery.strip
@@ -831,13 +831,13 @@ theorem AggQuery.rewriting_plain :
     refine Multiset.map_congr rfl (fun t _ => ?_)
     funext j
     by_cases h₁ : (j : ℕ) < n₁
-    · rw [dif_pos h₁, if_pos h₁]
+    · rw [dite_eq_left h₁, ite_eq_left h₁]
       simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
       rw [Tuple.cast_coord]
       rfl
-    · rw [dif_neg h₁, if_neg h₁]
+    · rw [dite_eq_right h₁, ite_eq_right h₁]
       by_cases h₂ : (j : ℕ) < n₁ + n₂
-      · rw [dif_pos h₂, if_pos h₂]
+      · rw [dite_eq_left h₂, ite_eq_left h₂]
         simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
         rw [Tuple.cast_coord]
         refine congrArg t (Fin.ext ?_)
@@ -845,7 +845,7 @@ theorem AggQuery.rewriting_plain :
         simp only [Fin.ofNat]
         rw [Nat.mod_eq_of_lt (by omega)]
         omega
-      · rw [dif_neg h₂, if_neg h₂]
+      · rw [dite_eq_right h₂, ite_eq_right h₂]
         simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
         rw [Tuple.cast_coord, Tuple.cast_coord]
         refine congrArg₂ (· * ·) (congrArg t (Fin.ext ?_))
@@ -917,12 +917,12 @@ theorem AggQuery.rewriting_plain :
       · congr 1
       · funext j
         by_cases hj : (j : ℕ) < n
-        · rw [dif_pos hj]
+        · rw [dite_eq_left hj]
           simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
           rfl
-        · rw [dif_neg hj]
+        · rw [dite_eq_right hj]
           simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
@@ -974,15 +974,15 @@ theorem AggQuery.rewriting_plain :
             congr 1
       · funext j
         by_cases hj : (j : ℕ) < n
-        · rw [dif_pos hj]
+        · rw [dite_eq_left hj]
           simp only [Function.comp_apply]
-          rw [if_pos hj]
+          rw [ite_eq_left hj]
           simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
           rw [Tuple.cast_coord]
           rfl
-        · rw [dif_neg hj]
+        · rw [dite_eq_right hj]
           simp only [Function.comp_apply]
-          rw [if_neg hj]
+          rw [ite_eq_right hj]
           simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
           rw [Tuple.cast_coord, Tuple.cast_coord]
           refine congrArg₂ _

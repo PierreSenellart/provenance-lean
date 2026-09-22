@@ -98,7 +98,7 @@ theorem sublist_eq_seqOf {U L : List β} (h : L.Sublist U) :
   | @cons L U a _ ih =>
     obtain ⟨W, hW⟩ := ih
     refine ⟨W.image Fin.succ, ?_⟩
-    rw [seqOf, if_neg (by
+    rw [seqOf, ite_eq_right (by
       intro h0
       obtain ⟨i, -, hi⟩ := Finset.mem_image.mp h0
       exact (Fin.succ_ne_zero i) hi)]
@@ -112,7 +112,7 @@ theorem sublist_eq_seqOf {U L : List β} (h : L.Sublist U) :
   | @cons_cons L U a _ ih =>
     obtain ⟨W, hW⟩ := ih
     refine ⟨insert 0 (W.image Fin.succ), ?_⟩
-    rw [seqOf, if_pos (Finset.mem_insert_self _ _)]
+    rw [seqOf, ite_eq_left (Finset.mem_insert_self _ _)]
     rw [show Finset.univ.filter
           (fun i => i.succ ∈ insert 0 (W.image Fin.succ)) = W by
       ext i
@@ -179,14 +179,14 @@ theorem seqOf_injective : ∀ {U : List β}, U.Nodup →
       constructor
       · intro h₁
         by_contra h₂
-        rw [if_pos h₁, if_neg h₂, List.nil_append] at heq
+        rw [ite_eq_left h₁, ite_eq_right h₂, List.nil_append] at heq
         have ha : a ∈ [a] ++ seqOf U
             (Finset.univ.filter (fun i : Fin U.length => i.succ ∈ W₁)) := by simp
         rw [heq] at ha
         exact hmem ha
       · intro h₂
         by_contra h₁
-        rw [if_neg h₁, if_pos h₂, List.nil_append] at heq
+        rw [ite_eq_right h₁, ite_eq_left h₂, List.nil_append] at heq
         have ha : a ∈ [a] ++ seqOf U
             (Finset.univ.filter (fun i : Fin U.length => i.succ ∈ W₂)) := by simp
         rw [← heq] at ha
@@ -195,10 +195,10 @@ theorem seqOf_injective : ∀ {U : List β}, U.Nodup →
         = Finset.univ.filter (fun i : Fin U.length => i.succ ∈ W₂) := by
       by_cases h₁ : (0 : Fin (U.length + 1)) ∈ W₁
       · have h₂ := h0.mp h₁
-        rw [if_pos h₁, if_pos h₂] at heq
+        rw [ite_eq_left h₁, ite_eq_left h₂] at heq
         exact seqOf_injective hU (List.append_cancel_left heq)
       · have h₂ := fun h => h₁ (h0.mpr h)
-        rw [if_neg h₁, if_neg h₂, List.nil_append, List.nil_append] at heq
+        rw [ite_eq_right h₁, ite_eq_right h₂, List.nil_append, List.nil_append] at heq
         exact seqOf_injective hU heq
     ext i
     refine Fin.cases ?_ ?_ i
@@ -227,7 +227,7 @@ theorem mem_seqOf : ∀ (U : List β) (W : Finset (Fin U.length)) (x : β),
       revert hi
       refine Fin.cases ?_ ?_ i
       · intro h0
-        exact Or.inl (by rw [if_pos h0]; exact List.mem_singleton.mpr rfl)
+        exact Or.inl (by rw [ite_eq_left h0]; exact List.mem_singleton.mpr rfl)
       · intro j hj
         exact Or.inr ⟨j, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hj⟩, rfl⟩
 
@@ -420,10 +420,10 @@ theorem havingProv_eq_prov (h_distrib : mul_sub_left_distributive K)
   refine Finset.sum_congr rfl fun W _ => ?_
   by_cases hne : W.Nonempty
   · by_cases hP : op.eval (aggValOn U t f W) c
-    · simp only [hne, hP, if_true, true_and, chi, mul_one,
+    · simp only [hne, hP, ite_true, true_and, chi, mul_one,
         worldAnn_eq_T h_distrib]
-    · simp only [hne, hP, if_true, if_false, true_and, chi, mul_zero]
-  · simp only [hne, if_false, false_and]
+    · simp only [hne, hP, ite_true, ite_false, true_and, chi, mul_zero]
+  · simp only [hne, ite_false, false_and]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The `COUNT(*)` specialization: on the world `W`, the sequence aggregate
@@ -533,15 +533,15 @@ theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
   congr 1
   unfold chi
   rcases lt_trichotomy (aggValOn U t f W) c with h | h | h
-  · rw [if_pos (show CompOp.ne.eval _ c from ne_of_lt h),
-      if_pos (show CompOp.lt.eval _ c from h),
-      if_neg (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
-  · rw [if_neg (show ¬ CompOp.ne.eval _ c from not_not_intro h),
-      if_neg (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.ge),
-      if_neg (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
-  · rw [if_pos (show CompOp.ne.eval _ c from ne_of_gt h),
-      if_neg (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.le),
-      if_pos (show CompOp.gt.eval _ c from h), zero_add]
+  · rw [ite_eq_left (show CompOp.ne.eval _ c from ne_of_lt h),
+      ite_eq_left (show CompOp.lt.eval _ c from h),
+      ite_eq_right (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
+  · rw [ite_eq_right (show ¬ CompOp.ne.eval _ c from not_not_intro h),
+      ite_eq_right (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.ge),
+      ite_eq_right (show ¬ CompOp.gt.eval _ c from not_lt.mpr h.le), add_zero]
+  · rw [ite_eq_left (show CompOp.ne.eval _ c from ne_of_gt h),
+      ite_eq_right (show ¬ CompOp.lt.eval _ c from not_lt.mpr h.le),
+      ite_eq_left (show CompOp.gt.eval _ c from h), zero_add]
 
 omit [DecidableEq K] in
 /-- **`COUNT(*) ≥ 1` collapses to the group annotation sum.** In an
@@ -645,11 +645,11 @@ theorem havingProv_existential (h_abs : absorptive K) {f : SeqAggFunc T} {op : C
     rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
     refine Finset.sum_congr rfl fun W _ => ?_
     by_cases hW : W.Nonempty
-    · rw [if_pos hW, chi, worldAnn_eq_ann]
+    · rw [ite_eq_left hW, chi, worldAnn_eq_ann]
       by_cases hmeet : (W ∩ H).Nonempty
-      · rw [if_pos hmeet, if_pos ((hiff W hW).mpr hmeet), mul_one]
-      · rw [if_neg hmeet, if_neg (fun h => hmeet ((hiff W hW).mp h)), mul_zero]
-    · rw [if_neg hW, if_neg]
+      · rw [ite_eq_left hmeet, ite_eq_left ((hiff W hW).mpr hmeet), mul_one]
+      · rw [ite_eq_right hmeet, ite_eq_right (fun h => hmeet ((hiff W hW).mp h)), mul_zero]
+    · rw [ite_eq_right hW, ite_eq_right]
       exact fun hmeet => hW (hmeet.mono Finset.inter_subset_left)
   rw [hsum, sum_ann_meet h_abs _ (Finset.subset_univ H), hH, Finset.sum_filter,
     sum_map_filter_coe]

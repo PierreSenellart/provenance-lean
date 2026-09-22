@@ -587,12 +587,12 @@ theorem toGenPred_entailsExistence :
   | and ψ₁ ψ₂ => by
     show (if false = true then _ else
       (ψ₁.toGenPred.entailsExistence false || ψ₂.toGenPred.entailsExistence false)) = true
-    rw [if_neg Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
     rfl
   | or ψ₁ ψ₂ => by
     show (if false = true then _ else
       (ψ₁.toGenPred.entailsExistence false && ψ₂.toGenPred.entailsExistence false)) = true
-    rw [if_neg Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
     rfl
 
 /-- Every compared column of the condition is a token column. -/
@@ -632,25 +632,25 @@ theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
     simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, if_false]
+      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.ge _
   | countGt l C => by
     simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, if_false]
+      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.gt _
   | exist l op c => by
     simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, if_false]
+      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U op _
   | and ψ₁ ψ₂ => by
     show (if false = true then _ else
         ψ₁.toGenPred.predsem false _ * ψ₂.toGenPred.predsem false _) = _
-    rw [if_neg Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
     rfl
   | or ψ₁ ψ₂ => by
     show (if false = true then _ else
         ψ₁.toGenPred.predsem false _ + ψ₂.toGenPred.predsem false _) = _
-    rw [if_neg Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
     rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -708,7 +708,7 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
               : AnnotatedTuple ℕ K (1 + n₂))) := by
   unfold AggQuery.evaluateAnnotated
   simp only [AggQuery.evaluate]
-  rw [if_pos (toGenPred_hasAggAtom ψ)]
+  rw [ite_eq_left (toGenPred_hasAggAtom ψ)]
   generalize Multiset.map GenRow.toAnnotated (qg.evaluate d) = A
   conv_lhs => rw [Multiset.map_map]
   conv_lhs => rw [Multiset.map_map]
@@ -731,7 +731,7 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
         (funext fun j => AggValue.collapse_ofGroup (fs j) (ts j) _))
   · -- annotation: the fused provenance of the condition
     show GenAnn.finalize ⟨1 * _, _⟩ = _
-    rw [if_pos (toGenPred_entailsExistence ψ)]
+    rw [ite_eq_left (toGenPred_entailsExistence ψ)]
     -- the pending group factor is superseded: every compared token carries
     -- the group's own annotation list
     refine (finalize_eq_of_pending_eq_zero _ _ ?_).trans ?_

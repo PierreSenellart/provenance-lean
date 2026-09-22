@@ -210,14 +210,14 @@ theorem funcProb_var (i : X) :
     intro v
     by_cases hvi : v i = true
     · -- v i = true: factor at i is P.prob i = P̃_i(true), so the product reduces to valProb v.
-      simp only [hvi, if_true]
+      simp only [hvi, ite_true]
       unfold valProb
       apply Finset.prod_congr rfl
       intro y _
       by_cases hy : y = i
       · subst hy
-        simp only [h, if_pos rfl, hvi, if_true]
-      · simp only [h, if_neg hy]
+        simp only [h, ite_eq_left rfl, hvi, ite_true]
+      · simp only [h, ite_eq_right hy]
     · -- v i = false: factor at i is 0, so the product vanishes.
       have hvi' : v i = false := by
         cases hv : v i
@@ -225,19 +225,19 @@ theorem funcProb_var (i : X) :
         · exact absurd hv hvi
       simp only [hvi']
       apply Finset.prod_eq_zero (i := i) (Finset.mem_univ i)
-      simp only [h, if_pos rfl, hvi']
+      simp only [h, ite_eq_left rfl, hvi']
       rfl
   -- Per-variable sum: contributes `P.prob i` at `y = i`, and `1` elsewhere.
   have hsum : ∀ y, (∑ b, h y b) = if y = i then P.prob i else 1 := by
     intro y
     by_cases hy : y = i
     · subst hy
-      simp only [h, if_pos rfl]
+      simp only [h, ite_eq_left rfl]
       have hu : (Finset.univ : Finset Bool) = {false, true} := by decide
       rw [hu, Finset.sum_insert (by decide : (false : Bool) ∉ ({true} : Finset Bool)),
           Finset.sum_singleton]
       simp
-    · simp only [h, if_neg hy]
+    · simp only [h, ite_eq_right hy]
       have hu : (Finset.univ : Finset Bool) = {false, true} := by decide
       rw [hu, Finset.sum_insert (by decide : (false : Bool) ∉ ({true} : Finset Bool)),
           Finset.sum_singleton]
@@ -402,9 +402,9 @@ theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
     intro vS _
     simp_rw [hfeq vS, hval_split vS]
     by_cases hfs : fS vS
-    · simp_rw [if_pos hfs]
+    · simp_rw [ite_eq_left hfs]
       rw [← Finset.mul_sum, sum_pR_eq_one, mul_one]
-    · simp_rw [if_neg hfs]; simp
+    · simp_rw [ite_eq_right hfs]; simp
   -- Pr(g) = ∑_vR (if gR vR then pR vR else 0).
   have hPr_g : P.funcProb g = ∑ vR : {x // x ∉ S} → Bool,
                                 (if gR vR then pR vR else 0) := by
@@ -416,9 +416,9 @@ theorem funcProb_mul_disjoint {f g : BoolFunc X} {S T : Finset X}
     intro vR _
     simp_rw [hgeq _ vR, hval_split _ vR]
     by_cases hgs : gR vR
-    · simp_rw [if_pos hgs]
+    · simp_rw [ite_eq_left hgs]
       rw [← Finset.sum_mul, sum_pS_eq_one, one_mul]
-    · simp_rw [if_neg hgs]; simp
+    · simp_rw [ite_eq_right hgs]; simp
   -- Pr(f * g) factors via Fintype.sum_mul_sum.
   show (∑ v : X → Bool, if ((f * g) v : Bool) then P.valProb v else 0)
       = P.funcProb f * P.funcProb g

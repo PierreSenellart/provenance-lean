@@ -652,7 +652,7 @@ theorem prov_first_fiber {i : ι} (hiU : i ∈ U) :
     (P := fun W => i ∈ W ∧ ∀ j ∈ W, i ≤ j)
     (fun W _ => ⟨fun ⟨_, hiW, hall⟩ => ⟨hall, i, hiW, rfl⟩,
       fun ⟨hall, j, hjW, hji⟩ => ⟨⟨j, hjW⟩, hji ▸ hjW, hall⟩⟩)
-  rw [h, Finset.filter_eq' U i, if_pos hiU, Finset.sum_singleton]
+  rw [h, Finset.filter_eq' U i, ite_eq_left hiU, Finset.sum_singleton]
 
 /-- **Correctness of the `PICKFIRST` scan.** The possible-world provenance of
 the `HAVING PICKFIRST(t) op c` predicate is computed by the scan `firstScan`:

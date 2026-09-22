@@ -4,8 +4,12 @@ import Mathlib.Data.EReal.Basic
 import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Fintype.Pi
 import Mathlib.Data.List.Sort
-import Mathlib.Data.Set.Lattice
-import Mathlib.Logic.Nontrivial.Defs
+import Mathlib.Data.Set.Lattice.Bounded
+import Mathlib.Data.Set.Lattice.Disjoint
+import Mathlib.Data.Set.Lattice.Image
+import Mathlib.Data.Set.Lattice.Indexed
+import Mathlib.Data.Set.Lattice.Order
+import Mathlib.Basic.Nontrivial.Defs
 import Mathlib.Order.CompleteLattice.Finset
 import Mathlib.Tactic.Linarith
 import Provenance.Semirings.BoolFunc
@@ -1041,7 +1045,7 @@ lemma insertMergeList_preserves_pairwise_before [LinearOrder α] (I : Interval �
     rw[List.pairwise_cons] at hs
     unfold insertMergeList
     by_cases hIJ: I.before J
-    · simp only [hIJ, dif_pos]
+    · simp only [hIJ, dite_eq_left]
       rw[List.pairwise_cons]
       constructor
       · intro K hK
@@ -1049,15 +1053,15 @@ lemma insertMergeList_preserves_pairwise_before [LinearOrder α] (I : Interval �
         | inl h => exact h ▸ hIJ
         | inr h => exact Interval.before_of_before_of_le hIJ (Interval.le_of_before (hs.1 K h))
       · exact List.pairwise_cons.mpr hs
-    · simp only [hIJ, dif_neg, not_false_eq_true]
+    · simp only [hIJ, dite_eq_right, not_false_eq_true]
       by_cases hJI: J.before I
-      · simp only [hJI, dif_pos]
+      · simp only [hJI, dite_eq_left]
         rw[List.pairwise_cons]
         constructor
         · intro K hK
           exact insertMergeList_preserves_before hJI (fun K' hK' => hs.1 K' hK') K hK
         · exact ih I hs.2
-      · simp only [hJI, dif_neg, not_false_eq_true]
+      · simp only [hJI, dite_eq_right, not_false_eq_true]
         apply ih (merge I J (not_or_intro hIJ hJI))
         exact hs.2
 
@@ -1535,9 +1539,9 @@ private lemma mem_atomIU_toSet (ν : Y → IntervalUnion β) (σ : Y → Bool) (
   simp only [Set.mem_iInter, Finset.mem_univ, forall_const]
   refine forall_congr' fun i => ?_
   by_cases hσ : σ i = true
-  · rw [if_pos hσ]
+  · rw [ite_eq_left hσ]
     simp [hσ]
-  · rw [if_neg hσ, sub_one_toSet, Set.mem_compl_iff]
+  · rw [ite_eq_right hσ, sub_one_toSet, Set.mem_compl_iff]
     simp [hσ]
 
 /-- The canonical ν-signature of a point `x : β`: the Bool-valued function on `Y`
@@ -1568,13 +1572,13 @@ private lemma evalBF_toSet (ν : Y → IntervalUnion β) (f : BoolFunc Y) :
   constructor
   · rintro ⟨σ, _, hxσ⟩
     by_cases hfσ : f σ = true
-    · rw [if_pos hfσ, mem_atomIU_iff_sig] at hxσ
+    · rw [ite_eq_left hfσ, mem_atomIU_iff_sig] at hxσ
       rw [hxσ]; exact hfσ
-    · rw [if_neg hfσ, zero_toSet] at hxσ
+    · rw [ite_eq_right hfσ, zero_toSet] at hxσ
       exact absurd hxσ (Set.notMem_empty _)
   · intro hf
     refine ⟨sigOf ν x, Finset.mem_univ _, ?_⟩
-    rw [if_pos hf, mem_atomIU_iff_sig]
+    rw [ite_eq_left hf, mem_atomIU_iff_sig]
 
 /-- `evalBF` sends `0` to `0`. -/
 private lemma evalBF_zero (ν : Y → IntervalUnion β) : evalBF ν 0 = 0 := by

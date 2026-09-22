@@ -362,7 +362,7 @@ lemma groupByKey_value
     · -- p.1 = v
       show w = (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
         ((p : AnnotatedTuple T K n) ::ₘ (tl : Multiset (AnnotatedTuple T K n))))).sum
-      rw [Multiset.filter_cons, if_pos hpv, Multiset.map_add, Multiset.sum_add,
+      rw [Multiset.filter_cons, ite_eq_left hpv, Multiset.map_add, Multiset.sum_add,
           Multiset.map_singleton, Multiset.sum_singleton]
       rcases hmem with ⟨hne, _⟩ | ⟨_, hdisj⟩
       · exact absurd hpv.symm hne
@@ -392,7 +392,7 @@ lemma groupByKey_value
     · -- p.1 ≠ v
       show w = (Multiset.map Prod.snd (Multiset.filter (fun p : AnnotatedTuple T K n ↦ p.1 = v)
         ((p : AnnotatedTuple T K n) ::ₘ (tl : Multiset (AnnotatedTuple T K n))))).sum
-      rw [Multiset.filter_cons, if_neg hpv, zero_add]
+      rw [Multiset.filter_cons, ite_eq_right hpv, zero_add]
       rcases hmem with ⟨_, hmem⟩ | ⟨heq, _⟩
       · exact ih w hmem
       · exact absurd heq.symm hpv
@@ -718,7 +718,7 @@ lemma proj_outer_cast_append_eq_fst {α : Type} {n : ℕ}
   rw [Tuple.cast_get]
   have hlt : ((k.castLE (by omega : n+1 ≤ 2*n+1)).cast h.symm).val < n + 1 := by
     simp [k.isLt]
-  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  simp only [Fin.append, Fin.addCases, hlt, dite_eq_left]
   apply congrArg
   exact Fin.eq_of_val_eq rfl
 
@@ -733,7 +733,7 @@ lemma cast_append_at_ofNat_left {α : Type} {n : ℕ}
   have hlt : ((Fin.ofNat (2*n+1) k.val).cast h.symm).val < n + 1 := by
     show k.val % (2*n+1) < n + 1
     rw [hk_mod]; exact Nat.lt_succ_of_lt k.isLt
-  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  simp only [Fin.append, Fin.addCases, hlt, dite_eq_left]
   apply congrArg
   apply Fin.eq_of_val_eq
   show k.val % (2*n+1) = k.val
@@ -792,7 +792,7 @@ lemma cast_append_2n2_at_ofNat_left {α : Type} {n : ℕ}
   have hlt : ((Fin.ofNat (2*n+2) k.val).cast h.symm).val < n + 1 := by
     show k.val % (2*n+2) < n + 1
     rw [hk_mod]; exact Nat.lt_succ_of_lt k.isLt
-  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  simp only [Fin.append, Fin.addCases, hlt, dite_eq_left]
   apply congrArg
   apply Fin.eq_of_val_eq
   show k.val % (2*n+2) = k.val
@@ -828,7 +828,7 @@ lemma cast_append_2n2_at_ofNat_n {α : Type} {n : ℕ}
   have hlt : ((Fin.ofNat (2*n+2) n).cast h.symm).val < n + 1 := by
     show n % (2*n+2) < n + 1
     rw [hn_mod]; exact Nat.lt_succ_self _
-  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  simp only [Fin.append, Fin.addCases, hlt, dite_eq_left]
   apply congrArg
   apply Fin.eq_of_val_eq
   show n % (2*n+2) = n
@@ -857,7 +857,7 @@ lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
   rw [Tuple.cast_get]
   have hlt : ((k.castLE (by omega : n+1 ≤ 2*n+2)).cast h.symm).val < n + 1 := by
     simp [k.isLt]
-  simp only [Fin.append, Fin.addCases, hlt, dif_pos]
+  simp only [Fin.append, Fin.addCases, hlt, dite_eq_left]
   apply congrArg
   exact Fin.eq_of_val_eq rfl
 
@@ -928,7 +928,7 @@ lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
     show (s.filter (fun b ↦ g hd = b)).map (fun _ ↦ hd) = _
     by_cases hgmem : g hd ∈ s
     · -- s.filter (g hd = ·) = {g hd} since s is Nodup; map by constant gives {hd}.
-      rw [if_pos hgmem]
+      rw [ite_eq_left hgmem]
       have hcount : s.count (g hd) = 1 := Multiset.count_eq_one_of_mem hs hgmem
       -- Convert filter to count.
       have hfilter_eq : s.filter (fun b ↦ g hd = b) = {g hd} := by
@@ -936,12 +936,12 @@ lemma Multiset.semijoin_proj_eq_filter {α β : Type*} [DecidableEq β]
         rw [Multiset.count_filter, Multiset.count_singleton]
         by_cases hb : g hd = b
         · subst hb
-          rw [if_pos rfl]
-          exact hcount.trans (if_pos rfl).symm
+          rw [ite_eq_left rfl]
+          exact hcount.trans (ite_eq_left rfl).symm
         · simp [hb, Ne.symm hb]
       rw [hfilter_eq, Multiset.map_singleton]
     · -- s.filter (g hd = ·) = 0 since g hd ∉ s; map gives 0.
-      rw [if_neg hgmem]
+      rw [ite_eq_right hgmem]
       have hfilter_eq : s.filter (fun b ↦ g hd = b) = 0 := by
         rw [Multiset.filter_eq_nil]
         intro b hb heq
@@ -994,18 +994,18 @@ lemma Multiset.semijoin_keyed_proj_eq_filter
     show (S.filter (fun v ↦ key_r hd = v)).map (fun v ↦ mk hd (val v)) = _
     by_cases hmem : key_r hd ∈ S
     · -- `S.filter (key_r hd = ·) = {key_r hd}` since `S` is `Nodup`.
-      rw [if_pos hmem]
+      rw [ite_eq_left hmem]
       have hcount : S.count (key_r hd) = 1 := Multiset.count_eq_one_of_mem hS hmem
       have hfilter_eq : S.filter (fun v ↦ key_r hd = v) = {key_r hd} := by
         ext b
         rw [Multiset.count_filter, Multiset.count_singleton]
         by_cases hb : key_r hd = b
         · subst hb
-          rw [if_pos rfl]
-          exact hcount.trans (if_pos rfl).symm
+          rw [ite_eq_left rfl]
+          exact hcount.trans (ite_eq_left rfl).symm
         · simp [hb, Ne.symm hb]
       rw [hfilter_eq, Multiset.map_singleton, Multiset.map_singleton]
-    · rw [if_neg hmem]
+    · rw [ite_eq_right hmem]
       have hfilter_eq : S.filter (fun v ↦ key_r hd = v) = 0 :=
         Multiset.filter_eq_nil.mpr (fun v hv heq ↦ hmem (heq ▸ hv))
       rw [hfilter_eq, Multiset.map_zero, Multiset.map_zero]
@@ -1612,7 +1612,7 @@ theorem Query.rewriting_valid
       funext k
       by_cases hk : ↑k < n
       · -- Data case: result is Sum.inl (ap.1 k).
-        simp only [hk, if_pos, Term.eval]
+        simp only [hk, ite_eq_left, Term.eval]
         rw [proj_outer_2n2_cast_append_eq_fst]
         -- Goal: ATC ap k = ATC (ap.1, ap.2 - sum_β ap.1) k for k.val < n.
         -- Both reduce to Sum.inl (ap.1 ⟨k.val, hk⟩); the .2 component is unused.
@@ -1628,7 +1628,7 @@ theorem Query.rewriting_valid
           have h2 : ¬ k.val < n := hk
           omega
         subst hk_eq
-        simp only [Fin.val_last, lt_self_iff_false, if_false, Term.eval]
+        simp only [Fin.val_last, lt_self_iff_false, ite_false, Term.eval]
         rw [cast_append_2n2_at_ofNat_n, cast_append_2n2_at_last]
         -- Show: ATC ap (Fin.last n) - ATC (ap.1, sum_β ap.1) (Fin.last n)
         --     = ATC (ap.1, ap.2 - sum_β ap.1) (Fin.last n)

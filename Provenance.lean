@@ -518,7 +518,7 @@ proven engine several general results reuse internally.
 - `Provenance.Semirings.Tropical` – the tropical m-semiring (min-plus) over `ℕ ∪ {∞}`, `ℚ ∪ {∞}`, or
   `ℝ ∪ {∞}`; the `ℝ` instance is also used as a counterexample showing that the absorptive
   hypothesis of `Having.F_eq_S` and of the `MIN`/`MAX`/`PICKFIRST` scan collapses
-  (`TropicalR.minScan_ne_prov`) is genuinely required (idempotent + `⊗`-over-`⊖` distributive
+  (`MinTropicalR.minScan_ne_prov`) is genuinely required (idempotent + `⊗`-over-`⊖` distributive
   is not enough)
 - `Provenance.Semirings.Viterbi` – the Viterbi m-semiring (max-times) over `[0,1]`
 - `Provenance.Semirings.MinMax` – the min-max semiring over any bounded linear

@@ -240,7 +240,7 @@ instance : LinearOrder Lukasiewicz where
     exact Std.LawfulOrderLT.lt_iff a b
   min_def := by
     intro a b
-    exact Std.min_eq_if
+    exact Std.min_eq_ite
   max_def := by
     intro a b
     exact LinearOrder.max_def a b

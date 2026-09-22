@@ -252,7 +252,7 @@ theorem zeroPadQuery_eval (q : Query ℕ 3) (hq : q.source)
     (fun u => (Multiset.map Prod.snd
       (Multiset.filter (fun p : AnnotatedTuple ℕ K 1 => p.1 = u)
         ((Query.Proj keyTerm q).evaluateAnnotated hq d))).sum) u
-  rw [if_pos (Multiset.mem_dedup.mp hu)] at hB
+  rw [ite_eq_left (Multiset.mem_dedup.mp hu)] at hB
   refine Eq.trans ?_ (monus_self ((Multiset.map Prod.snd
     (Multiset.filter (fun p : AnnotatedTuple ℕ K 1 => p.1 = u)
       ((Query.Proj keyTerm q).evaluateAnnotated hq d))).sum))

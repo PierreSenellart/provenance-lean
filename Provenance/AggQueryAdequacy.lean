@@ -249,9 +249,9 @@ theorem AggQuery.evaluateAnnotated_toPlain :
     rw [hplain]
     simp only [AggQuery.evaluate, AggQuery.stripAgg]
     by_cases hφ : φ.hasAggAtom
-    · rw [if_pos hφ, if_pos hφ, ← ih d, hplain, Multiset.map_map]
+    · rw [ite_eq_left hφ, ite_eq_left hφ, ← ih d, hplain, Multiset.map_map]
       rfl
-    · rw [if_neg hφ, if_neg hφ]
+    · rw [ite_eq_right hφ, ite_eq_right hφ]
       simp only [AggQuery.evaluatePlain]
       rw [← ih d, hplain]
       exact map_filter_iff _ _ _

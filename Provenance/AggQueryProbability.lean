@@ -511,14 +511,14 @@ theorem GenPred.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
   refine ⟨hbp'.1, fun l hl => ?_⟩
   unfold GenPred.selPending at hupd
   by_cases hE : φ.entailsExistence false = true
-  · rw [if_pos hE] at hupd
+  · rw [ite_eq_left hE] at hupd
     by_cases hcond : (φ.selCompared u ≠ 0 ∧ ∀ l' ∈ φ.selCompared u, l' = l)
     · refine GenPred.entails_guard φ false u v l ?_ hE hbp'.2
       intro k hk a ha
       refine hcond.2 _ ((Multiset.mem_filterMap _ _).mpr ⟨k, Finset.mem_val.mpr hk, ?_⟩)
       rw [ha]
     · exact hupd l (Multiset.mem_filter.mpr ⟨hl, hcond⟩)
-  · rw [if_neg hE] at hupd
+  · rw [ite_eq_right hE] at hupd
     exact hupd l hl
 
 /-- **The σ-aggregate row lemma.** On a kind-conformant, guarded row, the
@@ -558,9 +558,9 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       exact ⟨hb, hps⟩
     · unfold GenPred.selPending at hl
       by_cases hE : φ.entailsExistence false = true
-      · rw [if_pos hE] at hl
+      · rw [ite_eq_left hE] at hl
         exact hG l (Multiset.mem_of_mem_filter hl)
-      · rw [if_neg hE] at hl
+      · rw [ite_eq_right hE] at hl
         exact hG l hl
 
 /-! ## The guardedness invariant -/
@@ -613,12 +613,12 @@ theorem AggQuery.evaluate_guarded :
     intro d r hr v hfin k a ha
     simp only [AggQuery.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
-    · rw [if_pos hφ] at hr
+    · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
       have hold := GenPred.sel_finalize_old φ r₀.fst r₀.snd.base
         r₀.snd.pending v hfin
       exact ih d r₀ hr₀ v hold k a ha
-    · rw [if_neg hφ] at hr
+    · rw [ite_eq_right hφ] at hr
       exact ih d r (Multiset.mem_of_mem_filter hr) v hfin k a ha
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d r hr v hfin k a ha
@@ -962,7 +962,7 @@ private lemma randomWorld_monus {n : ℕ}
         have hcond_lhs : (p.snd - β) v = true := by
           rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv]
           rfl
-        rw [if_pos hcond_lhs, if_pos hpv, ih]
+        rw [ite_eq_left hcond_lhs, ite_eq_left hpv, ih]
         rw [Multiset.filter_cons_of_pos
             (p := fun t : Tuple T n => t ∉ randomWorld v r₂) _ hp_notin]
       · have hbv_true : β v = true := by
@@ -975,7 +975,7 @@ private lemma randomWorld_monus {n : ℕ}
         have hcond_lhs : ¬ (p.snd - β) v = true := by
           rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv, hbv_true]
           simp
-        rw [if_neg hcond_lhs, if_pos hpv, ih]
+        rw [ite_eq_right hcond_lhs, ite_eq_left hpv, ih]
         rw [Multiset.filter_cons_of_neg
             (p := fun t : Tuple T n => t ∉ randomWorld v r₂) _ hp_in]
     · have hpv_false : p.snd v = false := by
@@ -985,7 +985,7 @@ private lemma randomWorld_monus {n : ℕ}
       have hcond_lhs : ¬ (p.snd - β) v = true := by
         rw [show (p.snd - β) v = (p.snd v && !(β v)) from rfl, hpv_false]
         simp
-      rw [if_neg hcond_lhs, if_neg hpv]
+      rw [ite_eq_right hcond_lhs, ite_eq_right hpv]
       exact ih
 
 /-! ## The `Gamma` case helpers -/
@@ -1078,7 +1078,7 @@ theorem AggQuery.genRandomWorld_evaluate :
     intro hq d v
     simp only [AggQuery.evaluate, AggQuery.evaluatePlain]
     by_cases hφ : φ.hasAggAtom
-    · rw [if_pos hφ]
+    · rw [ite_eq_left hφ]
       unfold genRandomWorld
       rw [filter_map_comm, Multiset.map_map]
       refine Eq.trans (congrArg (Multiset.map _)
@@ -1095,7 +1095,7 @@ theorem AggQuery.genRandomWorld_evaluate :
         rw [filter_map_comm, Multiset.filter_filter]
         exact Multiset.map_congr
           (Multiset.filter_congr fun r _ => and_comm) (fun r _ => rfl)
-    · rw [if_neg hφ]
+    · rw [ite_eq_right hφ]
       unfold genRandomWorld
       rw [Multiset.filter_filter]
       refine Eq.trans (congrArg (Multiset.map _)
@@ -1304,10 +1304,10 @@ theorem AggQuery.boolean_pqe {n : ℕ} {κ : Fin n → ColKind}
   unfold AggQuery.booleanProb ProbAssignment.funcProb
   refine Finset.sum_congr rfl fun v _ => ?_
   by_cases h : q.evaluatePlain (d.randomWorld v) = 0
-  · rw [if_pos (Multiset.card_eq_zero.mpr h),
-      if_neg (fun hf => (AggQuery.booleanProv_eval_iff q hq d v).mp hf h)]
-  · rw [if_neg (fun hc => h (Multiset.card_eq_zero.mp hc)),
-      if_pos ((AggQuery.booleanProv_eval_iff q hq d v).mpr h)]
+  · rw [ite_eq_left (Multiset.card_eq_zero.mpr h),
+      ite_eq_right (fun hf => (AggQuery.booleanProv_eval_iff q hq d v).mp hf h)]
+  · rw [ite_eq_right (fun hc => h (Multiset.card_eq_zero.mp hc)),
+      ite_eq_left ((AggQuery.booleanProv_eval_iff q hq d v).mpr h)]
 
 /-- The provenance of a tuple `t` in a general query with all-regular
 output: the `⊕`-sum of the finalized annotations of the rows whose data
@@ -1375,6 +1375,6 @@ theorem AggQuery.tuple_pqe {n : ℕ} (P : ProbAssignment X)
   unfold AggQuery.tupleProb ProbAssignment.funcProb
   refine Finset.sum_congr rfl fun v _ => ?_
   by_cases h : t ∈ q.evaluatePlain (d.randomWorld v)
-  · rw [if_pos h, if_pos ((AggQuery.tupleProv_eval_iff q hq d t v).mpr h)]
-  · rw [if_neg h,
-      if_neg (fun hf => h ((AggQuery.tupleProv_eval_iff q hq d t v).mp hf))]
+  · rw [ite_eq_left h, ite_eq_left ((AggQuery.tupleProv_eval_iff q hq d t v).mpr h)]
+  · rw [ite_eq_right h,
+      ite_eq_right (fun hf => h ((AggQuery.tupleProv_eval_iff q hq d t v).mp hf))]

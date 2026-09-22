@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Logic.Basic
+import Mathlib.Basic.Logic.Basic
 import Mathlib.Data.Nat.Init
 import Mathlib.Order.Defs.LinearOrder
 

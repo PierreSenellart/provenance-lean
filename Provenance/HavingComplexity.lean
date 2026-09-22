@@ -131,7 +131,7 @@ theorem A_eq_monomial (x : ι → X) (W : Finset ι) :
       rw [Finset.prod_insert ha, Finset.sum_insert ha, ih,
         show (MvPolynomial.X (x a) : MvPolynomial X ℕ)
             = monomial (Finsupp.single (x a) 1) 1 from rfl,
-        monomial_mul, one_mul]
+        monomial_mul_monomial, one_mul]
 
 /-- The monus factor of a world annotation collapses: the subtracted
 one-step extensions of `W` are monomials of degree `|W| + 1`, so they do not
@@ -154,7 +154,7 @@ theorem T_eq_A (x : ι → X) (hx : Function.Injective x) (U W : Finset ι) :
       intro y hy
       have hyW : y ∉ W := (Finset.mem_sdiff.mp hy).2
       have hne : insert y W ≠ W := fun h => hyW (h ▸ Finset.mem_insert_self y W)
-      exact if_neg fun h => hne (expo_inj x hx h)
+      exact ite_eq_right fun h => hne (expo_inj x hx h)
     rw [Finset.sum_congr rfl hzero]
     simp
   · simp [hm]
@@ -185,15 +185,15 @@ theorem havingSumProv_ne_zero_iff (x : ι → X) (hx : Function.Injective x)
     have hmem : W₀ ∈ U.powerset.filter P :=
       Finset.mem_filter.mpr ⟨Finset.mem_powerset.mpr hW₀U, hW₀P⟩
     intro h
-    have hco := congrArg (fun p => MvPolynomial.coeff (expo x W₀) p) h
+    have hco := congrArg (fun p : MvPolynomial X ℕ => p.coeff (expo x W₀)) h
     simp only [MvPolynomial.coeff_sum, MvPolynomial.coeff_monomial,
-      MvPolynomial.coeff_zero] at hco
+      AddMonoidAlgebra.coeff_zero] at hco
     have key : (∑ W ∈ U.powerset.filter P, (if expo x W = expo x W₀ then (1:ℕ) else 0))
         = ∑ W ∈ U.powerset.filter P, (if W = W₀ then (1:ℕ) else 0) := by
       refine Finset.sum_congr rfl fun W _ => ?_
       by_cases hW : W = W₀
       · simp [hW]
-      · rw [if_neg fun hh => hW (expo_inj x hx hh), if_neg hW]
+      · rw [ite_eq_right fun hh => hW (expo_inj x hx hh), ite_eq_right hW]
     rw [key] at hco
     simp [Finset.sum_ite_eq', hmem] at hco
 

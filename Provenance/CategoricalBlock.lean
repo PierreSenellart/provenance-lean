@@ -320,9 +320,9 @@ theorem eventProb_and_disjoint {E F : ((b : ι) → κ b) → Bool} {S T : Finse
     intro vS _
     simp_rw [hEeq vS, hval_split vS]
     by_cases hes : eS vS
-    · simp_rw [if_pos hes]
+    · simp_rw [ite_eq_left hes]
       rw [← Finset.mul_sum, sum_pR_eq_one, mul_one]
-    · simp_rw [if_neg hes]; simp
+    · simp_rw [ite_eq_right hes]; simp
   have hPr_F : P.eventProb F = ∑ vR, (if fR vR then pR vR else 0) := by
     show (∑ v, if F v then P.valProb v else 0) = ∑ vR, (if fR vR then pR vR else 0)
     rw [hsum_iterated (fun v => if F v then P.valProb v else 0)]
@@ -331,9 +331,9 @@ theorem eventProb_and_disjoint {E F : ((b : ι) → κ b) → Bool} {S T : Finse
     intro vR _
     simp_rw [hFeq _ vR, hval_split _ vR]
     by_cases hfs : fR vR
-    · simp_rw [if_pos hfs]
+    · simp_rw [ite_eq_left hfs]
       rw [← Finset.sum_mul, sum_pS_eq_one, one_mul]
-    · simp_rw [if_neg hfs]; simp
+    · simp_rw [ite_eq_right hfs]; simp
   show (∑ v, if (E v && F v) then P.valProb v else 0) = P.eventProb E * P.eventProb F
   rw [hsum_iterated (fun v => if (E v && F v) then P.valProb v else 0)]
   rw [hPr_E, hPr_F, Fintype.sum_mul_sum]

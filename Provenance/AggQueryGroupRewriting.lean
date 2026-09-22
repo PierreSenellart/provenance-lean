@@ -150,11 +150,11 @@ theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
         else Sum.inl (Sum.inr r.snd.finalize) := by
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
   · rw [GenRow.toCompositeRow_castAdd,
-      dif_pos (show ((Fin.castAdd 1 i : Fin (n + 1)) : ℕ) < n from i.isLt)]
+      dite_eq_left (show ((Fin.castAdd 1 i : Fin (n + 1)) : ℕ) < n from i.isLt)]
     exact congrArg (fun k => GenValue.toComposite (r.fst k)) (Fin.ext rfl)
   · rw [show Fin.natAdd n i = Fin.last n from Fin.ext (by
       simp [Subsingleton.elim i (0 : Fin 1)]), GenRow.toCompositeRow_last,
-      dif_neg (by simp only [Fin.val_last]; omega)]
+      dite_eq_right (by simp only [Fin.val_last]; omega)]
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A key column of the embedding of a grouping row. -/
@@ -285,7 +285,7 @@ theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
     show p.toComposite ((is k).castLE (Nat.le_succ m))
       = Sum.inl (p.fst (is k))
     rw [AnnotatedTuple.toComposite_coord,
-      dif_pos (show (((is k).castLE (Nat.le_succ m)
+      dite_eq_left (show (((is k).castLE (Nat.le_succ m)
         : Fin (m + 1)) : ℕ) < m from (is k).isLt)]
     exact congrArg (fun i => Sum.inl (p.fst i)) (Fin.ext rfl)]
   rw [← Multiset.map_map
@@ -349,7 +349,7 @@ theorem AggValue.predProv_toComposite (a : AggValue T K) (op : CompOp)
     _ (fun W => ?_)).symm
   rw [Equiv.finsetCongr_apply]
   by_cases hne : W.Nonempty
-  · rw [if_pos hne, if_pos (by rwa [Finset.map_nonempty])]
+  · rw [ite_eq_left hne, ite_eq_left (by rwa [Finset.map_nonempty])]
     refine congrArg₂ (· * ·) ?_ ?_
     · rw [AggValue.worldAnn_map_finCongr hlen]
       refine congrArg (fun α : Fin a.occs.length → K =>
@@ -369,4 +369,4 @@ theorem AggValue.predProv_toComposite (a : AggValue T K) (op : CompOp)
             = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
           ← List.map_map]
         exact SeqAggFunc.liftComposite_map_inl a.agg _
-  · rw [if_neg hne, if_neg (by rwa [Finset.map_nonempty])]
+  · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]

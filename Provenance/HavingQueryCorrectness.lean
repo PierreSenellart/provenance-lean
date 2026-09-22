@@ -418,12 +418,12 @@ theorem filter_product {α β : Type} (p : α → Prop) [DecidablePred p]
       Multiset.filter_map]
     congr 1
     by_cases hpa : p a
-    · rw [if_pos hpa, singleton_product]
+    · rw [ite_eq_left hpa, singleton_product]
       congr 1
       refine Multiset.filter_congr fun b _ => ?_
       show q b ↔ p a ∧ q b
       exact ⟨fun h => ⟨hpa, h⟩, fun h => h.2⟩
-    · rw [if_neg hpa, Multiset.zero_product, eq_comm, Multiset.map_eq_zero]
+    · rw [ite_eq_right hpa, Multiset.zero_product, eq_comm, Multiset.map_eq_zero]
       exact Multiset.filter_eq_nil.mpr fun b _ h => hpa h.1
 
 end Having
@@ -589,9 +589,9 @@ theorem perKeySum_dedup_map {α β : Type} [DecidableEq α] [AddCommMonoid β]
       Multiset.filter_congr fun v _ => Iff.rfl,
     Multiset.filter_eq', Multiset.count_dedup]
   by_cases hu : u ∈ s
-  · rw [if_pos hu, if_pos hu, show Multiset.replicate 1 u = {u} from rfl,
+  · rw [ite_eq_left hu, ite_eq_left hu, show Multiset.replicate 1 u = {u} from rfl,
       Multiset.map_singleton, Multiset.map_singleton, Multiset.sum_singleton]
-  · rw [if_neg hu, if_neg hu, show Multiset.replicate 0 u = 0 from rfl,
+  · rw [ite_eq_right hu, ite_eq_right hu, show Multiset.replicate 0 u = 0 from rfl,
       Multiset.map_zero, Multiset.map_zero, Multiset.sum_zero]
 
 /-- Per-key annotation sums are invariant under duplicate elimination. -/
@@ -602,9 +602,9 @@ theorem perKeySum_groupByKey {T : Type} [ValueType T] {n : ℕ}
       = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = u) r)).sum := by
   rw [groupByKey_eq_dedup_map, perKeySum_dedup_map]
   by_cases hu : u ∈ Multiset.map Prod.fst r
-  · rw [if_pos hu]
+  · rw [ite_eq_left hu]
     rfl
-  · rw [if_neg hu,
+  · rw [ite_eq_right hu,
       show Multiset.filter (fun p : Tuple T n × K => p.fst = u) r = 0 from
         Multiset.filter_eq_nil.mpr fun p hp hpu =>
           hu (hpu ▸ Multiset.mem_map_of_mem Prod.fst hp),
@@ -839,9 +839,9 @@ theorem filter_fst_dedup_map {α β : Type} [DecidableEq α]
       Multiset.filter_congr fun v _ => Iff.rfl,
     Multiset.filter_eq', Multiset.count_dedup]
   by_cases hu : u ∈ s
-  · rw [if_pos hu, if_pos hu, show Multiset.replicate 1 u = {u} from rfl,
+  · rw [ite_eq_left hu, ite_eq_left hu, show Multiset.replicate 1 u = {u} from rfl,
       Multiset.map_singleton]
-  · rw [if_neg hu, if_neg hu, show Multiset.replicate 0 u = 0 from rfl,
+  · rw [ite_eq_right hu, ite_eq_right hu, show Multiset.replicate 0 u = 0 from rfl,
       Multiset.map_zero]
 
 /-- Per-key sums through a key-preserving rebuild of the annotations. -/
@@ -899,11 +899,11 @@ theorem diff_perKeySum {T : Type} [ValueType T] {n : ℕ}
       (q₂.evaluateAnnotated h₂ d)).val.find? (·.1 = u)).map
         Prod.snd).getD 0)) m).sum) hA) ?_
   by_cases hu : u ∈ Multiset.map Prod.fst (q₁.evaluateAnnotated h₁ d)
-  · rw [if_pos hu, Multiset.map_singleton, Multiset.sum_singleton]
+  · rw [ite_eq_left hu, Multiset.map_singleton, Multiset.sum_singleton]
     exact congrArg₂ (fun a b : K => a - b)
       (perKeySum_groupByKey (q₁.evaluateAnnotated h₁ d) u).symm
       (groupByKey_find_eq_filter_sum (q₂.evaluateAnnotated h₂ d) u)
-  · rw [if_neg hu, Multiset.map_zero, Multiset.sum_zero]
+  · rw [ite_eq_right hu, Multiset.map_zero, Multiset.sum_zero]
     have hnil : Multiset.filter (fun p : AnnotatedTuple T K n => p.fst = u)
         (q₁.evaluateAnnotated h₁ d) = 0 :=
       Multiset.filter_eq_nil.mpr fun p hp hpu =>

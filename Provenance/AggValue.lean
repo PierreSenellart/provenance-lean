@@ -155,8 +155,8 @@ theorem seqOf_map (g : β → γ) :
     rw [List.map_append, hfilter, seqOf_map g U h']
     congr 1
     by_cases h0 : (0 : Fin (U.length + 1)) ∈ W
-    · rw [if_pos h0, if_pos (hzero.mpr h0)]; rfl
-    · rw [if_neg h0, if_neg (fun hc => h0 (hzero.mp hc))]; rfl
+    · rw [ite_eq_left h0, ite_eq_left (hzero.mpr h0)]; rfl
+    · rw [ite_eq_right h0, ite_eq_right (fun hc => h0 (hzero.mp hc))]; rfl
 
 /-- The whole-sequence world: `seqOf` over `univ` is the identity. -/
 theorem seqOf_univ : ∀ (U : List β), Having.seqOf U Finset.univ = U
@@ -188,8 +188,8 @@ theorem filter_eq_seqOf (p : β → Bool) :
       ext i; simp
     rw [hfilter, ← filter_eq_seqOf p U]
     by_cases hp : p b
-    · rw [if_pos hp, if_pos (hzero.mpr hp)]; rfl
-    · rw [if_neg (by simpa using hp), if_neg (fun hc => hp (hzero.mp hc))]
+    · rw [ite_eq_left hp, ite_eq_left (hzero.mpr hp)]; rfl
+    · rw [ite_eq_right (by simpa using hp), ite_eq_right (fun hc => hp (hzero.mp hc))]
       rfl
 
 end Reindex
@@ -278,12 +278,12 @@ theorem predProv_ofGroup (f : SeqAggFunc T) (t : Term T m)
     _ (fun W => ?_)).symm
   rw [Equiv.finsetCongr_apply]
   by_cases hne : W.Nonempty
-  · rw [if_pos hne, if_pos (by rwa [Finset.map_nonempty]),
+  · rw [ite_eq_left hne, ite_eq_left (by rwa [Finset.map_nonempty]),
       valOn_ofGroup, worldAnn_map_finCongr,
       show (fun i => (ofGroup f t U).anns
           (finCongr (length_ofGroup_occs f t U) i))
         = fun i => (U.get i).snd from funext (anns_ofGroup f t U)]
-  · rw [if_neg hne, if_neg (by rwa [Finset.map_nonempty])]
+  · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
 
 end OfGroup
 

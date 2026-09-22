@@ -65,7 +65,7 @@ instance : PartialOrder (MvPolynomial X ℕ) where
 instance : IsOrderedAddMonoid (MvPolynomial X ℕ) where
   add_le_add_left := by
     intro a b hab c m
-    rw[MvPolynomial.coeff_add]
+    rw[AddMonoidAlgebra.coeff_add]
     simp
     exact hab m
 
@@ -217,7 +217,7 @@ theorem How.not_exclusive [Inhabited X] : ¬ exclusive (MvPolynomial X ℕ) := b
     intro m
     rw [coeff_sub]
     rcases eq_or_ne m 0 with rfl | hm
-    · simp [MvPolynomial.coeff_X, MvPolynomial.coeff_one]
+    · simp [MvPolynomial.coeff_X]
     · simp [MvPolynomial.coeff_one, Ne.symm hm]
   have key := h (MvPolynomial.X (default : X))
   rw [hsub, mul_one] at key
@@ -238,8 +238,8 @@ theorem How.not_mul_sub_left_distributive [Inhabited X]:
     use a, b, c
     let m : X →₀ ℕ := Finsupp.single x 1
     intro h
-    have hm : MvPolynomial.coeff m (a * (b - c)) = MvPolynomial.coeff m (a * b - a * c) :=
-      congrArg (MvPolynomial.coeff m) h
+    have hm : (a * (b - c)).coeff m = (a * b - a * c).coeff m :=
+      congrArg (fun p : MvPolynomial X ℕ => p.coeff m) h
     simp[a,b,c,m,coeff_sub] at hm
     simp[MvPolynomial.coeff_mul] at hm
     have hAD :
@@ -247,7 +247,7 @@ theorem How.not_mul_sub_left_distributive [Inhabited X]:
       decide
     simp[hAD] at hm
     simp[coeff_sub] at hm
-    have : MvPolynomial.coeff (Finsupp.single x 1) 1 = 0 := by
+    have : (1 : MvPolynomial X ℕ).coeff (Finsupp.single x 1) = 0 := by
       simp[MvPolynomial.coeff_one,eq_comm]
     simp[this] at hm
 

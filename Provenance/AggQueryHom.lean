@@ -68,8 +68,8 @@ theorem chi_hom (h : SemiringWithMonusHom K K') (op : CompOp)
     h.toRingHom (Having.chi op a b : K) = (Having.chi op a b : K') := by
   unfold Having.chi
   by_cases hab : op.eval a b
-  · rw [if_pos hab, if_pos hab, map_one]
-  · rw [if_neg hab, if_neg hab, map_zero]
+  · rw [ite_eq_left hab, ite_eq_left hab, map_one]
+  · rw [ite_eq_right hab, ite_eq_right hab, map_zero]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The factored world annotation commutes with any hom: it is an
@@ -151,13 +151,13 @@ theorem predProv_mapAnn (h : SemiringWithMonusHom K K')
     _ (fun W => ?_)).symm
   rw [Equiv.finsetCongr_apply]
   by_cases hne : W.Nonempty
-  · rw [if_pos hne, if_pos (by rwa [Finset.map_nonempty]),
+  · rw [ite_eq_left hne, ite_eq_left (by rwa [Finset.map_nonempty]),
       valOn_mapAnn h a W, worldAnn_map_finCongr, map_mul, worldAnn_hom,
       chi_hom,
       show (fun i => (a.mapAnn ⇑h.toRingHom).anns
           (finCongr (length_mapAnn_occs h a) i))
         = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
-  · rw [if_neg hne, if_neg (by rwa [Finset.map_nonempty])]
+  · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
 
 end AggValue
 
@@ -699,7 +699,7 @@ theorem GenAnn.finalize_sel (φ : GenPred T κ)
       else P⟩
       = φ.predsem false u * GenAnn.finalize ⟨b, P⟩ := by
   by_cases hent : φ.entailsExistence false = true
-  · rw [if_pos hent]
+  · rw [ite_eq_left hent]
     show b * φ.predsem false u * _ = φ.predsem false u * (b * _)
     set dropCond := fun l : List K => (C ≠ 0 ∧ ∀ l' ∈ C, l' = l) with hdrop
     have habs : φ.predsem false u
@@ -731,7 +731,7 @@ theorem GenAnn.finalize_sel (φ : GenPred T κ)
             rw [add_comm]
             exact Multiset.filter_add_not _ P
           rw [hsplit, mul_left_comm]
-  · rw [if_neg hent]
+  · rw [ite_eq_right hent]
     show b * φ.predsem false u * _ = φ.predsem false u * (b * _)
     rw [mul_right_comm]
     exact mul_comm _ _
@@ -790,9 +790,9 @@ theorem rel_filter_of_iff {R : α → β → Prop} {s : Multiset α}
   | @cons a b s t hab hst ih =>
     rw [Multiset.filter_cons, Multiset.filter_cons]
     by_cases hpa : p a
-    · rw [if_pos hpa, if_pos ((hpq a b hab).mp hpa)]
+    · rw [ite_eq_left hpa, ite_eq_left ((hpq a b hab).mp hpa)]
       exact Multiset.Rel.add (Multiset.Rel.cons hab Multiset.Rel.zero) ih
-    · rw [if_neg hpa, if_neg (fun hqb => hpa ((hpq a b hab).mpr hqb)),
+    · rw [ite_eq_right hpa, ite_eq_right (fun hqb => hpa ((hpq a b hab).mpr hqb)),
         zero_add, zero_add]
       exact ih
 
@@ -952,7 +952,7 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     intro d
     simp only [AggQuery.evaluate]
     by_cases hagg : φ.hasAggAtom
-    · rw [if_pos hagg, if_pos hagg]
+    · rw [ite_eq_left hagg, ite_eq_left hagg]
       refine rel_map_of_rel (ih d) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base
@@ -964,7 +964,7 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             ⟨k, Finset.mem_val.mpr hk, by rw [hka]⟩)]
       rw [GenPred.predsem_equiv φ false hs.1,
         GenPred.predsem_mapAnn h φ false r.fst, hs.2, ← map_mul]
-    · rw [if_neg hagg, if_neg hagg]
+    · rw [ite_eq_right hagg, ite_eq_right hagg]
       refine rel_filter_of_iff (ih d) (fun r' r hs => ?_)
       calc φ.holds r'.fst
           ↔ φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) :=

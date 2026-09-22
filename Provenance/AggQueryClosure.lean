@@ -530,7 +530,7 @@ theorem GenAnn.finalize_supersede (b : K) (l₀ : List K)
     GenAnn.finalize (⟨b, Multiset.filter
         (fun l => ¬(C ≠ 0 ∧ ∀ l' ∈ C, l' = l))
         ({l₀} : Multiset (List K))⟩ : GenAnn K) = b := by
-  rw [Multiset.filter_singleton, if_neg (not_not.mpr ⟨hne, hall⟩)]
+  rw [Multiset.filter_singleton, ite_eq_right (not_not.mpr ⟨hne, hall⟩)]
   simp [GenAnn.finalize]
 
 /-! ## The general `HAVING` site -/
@@ -571,10 +571,10 @@ theorem AggQuery.havingPredCols_kind {n₁ n₂ : ℕ}
       = ColKind.gammaRewKinds n₁ n₂ j := by
   unfold AggQuery.havingPredCols
   by_cases hj : (((j : ℕ) < n₁ + n₂) : Prop)
-  · rw [dif_pos hj, ProjCol.copy_kind]
+  · rw [dite_eq_left hj, ProjCol.copy_kind]
     exact congrArg (ColKind.gammaRewKinds n₁ n₂)
       (Fin.ext rfl : Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)) = j)
-  · rw [dif_neg hj]
+  · rw [dite_eq_right hj]
     exact (ColKind.rewKindsOf_of_not_lt (ColKind.gammaKinds n₁ n₂) hj).symm
 
 /-- **The rewritten `HAVING` site**, for an arbitrary predicate: the
@@ -614,7 +614,7 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
   rw [← AggQuery.gammaRew_valid is ts fs qg hq d]
   show Multiset.map _ (AggQuery.evaluate (AggQuery.Sel _ _) d) = _
   simp only [AggQuery.evaluate]
-  rw [if_pos hφ]
+  rw [ite_eq_left hφ]
   simp only [Multiset.map_map]
   refine Multiset.map_congr rfl (fun kv _ => ?_)
   simp only [Function.comp_apply]
@@ -623,11 +623,11 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
   show _ = ProjCol.evalRew (AggQuery.havingPredCols φ j) _
   unfold AggQuery.havingPredCols
   by_cases hj : (((j : ℕ) < n₁ + n₂) : Prop)
-  · rw [dif_pos hj, dif_pos hj,
+  · rw [dite_eq_left hj, dite_eq_left hj,
       ProjCol.copy_evalRew _ _
         (GenRow.toCompositeRow_gammaRow_conform _ _ _ _),
       GenRow.toCompositeRow_castAdd]
-  · rw [dif_neg hj, dif_neg hj]
+  · rw [dite_eq_right hj, dite_eq_right hj]
     show Sum.inl (Sum.inr (GenAnn.finalize ⟨1 * _, _⟩))
       = Sum.inl (TermG.evalRew (GenPred.siteProvTerm φ) _)
     unfold GenPred.siteProvTerm
@@ -636,7 +636,7 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
       -- the predicate does not entail the group's existence: the guard
       -- survives in the pending factor and as a factor of the gate term
       rw [show φ.entailsExistence false = false by simpa using hE]
-      simp only [Bool.false_eq_true, if_false]
+      simp only [Bool.false_eq_true, ite_false]
       show _ = Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _)
       rw [GenPred.gateTerm_evalRew (K := K) φ false _]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
@@ -646,7 +646,7 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
         : GenValue (T ⊕ K) K)
       simp only [GenAnn.finalize, Multiset.map_singleton,
         Multiset.prod_singleton, one_mul]
-    rw [hE, if_pos rfl]
+    rw [hE, ite_eq_left rfl]
     refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
       : GenValue (T ⊕ K) K)) (GenAnn.finalize_supersede _ _ _ ?_ ?_)) ?_
     · intro h0
@@ -842,7 +842,7 @@ theorem AggQuery.prodRewCols_kind {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKin
       = ColKind.rewKindsOf (Fin.append κ₁ κ₂) j := by
   unfold AggQuery.prodRewCols
   by_cases hj₁ : (((j : ℕ) < n₁) : Prop)
-  · rw [dif_pos hj₁, ProjCol.copy_kind, Fin.append_left,
+  · rw [dite_eq_left hj₁, ProjCol.copy_kind, Fin.append_left,
       ColKind.rewKindsOf_of_lt κ₁ (show LT.lt (j : ℕ) n₁ from hj₁),
       ColKind.rewKindsOf_of_lt (Fin.append κ₁ κ₂)
         (show LT.lt (j : ℕ) (n₁ + n₂) from by omega),
@@ -850,7 +850,7 @@ theorem AggQuery.prodRewCols_kind {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKin
           = Fin.castAdd n₂ (⟨(j : ℕ), hj₁⟩ : Fin n₁) from Fin.ext rfl,
       Fin.append_left]
   · by_cases hj₂ : (((j : ℕ) < n₁ + n₂) : Prop)
-    · rw [dif_neg hj₁, dif_pos hj₂, ProjCol.copy_kind, Fin.append_right,
+    · rw [dite_eq_right hj₁, dite_eq_left hj₂, ProjCol.copy_kind, Fin.append_right,
         ColKind.rewKindsOf_of_lt κ₂
           (show LT.lt ((j : ℕ) - n₁) n₂ from by omega),
         ColKind.rewKindsOf_of_lt (Fin.append κ₁ κ₂) hj₂,
@@ -858,7 +858,7 @@ theorem AggQuery.prodRewCols_kind {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKin
             = Fin.natAdd n₁ (⟨(j : ℕ) - n₁, by omega⟩ : Fin n₂) from
           Fin.ext (by simp only [Fin.val_natAdd]; omega),
         Fin.append_right]
-    · rw [dif_neg hj₁, dif_neg hj₂,
+    · rw [dite_eq_right hj₁, dite_eq_right hj₂,
         ColKind.rewKindsOf_of_not_lt (Fin.append κ₁ κ₂) hj₂]
       rfl
 
@@ -916,7 +916,7 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   show _ = ProjCol.evalRew (AggQuery.prodRewCols κ₁ κ₂ j) _
   unfold AggQuery.prodRewCols
   by_cases hj₁ : (((j : ℕ) < n₁) : Prop)
-  · rw [dif_pos (show LT.lt (j : ℕ) (n₁ + n₂) from by omega), dif_pos hj₁,
+  · rw [dite_eq_left (show LT.lt (j : ℕ) (n₁ + n₂) from by omega), dite_eq_left hj₁,
       ProjCol.copy_evalRew _ _ (hu _), Fin.append_left]
     dsimp only
     rw [show (⟨(j : ℕ), by omega⟩ : Fin (n₁ + n₂))
@@ -926,7 +926,7 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
         = Fin.castAdd 1 (⟨(j : ℕ), hj₁⟩ : Fin n₁) from Fin.ext rfl,
       GenRow.toCompositeRow_castAdd]
   · by_cases hj₂ : (((j : ℕ) < n₁ + n₂) : Prop)
-    · rw [dif_pos hj₂, dif_neg hj₁, dif_pos hj₂,
+    · rw [dite_eq_left hj₂, dite_eq_right hj₁, dite_eq_left hj₂,
         ProjCol.copy_evalRew _ _ (hu _), Fin.append_right]
       dsimp only
       rw [show (⟨(j : ℕ), hj₂⟩ : Fin (n₁ + n₂))
@@ -935,7 +935,7 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
         show (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1))
           = Fin.castAdd 1 (⟨(j : ℕ) - n₁, by omega⟩ : Fin n₂) from
         Fin.ext rfl, GenRow.toCompositeRow_castAdd]
-    · rw [dif_neg hj₂, dif_neg hj₁, dif_neg hj₂]
+    · rw [dite_eq_right hj₂, dite_eq_right hj₁, dite_eq_right hj₂]
       dsimp only
       rw [GenAnn.finalize_prod]
       show _ = Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _)
@@ -1058,9 +1058,9 @@ theorem AggQuery.diffColsU_kind {n : ℕ} (j : Fin (n + 1)) :
       = ColKind.rewKindsOf (ColKind.allReg n) j := by
   unfold AggQuery.diffColsU
   by_cases hj : (((j : ℕ) < n) : Prop)
-  · rw [dif_pos hj]
+  · rw [dite_eq_left hj]
     exact (ColKind.rewKindsOf_of_lt (ColKind.allReg n) hj).symm
-  · rw [dif_neg hj]
+  · rw [dite_eq_right hj]
     exact (ColKind.rewKindsOf_of_not_lt (ColKind.allReg n) hj).symm
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
@@ -1070,9 +1070,9 @@ theorem AggQuery.diffColsM_kind {n : ℕ} (j : Fin (n + 1)) :
       = ColKind.rewKindsOf (ColKind.allReg n) j := by
   unfold AggQuery.diffColsM
   by_cases hj : (((j : ℕ) < n) : Prop)
-  · rw [dif_pos hj]
+  · rw [dite_eq_left hj]
     exact (ColKind.rewKindsOf_of_lt (ColKind.allReg n) hj).symm
-  · rw [dif_neg hj]
+  · rw [dite_eq_right hj]
     exact (ColKind.rewKindsOf_of_not_lt (ColKind.allReg n) hj).symm
 
 /-- The unmatched branch: left rows whose data part is among the
@@ -1260,12 +1260,12 @@ theorem AggQuery.diffBranchU_evaluateRew {n : ℕ}
       show ProjCol.evalRew (AggQuery.diffColsU j) _ = _
       unfold AggQuery.diffColsU
       by_cases hj : (((j : ℕ) < n) : Prop)
-      · rw [dif_pos hj]
+      · rw [dite_eq_left hj]
         show Sum.inl (AggValue.collapseSum (Sum.inl (Fin.append _ _
           (Fin.castAdd n (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))))) = _
         rw [Fin.append_left]
         exact congrArg (fun i => Sum.inl (pr.1.toComposite i)) (Fin.ext rfl)
-      · rw [dif_neg hj]
+      · rw [dite_eq_right hj]
         show Sum.inl (AggValue.collapseSum (Sum.inl (Fin.append _ _
           (Fin.castAdd n (Fin.last n))))) = _
         rw [Fin.append_left]
@@ -1354,7 +1354,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
       show ProjCol.evalRew (AggQuery.diffColsM j) _ = _
       unfold AggQuery.diffColsM
       by_cases hj : (((j : ℕ) < n) : Prop)
-      · rw [dif_pos hj]
+      · rw [dite_eq_left hj]
         show Sum.inl (AggValue.collapseSum (Sum.inl (Fin.append _ _
           (Fin.castAdd (n + 1)
             (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))))) = _
@@ -1364,13 +1364,13 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
         refine congrArg Sum.inl ?_
         refine Eq.trans ((AnnotatedTuple.toComposite_coord pr.1
           (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n))).trans
-          (dif_pos (show LT.lt (j : ℕ) n from hj))) ?_
+          (dite_eq_left (show LT.lt (j : ℕ) n from hj))) ?_
         refine Eq.trans (congrArg (fun i => Sum.inl (pr.1.fst i))
           (Fin.ext rfl)) ?_
         exact ((AnnotatedTuple.toComposite_coord
           (⟨pr.1.fst, pr.1.snd - pr.2.snd⟩ : AnnotatedTuple T K n) j).trans
-          (dif_pos hj)).symm
-      · rw [dif_neg hj]
+          (dite_eq_left hj)).symm
+      · rw [dite_eq_right hj]
         show Sum.inl (TermG.evalRew _ _ - TermG.evalRew _ _) = _
         rw [show TermG.evalRew (TermG.provIndex
               (Fin.castAdd (n + 1) (Fin.last n))
@@ -1384,7 +1384,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
             (Fin.castAdd (n + 1) (Fin.last n)))) = _
           rw [Fin.append_left]
           exact (AnnotatedTuple.toComposite_coord _ _).trans
-            (dif_neg (by simp only [Fin.val_last]; omega)),
+            (dite_eq_right (by simp only [Fin.val_last]; omega)),
           show TermG.evalRew (TermG.provIndex
               (Fin.natAdd (n + 1) (Fin.last n))
               ((Fin.append_right _ _ _).trans
@@ -1397,14 +1397,14 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
             (Fin.natAdd (n + 1) (Fin.last n)))) = _
           rw [Fin.append_right]
           exact (AnnotatedTuple.toComposite_coord _ _).trans
-            (dif_neg (by simp only [Fin.val_last]; omega))]
+            (dite_eq_right (by simp only [Fin.val_last]; omega))]
         refine congrArg Sum.inl ?_
         have hsub : HSub.hSub (Sum.inr pr.1.snd : T ⊕ K) (Sum.inr pr.2.snd)
             = (Sum.inr (pr.1.snd - pr.2.snd) : T ⊕ K) := rfl
         exact hsub.trans
           ((AnnotatedTuple.toComposite_coord
             (⟨pr.1.fst, pr.1.snd - pr.2.snd⟩ : AnnotatedTuple T K n) j).trans
-            (dif_neg hj)).symm
+            (dite_eq_right hj)).symm
   · exact Multiset.semijoin_keyed_proj_eq_filter A₁ S
       (fun u => (⟨u, V u⟩ : AnnotatedTuple T K n))
       (fun p => p.fst) (fun p => p.fst)
@@ -1625,13 +1625,13 @@ inductive AggQuery.RewritesTo :
           (κ' := ColKind.rewKindsOf (fun j' => (ps j').kind))
           (fun j => by
             by_cases hj : (j : ℕ) < m
-            · rw [dif_pos hj, ProjCol.castRew_kind,
+            · rw [dite_eq_left hj, ProjCol.castRew_kind,
                 show ColKind.rewKindsOf (fun j' => (ps j').kind) j
                   = (ps ⟨(j : ℕ), hj⟩).kind from
                   (congrArg (ColKind.rewKindsOf _)
                     (Fin.ext rfl : j = Fin.castAdd 1 ⟨(j : ℕ), hj⟩)).trans
                     (ColKind.rewKindsOf_castAdd _ _)]
-            · rw [dif_neg hj,
+            · rw [dite_eq_right hj,
                 show ColKind.rewKindsOf (fun j' => (ps j').kind) j
                   = ColKind.prov from
                   (congrArg (ColKind.rewKindsOf _)
@@ -1684,7 +1684,7 @@ theorem AggQuery.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
   | sel φ hφ h ih =>
     show Multiset.map _ (AggQuery.evaluate (AggQuery.Sel _ _) d) = _
     simp only [AggQuery.evaluate, AggQuery.evaluateRew]
-    rw [if_neg (by simp [hφ]), ← ih, Multiset.filter_map]
+    rw [ite_eq_right (by simp [hφ]), ← ih, Multiset.filter_map]
     exact congrArg _ (Multiset.filter_congr (fun r _ =>
       (φ.castRew_holdsRew r).symm))
   | @proj n m κ q q' ps h ih =>
@@ -1698,9 +1698,9 @@ theorem AggQuery.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     funext j
     rw [GenRow.toCompositeRow_coord]
     by_cases hj : (j : ℕ) < m
-    · rw [dif_pos hj, dif_pos hj]
+    · rw [dite_eq_left hj, dite_eq_left hj]
       exact ((ps ⟨(j : ℕ), hj⟩).castRew_evalRew r).symm
-    · rw [dif_neg hj, dif_neg hj]
+    · rw [dite_eq_right hj, dite_eq_right hj]
       refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
           : GenValue (T ⊕ K) K))
         (GenAnn.finalize_cash _ _ _ Multiset.inter_le_left)) ?_
