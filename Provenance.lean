@@ -26,6 +26,9 @@ import Provenance.AggQuery
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
 
+/- Window frames determined by values -/
+import Provenance.Frame
+
 /- Surface syntax for kind-indexed queries -/
 import Provenance.Notation
 
@@ -218,6 +221,18 @@ proven engine several general results reuse internally.
   defined on families is meaningful exactly when it respects `Congr`
   (`toRelation_congr`). It sits beside `AnnotatedRelation` rather than
   replacing it
+- `Provenance.Frame` – **window frames determined by values**:
+  `ValueFrame`, a frame given by a relation `ρ` between order values and a
+  predicate `s` deciding whether an occurrence is in its own frame. Its
+  point is `frame_inter`, the restriction property – the frame of an
+  occurrence among the present rows is its frame in the whole relation
+  intersected with them – which is what a positional frame lacks and what
+  lets a window be read world by world. `ContainsSelf` names the condition
+  `s o = ρ o o`, under which membership stops mentioning the occurrence
+  (`mem_of_containsSelf`) and the frame depends only on the tuple
+  (`frame_eq_of_key_eq`); the frames that fail it are exactly `EXCLUDE
+  CURRENT ROW` and `EXCLUDE TIES`, which are exactly the ones needing
+  occurrences told apart
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
