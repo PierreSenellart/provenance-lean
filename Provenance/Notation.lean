@@ -102,6 +102,9 @@ syntax:max "`(" term ")" : raQuery
 syntax:80 "π[" raProj,* "] " raQuery : raQuery
 syntax:80 "σ[" raPred "] " raQuery : raQuery
 syntax:80 "ε " raQuery : raQuery
+/-- Grouping. With no keys before the `;` this is aggregation *without*
+grouping, whose single row exists even over an empty input – the absence of
+a `GROUP BY` is what makes an aggregation scalar, here as in SQL. -/
 syntax:80 "γ[" raCol,* " ; " raAgg,* "] " raQuery : raQuery
 syntax:70 raQuery " × " raQuery : raQuery
 syntax:60 raQuery " ⊎ " raQuery : raQuery
@@ -245,7 +248,12 @@ macro_rules
       let fs ← as.getElems.mapM fun a => match a with
         | `(raAgg| $_:raTerm : $f:term) => pure f
         | _ => Lean.Macro.throwUnsupported
-      `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+      -- no keys is not a grouping with none: it is SQL's scalar
+      -- aggregation, whose single row survives an empty input
+      if ks.getElems.isEmpty then
+        `(AggQuery.GammaScalar ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+      else
+        `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
       `(AggQuery.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))
 

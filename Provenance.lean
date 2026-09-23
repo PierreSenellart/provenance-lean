@@ -188,7 +188,10 @@ proven engine several general results reuse internally.
   values, aggregate tokens, provenance values, ProvSQL's regular /
   `agg_token` / uuid data types – enforcing the scope conditions
   statically (`Gamma` over all-regular inputs only, no `Dedup`/`Diff`
-  over token columns, normal-form projections and selections), the
+  over token columns, normal-form projections and selections),
+  aggregation without grouping (`GammaScalar`, whose single row survives an
+  empty input: annotated `𝟙` with no group-existence factor, its tokens
+  read in the scalar convention), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
@@ -211,7 +214,9 @@ proven engine several general results reuse internally.
   computation on the kind vector whether `#i` is a value comparison or an
   aggregate atom, a projected term or a token carried through, so the syntax
   of a query does not change with the kinds of its columns, as it does not
-  in SQL. Grouping reads its keys
+  in SQL. A grouping with no keys, `γ[ ; t : f]`, is aggregation without
+  grouping, the absence of a `GROUP BY` being what makes an aggregation
+  scalar here as it is there. Grouping reads its keys
   and its aggregated columns as two lists, `γ[#i, … ; t : f, …]`, the
   aggregates being ordinary Lean terms so that the catalog stays open; the
   same term syntax is read into `TermG` under a selection and into the
