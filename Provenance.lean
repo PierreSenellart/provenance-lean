@@ -23,6 +23,9 @@ import Provenance.AggValueCongr
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
 
+/- Relations read as families of occurrences -/
+import Provenance.Occurrence
+
 /- Surface syntax for kind-indexed queries -/
 import Provenance.Notation
 
@@ -203,6 +206,18 @@ proven engine several general results reuse internally.
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`
+- `Provenance.Occurrence` – **relations as families of occurrences**:
+  `OccRel`, a relation read as an indexed family rather than a multiset, so
+  that two copies of a tuple are two occurrences. A multiset discards that
+  identity, which three things need: an operator that gives equal rows
+  different results (a window frame excluding the row it is computed for
+  reads its twin, not itself), a comparison reading two aggregate values
+  whose occurrence families overlap, and a statement quantifying over the
+  ways equal rows could be told apart. `toRelation` forgets the index and
+  `Congr` says when two indexings are the same family, so that an operator
+  defined on families is meaningful exactly when it respects `Congr`
+  (`toRelation_congr`). It sits beside `AnnotatedRelation` rather than
+  replacing it
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
