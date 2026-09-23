@@ -331,6 +331,38 @@ theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
 
 /-! ## The gate reads a transported token unchanged -/
 
+/-- The composite transport preserves the scalar reading too: it moves the
+values, not the worlds. -/
+theorem AggValue.predProvScalar_toComposite (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProvScalar op (Sum.inl c) = a.predProvScalar op c := by
+  have hlen : a.occs.length = a.toComposite.occs.length := by
+    simp [AggValue.toComposite]
+  unfold AggValue.predProvScalar
+  refine (Fintype.sum_equiv (finCongr hlen).finsetCongr
+    (fun W => Having.worldAnn a.anns W * Having.chi op (a.valOn W) c)
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply]
+  refine congrArg₂ (· * ·) ?_ ?_
+  · rw [AggValue.worldAnn_map_finCongr hlen]
+    refine congrArg (fun α : Fin a.occs.length → K =>
+      Having.worldAnn α W) (funext (fun i => ?_))
+    simp [AggValue.anns, AggValue.toComposite, List.getElem_map]
+  · rw [show a.toComposite.valOn (W.map (finCongr hlen).toEmbedding)
+        = Sum.inl (a.valOn W) from ?_]
+    · exact (Having.chi_inl op _ c).symm
+    · show a.agg.liftComposite
+          ((Having.seqOf (a.occs.map (fun o : T × K =>
+            ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K)))
+            (W.map (finCongr hlen).toEmbedding)).map Prod.fst)
+        = Sum.inl (a.agg ((Having.seqOf a.occs W).map Prod.fst))
+      rw [AggValue.seqOf_map _ a.occs hlen W, List.map_map,
+        show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
+            ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
+          = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
+        ← List.map_map]
+      exact SeqAggFunc.liftComposite_map_inl a.agg _
+
 /-- **The predicate provenance under the token transport**: comparing a
 transported token against an embedded value is the original comparison.
 The token transport preserves lengths and annotations, lifts the
@@ -370,3 +402,13 @@ theorem AggValue.predProv_toComposite (a : AggValue T K) (op : CompOp)
           ← List.map_map]
         exact SeqAggFunc.liftComposite_map_inl a.agg _
   · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
+
+theorem AggValue.predProvOf_toComposite (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProvOf op (Sum.inl c) = a.predProvOf op c := by
+  unfold AggValue.predProvOf
+  rw [show a.toComposite.scalar = a.scalar from rfl]
+  cases a.scalar
+  · simpa using AggValue.predProv_toComposite a op c
+  · simpa using AggValue.predProvScalar_toComposite a op c
+

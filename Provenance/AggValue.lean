@@ -164,6 +164,15 @@ def predProvOf [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     a.predProvOf op c = a.predProvScalar op c := by
   simp [predProvOf, h]
 
+/-- A token built from a group is grouped. -/
+@[simp] theorem scalar_ofGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
+    (U : List (AnnotatedTuple T K m)) : (ofGroup f t U).scalar = false := rfl
+
+/-- A token built from a group in the scalar convention is scalar. -/
+@[simp] theorem scalar_ofScalarGroup [ValueType T] (f : SeqAggFunc T)
+    (t : Term T m) (U : List (AnnotatedTuple T K m)) :
+    (ofScalarGroup f t U).scalar = true := rfl
+
 /-! ## Reindexing bridges
 
 The occurrence payload of `ofGroup` is a `List.map` image of the group

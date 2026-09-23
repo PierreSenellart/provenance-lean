@@ -251,7 +251,7 @@ def predsem (φ : GenPred T κ) (neg : Bool)
   | aggCmp k _ op t =>
       match u k with
       | Sum.inl _ => 0
-      | Sum.inr a => a.predProv (if neg then op.negate else op) (t.eval u)
+      | Sum.inr a => a.predProvOf (if neg then op.negate else op) (t.eval u)
   | and φ ψ =>
       if neg then φ.predsem neg u + ψ.predsem neg u
       else φ.predsem neg u * ψ.predsem neg u
@@ -353,6 +353,18 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
       (fs : Tuple (SeqAggFunc T) n₂) → AggQuery T m (ColKind.allReg m) →
       AggQuery T (n₁ + n₂)
         (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg))
+  /-- Aggregation without grouping: one output row whatever the input,
+  its aggregates reading the whole of it.
+
+  It is not `Gamma` with no keys. SQL forms a single group here that exists
+  even over no row, so the row is annotated `𝟙` and carries no
+  group-existence factor, and its tokens have the empty world among their
+  worlds (`AggValue.ofScalarGroup`): an aggregate over an empty input has a
+  value, and a comparison against it has to be given one. -/
+  | GammaScalar : {m n₂ : ℕ} →
+      (ts : Tuple (Term T m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
+      AggQuery T m (ColKind.allReg m) →
+      AggQuery T n₂ (fun _ => ColKind.agg)
   /-- Provenance aggregation: group by the key columns `is` (none of
   which may be a token column) and `⊕`-sum the term `t` over each group
   into a single `prov` output column – the abstract counterpart of
@@ -493,10 +505,20 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
             match r.fst k with
             | Sum.inl _ => none
             | Sum.inr a => some (a.occs.map Prod.snd))
+        -- and only when none of them is scalar: a scalar token holds in the
+        -- empty world, so a comparison against it entails no group's
+        -- existence and must not remove any group's factor, whatever
+        -- occurrences it happens to carry
+        let comparedScalar : Multiset (List K) :=
+          φ.comparedCols.val.filterMap (fun k =>
+            match r.fst k with
+            | Sum.inl _ => none
+            | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
         ⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst,
           if φ.entailsExistence false then
             r.snd.pending.filter
-              (fun l => ¬(compared ≠ 0 ∧ ∀ l' ∈ compared, l' = l))
+              (fun l => ¬(comparedScalar = 0 ∧ compared ≠ 0
+                ∧ ∀ l' ∈ compared, l' = l))
           else r.snd.pending⟩⟩)
     else
       r.filter (fun r => φ.holds r.fst)
@@ -525,6 +547,12 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
       ⟨Fin.append (fun k => Sum.inl (g k))
         (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U)),
        ⟨1, {U.map Prod.snd}⟩⟩)
+  | _, _, @GammaScalar _ m n₂ ts fs q, d =>
+    let r : AnnotatedRelation T K m := (q.evaluate d).map GenRow.toAnnotated
+    -- one row whatever the input; the whole of it is the occurrence sequence
+    let U := Having.havingGroup (fun k : Fin 0 => k.elim0) r (fun k : Fin 0 => k.elim0)
+    {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j) U), ⟨1, 0⟩⟩
+      : GenRow T K n₂)}
   | _, _, Retag _ q, d => q.evaluate d
   | _, _, @ProvSum _ _m n₁ _κ is _his t q, d =>
     let r : AnnotatedRelation T K _ := (q.evaluate d).map GenRow.toAnnotated
@@ -638,6 +666,11 @@ def AggQuery.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g
       (fun j => (fs j) ((Relation.groupSeq is r g).map (ts j).eval)))
+  | _, _, @GammaScalar _ _m n₂ ts fs q, d =>
+    let r := q.evaluatePlain d
+    (Multiset.ofList [(fun j => (fs j)
+      ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
+        (fun k : Fin 0 => k.elim0)).map (ts j).eval) : Tuple T n₂)] : Relation T n₂)
   | _, _, Retag _ q, d => q.evaluatePlain d
   | _, _, @ProvSum _ _m n₁ _κ is _his t q, d =>
     let r := q.evaluatePlain d
@@ -673,6 +706,7 @@ def AggQuery.stripAgg : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, Dedup q => Dedup q.stripAgg
   | _, _, Diff q₁ _ => q₁.stripAgg
   | _, _, Gamma is ts fs q => Gamma is ts fs q.stripAgg
+  | _, _, GammaScalar ts fs q => GammaScalar ts fs q.stripAgg
   | _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
   | _, _, Retag h q => Retag h q.stripAgg
   | _, _, GammaTok is his ts fs a q => GammaTok is his ts fs a q.stripAgg
@@ -692,6 +726,7 @@ def AggQuery.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .Dedup q => q.noProvSum
   | _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, .Gamma _ _ _ q => q.noProvSum
+  | _, _, .GammaScalar _ _ q => q.noProvSum
   | _, _, .ProvSum _ _ _ _ => False
   | _, _, .Retag _ q => q.noProvSum
   | _, _, .GammaTok _ _ _ _ _ _ => False
@@ -818,6 +853,13 @@ theorem AggQuery.evaluate_conform :
   | Retag h q ih =>
     intro d r hr k
     exact (ih d r hr k).trans (congrArg id (h k))
+  | GammaScalar ts fs q ih =>
+    -- one row, every column a token
+    intro d r hr k
+    simp only [AggQuery.evaluate] at hr
+    rw [Multiset.mem_singleton] at hr
+    subst hr
+    rfl
   | GammaTok is his ts fs a q ih =>
     intro d r hr k
     simp only [AggQuery.evaluate] at hr

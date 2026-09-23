@@ -738,8 +738,16 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
     · refine Multiset.filter_eq_nil.mpr fun a ha hneg => hneg ?_
       rw [Multiset.mem_singleton] at ha
       subst ha
-      refine ⟨compared_ne_zero (L := (havingGroup keyIdx A kv.fst).map Prod.snd) ?_ ψ,
-        compared_all_eq ?_ ψ⟩ <;>
+      refine ⟨?_, compared_ne_zero
+          (L := (havingGroup keyIdx A kv.fst).map Prod.snd) ?_ ψ,
+        compared_all_eq ?_ ψ⟩
+      · -- every compared token is grouped, so nothing blocks the supersede
+        refine Multiset.eq_zero_of_forall_notMem (fun l hl => ?_)
+        obtain ⟨k, -, hk⟩ := (Multiset.mem_filterMap _ _).mp hl
+        revert hk
+        refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
+          simp [Fin.append_left, Fin.append_right]
+      all_goals
       · intro l
         simp only [Fin.append_right, AggValue.annList_ofGroup]
     · rw [one_mul]

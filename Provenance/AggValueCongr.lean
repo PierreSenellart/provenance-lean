@@ -457,4 +457,47 @@ theorem annSum_congr {a b : AggValue T K}
     (a.occs.map Prod.snd).sum = (b.occs.map Prod.snd).sum :=
   (h.perm.map Prod.snd).sum_eq
 
+omit [ValueType T] in
+/-- The empty world's annotation depends only on the sum of the occurrence
+annotations, which a tie-block permutation preserves. -/
+theorem worldAnn_empty_congr {a b : AggValue T K}
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
+    Having.worldAnn a.anns ∅ = Having.worldAnn b.anns ∅ := by
+  unfold Having.worldAnn
+  simp only [Finset.prod_empty, Finset.compl_empty]
+  -- the sum over all positions is the sum of the annotation list
+  have hsum : ∀ x : AggValue T K, ∑ i, x.anns i = (x.occs.map Prod.snd).sum := by
+    intro x
+    rw [← List.sum_ofFn]
+    congr 1
+    show List.ofFn (fun i => (x.occs.get i).snd) = x.occs.map Prod.snd
+    rw [← List.ofFn_getElem (xs := x.occs.map Prod.snd)]
+    simp
+  rw [hsum a, hsum b, annSum_congr h]
+
+/-- `predProvScalar` is invariant under a tie-block permutation, as
+`predProv` is: the empty world it adds reads the aggregate of the empty
+sequence and the sum of all the annotations, neither of which the
+permutation moves. -/
+theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
+    (op : CompOp) (c : T) :
+    a.predProvScalar op c = b.predProvScalar op c := by
+  rw [AggValue.predProvScalar_eq_predProv_add,
+    AggValue.predProvScalar_eq_predProv_add, predProv_congr hagg h,
+    worldAnn_empty_congr h, hagg]
+
+/-- A token is read in its own convention, invariantly under a tie-block
+permutation of its payload. -/
+theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
+    (op : CompOp) (c : T) :
+    a.predProvOf op c = b.predProvOf op c := by
+  unfold AggValue.predProvOf
+  rw [hsc]
+  cases b.scalar
+  · simpa using predProv_congr hagg h op c
+  · simpa using predProvScalar_congr hagg h op c
+
 end AggValue

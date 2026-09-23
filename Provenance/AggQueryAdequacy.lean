@@ -298,6 +298,33 @@ theorem AggQuery.evaluateAnnotated_toPlain :
     apply Multiset.map_congr rfl
     intro r _
     rfl
+  | @GammaScalar m n₂ ts fs q ih =>
+    -- one row on each side; the data part is the aggregate over the whole
+    -- input, which is what the token collapses to
+    intro d
+    rw [hplain]
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    rw [← ih d, hplain]
+    have hview : AnnotatedRelation.toPlain
+        ((q.evaluate d).map GenRow.toAnnotated)
+        = (q.evaluate d).map (fun r => GenRow.plainTuple r.fst) := by
+      unfold AnnotatedRelation.toPlain
+      rw [Multiset.map_map]
+      rfl
+    simp only [← hview, Multiset.map_singleton]
+    -- the token collapses to the aggregate over the plain group sequence
+    have hg := havingGroup_map_fst (fun k : Fin 0 => k.elim0)
+      ((q.evaluate d).map GenRow.toAnnotated) (fun k : Fin 0 => k.elim0)
+    show (Multiset.ofList [_] : Relation T n₂) = Multiset.ofList [_]
+    refine congrArg (fun u => (Multiset.ofList [u] : Relation T n₂)) ?_
+    funext j
+    show (AggValue.ofScalarGroup (fs j) (ts j) _).collapse = _
+    unfold AggValue.collapse AggValue.ofScalarGroup AggValue.ofGroup
+    simp only [List.map_map]
+    refine congrArg (fs j) ?_
+    -- projecting the group and then evaluating is evaluating the projection
+    rw [show (Prod.fst ∘ fun p : AnnotatedTuple T K m => ((ts j).eval p.fst, p.snd))
+          = ((ts j).eval ∘ Prod.fst) from rfl, ← List.map_map, hg]
   | @Gamma m n₁ n₂ is ts fs q ih =>
     intro d
     rw [hplain]

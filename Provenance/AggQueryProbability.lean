@@ -84,6 +84,51 @@ theorem predProv_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
         (chi_eval_iff op _ c v).mpr hP⟩
     exact hgoal
 
+/-- The scalar counterpart: with the empty world among a token's worlds,
+the comparison holds under a valuation exactly when it holds of the
+aggregate over the realized occurrences – whether or not any is realized.
+The hypothesis of `predProv_eval_iff` is what the scalar convention drops. -/
+theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
+    (c : T) (v : X → Bool) :
+    (a.predProvScalar op c) v = true
+      ↔ op.eval (a.specialize (fun α => α v)) c := by
+  rw [AggValue.specialize_eval]
+  unfold AggValue.predProvScalar
+  rw [sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨W, -, hWv⟩
+    have hsplit : ((Having.worldAnn a.anns W) v
+        && (Having.chi (K := BoolFunc X) op (a.valOn W) c) v) = true := hWv
+    rw [Bool.and_eq_true] at hsplit
+    have hWeq : W = a.realized v :=
+      (worldAnn_eval_iff a.anns W v).mp hsplit.1
+    subst hWeq
+    exact (chi_eval_iff op _ c v).mp hsplit.2
+  · intro hP
+    refine ⟨a.realized v, Finset.mem_univ _, ?_⟩
+    have hgoal : ((Having.worldAnn a.anns (a.realized v)) v
+        && (Having.chi (K := BoolFunc X) op
+              (a.valOn (a.realized v)) c) v) = true := by
+      rw [Bool.and_eq_true]
+      exact ⟨(worldAnn_eval_iff a.anns _ v).mpr rfl,
+        (chi_eval_iff op _ c v).mpr hP⟩
+    exact hgoal
+
+/-- **The token PQE bridge, in the token's own convention.** A grouped
+token needs a realized occurrence; a scalar one does not, the empty world
+being one of its worlds. -/
+theorem predProvOf_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
+    (c : T) (v : X → Bool) :
+    (a.predProvOf op c) v = true
+      ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
+        ∧ op.eval (a.specialize (fun α => α v)) c := by
+  unfold AggValue.predProvOf
+  cases hs : a.scalar
+  · simpa [hs] using predProv_eval_iff a op c v
+  · simp only [if_true, hs]
+    rw [predProvScalar_eval_iff]
+    simp
+
 end AggValue
 
 /-- The specialized reading of a lifted value: regular values are
@@ -278,6 +323,17 @@ def GenPred.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
     | Sum.inl _ => none
     | Sum.inr a => some (a.occs.map Prod.snd))
 
+/-- The compared tokens read in the scalar convention. A comparison against
+one of these entails no group's existence – it holds in the empty world – so
+its presence blocks the supersede whatever occurrences it carries. -/
+def GenPred.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (u : Tuple (GenValue T K') n) :
+    Multiset (List K') :=
+  φ.comparedCols.val.filterMap (fun k =>
+    match u k with
+    | Sum.inl _ => none
+    | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
+
 /-- The pending factors after a σ with aggregate atoms (the evaluator's
 update, definitionally). -/
 def GenPred.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
@@ -285,7 +341,8 @@ def GenPred.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
     (u : Tuple (GenValue T K') n) (p : Multiset (List K')) :
     Multiset (List K') :=
   if φ.entailsExistence false then
-    p.filter (fun l => ¬(φ.selCompared u ≠ 0 ∧ ∀ l' ∈ φ.selCompared u, l' = l))
+    p.filter (fun l => ¬(φ.selComparedScalar u = 0 ∧ φ.selCompared u ≠ 0
+      ∧ ∀ l' ∈ φ.selCompared u, l' = l))
   else p
 
 /-- **Predicate provenance evaluation, under existence guards.** On a
@@ -297,7 +354,7 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
     (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-      u k = Sum.inr a → (a.realized v).Nonempty) :
+      u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty) :
     ((φ.predsem neg u) v = true)
       ↔ (if neg = true then ¬ φ.holdsPlain (GenRow.specializeTuple v u)
           else φ.holdsPlain (GenRow.specializeTuple v u)) := by
@@ -314,7 +371,7 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     obtain ⟨a, ha⟩ := GenValue.eq_inr_of_kindOf_agg
       ((hconf k).trans (by rw [h]; rfl))
     simp only [GenPred.predsem, ha]
-    rw [AggValue.predProv_eval_iff, GenPred.holdsPlain]
+    rw [AggValue.predProvOf_eval_iff, GenPred.holdsPlain]
     have hne := hg k (Finset.mem_singleton_self k) a ha
     have hspec : GenRow.specializeTuple v u k
         = a.specialize (fun α => α v) := by
@@ -327,10 +384,10 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     | true => simp [hne, CompOp.negate_eval]
   | and φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → (a.realized v).Nonempty :=
+        u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
       fun k hk => hg k (Finset.mem_union_left _ hk)
     have hgψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → (a.realized v).Nonempty :=
+        u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -352,10 +409,10 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       tauto
   | or φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → (a.realized v).Nonempty :=
+        u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
       fun k hk => hg k (Finset.mem_union_left _ hk)
     have hgψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → (a.realized v).Nonempty :=
+        u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -387,7 +444,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T (BoolFunc X)) n) (v : X → Bool)
     (ℓ₀ : List (BoolFunc X))
     (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-      u k = Sum.inr a → a.occs.map Prod.snd = ℓ₀)
+      u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀)
     (hent : φ.entailsExistence neg = true)
     (hp : (φ.predsem neg u) v = true) : annGuard ℓ₀ v := by
   induction φ generalizing neg with
@@ -399,15 +456,17 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       exact absurd hp Bool.false_ne_true
     | inr a =>
       simp only [GenPred.predsem, hu] at hp
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
+      rw [AggValue.predProvOf_of_grouped hsc] at hp
       have hne := (AggValue.predProv_eval_iff a _ _ v).mp hp |>.1
-      rw [← huni k (Finset.mem_singleton_self k) a hu]
+      rw [← heq]
       exact (AggValue.annGuard_iff_realized a v).mpr hne
   | and φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → a.occs.map Prod.snd = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → a.occs.map Prod.snd = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -434,10 +493,10 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       exacts [ihφ true huφ hent'.1 h, ihψ true huψ hent'.2 h]
   | or φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → a.occs.map Prod.snd = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-        u k = Sum.inr a → a.occs.map Prod.snd = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -512,11 +571,24 @@ theorem GenPred.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
   unfold GenPred.selPending at hupd
   by_cases hE : φ.entailsExistence false = true
   · rw [ite_eq_left hE] at hupd
-    by_cases hcond : (φ.selCompared u ≠ 0 ∧ ∀ l' ∈ φ.selCompared u, l' = l)
+    by_cases hcond : (φ.selComparedScalar u = 0 ∧ φ.selCompared u ≠ 0
+        ∧ ∀ l' ∈ φ.selCompared u, l' = l)
     · refine GenPred.entails_guard φ false u v l ?_ hE hbp'.2
       intro k hk a ha
-      refine hcond.2 _ ((Multiset.mem_filterMap _ _).mpr ⟨k, Finset.mem_val.mpr hk, ?_⟩)
-      rw [ha]
+      refine ⟨?_, ?_⟩
+      · -- no compared token is scalar, so this one is grouped
+        by_contra hsc
+        rw [Bool.not_eq_false] at hsc
+        have hmem : (a.occs.map Prod.snd) ∈ φ.selComparedScalar u :=
+          (Multiset.mem_filterMap _ _).mpr
+            ⟨k, Finset.mem_val.mpr hk, by simp [ha, hsc]⟩
+        rw [hcond.1] at hmem
+        exact absurd hmem (Multiset.notMem_zero _)
+      · refine hcond.2.2 _ ?_
+        have hmem : (a.occs.map Prod.snd) ∈ φ.selCompared u :=
+          (Multiset.mem_filterMap _ _).mpr
+            ⟨k, Finset.mem_val.mpr hk, by simp [ha]⟩
+        exact hmem
     · exact hupd l (Multiset.mem_filter.mpr ⟨hl, hcond⟩)
   · rw [ite_eq_right hE] at hupd
     exact hupd l hl
@@ -530,7 +602,7 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
     (hguard : (GenAnn.mk b p).finalize v = true →
       ∀ (k : Fin n) (a : AggValue T (BoolFunc X)), u k = Sum.inr a →
-        (a.realized v).Nonempty) :
+        a.scalar = true ∨ (a.realized v).Nonempty) :
     ((GenAnn.mk (b * φ.predsem false u) (φ.selPending u p)).finalize v
         = true)
       ↔ (GenAnn.mk b p).finalize v = true
@@ -568,16 +640,21 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
 variable [HasAltLinearOrder (BoolFunc X)]
 
 /-- **Guardedness of the general evaluator**: on any row it produces,
-whenever the finalized annotation is realized, every token's group is
-realized non-empty – the group-existence guard of each token is carried
-either by a pending factor or by a predicate provenance in the concrete
-part. -/
+whenever the finalized annotation is realized, every *grouped* token's group
+is realized non-empty – the group-existence guard of each such token is
+carried either by a pending factor or by a predicate provenance in the
+concrete part.
+
+A scalar token is exempt, and has to be: its row exists on its own, and the
+empty world is one of its worlds, so there is no occurrence to realize. This
+is the case split the possible-world reading of an aggregate comparison
+makes anyway. -/
 theorem AggQuery.evaluate_guarded :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (d : AnnotatedDatabase T (BoolFunc X)) (r : GenRow T (BoolFunc X) n),
       r ∈ q.evaluate d → ∀ v : X → Bool, r.snd.finalize v = true →
       ∀ (k : Fin n) (a : AggValue T (BoolFunc X)), r.fst k = Sum.inr a →
-        (a.realized v).Nonempty := by
+        a.scalar = true ∨ (a.realized v).Nonempty := by
   intro n κ q
   induction q with
   | Rel n s =>
@@ -653,6 +730,15 @@ theorem AggQuery.evaluate_guarded :
     simp only [AggQuery.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
+  | @GammaScalar m n₂ ts fs q ih =>
+    -- every token of a scalar aggregation is scalar, so the guard is vacuous
+    intro d r hr v _ k a ha
+    refine Or.inl ?_
+    simp only [AggQuery.evaluate] at hr
+    rw [Multiset.mem_singleton] at hr
+    subst hr
+    rw [← Sum.inr.inj ha]
+    rfl
   | Gamma is ts fs q ih =>
     intro d r hr v hfin k a ha
     simp only [AggQuery.evaluate] at hr
@@ -681,7 +767,7 @@ theorem AggQuery.evaluate_guarded :
               ((q.evaluate d).map GenRow.toAnnotated) kv.fst))) j).symm.trans
           ha
       rw [← Sum.inr.inj haj]
-      refine (AggValue.annGuard_iff_realized _ v).mp ?_
+      refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
       rw [AggValue.annList_ofGroup]
       exact hG
   | @ProvSum m n₁ κ' is his t q ih =>
@@ -713,7 +799,7 @@ theorem AggQuery.evaluate_guarded :
         exact ColKind.noConfusion hconf
       · simp only [Fin.append_left, Fin.append_right] at ha
         rw [← Sum.inr.inj ha]
-        refine (AggValue.annGuard_iff_realized _ v).mp ?_
+        refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
         rw [AggValue.annList_ofGroup]
         exact hG
     · rw [Fin.append_right] at hconf
@@ -1156,6 +1242,31 @@ theorem AggQuery.genRandomWorld_evaluate :
         ((q₁.evaluate d).map GenRow.toAnnotated)
         ((q₂.evaluate d).map GenRow.toAnnotated) v) ?_)
     rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 d v, ih₂ hq.2 d v]
+  | @GammaScalar m n₂ ts fs q ih =>
+    -- one row on each side, kept in every world, its tokens specializing to
+    -- the aggregates over the realized rows
+    intro hq d v
+    simp only [AggQuery.evaluate, AggQuery.evaluatePlain]
+    rw [← ih hq d v, ← genRandomWorld_allReg q d v]
+    unfold genRandomWorld
+    rw [show Multiset.filter
+          (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
+          {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j)
+              (Having.havingGroup (fun i : Fin 0 => i.elim0)
+                ((q.evaluate d).map GenRow.toAnnotated)
+                (fun i : Fin 0 => i.elim0))), ⟨1, 0⟩⟩
+            : GenRow T (BoolFunc X) n₂)}
+        = {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j)
+              (Having.havingGroup (fun i : Fin 0 => i.elim0)
+                ((q.evaluate d).map GenRow.toAnnotated)
+                (fun i : Fin 0 => i.elim0))), ⟨1, 0⟩⟩
+            : GenRow T (BoolFunc X) n₂)}
+        from Multiset.filter_eq_self.mpr (fun r hr => by
+          rw [Multiset.mem_singleton] at hr; subst hr; rfl)]
+    rw [Multiset.map_singleton]
+    exact congrArg (fun u => (Multiset.ofList [u] : Multiset (Tuple T n₂)))
+      (funext fun j => specialize_ofGroup _
+        ((q.evaluate d).map GenRow.toAnnotated) _ (fs j) (ts j) v)
   | @Gamma m n₁ n₂ is ts fs q ih =>
     intro hq d v
     simp only [AggQuery.evaluate, AggQuery.evaluatePlain]

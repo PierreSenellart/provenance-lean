@@ -403,17 +403,17 @@ theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
   | .aggCmp k h op t, neg, r => by
     show (match r.toCompositeRow (Fin.castAdd 1 k) with
       | Sum.inl _ => (Sum.inr 0 : T ⊕ K)
-      | Sum.inr a => Sum.inr (a.predProv (if neg then op.negate else op)
+      | Sum.inr a => Sum.inr (a.predProvOf (if neg then op.negate else op)
           (t.castRew.evalRew r.toCompositeRow))) = _
     rw [GenRow.toCompositeRow_castAdd, t.castRew_evalRew r]
     show _ = Sum.inr (match r.fst k with
       | Sum.inl _ => 0
-      | Sum.inr a => a.predProv (if neg then op.negate else op) (t.eval r.fst))
+      | Sum.inr a => a.predProvOf (if neg then op.negate else op) (t.eval r.fst))
     cases r.fst k with
     | inl v => rfl
     | inr a =>
-      show (Sum.inr (AggValue.toComposite a |>.predProv _ _) : T ⊕ K) = _
-      rw [AggValue.predProv_toComposite]
+      show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
+      rw [AggValue.predProvOf_toComposite]
   | .and φ ψ, neg, r => by
     show TermG.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
@@ -526,11 +526,13 @@ are non-empty and all equal to the single pending group's list, the
 selection's filter removes that group factor, so the row finalizes to its
 concrete part. -/
 theorem GenAnn.finalize_supersede (b : K) (l₀ : List K)
-    (C : Multiset (List K)) (hne : C ≠ 0) (hall : ∀ l' ∈ C, l' = l₀) :
+    (C Cs : Multiset (List K)) (hsc : Cs = 0) (hne : C ≠ 0)
+    (hall : ∀ l' ∈ C, l' = l₀) :
     GenAnn.finalize (⟨b, Multiset.filter
-        (fun l => ¬(C ≠ 0 ∧ ∀ l' ∈ C, l' = l))
+        (fun l => ¬(Cs = 0 ∧ C ≠ 0 ∧ ∀ l' ∈ C, l' = l))
         ({l₀} : Multiset (List K))⟩ : GenAnn K) = b := by
-  rw [Multiset.filter_singleton, ite_eq_right (not_not.mpr ⟨hne, hall⟩)]
+  rw [Multiset.filter_singleton,
+    ite_eq_right (not_not.mpr ⟨hsc, hne, hall⟩)]
   simp [GenAnn.finalize]
 
 /-! ## The general `HAVING` site -/
@@ -648,7 +650,13 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
         Multiset.prod_singleton, one_mul]
     rw [hE, ite_eq_left rfl]
     refine Eq.trans (congrArg (fun v => (Sum.inl (Sum.inr v)
-      : GenValue (T ⊕ K) K)) (GenAnn.finalize_supersede _ _ _ ?_ ?_)) ?_
+      : GenValue (T ⊕ K) K)) (GenAnn.finalize_supersede _ _ _ _ ?_ ?_ ?_)) ?_
+    · -- every compared token of a grouping is grouped
+      refine Multiset.eq_zero_of_forall_notMem (fun l hl => ?_)
+      obtain ⟨k, -, hk⟩ := (Multiset.mem_filterMap _ _).mp hl
+      revert hk
+      refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
+        simp [Fin.append_left, Fin.append_right]
     · intro h0
       obtain ⟨k, hk⟩ := GenPred.hasAggAtom_comparedCols_nonempty φ hφ
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs

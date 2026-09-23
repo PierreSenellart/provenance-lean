@@ -68,6 +68,7 @@ def AggQuery.classical : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .Dedup q => q.classical
   | _, _, .Diff q₁ q₂ => q₁.classical ∧ q₂.classical
   | _, _, .Gamma _ _ _ _ => False
+  | _, _, .GammaScalar _ _ _ => False
   | _, _, .ProvSum _ _ _ _ => False
   | _, _, .Retag _ _ => False
   | _, _, .GammaTok _ _ _ _ _ _ => False
@@ -495,6 +496,7 @@ def AggQuery.strip :
   | _, _, .Dedup q, hq => .Dedup (q.strip hq)
   | _, _, .Diff q₁ q₂, hq => .Diff (q₁.strip hq.1) (q₂.strip hq.2)
   | _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
@@ -512,6 +514,7 @@ theorem AggQuery.strip_source :
   | _, _, .Dedup q, hq => strip_source q hq
   | _, _, .Diff q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
   | _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
@@ -622,6 +625,7 @@ theorem AggQuery.strip_rel :
     obtain ⟨u, α⟩ := p
     exact ⟨rfl, GenAnn.finalize_of_pending_zero _, rfl⟩
   | _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
@@ -796,7 +800,7 @@ theorem AggQuery.rewriting_plain :
   | n, _, .Rel _ s, _, D => by
     show (AggQuery.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
-    unfold AggQuery.evaluatePlain Query.evaluate
+    simp only [AggQuery.evaluatePlain, Query.evaluate]
     cases D.find (n + 1) s <;> rfl
   | _, _, @AggQuery.Proj _ n m κ ps q, hq, D => by
     unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
@@ -993,6 +997,7 @@ theorem AggQuery.rewriting_plain :
               simp only [Fin.val_natAdd, Fin.val_last, Fin.val_zero]
               omega)))
   | _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq

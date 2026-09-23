@@ -24,7 +24,7 @@ tokens.
   rewritten plans, the provenance column of the subquery – and writes the
   group-existence guard `δ(⊕ occs)` into its `prov` output column.
 * `TermG.cmpAgg` is the cmp gate: `TermG.evalRew` interprets it by
-  `AggValue.predProv`, the primitive the rewriting's correctness is
+  `AggValue.predProvOf`, the primitive the rewriting's correctness is
   stated against, faithfully to ProvSQL's own gate-relative correctness.
 * `TermG.chiGate` is the indicator gate a `HAVING` predicate needs for
   its *regular* atoms: `TermG.evalRew` interprets it by `Having.chi`,
@@ -60,7 +60,7 @@ def TermG.evalRew {n : ℕ} {κ : Fin n → ColKind} :
   | .cmpAgg k _ op c, u =>
     match u k with
     | Sum.inl _ => Sum.inr 0
-    | Sum.inr a => Sum.inr (a.predProv op (c.evalRew u))
+    | Sum.inr a => Sum.inr (a.predProvOf op (c.evalRew u))
   | .chiGate op t₁ t₂, u =>
     Sum.inr (Having.chi op (t₁.evalRew u) (t₂.evalRew u))
   | .add t₁ t₂, u => t₁.evalRew u + t₂.evalRew u
@@ -108,7 +108,7 @@ instance GenPred.instDecidableHoldsRew {n : ℕ} {κ : Fin n → ColKind}
 /-- **The rewritten world's evaluator**: plain multiset semantics over
 token-bearing rows. Value-kinded operators act through the `inl`
 embedding; `GammaTok` builds tokens and the group guard; the gates
-inside terms are interpreted by `predProv` and `Having.chi`. -/
+inside terms are interpreted by `predProvOf` and `Having.chi`. -/
 def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery (T ⊕ K) n κ → Database (T ⊕ K) →
     Multiset (Tuple (GenValue (T ⊕ K) K) n)
@@ -142,6 +142,13 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
       (fun u => (fun k => u (is k) : Tuple (T ⊕ K) n₁))).dedup
     keys.map (fun g => (fun k => Sum.inl (Fin.append g
       (fun j => (fs j) ((Relation.groupSeq is r g).map (ts j).eval)) k)))
+  | _, _, @AggQuery.GammaScalar _ m n₂ ts fs q, D =>
+    let r : Relation (T ⊕ K) m := (q.evaluateRew D).map
+      (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
+    (Multiset.ofList [(fun j => Sum.inl ((fs j)
+      ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
+        (fun k : Fin 0 => k.elim0)).map (ts j).eval))
+      : Tuple (GenValue (T ⊕ K) K) n₂)])
   | _, _, .Retag _ q, D => q.evaluateRew D
   | _, _, @AggQuery.ProvSum _ _m n₁ _κ is _his t q, D =>
     let r := q.evaluateRew D
@@ -186,6 +193,7 @@ def AggQuery.noGammaTok {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .Dedup q => q.noGammaTok
   | _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
   | _, _, .Gamma _ _ _ q => q.noGammaTok
+  | _, _, .GammaScalar _ _ q => q.noGammaTok
   | _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, .Retag _ q => q.noGammaTok
   | _, _, .GammaTok _ _ _ _ _ _ => False
@@ -201,6 +209,7 @@ def AggQuery.chiFree {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .Dedup q => q.chiFree
   | _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
   | _, _, .Gamma _ _ _ q => q.chiFree
+  | _, _, .GammaScalar _ _ q => q.chiFree
   | _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, .Retag _ q => q.chiFree
   | _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
@@ -362,6 +371,11 @@ theorem AggQuery.evaluateRew_plain :
       @Multiset.dedup _ i (Multiset.map
         (fun u (k : Fin n₁) => u (is k)) (q.evaluatePlain D)))
       (Subsingleton.elim _ _)
+  | @GammaScalar m n₂ ts fs q ih =>
+    intro hq hc D
+    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    rw [ih hq hc D, map_plainTuple_map_inl]
+    rfl
   | Retag h q ih =>
     intro hq hc D
     exact ih hq hc D
@@ -475,6 +489,7 @@ theorem AggQuery.rewriting_noGammaTok :
       ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩,
      ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩
   | _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
@@ -533,6 +548,7 @@ theorem AggQuery.rewriting_chiFree :
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨trivial, rewriting_chiFree q₂ hq.2⟩⟩⟩⟩⟩
   | _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
