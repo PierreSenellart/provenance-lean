@@ -63,27 +63,27 @@ def ContainsSelf (w : ValueFrame T p) : Prop := ∀ o, w.s o = w.ρ o o
 /-- Whether occurrence `j` is in the frame of occurrence `i`: same partition,
 and then `s` on itself or `ρ` on the order values. -/
 def mem (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (r : OccRel T K n) (i j : Fin r.size) : Bool :=
+    (r : OccFam (AnnotatedTuple T K n)) (i j : Fin r.size) : Bool :=
   decide (Tuple.key P (r.row j).fst = Tuple.key P (r.row i).fst)
     && (if j = i then w.s (Tuple.key O (r.row i).fst)
         else w.ρ (Tuple.key O (r.row j).fst) (Tuple.key O (r.row i).fst))
 
 /-- The frame of an occurrence, among a set of present occurrences. -/
 def frameIn (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (r : OccRel T K n) (W : Finset (Fin r.size)) (i : Fin r.size) :
+    (r : OccFam (AnnotatedTuple T K n)) (W : Finset (Fin r.size)) (i : Fin r.size) :
     Finset (Fin r.size) :=
   W.filter (fun j => mem P O w r i j)
 
 /-- The frame of an occurrence in the whole relation. -/
 def frame (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (r : OccRel T K n) (i : Fin r.size) : Finset (Fin r.size) :=
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) : Finset (Fin r.size) :=
   frameIn P O w r Finset.univ i
 
 /-- Where the frame contains its current row exactly when it contains its
 peers, membership stops mentioning the occurrence at all: the `if` collapses,
 because an occurrence and itself have the same order value. -/
 theorem mem_of_containsSelf {P : Tuple (Fin n) m} {O : Tuple (Fin n) p}
-    {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccRel T K n)
+    {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccFam (AnnotatedTuple T K n))
     (i j : Fin r.size) :
     mem P O w r i j
       = (decide (Tuple.key P (r.row j).fst = Tuple.key P (r.row i).fst)
@@ -103,7 +103,7 @@ The frames that fail `ContainsSelf` are exactly `EXCLUDE CURRENT ROW` and
 equal rows is then in the other's frame and not in its own, so the two get
 different aggregates from the same relation. -/
 theorem frame_eq_of_key_eq {P : Tuple (Fin n) m} {O : Tuple (Fin n) p}
-    {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccRel T K n)
+    {w : ValueFrame T p} (h : w.ContainsSelf) (r : OccFam (AnnotatedTuple T K n))
     {i i' : Fin r.size} (hP : Tuple.key P (r.row i).fst
         = Tuple.key P (r.row i').fst)
     (hO : Tuple.key O (r.row i).fst = Tuple.key O (r.row i').fst) :
@@ -120,7 +120,7 @@ what a positional frame lacks: whether an occurrence belongs to another's
 frame depends on the two order values and on whether they are the same
 occurrence, on nothing else that the absent rows could change. -/
 theorem frame_inter (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (r : OccRel T K n) (W : Finset (Fin r.size))
+    (w : ValueFrame T p) (r : OccFam (AnnotatedTuple T K n)) (W : Finset (Fin r.size))
     (i : Fin r.size) :
     frameIn P O w r W i = frame P O w r i ∩ W := by
   unfold frameIn frame

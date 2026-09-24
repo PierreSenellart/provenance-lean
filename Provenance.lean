@@ -210,8 +210,10 @@ proven engine several general results reuse internally.
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`
 - `Provenance.Occurrence` – **relations as families of occurrences**:
-  `OccRel`, a relation read as an indexed family rather than a multiset, so
-  that two copies of a tuple are two occurrences. A multiset discards that
+  `OccFam`, a relation read as an indexed family rather than a multiset, so
+  that two copies of a row are two occurrences. The row type is a parameter,
+  since the rows a window produces carry a token where the rows it reads
+  carry only values. A multiset discards that
   identity, which three things need: an operator that gives equal rows
   different results (a window frame excluding the row it is computed for
   reads its twin, not itself), a comparison reading two aggregate values
@@ -219,7 +221,7 @@ proven engine several general results reuse internally.
   ways equal rows could be told apart. `toRelation` forgets the index and
   `Congr` says when two indexings are the same family, so that an operator
   defined on families is meaningful exactly when it respects `Congr`
-  (`toRelation_congr`). It sits beside `AnnotatedRelation` rather than
+  (`toMultiset_congr`). It sits beside `AnnotatedRelation` rather than
   replacing it
 - `Provenance.Frame` – **window frames determined by values**:
   `ValueFrame`, a frame given by a relation `ρ` between order values and a
