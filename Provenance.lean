@@ -245,7 +245,13 @@ proven engine several general results reuse internally.
   never reads its aggregate over nothing; a row that is not may have an empty
   frame in a world where it is itself present. The window removes no row,
   merges none and leaves every annotation alone, so no group-existence factor
-  arises
+  arises. `window` is the operator itself, on families: every occurrence
+  keeps its row and its annotation and gains its frame's token, and
+  `window_congr` proves it **well defined on occurrences rather than on
+  indices** – congruent inputs give congruent outputs, so nothing it
+  produces depends on which indexing was chosen. That is the obligation the
+  family reading exists to impose, and the reason two equal rows may
+  legitimately receive different aggregates
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
