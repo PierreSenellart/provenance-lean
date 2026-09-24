@@ -255,9 +255,9 @@ proven engine several general results reuse internally.
   relation by reading one as a family, and `window_toMultiset_congr` says the
   answer is about the relation: exchanging two equal rows exchanges their
   tokens, so which of them receives which is not observable. That rests on
-  `OccFam.Congr_of_toMultiset_eq`, the one obligation of these modules left
-  open – that a permutation of rows gives a bijection of positions carrying
-  one to the other
+  `OccFam.Congr_of_toMultiset_eq`, proved from `List.Perm.exists_get_equiv` –
+  a permutation of rows gives a bijection of positions carrying one to the
+  other, which Mathlib states only for lists without repeats
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
