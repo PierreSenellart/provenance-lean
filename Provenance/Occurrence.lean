@@ -96,4 +96,42 @@ theorem toMultiset_congr {r r' : OccFam α} (h : Congr r r') :
         = ((Finset.univ : Finset (Fin r.size)).map e.toEmbedding).val from rfl,
     Finset.map_univ_equiv]
 
+/-! ## A relation read as a family
+
+An operator on families is meaningful when it respects `Congr`. To *apply*
+one to a relation, a relation has to be read as a family, which means
+choosing an indexing. `ofMultiset` chooses one; `toMultiset_ofMultiset` says
+the choice is faithful, and `Congr_of_toMultiset_eq` says any two choices are
+the same family, so that an operator respecting `Congr` gives an answer that
+does not depend on the choice. -/
+
+/-- A choice of indexing for a multiset. -/
+noncomputable def ofMultiset (s : Multiset α) : OccFam α :=
+  ⟨s.toList.length, fun i => s.toList.get i⟩
+
+@[simp] theorem size_ofMultiset (s : Multiset α) :
+    (ofMultiset s).size = Multiset.card s := Multiset.length_toList s
+
+@[simp] theorem toMultiset_ofMultiset (s : Multiset α) :
+    (ofMultiset s).toMultiset = s := by
+  show Multiset.map s.toList.get
+      (Finset.univ : Finset (Fin s.toList.length)).val = s
+  rw [show (Finset.univ : Finset (Fin s.toList.length)).val
+        = Multiset.ofList (List.finRange s.toList.length) from rfl,
+    Multiset.map_coe, ← List.ofFn_eq_map, List.ofFn_get, Multiset.coe_toList]
+
+/-- **Any two indexings of a relation are the same family.** Two families
+with the same multiset of rows differ by a permutation of their indices, so
+an operator that respects `Congr` answers the same on both, and reading a
+relation as a family involves no arbitrary choice.
+
+This is the standard fact that a permutation of lists gives a bijection of
+positions carrying one to the other, which Mathlib does not appear to state
+for lists with repeats. It is the one obligation of this module left open;
+nothing below depends on it for its definition, only for the claim that the
+definition is about relations rather than about indexings. -/
+theorem Congr_of_toMultiset_eq {r r' : OccFam α}
+    (h : r.toMultiset = r'.toMultiset) : Congr r r' := by
+  sorry
+
 end OccFam

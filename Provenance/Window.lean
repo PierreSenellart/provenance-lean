@@ -82,6 +82,7 @@ def window (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
         (Sum.inr (token P O w t f r i)),
      ⟨(r.row i).snd, 0⟩)⟩
 
+omit [HasAltLinearOrder K] in
 /-- Membership in a frame is carried along a re-indexing: it reads the rows
 and whether two occurrences are the same, both of which a bijection
 preserves. -/
@@ -97,6 +98,7 @@ theorem mem_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     rw [ite_eq_left rfl, ite_eq_left rfl]
   · rw [ite_eq_right hji, ite_eq_right (fun hc => hji (e.injective hc))]
 
+omit [HasAltLinearOrder K] in
 /-- A re-indexing carries a frame to the image of the frame. -/
 theorem frame_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) {r r' : OccFam (AnnotatedTuple T K n)}
@@ -117,8 +119,8 @@ theorem frameSeq_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
     (i : Fin r.size) :
     frameSeq P O w r' (e i) = frameSeq P O w r i := by
-  letI : LinearOrder K := HasAltLinearOrder.altOrder
-  letI : LinearOrder (AnnotatedTuple T K n) :=
+  let _ : LinearOrder K := HasAltLinearOrder.altOrder
+  let _ : LinearOrder (AnnotatedTuple T K n) :=
     inferInstanceAs (LinearOrder (Tuple T n ×ₗ K))
   unfold frameSeq
   rw [frame_congr P O w e he i, Finset.map_val, Multiset.map_map]
@@ -139,5 +141,41 @@ theorem window_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     = (window P O w t f r).row i
   unfold window token
   simp only [he i, frameSeq_congr P O w e he i]
+
+/-! ## The window on a relation
+
+Applying the operator to a relation means reading it as a family, and any two
+readings give the same answer, so the relation is what the answer is about. -/
+
+/-- The window on a relation: read it as a family, apply the operator, forget
+the index. -/
+noncomputable def windowRel (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (r : AnnotatedRelation T K n) : Multiset (GenRow T K (n + 1)) :=
+  (window P O w t f (OccFam.ofMultiset r)).toMultiset
+
+/-- **The window's answer is about the relation, not the indexing.** Two
+families with the same rows give the same rows out – the operator respects
+re-indexing, and two indexings of one relation are the same family.
+
+Two occurrences carrying equal rows may still receive different tokens, which
+is what `EXCLUDE CURRENT ROW` requires; what this says is that *which* of
+them receives which is not observable, because exchanging them exchanges
+their answers. -/
+theorem window_toMultiset_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    {r r' : OccFam (AnnotatedTuple T K n)}
+    (h : r.toMultiset = r'.toMultiset) :
+    (window P O w t f r).toMultiset = (window P O w t f r').toMultiset :=
+  OccFam.toMultiset_congr
+    (window_congr P O w t f (OccFam.Congr_of_toMultiset_eq h))
+
+/-- Reading a relation as a family and forgetting the index again is the
+window of that relation, for any reading. -/
+theorem windowRel_eq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) :
+    windowRel P O w t f r.toMultiset = (window P O w t f r).toMultiset :=
+  window_toMultiset_congr P O w t f (by simp)
 
 end ValueFrame
