@@ -29,42 +29,6 @@ variable {T K : Type} {n m p : ℕ} [ValueType T] [HasAltLinearOrder K]
 
 namespace ValueFrame
 
-/-- The token a window gives an occurrence: the aggregate over its frame,
-read in the convention that occurrence's frame warrants. -/
-def token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (t : Term T n) (f : SeqAggFunc T)
-    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) : AggValue T K :=
-  if w.s (Tuple.key O (r.row i).fst) then
-    AggValue.ofGroup f t (frameSeq P O w r i)
-  else
-    AggValue.ofScalarGroup f t (frameSeq P O w r i)
-
-/-- A row inside its own frame reads its aggregate as a group's. -/
-@[simp] theorem token_scalar_of_mem (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
-    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
-    (h : w.s (Tuple.key O (r.row i).fst) = true) :
-    (token P O w t f r i).scalar = false := by
-  simp [token, h]
-
-/-- A row outside its own frame reads it in the scalar convention: the frame
-may be empty in a world where the row is present. -/
-@[simp] theorem token_scalar_of_not_mem (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
-    (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
-    (h : w.s (Tuple.key O (r.row i).fst) = false) :
-    (token P O w t f r i).scalar = true := by
-  simp [token, h]
-
-/-- Whichever convention it is read in, the token aggregates the frame. -/
-theorem token_occs (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
-    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
-    (token P O w t f r i).occs
-      = (frameSeq P O w r i).map (fun q => (t.eval q.fst, q.snd)) := by
-  unfold token AggValue.ofScalarGroup AggValue.ofGroup
-  split <;> rfl
-
 /-! ## The operator
 
 A window maps each occurrence of its input to one output occurrence: the same

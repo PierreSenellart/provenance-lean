@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Provenance.Occurrence
+import Provenance.AggValue
 
 /-!
 # Window frames determined by values
@@ -162,4 +163,69 @@ def frameSeq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     inferInstanceAs (LinearOrder (Tuple T n ×ₗ K))
   (((frame P O w r i).val.map r.row).foldr sortedInsert ⟨[], by simp⟩).val
 
+/-- The token a window gives an occurrence: the aggregate over its frame,
+read in the convention that occurrence's frame warrants.
+
+Whether the row is in its own frame is decided by `s` of its own order
+value. A row that is reads its aggregate as a group's, never over nothing; a
+row that is not may have an empty frame in a world where it is itself
+present, and its aggregate then ranges over no occurrence at all. -/
+def token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
+    (t : Term T n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) : AggValue T K :=
+  if w.s (Tuple.key O (r.row i).fst) then
+    AggValue.ofGroup f t (frameSeq P O w r i)
+  else
+    AggValue.ofScalarGroup f t (frameSeq P O w r i)
+
+/-- A row inside its own frame reads its aggregate as a group's. -/
+@[simp] theorem token_scalar_of_mem (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (h : w.s (Tuple.key O (r.row i).fst) = true) :
+    (token P O w t f r i).scalar = false := by
+  simp [token, h]
+
+/-- A row outside its own frame reads it in the scalar convention: the frame
+may be empty in a world where the row is present. -/
+@[simp] theorem token_scalar_of_not_mem (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (h : w.s (Tuple.key O (r.row i).fst) = false) :
+    (token P O w t f r i).scalar = true := by
+  simp [token, h]
+
+/-- Whichever convention it is read in, the token aggregates the frame. -/
+theorem token_occs (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
+    (token P O w t f r i).occs
+      = (frameSeq P O w r i).map (fun q => (t.eval q.fst, q.snd)) := by
+  unfold token AggValue.ofScalarGroup AggValue.ofGroup
+  split <;> rfl
+
 end ValueFrame
+
+/-- The canonical indexing of a relation: its rows in sorted order. It is
+computable, where a choice through `Multiset.toList` is not, and canonical
+rather than arbitrary – though by `OccFam.Congr_of_toMultiset_eq` any
+indexing would give the same answer for an operator that respects
+re-indexing. -/
+def OccFam.ofSorted [LinearOrder α] (s : Multiset α) : OccFam α :=
+  ⟨((s.foldr sortedInsert ⟨[], by simp⟩).val).length,
+    fun i => ((s.foldr sortedInsert ⟨[], by simp⟩).val).get i⟩
+
+@[simp] theorem OccFam.toMultiset_ofSorted [LinearOrder α] (s : Multiset α) :
+    (OccFam.ofSorted s).toMultiset = s := by
+  have hlist : ∀ l : List α, (OccFam.mk l.length l.get).toMultiset
+      = (l : Multiset α) := by
+    intro l
+    show Multiset.map l.get (Finset.univ : Finset (Fin l.length)).val = _
+    rw [show (Finset.univ : Finset (Fin l.length)).val
+          = Multiset.ofList (List.finRange l.length) from rfl,
+      Multiset.map_coe, ← List.ofFn_eq_map, List.ofFn_get]
+  rw [show OccFam.ofSorted s
+        = OccFam.mk ((s.foldr sortedInsert ⟨[], by simp⟩).val).length
+            ((s.foldr sortedInsert ⟨[], by simp⟩).val).get from rfl,
+    hlist]
+  exact Having.foldr_sortedInsert_coe s
