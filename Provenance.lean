@@ -29,6 +29,9 @@ import Provenance.Occurrence
 /- Window frames determined by values -/
 import Provenance.Frame
 
+/- The window operator's token -/
+import Provenance.Window
+
 /- Surface syntax for kind-indexed queries -/
 import Provenance.Notation
 
@@ -235,6 +238,14 @@ proven engine several general results reuse internally.
   (`frame_eq_of_key_eq`); the frames that fail it are exactly `EXCLUDE
   CURRENT ROW` and `EXCLUDE TIES`, which are exactly the ones needing
   occurrences told apart
+- `Provenance.Window` – **the token a window gives a row**: the aggregate
+  over that row's frame, built as a grouping builds one from its group, with
+  the convention decided per row by whether the row is in its own frame
+  (`token`, `token_scalar_of_mem`, `token_scalar_of_not_mem`). A row that is
+  never reads its aggregate over nothing; a row that is not may have an empty
+  frame in a world where it is itself present. The window removes no row,
+  merges none and leaves every annotation alone, so no group-existence factor
+  arises
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query

@@ -52,7 +52,7 @@ structure ValueFrame (T : Type) (p : ℕ) where
 
 namespace ValueFrame
 
-variable [DecidableEq T]
+variable [ValueType T]
 
 /-- The frame *contains its current row exactly when it contains its peers*.
 Under this condition the frame of an occurrence depends only on its tuple, so
@@ -133,5 +133,33 @@ theorem frame_inter (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   · intro hj
     obtain ⟨hall, hjW⟩ := Finset.mem_inter.mp hj
     exact Finset.mem_filter.mpr ⟨hjW, (Finset.mem_filter.mp hall).2⟩
+
+/-- The frame *contains its current row*: `s` holds everywhere. A frame that
+does is read like a group – in a world where the row is present its frame has
+at least that row, so it is never empty. One that may exclude it can be empty
+while the row exists, and its aggregate then ranges over nothing.
+
+The operator below decides this per row rather than per frame, by asking `s`
+of the row's own order value, which is decidable where this is not. The two
+agree wherever `s` is constant, which is every frame of SQL: `true` for the
+defaults, `false` for `EXCLUDE CURRENT ROW` and for the frame of the rows
+strictly before, and `ρ o o` for `EXCLUDE TIES`. -/
+def ContainsCurrent (w : ValueFrame T p) : Prop := ∀ o, w.s o = true
+
+variable [HasAltLinearOrder K]
+
+/-- The occurrence sequence of a frame: its occurrences with their
+annotations, in the canonical order of annotated tuples, as a group's are.
+
+The order matters only to order-dependent aggregates, and the tie-break
+between occurrences carrying equal tuples is invisible to every reading of
+the token that is built from it. -/
+def frameSeq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
+    List (AnnotatedTuple T K n) :=
+  letI : LinearOrder K := HasAltLinearOrder.altOrder
+  letI : LinearOrder (AnnotatedTuple T K n) :=
+    inferInstanceAs (LinearOrder (Tuple T n ×ₗ K))
+  (((frame P O w r i).val.map r.row).foldr sortedInsert ⟨[], by simp⟩).val
 
 end ValueFrame
