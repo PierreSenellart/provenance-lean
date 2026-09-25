@@ -31,8 +31,8 @@ import Provenance.AggQuery
 import Provenance.Occurrence
 
 /- Window frames determined by values -/
-import Provenance.Frame
 import Provenance.OrderSpec
+import Provenance.Frame
 
 /- The window operator's token -/
 import Provenance.Window
@@ -304,10 +304,15 @@ proven engine several general results reuse internally.
   (`frame_eq_of_key_eq`); the frames that fail it are exactly `EXCLUDE
   CURRENT ROW` and `EXCLUDE TIES`, which are exactly the ones needing
   occurrences told apart. The frames of SQL that are determined by values
-  are named against the domain's own order on the order values: `whole`,
-  `upTo`, `before` (the rows strictly preceding the current row's peers) and
-  `excludeCurrent` – the frames of an explicit `ORDER BY` being
-  `Provenance.OrderSpec`'s; the `ROWS` frames with offsets are not among them and
+  come in two families. Against the domain's own order on the order values:
+  `whole`, `upTo`, `before` (the rows strictly preceding the current row's
+  peers) and `excludeCurrent`. Against an explicit `ORDER BY`
+  (`Provenance.OrderSpec`): `rangeUpTo`, `rangeBefore`, `peerGroup` and the
+  modifiers `excludeGroup` and `excludeTies`, each classified by
+  `ContainsSelf` – and the classification lands where the general theory
+  says it must, `EXCLUDE GROUP` keeping a frame readable off the relation
+  and `EXCLUDE TIES` not. The two families agree where every column is
+  `ASC` and nothing is null (`rangeUpTo_asc`, `rangeBefore_asc`); the `ROWS` frames with offsets are not among them and
   cannot be, since which row is the previous one depends on which rows are
   present. `frameOf` reads a frame off the *relation* rather than off an
   indexing – the rows of the partition the frame's relation accepts, the
@@ -380,16 +385,17 @@ proven engine several general results reuse internally.
   lexicographically down the columns. It is a total preorder
   (`OrderSpec.le_refl`, `le_trans`, `le_total`) and not an order: the values
   it does not separate are SQL's *peers*, and every null is a peer of every
-  other whichever side the clause puts them on. The domain's own order says
-  nothing about either, which is why the frames defined against a clause
-  need one: `ValueFrame.rangeUpTo`, `rangeBefore`, `peerGroup`, and the
-  `EXCLUDE` modifiers `excludeGroup` and `excludeTies`. Each is classified
-  by `ValueFrame.ContainsSelf`, and the classification lands where the
-  general theory says it must – `EXCLUDE GROUP` keeps a frame readable off
-  the relation, `EXCLUDE TIES` does not. Where every column is `ASC` and
-  nothing is null the clause is the library's own tuple order
-  (`OrderSpec.asc_le`) and the frames are `ValueFrame.upTo` and
-  `ValueFrame.before` (`rangeUpTo_asc`, `rangeBefore_asc`)
+  other whichever side the clause puts them on. Where every column is `ASC`
+  and nothing is null the clause is the library's own tuple order
+  (`OrderSpec.asc_le`). Two things are defined from the clause that the
+  domain's order cannot supply: the *bound* of a frame, which lives with
+  the frames in `Provenance.Frame`, and the order a frame is *read* in –
+  `OrderSpec.readLe`, the clause on the order values with the canonical
+  order on rows breaking its ties, and `OrderSpec.sortSeq`, which puts a
+  listing of a frame into it. `sortSeq_tiePerm` is what makes the second
+  usable: two listings of one frame come out related by a tie-block
+  permutation whose blocks are the occurrences of one row, which is exactly
+  the freedom every reading of a token is invariant under
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

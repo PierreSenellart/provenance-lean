@@ -2,45 +2,39 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Frame
 import Provenance.AggValueCongr
 import Provenance.Util.ValueTypeNull
 
 /-!
-# Order specifications, and the frames they determine
+# Order specifications: what a window's `ORDER BY` orders by
 
 A window's `ORDER BY` does not order rows by the domain's own order. It
 names, for each order column, a *direction* and a *null placement*, and
 those two together give a total preorder on the order values: `ASC` or
 `DESC` on the values of the domain, `NULLS FIRST` or `NULLS LAST` on the
-nulls, which the domain's order knows nothing about. Rows that the preorder
-does not separate are SQL's *peers*.
+nulls, which the domain's order knows nothing about. Order values that the
+preorder does not separate are SQL's *peers*.
 
-That preorder is what SQL's value-determined frames are defined from, and
-it is the reason they need a specification at all: `RANGE BETWEEN UNBOUNDED
-PRECEDING AND CURRENT ROW` is *the peers of the current row and everything
-sorted before them*, and which rows those are is a question about the
-clause, not about the domain.
+This file gives the specification (`OrderCol`, `OrderSpec`) and proves that
+it is a total preorder (`OrderSpec.le_refl`, `le_trans`, `le_total`). Two
+things are defined from it, and both are things the domain's order cannot
+supply.
 
-This file gives the specification (`OrderCol`, `OrderSpec`), proves that it
-is a total preorder (`OrderSpec.le_refl`, `le_trans`, `le_total`), and
-builds from it the frames of SQL that a preorder determines:
-`ValueFrame.rangeUpTo`, `rangeBefore`, `peerGroup`, and the `EXCLUDE`
-modifiers `excludeGroup` and `excludeTies`. Each is classified by whether it
-contains its current row exactly when it contains its peers
-(`ValueFrame.ContainsSelf`), which is what decides whether a window over it
-can be read off the relation or needs the occurrences told apart.
+The first is the *bound* of a frame: `RANGE BETWEEN UNBOUNDED PRECEDING AND
+CURRENT ROW` is the peers of the current row and everything sorted before
+them, and which rows those are is a question about the clause. Those frames
+are built in `Provenance.Frame`, where `ValueFrame` is.
 
-What an order specification does *not* do here is fix the sequence a frame
-is read in: `ValueFrame.frameSeq` sorts a frame by the canonical order on
-annotated tuples, not by the clause. That is harmless exactly where the
-aggregate is symmetric (`SeqAggFunc.Symmetric`), which `SUM`, `COUNT`, `MIN`
-and `MAX` are and `PICKFIRST` is not – `ValueFrame.windowValue_of_perm` says
-any listing of the frame then gives the window's value. Making the sequence
-the clause's, which is what an order-dependent aggregate needs, is a
-separate change to the operator.
+The second is the order a frame is *read* in, which is what an aggregate
+that is not symmetric depends on. `OrderSpec.readLe` is that order – the
+clause on the order values, its ties broken by the canonical order on the
+rows, so that two occurrences are tied exactly when they carry the same
+row – and `OrderSpec.sortSeq` puts a listing of a frame into it.
+`sortSeq_tiePerm` is what makes it usable: any two listings of one frame
+come out related by a tie-block permutation whose blocks are the
+occurrences of one row, which is precisely the freedom every reading of a
+token is invariant under.
 -/
-
 variable {T : Type} {p : ℕ}
 
 /-! ## One order column -/
@@ -328,86 +322,6 @@ theorem le_iff_lt_or_peer (o : OrderSpec p) (x y : Tuple T p) :
     · exact h
 
 end OrderSpec
-
-/-! ## The frames the clause determines
-
-`ρ o' o` reads "an occurrence with order value `o'` is in the frame of one
-with order value `o`", so the current row's value is the second argument. -/
-
-namespace ValueFrame
-
-variable [ValueType T]
-
-/-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the clause
-`o`, SQL's default frame when a window names an `ORDER BY`: the current row,
-its peers, and everything the clause sorts before them. -/
-def rangeUpTo (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.le o' ov, fun _ => true⟩
-
-/-- The rows the clause sorts *strictly* before the current row's peers:
-`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP`. It is the
-frame a running total that must not read the row it annotates needs, and it
-can be empty in a world where that row is present. -/
-def rangeBefore (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.lt o' ov, fun _ => false⟩
-
-/-- `GROUPS BETWEEN CURRENT ROW AND CURRENT ROW`: the current row's peer
-group, and nothing else. -/
-def peerGroup (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.peer o' ov, fun _ => true⟩
-
-/-- `EXCLUDE GROUP`: the frame with the current row *and its peers* taken
-out. -/
-def excludeGroup (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
-  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, fun _ => false⟩
-
-/-- `EXCLUDE TIES`: the frame with the current row's peers taken out, the
-row itself left in. -/
-def excludeTies (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
-  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, w.s⟩
-
-@[simp] theorem rangeUpTo_containsSelf (o : OrderSpec p) :
-    (rangeUpTo o : ValueFrame T p).ContainsSelf := fun ov => by
-  simp [rangeUpTo]
-
-@[simp] theorem rangeUpTo_containsCurrent (o : OrderSpec p) :
-    (rangeUpTo o : ValueFrame T p).ContainsCurrent := fun _ => rfl
-
-/-- The rows strictly before are determined by the tuple even though the row
-is outside its own frame: its peers are outside too, so no occurrence needs
-telling from its twin. -/
-@[simp] theorem rangeBefore_containsSelf (o : OrderSpec p) :
-    (rangeBefore o : ValueFrame T p).ContainsSelf := fun ov => by
-  simp [rangeBefore]
-
-@[simp] theorem peerGroup_containsSelf (o : OrderSpec p) :
-    (peerGroup o : ValueFrame T p).ContainsSelf := fun ov => by
-  simp [peerGroup]
-
-@[simp] theorem peerGroup_containsCurrent (o : OrderSpec p) :
-    (peerGroup o : ValueFrame T p).ContainsCurrent := fun _ => rfl
-
-/-- **`EXCLUDE GROUP` keeps a frame readable off the relation**: it drops the
-current row together with its peers, so two equal rows are dropped from each
-other's frame as well as from their own. -/
-@[simp] theorem excludeGroup_containsSelf (o : OrderSpec p)
-    (w : ValueFrame T p) : (excludeGroup o w : ValueFrame T p).ContainsSelf :=
-  fun ov => by simp [excludeGroup]
-
-/-- **`EXCLUDE TIES` is not**, and for the same reason as `EXCLUDE CURRENT
-ROW`: it leaves each of two equal rows in the other's frame and out of its
-own, so the two take different values from one relation – which, not telling
-them apart, cannot say which takes which. -/
-theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
-    (h : w.ContainsCurrent) :
-    ¬ (excludeTies o w : ValueFrame T p).ContainsSelf := by
-  intro hc
-  have hz := hc (0 : Tuple T p)
-  rw [show (excludeTies o w).s = w.s from rfl, h (0 : Tuple T p)] at hz
-  simp [excludeTies] at hz
-
-end ValueFrame
-
 /-! ## Where nothing is null
 
 With every column `ASC` and no null to place, the clause is the domain's own
@@ -500,31 +414,6 @@ theorem asc_le [NoNulls T] : ∀ {p : ℕ} (x y : Tuple T p),
       exact ⟨fun h => lt_of_le_of_ne h h0, _root_.le_of_lt⟩
 
 end OrderSpec
-
-namespace ValueFrame
-
-variable [NoNulls T]
-
-/-- Under every column `ASC` and no null to place, `RANGE BETWEEN UNBOUNDED
-PRECEDING AND CURRENT ROW` is the frame `ValueFrame.upTo` states against the
-domain's order. -/
-theorem rangeUpTo_asc :
-    (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := by
-  unfold rangeUpTo ValueFrame.upTo
-  exact congrArg (ValueFrame.mk · _)
-    (funext fun a => funext fun b => OrderSpec.asc_le a b)
-
-/-- And the rows strictly before are `ValueFrame.before`. -/
-theorem rangeBefore_asc :
-    (rangeBefore (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.before := by
-  unfold rangeBefore ValueFrame.before
-  refine congrArg (ValueFrame.mk · _) (funext fun a => funext fun b => ?_)
-  rw [show (OrderSpec.asc p).lt a b = !(OrderSpec.asc p).le b a from rfl,
-    OrderSpec.asc_le, Bool.eq_iff_iff]
-  simp [not_le]
-
-end ValueFrame
-
 /-! ## The order a frame is read in
 
 An aggregate is a function on *sequences*, so a window has to say in which
@@ -537,57 +426,59 @@ allowed to exchange. -/
 
 namespace OrderSpec
 
-variable {n : ℕ} {α : Type}
+variable {α β : Type} [LinearOrder β]
 
 /-- **The order a window reads its frame in**: the clause on the order
-columns, its ties broken by the canonical order on the rows. -/
-def readLe (val : α → Tuple T n) (O : Tuple (Fin n) p) (o : OrderSpec p)
+values a row carries, its ties broken by the canonical order on the rows
+themselves. `val` reads an occurrence's row, `key` the order values of a
+row. -/
+def readLe (key : β → Tuple T p) (val : α → β) (o : OrderSpec p)
     (x y : α) : Bool :=
-  if o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) then
-    decide (val x ≤ val y)
-  else o.le (Tuple.key O (val x)) (Tuple.key O (val y))
+  if o.peer (key (val x)) (key (val y)) then decide (val x ≤ val y)
+  else o.le (key (val x)) (key (val y))
 
-variable {val : α → Tuple T n} {O : Tuple (Fin n) p} {o : OrderSpec p}
+variable {key : β → Tuple T p} {val : α → β} {o : OrderSpec p}
 
-@[simp] theorem readLe_rfl (x : α) : readLe val O o x x = true := by
+@[simp] theorem readLe_rfl (x : α) : readLe key val o x x = true := by
   simp [readLe]
 
 /-- Occurrences carrying the same row are read in either order. -/
 theorem readLe_of_val_eq {x y : α} (h : val x = val y) :
-    readLe val O o x y = true := by
+    readLe key val o x y = true := by
   simp [readLe, h]
 
 theorem readLe_total (x y : α) :
-    readLe val O o x y = true ∨ readLe val O o y x = true := by
+    readLe key val o x y = true ∨ readLe key val o y x = true := by
   unfold readLe
-  by_cases hp : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  by_cases hp : o.peer (key (val x)) (key (val y)) = true
   · rw [ite_eq_left hp, ite_eq_left (by rw [OrderSpec.peer_comm] at hp; exact hp)]
     rcases _root_.le_total (val x) (val y) with h | h <;> simp [h]
   · rw [ite_eq_right hp, ite_eq_right (by rw [OrderSpec.peer_comm]; exact hp)]
     exact o.le_total _ _
 
-theorem readLe_trans {x y z : α} (h₁ : readLe val O o x y = true)
-    (h₂ : readLe val O o y z = true) : readLe val O o x z = true := by
+theorem readLe_trans {x y z : α} (h₁ : readLe key val o x y = true)
+    (h₂ : readLe key val o y z = true) : readLe key val o x z = true := by
   unfold readLe at h₁ h₂ ⊢
-  by_cases hxy : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  by_cases hxy : o.peer (key (val x)) (key (val y)) = true
   · rw [ite_eq_left hxy] at h₁
-    by_cases hyz : o.peer (Tuple.key O (val y)) (Tuple.key O (val z)) = true
+    by_cases hyz : o.peer (key (val y)) (key (val z)) = true
     · rw [ite_eq_left hyz] at h₂
       rw [ite_eq_left (o.peer_trans hxy hyz)]
-      exact decide_eq_true (_root_.le_trans (of_decide_eq_true h₁) (of_decide_eq_true h₂))
+      exact decide_eq_true
+        (_root_.le_trans (of_decide_eq_true h₁) (of_decide_eq_true h₂))
     · rw [ite_eq_right hyz] at h₂
-      have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False :=
+      have hxz : o.peer (key (val x)) (key (val z)) = true → False :=
         fun h => hyz (o.peer_trans (by rw [OrderSpec.peer_comm]; exact hxy) h)
       rw [ite_eq_right (fun h => hxz h), o.le_congr_left hxy _]
       exact h₂
   · rw [ite_eq_right hxy] at h₁
-    by_cases hyz : o.peer (Tuple.key O (val y)) (Tuple.key O (val z)) = true
-    · have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False :=
+    by_cases hyz : o.peer (key (val y)) (key (val z)) = true
+    · have hxz : o.peer (key (val x)) (key (val z)) = true → False :=
         fun h => hxy (o.peer_trans h (by rw [OrderSpec.peer_comm]; exact hyz))
       rw [ite_eq_right (fun h => hxz h), ← o.le_congr_right hyz _]
       exact h₁
     · rw [ite_eq_right hyz] at h₂
-      have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False := by
+      have hxz : o.peer (key (val x)) (key (val z)) = true → False := by
         intro h
         simp only [OrderSpec.peer, Bool.and_eq_true] at h
         exact hxy (by
@@ -599,10 +490,10 @@ theorem readLe_trans {x y z : α} (h₁ : readLe val O o x y = true)
 /-- **Two occurrences are tied exactly when they carry the same row.** The
 clause alone does not separate peers; the canonical tie-break does, down to
 the row. -/
-theorem val_eq_of_readLe {x y : α} (h₁ : readLe val O o x y = true)
-    (h₂ : readLe val O o y x = true) : val x = val y := by
+theorem val_eq_of_readLe {x y : α} (h₁ : readLe key val o x y = true)
+    (h₂ : readLe key val o y x = true) : val x = val y := by
   unfold readLe at h₁ h₂
-  by_cases hp : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  by_cases hp : o.peer (key (val x)) (key (val y)) = true
   · rw [ite_eq_left hp] at h₁
     rw [ite_eq_left (by rw [OrderSpec.peer_comm] at hp; exact hp)] at h₂
     exact _root_.le_antisymm (of_decide_eq_true h₁) (of_decide_eq_true h₂)
@@ -610,18 +501,19 @@ theorem val_eq_of_readLe {x y : α} (h₁ : readLe val O o x y = true)
     rw [ite_eq_right (by rw [OrderSpec.peer_comm]; exact hp)] at h₂
     exact absurd (by simp only [OrderSpec.peer, Bool.and_eq_true]; exact ⟨h₁, h₂⟩) hp
 
-/-- **The frame's occurrences, in the order the clause reads them.** -/
-def sortSeq (val : α → Tuple T n) (O : Tuple (Fin n) p) (o : OrderSpec p)
+/-- **The occurrences of a frame, in the order the clause reads them.** -/
+def sortSeq (key : β → Tuple T p) (val : α → β) (o : OrderSpec p)
     (L : List α) : List α :=
-  L.mergeSort (readLe val O o)
+  L.mergeSort (readLe key val o)
 
-theorem sortSeq_perm (L : List α) : (sortSeq val O o L).Perm L :=
+theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L :=
   List.mergeSort_perm L _
 
 theorem sortSeq_sorted (L : List α) :
-    (sortSeq val O o L).Pairwise (fun x y => readLe val O o x y = true) :=
+    (sortSeq key val o L).Pairwise (fun x y => readLe key val o x y = true) :=
   List.pairwise_mergeSort (fun _ _ _ => readLe_trans) (fun a b => by
-    rcases readLe_total (val := val) (O := O) (o := o) a b with h | h <;> simp [h]) L
+    rcases readLe_total (key := key) (val := val) (o := o) a b with h | h <;>
+      simp [h]) L
 
 /-- **Sorting by the clause settles the sequence down to the rows.** Two
 listings of the same frame come out tie-permuted, the blocks being the
@@ -629,8 +521,8 @@ occurrences that carry one row – which is exactly the freedom the readings
 of a token are invariant under. -/
 theorem sortSeq_tiePerm [DecidableEq α] {L L' : List α} (h : L.Perm L') :
     TiePerm (fun x y => val x = val y)
-      (sortSeq val O o L) (sortSeq val O o L') :=
-  tiePerm_of_perm_of_sorted_by (fun x y => readLe val O o x y = true) val
+      (sortSeq key val o L) (sortSeq key val o L') :=
+  tiePerm_of_perm_of_sorted_by (fun x y => readLe key val o x y = true) val
     (fun hxy hyx => val_eq_of_readLe hxy hyx)
     (fun hv => readLe_of_val_eq hv)
     (((sortSeq_perm L).trans h).trans (sortSeq_perm L').symm)

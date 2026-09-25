@@ -4,6 +4,7 @@
 -/
 import Provenance.Occurrence
 import Provenance.AggValue
+import Provenance.OrderSpec
 
 /-!
 # Window frames determined by values
@@ -714,5 +715,103 @@ theorem collapse_token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   unfold AggValue.collapse
   rw [token_occs, token_agg, List.map_map, ← frameSeq_plain, List.map_map]
   rfl
+
+
+/-! ## The frames the clause determines
+
+`ρ o' o` reads "an occurrence with order value `o'` is in the frame of one
+with order value `o`", so the current row's value is the second argument. -/
+
+/-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the clause
+`o`, SQL's default frame when a window names an `ORDER BY`: the current row,
+its peers, and everything the clause sorts before them. -/
+def rangeUpTo (o : OrderSpec p) : ValueFrame T p :=
+  ⟨fun o' ov => o.le o' ov, fun _ => true⟩
+
+/-- The rows the clause sorts *strictly* before the current row's peers:
+`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP`. It is the
+frame a running total that must not read the row it annotates needs, and it
+can be empty in a world where that row is present. -/
+def rangeBefore (o : OrderSpec p) : ValueFrame T p :=
+  ⟨fun o' ov => o.lt o' ov, fun _ => false⟩
+
+/-- `GROUPS BETWEEN CURRENT ROW AND CURRENT ROW`: the current row's peer
+group, and nothing else. -/
+def peerGroup (o : OrderSpec p) : ValueFrame T p :=
+  ⟨fun o' ov => o.peer o' ov, fun _ => true⟩
+
+/-- `EXCLUDE GROUP`: the frame with the current row *and its peers* taken
+out. -/
+def excludeGroup (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
+  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, fun _ => false⟩
+
+/-- `EXCLUDE TIES`: the frame with the current row's peers taken out, the
+row itself left in. -/
+def excludeTies (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
+  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, w.s⟩
+
+@[simp] theorem rangeUpTo_containsSelf (o : OrderSpec p) :
+    (rangeUpTo o : ValueFrame T p).ContainsSelf := fun ov => by
+  simp [rangeUpTo]
+
+@[simp] theorem rangeUpTo_containsCurrent (o : OrderSpec p) :
+    (rangeUpTo o : ValueFrame T p).ContainsCurrent := fun _ => rfl
+
+/-- The rows strictly before are determined by the tuple even though the row
+is outside its own frame: its peers are outside too, so no occurrence needs
+telling from its twin. -/
+@[simp] theorem rangeBefore_containsSelf (o : OrderSpec p) :
+    (rangeBefore o : ValueFrame T p).ContainsSelf := fun ov => by
+  simp [rangeBefore]
+
+@[simp] theorem peerGroup_containsSelf (o : OrderSpec p) :
+    (peerGroup o : ValueFrame T p).ContainsSelf := fun ov => by
+  simp [peerGroup]
+
+@[simp] theorem peerGroup_containsCurrent (o : OrderSpec p) :
+    (peerGroup o : ValueFrame T p).ContainsCurrent := fun _ => rfl
+
+/-- **`EXCLUDE GROUP` keeps a frame readable off the relation**: it drops the
+current row together with its peers, so two equal rows are dropped from each
+other's frame as well as from their own. -/
+@[simp] theorem excludeGroup_containsSelf (o : OrderSpec p)
+    (w : ValueFrame T p) : (excludeGroup o w : ValueFrame T p).ContainsSelf :=
+  fun ov => by simp [excludeGroup]
+
+/-- **`EXCLUDE TIES` is not**, and for the same reason as `EXCLUDE CURRENT
+ROW`: it leaves each of two equal rows in the other's frame and out of its
+own, so the two take different values from one relation – which, not telling
+them apart, cannot say which takes which. -/
+theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
+    (h : w.ContainsCurrent) :
+    ¬ (excludeTies o w : ValueFrame T p).ContainsSelf := by
+  intro hc
+  have hz := hc (0 : Tuple T p)
+  rw [show (excludeTies o w).s = w.s from rfl, h (0 : Tuple T p)] at hz
+  simp [excludeTies] at hz
+
+section
+
+variable [NoNulls T]
+
+/-- Under every column `ASC` and no null to place, `RANGE BETWEEN UNBOUNDED
+PRECEDING AND CURRENT ROW` is the frame `ValueFrame.upTo` states against the
+domain's order. -/
+theorem rangeUpTo_asc :
+    (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := by
+  unfold rangeUpTo ValueFrame.upTo
+  exact congrArg (ValueFrame.mk · _)
+    (funext fun a => funext fun b => OrderSpec.asc_le a b)
+
+/-- And the rows strictly before are `ValueFrame.before`. -/
+theorem rangeBefore_asc :
+    (rangeBefore (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.before := by
+  unfold rangeBefore ValueFrame.before
+  refine congrArg (ValueFrame.mk · _) (funext fun a => funext fun b => ?_)
+  rw [show (OrderSpec.asc p).lt a b = !(OrderSpec.asc p).le b a from rfl,
+    OrderSpec.asc_le, Bool.eq_iff_iff]
+  simp [not_le]
+
+end
 
 end ValueFrame
