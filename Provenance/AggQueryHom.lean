@@ -584,12 +584,12 @@ itself is carried unchanged, only the order inside a block of equal tuples
 can move. -/
 theorem tokenOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
-    (w : ValueFrame T p') (t : Term T n') (f : SeqAggFunc T)
+    (o : OrderSpec p') (w : ValueFrame T p') (t : Term T n') (f : SeqAggFunc T)
     (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
     (hx : x ∈ X) :
     TiePerm (fun a b : T × K' => a.1 = b.1)
-      ((ValueFrame.tokenOf P O w t f X x).mapAnn ⇑h.toRingHom).occs
-      (ValueFrame.tokenOf P O w t f
+      ((ValueFrame.tokenOf P O o w t f X x).mapAnn ⇑h.toRingHom).occs
+      (ValueFrame.tokenOf P O o w t f
         (Multiset.map (fun q : AnnotatedTuple T K n' =>
           ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
         ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')).occs := by
@@ -601,27 +601,35 @@ theorem tokenOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
           ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
         (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x) :=
     ValueFrame.frameOf_map _ (fun _ => rfl) P O w X hx
-  have hocc1 : ((ValueFrame.tokenOf P O w t f X x).mapAnn ⇑h.toRingHom).occs
-      = ((sortList (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x)).map
-          (fun q : AnnotatedTuple T K n' =>
-            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))).map
+  have hocc1 : ((ValueFrame.tokenOf P O o w t f X x).mapAnn ⇑h.toRingHom).occs
+      = (OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+          ((sortList (ValueFrame.frameOf (α := AnnotatedTuple T K n')
+              Prod.fst P O w X x)).map
+            (fun q : AnnotatedTuple T K n' =>
+              ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')))).map
           (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd)) := by
-    show ((ValueFrame.tokenOf P O w t f X x).occs).map
-        (fun o => (o.fst, h.toRingHom o.snd)) = _
-    rw [ValueFrame.tokenOf_occs, List.map_map, List.map_map]
+    show ((ValueFrame.tokenOf P O o w t f X x).occs).map
+        (fun z => (z.fst, h.toRingHom z.snd)) = _
+    rw [ValueFrame.tokenOf_occs, List.map_map]
+    rw [← ValueFrame.sortSeq_mapAnn O o ⇑h.toRingHom, List.map_map]
     rfl
-  have hocc2 : (ValueFrame.tokenOf P O w t f
+  have hocc2 : (ValueFrame.tokenOf P O o w t f
       (Multiset.map (fun q : AnnotatedTuple T K n' =>
         ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
       ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')).occs
-      = (sortList (α := AnnotatedTuple T K' n')
-          (Multiset.map (fun q : AnnotatedTuple T K n' =>
-            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
-            (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x))).map
+      = (OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+          (sortList (α := AnnotatedTuple T K' n')
+            (Multiset.map (fun q : AnnotatedTuple T K n' =>
+              ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
+              (ValueFrame.frameOf (α := AnnotatedTuple T K n')
+                Prod.fst P O w X x)))).map
           (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd)) := by
-    rw [ValueFrame.tokenOf_occs, hframe]
+    rw [ValueFrame.tokenOf_occs, ValueFrame.frameListOf, hframe]
   rw [hocc1, hocc2]
-  exact (sortList_hom_tiePerm h _).map (eqv' := fun a b : T × K' => a.1 = b.1)
+  exact (OrderSpec.sortSeq_tiePerm (key := Tuple.key O)
+      (val := (Prod.fst : AnnotatedTuple T K' n' → Tuple T n')) (o := o)
+      (sortList_hom_tiePerm h _).perm).map
+    (eqv' := fun a b : T × K' => a.1 = b.1)
     (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd))
     (fun hpq => congrArg t.eval hpq)
 
@@ -1220,7 +1228,7 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d
     exact ih d
-  | @Win nI mI pI P O w t f q ih =>
+  | @Win nI mI pI P O o w t f q ih =>
     -- one output row per input row; the tuple and the annotation are carried
     -- across unchanged, and the token differs only by a tie-block permutation
     intro d
@@ -1244,11 +1252,11 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       · rw [Fin.snoc_last, Fin.snoc_last]
         refine ⟨?_, ?_, ?_⟩
         · rw [ValueFrame.tokenOf_agg]
-          exact (ValueFrame.tokenOf_agg P O w t f _ x).symm
-        · show _ = (ValueFrame.tokenOf P O w t f _ x).scalar
+          exact (ValueFrame.tokenOf_agg P O o w t f _ x).symm
+        · show _ = (ValueFrame.tokenOf P O o w t f _ x).scalar
           rw [ValueFrame.tokenOf_scalar, ValueFrame.tokenOf_scalar]
         · exact TiePerm.symm (fun e => e.symm)
-            (tokenOf_mapAnn_tiePerm h P O w t f _ hx)
+            (tokenOf_mapAnn_tiePerm h P O o w t f _ hx)
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         rfl
     · simp only [Function.comp_apply, ValueFrame.windowRow]

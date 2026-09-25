@@ -38,12 +38,12 @@ have different frames – that is what the family reading is for. -/
 
 /-- The window operator on a family: every occurrence keeps its row and its
 annotation, and gains the token of its frame. -/
-def window (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (t : Term T n) (f : SeqAggFunc T)
+def window (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) : OccFam (GenRow T K (n + 1)) :=
   ⟨r.size, fun i =>
     (Fin.snoc (fun k => (Sum.inl ((r.row i).fst k) : GenValue T K))
-        (Sum.inr (token P O w t f r i)),
+        (Sum.inr (token P O o w t f r i)),
      ⟨(r.row i).snd, 0⟩)⟩
 
 omit [HasAltLinearOrder K] in
@@ -96,16 +96,30 @@ theorem frameSeq_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 inputs give congruent outputs, by the same bijection: an occurrence's row,
 its annotation and its frame are all carried across, so nothing the operator
 produces depends on which indexing was chosen. -/
+theorem frameSeqOn_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p)
+    {r r' : OccFam (AnnotatedTuple T K n)}
+    (e : Fin r.size ≃ Fin r'.size) (he : ∀ i, r'.row (e i) = r.row i)
+    (i : Fin r.size) :
+    frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r' (e i)
+      = frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i := by
+  unfold frameSeqOn
+  rw [frameSeq_congr P O w e he i]
+
+/-- **A window is well defined on occurrences, not on indices.** Congruent
+inputs give congruent outputs, by the same bijection: an occurrence's row,
+its annotation and its frame are all carried across, so nothing the operator
+produces depends on which indexing was chosen. -/
 theorem window_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     {r r' : OccFam (AnnotatedTuple T K n)} (h : OccFam.Congr r r') :
-    OccFam.Congr (window P O w t f r) (window P O w t f r') := by
+    OccFam.Congr (window P O o w t f r) (window P O o w t f r') := by
   obtain ⟨e, he⟩ := h
   refine ⟨e, fun i => ?_⟩
-  show ((window P O w t f r').row (e i) : GenRow T K (n + 1))
-    = (window P O w t f r).row i
+  show ((window P O o w t f r').row (e i) : GenRow T K (n + 1))
+    = (window P O o w t f r).row i
   unfold window token
-  simp only [he i, frameSeq_congr P O w e he i]
+  simp only [he i, frameSeqOn_congr P O o w e he i]
 
 /-! ## The window on a relation
 
@@ -115,9 +129,9 @@ readings give the same answer, so the relation is what the answer is about. -/
 /-- The window on a relation: read it as a family, apply the operator, forget
 the index. -/
 noncomputable def windowRel (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : AnnotatedRelation T K n) : Multiset (GenRow T K (n + 1)) :=
-  (window P O w t f (OccFam.ofMultiset r)).toMultiset
+  (window P O o w t f (OccFam.ofMultiset r)).toMultiset
 
 /-- **The window's answer is about the relation, not the indexing.** Two
 families with the same rows give the same rows out – the operator respects
@@ -128,20 +142,20 @@ is what `EXCLUDE CURRENT ROW` requires; what this says is that *which* of
 them receives which is not observable, because exchanging them exchanges
 their answers. -/
 theorem window_toMultiset_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     {r r' : OccFam (AnnotatedTuple T K n)}
     (h : r.toMultiset = r'.toMultiset) :
-    (window P O w t f r).toMultiset = (window P O w t f r').toMultiset :=
+    (window P O o w t f r).toMultiset = (window P O o w t f r').toMultiset :=
   OccFam.toMultiset_congr
-    (window_congr P O w t f (OccFam.Congr_of_toMultiset_eq h))
+    (window_congr P O o w t f (OccFam.Congr_of_toMultiset_eq h))
 
 /-- Reading a relation as a family and forgetting the index again is the
 window of that relation, for any reading. -/
 theorem windowRel_eq (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) :
-    windowRel P O w t f r.toMultiset = (window P O w t f r).toMultiset :=
-  window_toMultiset_congr P O w t f (by simp)
+    windowRel P O o w t f r.toMultiset = (window P O o w t f r).toMultiset :=
+  window_toMultiset_congr P O o w t f (by simp)
 
 end ValueFrame
 
@@ -161,24 +175,24 @@ The evaluator reads its input in the canonical order; this says the answer is
 the window of the relation, which by `window_toMultiset_congr` is what any
 reading gives. -/
 theorem AggQuery.evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Win P O w t f q).evaluate d
-      = ValueFrame.windowRel P O w t f (q.evaluateAnnotated d) := by
-  show (ValueFrame.window P O w t f
+    (AggQuery.Win P O o w t f q).evaluate d
+      = ValueFrame.windowRel P O o w t f (q.evaluateAnnotated d) := by
+  show (ValueFrame.window P O o w t f
       (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
-  exact ValueFrame.window_toMultiset_congr P O w t f (by simp)
+  exact ValueFrame.window_toMultiset_congr P O o w t f (by simp)
 
 /-- A window keeps its input's rows one for one: it removes none, merges
 none, and adds one column to each. -/
 @[simp] theorem AggQuery.card_evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    Multiset.card ((AggQuery.Win P O w t f q).evaluate d)
+    Multiset.card ((AggQuery.Win P O o w t f q).evaluate d)
       = Multiset.card (q.evaluate d) := by
-  show Multiset.card (ValueFrame.window P O w t f
+  show Multiset.card (ValueFrame.window P O o w t f
       (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
   rw [OccFam.card_toMultiset]
   show (OccFam.ofSorted (q.evaluateAnnotated d)).size = _
@@ -192,14 +206,14 @@ reading is what justifies this – two occurrences of an equal row may have
 different frames, and this says they nonetheless receive tokens the relation
 determines – and it is the form every theorem about the operator uses. -/
 theorem ValueFrame.window_toMultiset_eq {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) :
-    (ValueFrame.window P O w t f r).toMultiset
-      = r.toMultiset.map (ValueFrame.windowRow P O w t f r.toMultiset) := by
+    (ValueFrame.window P O o w t f r).toMultiset
+      = r.toMultiset.map (ValueFrame.windowRow P O o w t f r.toMultiset) := by
   rw [OccFam.toMultiset_map]
   refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (ValueFrame.window P O w t f r).row i
-    = ValueFrame.windowRow P O w t f r.toMultiset (r.row i)
+  show (ValueFrame.window P O o w t f r).row i
+    = ValueFrame.windowRow P O o w t f r.toMultiset (r.row i)
   unfold ValueFrame.window ValueFrame.windowRow
   dsimp only
   rw [ValueFrame.token_eq_tokenOf]

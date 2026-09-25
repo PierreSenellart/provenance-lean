@@ -29,11 +29,21 @@ The second is the order a frame is *read* in, which is what an aggregate
 that is not symmetric depends on. `OrderSpec.readLe` is that order – the
 clause on the order values, its ties broken by the canonical order on the
 rows, so that two occurrences are tied exactly when they carry the same
-row – and `OrderSpec.sortSeq` puts a listing of a frame into it.
-`sortSeq_tiePerm` is what makes it usable: any two listings of one frame
+row – and `OrderSpec.sortSeq` puts a listing of a frame into it. It is what
+`ValueFrame.frameSeqOn` and hence the window operator read.
+
+`sortSeq_tiePerm` is what makes that usable: any two listings of one frame
 come out related by a tie-block permutation whose blocks are the
 occurrences of one row, which is precisely the freedom every reading of a
-token is invariant under.
+token is invariant under. `map_eq_of_sorted` is the working form – two
+readings of one frame give the *same* sequence of values – and
+`filter_sortSeq_map_eq` says cutting a frame down to a possible world and
+sorting commute on the values read off, which is what the random-world
+commutation needs.
+
+A window with no `ORDER BY` has no order columns at all, `OrderSpec.unordered`;
+the clause then separates nothing (`peer_of_zero`) and the frame is read as a
+group is read (`ValueFrame.frameListOf_of_peer`).
 -/
 variable {T : Type} {p : ℕ}
 
@@ -173,6 +183,10 @@ def asc (p : ℕ) : OrderSpec p := fun _ => OrderCol.ASC
 /-- Every column `DESC`, with SQL's default null placement. -/
 def desc (p : ℕ) : OrderSpec p := fun _ => OrderCol.DESC
 
+/-- **No `ORDER BY`**: the clause with no order columns, which separates
+nothing, so a frame under it is read as a group is read. -/
+def unordered : OrderSpec 0 := fun k => k.elim0
+
 variable [ValueType T]
 
 /-- Lexicographic comparison down a list of columns: the first column whose
@@ -285,6 +299,13 @@ theorem le_congr_right (o : OrderSpec p) {x y : Tuple T p}
   simp only [peer, Bool.and_eq_true] at h
   rw [Bool.eq_iff_iff]
   exact ⟨fun hz => o.le_trans hz h.1, fun hz => o.le_trans hz h.2⟩
+
+/-- **A clause with no order columns separates nothing.** A window with no
+`ORDER BY` has every pair of order values as peers, and reads its frame as a
+group is read. -/
+@[simp] theorem peer_of_zero (o : OrderSpec 0) (x y : Tuple T 0) :
+    o.peer x y = true := by
+  simp [peer, le, leOn]
 
 /-- Equal order values are peers – the converse fails, which is the whole
 point of a peer group. -/
@@ -514,6 +535,39 @@ theorem sortSeq_sorted (L : List α) :
   List.pairwise_mergeSort (fun _ _ _ => readLe_trans) (fun a b => by
     rcases readLe_total (key := key) (val := val) (o := o) a b with h | h <;>
       simp [h]) L
+
+/-- **Any two readings of one frame in the clause's order give the same
+sequence of values.** They differ only inside blocks of occurrences carrying
+equal rows, and equal rows give equal values. -/
+theorem map_eq_of_sorted [DecidableEq α] {γ : Type} (g : β → γ)
+    {L L' : List α} (h : L.Perm L')
+    (hL : L.Pairwise (fun x y => readLe key val o x y = true))
+    (hL' : L'.Pairwise (fun x y => readLe key val o x y = true)) :
+    L.map (fun x => g (val x)) = L'.map (fun x => g (val x)) :=
+  TiePerm.map_eq (fun hv => congrArg g hv)
+    (tiePerm_of_perm_of_sorted_by (fun x y => readLe key val o x y = true) val
+      (fun hxy hyx => val_eq_of_readLe hxy hyx)
+      (fun hv => readLe_of_val_eq hv) h hL hL')
+
+/-- Two listings of one frame give the same sequence of values once sorted
+by the clause. -/
+theorem sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
+    {L L' : List α} (h : L.Perm L') :
+    (sortSeq key val o L).map (fun x => g (val x))
+      = (sortSeq key val o L').map (fun x => g (val x)) :=
+  map_eq_of_sorted g (((sortSeq_perm L).trans h).trans (sortSeq_perm L').symm)
+    (sortSeq_sorted L) (sortSeq_sorted L')
+
+/-- **Cutting a frame down and sorting commute, on the values read off.**
+Selecting occurrences from a sorted reading and sorting the selection give
+the same sequence of values. -/
+theorem filter_sortSeq_map_eq [DecidableEq α] {γ : Type} (g : β → γ)
+    (q : α → Bool) (L : List α) :
+    ((sortSeq key val o L).filter q).map (fun x => g (val x))
+      = (sortSeq key val o (L.filter q)).map (fun x => g (val x)) :=
+  map_eq_of_sorted g
+    (((sortSeq_perm L).filter q).trans (sortSeq_perm (L.filter q)).symm)
+    ((sortSeq_sorted L).filter q) (sortSeq_sorted (L.filter q))
 
 /-- **Sorting by the clause settles the sequence down to the rows.** Two
 listings of the same frame come out tie-permuted, the blocks being the

@@ -106,14 +106,16 @@ syntax:80 "ε " raQuery : raQuery
 grouping, whose single row exists even over an empty input – the absence of
 a `GROUP BY` is what makes an aggregation scalar, here as in SQL. -/
 syntax:80 "γ[" raCol,* " ; " raAgg,* "] " raQuery : raQuery
-/-- A window. The three lists before the aggregated column are the partition
-columns, the order columns and the frame: `⊞[#0 ; #1 ; w ; #2 : f] q` gives
-every row of `q` a further column holding `f` of `#2` over that row's frame,
-which is `w` read on the order column `#1` within the partition given by
-`#0`. The frame is an ordinary Lean term of type `ValueFrame`, so the
-catalog is open – `ValueFrame.whole`, `ValueFrame.upTo`, `ValueFrame.before`
-and `ValueFrame.excludeCurrent` of any of them. -/
-syntax:80 "⊞[" raCol,* " ; " raCol,* " ; " term " ; " raAgg "] " raQuery : raQuery
+/-- A window. Before the aggregated column come the partition columns, the
+order columns, the `ORDER BY` clause and the frame: `⊞[#0 ; #1 ; o ; w ; #2 : f] q`
+gives every row of `q` a further column holding `f` of `#2` over that row's
+frame, which is `w` read on the order column `#1` within the partition given
+by `#0`, and read in the order `o` gives that column. The clause is a term
+of type `OrderSpec` (`OrderSpec.asc`, `OrderSpec.desc`, or a column-by-column
+`OrderCol`), and the frame a term of type `ValueFrame`, so both catalogs are
+open – `ValueFrame.whole`, `upTo`, `before`, `rangeUpTo o`, `peerGroup o`
+and the `EXCLUDE` modifiers of any of them. -/
+syntax:80 "⊞[" raCol,* " ; " raCol,* " ; " term " ; " term " ; " raAgg "] " raQuery : raQuery
 syntax:70 raQuery " × " raQuery : raQuery
 syntax:60 raQuery " ⊎ " raQuery : raQuery
 syntax:60 raQuery " ∖ " raQuery : raQuery
@@ -262,7 +264,7 @@ macro_rules
         `(AggQuery.GammaScalar ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
       else
         `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
-  | `(ra_query% ⊞[$ps,* ; $os,* ; $w:term ; $a:raAgg] $q:raQuery) => do
+  | `(ra_query% ⊞[$ps,* ; $os,* ; $o:term ; $w:term ; $a:raAgg] $q:raQuery) => do
       let keys ← ps.getElems.mapM fun k => match k with
         | `(raCol| #$i:num) => `(($i : Fin _))
         | _ => Lean.Macro.throwUnsupported
@@ -271,7 +273,7 @@ macro_rules
         | _ => Lean.Macro.throwUnsupported
       match a with
       | `(raAgg| $t:raTerm : $f:term) =>
-          `(AggQuery.Win ![$keys,*] ![$ords,*] $w (ra_cterm% $t) $f
+          `(AggQuery.Win ![$keys,*] ![$ords,*] $o $w (ra_cterm% $t) $f
               (allReg (ra_query% $q)))
       | _ => Lean.Macro.throwUnsupported
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
@@ -317,11 +319,16 @@ comparison; which atom it becomes is decided by the kind vector. -/
 example (c : T) :=
   RA[T | σ[#1 ≥ `(c)] γ[#3 ; #0 : SeqAggFunc.sum] rel 4 "R" ]
 
-/-- A window: partition columns, order columns, frame, aggregated column. -/
-example := RA[T | ⊞[#3 ; #0 ; ValueFrame.whole ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+/-- A window: partition columns, order columns, clause, frame, aggregated
+column. -/
+example := RA[T |
+  ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.whole ; #0 : SeqAggFunc.sum]
+    rel 4 "R" ]
 
-/-- A window over the whole relation, with the frame of the rows strictly
-before the current row's peers. -/
-example := RA[T | ⊞[ ; #0 ; ValueFrame.before ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+/-- A window over the whole relation, with the frame of the rows the clause
+sorts strictly before the current row's peers. -/
+example := RA[T |
+  ⊞[ ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
+    #0 : SeqAggFunc.sum] rel 4 "R" ]
 
 end Examples

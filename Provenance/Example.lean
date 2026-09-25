@@ -217,7 +217,8 @@ came with: no group is created, so no group-existence factor arises. -/
 
 open Provenance.Notation in
 def qwCity := RA[String |
-  ⊞[#3 ; #0 ; ValueFrame.whole ; `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
+  ⊞[#3 ; ; OrderSpec.unordered ; ValueFrame.whole ;
+    `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
 #eval! hdr "plain: SUM(1) OVER (PARTITION BY city)"
 #eval! qwCity.evaluatePlain d
@@ -231,7 +232,8 @@ first row of each city aggregates over nothing. -/
 
 open Provenance.Notation in
 def qwRunning := RA[String |
-  ⊞[#3 ; #0 ; ValueFrame.before ; `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
+  ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
+    `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
 #eval! hdr "plain: a running count over the rows strictly before, per city"
 #eval! qwRunning.evaluatePlain d
@@ -250,8 +252,8 @@ def dNull : Database (WithNull String) := [("Personnel", ⟨4, rNull⟩)]
 
 open Provenance.Notation in
 def qwRunningNull := RA[WithNull String |
-  ⊞[#3 ; #0 ; ValueFrame.before ; `(WithNull.val "1") : SeqAggFunc.sum.sqlOf]
-    rel 4 "Personnel" ]
+  ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
+    `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
 #eval! hdr "plain: SUM over the rows strictly before – NULL where there are none"
 #eval! qwRunningNull.evaluatePlain dNull
@@ -285,12 +287,12 @@ def ascNullsFirst : OrderSpec 1 :=
 
 open Provenance.Notation in
 def qwNullsLast := RA[WithNull String |
-  ⊞[#3 ; #0 ; ValueFrame.rangeBefore ascNullsLast ;
+  ⊞[#3 ; #0 ; ascNullsLast ; ValueFrame.rangeBefore ascNullsLast ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
 open Provenance.Notation in
 def qwNullsFirst := RA[WithNull String |
-  ⊞[#3 ; #0 ; ValueFrame.rangeBefore ascNullsFirst ;
+  ⊞[#3 ; #0 ; ascNullsFirst ; ValueFrame.rangeBefore ascNullsFirst ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
 #eval! hdr "plain: running count, ORDER BY id ASC NULLS LAST"

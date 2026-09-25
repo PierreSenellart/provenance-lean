@@ -796,7 +796,7 @@ theorem AggQuery.evaluate_guarded :
       refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
       rw [AggValue.annList_ofGroup]
       exact hG
-  | @Win n' m' p' P O w t f q ih =>
+  | @Win n' m' p' P O o w t f q ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
@@ -811,8 +811,8 @@ theorem AggQuery.evaluate_guarded :
       by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
           ((q.evaluate d).map GenRow.toAnnotated)).row i).fst) = true
       · exact Or.inr (AggValue.realized_nonempty_of_mem _ v
-          (ValueFrame.mem_token_occs P O w t f _ i hs) (by simpa using hfin))
-      · exact Or.inl (ValueFrame.token_scalar_of_not_mem P O w t f _ i
+          (ValueFrame.mem_token_occs P O o w t f _ i hs) (by simpa using hfin))
+      · exact Or.inl (ValueFrame.token_scalar_of_not_mem P O o w t f _ i
           (by simpa using hs))
     · dsimp only at ha
       rw [Fin.snoc_castSucc] at ha
@@ -1163,12 +1163,13 @@ reads as the plain aggregate the realized world gives its row: restricting
 the relation to a world restricts every frame to that world, which is the
 only property of frames the annotated semantics uses. -/
 theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
-    (O : Tuple (Fin n') p') (w : ValueFrame T p') (t : Term T n')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : Term T n')
     (f : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
     {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
     (hc : x.snd v = true) :
-    (ValueFrame.tokenOf P O w t f R x).specialize (fun α => α v)
-      = ValueFrame.windowValue P O w t f (randomWorld v R) x.fst := by
+    (ValueFrame.tokenOf P O o w t f R x).specialize (fun α => α v)
+      = ValueFrame.windowValue P O o w t f (randomWorld v R) x.fst := by
   have hframe : ValueFrame.frameOf (α := Tuple T n') id P O w
       (randomWorld v R) x.fst
       = Multiset.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
@@ -1181,12 +1182,32 @@ theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
         (Multiset.mem_filter.mpr ⟨hx, hc⟩),
       ValueFrame.frameOf_filter (α := AnnotatedTuple T (BoolFunc X) n')
         Prod.fst _ P O w R hc]
-  unfold AggValue.specialize ValueFrame.windowValue
-  rw [ValueFrame.tokenOf_agg, ValueFrame.tokenOf_occs, hframe,
-    ← ValueFrame.sortList_map_fst, ← sortList_filter]
+  have hproj : ∀ L : List (AnnotatedTuple T (BoolFunc X) n'),
+      List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst)
+          (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
+        = List.map t.eval (OrderSpec.sortSeq (Tuple.key O)
+            (id : Tuple T n' → Tuple T n') o
+            (List.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst L)) := by
+    intro L
+    rw [← ValueFrame.sortSeq_map_fst, List.map_map]
+    rfl
+  unfold AggValue.specialize ValueFrame.windowValue ValueFrame.frameListOf
+  rw [ValueFrame.tokenOf_agg, ValueFrame.tokenOf_occs]
   refine congrArg f ?_
-  rw [list_filter_map_comm, List.map_map, List.map_map]
-  simp
+  unfold ValueFrame.frameListOf
+  rw [list_filter_map_comm, List.map_map]
+  have hpred : (fun q : AnnotatedTuple T (BoolFunc X) n' => q.snd v)
+      = (fun q : AnnotatedTuple T (BoolFunc X) n' => decide (q.snd v = true)) := by
+    funext q; simp
+  show List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst)
+      (List.filter (fun q : AnnotatedTuple T (BoolFunc X) n' => q.snd v)
+        (OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+          (sortList (ValueFrame.frameOf
+            (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst P O w R x))))
+    = _
+  rw [hpred, OrderSpec.filter_sortSeq_map_eq (o := o) t.eval
+      (fun q : AnnotatedTuple T (BoolFunc X) n' => decide (q.snd v = true)),
+    hproj, sortList_filter, ValueFrame.sortList_map_fst, hframe]
 
 /-! ## The random-world commutation -/
 
@@ -1442,7 +1463,7 @@ theorem AggQuery.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q ih =>
     intro hq
     exact hq.elim
-  | @Win nI mI pI P O w t f q ih =>
+  | @Win nI mI pI P O o w t f q ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame
@@ -1452,7 +1473,7 @@ theorem AggQuery.genRandomWorld_evaluate :
     unfold genRandomWorld randomWorld
     rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
       Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d) =>
-        show (ValueFrame.windowRow P O w t f (q.evaluateAnnotated d) x).snd.finalize v
+        show (ValueFrame.windowRow P O o w t f (q.evaluateAnnotated d) x).snd.finalize v
             = true
           ↔ x.snd v = true from by
           simp [ValueFrame.windowRow])]
@@ -1463,7 +1484,7 @@ theorem AggQuery.genRandomWorld_evaluate :
     unfold GenRow.specializeTuple
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact tokenOf_specialize P O w t f (q.evaluateAnnotated d) hxR v hxc
+      exact tokenOf_specialize P O o w t f (q.evaluateAnnotated d) hxR v hxc
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | Retag h q ih =>

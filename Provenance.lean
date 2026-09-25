@@ -318,7 +318,12 @@ proven engine several general results reuse internally.
   indexing – the rows of the partition the frame's relation accepts, the
   row's own copy taken out and put back exactly as `s` says – and
   `frameSeq_eq_sortList` proves the two readings agree, so `tokenOf` gives a
-  token to a row of a relation with no indexing in sight. What that buys is
+  token to a row of a relation with no indexing in sight. What a token
+  actually holds is `frameSeqOn`, that sequence put into the order the
+  window's `ORDER BY` asks for (`Provenance.OrderSpec`), the canonical order
+  breaking the clause's ties; `sortSeq_map_fst` and `sortSeq_mapAnn` say the
+  clause survives forgetting the annotations and changing the semiring,
+  since it reads only the rows. What that buys is
   `frameOf_map` (a map keeping the values carries every frame to the image
   of its frame: changing the semiring, or forgetting the annotations) and
   `frameOf_filter` (the restriction property again, now on relations),
@@ -395,7 +400,11 @@ proven engine several general results reuse internally.
   listing of a frame into it. `sortSeq_tiePerm` is what makes the second
   usable: two listings of one frame come out related by a tie-block
   permutation whose blocks are the occurrences of one row, which is exactly
-  the freedom every reading of a token is invariant under
+  the freedom every reading of a token is invariant under; `map_eq_of_sorted`
+  is the working form and `filter_sortSeq_map_eq` says cutting a frame down
+  to a possible world and sorting commute on the values read off. A window
+  with no `ORDER BY` is `OrderSpec.unordered`, which separates nothing, and
+  its frame is read as a group is (`ValueFrame.frameListOf_of_peer`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

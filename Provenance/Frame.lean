@@ -293,6 +293,24 @@ def frameSeq {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (r : OccFam α) (i : Fin r.size) : List α :=
   (((frame val P O w r i).val.map r.row).foldr sortedInsert ⟨[], by simp⟩).val
 
+/-- **The occurrence sequence of a frame, in the order its clause reads
+it**: the frame's occurrences sorted by the clause on the order columns,
+with the canonical order on rows breaking the clause's ties. The tie-break
+is invisible to every symmetric aggregate, and it leaves two occurrences
+tied exactly when they carry the same row. -/
+def frameSeqOn {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) : List α :=
+  OrderSpec.sortSeq (Tuple.key O) val o (frameSeq val P O w r i)
+
+/-- Reading a frame in the clause's order does not change which occurrences
+are in it. -/
+theorem frameSeqOn_perm {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    (frameSeqOn val P O o w r i).Perm (frameSeq val P O w r i) :=
+  OrderSpec.sortSeq_perm _
+
 /-- The order in which a group or a frame reads its occurrences: the
 canonical one on annotated tuples, with the semiring's auxiliary order
 breaking ties between equal tuples. The tie-break is invisible to every
@@ -359,37 +377,38 @@ Whether the row is in its own frame is decided by `s` of its own order
 value. A row that is reads its aggregate as a group's, never over nothing; a
 row that is not may have an empty frame in a world where it is itself
 present, and its aggregate then ranges over no occurrence at all. -/
-def token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (t : Term T n) (f : SeqAggFunc T)
+def token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) : AggValue T K :=
   if w.s (Tuple.key O (r.row i).fst) then
-    AggValue.ofGroup f t (frameSeq (α := AnnotatedTuple T K n) Prod.fst P O w r i)
+    AggValue.ofGroup f t (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
   else
-    AggValue.ofScalarGroup f t (frameSeq (α := AnnotatedTuple T K n) Prod.fst P O w r i)
+    AggValue.ofScalarGroup f t (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
 
 /-- A row inside its own frame reads its aggregate as a group's. -/
 @[simp] theorem token_scalar_of_mem (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (h : w.s (Tuple.key O (r.row i).fst) = true) :
-    (token P O w t f r i).scalar = false := by
+    (token P O o w t f r i).scalar = false := by
   simp [token, h]
 
 /-- A row outside its own frame reads it in the scalar convention: the frame
 may be empty in a world where the row is present. -/
 @[simp] theorem token_scalar_of_not_mem (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (h : w.s (Tuple.key O (r.row i).fst) = false) :
-    (token P O w t f r i).scalar = true := by
+    (token P O o w t f r i).scalar = true := by
   simp [token, h]
 
 /-- Whichever convention it is read in, the token aggregates the frame. -/
 theorem token_occs (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
-    (token P O w t f r i).occs
-      = (frameSeq (α := AnnotatedTuple T K n) Prod.fst P O w r i).map (fun q => (t.eval q.fst, q.snd)) := by
+    (token P O o w t f r i).occs
+      = (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i).map
+          (fun q => (t.eval q.fst, q.snd)) := by
   unfold token AggValue.ofScalarGroup AggValue.ofGroup
   split <;> rfl
 
@@ -411,9 +430,9 @@ theorem frameSeq_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
 
 /-- Whichever convention it is read in, the token aggregates with `f`. -/
 theorem token_agg (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
-    (token P O w t f r i).agg = f := by
+    (token P O o w t f r i).agg = f := by
   unfold token AggValue.ofScalarGroup AggValue.ofGroup
   split <;> rfl
 
@@ -621,52 +640,85 @@ theorem frameSeq_eq_sortList {α : Type} [LinearOrder α] (val : α → Tuple T 
     frameSeq val P O w r i = sortList (frameOf val P O w r.toMultiset (r.row i)) :=
   sortList_eq (sortList_pairwise _) (frameSeq_coe_frameOf val P O w r i)
 
+/-- **A frame's occurrence sequence in the clause's order, read off the
+relation.** -/
+def frameListOf {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (X : Multiset α) (x : α) : List α :=
+  OrderSpec.sortSeq (Tuple.key O) val o (sortList (frameOf val P O w X x))
+
+theorem frameSeqOn_eq_frameListOf {α : Type} [LinearOrder α]
+    (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    frameSeqOn val P O o w r i
+      = frameListOf val P O o w r.toMultiset (r.row i) := by
+  unfold frameSeqOn frameListOf
+  rw [frameSeq_eq_sortList]
+
+/-- **A window with no `ORDER BY` reads its frame as a group is read.**
+Where the clause separates nothing, every pair of order values is a peer,
+the reading order is the library's own order on rows, and a sequence
+already sorted that way is left alone. -/
+theorem frameListOf_of_peer {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (X : Multiset α) (x : α)
+    (ho : ∀ y z : Tuple T p, o.peer y z = true)
+    (hval : ∀ a b : α, a ≤ b → val a ≤ val b) :
+    frameListOf val P O o w X x = sortList (frameOf val P O w X x) := by
+  unfold frameListOf OrderSpec.sortSeq
+  refine List.mergeSort_of_pairwise ?_
+  refine (sortList_pairwise _).imp (fun {a b} hab => ?_)
+  show OrderSpec.readLe (Tuple.key O) val o a b = true
+  unfold OrderSpec.readLe
+  rw [ite_eq_left (ho _ _)]
+  exact decide_eq_true (hval a b hab)
+
 /-- **The token read off the relation.** A window's token depends on the
 relation and on the row it is computed for, and on nothing else: which
 occurrence of an equal row it is decides nothing beyond what `s` decides for
 every one of them. -/
-def tokenOf (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
-    (t : Term T n) (f : SeqAggFunc T) (X : AnnotatedRelation T K n)
-    (x : AnnotatedTuple T K n) : AggValue T K :=
+def tokenOf (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) : AggValue T K :=
   if w.s (Tuple.key O x.fst) then
     AggValue.ofGroup f t
-      (sortList (frameOf (α := AnnotatedTuple T K n) Prod.fst P O w X x))
+      (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x)
   else
     AggValue.ofScalarGroup f t
-      (sortList (frameOf (α := AnnotatedTuple T K n) Prod.fst P O w X x))
+      (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x)
 
 /-- An occurrence's token is the token its relation gives its row. -/
 theorem token_eq_tokenOf (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
-    token P O w t f r i = tokenOf P O w t f r.toMultiset (r.row i) := by
+    token P O o w t f r i = tokenOf P O o w t f r.toMultiset (r.row i) := by
   unfold token tokenOf
-  rw [frameSeq_eq_sortList]
+  rw [frameSeqOn_eq_frameListOf]
 
 /-- Whichever convention it is read in, the token aggregates its frame. -/
 theorem tokenOf_occs (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) :
-    (tokenOf P O w t f X x).occs
-      = (sortList (frameOf (α := AnnotatedTuple T K n) Prod.fst P O w X x)).map
+    (tokenOf P O o w t f X x).occs
+      = (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x).map
           (fun q => (t.eval q.fst, q.snd)) := by
   unfold tokenOf AggValue.ofScalarGroup AggValue.ofGroup
   split <;> rfl
 
 /-- Whichever convention it is read in, the token aggregates with `f`. -/
 theorem tokenOf_agg (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) :
-    (tokenOf P O w t f X x).agg = f := by
+    (tokenOf P O o w t f X x).agg = f := by
   unfold tokenOf AggValue.ofScalarGroup AggValue.ofGroup
   split <;> rfl
 
 /-- The convention a token is read in is decided by whether the row is in
 its own frame. -/
 theorem tokenOf_scalar (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) :
-    (tokenOf P O w t f X x).scalar = !(w.s (Tuple.key O x.fst)) := by
+    (tokenOf P O o w t f X x).scalar = !(w.s (Tuple.key O x.fst)) := by
   unfold tokenOf AggValue.ofScalarGroup AggValue.ofGroup
   split <;> simp_all
 
@@ -674,12 +726,13 @@ theorem tokenOf_scalar (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 with its own annotation. That is what makes such a token guarded: in a world
 where the row exists, its aggregate ranges over at least that row. -/
 theorem mem_token_occs (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (h : w.s (Tuple.key O (r.row i).fst) = true) :
-    (t.eval (r.row i).fst, (r.row i).snd) ∈ (token P O w t f r i).occs := by
+    (t.eval (r.row i).fst, (r.row i).snd) ∈ (token P O o w t f r i).occs := by
   rw [token_occs]
   refine List.mem_map.mpr ⟨r.row i, ?_, rfl⟩
+  refine (frameSeqOn_perm (α := AnnotatedTuple T K n) Prod.fst P O o w r i).mem_iff.mpr ?_
   rw [← Multiset.mem_coe, frameSeq_coe]
   exact Multiset.mem_map.mpr ⟨i, (self_mem_frame _ P O w r i).mpr h, rfl⟩
 
@@ -703,17 +756,63 @@ theorem frameSeq_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   rw [sorted_map_fst, Multiset.map_map]
   rfl
 
+omit [HasAltLinearOrder K] in
+/-- **The clause's order survives a change of semiring.** Pushing a map
+through the annotations does not move an occurrence, the clause reading only
+the rows. -/
+theorem sortSeq_mapAnn {K' : Type} (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (g : K → K') (L : List (AnnotatedTuple T K n)) :
+    List.map (fun q : AnnotatedTuple T K n =>
+        ((q.fst, g q.snd) : AnnotatedTuple T K' n))
+        (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
+      = OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+          (List.map (fun q : AnnotatedTuple T K n =>
+            ((q.fst, g q.snd) : AnnotatedTuple T K' n)) L) :=
+  List.map_mergeSort
+    (f := fun q : AnnotatedTuple T K n =>
+      ((q.fst, g q.snd) : AnnotatedTuple T K' n))
+    (s := OrderSpec.readLe (Tuple.key O)
+      (Prod.fst : AnnotatedTuple T K' n → Tuple T n) o)
+    (fun _ _ _ _ => rfl)
+
+omit [HasAltLinearOrder K] in
+/-- **Reading annotated occurrences in the clause's order and projecting to
+their rows is reading the rows in that order.** The clause looks only at the
+rows, so the annotations never enter the comparison. -/
+theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (L : List (AnnotatedTuple T K n)) :
+    List.map (α := AnnotatedTuple T K n) Prod.fst
+        (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
+      = OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
+          (List.map (α := AnnotatedTuple T K n) Prod.fst L) :=
+  List.map_mergeSort (f := (Prod.fst : AnnotatedTuple T K n → Tuple T n))
+    (s := OrderSpec.readLe (Tuple.key O) (id : Tuple T n → Tuple T n) o)
+    (fun _ _ _ _ => rfl)
+
+theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
+    List.map (α := AnnotatedTuple T K n) Prod.fst
+        (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
+      = frameSeqOn (α := Tuple T n) id P O o w r.plain i := by
+  unfold frameSeqOn OrderSpec.sortSeq
+  refine Eq.trans (List.map_mergeSort
+      (f := (Prod.fst : AnnotatedTuple T K n → Tuple T n))
+      (s := OrderSpec.readLe (Tuple.key O) (id : Tuple T n → Tuple T n) o)
+      (fun _ _ _ _ => rfl)) ?_
+  rw [frameSeq_plain]
+
 /-- **The token's deterministic reading is the plain aggregate over the
 frame** – whichever convention the token is read in, since the convention
 decides what the *worlds* of a comparison are and not what the aggregate is
 over the whole relation. -/
 theorem collapse_token (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n) (f : SeqAggFunc T)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) :
-    (token P O w t f r i).collapse
-      = f ((frameSeq (α := Tuple T n) id P O w r.plain i).map t.eval) := by
+    (token P O o w t f r i).collapse
+      = f ((frameSeqOn (α := Tuple T n) id P O o w r.plain i).map t.eval) := by
   unfold AggValue.collapse
-  rw [token_occs, token_agg, List.map_map, ← frameSeq_plain, List.map_map]
+  rw [token_occs, token_agg, List.map_map, ← frameSeqOn_plain, List.map_map]
   rfl
 
 

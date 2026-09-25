@@ -456,7 +456,11 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
   /-- **The window operator.** Every occurrence of the input keeps its row
   and its annotation and gains one column: the aggregate of `t` under `f`
   over that occurrence's frame, given by the partition columns `P`, the
-  order columns `O` and a frame `w` determined by values.
+  order columns `O`, the `ORDER BY` clause `o` and a frame `w` determined by
+  values. The clause does two things SQL asks of it and the domain's order
+  cannot: it bounds a `RANGE` or `GROUPS` frame, and it fixes the order the
+  frame is read in, which is what an aggregate that is not symmetric
+  depends on.
 
   It removes no row, merges none and changes no annotation, so it creates no
   group and produces no group-existence factor. Which occurrence a row is
@@ -465,7 +469,8 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
   a row reads its token is decided per row, by whether the row is in its own
   frame (`ValueFrame.token`). -/
   | Win : {n m p : ℕ} →
-      (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (w : ValueFrame T p) →
+      (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
+      (w : ValueFrame T p) →
       (t : Term T n) → (f : SeqAggFunc T) →
       AggQuery T n (ColKind.allReg n) →
       AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
@@ -648,7 +653,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, @Win _ n _m _p P O w t f q, d =>
+  | _, _, @Win _ n _m _p P O o w t f q, d =>
     let r : AnnotatedRelation T K n := (q.evaluate d).map GenRow.toAnnotated
     -- the canonical indexing: an occurrence is what a frame is computed for,
     -- and two occurrences carrying the same row may have different frames
@@ -657,7 +662,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
     -- no row is removed and no group is created, so nothing goes pending
     (OccFam.mk occ.size (fun i =>
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
-          (Sum.inr (ValueFrame.token P O w t f occ i)),
+          (Sum.inr (ValueFrame.token P O o w t f occ i)),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
 
 /-- The final annotated relation computed by a general query: evaluate,
@@ -671,11 +676,11 @@ def AggQuery.evaluateAnnotated {n : ℕ} {κ : Fin n → ColKind}
 column longer, with the token the relation gives it, its annotation kept and
 nothing pending – a window creates no group. -/
 def ValueFrame.windowRow {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (X : AnnotatedRelation T K n)
     (x : AnnotatedTuple T K n) : GenRow T K (n + 1) :=
   ⟨Fin.snoc (fun k => (Sum.inl (x.fst k) : GenValue T K))
-      (Sum.inr (ValueFrame.tokenOf P O w t f X x)), ⟨x.snd, 0⟩⟩
+      (Sum.inr (ValueFrame.tokenOf P O o w t f X x)), ⟨x.snd, 0⟩⟩
 
 /-- **The `Win` case of the evaluator, read off the relation.** The output is
 the input relation mapped row by row, each row gaining the token its relation
@@ -683,16 +688,16 @@ gives it. This is the form every theorem about the operator uses; that it is
 legitimate – that an occurrence's token is determined by the relation even
 though its frame is not determined by its row – is `ValueFrame.tokenOf`. -/
 theorem AggQuery.evaluate_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Win P O w t f q).evaluate d
+    (AggQuery.Win P O o w t f q).evaluate d
       = (q.evaluateAnnotated d).map
-          (ValueFrame.windowRow P O w t f (q.evaluateAnnotated d)) := by
+          (ValueFrame.windowRow P O o w t f (q.evaluateAnnotated d)) := by
   conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluateAnnotated d)]
   rw [OccFam.toMultiset_map]
   refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : GenRow T K (n + 1)) = ValueFrame.windowRow P O w t f _ _
+  show (_ : GenRow T K (n + 1)) = ValueFrame.windowRow P O o w t f _ _
   unfold ValueFrame.windowRow AggQuery.evaluateAnnotated
   dsimp only [Fin.cast_eq_self]
   rw [ValueFrame.token_eq_tokenOf, OccFam.toMultiset_ofSorted]
@@ -842,20 +847,20 @@ def AggQuery.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u)).fold addFn 0))
-  | _, _, @Win _ n _m _p P O w t f q, d =>
+  | _, _, @Win _ n _m _p P O o w t f q, d =>
     -- the canonical indexing again; a frame is computed for an occurrence
     let occ := OccFam.ofSorted (q.evaluatePlain d)
     (OccFam.mk occ.size (fun i =>
       (Fin.snoc (occ.row i)
-        (f ((ValueFrame.frameSeq (α := Tuple T n) id P O w occ i).map t.eval))
+        (f ((ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).map t.eval))
         : Tuple T (n + 1)))).toMultiset
 
 /-- The value a window's added column takes on a row of a plain relation:
 the aggregate of the term over that row's frame, read off the relation. -/
 def ValueFrame.windowValue {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (R : Relation T n) (u : Tuple T n) : T :=
-  f ((sortList (ValueFrame.frameOf (α := Tuple T n) id P O w R u)).map t.eval)
+  f ((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).map t.eval)
 
 /-- **Where the aggregate is symmetric the sequence a frame is read in does
 not matter**: any listing of the frame gives the value the window gives, so
@@ -863,31 +868,31 @@ the canonical order the library sorts by is as good as the order an `ORDER
 BY` asks for. It is for an aggregate that is not symmetric – `PICKFIRST` –
 that the two have to be the same order. -/
 theorem ValueFrame.windowValue_of_perm {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     {f : SeqAggFunc T} (hf : f.Symmetric) (R : Relation T n) (u : Tuple T n)
     (L : List (Tuple T n))
     (hL : (L : Multiset (Tuple T n))
       = ValueFrame.frameOf (α := Tuple T n) id P O w R u) :
-    f (L.map t.eval) = ValueFrame.windowValue P O w t f R u := by
-  unfold ValueFrame.windowValue
-  refine hf (List.Perm.map _ ?_)
+    f (L.map t.eval) = ValueFrame.windowValue P O o w t f R u := by
+  unfold ValueFrame.windowValue ValueFrame.frameListOf
+  refine hf (List.Perm.map _ (List.Perm.trans ?_ (OrderSpec.sortSeq_perm _).symm))
   rw [← Multiset.coe_eq_coe, hL, sortList_coe]
 
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
 theorem AggQuery.evaluatePlain_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
-    (AggQuery.Win P O w t f q).evaluatePlain d
+    (AggQuery.Win P O o w t f q).evaluatePlain d
       = (q.evaluatePlain d).map (fun u : Tuple T n =>
-          (Fin.snoc u (ValueFrame.windowValue P O w t f (q.evaluatePlain d) u)
+          (Fin.snoc u (ValueFrame.windowValue P O o w t f (q.evaluatePlain d) u)
             : Tuple T (n + 1))) := by
   conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluatePlain d)]
   rw [OccFam.toMultiset_map]
   refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : Tuple T (n + 1)) = Fin.snoc _ (ValueFrame.windowValue P O w t f _ _)
+  show (_ : Tuple T (n + 1)) = Fin.snoc _ (ValueFrame.windowValue P O o w t f _ _)
   unfold ValueFrame.windowValue
   dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.frameSeq_eq_sortList, OccFam.toMultiset_ofSorted]
+  rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
 
 /-- Strip a general query of the constructs whose annotated data part
 keeps rows the classical semantics removes: differences (annotated `Diff`
@@ -911,7 +916,7 @@ def AggQuery.stripAgg : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
   | _, _, Retag h q => Retag h q.stripAgg
   | _, _, GammaTok is his ts fs a q => GammaTok is his ts fs a q.stripAgg
-  | _, _, Win P O w t f q => Win P O w t f q.stripAgg
+  | _, _, Win P O o w t f q => Win P O o w t f q.stripAgg
 
 /-- No plan-level provenance aggregation. The possible-world
 metatheorems (random-world commutation, PQE) are about source queries;
@@ -932,7 +937,7 @@ def AggQuery.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .ProvSum _ _ _ _ => False
   | _, _, .Retag _ q => q.noProvSum
   | _, _, .GammaTok _ _ _ _ _ _ => False
-  | _, _, .Win _ _ _ _ _ q => q.noProvSum
+  | _, _, .Win _ _ _ _ _ _ q => q.noProvSum
 
 /-! ## Join conditions on key columns -/
 
@@ -1236,7 +1241,7 @@ theorem AggQuery.evaluate_conform :
     · dsimp only
       rw [Fin.append_right, Fin.append_right]
       rfl
-  | Win P O w t f q ih =>
+  | Win P O o w t f q ih =>
     intro d r hr k
     simp only [AggQuery.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr

@@ -32,11 +32,14 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 occurrence's frame is its partition, and its token is the token its
 partition's group would carry. -/
 theorem tokenOf_whole (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T)
     (X : Multiset (AnnotatedTuple T K n)) {x : AnnotatedTuple T K n}
     (hx : x ∈ X) :
-    tokenOf P O (whole : ValueFrame T p) t f X x
+    tokenOf P O o (whole : ValueFrame T p) t f X x
       = AggValue.ofGroup f t (Having.havingGroup P X (Tuple.key P x.fst)) := by
+  have hpeer := frameListOf_of_peer (α := AnnotatedTuple T K n) Prod.fst P O o
+    (whole : ValueFrame T p) X x ho (fun _ _ hab => ValueFrame.le_fst_of_le hab)
   have hs : (whole : ValueFrame T p).s (Tuple.key O x.fst) = true := rfl
   have hfil : frameOf (α := AnnotatedTuple T K n) Prod.fst P O whole X x
       = X.filter (fun y : AnnotatedTuple T K n =>
@@ -46,7 +49,7 @@ theorem tokenOf_whole (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     funext k
     exact h k
   unfold tokenOf
-  rw [ite_eq_left hs, hfil]
+  rw [ite_eq_left hs, hpeer, hfil]
   rfl
 
 end ValueFrame
@@ -177,10 +180,11 @@ The join is written with `IS NOT DISTINCT FROM` on the partition key, which
 is the syntactic equality a window partitions by: two rows with a null key
 are one partition, and land in one group. -/
 theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
-      = (AggQuery.Win P O (ValueFrame.whole : ValueFrame T p) t f q).evaluatePlain d := by
+      = (AggQuery.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluatePlain d := by
   rw [winByJoin, AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain_Win_eq]
   simp only [AggQuery.evaluatePlain]
   generalize hr : q.evaluatePlain d = r
@@ -220,9 +224,11 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     rw [winProj, Fin.snoc_last, Fin.snoc_last]
     simp only [ProjCol.evalPlain, winAggPos, Fin.append_right]
     show f (List.map t.eval (Relation.groupSeq P r (Tuple.key P u)))
-      = ValueFrame.windowValue P O ValueFrame.whole t f r u
+      = ValueFrame.windowValue P O o ValueFrame.whole t f r u
     unfold ValueFrame.windowValue
-    rw [groupSeq_eq_sortList,
+    rw [ValueFrame.frameListOf_of_peer (α := Tuple T n) id P O o
+        (ValueFrame.whole : ValueFrame T p) r u ho (fun _ _ h => h),
+      groupSeq_eq_sortList,
       ValueFrame.frameOf_whole (α := Tuple T n) id P O r hu]
     refine congrArg (fun M => f ((sortList M).map t.eval)) ?_
     exact Multiset.filter_congr (fun v _ =>
@@ -256,10 +262,11 @@ window never produces, and the two agree only because the group of a row
 δ-absorption. A frame excluding the current row would have no such identity,
 and no such rewriting. -/
 theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map (fun r => (r.fst, r.snd.finalize))
-      = ((AggQuery.Win P O (ValueFrame.whole : ValueFrame T p) t f q).evaluate d).map
+      = ((AggQuery.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluate d).map
           (fun r => (r.fst, r.snd.finalize)) := by
   have hagg : (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
       (fun k => winLeftPos_kind (P k)) winKeyPos_kind).hasAggAtom = false :=
@@ -359,10 +366,10 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       show Sum.inl (AggValue.collapseSum (Fin.append r.fst _ (winLeftPos m k))) = _
       rw [Fin.append_left]
       rfl
-  have htok : ValueFrame.tokenOf P O (ValueFrame.whole : ValueFrame T p) t f
+  have htok : ValueFrame.tokenOf P O o (ValueFrame.whole : ValueFrame T p) t f
       (Multiset.map GenRow.toAnnotated (q.evaluate d)) (GenRow.toAnnotated r)
       = AggValue.ofGroup f t U :=
-    ValueFrame.tokenOf_whole P O t f _ hmemX
+    ValueFrame.tokenOf_whole P O o ho t f _ hmemX
   refine Prod.ext ?_ ?_
   · simp only [ValueFrame.windowRow, htok]
     exact hu'

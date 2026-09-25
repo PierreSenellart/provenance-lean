@@ -82,6 +82,19 @@ theorem map {eqv' : β → β → Prop} (g : α → β)
   | swap h _ ih => exact .swap (hg h) ih
   | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
 
+/-- **A tie-block permutation leaves unchanged the sequence of anything the
+guard determines** (whereas an unrestricted permutation would only preserve
+it as a multiset). -/
+theorem map_eq {γ : Type} {g : α → γ} (hg : ∀ {a b : α}, eqv a b → g a = g b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map g = l₂.map g := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => rfl
+  | cons a _ ih => rw [List.map_cons, List.map_cons, ih]
+  | swap h _ ih =>
+      rw [List.map_cons, List.map_cons, List.map_cons, List.map_cons, ih, hg h]
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
 /-- On lists of pairs with equal first components as guard, a tie-block
 permutation leaves the sequence of first components unchanged (whereas an
 unrestricted permutation would only preserve it as a multiset). -/
