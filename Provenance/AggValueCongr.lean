@@ -457,7 +457,7 @@ theorem annSum_congr {a b : AggValue T K}
     (a.occs.map Prod.snd).sum = (b.occs.map Prod.snd).sum :=
   (h.perm.map Prod.snd).sum_eq
 
-omit [ValueType T] in
+omit [ValueType T] [DecidableEq K] in
 /-- The empty world's annotation depends only on the sum of the occurrence
 annotations, which a tie-block permutation preserves. -/
 theorem worldAnn_empty_congr {a b : AggValue T K}

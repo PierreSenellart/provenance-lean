@@ -137,7 +137,7 @@ theorem predProvOf_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
   unfold AggValue.predProvOf
   cases hs : a.scalar
   · simpa [hs] using predProv_eval_iff a op c v
-  · simp only [if_true, hs]
+  · simp only [ite_true]
     rw [predProvScalar_eval_iff]
     simp
 

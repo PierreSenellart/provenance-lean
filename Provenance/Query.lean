@@ -440,24 +440,21 @@ theorem Query.sourceProj {q: Query T n} :
   q.source → ∀ {m} {t} {q': Query T m} (_: q = Proj t q'), q'.source := by
     intro hna m t q' hq
     unfold source at hna
-    rw[hq] at hna
-    assumption
+    rwa [hq] at hna
 
 @[simp]
 theorem Query.sourceSel {q: Query T n} :
   q.source → ∀ {φ} {q': Query T n} (_: q = Sel φ q'), q'.source := by
     intro hna φ q' hq
     unfold source at hna
-    rw[hq] at hna
-    assumption
+    rwa [hq] at hna
 
 @[simp]
 theorem Query.sourceDedup {q: Query T n} :
   q.source → ∀ {q': Query T n} (_: q = Dedup q'), q'.source := by
     intro hna q' hq
     unfold source at hna
-    rw[hq] at hna
-    assumption
+    rwa [hq] at hna
 
 prefix:max "Π " => Query.Proj
 prefix:max "σ " => Query.Sel

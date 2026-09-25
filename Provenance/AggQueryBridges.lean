@@ -147,6 +147,6 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       GenAnn.finalize_of_pending_zero, one_mul, Term.toGenKey_eval,
       Bool.false_eq_true,
       AggValue.predProvOf, AggValue.scalar_ofGroup,
-      Option.map_none, Option.getD_none, not_true_eq_false]
+      Option.map_none, Option.getD_none]
     exact AggValue.predProv_ofGroup (fs l) (ts l)
       (Having.havingGroup is A kv.fst) op (s.eval kv.fst)
