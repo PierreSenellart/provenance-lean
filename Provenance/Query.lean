@@ -135,60 +135,71 @@ infix:20 " < " => λ x y ↦ BoolTerm.LT x y
 infix:20 " >= " => λ x y ↦ BoolTerm.GE x y
 infix:20 " > " => λ x y ↦ BoolTerm.GT x y
 
-def BoolTerm.eval (φ: BoolTerm T n) (tuple: Tuple T n) := match φ with
-| EQ t₁ t₂ => (t₁.eval tuple) = (t₂.eval tuple)
-| NE t₁ t₂ => (t₁.eval tuple) ≠ (t₂.eval tuple)
-| LE t₁ t₂ => (t₁.eval tuple) ≤ (t₂.eval tuple)
-| LT t₁ t₂ => (t₁.eval tuple) < (t₂.eval tuple)
-| GE t₁ t₂ => (t₁.eval tuple) ≥ (t₂.eval tuple)
-| GT t₁ t₂ => (t₁.eval tuple) > (t₂.eval tuple)
+/-- The comparison a Boolean term makes. -/
+def BoolTerm.toCompOp : BoolTerm T n → CompOp
+| EQ _ _ => CompOp.eq
+| NE _ _ => CompOp.ne
+| LE _ _ => CompOp.le
+| LT _ _ => CompOp.lt
+| GE _ _ => CompOp.ge
+| GT _ _ => CompOp.gt
 
-theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) :
-  ∀ α: K, t.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = t.eval tuple := by
-    intro α
-    induction t with
-    | EQ t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      simp
-    | NE t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      simp
-    | LE t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      exact ge_iff_le
-    | LT t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      simp[LT.lt]
-      exact le_of_lt
-    | GE t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      exact ge_iff_le
-    | GT t₁ t₂ =>
-      unfold BoolTerm.eval BoolTerm.castToAnnotatedTuple
-      simp
-      repeat rw[Term.castToAnnotatedTuple_eval]
-      simp[LT.lt]
-      exact le_of_lt
+/-- The two terms a Boolean term compares. -/
+def BoolTerm.args : BoolTerm T n → Term T n × Term T n
+| EQ t₁ t₂ | NE t₁ t₂ | LE t₁ t₂ | LT t₁ t₂ | GE t₁ t₂ | GT t₁ t₂ => (t₁, t₂)
+
+/-- **Three-valued evaluation of a comparison**: a comparison with a `NULL`
+operand is neither true nor false. -/
+def BoolTerm.eval3 (φ: BoolTerm T n) (tuple: Tuple T n) : Kleene :=
+  φ.toCompOp.eval3 ((φ.args).1.eval tuple) ((φ.args).2.eval tuple)
+
+/-- The rows a comparison keeps: those on which it is *true*. -/
+def BoolTerm.eval (φ: BoolTerm T n) (tuple: Tuple T n) : Prop :=
+  φ.eval3 tuple = Kleene.true
+
+theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
+    [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) (α : K) :
+    t.castToAnnotatedTuple.eval3
+        (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α])
+      = t.eval3 tuple := by
+  have hop : ∀ (x y : T),
+      CompOp.eval3 (T := T ⊕ K) t.toCompOp (Sum.inl x) (Sum.inl y)
+        = t.toCompOp.eval3 x y := by
+    intro x y
+    have hn : ∀ z : T, ValueType.isNull (Sum.inl z : T ⊕ K)
+        = ValueType.isNull z := fun _ => rfl
+    unfold CompOp.eval3
+    rw [hn x, hn y]
+    by_cases h : ValueType.isNull x ∨ ValueType.isNull y
+    · rw [ite_eq_left h, ite_eq_left h]
+    · rw [ite_eq_right h, ite_eq_right h]
+      have hle : ∀ a b : T, ((Sum.inl a : T ⊕ K) ≤ Sum.inl b) ↔ a ≤ b :=
+        fun _ _ => Iff.rfl
+      have hlt : ∀ a b : T, ((Sum.inl a : T ⊕ K) < Sum.inl b) ↔ a < b := by
+        intro a b
+        rw [lt_iff_le_not_ge, lt_iff_le_not_ge]
+        exact and_congr (hle a b) (not_congr (hle b a))
+      have heq : ∀ a b : T, ((Sum.inl a : T ⊕ K) = Sum.inl b) ↔ a = b :=
+        fun _ _ => ⟨Sum.inl.inj, congrArg Sum.inl⟩
+      refine congrArg Kleene.ofBool ?_
+      cases t.toCompOp <;>
+        simp only [CompOp.eval, ge_iff_le, gt_iff_lt,
+          ne_eq, heq, hle, hlt]
+  cases t <;>
+    (simp only [BoolTerm.castToAnnotatedTuple, BoolTerm.eval3, BoolTerm.toCompOp,
+       BoolTerm.args, Term.castToAnnotatedTuple_eval];
+     exact hop _ _)
+
+theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K]
+    [SemiringWithMonus K] (t: BoolTerm T n) (tuple: Tuple T n) :
+    ∀ α: K, t.castToAnnotatedTuple.eval
+        (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = t.eval tuple := by
+  intro α
+  unfold BoolTerm.eval
+  rw [BoolTerm.castToAnnotatedTuple_eval3]
 
 @[reducible] def BoolTerm.evalDecidable (φ: BoolTerm T n) : DecidablePred φ.eval :=
-  λ t => by
-    cases φ <;> rename_i x y <;> simp [BoolTerm.eval]
-    . exact inferInstanceAs (Decidable (x.eval t = y.eval t))
-    . exact inferInstanceAs (Decidable (x.eval t ≠ y.eval t))
-    . exact inferInstanceAs (Decidable (x.eval t ≤ y.eval t))
-    . exact inferInstanceAs (Decidable (x.eval t < y.eval t))
-    . exact inferInstanceAs (Decidable (y.eval t ≤ x.eval t))
-    . exact inferInstanceAs (Decidable (y.eval t < x.eval t))
+  fun _ => inferInstanceAs (Decidable (_ = _))
 
 inductive Selection (T) (n: ℕ) where
 | BT   : BoolTerm T n   → Selection T n
@@ -213,45 +224,98 @@ def Selection.castToAnnotatedTuple (f: Selection T n): Selection (T⊕K) (n+1) :
 | Or  φ₁ φ₂ => Or φ₁.castToAnnotatedTuple φ₂.castToAnnotatedTuple
 | True      => True
 
-def Selection.eval (φ: Selection T n) (tuple: Tuple T n) := match φ with
-| BT  φ     => φ.eval tuple
-| Not φ     => ¬ (φ.eval tuple)
-| And φ₁ φ₂ => (φ₁.eval tuple) ∧ (φ₂.eval tuple)
-| Or  φ₁ φ₂ => (φ₁.eval tuple) ∨ (φ₂.eval tuple)
-| True      => true
+/-- **Three-valued evaluation of a selection**, in Kleene's logic: a row on
+which the predicate is unknown is selected by neither it nor its negation. -/
+def Selection.eval3 (φ: Selection T n) (tuple: Tuple T n) : Kleene := match φ with
+| BT  φ     => φ.eval3 tuple
+| Not φ     => (φ.eval3 tuple).not
+| And φ₁ φ₂ => (φ₁.eval3 tuple).and (φ₂.eval3 tuple)
+| Or  φ₁ φ₂ => (φ₁.eval3 tuple).or (φ₂.eval3 tuple)
+| True      => Kleene.true
 
-theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) :
-∀ α: K,
-  φ.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = φ.eval tuple := by
-    intro α
-    induction φ with
-    | BT t =>
-      simp[Selection.eval,Selection.castToAnnotatedTuple]
-      rw[BoolTerm.castToAnnotatedTuple_eval]
-    | Not φ ih =>
-      simp[Selection.eval,Selection.castToAnnotatedTuple]
-      rw[ih]
-    | And φ₁ φ₂ ih₁ ih₂ =>
-      simp[Selection.eval,Selection.castToAnnotatedTuple]
-      rw[ih₁,ih₂]
-    | Or φ₁ φ₂ ih₁ ih₂ =>
-      simp[Selection.eval,Selection.castToAnnotatedTuple]
-      rw[ih₁,ih₂]
-    | True => trivial
+/-- The rows a selection keeps: those on which it is *true*. -/
+def Selection.eval (φ: Selection T n) (tuple: Tuple T n) : Prop :=
+  φ.eval3 tuple = Kleene.true
+
+theorem Selection.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
+    [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) (α : K) :
+    φ.castToAnnotatedTuple.eval3
+        (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α])
+      = φ.eval3 tuple := by
+  induction φ with
+  | BT t => exact BoolTerm.castToAnnotatedTuple_eval3 t tuple α
+  | Not φ ih => show (_ : Kleene).not = _; rw [ih]; rfl
+  | And φ₁ φ₂ ih₁ ih₂ => show (_ : Kleene).and _ = _; rw [ih₁, ih₂]; rfl
+  | Or φ₁ φ₂ ih₁ ih₂ => show (_ : Kleene).or _ = _; rw [ih₁, ih₂]; rfl
+  | True => rfl
+
+theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K]
+    [SemiringWithMonus K] (φ: Selection T n) (tuple: Tuple T n) :
+    ∀ α: K, φ.castToAnnotatedTuple.eval
+        (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = φ.eval tuple := by
+  intro α
+  unfold Selection.eval
+  rw [Selection.castToAnnotatedTuple_eval3]
 
 @[reducible] def Selection.evalDecidable (φ : Selection T n) : DecidablePred φ.eval :=
-  λ t => match φ with
-    | Selection.BT φ      => φ.evalDecidable t
-    | Selection.Not φ     => match φ.evalDecidable t with
-      | isTrue h  => isFalse (by simp [Selection.eval, h])
-      | isFalse h => isTrue  (by simp [Selection.eval, h])
-    | Selection.And φ₁ φ₂  => match φ₁.evalDecidable t, φ₂.evalDecidable t with
-      | isTrue h₁, isTrue h₂   => isTrue  (by simp [Selection.eval, h₁, h₂])
-      | isFalse h, _ | _, isFalse h => isFalse (by simp [Selection.eval, h])
-    | Selection.Or φ₁ φ₂   => match φ₁.evalDecidable t, φ₂.evalDecidable t with
-      | isTrue h, _ | _, isTrue h => isTrue (by simp [Selection.eval, h])
-      | isFalse h₁, isFalse h₂    => isFalse (by simp [Selection.eval, h₁, h₂])
-    | Selection.True       => isTrue (rfl)
+  fun _ => inferInstanceAs (Decidable (_ = _))
+
+@[simp] theorem Selection.eval_bt (b : BoolTerm T n) (t : Tuple T n) :
+    (Selection.BT b).eval t ↔ b.eval t := Iff.rfl
+
+/-- Where nothing is null a comparison reads two-valuedly. -/
+@[simp] theorem BoolTerm.eval_iff [NoNulls T] (b : BoolTerm T n)
+    (t : Tuple T n) :
+    b.eval t ↔ b.toCompOp.eval ((b.args).1.eval t) ((b.args).2.eval t) := by
+  unfold BoolTerm.eval BoolTerm.eval3
+  rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)]
+
+@[simp] theorem Selection.eval_and (φ ψ : Selection T n) (t : Tuple T n) :
+    (Selection.And φ ψ).eval t ↔ φ.eval t ∧ ψ.eval t :=
+  Kleene.and_eq_true_iff _ _
+
+@[simp] theorem Selection.eval_or (φ ψ : Selection T n) (t : Tuple T n) :
+    (Selection.Or φ ψ).eval t ↔ φ.eval t ∨ ψ.eval t :=
+  Kleene.or_eq_true_iff _ _
+
+/-- **A row is kept by `NOT φ` when `φ` is false**, which is not the same as
+`φ` failing to be true: a row on which `φ` is unknown is kept by neither. -/
+@[simp] theorem Selection.eval_not (φ : Selection T n) (t : Tuple T n) :
+    (Selection.Not φ).eval t ↔ φ.eval3 t = Kleene.false :=
+  Kleene.not_eq_true_iff _
+
+@[simp] theorem Selection.eval_true (t : Tuple T n) :
+    (Selection.True : Selection T n).eval t := rfl
+
+/-- Where nothing is null no selection is ever unknown. -/
+theorem Selection.eval3_ne_unknown [NoNulls T] (t : Tuple T n) :
+    ∀ φ : Selection T n, φ.eval3 t ≠ Kleene.unknown
+  | BT b => by
+    show b.toCompOp.eval3 _ _ ≠ _
+    rw [CompOp.eval3_eq_ofBool]
+    cases decide (b.toCompOp.eval ((b.args).1.eval t) ((b.args).2.eval t)) <;>
+      simp [Kleene.ofBool]
+  | Not φ => by
+    have h := eval3_ne_unknown t φ
+    cases e : φ.eval3 t <;> simp_all [Selection.eval3, Kleene.not]
+  | And φ ψ => by
+    have h₁ := eval3_ne_unknown t φ
+    have h₂ := eval3_ne_unknown t ψ
+    cases e₁ : φ.eval3 t <;> cases e₂ : ψ.eval3 t <;>
+      simp_all [Selection.eval3, Kleene.and]
+  | Or φ ψ => by
+    have h₁ := eval3_ne_unknown t φ
+    have h₂ := eval3_ne_unknown t ψ
+    cases e₁ : φ.eval3 t <;> cases e₂ : ψ.eval3 t <;>
+      simp_all [Selection.eval3, Kleene.or]
+  | True => by simp [Selection.eval3]
+
+/-- Negation is classical where nothing is null. -/
+theorem Selection.eval_not_iff [NoNulls T] (φ : Selection T n) (t : Tuple T n) :
+    (Selection.Not φ).eval t ↔ ¬ φ.eval t := by
+  have h := Selection.eval3_ne_unknown t φ
+  show (φ.eval3 t).not = Kleene.true ↔ ¬ (φ.eval3 t = Kleene.true)
+  cases e : φ.eval3 t <;> simp_all [Kleene.not]
 
 instance : Coe (BoolTerm T n) (Selection T n) where
   coe bt := Selection.BT bt

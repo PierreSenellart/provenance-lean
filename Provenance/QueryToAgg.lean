@@ -94,35 +94,42 @@ theorem Selection.toGenPred_hasAggAtom {n : ℕ} : ∀ (φ : Selection T n),
   | .True => rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- The embedded predicate holds on a regular-values row exactly when the
-original selection accepts the underlying tuple.
-
-**Stated over a domain where nothing is null**, because the classical
-`Selection` of `Provenance.Query` is still read two-valuedly while the
-kind-indexed `GenPred` is read in Kleene's logic. Making the classical
-selection three-valued too is what removes the hypothesis. -/
-theorem Selection.toGenPred_holds [NoNulls T] {n : ℕ} : ∀ (φ : Selection T n)
+/-- The embedded predicate evaluates on a regular-values row exactly as the
+original selection does on the underlying tuple – three-valuedly, both sides
+being read in Kleene's logic. -/
+theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
     (x : Tuple T n),
-    (φ.toGenPred).holds (K := K) (fun k => Sum.inl (x k)) ↔ φ.eval x
+    (φ.toGenPred).eval3 (K := K) (fun k => Sum.inl (x k)) = φ.eval3 x
   | .BT b, x => by
     cases b <;>
-      (show CompOp.eval3 _ _ _ = Kleene.true ↔ _;
-       rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)];
-       simp only [CompOp.eval, BoolTerm.eval, Selection.eval];
-       rw [Term.toGenReg_eval, Term.toGenReg_eval])
+      (show CompOp.eval3 _ _ _ = _;
+       rw [Term.toGenReg_eval, Term.toGenReg_eval];
+       rfl)
   | .Not φ, x => by
-    rw [Selection.toGenPred, GenPred.holds_not_iff]
-    exact not_congr (toGenPred_holds φ x)
+    show (GenPred.eval3 _ _).not = _
+    rw [toGenPred_eval3 φ x]
+    rfl
   | .And φ₁ φ₂, x => by
-    rw [Selection.toGenPred, GenPred.holds_and]
-    exact and_congr (toGenPred_holds φ₁ x) (toGenPred_holds φ₂ x)
+    show (GenPred.eval3 _ _).and _ = _
+    rw [toGenPred_eval3 φ₁ x, toGenPred_eval3 φ₂ x]
+    rfl
   | .Or φ₁ φ₂, x => by
-    rw [Selection.toGenPred, GenPred.holds_or]
-    exact or_congr (toGenPred_holds φ₁ x) (toGenPred_holds φ₂ x)
+    show (GenPred.eval3 _ _).or _ = _
+    rw [toGenPred_eval3 φ₁ x, toGenPred_eval3 φ₂ x]
+    rfl
   | .True, x => by
-    show CompOp.eq.eval3 (0 : T) 0 = Kleene.true ↔ (true : Prop)
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)]
-    simp [CompOp.eval]
+    show CompOp.eq.eval3 (0 : T) 0 = Kleene.true
+    rw [CompOp.eval3_eq_true_iff CompOp.eq ValueType.isNull_zero
+      ValueType.isNull_zero]
+    rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The embedded predicate holds on a regular-values row exactly when the
+original selection accepts the underlying tuple. -/
+theorem Selection.toGenPred_holds {n : ℕ} (φ : Selection T n) (x : Tuple T n) :
+    (φ.toGenPred).holds (K := K) (fun k => Sum.inl (x k)) ↔ φ.eval x := by
+  unfold GenPred.holds Selection.eval
+  rw [Selection.toGenPred_eval3 φ x]
 
 /-! ## The embedding -/
 
@@ -198,7 +205,7 @@ theorem rel_inv_ofAnnotated {n : ℕ} (X : AnnotatedRelation T K n) :
 /-- **Faithfulness of the embedding, row for row**: the general evaluator
 on the embedded query produces rows satisfying the invariant against the
 classical annotated evaluation. -/
-theorem Query.toAgg_rel [NoNulls T] :
+theorem Query.toAgg_rel :
     ∀ {n : ℕ} (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv ((q.toAgg hq).evaluate d)
         (q.evaluateAnnotated hq d)
@@ -297,7 +304,7 @@ theorem Query.toAgg_rel [NoNulls T] :
 
 /-- **Faithfulness of the embedding**: the general evaluator computes the
 classical annotated semantics on embedded queries. -/
-theorem Query.toAgg_bridge [NoNulls T] {n : ℕ} (q : Query T n) (hq : q.source)
+theorem Query.toAgg_bridge {n : ℕ} (q : Query T n) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toAgg hq).evaluateAnnotated (K := K) d
       = q.evaluateAnnotated hq d := by
@@ -323,7 +330,7 @@ theorem GenRow.Inv.row_eq {n : ℕ} {r : GenRow T K n}
 
 /-- **The embedding at the row level**: the general evaluator on an
 embedded query produces exactly the embedded classical rows. -/
-theorem Query.toAgg_evaluate_eq [NoNulls T] {n : ℕ} (q : Query T n) (hq : q.source)
+theorem Query.toAgg_evaluate_eq {n : ℕ} (q : Query T n) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toAgg hq).evaluate d
       = (q.evaluateAnnotated hq d).map GenRow.ofAnnotated :=
@@ -336,7 +343,7 @@ theorem Query.toAgg_evaluate_eq [NoNulls T] {n : ℕ} (q : Query T n) (hq : q.so
 relation is the classical subquery's annotated evaluation, so the closed
 form `AggQuery.havingSite_evaluateAnnotated` specializes to the
 classical setting with no side hypothesis. -/
-theorem Query.toAggHaving_input [NoNulls T] {m : ℕ} (q : Query T m) (hq : q.source)
+theorem Query.toAggHaving_input {m : ℕ} (q : Query T m) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toAgg hq).evaluateAnnotated d = q.evaluateAnnotated hq d :=
   Query.toAgg_bridge q hq d

@@ -165,7 +165,13 @@ the provenance-aware relational database system
   grouping, partitioning, duplicate elimination and difference use, and is
   what the library already decides with `DecidableEq`
 - `Provenance.Database` – tuples, relations, and plain databases
-- `Provenance.Query` – relational algebra (select, project, join, union, difference…), with the aggregate catalog `SeqAggFunc` and
+- `Provenance.Query` – relational algebra (select, project, join, union,
+  difference…), with selections read in **Kleene's three-valued logic**:
+  `BoolTerm.eval3` and `Selection.eval3` give the truth value, `eval` keeps
+  the rows on which it is *true*, and a row on which a predicate is unknown
+  is kept by neither the predicate nor its negation (`Selection.eval_not`).
+  Where nothing is null the reading is two-valued
+  (`Selection.eval3_ne_unknown`, `Selection.eval_not_iff`), with the aggregate catalog `SeqAggFunc` and
   `SeqAggFunc.sqlOf`, **SQL's reading of an aggregate on a domain with a
   null**: skip the nulls, and give `NULL` when nothing is left. That is what
   the scalar convention needed and could not have – an aggregation without
@@ -245,6 +251,13 @@ proven engine several general results reuse internally.
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`.
+  Predicates are read three-valuedly throughout – `GenPred.eval3`,
+  `evalPlain3`, `HavingPred.evalOnSeq`, `GenPred.evalRew3` – with `holds`,
+  `holdsPlain`, `holdsOnSeq` and `holdsRew` keeping the rows on which the
+  predicate is *true*. `Having.chi` contributes `𝟘` to a provenance on an
+  unknown comparison, and `predsem` needed no change at all: its polarity
+  flag, the `⊗`/`⊕` swap at `∧`/`∨` and the operator negator at the atoms
+  were already Kleene's reading (`CompOp.negate_eval3`).
   The window operator `Win` gives every row of its input a further column
   holding the aggregate over that row's frame: it removes no row, merges
   none and changes no annotation, so it creates no group and leaves nothing

@@ -1088,7 +1088,7 @@ in the result of evaluating the **plain rewritten query** `q̂` on the
 composite-encoded database.
 
 Combines `theorem_12` and `Query.rewriting_valid`. -/
-theorem corollary_13 [HasAltLinearOrder (BoolFunc X)]
+theorem corollary_13 [NoNulls T] [HasAltLinearOrder (BoolFunc X)]
     (q : Query T n) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     P.marginalProb q Î t

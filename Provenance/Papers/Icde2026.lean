@@ -420,8 +420,11 @@ moved the annotation into the data.
 Anchor: Provenance/QueryRewriting.html#Query.rewriting_valid
 -/
 
-/-- `⟪q⟫_Î = ⟦q̂⟧_Î`, for `q` in the fragment the rules (R1)–(R4) cover. -/
-theorem rewriting_valid [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+/-- `⟪q⟫_Î = ⟦q̂⟧_Î`, for `q` in the fragment the rules (R1)–(R4) cover, over
+a value domain without a null – the difference rule joins on key columns with
+comparison equality, where SQL's key equality is the syntactic one. -/
+theorem rewriting_valid [NoNulls T] [SemiringWithMonus K] [DecidableEq K]
+    [HasAltLinearOrder K]
     (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite :=
   Query.rewriting_valid q hq d

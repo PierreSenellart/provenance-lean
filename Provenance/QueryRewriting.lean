@@ -467,9 +467,9 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
     ((list.map f).foldr (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ x ∈ list, Selection.eval (f x) t := by
   induction list with
-  | nil => simp [Selection.eval]
+  | nil => simp
   | cons hd tl ih =>
-    simp only [List.map_cons, List.foldr_cons, Selection.eval, List.mem_cons]
+    simp only [List.map_cons, List.foldr_cons, Selection.eval_and, List.mem_cons]
     rw[ih]
     constructor
     · rintro ⟨hhd, htl⟩ x (rfl | hx)
@@ -481,7 +481,8 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
 /-- The folded join condition `(#k == #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
 tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`. -/
 lemma Query.rewriting_valid_joinCond_eval
-  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  {T K: Type} [ValueType T] [NoNulls T] [SemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K]
   {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
   Selection.eval
     (((List.range n).map
@@ -490,15 +491,20 @@ lemma Query.rewriting_valid_joinCond_eval
       (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ k: Fin n, t (@Fin.ofNat N _ k)
               = t (@Fin.ofNat N _ (k+n+1)) := by
+  have hatom : ∀ i j : Fin N,
+      (Selection.BT (T := T ⊕ K) (BoolTerm.EQ (Term.index i) (Term.index j))).eval t
+        ↔ t i = t j := by
+    intro i j
+    show CompOp.eq.eval3 (t i) (t j) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)]
+    rfl
   rw[Selection.eval_foldr_and_map]
   simp only [List.mem_range]
   constructor
   · intro h k
-    have := h k.val k.isLt
-    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
+    exact (hatom _ _).mp (h k.val k.isLt)
   · intro h k hk
-    have := h ⟨k, hk⟩
-    simpa [Selection.eval, BoolTerm.eval, Term.eval] using this
+    exact (hatom _ _).mpr (h ⟨k, hk⟩)
 
 /-- Semiring-sum over the filter, via `groupByKey.find?`-based lookup. -/
 lemma Query.rewriting_valid_find_getD_eq_sum
@@ -758,7 +764,7 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
 
 /-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterizes the first-`n`
 projection equality between `p` and `q`. -/
-lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [NoNulls T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
     [NeZero (2*n+1)] :
@@ -864,7 +870,7 @@ lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
 /-- Arity-`(2n+2)` analogue of `selFilter_cast_append_iff`: the join condition
 on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterizes
 equality of the first-`n` projections of `p` and `q`. -/
-lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
+lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [NoNulls T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) (n+1))
     [NeZero (2*n+2)] :
@@ -1094,7 +1100,7 @@ lemma Query.rewriting_valid_diff_inner_dd_inst
   convert Query.rewriting_valid_diff_inner_dd AR₁ AR₂ using 4
 
 theorem Query.rewriting_valid
-  [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  [ValueType T] [NoNulls T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.source) :
   ∀ (d: AnnotatedDatabase T K), (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite := by
   intro d

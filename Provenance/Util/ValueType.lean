@@ -12,6 +12,9 @@ what they said. -/
 class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T where
   /-- Whether a value is the null. -/
   isNull : T → Bool := fun _ => false
+  /-- The domain's zero is not its null: an aggregate over no row is not an
+  aggregate that came out zero. -/
+  isNull_zero : isNull 0 = false := by rfl
 
 /-- A value domain in which nothing is null. The three-valued semantics
 agrees with the two-valued one there, which is why every statement proved

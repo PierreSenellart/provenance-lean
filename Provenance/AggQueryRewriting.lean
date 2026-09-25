@@ -413,65 +413,38 @@ def GenPred.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selectio
   | .or φ ψ => .Or φ.strip ψ.strip
   | .not φ => .Not φ.strip
 
-/-- Classical truth factors through the strip, on aggregate-atom-free
-predicates.
-
-**Stated over a domain where nothing is null**, because the classical
-`Selection` the strip lands in is read two-valuedly while `holdsPlain` is
-read in Kleene's logic. -/
-theorem GenPred.strip_eval [NoNulls T] {n : ℕ} {κ : Fin n → ColKind} :
+/-- Truth factors through the strip, on aggregate-atom-free predicates –
+three-valuedly, both readings being Kleene's. -/
+theorem GenPred.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
-      φ.strip.eval u ↔ φ.holdsPlain u
-  | .cmp .eq t₁ t₂, _, u => by
-    show t₁.strip.eval u = t₂.strip.eval u
-      ↔ CompOp.eq.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
-  | .cmp .ne t₁ t₂, _, u => by
-    show t₁.strip.eval u ≠ t₂.strip.eval u
-      ↔ CompOp.ne.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
-  | .cmp .le t₁ t₂, _, u => by
-    show t₁.strip.eval u ≤ t₂.strip.eval u
-      ↔ CompOp.le.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
-  | .cmp .lt t₁ t₂, _, u => by
-    show LT.lt (t₁.strip.eval u) (t₂.strip.eval u)
-      ↔ CompOp.lt.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
-  | .cmp .ge t₁ t₂, _, u => by
-    show t₁.strip.eval u ≥ t₂.strip.eval u
-      ↔ CompOp.ge.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
-  | .cmp .gt t₁ t₂, _, u => by
-    show GT.gt (t₁.strip.eval u) (t₂.strip.eval u)
-      ↔ CompOp.gt.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.strip_eval, TermG.strip_eval]
-    exact Iff.rfl
+      φ.strip.eval3 u = φ.evalPlain3 u
+  | .cmp op t₁ t₂, _, u => by
+    cases op <;>
+      (simp only [GenPred.strip, Selection.eval3, BoolTerm.eval3,
+         BoolTerm.toCompOp, BoolTerm.args, TermG.strip_eval];
+       rfl)
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
   | .and φ ψ, hφ, u => by
-    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_and]
-    exact and_congr
-      (strip_eval φ (Bool.or_eq_false_iff.mp hφ).1 u)
-      (strip_eval ψ (Bool.or_eq_false_iff.mp hφ).2 u)
+    show (Selection.eval3 _ _).and _ = _
+    rw [strip_eval3 φ (Bool.or_eq_false_iff.mp hφ).1 u,
+      strip_eval3 ψ (Bool.or_eq_false_iff.mp hφ).2 u]
+    rfl
   | .or φ ψ, hφ, u => by
-    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_or]
-    exact or_congr
-      (strip_eval φ (Bool.or_eq_false_iff.mp hφ).1 u)
-      (strip_eval ψ (Bool.or_eq_false_iff.mp hφ).2 u)
+    show (Selection.eval3 _ _).or _ = _
+    rw [strip_eval3 φ (Bool.or_eq_false_iff.mp hφ).1 u,
+      strip_eval3 ψ (Bool.or_eq_false_iff.mp hφ).2 u]
+    rfl
   | .not φ, hφ, u => by
-    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_not_iff]
-    exact not_congr (strip_eval φ hφ u)
+    show (Selection.eval3 _ _).not = _
+    rw [strip_eval3 φ hφ u]
+    rfl
+
+/-- Truth factors through the strip, on aggregate-atom-free predicates. -/
+theorem GenPred.strip_eval {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false) (u : Tuple T n) :
+    φ.strip.eval u ↔ φ.holdsPlain u := by
+  unfold Selection.eval GenPred.holdsPlain
+  rw [GenPred.strip_eval3 φ hφ u]
 
 /-- Strip a regular projection column to a classical term. -/
 def ProjCol.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T n
@@ -535,7 +508,7 @@ theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
 /-- **Row-wise faithfulness of the strip**: on the classical fragment,
 the general evaluator produces rows satisfying the embedding invariant
 against the classical annotated evaluation of the stripped query. -/
-theorem AggQuery.strip_rel [NoNulls T] :
+theorem AggQuery.strip_rel :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluate d)
@@ -633,7 +606,7 @@ theorem AggQuery.strip_rel [NoNulls T] :
 /-- **Faithfulness of the strip**: on the classical fragment the general
 annotated evaluator computes the classical annotated semantics of the
 stripped query. -/
-theorem AggQuery.strip_bridge [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.strip_bridge {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated d
       = (q.strip hq).evaluateAnnotated (q.strip_source hq) d := by
@@ -698,50 +671,65 @@ theorem GenPred.castComposite_holdsPlain [NoNulls T] {n : ℕ}
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .cmp .ne t₁ t₂, _, u => by
     show CompOp.ne.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .cmp .le t₁ t₂, _, u => by
     show CompOp.le.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .cmp .lt t₁ t₂, _, u => by
     show CompOp.lt.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .cmp .ge t₁ t₂, _, u => by
     show CompOp.ge.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .cmp .gt t₁ t₂, _, u => by
     show CompOp.gt.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    exact Iff.rfl
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
   | .and φ ψ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_and]
+    rw [GenPred.castComposite, GenPred.holdsPlain_and, GenPred.strip,
+      Selection.castToAnnotatedTuple, Selection.eval_and]
     exact and_congr
       (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
   | .or φ ψ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_or]
+    rw [GenPred.castComposite, GenPred.holdsPlain_or, GenPred.strip,
+      Selection.castToAnnotatedTuple, Selection.eval_or]
     exact or_congr
       (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
   | .not φ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_not_iff]
+    rw [GenPred.castComposite, GenPred.holdsPlain_not_iff, GenPred.strip,
+      Selection.castToAnnotatedTuple, Selection.eval_not_iff]
     exact not_congr (castComposite_holdsPlain hκ φ hφ u)
 
 omit [DecidableEq K] in

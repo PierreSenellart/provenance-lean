@@ -63,11 +63,15 @@ def BoolTerm.ofCompOp {T : Type} {n : ℕ} (op : CompOp) (t s : Term T n) :
   | .gt => BoolTerm.GT t s
   | .ge => BoolTerm.GE t s
 
-/-- `t op s` holds on a tuple iff the comparison of the two values does. -/
-theorem BoolTerm.ofCompOp_eval {T : Type} [ValueType T] {n : ℕ} (op : CompOp)
-    (t s : Term T n) (u : Tuple T n) :
+/-- `t op s` holds on a tuple iff the comparison of the two values does.
+Stated over a domain where nothing is null, the comparison being
+three-valued. -/
+theorem BoolTerm.ofCompOp_eval {T : Type} [ValueType T] [NoNulls T] {n : ℕ}
+    (op : CompOp) (t s : Term T n) (u : Tuple T n) :
     (BoolTerm.ofCompOp op t s).eval u ↔ op.eval (t.eval u) (s.eval u) := by
-  cases op <;> exact Iff.rfl
+  cases op <;>
+    (rw [BoolTerm.eval_iff]; simp [BoolTerm.ofCompOp, BoolTerm.toCompOp,
+      BoolTerm.args])
 
 /-! ## Existential atoms: `ε(Π_{#0}(σ_{t op c}(q)))` -/
 
@@ -312,9 +316,17 @@ theorem keyJoin_perKeySum (Q₁ Q₂ : Query ℕ 1) (h₁ : Q₁.source) (h₂ :
       ((r₁ ×ˢ r₂).filter (fun z => z.1.fst = g ∧ z.2.fst = g))).sum
   · congr 2
     refine Multiset.filter_congr fun z _ => ?_
+    have hjs : joinSel.eval3 (Fin.append z.1.fst z.2.fst) = Kleene.true
+        ↔ Fin.append z.1.fst z.2.fst ⟨0, by omega⟩
+            = Fin.append z.1.fst z.2.fst ⟨1, by omega⟩ := by
+      show CompOp.eq.eval3 (Fin.append z.1.fst z.2.fst ⟨0, by omega⟩)
+        (Fin.append z.1.fst z.2.fst ⟨1, by omega⟩) = Kleene.true ↔ _
+      rw [CompOp.eval3_eq_true_iff_noNulls]
+      rfl
     show ((fun _ : Fin 1 => Fin.append z.1.fst z.2.fst ⟨0, by omega⟩) = g
-        ∧ Fin.append z.1.fst z.2.fst ⟨0, by omega⟩ = Fin.append z.1.fst z.2.fst ⟨1, by omega⟩)
+        ∧ joinSel.eval3 (Fin.append z.1.fst z.2.fst) = Kleene.true)
       ↔ z.1.fst = g ∧ z.2.fst = g
+    rw [hjs]
     rw [append_coord_left z.1.fst z.2.fst 0 (by omega) (by omega),
       append_coord_right₀ z.1.fst z.2.fst (by omega) (by omega)]
     constructor

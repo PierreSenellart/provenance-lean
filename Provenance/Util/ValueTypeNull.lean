@@ -37,9 +37,6 @@ class ValueTypeNull (T : Type) extends ValueType T where
   null : T
   /-- The domain's null test is the test for that value. -/
   isNull_iff : ∀ a : T, ValueType.isNull a = decide (a = null)
-  /-- The null is not the domain's zero: an aggregate over no row is not an
-  aggregate that came out zero. -/
-  null_ne_zero : null ≠ 0
   /-- Addition is null-strict. -/
   null_add : ∀ a : T, null + a = null
   /-- Subtraction is null-strict on the left. -/
@@ -54,6 +51,13 @@ class ValueTypeNull (T : Type) extends ValueType T where
 namespace ValueTypeNull
 
 variable {T : Type} [ValueTypeNull T]
+
+/-- The null is not the domain's zero. -/
+theorem null_ne_zero : (null : T) ≠ 0 := by
+  intro h
+  have := ValueTypeNull.isNull_iff (0 : T)
+  rw [ValueType.isNull_zero, ← h] at this
+  simp at this
 
 /-- Addition is null-strict on the right, by commutativity. -/
 theorem add_null (a : T) : a + null = (null : T) := by
@@ -90,6 +94,10 @@ theorem CompOp.eval3_eq_true_iff (op : CompOp) {a b : T}
   simp [CompOp.eval3, ha, hb]
 
 /-- **On a domain where nothing is null the comparison is two-valued.** -/
+@[simp] theorem CompOp.eval3_eq_true_iff_noNulls [NoNulls T] (op : CompOp)
+    (a b : T) : op.eval3 a b = Kleene.true ↔ op.eval a b :=
+  CompOp.eval3_eq_true_iff op (isNull_eq_false a) (isNull_eq_false b)
+
 theorem CompOp.eval3_eq_ofBool [NoNulls T] (op : CompOp) (a b : T) :
     op.eval3 a b = Kleene.ofBool (decide (op.eval a b)) := by
   simp [CompOp.eval3, isNull_eq_false a, isNull_eq_false b]
@@ -200,6 +208,7 @@ instance [AddCommSemigroup T] : AddCommSemigroup (WithNull T) where
 /-- The adjoined value is the null, and nothing else is. -/
 instance instValueType [ValueType T] : ValueType (WithNull T) where
   isNull a := (a : Option T).isNone
+  isNull_zero := rfl
 
 instance [ValueType T] : ValueTypeNull (WithNull T) where
   null := nil
@@ -207,9 +216,6 @@ instance [ValueType T] : ValueTypeNull (WithNull T) where
     rcases a with _ | x
     · rfl
     · simp [ValueType.isNull, nil]
-  null_ne_zero := by
-    show (none : Option T) ≠ (some 0 : Option T)
-    simp
   null_add _ := rfl
   null_sub _ := rfl
   sub_null a := by rcases a with _ | x <;> rfl

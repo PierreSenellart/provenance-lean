@@ -528,6 +528,9 @@ theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.source)
       Multiset.map_map, filter_product, Multiset.filter_filter]
     refine Multiset.map_congr (Multiset.filter_congr fun z _ => ?_) fun z _ => ?_
     · -- The chain predicate, transported through `chainCombine`.
+      simp only [Function.comp_apply, chainCond, Selection.eval_and,
+        Selection.eval_or, Selection.eval_bt, BoolTerm.eval_iff,
+        BoolTerm.toCompOp, BoolTerm.args, CompOp.eval, Term.eval]
       show ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩ = a)
             ∧ ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩
                   = Fin.append z.1.1 z.2.1 ⟨3 * C + 3, by omega⟩)
