@@ -206,6 +206,11 @@ theorem joinCountQuery_key_mem (q : Query ℕ 3) (hq : q.source)
     · exact joinChainQuery_key_mem q hq d (C + 1) x hx'
   | ge => exact joinChainQuery_key_mem q hq d C x hx
   | gt => exact joinChainQuery_key_mem q hq d (C + 1) x hx
+  | syneq => exact hdiff C (C + 1) x hx
+  | synne =>
+    rcases Multiset.mem_add.mp hx with hx' | hx'
+    · exact hdiff 0 C x hx'
+    · exact joinChainQuery_key_mem q hq d (C + 1) x hx'
 
 end Keys
 

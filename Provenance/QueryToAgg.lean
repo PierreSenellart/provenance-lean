@@ -65,6 +65,8 @@ def BoolTerm.toGenPred {n : ℕ} : BoolTerm T n →
   | .LT t₁ t₂ => .cmp .lt t₁.toGenReg t₂.toGenReg
   | .GE t₁ t₂ => .cmp .ge t₁.toGenReg t₂.toGenReg
   | .GT t₁ t₂ => .cmp .gt t₁.toGenReg t₂.toGenReg
+  | .SYNEQ t₁ t₂ => .cmp .syneq t₁.toGenReg t₂.toGenReg
+  | .SYNNE t₁ t₂ => .cmp .synne t₁.toGenReg t₂.toGenReg
 
 /-- A classical selection predicate, as a generalized predicate without
 aggregate atoms (`Selection.True` becomes the tautology `𝟘 = 𝟘`). -/

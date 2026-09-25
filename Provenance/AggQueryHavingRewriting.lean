@@ -478,6 +478,8 @@ theorem CompOp.eval_inl (op : CompOp) (x y : T) :
   case le => exact hle x y
   case gt => exact hlt y x
   case ge => exact hle y x
+  case syneq => exact heq x y
+  case synne => exact not_congr (heq x y)
 
 omit [DecidableEq K] in
 /-- The three-valued comparison restricts along the `inl` embedding: the
@@ -488,7 +490,7 @@ theorem CompOp.eval3_inl (op : CompOp) (x y : T) :
       = ValueType.isNull z := fun _ => rfl
   unfold CompOp.eval3
   rw [hn x, hn y]
-  by_cases h : ValueType.isNull x ∨ ValueType.isNull y
+  by_cases h : op.strict ∧ (ValueType.isNull x ∨ ValueType.isNull y)
   · rw [ite_eq_left h, ite_eq_left h]
   · rw [ite_eq_right h, ite_eq_right h]
     exact congrArg Kleene.ofBool (by simp [CompOp.eval_inl])

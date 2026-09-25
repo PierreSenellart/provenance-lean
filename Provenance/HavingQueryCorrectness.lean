@@ -1092,8 +1092,10 @@ for `≠`. -/
 def Query.joinCountQuery (q : Query ℕ 3) : CompOp → ℕ → Query ℕ 1
   | .lt, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q C)
   | .le, C => Query.Diff (joinChainQuery q 0) (joinChainQuery q (C + 1))
-  | .eq, C => Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))
-  | .ne, C => Query.Sum
+  -- over `ℕ` nothing is null, so the syntactic comparisons are `=` and `≠`
+  | .eq, C | .syneq, C =>
+      Query.Diff (joinChainQuery q C) (joinChainQuery q (C + 1))
+  | .ne, C | .synne, C => Query.Sum
       (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
       (joinChainQuery q (C + 1))
   | .ge, C => joinChainQuery q C
@@ -1103,9 +1105,11 @@ theorem Query.joinCountQuery_source (q : Query ℕ 3) (hq : q.source) :
     ∀ (op : CompOp) (C : ℕ), (Query.joinCountQuery q op C).source
   | .lt, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩
   | .le, C => by exact ⟨joinChain_source q hq 0, joinChain_source q hq (C + 1)⟩
-  | .eq, C => by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩
-  | .ne, C => by exact ⟨⟨joinChain_source q hq 0, joinChain_source q hq C⟩,
-      joinChain_source q hq (C + 1)⟩
+  | .eq, C | .syneq, C =>
+      by exact ⟨joinChain_source q hq C, joinChain_source q hq (C + 1)⟩
+  | .ne, C | .synne, C =>
+      by exact ⟨⟨joinChain_source q hq 0, joinChain_source q hq C⟩,
+        joinChain_source q hq (C + 1)⟩
   | .ge, C => q2_source q hq C
   | .gt, C => q2_source q hq (C + 1)
 
@@ -1168,6 +1172,24 @@ theorem Query.joinCount_correct [HasAltLinearOrder K]
   | gt =>
     rw [havingProv_count_gt]
     exact Query.joinChain_count_correct h_abs q hq d hnodup ts (C + 1) g
+  | syneq =>
+    exact Query.joinChainDiff_count_eq_correct h_abs h_distrib q hq d hnodup ts C g
+  | synne =>
+    show _ = havingProv _ _ SeqAggFunc.count CompOp.synne (C + 1)
+    rw [show havingProv (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
+          (q.evaluateAnnotated hq d) g) (ts 0) SeqAggFunc.count CompOp.synne (C + 1)
+        = havingProv (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
+          (q.evaluateAnnotated hq d) g) (ts 0) SeqAggFunc.count CompOp.ne (C + 1)
+        from rfl]
+    rw [havingProv_ne_split, havingProv_count_lt, havingProv_count_gt]
+    refine Eq.trans (sum_perKeySum
+      (Query.Diff (joinChainQuery q 0) (joinChainQuery q C))
+      (joinChainQuery q (C + 1))
+      (by exact ⟨joinChain_source q hq 0, joinChain_source q hq C⟩)
+      (q2_source q hq (C + 1)) _ d g) ?_
+    exact congrArg₂ (fun a b : K => a + b)
+      (Query.joinChainDiff_count_le_correct h_abs h_distrib q hq d hnodup ts C g)
+      (Query.joinChain_count_correct h_abs q hq d hnodup ts (C + 1) g)
 
 /-- **Monotone `HAVING` conditions need no distributivity.** For the
 comparison operators `≥` and `>`, the join-based rewriting

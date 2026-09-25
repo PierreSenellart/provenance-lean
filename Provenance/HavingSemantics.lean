@@ -410,15 +410,15 @@ omit [DecidableEq K] in
   chi_eq_ite op (isNull_eq_false a) (isNull_eq_false b)
 
 omit [DecidableEq K] in
-/-- A comparison with a `NULL` operand contributes nothing. -/
-@[simp] theorem chi_of_isNull_left (op : CompOp) {a : T}
-    (h : ValueType.isNull a = true) (b : T) : (chi op a b : K) = 0 := by
-  simp [chi, h]
+/-- A null-strict comparison with a `NULL` operand contributes nothing. -/
+@[simp] theorem chi_of_isNull_left {op : CompOp} (hs : op.strict = true)
+    {a : T} (h : ValueType.isNull a = true) (b : T) : (chi op a b : K) = 0 := by
+  simp [chi, CompOp.eval3_of_isNull_left hs h]
 
 omit [DecidableEq K] in
-@[simp] theorem chi_of_isNull_right (op : CompOp) (a : T) {b : T}
-    (h : ValueType.isNull b = true) : (chi op a b : K) = 0 := by
-  simp [chi, h]
+@[simp] theorem chi_of_isNull_right {op : CompOp} (hs : op.strict = true)
+    (a : T) {b : T} (h : ValueType.isNull b = true) : (chi op a b : K) = 0 := by
+  simp [chi, CompOp.eval3_of_isNull_right hs a h]
 
 /-- **Predicate provenance of an atomic aggregate comparison** on the
 occurrence sequence `U` of one group: the `⊕`-sum, over the non-empty
@@ -580,11 +580,13 @@ theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
   -- with a null operand all three comparisons are unknown and contribute
   -- nothing; otherwise the characteristic values agree by trichotomy
   by_cases hna : ValueType.isNull (aggValOn U t f W) = true
-  · rw [chi_of_isNull_left _ hna, chi_of_isNull_left _ hna,
-      chi_of_isNull_left _ hna, add_zero]
+  · rw [chi_of_isNull_left (op := CompOp.ne) rfl hna,
+      chi_of_isNull_left (op := CompOp.lt) rfl hna,
+      chi_of_isNull_left (op := CompOp.gt) rfl hna, add_zero]
   by_cases hnc : ValueType.isNull c = true
-  · rw [chi_of_isNull_right _ _ hnc, chi_of_isNull_right _ _ hnc,
-      chi_of_isNull_right _ _ hnc, add_zero]
+  · rw [chi_of_isNull_right (op := CompOp.ne) rfl _ hnc,
+      chi_of_isNull_right (op := CompOp.lt) rfl _ hnc,
+      chi_of_isNull_right (op := CompOp.gt) rfl _ hnc, add_zero]
   rw [chi_eq_ite _ (by simpa using hna) (by simpa using hnc),
     chi_eq_ite _ (by simpa using hna) (by simpa using hnc),
     chi_eq_ite _ (by simpa using hna) (by simpa using hnc)]

@@ -70,20 +70,35 @@ end ValueTypeNull
 /-- **Three-valued evaluation of a comparison**: `unknown` as soon as an
 operand is `NULL`, and the two-valued answer otherwise. -/
 def CompOp.eval3 {T : Type} [ValueType T] (op : CompOp) (a b : T) : Kleene :=
-  if ValueType.isNull a ∨ ValueType.isNull b then Kleene.unknown
+  if op.strict ∧ (ValueType.isNull a ∨ ValueType.isNull b) then Kleene.unknown
   else Kleene.ofBool (decide (op.eval a b))
 
 section Comparison
 
 variable {T : Type} [ValueType T]
 
-@[simp] theorem CompOp.eval3_of_isNull_left (op : CompOp) {a : T}
-    (h : ValueType.isNull a = true) (b : T) : op.eval3 a b = Kleene.unknown := by
-  simp [CompOp.eval3, h]
+@[simp] theorem CompOp.eval3_of_isNull_left {op : CompOp}
+    (hs : op.strict = true) {a : T} (h : ValueType.isNull a = true) (b : T) :
+    op.eval3 a b = Kleene.unknown := by
+  simp [CompOp.eval3, hs, h]
 
-@[simp] theorem CompOp.eval3_of_isNull_right (op : CompOp) (a : T) {b : T}
-    (h : ValueType.isNull b = true) : op.eval3 a b = Kleene.unknown := by
-  simp [CompOp.eval3, h]
+@[simp] theorem CompOp.eval3_of_isNull_right {op : CompOp}
+    (hs : op.strict = true) (a : T) {b : T} (h : ValueType.isNull b = true) :
+    op.eval3 a b = Kleene.unknown := by
+  simp [CompOp.eval3, hs, h]
+
+/-- **The syntactic comparisons are never unknown**: they compare values as
+values, two nulls being the same value. This is SQL's `IS [NOT] DISTINCT
+FROM`, and it is what grouping, partitioning, duplicate elimination and
+difference key on. -/
+theorem CompOp.eval3_of_not_strict {op : CompOp} (hs : op.strict = false)
+    (a b : T) : op.eval3 a b = Kleene.ofBool (decide (op.eval a b)) := by
+  simp [CompOp.eval3, hs]
+
+@[simp] theorem CompOp.syneq_eval3_eq_true_iff (a b : T) :
+    CompOp.syneq.eval3 a b = Kleene.true ↔ a = b := by
+  rw [CompOp.eval3_of_not_strict rfl]
+  simp [CompOp.eval]
 
 /-- **Away from the null the three-valued reading is the two-valued one.**
 This is what lets the statements proved under two-valued logic be recovered:
@@ -111,7 +126,8 @@ operator negator is therefore sound as it stands. -/
 @[simp] theorem CompOp.negate_eval3 (op : CompOp) (a b : T) :
     op.negate.eval3 a b = (op.eval3 a b).not := by
   unfold CompOp.eval3
-  by_cases h : ValueType.isNull a ∨ ValueType.isNull b
+  rw [CompOp.strict_negate]
+  by_cases h : op.strict ∧ (ValueType.isNull a ∨ ValueType.isNull b)
   · rw [ite_eq_left h, ite_eq_left h]
     rfl
   · rw [ite_eq_right h, ite_eq_right h, Kleene.not_ofBool]
@@ -130,13 +146,13 @@ variable {T : Type} [ValueTypeNull T]
     ValueType.isNull (ValueTypeNull.null : T) = true := by
   simp [ValueTypeNull.isNull_iff]
 
-@[simp] theorem CompOp.eval3_null_left (op : CompOp) (b : T) :
+theorem CompOp.eval3_null_left {op : CompOp} (hs : op.strict = true) (b : T) :
     op.eval3 (ValueTypeNull.null : T) b = Kleene.unknown :=
-  CompOp.eval3_of_isNull_left op ValueTypeNull.isNull_null b
+  CompOp.eval3_of_isNull_left hs ValueTypeNull.isNull_null b
 
-@[simp] theorem CompOp.eval3_null_right (op : CompOp) (a : T) :
+theorem CompOp.eval3_null_right {op : CompOp} (hs : op.strict = true) (a : T) :
     op.eval3 a (ValueTypeNull.null : T) = Kleene.unknown :=
-  CompOp.eval3_of_isNull_right op a ValueTypeNull.isNull_null
+  CompOp.eval3_of_isNull_right hs a ValueTypeNull.isNull_null
 
 /-- **Syntactic equality**, SQL's `IS NOT DISTINCT FROM`: the two values are
 the same value, two nulls being the same value. It is two-valued, and it is
@@ -149,10 +165,12 @@ theorem synEq_iff (a b : T) :
   by_cases ha : a = ValueTypeNull.null
   · subst ha
     by_cases hb : b = ValueTypeNull.null
-    · subst hb; simp
-    · simp [hb, Ne.symm hb]
+    · subst hb
+      simp [CompOp.eval3_null_left (op := CompOp.eq) rfl]
+    · simp [CompOp.eval3_null_left (op := CompOp.eq) rfl, hb, Ne.symm hb]
   · by_cases hb : b = ValueTypeNull.null
-    · subst hb; simp [ha]
+    · subst hb
+      simp [CompOp.eval3_null_right (op := CompOp.eq) rfl, ha]
     · rw [CompOp.eval3_eq_true_iff CompOp.eq (by simp [hn, ha]) (by simp [hn, hb])]
       simp [ha, CompOp.eval]
 

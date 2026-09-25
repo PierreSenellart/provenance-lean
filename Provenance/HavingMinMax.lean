@@ -381,8 +381,11 @@ def minScan (α : ι → K) (U : Finset ι) (t : ι → V) (op : CompOp) (c : V)
   | .le => ∑ i ∈ U.filter (fun i => t i ≤ c), α i
   | .ge => (1 - ∑ x ∈ U.filter (fun i => t i < c), α x) * ∑ i ∈ U.filter (fun i => c ≤ t i), α i
   | .gt => (1 - ∑ x ∈ U.filter (fun i => t i ≤ c), α x) * ∑ i ∈ U.filter (fun i => c < t i), α i
-  | .eq => (1 - ∑ x ∈ U.filter (fun i => t i < c), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i
-  | .ne => (∑ i ∈ U.filter (fun i => t i < c), α i)
+  -- the syntactic comparisons agree with `=` and `≠` on a domain with no
+  -- null, which is where a scan over a linear order lives
+  | .eq | .syneq =>
+      (1 - ∑ x ∈ U.filter (fun i => t i < c), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i
+  | .ne | .synne => (∑ i ∈ U.filter (fun i => t i < c), α i)
       + (1 - ∑ x ∈ U.filter (fun i => t i ≤ c), α x) * ∑ i ∈ U.filter (fun i => c < t i), α i
 
 /-- **The `MAX` scan**, the mirror image of `minScan`; see `maxScan_correct`. -/
@@ -392,8 +395,9 @@ def maxScan (α : ι → K) (U : Finset ι) (t : ι → V) (op : CompOp) (c : V)
   | .ge => ∑ i ∈ U.filter (fun i => c ≤ t i), α i
   | .le => (1 - ∑ x ∈ U.filter (fun i => c < t i), α x) * ∑ i ∈ U.filter (fun i => t i ≤ c), α i
   | .lt => (1 - ∑ x ∈ U.filter (fun i => c ≤ t i), α x) * ∑ i ∈ U.filter (fun i => t i < c), α i
-  | .eq => (1 - ∑ x ∈ U.filter (fun i => c < t i), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i
-  | .ne => (∑ i ∈ U.filter (fun i => c < t i), α i)
+  | .eq | .syneq =>
+      (1 - ∑ x ∈ U.filter (fun i => c < t i), α x) * ∑ i ∈ U.filter (fun i => t i = c), α i
+  | .ne | .synne => (∑ i ∈ U.filter (fun i => c < t i), α i)
       + (1 - ∑ x ∈ U.filter (fun i => c ≤ t i), α x) * ∑ i ∈ U.filter (fun i => t i < c), α i
 
 @[simp] theorem le_minAgg_iff (t : ι → V) (W : Finset ι) (c : V) :
@@ -592,6 +596,8 @@ theorem minScan_correct (op : CompOp) :
   | le => exact prov_min_le h_abs h_distrib α U t c
   | gt => exact prov_min_gt h_abs h_distrib α U t c
   | ge => exact prov_min_ge h_abs h_distrib α U t c
+  | syneq => exact prov_min_eq h_abs h_distrib α U t c
+  | synne => exact prov_min_ne h_abs h_distrib α U t c
 
 /-- **Correctness of the `MAX` scan.** -/
 theorem maxScan_correct (op : CompOp) :
@@ -603,6 +609,8 @@ theorem maxScan_correct (op : CompOp) :
   | le => exact prov_max_le h_abs h_distrib α U t c
   | gt => exact prov_max_gt h_abs h_distrib α U t c
   | ge => exact prov_max_ge h_abs h_distrib α U t c
+  | syneq => exact prov_max_eq h_abs h_distrib α U t c
+  | synne => exact prov_max_ne h_abs h_distrib α U t c
 
 end MinMax
 

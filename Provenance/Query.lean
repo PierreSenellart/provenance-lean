@@ -108,6 +108,12 @@ inductive BoolTerm (T) (n: ℕ) where
 | LT : Term T n → Term T n → BoolTerm T n
 | GE : Term T n → Term T n → BoolTerm T n
 | GT : Term T n → Term T n → BoolTerm T n
+/-- `IS NOT DISTINCT FROM`: the two values are the same value, two nulls
+being the same value. This is what grouping, partitioning, duplicate
+elimination and difference key on, and it is never unknown. -/
+| SYNEQ : Term T n → Term T n → BoolTerm T n
+/-- `IS DISTINCT FROM`. -/
+| SYNNE : Term T n → Term T n → BoolTerm T n
 
 def BoolTerm.repr [Repr T] : BoolTerm T n → ℕ → Std.Format
 | EQ t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "==" ++ t₂.repr p) p
@@ -116,6 +122,8 @@ def BoolTerm.repr [Repr T] : BoolTerm T n → ℕ → Std.Format
 | LT t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "<" ++ t₂.repr p) p
 | GE t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ ">=" ++ t₂.repr p) p
 | GT t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ ">" ++ t₂.repr p) p
+| SYNEQ t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "≐" ++ t₂.repr p) p
+| SYNNE t₁ t₂, p => Repr.addAppParen (t₁.repr p ++ "≠̇" ++ t₂.repr p) p
 
 instance [Repr α] : Repr (BoolTerm α n) := ⟨BoolTerm.repr⟩
 
@@ -127,6 +135,8 @@ def BoolTerm.castToAnnotatedTuple (bt: BoolTerm T n): BoolTerm (T⊕K) (n+1) :=
   | LT a b => LT a.castToAnnotatedTuple b.castToAnnotatedTuple
   | GE a b => GE a.castToAnnotatedTuple b.castToAnnotatedTuple
   | GT a b => GT a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | SYNEQ a b => SYNEQ a.castToAnnotatedTuple b.castToAnnotatedTuple
+  | SYNNE a b => SYNNE a.castToAnnotatedTuple b.castToAnnotatedTuple
 
 infix:20 " == " => λ x y ↦ BoolTerm.EQ x y
 infix:20 " != " => λ x y ↦ BoolTerm.NE x y
@@ -134,6 +144,8 @@ infix:20 " <= " => λ x y ↦ BoolTerm.LE x y
 infix:20 " < " => λ x y ↦ BoolTerm.LT x y
 infix:20 " >= " => λ x y ↦ BoolTerm.GE x y
 infix:20 " > " => λ x y ↦ BoolTerm.GT x y
+/-- `IS NOT DISTINCT FROM`. -/
+infix:20 " ≐ " => λ x y ↦ BoolTerm.SYNEQ x y
 
 /-- The comparison a Boolean term makes. -/
 def BoolTerm.toCompOp : BoolTerm T n → CompOp
@@ -143,10 +155,13 @@ def BoolTerm.toCompOp : BoolTerm T n → CompOp
 | LT _ _ => CompOp.lt
 | GE _ _ => CompOp.ge
 | GT _ _ => CompOp.gt
+| SYNEQ _ _ => CompOp.syneq
+| SYNNE _ _ => CompOp.synne
 
 /-- The two terms a Boolean term compares. -/
 def BoolTerm.args : BoolTerm T n → Term T n × Term T n
-| EQ t₁ t₂ | NE t₁ t₂ | LE t₁ t₂ | LT t₁ t₂ | GE t₁ t₂ | GT t₁ t₂ => (t₁, t₂)
+| EQ t₁ t₂ | NE t₁ t₂ | LE t₁ t₂ | LT t₁ t₂ | GE t₁ t₂ | GT t₁ t₂
+| SYNEQ t₁ t₂ | SYNNE t₁ t₂ => (t₁, t₂)
 
 /-- **Three-valued evaluation of a comparison**: a comparison with a `NULL`
 operand is neither true nor false. -/
@@ -170,7 +185,7 @@ theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
         = ValueType.isNull z := fun _ => rfl
     unfold CompOp.eval3
     rw [hn x, hn y]
-    by_cases h : ValueType.isNull x ∨ ValueType.isNull y
+    by_cases h : t.toCompOp.strict ∧ (ValueType.isNull x ∨ ValueType.isNull y)
     · rw [ite_eq_left h, ite_eq_left h]
     · rw [ite_eq_right h, ite_eq_right h]
       have hle : ∀ a b : T, ((Sum.inl a : T ⊕ K) ≤ Sum.inl b) ↔ a ≤ b :=

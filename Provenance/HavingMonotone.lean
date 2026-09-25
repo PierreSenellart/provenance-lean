@@ -62,6 +62,8 @@ def BoolTerm.ofCompOp {T : Type} {n : ℕ} (op : CompOp) (t s : Term T n) :
   | .le => BoolTerm.LE t s
   | .gt => BoolTerm.GT t s
   | .ge => BoolTerm.GE t s
+  | .syneq => BoolTerm.SYNEQ t s
+  | .synne => BoolTerm.SYNNE t s
 
 /-- `t op s` holds on a tuple iff the comparison of the two values does.
 Stated over a domain where nothing is null, the comparison being

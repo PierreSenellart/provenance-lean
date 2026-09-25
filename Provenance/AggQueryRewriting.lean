@@ -408,6 +408,8 @@ def GenPred.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selectio
   | .cmp .lt t₁ t₂ => .BT (.LT t₁.strip t₂.strip)
   | .cmp .ge t₁ t₂ => .BT (.GE t₁.strip t₂.strip)
   | .cmp .gt t₁ t₂ => .BT (.GT t₁.strip t₂.strip)
+  | .cmp .syneq t₁ t₂ => .BT (.SYNEQ t₁.strip t₂.strip)
+  | .cmp .synne t₁ t₂ => .BT (.SYNNE t₁.strip t₂.strip)
   | .aggCmp _ _ _ _ => .True
   | .and φ ψ => .And φ.strip ψ.strip
   | .or φ ψ => .Or φ.strip ψ.strip
@@ -710,6 +712,22 @@ theorem GenPred.castComposite_holdsPlain [NoNulls T] {n : ℕ}
     show CompOp.gt.eval3 ((t₁.castComposite hκ).evalPlain u)
         ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
     rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
+  | .cmp .syneq t₁ t₂, _, u => by
+    show CompOp.syneq.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff,
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    simp [GenPred.strip, Selection.castToAnnotatedTuple,
+      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
+      BoolTerm.args, CompOp.eval]
+  | .cmp .synne t₁ t₂, _, u => by
+    show CompOp.synne.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_of_not_strict rfl,
       TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     simp [GenPred.strip, Selection.castToAnnotatedTuple,
       BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
