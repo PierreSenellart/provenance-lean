@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Provenance.Frame
+import Provenance.AggValueCongr
 import Provenance.Util.ValueTypeNull
 
 /-!
@@ -277,6 +278,20 @@ theorem peer_trans (o : OrderSpec p) {x y z : Tuple T p}
   simp only [peer, Bool.and_eq_true] at h₁ h₂ ⊢
   exact ⟨o.le_trans h₁.1 h₂.1, o.le_trans h₂.2 h₁.2⟩
 
+/-- **Peers are interchangeable**: replacing an order value by a peer of it
+changes no comparison. -/
+theorem le_congr_left (o : OrderSpec p) {x y : Tuple T p}
+    (h : o.peer x y = true) (z : Tuple T p) : o.le x z = o.le y z := by
+  simp only [peer, Bool.and_eq_true] at h
+  rw [Bool.eq_iff_iff]
+  exact ⟨fun hz => o.le_trans h.2 hz, fun hz => o.le_trans h.1 hz⟩
+
+theorem le_congr_right (o : OrderSpec p) {x y : Tuple T p}
+    (h : o.peer x y = true) (z : Tuple T p) : o.le z x = o.le z y := by
+  simp only [peer, Bool.and_eq_true] at h
+  rw [Bool.eq_iff_iff]
+  exact ⟨fun hz => o.le_trans hz h.1, fun hz => o.le_trans hz h.2⟩
+
 /-- Equal order values are peers – the converse fails, which is the whole
 point of a peer group. -/
 theorem peer_of_eq (o : OrderSpec p) {x y : Tuple T p} (h : x = y) :
@@ -509,3 +524,116 @@ theorem rangeBefore_asc :
   simp [not_le]
 
 end ValueFrame
+
+/-! ## The order a frame is read in
+
+An aggregate is a function on *sequences*, so a window has to say in which
+order its frame is read. SQL says: the clause's. Since the clause is a
+preorder it does not settle the peers, and the library breaks those ties by
+its own order on rows – a choice invisible to every symmetric aggregate
+(`SeqAggFunc.Symmetric`), and one that leaves two occurrences tied exactly
+when they carry the same row, which is what a tie-block permutation is
+allowed to exchange. -/
+
+namespace OrderSpec
+
+variable {n : ℕ} {α : Type}
+
+/-- **The order a window reads its frame in**: the clause on the order
+columns, its ties broken by the canonical order on the rows. -/
+def readLe (val : α → Tuple T n) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (x y : α) : Bool :=
+  if o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) then
+    decide (val x ≤ val y)
+  else o.le (Tuple.key O (val x)) (Tuple.key O (val y))
+
+variable {val : α → Tuple T n} {O : Tuple (Fin n) p} {o : OrderSpec p}
+
+@[simp] theorem readLe_rfl (x : α) : readLe val O o x x = true := by
+  simp [readLe]
+
+/-- Occurrences carrying the same row are read in either order. -/
+theorem readLe_of_val_eq {x y : α} (h : val x = val y) :
+    readLe val O o x y = true := by
+  simp [readLe, h]
+
+theorem readLe_total (x y : α) :
+    readLe val O o x y = true ∨ readLe val O o y x = true := by
+  unfold readLe
+  by_cases hp : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  · rw [ite_eq_left hp, ite_eq_left (by rw [OrderSpec.peer_comm] at hp; exact hp)]
+    rcases _root_.le_total (val x) (val y) with h | h <;> simp [h]
+  · rw [ite_eq_right hp, ite_eq_right (by rw [OrderSpec.peer_comm]; exact hp)]
+    exact o.le_total _ _
+
+theorem readLe_trans {x y z : α} (h₁ : readLe val O o x y = true)
+    (h₂ : readLe val O o y z = true) : readLe val O o x z = true := by
+  unfold readLe at h₁ h₂ ⊢
+  by_cases hxy : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  · rw [ite_eq_left hxy] at h₁
+    by_cases hyz : o.peer (Tuple.key O (val y)) (Tuple.key O (val z)) = true
+    · rw [ite_eq_left hyz] at h₂
+      rw [ite_eq_left (o.peer_trans hxy hyz)]
+      exact decide_eq_true (_root_.le_trans (of_decide_eq_true h₁) (of_decide_eq_true h₂))
+    · rw [ite_eq_right hyz] at h₂
+      have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False :=
+        fun h => hyz (o.peer_trans (by rw [OrderSpec.peer_comm]; exact hxy) h)
+      rw [ite_eq_right (fun h => hxz h), o.le_congr_left hxy _]
+      exact h₂
+  · rw [ite_eq_right hxy] at h₁
+    by_cases hyz : o.peer (Tuple.key O (val y)) (Tuple.key O (val z)) = true
+    · have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False :=
+        fun h => hxy (o.peer_trans h (by rw [OrderSpec.peer_comm]; exact hyz))
+      rw [ite_eq_right (fun h => hxz h), ← o.le_congr_right hyz _]
+      exact h₁
+    · rw [ite_eq_right hyz] at h₂
+      have hxz : o.peer (Tuple.key O (val x)) (Tuple.key O (val z)) = true → False := by
+        intro h
+        simp only [OrderSpec.peer, Bool.and_eq_true] at h
+        exact hxy (by
+          simp only [OrderSpec.peer, Bool.and_eq_true]
+          exact ⟨h₁, o.le_trans h₂ h.2⟩)
+      rw [ite_eq_right (fun h => hxz h)]
+      exact o.le_trans h₁ h₂
+
+/-- **Two occurrences are tied exactly when they carry the same row.** The
+clause alone does not separate peers; the canonical tie-break does, down to
+the row. -/
+theorem val_eq_of_readLe {x y : α} (h₁ : readLe val O o x y = true)
+    (h₂ : readLe val O o y x = true) : val x = val y := by
+  unfold readLe at h₁ h₂
+  by_cases hp : o.peer (Tuple.key O (val x)) (Tuple.key O (val y)) = true
+  · rw [ite_eq_left hp] at h₁
+    rw [ite_eq_left (by rw [OrderSpec.peer_comm] at hp; exact hp)] at h₂
+    exact _root_.le_antisymm (of_decide_eq_true h₁) (of_decide_eq_true h₂)
+  · rw [ite_eq_right hp] at h₁
+    rw [ite_eq_right (by rw [OrderSpec.peer_comm]; exact hp)] at h₂
+    exact absurd (by simp only [OrderSpec.peer, Bool.and_eq_true]; exact ⟨h₁, h₂⟩) hp
+
+/-- **The frame's occurrences, in the order the clause reads them.** -/
+def sortSeq (val : α → Tuple T n) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (L : List α) : List α :=
+  L.mergeSort (readLe val O o)
+
+theorem sortSeq_perm (L : List α) : (sortSeq val O o L).Perm L :=
+  List.mergeSort_perm L _
+
+theorem sortSeq_sorted (L : List α) :
+    (sortSeq val O o L).Pairwise (fun x y => readLe val O o x y = true) :=
+  List.pairwise_mergeSort (fun _ _ _ => readLe_trans) (fun a b => by
+    rcases readLe_total (val := val) (O := O) (o := o) a b with h | h <;> simp [h]) L
+
+/-- **Sorting by the clause settles the sequence down to the rows.** Two
+listings of the same frame come out tie-permuted, the blocks being the
+occurrences that carry one row – which is exactly the freedom the readings
+of a token are invariant under. -/
+theorem sortSeq_tiePerm [DecidableEq α] {L L' : List α} (h : L.Perm L') :
+    TiePerm (fun x y => val x = val y)
+      (sortSeq val O o L) (sortSeq val O o L') :=
+  tiePerm_of_perm_of_sorted_by (fun x y => readLe val O o x y = true) val
+    (fun hxy hyx => val_eq_of_readLe hxy hyx)
+    (fun hv => readLe_of_val_eq hv)
+    (((sortSeq_perm L).trans h).trans (sortSeq_perm L').symm)
+    (sortSeq_sorted L) (sortSeq_sorted L')
+
+end OrderSpec

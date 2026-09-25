@@ -101,14 +101,23 @@ end TiePerm
 
 section Sorted
 
-variable {α κ : Type} [DecidableEq α] [LinearOrder κ]
+variable {α κ : Type} [DecidableEq α]
 
-/-- Bubbling a minimal element of a sorted list to the front only ever
+/-! A sort determines a list up to a tie-block permutation as soon as the
+relation it sorts by is total and transitive and its ties are exactly
+equality of some key. The canonical case is `key x ≤ key y` for a key into a
+linear order, but a window's frame is sorted by its `ORDER BY`, which is not
+of that shape: it reads the order columns in the clause's direction and null
+placement, and breaks the clause's ties by the canonical order. -/
+
+variable {R : α → α → Prop} {key : α → κ}
+
+/-- Bubbling a least element of a sorted list to the front only ever
 transposes adjacent elements of equal key. -/
-theorem tiePerm_cons_erase (key : α → κ) :
+theorem tiePerm_cons_erase_by (R : α → α → Prop) (key : α → κ)
+    (hanti : ∀ {x y : α}, R x y → R y x → key x = key y) :
     ∀ {l : List α} {p : α}, p ∈ l →
-      l.Pairwise (fun x y => key x ≤ key y) →
-      (∀ q ∈ l, key p ≤ key q) →
+      l.Pairwise R → (∀ q ∈ l, R p q) →
       TiePerm (fun x y => key x = key y) l (p :: l.erase p)
   | a :: t, p, hp, hsort, hmin => by
     by_cases hap : a = p
@@ -120,21 +129,22 @@ theorem tiePerm_cons_erase (key : α → κ) :
         · exact absurd h.symm hap
         · exact h
       have hsort' := List.pairwise_cons.mp hsort
-      have ih := tiePerm_cons_erase key hpt hsort.of_cons
+      have ih := tiePerm_cons_erase_by R key hanti hpt hsort.of_cons
         (fun q hq => hmin q (List.mem_cons_of_mem a hq))
       have hkey : key a = key p :=
-        le_antisymm (hsort'.1 p hpt) (hmin a List.mem_cons_self)
+        hanti (hsort'.1 p hpt) (hmin a List.mem_cons_self)
       rw [List.erase_cons_tail (by simpa using hap)]
       refine .trans (.cons a ih) (.swap ?_ (TiePerm.refl _ _))
       exact hkey
 
-/-- Two lists that are permutations of each other and both sorted by the key
-`key` differ only by a tie-block permutation on key equality: the sort order
-determines everything except the arrangement inside blocks of equal keys. -/
-theorem tiePerm_of_perm_of_sorted (key : α → κ) :
+/-- **Two lists that are permutations of each other and both sorted by `R`
+differ only by a tie-block permutation on key equality**: the sort order
+determines everything except the arrangement inside blocks of equal key. -/
+theorem tiePerm_of_perm_of_sorted_by (R : α → α → Prop) (key : α → κ)
+    (hanti : ∀ {x y : α}, R x y → R y x → key x = key y)
+    (hkey : ∀ {x y : α}, key x = key y → R x y) :
     ∀ {l₁ l₂ : List α}, l₁.Perm l₂ →
-      l₁.Pairwise (fun x y => key x ≤ key y) →
-      l₂.Pairwise (fun x y => key x ≤ key y) →
+      l₁.Pairwise R → l₂.Pairwise R →
       TiePerm (fun x y => key x = key y) l₁ l₂
   | [], l₂, hperm, _, _ => by
     rw [hperm.symm.eq_nil]
@@ -142,15 +152,36 @@ theorem tiePerm_of_perm_of_sorted (key : α → κ) :
   | p :: t₁, l₂, hperm, hs₁, hs₂ => by
     have hp₂ : p ∈ l₂ := hperm.mem_iff.mp List.mem_cons_self
     have ht : t₁.Perm (l₂.erase p) := (List.cons_perm_iff_perm_erase.mp hperm).2
-    have hmin : ∀ q ∈ l₂, key p ≤ key q := by
+    have hmin : ∀ q ∈ l₂, R p q := by
       intro q hq
       rcases List.mem_cons.mp (hperm.symm.subset hq) with h | h
-      · exact le_of_eq (congrArg key h.symm)
+      · exact hkey (congrArg key h.symm)
       · exact (List.pairwise_cons.mp hs₁).1 q h
-    have hbubble := tiePerm_cons_erase key hp₂ hs₂ hmin
-    have ih := tiePerm_of_perm_of_sorted key ht hs₁.of_cons
+    have hbubble := tiePerm_cons_erase_by R key hanti hp₂ hs₂ hmin
+    have ih := tiePerm_of_perm_of_sorted_by R key hanti hkey ht hs₁.of_cons
       (hs₂.sublist (List.erase_sublist))
     exact .trans (.cons p ih) (TiePerm.symm (fun h => h.symm) hbubble)
+
+variable [LinearOrder κ]
+
+/-- Bubbling a minimal element of a sorted list to the front only ever
+transposes adjacent elements of equal key. -/
+theorem tiePerm_cons_erase (key : α → κ) {l : List α} {p : α} (hp : p ∈ l)
+    (hsort : l.Pairwise (fun x y => key x ≤ key y))
+    (hmin : ∀ q ∈ l, key p ≤ key q) :
+    TiePerm (fun x y => key x = key y) l (p :: l.erase p) :=
+  tiePerm_cons_erase_by _ key (fun h h' => le_antisymm h h') hp hsort hmin
+
+/-- Two lists that are permutations of each other and both sorted by the key
+`key` differ only by a tie-block permutation on key equality: the sort order
+determines everything except the arrangement inside blocks of equal keys. -/
+theorem tiePerm_of_perm_of_sorted (key : α → κ) {l₁ l₂ : List α}
+    (hperm : l₁.Perm l₂)
+    (hs₁ : l₁.Pairwise (fun x y => key x ≤ key y))
+    (hs₂ : l₂.Pairwise (fun x y => key x ≤ key y)) :
+    TiePerm (fun x y => key x = key y) l₁ l₂ :=
+  tiePerm_of_perm_of_sorted_by _ key (fun h h' => le_antisymm h h')
+    (fun h => le_of_eq h) hperm hs₁ hs₂
 
 end Sorted
 
