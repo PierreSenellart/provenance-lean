@@ -740,7 +740,7 @@ the collapsed data columns of the rewritten evaluation of a classical
 rewriting with the annotation read off its provenance column recovers the
 composite embedding of the classical annotated semantics – the input the
 token-building groupings of the rewritten world consume. -/
-theorem AggQuery.rewriting_provRel [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     Multiset.map (fun u => (GenRow.plainTuple u,
         ((TermG.provIndex (Fin.last n)

@@ -383,7 +383,7 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let joinCond₁ :=
            ((List.range n).map
              (fun j => @Selection.BT (T ⊕ K) (2 * n + 1)
-               (#(Fin.ofNat _ j) == #(Fin.ofNat _ (j + n + 1))))).foldr
+               (#(Fin.ofNat _ j) ≐ #(Fin.ofNat _ (j + n + 1))))).foldr
              (fun t t' => Selection.And t t') Selection.True
          let prod₁t := fun r => Sel joinCond₁ (@Query.Prod _ (n + 1) n (2 * n + 1) (by omega) q'₁ r)
          let prod₁r :=
@@ -393,7 +393,7 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let joinCond₂ :=
            ((List.range n).map
              (fun j => @Selection.BT (T ⊕ K) (2 * n + 2)
-               (#(Fin.ofNat _ j) == #(Fin.ofNat _ (j + n + 1))))).foldr
+               (#(Fin.ofNat _ j) ≐ #(Fin.ofNat _ (j + n + 1))))).foldr
              (fun t t' => Selection.And t t') Selection.True
          let prod₂t := fun r => Sel joinCond₂ (@Query.Prod _ (n + 1) (n + 1) (2 * n + 2) (by omega) q'₁ r)
          let prod₂r := ProvSum (fun j : Fin n => j.castLE (by simp)) #(Fin.last n) q'₂
@@ -420,10 +420,8 @@ moved the annotation into the data.
 Anchor: Provenance/QueryRewriting.html#Query.rewriting_valid
 -/
 
-/-- `⟪q⟫_Î = ⟦q̂⟧_Î`, for `q` in the fragment the rules (R1)–(R4) cover, over
-a value domain without a null – the difference rule joins on key columns with
-comparison equality, where SQL's key equality is the syntactic one. -/
-theorem rewriting_valid [NoNulls T] [SemiringWithMonus K] [DecidableEq K]
+/-- `⟪q⟫_Î = ⟦q̂⟧_Î`, for `q` in the fragment the rules (R1)–(R4) cover. -/
+theorem rewriting_valid [SemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K]
     (q : Query T n) (hq : q.source) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite :=

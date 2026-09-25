@@ -920,17 +920,21 @@ def AggQuery.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
 
 /-! ## Join conditions on key columns -/
 
-/-- The conjunction of equalities between two blocks of regular columns
-(the join condition of the `Diff` rewriting). -/
+/-- The conjunction of key equalities between two blocks of regular columns
+(the join condition of the `Diff` rewriting).
+
+The atoms are SQL's `IS NOT DISTINCT FROM`, not `=`: a key join keys on
+values, two nulls being the same key, where `NULL = NULL` is unknown and
+would drop the row. -/
 def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
     (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ (posL k) = ColKind.reg)
     (hR : ∀ k, κ (posR k) = ColKind.reg) :
     GenPred T' κ :=
   ((List.finRange n).map (fun k =>
-    GenPred.cmp CompOp.eq (TermG.index (posL k) (hL k))
+    GenPred.cmp CompOp.syneq (TermG.index (posL k) (hL k))
       (TermG.index (posR k) (hR k)))).foldr GenPred.and
-    (GenPred.cmp CompOp.eq (.const 0) (.const 0))
+    (GenPred.cmp CompOp.syneq (.const 0) (.const 0))
 
 /-- The join condition is a conjunction of column equalities: no
 indicator gate. -/
@@ -960,27 +964,20 @@ theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
     · rintro ⟨hall, hb⟩
       exact ⟨hall hd (List.mem_cons_self), fun x hx => hall x (List.mem_cons_of_mem hd hx), hb⟩
 
-/-- The join condition holds exactly when the two blocks of key columns
-carry the same values.
-
-**Stated over a domain where nothing is null.** The condition is built from
-comparison equality, and SQL's key equality is the *syntactic* one – two
-nulls are the same key, while `NULL = NULL` is unknown. Where a key column
-can be null the two part company, and the condition as built would drop
-rows a key join keeps. Giving the predicate language an `IS NOT DISTINCT
-FROM` atom is what that needs. -/
-theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] [NoNulls T']
+/-- **The join condition holds exactly when the two blocks of key columns
+carry the same values** – nulls included, the atoms being syntactic. -/
+theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T']
     {n m : ℕ} {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
     (keyJoinCond posL posR hL hR).holdsPlain u
       ↔ ∀ k, u (posL k) = u (posR k) := by
-  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.eq (TermG.index (posL k) (hL k))
+  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.syneq
+      (TermG.index (posL k) (hL k))
       (TermG.index (posR k) (hR k))).holdsPlain u ↔ u (posL k) = u (posR k) := by
     intro k
-    show CompOp.eq.eval3 (u (posL k)) (u (posR k)) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
-    rfl
+    show CompOp.syneq.eval3 (u (posL k)) (u (posR k)) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff]
   unfold keyJoinCond
   rw [GenPred.holdsPlain_foldr_and]
   constructor
@@ -988,9 +985,8 @@ theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] [NoNulls T']
     exact (hatom k).mp (hall k (List.mem_finRange k))
   · intro h
     refine ⟨fun k _ => (hatom k).mpr (h k), ?_⟩
-    show CompOp.eq.eval3 (0 : T') 0 = Kleene.true
-    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
-    rfl
+    show CompOp.syneq.eval3 (0 : T') 0 = Kleene.true
+    rw [CompOp.syneq_eval3_eq_true_iff]
 
 /-- The join condition has no aggregate atom: it filters classically. -/
 theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
@@ -1023,22 +1019,21 @@ theorem GenPred.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a lifted tuple the join condition says what it says on the collapsed
-one: its columns are regular, so no token is read. Stated, like its plain
-counterpart, over a domain where nothing is null. -/
-theorem keyJoinCond_holds [NoNulls T] {n m : ℕ} {κ' : Fin m → ColKind}
+one: its columns are regular, so no token is read. -/
+theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
     (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple (GenValue T K) m) :
     (keyJoinCond posL posR hL hR).holds u
       ↔ ∀ k, GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
-  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.eq (TermG.index (posL k) (hL k))
+  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.syneq
+      (TermG.index (posL k) (hL k))
       (TermG.index (posR k) (hR k))).holds u
       ↔ GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
     intro k
-    show CompOp.eq.eval3 (GenRow.plainTuple u (posL k))
+    show CompOp.syneq.eval3 (GenRow.plainTuple u (posL k))
       (GenRow.plainTuple u (posR k)) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
-    rfl
+    rw [CompOp.syneq_eval3_eq_true_iff]
   unfold keyJoinCond
   rw [GenPred.holds_foldr_and]
   constructor
@@ -1046,9 +1041,8 @@ theorem keyJoinCond_holds [NoNulls T] {n m : ℕ} {κ' : Fin m → ColKind}
     exact (hatom k).mp (hall k (List.mem_finRange k))
   · intro h
     refine ⟨fun k _ => (hatom k).mpr (h k), ?_⟩
-    show CompOp.eq.eval3 (0 : T) 0 = Kleene.true
-    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
-    rfl
+    show CompOp.syneq.eval3 (0 : T) 0 = Kleene.true
+    rw [CompOp.syneq_eval3_eq_true_iff]
 
 /-- Kind transport is transparent to evaluation (row types do not mention
 the kind vector). -/

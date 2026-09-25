@@ -25,7 +25,9 @@ identity `Multiset.semijoin_proj_eq_filter`, after bridging the
 via `Query.rewriting_valid_diff_inner_dd_inst`) and a `matched_eq` half (proved
 via the keyed-projection semijoin `Multiset.semijoin_keyed_proj_eq_filter`, after
 substituting the inner aggregation with the closed-form
-`Query.evaluate_agg_rewriting_eq`). Rule (R5) – aggregation – is not part of
+`Query.evaluate_agg_rewriting_eq`). Both halves join on the data columns with
+`≐`, SQL's `IS NOT DISTINCT FROM`: difference keys on values, two nulls being
+one key, where `NULL = NULL` would be unknown and drop the row. Rule (R5) – aggregation – is not part of
 this classical rewriting: it lives on the general syntax, in
 `Provenance.AggQueryGroupRewriting`, where an aggregate output is a symbolic
 token rather than a quotiented K-tensor.
@@ -63,7 +65,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   let q'₂ := q₂.rewriting (sourceDiff hq rfl).right
   let joinCond₁ :=
     ((List.range n).map
-      (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+1) (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True
   let prod₁t := λ r ↦ Sel joinCond₁ (@Query.Prod _ (n+1) n (2*n+1) (by omega) q'₁ r)
   let prod₁r := Dedup (Diff (Proj (λ (k: Fin n) ↦ (Term.index (k.castLE (Nat.le_succ _)))) q'₁)
@@ -71,7 +73,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   let prod₁ := prod₁t (prod₁r)
   let joinCond₂ :=
     ((List.range n).map
-      (λ k ↦ @Selection.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k)==#(Fin.ofNat _ (k+n+1))))).foldr
+      (λ k ↦ @Selection.BT (T⊕K) (2*n+2) (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True
   have h₂ : (2*n+2 - (n+1): ℕ) = n+1  := by omega
   let prod₂t := λ r ↦ Sel joinCond₂ (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) q'₁ r)
@@ -478,26 +480,25 @@ lemma Selection.eval_foldr_and_map {T: Type} [ValueType T] {N: ℕ} {α : Type*}
     · intro h
       exact ⟨h hd (Or.inl rfl), fun x hx ↦ h x (Or.inr hx)⟩
 
-/-- The folded join condition `(#k == #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
+/-- The folded join condition `(#k ≐ #(k+n+1))` for `k ∈ List.range n` evaluates true iff the
 tuple's values at indices `ofNat k` and `ofNat (k+n+1)` agree for every `k < n`. -/
 lemma Query.rewriting_valid_joinCond_eval
-  {T K: Type} [ValueType T] [NoNulls T] [SemiringWithMonus K] [DecidableEq K]
+  {T K: Type} [ValueType T] [SemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]
   {N n: ℕ} [NeZero N] (t: Tuple (T⊕K) N):
   Selection.eval
     (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) N
-        (#(Fin.ofNat N k) == #(Fin.ofNat N (k+n+1))))).foldr
+        (#(Fin.ofNat N k) ≐ #(Fin.ofNat N (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) t
   ↔ ∀ k: Fin n, t (@Fin.ofNat N _ k)
               = t (@Fin.ofNat N _ (k+n+1)) := by
   have hatom : ∀ i j : Fin N,
-      (Selection.BT (T := T ⊕ K) (BoolTerm.EQ (Term.index i) (Term.index j))).eval t
-        ↔ t i = t j := by
+      (Selection.BT (T := T ⊕ K)
+        (BoolTerm.SYNEQ (Term.index i) (Term.index j))).eval t ↔ t i = t j := by
     intro i j
-    show CompOp.eq.eval3 (t i) (t j) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _)]
-    rfl
+    show CompOp.syneq.eval3 (t i) (t j) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff]
   rw[Selection.eval_foldr_and_map]
   simp only [List.mem_range]
   constructor
@@ -764,13 +765,13 @@ lemma cast_append_at_ofNat_right {α : Type} {n : ℕ}
 
 /-- `selFilter` on `Tuple.cast h (Fin.append p q)` characterizes the first-`n`
 projection equality between `p` and `q`. -/
-lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [NoNulls T] [SemiringWithMonus K]
+lemma selFilter_cast_append_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : n+1+n = 2*n+1) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) n)
     [NeZero (2*n+1)] :
     Selection.eval (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+        (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n))) = q := by
   classical
@@ -870,13 +871,13 @@ lemma proj_outer_2n2_cast_append_eq_fst {α : Type} {n : ℕ}
 /-- Arity-`(2n+2)` analogue of `selFilter_cast_append_iff`: the join condition
 on `Tuple.cast h (Fin.append p q)` with `q : Tuple (T⊕K) (n+1)` characterizes
 equality of the first-`n` projections of `p` and `q`. -/
-lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [NoNulls T] [SemiringWithMonus K]
+lemma selFilter_cast_append_2n2_iff {T K : Type} [ValueType T] [SemiringWithMonus K]
     [HasAltLinearOrder K] {n : ℕ}
     (h : (n+1)+(n+1) = 2*n+2) (p : Tuple (T⊕K) (n+1)) (q : Tuple (T⊕K) (n+1))
     [NeZero (2*n+2)] :
     Selection.eval (((List.range n).map
       (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-        (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+        (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
       (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast h (Fin.append p q))
     ↔ (fun (k : Fin n) ↦ p (k.castLE (Nat.le_succ n)))
       = (fun (k : Fin n) ↦ q (k.castLE (Nat.le_succ n))) := by
@@ -1100,7 +1101,7 @@ lemma Query.rewriting_valid_diff_inner_dd_inst
   convert Query.rewriting_valid_diff_inner_dd AR₁ AR₂ using 4
 
 theorem Query.rewriting_valid
-  [ValueType T] [NoNulls T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+  [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.source) :
   ∀ (d: AnnotatedDatabase T K), (q.evaluateAnnotated hq d).toComposite = (q.rewriting hq).evaluate d.toComposite := by
   intro d
@@ -1333,7 +1334,7 @@ theorem Query.rewriting_valid
         (Query.Proj (fun (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
           (Query.Sel (((List.range n).map
               (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+                (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
               (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) n (2*n+1) (by omega) (q₁.rewriting hq'₁)
               (Query.Dedup (Query.Diff
@@ -1388,7 +1389,7 @@ theorem Query.rewriting_valid
       let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+1)
-              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
       let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) n =>
@@ -1446,7 +1447,7 @@ theorem Query.rewriting_valid
             else Term.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
           (Query.Sel (((List.range n).map
               (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-                (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+                (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
               (λ t t' ↦ Selection.And t t') Selection.True)
             (@Query.Prod _ (n+1) (n+1) (2*n+2) (by omega) (q₁.rewriting hq'₁)
               (Query.ProvSum (fun k: Fin n ↦ k.castLE (by simp))
@@ -1485,7 +1486,7 @@ theorem Query.rewriting_valid
       let dp1 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>
           Selection.eval (((List.range n).map
             (λ k ↦ @Selection.BT (T⊕K) (2*n+2)
-              (#(Fin.ofNat _ k) == #(Fin.ofNat _ (k+n+1))))).foldr
+              (#(Fin.ofNat _ k) ≐ #(Fin.ofNat _ (k+n+1))))).foldr
             (λ t t' ↦ Selection.And t t') Selection.True) (Tuple.cast (by omega) (Fin.append x.1 x.2))) :=
         fun x => Selection.evalDecidable _ _
       let dp2 : DecidablePred (fun x : Tuple (T⊕K) (n+1) × Tuple (T⊕K) (n+1) =>

@@ -656,99 +656,47 @@ theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
     rfl
 
 omit [DecidableEq K] in
-/-- The composite cast of a predicate agrees with the classical cast of
-its strip.
-
-**Stated over a domain where nothing is null**: the classical `Selection`
-on the right is read two-valuedly while `holdsPlain` is read in Kleene's
-logic. -/
-theorem GenPred.castComposite_holdsPlain [NoNulls T] {n : ℕ}
+/-- The composite cast of a predicate agrees with the classical cast of its
+strip – three-valuedly, both readings being Kleene's. -/
+theorem GenPred.castComposite_evalPlain3 {n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
       (u : Tuple (T ⊕ K) (n + 1)),
-      (φ.castComposite hκ hφ (K := K)).holdsPlain u
-        ↔ (φ.strip.castToAnnotatedTuple).eval u
-  | .cmp .eq t₁ t₂, _, u => by
-    show CompOp.eq.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .ne t₁ t₂, _, u => by
-    show CompOp.ne.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .le t₁ t₂, _, u => by
-    show CompOp.le.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .lt t₁ t₂, _, u => by
-    show CompOp.lt.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .ge t₁ t₂, _, u => by
-    show CompOp.ge.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .gt t₁ t₂, _, u => by
-    show CompOp.gt.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .syneq t₁ t₂, _, u => by
-    show CompOp.syneq.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.syneq_eval3_eq_true_iff,
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
-  | .cmp .synne t₁ t₂, _, u => by
-    show CompOp.synne.eval3 ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
-    rw [CompOp.eval3_of_not_strict rfl,
-      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
-    simp [GenPred.strip, Selection.castToAnnotatedTuple,
-      BoolTerm.castToAnnotatedTuple, BoolTerm.toCompOp,
-      BoolTerm.args, CompOp.eval]
+      (φ.castComposite hκ hφ (K := K)).evalPlain3 u
+        = (φ.strip.castToAnnotatedTuple).eval3 u
+  | .cmp op t₁ t₂, _, u => by
+    cases op <;>
+      (simp only [GenPred.castComposite, GenPred.evalPlain3, GenPred.strip,
+         Selection.castToAnnotatedTuple, BoolTerm.castToAnnotatedTuple,
+         Selection.eval3, BoolTerm.eval3, BoolTerm.toCompOp, BoolTerm.args,
+         TermG.castComposite_evalPlain])
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
   | .and φ ψ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_and, GenPred.strip,
-      Selection.castToAnnotatedTuple, Selection.eval_and]
-    exact and_congr
-      (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
-      (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
+    show (GenPred.evalPlain3 _ _).and _ = _
+    rw [castComposite_evalPlain3 hκ φ (Bool.or_eq_false_iff.mp hφ).1 u,
+      castComposite_evalPlain3 hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u]
+    rfl
   | .or φ ψ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_or, GenPred.strip,
-      Selection.castToAnnotatedTuple, Selection.eval_or]
-    exact or_congr
-      (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
-      (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
+    show (GenPred.evalPlain3 _ _).or _ = _
+    rw [castComposite_evalPlain3 hκ φ (Bool.or_eq_false_iff.mp hφ).1 u,
+      castComposite_evalPlain3 hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u]
+    rfl
   | .not φ, hφ, u => by
-    rw [GenPred.castComposite, GenPred.holdsPlain_not_iff, GenPred.strip,
-      Selection.castToAnnotatedTuple, Selection.eval_not_iff]
-    exact not_congr (castComposite_holdsPlain hκ φ hφ u)
+    show (GenPred.evalPlain3 _ _).not = _
+    rw [castComposite_evalPlain3 hκ φ hφ u]
+    rfl
+
+omit [DecidableEq K] in
+/-- The composite cast of a predicate agrees with the classical cast of
+its strip. -/
+theorem GenPred.castComposite_holdsPlain {n : ℕ}
+    {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg)
+    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+    (u : Tuple (T ⊕ K) (n + 1)) :
+    (φ.castComposite hκ hφ (K := K)).holdsPlain u
+      ↔ (φ.strip.castToAnnotatedTuple).eval u := by
+  unfold GenPred.holdsPlain Selection.eval
+  rw [GenPred.castComposite_evalPlain3 hκ φ hφ u]
 
 omit [DecidableEq K] in
 /-- The composite cast of a projection column agrees with the classical
@@ -779,7 +727,7 @@ theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
 /-- **Plain-semantics agreement**: the native rewriting and the classical
 rewriting of the stripped query evaluate identically on any composite
 database. -/
-theorem AggQuery.rewriting_plain [NoNulls T] :
+theorem AggQuery.rewriting_plain :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewriting hq).evaluatePlain D
@@ -1001,7 +949,7 @@ general syntax, evaluating the annotated semantics and folding the result
 into composite `T ⊕ K` tuples agrees with evaluating the rewritten query
 under the plain semantics over the composite database. This is the
 general-syntax form of the classical rewriting correctness. -/
-theorem AggQuery.rewriting_valid [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewriting_valid {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated d).toComposite
       = (q.rewriting hq).evaluatePlain d.toComposite := by
