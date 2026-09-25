@@ -165,7 +165,16 @@ the provenance-aware relational database system
   grouping, partitioning, duplicate elimination and difference use, and is
   what the library already decides with `DecidableEq`
 - `Provenance.Database` – tuples, relations, and plain databases
-- `Provenance.Query` – relational algebra (select, project, join, union, difference…)
+- `Provenance.Query` – relational algebra (select, project, join, union, difference…), with the aggregate catalog `SeqAggFunc` and
+  `SeqAggFunc.sqlOf`, **SQL's reading of an aggregate on a domain with a
+  null**: skip the nulls, and give `NULL` when nothing is left. That is what
+  the scalar convention needed and could not have – an aggregation without
+  grouping over an empty input, and a frame excluding the row it is computed
+  for, both read their value there, and `SUM`, `MIN`, `MAX` over no row are
+  `NULL` and not the zero the domain happened to offer. `COUNT` stays
+  unwrapped, being the one aggregate SQL does not read that way, and
+  `sqlOf_eq_of_no_null` recovers the results proved over a domain with no
+  null
 - `Provenance.AnnotatedDatabase` – databases annotated with values in an m-semiring `K`
 - `Provenance.QueryAnnotatedDatabase` – semantics of relational algebra over annotated
   databases via m-semiring operations

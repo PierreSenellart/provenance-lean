@@ -9,6 +9,7 @@ import Mathlib.Data.Prod.Lex
 
 import Provenance.Algorithms.CompOp
 import Provenance.Database
+import Provenance.Util.ValueTypeNull
 
 /-!
 # Relational algebra
@@ -282,11 +283,12 @@ row exists on its own – an aggregation over no grouping, a frame that may
 exclude the row it is computed for – it is read, by the scalar convention of
 `AggValue.predProvScalar`.
 
-Only `count` currently gives what SQL gives there. SQL evaluates `MIN`, `MAX`
-and `SUM` over no row to `null`, and the `D` aggregates below give the zero
-of the value type instead, for want of a null to give: the suffix is Lean's
-"with a default", as in `List.headD`. So the scalar reading of those three is
-faithful only on non-empty worlds until the value domain has a null. -/
+The aggregates below are those of a domain with no null, and they give the
+zero of the value type over no row. `COUNT` is right that way: SQL counts no
+row as `0`. `SUM`, `MIN` and `MAX` are not, since SQL gives `NULL` there, and
+`sqlOf` is what makes them so on a domain that has a null – it skips the
+nulls, as SQL does, and gives `NULL` when nothing is left. `COUNT(*)` stays
+unwrapped, being the one aggregate SQL does *not* read that way. -/
 
 /-- `SUM` as a sequence aggregate; `0` on the empty sequence, where SQL has
 `null`. -/
@@ -311,6 +313,43 @@ def max : SeqAggFunc T := fun L => match L with
 /-- `PICKFIRST`: the first value of the sequence, with the zero of the value
 type as its default on the empty one, where SQL has `null`. -/
 def pickFirst : SeqAggFunc T := fun L => L.headD 0
+
+/-- **SQL's reading of an aggregate on a domain with a null**: skip the
+nulls, and give `NULL` when nothing is left. `SUM`, `MIN` and `MAX` are read
+this way. `COUNT` is not: it gives `0` over no row, which is what the
+unwrapped aggregate already does. -/
+def sqlOf {V : Type} [ValueTypeNull V] (f : SeqAggFunc V) : SeqAggFunc V := fun L =>
+  if (L.filter (fun a => decide (a ≠ ValueTypeNull.null))).isEmpty
+  then ValueTypeNull.null
+  else f (L.filter (fun a => decide (a ≠ ValueTypeNull.null)))
+
+/-- **An aggregate over no row is null.** This is what the scalar
+convention needed and could not have: an aggregation without grouping over
+an empty input, and a frame that excludes the row it is computed for, both
+read their value here. -/
+@[simp] theorem sqlOf_nil {V : Type} [ValueTypeNull V] (f : SeqAggFunc V) :
+    f.sqlOf [] = ValueTypeNull.null := rfl
+
+/-- **Away from the null the SQL reading is the aggregate itself.** The
+results proved of an aggregate over a domain with no null are recovered:
+they are this case. -/
+theorem sqlOf_eq_of_no_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
+    {L : List V} (hne : L ≠ [])
+    (h : ∀ a ∈ L, a ≠ ValueTypeNull.null) : f.sqlOf L = f L := by
+  have hfil : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) = L :=
+    List.filter_eq_self.mpr (fun a ha => by simp [h a ha])
+  unfold sqlOf
+  rw [hfil, ite_eq_right (by simpa using hne)]
+
+/-- An aggregate over nothing but nulls is null, as it is over no row. -/
+theorem sqlOf_eq_null_of_all_null {V : Type} [ValueTypeNull V]
+    (f : SeqAggFunc V) {L : List V} (h : ∀ a ∈ L, a = ValueTypeNull.null) :
+    f.sqlOf L = ValueTypeNull.null := by
+  have hfil : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) = [] :=
+    List.filter_eq_nil_iff.mpr (fun a ha => by simp [h a ha])
+  unfold sqlOf
+  rw [hfil]
+  rfl
 
 end SeqAggFunc
 

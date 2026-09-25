@@ -234,3 +234,23 @@ def qwRunning := RA[String |
 
 #eval! hdr "plain: a running count over the rows strictly before, per city"
 #eval! qwRunning.evaluatePlain d
+
+/-! ### An aggregate over no row
+
+With a null in the value domain, `SUM` over no row is `NULL`, as SQL has it,
+and not the zero the domain happened to offer. A window is where that
+becomes reachable on ordinary data: under the frame of the rows strictly
+before, the first row of each city aggregates over nothing. -/
+
+def rNull : Relation (WithNull String) 4 :=
+  Multiset.map (fun (u : Tuple String 4) (k : Fin 4) => WithNull.val (u k)) r
+
+def dNull : Database (WithNull String) := [("Personnel", ⟨4, rNull⟩)]
+
+open Provenance.Notation in
+def qwRunningNull := RA[WithNull String |
+  ⊞[#3 ; #0 ; ValueFrame.before ; `(WithNull.val "1") : SeqAggFunc.sum.sqlOf]
+    rel 4 "Personnel" ]
+
+#eval! hdr "plain: SUM over the rows strictly before – NULL where there are none"
+#eval! qwRunningNull.evaluatePlain dNull
