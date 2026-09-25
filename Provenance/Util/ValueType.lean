@@ -3,10 +3,33 @@ import Mathlib.Order.Defs.LinearOrder
 
 import Provenance.SemiringWithMonus
 
-class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T
+/-- A value domain. The `isNull` predicate says which of its values is
+SQL's `NULL`; a domain without one answers `false` everywhere, which is the
+default, and the three-valued semantics is then the two-valued one. Carrying
+the test here rather than in a stronger class is what lets one semantics
+serve both: the results proved over `ℕ`, where nothing is null, keep saying
+what they said. -/
+class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, LinearOrder T where
+  /-- Whether a value is the null. -/
+  isNull : T → Bool := fun _ => false
+
+/-- A value domain in which nothing is null. The three-valued semantics
+agrees with the two-valued one there, which is why every statement proved
+before the null was introduced keeps saying what it said. -/
+class NoNulls (T : Type) [ValueType T] : Prop where
+  /-- No value is the null. -/
+  isNull_eq_false : ∀ a : T, ValueType.isNull a = false
+
+export NoNulls (isNull_eq_false)
 
 instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
   zero := Sum.inr 0
+
+  -- the rewriting domain inherits its nulls from the data side; a
+  -- provenance value is never null
+  isNull a := match a with
+  | Sum.inl v => ValueType.isNull v
+  | Sum.inr _ => false
 
   add a b := match a,b with
   | Sum.inl a', Sum.inl b' => Sum.inl (a'+b')
@@ -68,3 +91,12 @@ instance [ToString V] [ToString K] : ToString (V⊕K) where
   toString a := match a with
   | Sum.inl a => toString a
   | Sum.inr a => toString a
+
+instance [ValueType V] [NoNulls V] [HasAltLinearOrder K] [SemiringWithMonus K] :
+    NoNulls (V⊕K) where
+  isNull_eq_false a := by
+    cases a with
+    | inl v => exact isNull_eq_false v
+    | inr _ => rfl
+
+

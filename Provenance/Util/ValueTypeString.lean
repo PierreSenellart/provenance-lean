@@ -76,3 +76,7 @@ instance: ValueType String where
           | some valc =>
             simp
             rw[Nat.add_assoc]
+
+/-- The string domain has no null: `WithNull String` is how a nullable
+column of strings is modelled. -/
+instance : NoNulls String := ⟨fun _ => rfl⟩

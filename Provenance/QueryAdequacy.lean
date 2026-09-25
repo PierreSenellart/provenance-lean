@@ -414,6 +414,9 @@ fragment. -/
 counterexamples: unlike `String`, the order on `ℕ` reduces by `decide`). -/
 instance : ValueType ℕ where
 
+/-- Nothing in `ℕ` is null. -/
+instance : NoNulls ℕ := ⟨fun _ => rfl⟩
+
 /-- Over `ℕ`, the non-zero-annotated support of the annotated evaluation
 differs from the plain evaluation on a query combining `Dedup` and `Diff`:
 `ℕ`-adequacy stops at the positive fragment. -/
