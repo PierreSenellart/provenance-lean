@@ -159,7 +159,7 @@ def winByJoin (P : Tuple (Fin n) m) (t : Term T n) (f : SeqAggFunc T)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The key columns of the join read the partition key on the left and the
 group key on the right. -/
-theorem keyJoinCond_append (P : Tuple (Fin n) m) (u : Tuple T n)
+theorem keyJoinCond_append [NoNulls T] (P : Tuple (Fin n) m) (u : Tuple T n)
     (y : Tuple T (m + 1)) :
     (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
         (fun k => winLeftPos_kind (P k)) winKeyPos_kind).holdsPlain
@@ -171,8 +171,13 @@ theorem keyJoinCond_append (P : Tuple (Fin n) m) (u : Tuple T n)
 
 /-- **A window over a whole partition is a join with its grouping**, over
 plain relations: each row is matched with the group row of its own
-partition, and keeps that group's aggregate. -/
-theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+partition, and keeps that group's aggregate.
+
+Stated over a domain where nothing is null, because the join is written with
+comparison equality on the partition key while a window partitions by
+*syntactic* equality: two rows with a null key are one partition, and
+`NULL = NULL` is unknown. The two part company exactly there. -/
+theorem evaluatePlain_winByJoin [NoNulls T] (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
@@ -233,7 +238,7 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a lifted tuple the join condition reads the partition key on the left
 and the group key on the right. -/
-theorem keyJoinCond_holds_append (P : Tuple (Fin n) m)
+theorem keyJoinCond_holds_append [NoNulls T] (P : Tuple (Fin n) m)
     (u : Tuple (GenValue T K) n) (y : Tuple (GenValue T K) (m + 1)) :
     (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
         (fun k => winLeftPos_kind (P k)) winKeyPos_kind).holds (Fin.append u y)
@@ -251,7 +256,7 @@ window never produces, and the two agree only because the group of a row
 *contains that row* – so the factor reads `α ⊗ δ(α ⊕ β')`, which is `α` by
 δ-absorption. A frame excluding the current row would have no such identity,
 and no such rewriting. -/
-theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+theorem evaluate_winByJoin [NoNulls T] (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map (fun r => (r.fst, r.snd.finalize))

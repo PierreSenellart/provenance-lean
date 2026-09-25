@@ -71,7 +71,7 @@ theorem predProv_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
     (c : T) (v : X → Bool) :
     (a.predProv op c) v = true
       ↔ (a.realized v).Nonempty
-        ∧ op.eval (a.specialize (fun α => α v)) c := by
+        ∧ op.eval3 (a.specialize (fun α => α v)) c = Kleene.true := by
   rw [AggValue.specialize_eval]
   unfold AggValue.predProv
   rw [sum_eval_eq_true_iff]
@@ -103,7 +103,7 @@ The hypothesis of `predProv_eval_iff` is what the scalar convention drops. -/
 theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
     (c : T) (v : X → Bool) :
     (a.predProvScalar op c) v = true
-      ↔ op.eval (a.specialize (fun α => α v)) c := by
+      ↔ op.eval3 (a.specialize (fun α => α v)) c = Kleene.true := by
   rw [AggValue.specialize_eval]
   unfold AggValue.predProvScalar
   rw [sum_eval_eq_true_iff]
@@ -133,7 +133,7 @@ theorem predProvOf_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
     (c : T) (v : X → Bool) :
     (a.predProvOf op c) v = true
       ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
-        ∧ op.eval (a.specialize (fun α => α v)) c := by
+        ∧ op.eval3 (a.specialize (fun α => α v)) c = Kleene.true := by
   unfold AggValue.predProvOf
   cases hs : a.scalar
   · simpa [hs] using predProv_eval_iff a op c v
@@ -301,6 +301,30 @@ theorem TermG.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
   | mul t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
 
 omit [Fintype X] [DecidableEq X] in
+/-- On a kind-conformant tuple, an aggregate-atom-free predicate evaluates
+as its plain reading does on the specialized tuple – three-valuedly, so the
+statement covers the unknown case too. -/
+theorem GenPred.eval3_eq_specialize {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+    (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
+    φ.eval3 u = φ.evalPlain3 (GenRow.specializeTuple v u) := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    rw [GenPred.eval3, GenPred.evalPlain3,
+      TermG.eval_specialize t₁ u hconf v, TermG.eval_specialize t₂ u hconf v]
+  | aggCmp k h op t => exact absurd hφ (by simp [GenPred.hasAggAtom])
+  | and φ ψ ihφ ihψ =>
+    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
+    rw [GenPred.eval3, GenPred.evalPlain3, ihφ hφ.1, ihψ hφ.2]
+  | or φ ψ ihφ ihψ =>
+    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
+    rw [GenPred.eval3, GenPred.evalPlain3, ihφ hφ.1, ihψ hφ.2]
+  | not φ ih =>
+    rw [GenPred.hasAggAtom] at hφ
+    rw [GenPred.eval3, GenPred.evalPlain3, ih hφ]
+
+omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate holds
 iff its plain reading holds on the specialized tuple. -/
 theorem GenPred.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
@@ -308,20 +332,8 @@ theorem GenPred.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     φ.holds u ↔ φ.holdsPlain (GenRow.specializeTuple v u) := by
-  induction φ with
-  | cmp op t₁ t₂ =>
-    rw [GenPred.holds, GenPred.holdsPlain,
-      TermG.eval_specialize t₁ u hconf v, TermG.eval_specialize t₂ u hconf v]
-  | aggCmp k h op t => exact absurd hφ (by simp [GenPred.hasAggAtom])
-  | and φ ψ ihφ ihψ =>
-    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
-    rw [GenPred.holds, GenPred.holdsPlain, ihφ hφ.1, ihψ hφ.2]
-  | or φ ψ ihφ ihψ =>
-    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
-    rw [GenPred.holds, GenPred.holdsPlain, ihφ hφ.1, ihψ hφ.2]
-  | not φ ih =>
-    rw [GenPred.hasAggAtom] at hφ
-    rw [GenPred.holds, GenPred.holdsPlain, ih hφ]
+  unfold GenPred.holds GenPred.holdsPlain
+  rw [GenPred.eval3_eq_specialize φ hφ u hconf v]
 
 /-! ## The σ-aggregate row lemma -/
 
@@ -368,22 +380,23 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
       u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty) :
     ((φ.predsem neg u) v = true)
-      ↔ (if neg = true then ¬ φ.holdsPlain (GenRow.specializeTuple v u)
-          else φ.holdsPlain (GenRow.specializeTuple v u)) := by
+      ↔ (if neg = true
+          then φ.evalPlain3 (GenRow.specializeTuple v u) = Kleene.false
+          else φ.evalPlain3 (GenRow.specializeTuple v u) = Kleene.true) := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
     simp only [GenPred.predsem]
-    rw [chi_eval_iff, GenPred.holdsPlain,
+    rw [chi_eval_iff, GenPred.evalPlain3,
       ← TermG.eval_specialize t₁ u hconf v,
       ← TermG.eval_specialize t₂ u hconf v]
     cases neg with
     | false => simp
-    | true => simp [CompOp.negate_eval]
+    | true => simp [CompOp.negate_eval3]
   | aggCmp k h op t =>
     obtain ⟨a, ha⟩ := GenValue.eq_inr_of_kindOf_agg
       ((hconf k).trans (by rw [h]; rfl))
     simp only [GenPred.predsem, ha]
-    rw [AggValue.predProvOf_eval_iff, GenPred.holdsPlain]
+    rw [AggValue.predProvOf_eval_iff, GenPred.evalPlain3]
     have hne := hg k (Finset.mem_singleton_self k) a ha
     have hspec : GenRow.specializeTuple v u k
         = a.specialize (fun α => α v) := by
@@ -393,7 +406,7 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     rw [hspec, ← TermG.eval_specialize t u hconf v]
     cases neg with
     | false => simp [hne]
-    | true => simp [hne, CompOp.negate_eval]
+    | true => simp [hne, CompOp.negate_eval3]
   | and φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
         u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
@@ -408,7 +421,7 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ false hgφ, ihψ false hgψ,
-        GenPred.holdsPlain]
+        GenPred.evalPlain3]
       simp
     | true =>
       have he : (GenPred.and φ ψ).predsem true u
@@ -416,9 +429,8 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ true hgφ, ihψ true hgψ,
-        GenPred.holdsPlain]
+        GenPred.evalPlain3]
       simp
-      tauto
   | or φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
         u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
@@ -433,7 +445,7 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ false hgφ, ihψ false hgψ,
-        GenPred.holdsPlain]
+        GenPred.evalPlain3]
       simp
     | true =>
       have he : (GenPred.or φ ψ).predsem true u
@@ -441,11 +453,11 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ true hgφ, ihψ true hgψ,
-        GenPred.holdsPlain]
-      simp [not_or]
+        GenPred.evalPlain3]
+      simp
   | not φ ih =>
     have he : (GenPred.not φ).predsem neg u = φ.predsem (!neg) u := rfl
-    rw [he, ih (!neg) hg, GenPred.holdsPlain]
+    rw [he, ih (!neg) hg, GenPred.evalPlain3]
     cases neg <;> simp
 
 /-- **Existence entailment extracts the guard.** When a predicate entails
@@ -628,14 +640,16 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     refine ⟨hold, ?_⟩
     have hps := (GenPred.predsem_eval_iff φ false u hconf v
       (fun k _ a ha => hguard hold k a ha)).mp hbp.2
-    simpa using hps
+    rw [ite_eq_right Bool.false_ne_true] at hps
+    exact hps
   · rintro ⟨hold, hh⟩
     have hgs := hguard hold
     rw [GenAnn.finalize_eval_iff] at hold ⊢
     obtain ⟨hb, hG⟩ := hold
     have hps : (φ.predsem false u) v = true :=
       (GenPred.predsem_eval_iff φ false u hconf v
-        (fun k _ a ha => hgs k a ha)).mpr (by simpa using hh)
+        (fun k _ a ha => hgs k a ha)).mpr
+        (by rw [ite_eq_right Bool.false_ne_true]; exact hh)
     refine ⟨?_, fun l hl => ?_⟩
     · show (b v && _) = true
       rw [Bool.and_eq_true]

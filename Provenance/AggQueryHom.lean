@@ -67,7 +67,7 @@ theorem chi_hom (h : SemiringWithMonusHom K K') (op : CompOp)
     (a b : T) :
     h.toRingHom (Having.chi op a b : K) = (Having.chi op a b : K') := by
   unfold Having.chi
-  by_cases hab : op.eval a b
+  by_cases hab : op.eval3 a b = Kleene.true
   · rw [ite_eq_left hab, ite_eq_left hab, map_one]
   · rw [ite_eq_right hab, ite_eq_right hab, map_zero]
 
@@ -683,22 +683,31 @@ theorem TermG.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | mul t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-/-- Classical truth of a predicate is invariant on pointwise-equivalent
-tuples. -/
+/-- The three-valued reading of a predicate is invariant on
+pointwise-equivalent tuples. -/
+theorem GenPred.eval3_equiv {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) {u' u : Tuple (GenValue T K) n}
+    (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
+    φ.eval3 u' = φ.eval3 u := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    simp only [GenPred.eval3]
+    rw [TermG.eval_equiv t₁ hu, TermG.eval_equiv t₂ hu]
+  | aggCmp k hk op t =>
+    simp only [GenPred.eval3]
+    rw [(hu k).collapseSum_eq, TermG.eval_equiv t hu]
+  | and φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
+  | or φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
+  | not φ ih => simp only [GenPred.eval3, ih]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- Truth of a predicate is invariant on pointwise-equivalent tuples. -/
 theorem GenPred.holds_equiv {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.holds u' ↔ φ.holds u := by
-  induction φ with
-  | cmp op t₁ t₂ =>
-    simp only [GenPred.holds]
-    rw [TermG.eval_equiv t₁ hu, TermG.eval_equiv t₂ hu]
-  | aggCmp k hk op t =>
-    simp only [GenPred.holds]
-    rw [(hu k).collapseSum_eq, TermG.eval_equiv t hu]
-  | and φ ψ ihφ ihψ => exact and_congr ihφ ihψ
-  | or φ ψ ihφ ihψ => exact or_congr ihφ ihψ
-  | not φ ih => exact not_congr ih
+  unfold GenPred.holds
+  rw [GenPred.eval3_equiv φ hu]
 
 /-- The predicate provenance is invariant on pointwise-equivalent tuples:
 tokens are read only through their predicate provenance
@@ -956,28 +965,33 @@ variable [HasAltLinearOrder K] [HasAltLinearOrder K']
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
-/-- Classical truth is invariant under the pushforward of the tuple. -/
+/-- The three-valued reading is invariant under the pushforward of the
+tuple. -/
+theorem GenPred.eval3_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
+    (h : SemiringWithMonusHom K K') (φ : GenPred T κ)
+    (u : Tuple (GenValue T K) n) :
+    φ.eval3 (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) = φ.eval3 u := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    simp only [GenPred.eval3]
+    rw [TermG.eval_mapAnnSum h t₁ u, TermG.eval_mapAnnSum h t₂ u]
+  | aggCmp k hk op t =>
+    simp only [GenPred.eval3]
+    rw [AggValue.collapseSum_mapAnnSum, TermG.eval_mapAnnSum h t u]
+  | and φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
+  | or φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
+  | not φ ih => simp only [GenPred.eval3, ih]
+
+omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
+  [HasAltLinearOrder K'] in
+/-- Truth is invariant under the pushforward of the tuple. -/
 theorem GenPred.holds_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) :
     φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k))
       ↔ φ.holds u := by
-  induction φ with
-  | cmp op t₁ t₂ =>
-    simp only [GenPred.holds]
-    rw [TermG.eval_mapAnnSum h t₁ u, TermG.eval_mapAnnSum h t₂ u]
-  | aggCmp k hk op t =>
-    simp only [GenPred.holds]
-    rw [AggValue.collapseSum_mapAnnSum, TermG.eval_mapAnnSum h t u]
-  | and φ ψ ihφ ihψ =>
-    simp only [GenPred.holds]
-    exact and_congr ihφ ihψ
-  | or φ ψ ihφ ihψ =>
-    simp only [GenPred.holds]
-    exact or_congr ihφ ihψ
-  | not φ ih =>
-    simp only [GenPred.holds]
-    exact not_congr ih
+  unfold GenPred.holds
+  rw [GenPred.eval3_mapAnnSum h φ u]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in

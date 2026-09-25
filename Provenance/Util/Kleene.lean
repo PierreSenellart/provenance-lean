@@ -73,6 +73,28 @@ def or : Kleene → Kleene → Kleene
 @[simp] theorem not_or (a b : Kleene) : (a.or b).not = a.not.and b.not := by
   cases a <;> cases b <;> rfl
 
+@[simp] theorem and_eq_true_iff (a b : Kleene) :
+    a.and b = Kleene.true ↔ a = Kleene.true ∧ b = Kleene.true := by
+  cases a <;> cases b <;> simp [and]
+
+@[simp] theorem or_eq_true_iff (a b : Kleene) :
+    a.or b = Kleene.true ↔ a = Kleene.true ∨ b = Kleene.true := by
+  cases a <;> cases b <;> simp [or]
+
+@[simp] theorem and_eq_false_iff (a b : Kleene) :
+    a.and b = Kleene.false ↔ a = Kleene.false ∨ b = Kleene.false := by
+  cases a <;> cases b <;> simp [and]
+
+@[simp] theorem or_eq_false_iff (a b : Kleene) :
+    a.or b = Kleene.false ↔ a = Kleene.false ∧ b = Kleene.false := by
+  cases a <;> cases b <;> simp [or]
+
+@[simp] theorem not_eq_true_iff (a : Kleene) :
+    a.not = Kleene.true ↔ a = Kleene.false := by cases a <;> simp [not]
+
+@[simp] theorem not_eq_false_iff (a : Kleene) :
+    a.not = Kleene.false ↔ a = Kleene.true := by cases a <;> simp [not]
+
 @[simp] theorem isTrue_ofBool (b : Bool) : (ofBool b).isTrue = b := by
   cases b <;> rfl
 

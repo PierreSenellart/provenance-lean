@@ -218,23 +218,77 @@ def hasAggAtom : GenPred T κ → Bool
 /-- Classical (per-tuple) truth of a predicate, reading a compared token
 through its deterministic collapse. Used by the evaluator only on
 aggregate-atom-free predicates, where tokens are never consulted. -/
-def holds (φ : GenPred T κ) (u : Tuple (GenValue T K) n) : Prop :=
+def eval3 (φ : GenPred T κ) (u : Tuple (GenValue T K) n) : Kleene :=
   match φ with
-  | cmp op t₁ t₂ => op.eval (t₁.eval u) (t₂.eval u)
-  | aggCmp k _ op t => op.eval (AggValue.collapseSum (u k)) (t.eval u)
-  | and φ ψ => φ.holds u ∧ ψ.holds u
-  | or φ ψ => φ.holds u ∨ ψ.holds u
-  | not φ => ¬ φ.holds u
+  | cmp op t₁ t₂ => op.eval3 (t₁.eval u) (t₂.eval u)
+  | aggCmp k _ op t => op.eval3 (AggValue.collapseSum (u k)) (t.eval u)
+  | and φ ψ => (φ.eval3 u).and (ψ.eval3 u)
+  | or φ ψ => (φ.eval3 u).or (ψ.eval3 u)
+  | not φ => (φ.eval3 u).not
+
+/-- The rows a selection keeps: those on which the predicate is *true*. A
+row on which it is unknown is kept by neither the predicate nor its
+negation. -/
+def holds (φ : GenPred T κ) (u : Tuple (GenValue T K) n) : Prop :=
+  φ.eval3 u = Kleene.true
 
 /-- Structural decidability of `holds`. -/
 def decHolds (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
     Decidable (φ.holds u) :=
-  match φ with
-  | cmp op _ _ => inferInstanceAs (Decidable (op.eval _ _))
-  | aggCmp _ _ op _ => inferInstanceAs (Decidable (op.eval _ _))
-  | and φ ψ => @instDecidableAnd _ _ (φ.decHolds u) (ψ.decHolds u)
-  | or φ ψ => @instDecidableOr _ _ (φ.decHolds u) (ψ.decHolds u)
-  | not φ => @instDecidableNot _ (φ.decHolds u)
+  inferInstanceAs (Decidable (_ = _))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem holds_and (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+    (GenPred.and φ ψ).holds u ↔ φ.holds u ∧ ψ.holds u :=
+  Kleene.and_eq_true_iff _ _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem holds_or (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+    (GenPred.or φ ψ).holds u ↔ φ.holds u ∨ ψ.holds u :=
+  Kleene.or_eq_true_iff _ _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **Where nothing is null no predicate is ever unknown**, so the reading
+is the two-valued one and every statement proved before the null was
+introduced keeps saying what it said. -/
+theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
+    ∀ φ : GenPred T κ, φ.eval3 u ≠ Kleene.unknown
+  | cmp op t₁ t₂ => by
+    rw [GenPred.eval3, CompOp.eval3_eq_ofBool]
+    cases decide (op.eval (t₁.eval u) (t₂.eval u)) <;> simp [Kleene.ofBool]
+  | aggCmp k h op t => by
+    rw [GenPred.eval3, CompOp.eval3_eq_ofBool]
+    cases decide (op.eval (AggValue.collapseSum (u k)) (t.eval u)) <;>
+      simp [Kleene.ofBool]
+  | and φ ψ => by
+    have h₁ := eval3_ne_unknown u φ
+    have h₂ := eval3_ne_unknown u ψ
+    cases e₁ : φ.eval3 u <;> cases e₂ : ψ.eval3 u <;>
+      simp_all [GenPred.eval3, Kleene.and]
+  | or φ ψ => by
+    have h₁ := eval3_ne_unknown u φ
+    have h₂ := eval3_ne_unknown u ψ
+    cases e₁ : φ.eval3 u <;> cases e₂ : ψ.eval3 u <;>
+      simp_all [GenPred.eval3, Kleene.or]
+  | not φ => by
+    have h := eval3_ne_unknown u φ
+    cases e : φ.eval3 u <;> simp_all [GenPred.eval3, Kleene.not]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Negation is classical where nothing is null. -/
+theorem holds_not_iff [NoNulls T] (φ : GenPred T κ)
+    (u : Tuple (GenValue T K) n) :
+    (GenPred.not φ).holds u ↔ ¬ φ.holds u := by
+  have h := eval3_ne_unknown u φ
+  show (φ.eval3 u).not = Kleene.true ↔ ¬ (φ.eval3 u = Kleene.true)
+  cases e : φ.eval3 u <;> simp_all [Kleene.not]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **A row is kept by `NOT φ` when `φ` is false**, which is not the same as
+`φ` failing to be true: a row on which `φ` is unknown is kept by neither. -/
+@[simp] theorem holds_not (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+    (GenPred.not φ).holds u ↔ φ.eval3 u = Kleene.false :=
+  Kleene.not_eq_true_iff _
 
 instance (φ : GenPred T κ) : DecidablePred (φ.holds (K := K)) := φ.decHolds
 
@@ -668,23 +722,66 @@ variable {n : ℕ} {κ : Fin n → ColKind}
 
 /-- Classical truth of a predicate on a regular tuple: aggregate atoms
 compare the computed aggregate value of their column. -/
-def holdsPlain (φ : GenPred T κ) (u : Tuple T n) : Prop :=
+def evalPlain3 (φ : GenPred T κ) (u : Tuple T n) : Kleene :=
   match φ with
-  | cmp op t₁ t₂ => op.eval (t₁.evalPlain u) (t₂.evalPlain u)
-  | aggCmp k _ op t => op.eval (u k) (t.evalPlain u)
-  | and φ ψ => φ.holdsPlain u ∧ ψ.holdsPlain u
-  | or φ ψ => φ.holdsPlain u ∨ ψ.holdsPlain u
-  | not φ => ¬ φ.holdsPlain u
+  | cmp op t₁ t₂ => op.eval3 (t₁.evalPlain u) (t₂.evalPlain u)
+  | aggCmp k _ op t => op.eval3 (u k) (t.evalPlain u)
+  | and φ ψ => (φ.evalPlain3 u).and (ψ.evalPlain3 u)
+  | or φ ψ => (φ.evalPlain3 u).or (ψ.evalPlain3 u)
+  | not φ => (φ.evalPlain3 u).not
+
+/-- The rows a selection keeps classically: those on which the predicate is
+*true*. -/
+def holdsPlain (φ : GenPred T κ) (u : Tuple T n) : Prop :=
+  φ.evalPlain3 u = Kleene.true
 
 /-- Structural decidability of `holdsPlain`. -/
 def decHoldsPlain (φ : GenPred T κ) (u : Tuple T n) :
     Decidable (φ.holdsPlain u) :=
-  match φ with
-  | cmp op _ _ => inferInstanceAs (Decidable (op.eval _ _))
-  | aggCmp _ _ op _ => inferInstanceAs (Decidable (op.eval _ _))
-  | and φ ψ => @instDecidableAnd _ _ (φ.decHoldsPlain u) (ψ.decHoldsPlain u)
-  | or φ ψ => @instDecidableOr _ _ (φ.decHoldsPlain u) (ψ.decHoldsPlain u)
-  | not φ => @instDecidableNot _ (φ.decHoldsPlain u)
+  inferInstanceAs (Decidable (_ = _))
+
+@[simp] theorem holdsPlain_and (φ ψ : GenPred T κ) (u : Tuple T n) :
+    (GenPred.and φ ψ).holdsPlain u ↔ φ.holdsPlain u ∧ ψ.holdsPlain u :=
+  Kleene.and_eq_true_iff _ _
+
+@[simp] theorem holdsPlain_or (φ ψ : GenPred T κ) (u : Tuple T n) :
+    (GenPred.or φ ψ).holdsPlain u ↔ φ.holdsPlain u ∨ ψ.holdsPlain u :=
+  Kleene.or_eq_true_iff _ _
+
+@[simp] theorem holdsPlain_not (φ : GenPred T κ) (u : Tuple T n) :
+    (GenPred.not φ).holdsPlain u ↔ φ.evalPlain3 u = Kleene.false :=
+  Kleene.not_eq_true_iff _
+
+/-- Where nothing is null no predicate is ever unknown on a plain row. -/
+theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
+    ∀ φ : GenPred T κ, φ.evalPlain3 u ≠ Kleene.unknown
+  | cmp op t₁ t₂ => by
+    rw [GenPred.evalPlain3, CompOp.eval3_eq_ofBool]
+    cases decide (op.eval (t₁.evalPlain u) (t₂.evalPlain u)) <;>
+      simp [Kleene.ofBool]
+  | aggCmp k h op t => by
+    rw [GenPred.evalPlain3, CompOp.eval3_eq_ofBool]
+    cases decide (op.eval (u k) (t.evalPlain u)) <;> simp [Kleene.ofBool]
+  | and φ ψ => by
+    have h₁ := evalPlain3_ne_unknown u φ
+    have h₂ := evalPlain3_ne_unknown u ψ
+    cases e₁ : φ.evalPlain3 u <;> cases e₂ : ψ.evalPlain3 u <;>
+      simp_all [GenPred.evalPlain3, Kleene.and]
+  | or φ ψ => by
+    have h₁ := evalPlain3_ne_unknown u φ
+    have h₂ := evalPlain3_ne_unknown u ψ
+    cases e₁ : φ.evalPlain3 u <;> cases e₂ : ψ.evalPlain3 u <;>
+      simp_all [GenPred.evalPlain3, Kleene.or]
+  | not φ => by
+    have h := evalPlain3_ne_unknown u φ
+    cases e : φ.evalPlain3 u <;> simp_all [GenPred.evalPlain3, Kleene.not]
+
+/-- Negation is classical on a plain row where nothing is null. -/
+theorem holdsPlain_not_iff [NoNulls T] (φ : GenPred T κ) (u : Tuple T n) :
+    (GenPred.not φ).holdsPlain u ↔ ¬ φ.holdsPlain u := by
+  have h := evalPlain3_ne_unknown u φ
+  show (φ.evalPlain3 u).not = Kleene.true ↔ ¬ (φ.evalPlain3 u = Kleene.true)
+  cases e : φ.evalPlain3 u <;> simp_all [Kleene.not]
 
 instance (φ : GenPred T κ) : DecidablePred φ.holdsPlain := φ.decHoldsPlain
 
@@ -855,8 +952,7 @@ theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
   induction l with
   | nil => simp
   | cons hd tl ih =>
-    show (f hd).holdsPlain u ∧ _ ↔ _
-    rw [ih]
+    rw [List.map_cons, List.foldr_cons, GenPred.holdsPlain_and, ih]
     constructor
     · rintro ⟨hhd, htl, hb⟩
       exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
@@ -864,19 +960,37 @@ theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
     · rintro ⟨hall, hb⟩
       exact ⟨hall hd (List.mem_cons_self), fun x hx => hall x (List.mem_cons_of_mem hd hx), hb⟩
 
-theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] {n m : ℕ}
-    {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
+/-- The join condition holds exactly when the two blocks of key columns
+carry the same values.
+
+**Stated over a domain where nothing is null.** The condition is built from
+comparison equality, and SQL's key equality is the *syntactic* one – two
+nulls are the same key, while `NULL = NULL` is unknown. Where a key column
+can be null the two part company, and the condition as built would drop
+rows a key join keeps. Giving the predicate language an `IS NOT DISTINCT
+FROM` atom is what that needs. -/
+theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] [NoNulls T']
+    {n m : ℕ} {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
     (keyJoinCond posL posR hL hR).holdsPlain u
       ↔ ∀ k, u (posL k) = u (posR k) := by
+  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.eq (TermG.index (posL k) (hL k))
+      (TermG.index (posR k) (hR k))).holdsPlain u ↔ u (posL k) = u (posR k) := by
+    intro k
+    show CompOp.eq.eval3 (u (posL k)) (u (posR k)) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
+    rfl
   unfold keyJoinCond
   rw [GenPred.holdsPlain_foldr_and]
   constructor
   · rintro ⟨hall, -⟩ k
-    exact hall k (List.mem_finRange k)
+    exact (hatom k).mp (hall k (List.mem_finRange k))
   · intro h
-    exact ⟨fun k _ => h k, rfl⟩
+    refine ⟨fun k _ => (hatom k).mpr (h k), ?_⟩
+    show CompOp.eq.eval3 (0 : T') 0 = Kleene.true
+    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
+    rfl
 
 /-- The join condition has no aggregate atom: it filters classically. -/
 theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
@@ -898,8 +1012,7 @@ theorem GenPred.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
   induction l with
   | nil => simp
   | cons hd tl ih =>
-    show (f hd).holds u ∧ _ ↔ _
-    rw [ih]
+    rw [List.map_cons, List.foldr_cons, GenPred.holds_and, ih]
     constructor
     · rintro ⟨hhd, htl, hb⟩
       exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
@@ -910,20 +1023,32 @@ theorem GenPred.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- On a lifted tuple the join condition says what it says on the collapsed
-one: its columns are regular, so no token is read. -/
-theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
+one: its columns are regular, so no token is read. Stated, like its plain
+counterpart, over a domain where nothing is null. -/
+theorem keyJoinCond_holds [NoNulls T] {n m : ℕ} {κ' : Fin m → ColKind}
     (posL posR : Fin n → Fin m)
     (hL : ∀ k, κ' (posL k) = ColKind.reg)
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple (GenValue T K) m) :
     (keyJoinCond posL posR hL hR).holds u
       ↔ ∀ k, GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
+  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.eq (TermG.index (posL k) (hL k))
+      (TermG.index (posR k) (hR k))).holds u
+      ↔ GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
+    intro k
+    show CompOp.eq.eval3 (GenRow.plainTuple u (posL k))
+      (GenRow.plainTuple u (posR k)) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
+    rfl
   unfold keyJoinCond
   rw [GenPred.holds_foldr_and]
   constructor
   · rintro ⟨hall, -⟩ k
-    exact hall k (List.mem_finRange k)
+    exact (hatom k).mp (hall k (List.mem_finRange k))
   · intro h
-    exact ⟨fun k _ => h k, rfl⟩
+    refine ⟨fun k _ => (hatom k).mpr (h k), ?_⟩
+    show CompOp.eq.eval3 (0 : T) 0 = Kleene.true
+    rw [CompOp.eval3_eq_true_iff CompOp.eq (isNull_eq_false _) (isNull_eq_false _)]
+    rfl
 
 /-- Kind transport is transparent to evaluation (row types do not mention
 the kind vector). -/

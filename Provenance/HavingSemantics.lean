@@ -384,9 +384,41 @@ def aggValOn (U : List (AnnotatedTuple T K m)) (t : Term T m)
 /-! ### Predicate provenance -/
 
 /-- `χ_op`: the characteristic value of a comparison, `𝟙` if it holds and
-`𝟘` otherwise. -/
+`𝟘` otherwise – and `𝟘` also when it is *unknown*, a comparison with a
+`NULL` operand being neither true nor false. A row on which a comparison is
+unknown is selected by neither the comparison nor its negation, and
+contributes nothing to either provenance. -/
 def chi (op : CompOp) (a b : T) : K :=
-  if op.eval a b then 1 else 0
+  if op.eval3 a b = Kleene.true then 1 else 0
+
+omit [DecidableEq K] in
+/-- **Away from the null the indicator is the two-valued one.** The
+statements proved before the null was introduced are this case, and over a
+domain where nothing is null it is the definition. -/
+theorem chi_eq_ite (op : CompOp) {a b : T}
+    (ha : ValueType.isNull a = false) (hb : ValueType.isNull b = false) :
+    (chi op a b : K) = if op.eval a b then 1 else 0 := by
+  unfold chi
+  by_cases h : op.eval a b
+  · rw [ite_eq_left ((CompOp.eval3_eq_true_iff op ha hb).mpr h), ite_eq_left h]
+  · rw [ite_eq_right (fun hc => h ((CompOp.eval3_eq_true_iff op ha hb).mp hc)),
+      ite_eq_right h]
+
+omit [DecidableEq K] in
+@[simp] theorem chi_eq_ite_of_noNulls [NoNulls T] (op : CompOp) (a b : T) :
+    (chi op a b : K) = if op.eval a b then 1 else 0 :=
+  chi_eq_ite op (isNull_eq_false a) (isNull_eq_false b)
+
+omit [DecidableEq K] in
+/-- A comparison with a `NULL` operand contributes nothing. -/
+@[simp] theorem chi_of_isNull_left (op : CompOp) {a : T}
+    (h : ValueType.isNull a = true) (b : T) : (chi op a b : K) = 0 := by
+  simp [chi, h]
+
+omit [DecidableEq K] in
+@[simp] theorem chi_of_isNull_right (op : CompOp) (a : T) {b : T}
+    (h : ValueType.isNull b = true) : (chi op a b : K) = 0 := by
+  simp [chi, h]
 
 /-- **Predicate provenance of an atomic aggregate comparison** on the
 occurrence sequence `U` of one group: the `⊕`-sum, over the non-empty
@@ -409,21 +441,34 @@ annotated by the occurrence annotations. All the collapse results of
 `Provenance.Having` and `Provenance.HavingMinMax` (`F_eq_S`,
 `G_eq_S_monus_S`, `collapse_to_minimal`, `minScan_correct` …) thereby
 apply to the fused operator's semantics. -/
-theorem havingProv_eq_prov (h_distrib : mul_sub_left_distributive K)
+theorem havingProv_eq_prov3 (h_distrib : mul_sub_left_distributive K)
+    (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
+    (op : CompOp) (c : T) :
+    havingProv U t f op c
+      = prov (fun i => (U.get i).snd) Finset.univ
+          (fun W => op.eval3 (aggValOn U t f W) c = Kleene.true) := by
+  unfold havingProv prov
+  rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
+  refine Finset.sum_congr rfl fun W _ => ?_
+  by_cases hne : W.Nonempty
+  · by_cases hP : op.eval3 (aggValOn U t f W) c = Kleene.true
+    · simp only [hne, hP, ite_true, true_and, chi, mul_one,
+        worldAnn_eq_T h_distrib]
+    · simp only [hne, hP, ite_true, ite_false, true_and, chi, mul_zero]
+  · simp only [hne, ite_false, false_and]
+
+omit [DecidableEq K] in
+/-- The same over a domain where nothing is null, where the comparison is
+two-valued. This is the form the `COUNT` algebra over `ℕ` uses. -/
+theorem havingProv_eq_prov [NoNulls T] (h_distrib : mul_sub_left_distributive K)
     (U : List (AnnotatedTuple T K m)) (t : Term T m) (f : SeqAggFunc T)
     (op : CompOp) (c : T) :
     havingProv U t f op c
       = prov (fun i => (U.get i).snd) Finset.univ
           (fun W => op.eval (aggValOn U t f W) c) := by
-  unfold havingProv prov
-  rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
-  refine Finset.sum_congr rfl fun W _ => ?_
-  by_cases hne : W.Nonempty
-  · by_cases hP : op.eval (aggValOn U t f W) c
-    · simp only [hne, hP, ite_true, true_and, chi, mul_one,
-        worldAnn_eq_T h_distrib]
-    · simp only [hne, hP, ite_true, ite_false, true_and, chi, mul_zero]
-  · simp only [hne, ite_false, false_and]
+  rw [havingProv_eq_prov3 h_distrib]
+  exact prov_congr _ _ (fun W _ =>
+    CompOp.eval3_eq_true_iff op (isNull_eq_false _) (isNull_eq_false _))
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The `COUNT(*)` specialization: on the world `W`, the sequence aggregate
@@ -453,7 +498,8 @@ theorem havingProv_count_ge (h_abs : absorptive K)
   unfold havingProv Fann
   rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
   refine Finset.sum_congr rfl fun W _ => ?_
-  simp only [chi, CompOp.eval, aggValOn_count, ge_iff_le, worldAnn_eq_ann]
+  simp only [chi_eq_ite_of_noNulls, CompOp.eval, aggValOn_count, ge_iff_le,
+    worldAnn_eq_ann]
   by_cases hC : C + 1 ≤ W.card
   · have hne : W.Nonempty := Finset.card_pos.mp (by omega)
     simp [hC, hne]
@@ -514,7 +560,7 @@ theorem havingProv_count_lt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
   unfold havingProv
   refine Finset.sum_congr rfl fun W _ => ?_
   congr 1
-  unfold chi
+  rw [chi_eq_ite_of_noNulls, chi_eq_ite_of_noNulls]
   exact if_congr (by rw [aggValOn_count]; exact Nat.lt_succ_iff) rfl rfl
 
 omit [DecidableEq K] in
@@ -531,7 +577,17 @@ theorem havingProv_ne_split (U : List (AnnotatedTuple T K m)) (t : Term T m)
   refine Finset.sum_congr rfl fun W _ => ?_
   rw [← mul_add]
   congr 1
-  unfold chi
+  -- with a null operand all three comparisons are unknown and contribute
+  -- nothing; otherwise the characteristic values agree by trichotomy
+  by_cases hna : ValueType.isNull (aggValOn U t f W) = true
+  · rw [chi_of_isNull_left _ hna, chi_of_isNull_left _ hna,
+      chi_of_isNull_left _ hna, add_zero]
+  by_cases hnc : ValueType.isNull c = true
+  · rw [chi_of_isNull_right _ _ hnc, chi_of_isNull_right _ _ hnc,
+      chi_of_isNull_right _ _ hnc, add_zero]
+  rw [chi_eq_ite _ (by simpa using hna) (by simpa using hnc),
+    chi_eq_ite _ (by simpa using hna) (by simpa using hnc),
+    chi_eq_ite _ (by simpa using hna) (by simpa using hnc)]
   rcases lt_trichotomy (aggValOn U t f W) c with h | h | h
   · rw [ite_eq_left (show CompOp.ne.eval _ c from ne_of_lt h),
       ite_eq_left (show CompOp.lt.eval _ c from h),
@@ -604,13 +660,19 @@ satisfies `x op c`. -/
 def Existential (f : SeqAggFunc T) (op : CompOp) : Prop :=
   ∀ (L : List T) (c : T), L ≠ [] → (op.eval (f L) c ↔ ∃ x ∈ L, op.eval x c)
 
+-- `Existential` is two-valued, so the collapse below is stated over a
+-- domain where nothing is null. What an existential comparison collapses to
+-- when the aggregated values may be null is a separate question: the
+-- aggregate skips them (`SeqAggFunc.sqlOf`) while the comparison does not.
+
 omit [DecidableEq K] in
 /-- **Existential comparisons collapse to the qualifying occurrences.** In
 an absorptive m-semiring, the predicate provenance of an existential
 comparison `f(t) op c` on the group sequence `U` is the `⊕`-sum of the
 annotations of the occurrences whose `t`-value satisfies `x op c`. No
 distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`). -/
-theorem havingProv_existential (h_abs : absorptive K) {f : SeqAggFunc T} {op : CompOp}
+theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
+    {f : SeqAggFunc T} {op : CompOp}
     (hf : Existential f op) (U : List (AnnotatedTuple T K m)) (t : Term T m) (c : T) :
     havingProv U t f op c
       = ((Multiset.filter (fun p : AnnotatedTuple T K m => op.eval (t.eval p.fst) c)
@@ -645,7 +707,7 @@ theorem havingProv_existential (h_abs : absorptive K) {f : SeqAggFunc T} {op : C
     rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
     refine Finset.sum_congr rfl fun W _ => ?_
     by_cases hW : W.Nonempty
-    · rw [ite_eq_left hW, chi, worldAnn_eq_ann]
+    · rw [ite_eq_left hW, chi_eq_ite_of_noNulls, worldAnn_eq_ann]
       by_cases hmeet : (W ∩ H).Nonempty
       · rw [ite_eq_left hmeet, ite_eq_left ((hiff W hW).mpr hmeet), mul_one]
       · rw [ite_eq_right hmeet, ite_eq_right (fun h => hmeet ((hiff W hW).mp h)), mul_zero]
@@ -774,33 +836,61 @@ def HavingPred.prov (U : List (AnnotatedTuple T K m)) (g : Tuple T n₁)
     (ψ : HavingPred T m n₁) : K :=
   ψ.provAux U g false
 
-/-- Classical satisfaction of a Boolean combination of aggregate
-comparisons on a plain occurrence sequence `L` (the tuples of one group,
-in `≼`-order) with group key `g`: an atom applies the sequence aggregate
-to the `t`-values of `L` and compares with the regular term evaluated on
-the key; `∧`, `∨` and `¬` are classical. This is the reading of the
-`HAVING` predicate on one possible world. -/
-def HavingPred.holdsOnSeq (L : List (Tuple T m)) (g : Tuple T n₁) :
-    HavingPred T m n₁ → Prop
-  | cmp t f op s => op.eval (f (L.map t.eval)) (s.eval g)
-  | not ψ => ¬ ψ.holdsOnSeq L g
-  | and ψ₁ ψ₂ => ψ₁.holdsOnSeq L g ∧ ψ₂.holdsOnSeq L g
-  | or ψ₁ ψ₂ => ψ₁.holdsOnSeq L g ∨ ψ₂.holdsOnSeq L g
+/-- **Three-valued evaluation of a `HAVING` predicate on one possible
+world**: a plain occurrence sequence `L` (the tuples of one group, in
+`≼`-order) with group key `g`. An atom applies the sequence aggregate to the
+`t`-values of `L` and compares with the regular term evaluated on the key, in
+Kleene's three-valued logic – a comparison with a `NULL` operand is neither
+true nor false. `∧`, `∨` and `¬` are Kleene's. -/
+def HavingPred.evalOnSeq (L : List (Tuple T m)) (g : Tuple T n₁) :
+    HavingPred T m n₁ → Kleene
+  | cmp t f op s => op.eval3 (f (L.map t.eval)) (s.eval g)
+  | not ψ => (ψ.evalOnSeq L g).not
+  | and ψ₁ ψ₂ => (ψ₁.evalOnSeq L g).and (ψ₂.evalOnSeq L g)
+  | or ψ₁ ψ₂ => (ψ₁.evalOnSeq L g).or (ψ₂.evalOnSeq L g)
 
-instance HavingPred.decidableHoldsOnSeq (L : List (Tuple T m)) (g : Tuple T n₁) :
-    (ψ : HavingPred T m n₁) → Decidable (ψ.holdsOnSeq L g)
-  | cmp _ _ op _ => inferInstanceAs (Decidable (op.eval _ _))
-  | not ψ =>
-      letI := decidableHoldsOnSeq L g ψ
-      inferInstanceAs (Decidable ¬_)
-  | and ψ₁ ψ₂ =>
-      letI := decidableHoldsOnSeq L g ψ₁
-      letI := decidableHoldsOnSeq L g ψ₂
-      inferInstanceAs (Decidable (_ ∧ _))
-  | or ψ₁ ψ₂ =>
-      letI := decidableHoldsOnSeq L g ψ₁
-      letI := decidableHoldsOnSeq L g ψ₂
-      inferInstanceAs (Decidable (_ ∨ _))
+/-- The groups a `HAVING` predicate keeps in one world: those on which it is
+*true*. A group on which it is unknown is kept by neither the predicate nor
+its negation. -/
+def HavingPred.holdsOnSeq (L : List (Tuple T m)) (g : Tuple T n₁)
+    (ψ : HavingPred T m n₁) : Prop := ψ.evalOnSeq L g = Kleene.true
+
+instance HavingPred.decidableHoldsOnSeq (L : List (Tuple T m)) (g : Tuple T n₁)
+    (ψ : HavingPred T m n₁) : Decidable (ψ.holdsOnSeq L g) :=
+  inferInstanceAs (Decidable (_ = _))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Where nothing is null the reading is two-valued.** No `HAVING`
+predicate is ever unknown there, so the statements proved before the null
+was introduced keep saying what they said. -/
+theorem HavingPred.evalOnSeq_ne_unknown [NoNulls T] (L : List (Tuple T m))
+    (g : Tuple T n₁) : ∀ ψ : HavingPred T m n₁,
+      ψ.evalOnSeq L g ≠ Kleene.unknown
+  | cmp t f op s => by
+    rw [HavingPred.evalOnSeq, CompOp.eval3_eq_ofBool]
+    cases h : decide (op.eval (f (L.map t.eval)) (s.eval g)) <;> simp [Kleene.ofBool]
+  | not ψ => by
+    have := evalOnSeq_ne_unknown L g ψ
+    cases h : ψ.evalOnSeq L g <;> simp_all [HavingPred.evalOnSeq, Kleene.not]
+  | and ψ₁ ψ₂ => by
+    have h₁ := evalOnSeq_ne_unknown L g ψ₁
+    have h₂ := evalOnSeq_ne_unknown L g ψ₂
+    cases e₁ : ψ₁.evalOnSeq L g <;> cases e₂ : ψ₂.evalOnSeq L g <;>
+      simp_all [HavingPred.evalOnSeq, Kleene.and]
+  | or ψ₁ ψ₂ => by
+    have h₁ := evalOnSeq_ne_unknown L g ψ₁
+    have h₂ := evalOnSeq_ne_unknown L g ψ₂
+    cases e₁ : ψ₁.evalOnSeq L g <;> cases e₂ : ψ₂.evalOnSeq L g <;>
+      simp_all [HavingPred.evalOnSeq, Kleene.or]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- Negation is classical where nothing is null. -/
+theorem HavingPred.holdsOnSeq_not_iff [NoNulls T] (L : List (Tuple T m))
+    (g : Tuple T n₁) (ψ : HavingPred T m n₁) :
+    (HavingPred.not ψ).holdsOnSeq L g ↔ ¬ ψ.holdsOnSeq L g := by
+  have h := evalOnSeq_ne_unknown L g ψ
+  show (ψ.evalOnSeq L g).not = Kleene.true ↔ ¬ (ψ.evalOnSeq L g = Kleene.true)
+  cases e : ψ.evalOnSeq L g <;> simp_all [Kleene.not]
 
 /-- Plain possible-world satisfaction of a Boolean `HAVING` query: the
 query grouping the output of `q` by the columns `is` and keeping the

@@ -414,44 +414,64 @@ def GenPred.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selectio
   | .not φ => .Not φ.strip
 
 /-- Classical truth factors through the strip, on aggregate-atom-free
-predicates. -/
-theorem GenPred.strip_eval {n : ℕ} {κ : Fin n → ColKind} :
+predicates.
+
+**Stated over a domain where nothing is null**, because the classical
+`Selection` the strip lands in is read two-valuedly while `holdsPlain` is
+read in Kleene's logic. -/
+theorem GenPred.strip_eval [NoNulls T] {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
       φ.strip.eval u ↔ φ.holdsPlain u
   | .cmp .eq t₁ t₂, _, u => by
-    show t₁.strip.eval u = t₂.strip.eval u ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show t₁.strip.eval u = t₂.strip.eval u
+      ↔ CompOp.eq.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .cmp .ne t₁ t₂, _, u => by
-    show t₁.strip.eval u ≠ t₂.strip.eval u ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show t₁.strip.eval u ≠ t₂.strip.eval u
+      ↔ CompOp.ne.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .cmp .le t₁ t₂, _, u => by
-    show t₁.strip.eval u ≤ t₂.strip.eval u ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show t₁.strip.eval u ≤ t₂.strip.eval u
+      ↔ CompOp.le.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .cmp .lt t₁ t₂, _, u => by
-    show LT.lt (t₁.strip.eval u) (t₂.strip.eval u) ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show LT.lt (t₁.strip.eval u) (t₂.strip.eval u)
+      ↔ CompOp.lt.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .cmp .ge t₁ t₂, _, u => by
-    show t₁.strip.eval u ≥ t₂.strip.eval u ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show t₁.strip.eval u ≥ t₂.strip.eval u
+      ↔ CompOp.ge.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .cmp .gt t₁ t₂, _, u => by
-    show GT.gt (t₁.strip.eval u) (t₂.strip.eval u) ↔ _
-    rw [TermG.strip_eval, TermG.strip_eval]
+    show GT.gt (t₁.strip.eval u) (t₂.strip.eval u)
+      ↔ CompOp.gt.eval3 (t₁.evalPlain u) (t₂.evalPlain u) = Kleene.true
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.strip_eval, TermG.strip_eval]
     exact Iff.rfl
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
-  | .and φ ψ, hφ, u =>
-    and_congr
+  | .and φ ψ, hφ, u => by
+    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_and]
+    exact and_congr
       (strip_eval φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (strip_eval ψ (Bool.or_eq_false_iff.mp hφ).2 u)
-  | .or φ ψ, hφ, u =>
-    or_congr
+  | .or φ ψ, hφ, u => by
+    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_or]
+    exact or_congr
       (strip_eval φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (strip_eval ψ (Bool.or_eq_false_iff.mp hφ).2 u)
-  | .not φ, hφ, u => not_congr (strip_eval φ hφ u)
+  | .not φ, hφ, u => by
+    rw [GenPred.strip, Selection.eval, GenPred.holdsPlain_not_iff]
+    exact not_congr (strip_eval φ hφ u)
 
 /-- Strip a regular projection column to a classical term. -/
 def ProjCol.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T n
@@ -515,7 +535,7 @@ theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
 /-- **Row-wise faithfulness of the strip**: on the classical fragment,
 the general evaluator produces rows satisfying the embedding invariant
 against the classical annotated evaluation of the stripped query. -/
-theorem AggQuery.strip_rel :
+theorem AggQuery.strip_rel [NoNulls T] :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluate d)
@@ -613,7 +633,7 @@ theorem AggQuery.strip_rel :
 /-- **Faithfulness of the strip**: on the classical fragment the general
 annotated evaluator computes the classical annotated semantics of the
 stripped query. -/
-theorem AggQuery.strip_bridge {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.strip_bridge [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated d
       = (q.strip hq).evaluateAnnotated (q.strip_source hq) d := by
@@ -662,55 +682,67 @@ theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
 
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of
-its strip. -/
-theorem GenPred.castComposite_holdsPlain {n : ℕ} {κ : Fin n → ColKind}
-    (hκ : ∀ k, κ k = ColKind.reg) :
+its strip.
+
+**Stated over a domain where nothing is null**: the classical `Selection`
+on the right is read two-valuedly while `holdsPlain` is read in Kleene's
+logic. -/
+theorem GenPred.castComposite_holdsPlain [NoNulls T] {n : ℕ}
+    {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
       (u : Tuple (T ⊕ K) (n + 1)),
       (φ.castComposite hκ hφ (K := K)).holdsPlain u
         ↔ (φ.strip.castToAnnotatedTuple).eval u
   | .cmp .eq t₁ t₂, _, u => by
-    show (t₁.castComposite hκ).evalPlain u = (t₂.castComposite hκ).evalPlain u
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.eq.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .cmp .ne t₁ t₂, _, u => by
-    show (t₁.castComposite hκ).evalPlain u ≠ (t₂.castComposite hκ).evalPlain u
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.ne.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .cmp .le t₁ t₂, _, u => by
-    show (t₁.castComposite hκ).evalPlain u ≤ (t₂.castComposite hκ).evalPlain u
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.le.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .cmp .lt t₁ t₂, _, u => by
-    show LT.lt ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u)
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.lt.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .cmp .ge t₁ t₂, _, u => by
-    show (t₁.castComposite hκ).evalPlain u ≥ (t₂.castComposite hκ).evalPlain u
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.ge.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .cmp .gt t₁ t₂, _, u => by
-    show GT.gt ((t₁.castComposite hκ).evalPlain u)
-        ((t₂.castComposite hκ).evalPlain u)
-      ↔ _
-    rw [TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
+    show CompOp.gt.eval3 ((t₁.castComposite hκ).evalPlain u)
+        ((t₂.castComposite hκ).evalPlain u) = Kleene.true ↔ _
+    rw [CompOp.eval3_eq_true_iff _ (isNull_eq_false _) (isNull_eq_false _),
+      TermG.castComposite_evalPlain, TermG.castComposite_evalPlain]
     exact Iff.rfl
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
-  | .and φ ψ, hφ, u =>
-    and_congr
+  | .and φ ψ, hφ, u => by
+    rw [GenPred.castComposite, GenPred.holdsPlain_and]
+    exact and_congr
       (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
-  | .or φ ψ, hφ, u =>
-    or_congr
+  | .or φ ψ, hφ, u => by
+    rw [GenPred.castComposite, GenPred.holdsPlain_or]
+    exact or_congr
       (castComposite_holdsPlain hκ φ (Bool.or_eq_false_iff.mp hφ).1 u)
       (castComposite_holdsPlain hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u)
-  | .not φ, hφ, u => not_congr (castComposite_holdsPlain hκ φ hφ u)
+  | .not φ, hφ, u => by
+    rw [GenPred.castComposite, GenPred.holdsPlain_not_iff]
+    exact not_congr (castComposite_holdsPlain hκ φ hφ u)
 
 omit [DecidableEq K] in
 /-- The composite cast of a projection column agrees with the classical
@@ -741,7 +773,7 @@ theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
 /-- **Plain-semantics agreement**: the native rewriting and the classical
 rewriting of the stripped query evaluate identically on any composite
 database. -/
-theorem AggQuery.rewriting_plain :
+theorem AggQuery.rewriting_plain [NoNulls T] :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewriting hq).evaluatePlain D
@@ -963,7 +995,7 @@ general syntax, evaluating the annotated semantics and folding the result
 into composite `T ⊕ K` tuples agrees with evaluating the rewritten query
 under the plain semantics over the composite database. This is the
 general-syntax form of the classical rewriting correctness. -/
-theorem AggQuery.rewriting_valid {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewriting_valid [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated d).toComposite
       = (q.rewriting hq).evaluatePlain d.toComposite := by

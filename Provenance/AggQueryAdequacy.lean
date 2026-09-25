@@ -73,21 +73,31 @@ theorem ProjCol.collapseSum_eval {n : ℕ} {κ : Fin n → ColKind}
     rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- A predicate evaluates on a lifted tuple as its plain reading does on
+the collapsed tuple – three-valuedly, so the statement covers the unknown
+case as well as the two definite ones. -/
+theorem GenPred.eval3_eq_evalPlain3 {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
+    φ.eval3 u = φ.evalPlain3 (GenRow.plainTuple u) := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    rw [GenPred.eval3, GenPred.evalPlain3,
+      TermG.eval_eq_evalPlain, TermG.eval_eq_evalPlain]
+  | aggCmp k h op t =>
+    rw [GenPred.eval3, GenPred.evalPlain3, TermG.eval_eq_evalPlain]
+    rfl
+  | and φ ψ ihφ ihψ => rw [GenPred.eval3, GenPred.evalPlain3, ihφ, ihψ]
+  | or φ ψ ihφ ihψ => rw [GenPred.eval3, GenPred.evalPlain3, ihφ, ihψ]
+  | not φ ih => rw [GenPred.eval3, GenPred.evalPlain3, ih]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A predicate holds on a lifted tuple iff its plain reading holds on
 the collapsed tuple. -/
 theorem GenPred.holds_iff_holdsPlain {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
     φ.holds u ↔ φ.holdsPlain (GenRow.plainTuple u) := by
-  induction φ with
-  | cmp op t₁ t₂ =>
-    rw [GenPred.holds, GenPred.holdsPlain,
-      TermG.eval_eq_evalPlain, TermG.eval_eq_evalPlain]
-  | aggCmp k h op t =>
-    rw [GenPred.holds, GenPred.holdsPlain, TermG.eval_eq_evalPlain]
-    rfl
-  | and φ ψ ihφ ihψ => rw [GenPred.holds, GenPred.holdsPlain, ihφ, ihψ]
-  | or φ ψ ihφ ihψ => rw [GenPred.holds, GenPred.holdsPlain, ihφ, ihψ]
-  | not φ ih => rw [GenPred.holds, GenPred.holdsPlain, ih]
+  unfold GenPred.holds GenPred.holdsPlain
+  rw [GenPred.eval3_eq_evalPlain3]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The collapsed tuple of an embedded annotated tuple is its data part. -/

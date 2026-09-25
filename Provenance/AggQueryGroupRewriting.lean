@@ -250,7 +250,7 @@ framework's rule (R5): for a classical subquery, the general evaluator's
 grouping, embedded row-wise into the composite domain (tokens included,
 finalized annotation appended), is computed by the rewritten world's
 token-building grouping over the classically rewritten subquery. -/
-theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
+theorem AggQuery.gammaRew_valid [NoNulls T] {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
     (hq : qg.classical) (d : AnnotatedDatabase T K) :

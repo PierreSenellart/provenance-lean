@@ -76,28 +76,29 @@ def ProjCol.evalRew {n : ℕ} {κ : Fin n → ColKind}
   | .token k _ => u k
   | .provTerm t => Sum.inl (t.evalRew u)
 
-/-- Classical truth of a predicate in the rewritten world (compared
+/-- Three-valued evaluation of a predicate in the rewritten world (compared
 tokens read through their deterministic collapse, as in
-`GenPred.holds`). -/
-def GenPred.holdsRew {n : ℕ} {κ : Fin n → ColKind} :
-    GenPred (T ⊕ K) κ → Tuple (GenValue (T ⊕ K) K) n → Prop
-  | .cmp op t₁ t₂, u => op.eval (t₁.evalRew u) (t₂.evalRew u)
+`GenPred.eval3`). -/
+def GenPred.evalRew3 {n : ℕ} {κ : Fin n → ColKind} :
+    GenPred (T ⊕ K) κ → Tuple (GenValue (T ⊕ K) K) n → Kleene
+  | .cmp op t₁ t₂, u => op.eval3 (t₁.evalRew u) (t₂.evalRew u)
   | .aggCmp k _ op t, u =>
-      op.eval (AggValue.collapseSum (u k)) (t.evalRew u)
-  | .and φ ψ, u => φ.holdsRew u ∧ ψ.holdsRew u
-  | .or φ ψ, u => φ.holdsRew u ∨ ψ.holdsRew u
-  | .not φ, u => ¬ φ.holdsRew u
+      op.eval3 (AggValue.collapseSum (u k)) (t.evalRew u)
+  | .and φ ψ, u => (φ.evalRew3 u).and (ψ.evalRew3 u)
+  | .or φ ψ, u => (φ.evalRew3 u).or (ψ.evalRew3 u)
+  | .not φ, u => (φ.evalRew3 u).not
+
+/-- The rows a selection keeps in the rewritten world: those on which the
+predicate is *true*. -/
+def GenPred.holdsRew {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n) : Prop :=
+  φ.evalRew3 u = Kleene.true
 
 /-- Structural decidability of `holdsRew`. -/
 def GenPred.decHoldsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n) :
     Decidable (φ.holdsRew u) :=
-  match φ with
-  | .cmp op _ _ => inferInstanceAs (Decidable (op.eval _ _))
-  | .aggCmp _ _ op _ => inferInstanceAs (Decidable (op.eval _ _))
-  | .and φ ψ => @instDecidableAnd _ _ (φ.decHoldsRew u) (ψ.decHoldsRew u)
-  | .or φ ψ => @instDecidableOr _ _ (φ.decHoldsRew u) (ψ.decHoldsRew u)
-  | .not φ => @instDecidableNot _ (φ.decHoldsRew u)
+  inferInstanceAs (Decidable (_ = _))
 
 instance GenPred.instDecidableHoldsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) : DecidablePred φ.holdsRew :=
@@ -258,25 +259,32 @@ theorem ProjCol.evalRew_inl {n : ℕ} {κ : Fin n → ColKind}
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain
 reading. -/
-theorem GenPred.holdsRew_inl {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPred.evalRew3_inl {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred (T ⊕ K) κ), φ.chiFree → ∀ (u : Tuple (T ⊕ K) n),
-      φ.holdsRew (fun k => Sum.inl (u k)) ↔ φ.holdsPlain u
+      φ.evalRew3 (fun k => Sum.inl (u k)) = φ.evalPlain3 u
   | .cmp op t₁ t₂, hφ, u => by
-    simp only [GenPred.holdsRew, GenPred.holdsPlain,
+    simp only [GenPred.evalRew3, GenPred.evalPlain3,
       TermG.evalRew_inl t₁ hφ.1, TermG.evalRew_inl t₂ hφ.2]
   | .aggCmp k h op t, hφ, u => by
-    simp only [GenPred.holdsRew, GenPred.holdsPlain,
+    simp only [GenPred.evalRew3, GenPred.evalPlain3,
       TermG.evalRew_inl t hφ]
-    exact Iff.rfl
+    rfl
   | .and φ ψ, hφ, u => by
-    simp only [GenPred.holdsRew, GenPred.holdsPlain]
-    exact and_congr (holdsRew_inl φ hφ.1 u) (holdsRew_inl ψ hφ.2 u)
+    simp only [GenPred.evalRew3, GenPred.evalPlain3,
+      evalRew3_inl φ hφ.1 u, evalRew3_inl ψ hφ.2 u]
   | .or φ ψ, hφ, u => by
-    simp only [GenPred.holdsRew, GenPred.holdsPlain]
-    exact or_congr (holdsRew_inl φ hφ.1 u) (holdsRew_inl ψ hφ.2 u)
+    simp only [GenPred.evalRew3, GenPred.evalPlain3,
+      evalRew3_inl φ hφ.1 u, evalRew3_inl ψ hφ.2 u]
   | .not φ, hφ, u => by
-    simp only [GenPred.holdsRew, GenPred.holdsPlain]
-    exact not_congr (holdsRew_inl φ hφ u)
+    simp only [GenPred.evalRew3, GenPred.evalPlain3, evalRew3_inl φ hφ u]
+
+/-- Gate-free predicates on `inl`-embedded rows hold as their plain
+reading. -/
+theorem GenPred.holdsRew_inl {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred (T ⊕ K) κ) (hφ : φ.chiFree) (u : Tuple (T ⊕ K) n) :
+    φ.holdsRew (fun k => Sum.inl (u k)) ↔ φ.holdsPlain u := by
+  unfold GenPred.holdsRew GenPred.holdsPlain
+  rw [GenPred.evalRew3_inl φ hφ u]
 
 /-- Maps push through the multiset product. -/
 theorem Multiset.map_product_map {α β α' β' : Type _} (f : α → α')
@@ -472,14 +480,26 @@ theorem CompOp.eval_inl (op : CompOp) (x y : T) :
   case ge => exact hle y x
 
 omit [DecidableEq K] in
+/-- The three-valued comparison restricts along the `inl` embedding: the
+composite domain takes its nulls from the data side. -/
+theorem CompOp.eval3_inl (op : CompOp) (x y : T) :
+    op.eval3 (Sum.inl x : T ⊕ K) (Sum.inl y) = op.eval3 x y := by
+  have hn : ∀ z : T, ValueType.isNull (Sum.inl z : T ⊕ K)
+      = ValueType.isNull z := fun _ => rfl
+  unfold CompOp.eval3
+  rw [hn x, hn y]
+  by_cases h : ValueType.isNull x ∨ ValueType.isNull y
+  · rw [ite_eq_left h, ite_eq_left h]
+  · rw [ite_eq_right h, ite_eq_right h]
+    exact congrArg Kleene.ofBool (by simp [CompOp.eval_inl])
+
+omit [DecidableEq K] in
 /-- The comparison indicator restricts along the `inl` embedding. -/
 theorem Having.chi_inl (op : CompOp) (x y : T) :
     (Having.chi op (Sum.inl x : T ⊕ K) (Sum.inl y) : K)
       = Having.chi op x y := by
   unfold Having.chi
-  by_cases h : op.eval x y
-  · rw [ite_eq_left ((CompOp.eval_inl op x y).mpr h), ite_eq_left h]
-  · rw [ite_eq_right (fun hc => h ((CompOp.eval_inl op x y).mp hc)), ite_eq_right h]
+  rw [CompOp.eval3_inl]
 
 /-! ## The classical rewriting stays off the token operators -/
 
@@ -718,7 +738,7 @@ the collapsed data columns of the rewritten evaluation of a classical
 rewriting with the annotation read off its provenance column recovers the
 composite embedding of the classical annotated semantics – the input the
 token-building groupings of the rewritten world consume. -/
-theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewriting_provRel [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     Multiset.map (fun u => (GenRow.plainTuple u,
         ((TermG.provIndex (Fin.last n)

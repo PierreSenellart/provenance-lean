@@ -158,23 +158,29 @@ theorem TermG.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     rfl
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _; rw [ih₁, ih₂]; rfl
 
+theorem GenPred.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (r : GenRow T K n) :
+    φ.castRew.evalRew3 r.toCompositeRow = φ.eval3 r.fst := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    show CompOp.eval3 _ _ _ = _
+    rw [t₁.castRew_evalRew r, t₂.castRew_evalRew r]
+    exact CompOp.eval3_inl op _ _
+  | aggCmp k h op t =>
+    show CompOp.eval3 _ (AggValue.collapseSum
+      (r.toCompositeRow (Fin.castAdd 1 k))) _ = _
+    rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite,
+      t.castRew_evalRew r]
+    exact CompOp.eval3_inl op _ _
+  | and φ ψ ihφ ihψ => show (_ : Kleene).and _ = _; rw [ihφ, ihψ]; rfl
+  | or φ ψ ihφ ihψ => show (_ : Kleene).or _ = _; rw [ihφ, ihψ]; rfl
+  | not φ ihφ => show (_ : Kleene).not = _; rw [ihφ]; rfl
+
 theorem GenPred.castRew_holdsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (r : GenRow T K n) :
     φ.castRew.holdsRew r.toCompositeRow ↔ φ.holds r.fst := by
-  induction φ with
-  | cmp op t₁ t₂ =>
-    show CompOp.eval _ _ _ ↔ _
-    rw [t₁.castRew_evalRew r, t₂.castRew_evalRew r]
-    exact CompOp.eval_inl op _ _
-  | aggCmp k h op t =>
-    show CompOp.eval _ (AggValue.collapseSum
-      (r.toCompositeRow (Fin.castAdd 1 k))) _ ↔ _
-    rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite,
-      t.castRew_evalRew r]
-    exact CompOp.eval_inl op _ _
-  | and φ ψ ihφ ihψ => exact and_congr ihφ ihψ
-  | or φ ψ ihφ ihψ => exact or_congr ihφ ihψ
-  | not φ ihφ => exact not_congr ihφ
+  unfold GenPred.holdsRew GenPred.holds
+  rw [GenPred.castRew_evalRew3 φ r]
 
 theorem ProjCol.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     (p : ProjCol T κ) (r : GenRow T K n) :
@@ -601,7 +607,7 @@ regular atoms mixed in included. The gate term computes the predicate
 provenance; the group guard is superseded exactly when the predicate
 entails the group's existence, and kept as a factor otherwise, matching
 the general evaluator's treatment of the pending group factor. -/
-theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+theorem AggQuery.havingPredRew_valid [NoNulls T] {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.hasAggAtom = true)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical)
@@ -1207,7 +1213,7 @@ theorem AggQuery.diffSurvivors_evaluateRew {n : ℕ}
 
 /-- **The unmatched branch**: by the semijoin identity, the left rows
 whose data part is a surviving key, with their annotation. -/
-theorem AggQuery.diffBranchU_evaluateRew {n : ℕ}
+theorem AggQuery.diffBranchU_evaluateRew [NoNulls T] {n : ℕ}
     (q₁' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf (ColKind.allReg n)))
     (qs : AggQuery (T ⊕ K) n (ColKind.allReg n)) (D : Database (T ⊕ K))
     (A₁ : AnnotatedRelation T K n) (S : Multiset (Tuple T n)) (hS : S.Nodup)
@@ -1291,7 +1297,7 @@ theorem AggQuery.diffBranchU_evaluateRew {n : ℕ}
 
 /-- **The matched branch**: by the keyed-projection semijoin, the left
 rows whose data part carries a per-key sum, with that sum subtracted. -/
-theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
+theorem AggQuery.diffBranchM_evaluateRew [NoNulls T] {n : ℕ}
     (q₁' qs : AggQuery (T ⊕ K) (n + 1)
       (ColKind.rewKindsOf (ColKind.allReg n)))
     (D : Database (T ⊕ K)) (A₁ : AnnotatedRelation T K n)
@@ -1426,7 +1432,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
 operands: the two branches partition the left operand by whether its data
 part occurs on the right, and on the unmatched part the subtracted sum is
 `𝟘`. -/
-theorem AggQuery.diffRew_valid {n : ℕ}
+theorem AggQuery.diffRew_valid [NoNulls T] {n : ℕ}
     {q₁ q₂ : AggQuery T n (ColKind.allReg n)}
     {q₁' q₂' : AggQuery (T ⊕ K) (n + 1)
       (ColKind.rewKindsOf (ColKind.allReg n))}
@@ -1663,7 +1669,7 @@ inductive AggQuery.RewritesTo :
 /-- **Whole-query correctness of the compositional rewriting**: along the
 closure, the general evaluator's rows, embedded token-aware into the
 composite domain, are exactly the rewritten world's evaluation. -/
-theorem AggQuery.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewritesTo_valid [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
     {κ' : Fin (n + 1) → ColKind} {q : AggQuery T n κ}
     {q' : AggQuery (T ⊕ K) (n + 1) κ'}
     (h : AggQuery.RewritesTo q q') (d : AnnotatedDatabase T K) :
@@ -1721,7 +1727,7 @@ theorem AggQuery.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
 /-- On an all-regular source the correctness specializes to the shape of
 the classical and `HAVING`-site statements: the annotated semantics,
 folded into composite tuples and embedded by `inl`. -/
-theorem AggQuery.rewritesTo_valid_reg {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQuery.rewritesTo_valid_reg [NoNulls T] {n : ℕ} {κ : Fin n → ColKind}
     {κ' : Fin (n + 1) → ColKind} {q : AggQuery T n κ}
     {q' : AggQuery (T ⊕ K) (n + 1) κ'}
     (h : AggQuery.RewritesTo q q') (hκ : ∀ k, κ k = ColKind.reg)
