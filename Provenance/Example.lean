@@ -6,6 +6,7 @@ import Mathlib.Data.Multiset.Fintype
 import Provenance.QueryAnnotatedDatabase
 import Provenance.AggQueryClosure
 import Provenance.QueryRewriting
+import Provenance.Notation
 import Provenance.SemiringWithMonus
 
 import Provenance.Semirings.Nat
@@ -205,3 +206,31 @@ example : ∃ q' : AggQuery (String ⊕ ℕ) 2
       (AggQuery.RewritesTo.havingPred ![3] ![Term.const "1"]
         ![SeqAggFunc.sum] φatLeastThree rfl qgPersonnel trivial))
   ⟨_, h, AggQuery.rewritesTo_valid h d_count⟩
+
+/-! ### A window
+
+`SUM(1) OVER (PARTITION BY city)` – the size of each city's group, given to
+every row of that city. A window removes no row and merges none, so the
+answer has as many rows as the input and every row keeps the annotation it
+came with: no group is created, so no group-existence factor arises. -/
+
+open Provenance.Notation in
+def qwCity := RA[String |
+  ⊞[#3 ; #0 ; ValueFrame.whole ; `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
+
+#eval! hdr "plain: SUM(1) OVER (PARTITION BY city)"
+#eval! qwCity.evaluatePlain d
+#eval! hdr "annotated ℕ: the same window, every row keeping its annotation"
+#eval! (qwCity.evaluateAnnotated d_count : AnnotatedRelation String ℕ 5)
+
+/-! The rows strictly before the current row's peers: a frame that contains
+neither the row nor its equals, so it can be empty in a world where the row
+is present. Its token is therefore read in the scalar convention, and the
+first row of each city aggregates over nothing. -/
+
+open Provenance.Notation in
+def qwRunning := RA[String |
+  ⊞[#3 ; #0 ; ValueFrame.before ; `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
+
+#eval! hdr "plain: a running count over the rows strictly before, per city"
+#eval! qwRunning.evaluatePlain d
