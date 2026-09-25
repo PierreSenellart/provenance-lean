@@ -188,7 +188,11 @@ the provenance-aware relational database system
   `NULL` and not the zero the domain happened to offer. `COUNT` stays
   unwrapped, being the one aggregate SQL does not read that way, and
   `sqlOf_eq_of_no_null` recovers the results proved over a domain with no
-  null
+  null. **Which aggregates read their input as a multiset** is settled by
+  `SeqAggFunc.Symmetric`: `SUM`, `COUNT`, `MIN` and `MAX` are, `sqlOf`
+  preserves it, and `PICKFIRST` is not (`not_symmetric_pickFirst`) – it is
+  the aggregate for which the order a group or a frame is read in *is* the
+  answer, and the reason the interface is a function on sequences at all
 - `Provenance.AnnotatedDatabase` – databases annotated with values in an m-semiring `K`
 - `Provenance.QueryAnnotatedDatabase` – semantics of relational algebra over annotated
   databases via m-semiring operations

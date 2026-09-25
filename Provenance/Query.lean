@@ -430,6 +430,156 @@ theorem sqlOf_eq_null_of_all_null {V : Type} [ValueTypeNull V]
   rw [hfil]
   rfl
 
+/-! ### Which aggregates read their input as a multiset
+
+The interface is a function on *sequences*, so an aggregate may depend on
+the order of its input, and `PICKFIRST` does. The ones that do not are the
+ones a grouping or a window can compute without settling how its rows are
+sequenced: for them the canonical order the library sorts by is as good as
+the order an `ORDER BY` asks for, and for the others it is not. -/
+
+/-- An aggregate is *symmetric* when it reads its input as a multiset:
+permuting the sequence does not change the answer. -/
+def Symmetric (f : SeqAggFunc T) : Prop :=
+  ∀ {L L' : List T}, L.Perm L' → f L = f L'
+
+theorem sum_symmetric : (SeqAggFunc.sum : SeqAggFunc T).Symmetric := by
+  intro L L' hp
+  have hlc : LeftCommutative (fun a b : T => a + b) := ⟨fun a b c => add_left_comm a b c⟩
+  show L.foldr (fun a b => a + b) 0 = L'.foldr (fun a b => a + b) 0
+  exact List.Perm.foldr_eq (lcomm := hlc) hp 0
+
+theorem count_symmetric : (SeqAggFunc.count).Symmetric :=
+  fun hp => hp.length_eq
+
+section MinMax
+
+variable {L : List T} {a c s s' : T}
+
+private theorem foldr_min_le_seed (L : List T) (s : T) :
+    L.foldr Min.min s ≤ s := by
+  induction L with
+  | nil => exact le_rfl
+  | cons a as ih => exact le_trans (min_le_right a (as.foldr Min.min s)) ih
+
+private theorem foldr_min_le_of_mem (ha : a ∈ L) (s : T) :
+    L.foldr Min.min s ≤ a := by
+  induction L with
+  | nil => exact absurd ha (List.not_mem_nil)
+  | cons b bs ih =>
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · exact min_le_left _ _
+    · exact le_trans (min_le_right _ _) (ih ha')
+
+private theorem le_foldr_min (hL : ∀ x ∈ L, c ≤ x) (hs : c ≤ s) :
+    c ≤ L.foldr Min.min s := by
+  induction L with
+  | nil => exact hs
+  | cons b bs ih =>
+    exact le_min (hL b List.mem_cons_self)
+      (ih (fun x hx => hL x (List.mem_cons_of_mem b hx)))
+
+private theorem foldr_min_seed_mem (hs : s ∈ L) (hs' : s' ∈ L) :
+    L.foldr Min.min s = L.foldr Min.min s' :=
+  le_antisymm
+    (le_foldr_min (fun _x hx => foldr_min_le_of_mem hx s) (foldr_min_le_of_mem hs' s))
+    (le_foldr_min (fun _x hx => foldr_min_le_of_mem hx s') (foldr_min_le_of_mem hs s'))
+
+private theorem le_foldr_max_seed (L : List T) (s : T) :
+    s ≤ L.foldr Max.max s := by
+  induction L with
+  | nil => exact le_rfl
+  | cons a as ih => exact le_trans ih (le_max_right a (as.foldr Max.max s))
+
+private theorem le_foldr_max_of_mem (ha : a ∈ L) (s : T) :
+    a ≤ L.foldr Max.max s := by
+  induction L with
+  | nil => exact absurd ha (List.not_mem_nil)
+  | cons b bs ih =>
+    rcases List.mem_cons.mp ha with rfl | ha'
+    · exact le_max_left _ _
+    · exact le_trans (ih ha') (le_max_right _ _)
+
+private theorem foldr_max_le (hL : ∀ x ∈ L, x ≤ c) (hs : s ≤ c) :
+    L.foldr Max.max s ≤ c := by
+  induction L with
+  | nil => exact hs
+  | cons b bs ih =>
+    exact max_le (hL b List.mem_cons_self)
+      (ih (fun x hx => hL x (List.mem_cons_of_mem b hx)))
+
+private theorem foldr_max_seed_mem (hs : s ∈ L) (hs' : s' ∈ L) :
+    L.foldr Max.max s = L.foldr Max.max s' :=
+  le_antisymm
+    (foldr_max_le (fun _x hx => le_foldr_max_of_mem hx s') (le_foldr_max_of_mem hs s'))
+    (foldr_max_le (fun _x hx => le_foldr_max_of_mem hx s) (le_foldr_max_of_mem hs' s))
+
+theorem min_symmetric : (SeqAggFunc.min : SeqAggFunc T).Symmetric := by
+  have : LeftCommutative (Min.min : T → T → T) := ⟨min_left_comm⟩
+  intro L L' hp
+  cases L with
+  | nil => rw [← hp.nil_eq]
+  | cons x xs =>
+    cases L' with
+    | nil => exact absurd hp.length_eq (by simp)
+    | cons y ys =>
+      show xs.foldr Min.min x = ys.foldr Min.min y
+      have hx : (x :: xs).foldr Min.min x = xs.foldr Min.min x :=
+        min_eq_right (foldr_min_le_seed xs x)
+      have hy : (y :: ys).foldr Min.min y = ys.foldr Min.min y :=
+        min_eq_right (foldr_min_le_seed ys y)
+      rw [← hx, ← hy, hp.foldr_eq]
+      exact foldr_min_seed_mem (hp.mem_iff.mp List.mem_cons_self)
+        List.mem_cons_self
+
+theorem max_symmetric : (SeqAggFunc.max : SeqAggFunc T).Symmetric := by
+  have : LeftCommutative (Max.max : T → T → T) := ⟨max_left_comm⟩
+  intro L L' hp
+  cases L with
+  | nil => rw [← hp.nil_eq]
+  | cons x xs =>
+    cases L' with
+    | nil => exact absurd hp.length_eq (by simp)
+    | cons y ys =>
+      show xs.foldr Max.max x = ys.foldr Max.max y
+      have hx : (x :: xs).foldr Max.max x = xs.foldr Max.max x :=
+        max_eq_right (le_foldr_max_seed xs x)
+      have hy : (y :: ys).foldr Max.max y = ys.foldr Max.max y :=
+        max_eq_right (le_foldr_max_seed ys y)
+      rw [← hx, ← hy, hp.foldr_eq]
+      exact foldr_max_seed_mem (hp.mem_iff.mp List.mem_cons_self)
+        List.mem_cons_self
+
+end MinMax
+
+private theorem isEmpty_congr {α : Type} {l l' : List α} (h : l.Perm l') :
+    l.isEmpty = l'.isEmpty := by
+  cases l with
+  | nil => rw [← h.nil_eq]
+  | cons a as =>
+    cases l' with
+    | nil => exact absurd h.length_eq (by simp)
+    | cons b bs => rfl
+
+/-- **SQL's reading preserves symmetry**: skipping the nulls and answering
+`NULL` over what is left of nothing does not look at the order. -/
+theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
+    (hf : f.Symmetric) : f.sqlOf.Symmetric := by
+  intro L L' hp
+  have hfil := hp.filter (fun a => decide (a ≠ ValueTypeNull.null))
+  unfold SeqAggFunc.sqlOf
+  rw [isEmpty_congr hfil]
+  split
+  · rfl
+  · exact hf hfil
+
+/-- **`PICKFIRST` is not symmetric**, on any domain with two values: it is
+the aggregate for which the order a group or a frame is read in is the
+answer. -/
+theorem not_symmetric_pickFirst {a b : T} (hab : a ≠ b) :
+    ¬ (SeqAggFunc.pickFirst : SeqAggFunc T).Symmetric :=
+  fun h => hab (h (List.Perm.swap b a []))
+
 end SeqAggFunc
 
 inductive Query (T: Type) : ℕ → Type

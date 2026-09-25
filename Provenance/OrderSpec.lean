@@ -30,11 +30,14 @@ contains its current row exactly when it contains its peers
 (`ValueFrame.ContainsSelf`), which is what decides whether a window over it
 can be read off the relation or needs the occurrences told apart.
 
-What an order specification does *not* yet do here is fix the sequence a
-frame is read in. `ValueFrame.frameSeq` sorts a frame by the canonical order
-on annotated tuples, which is invisible to `SUM`, `COUNT`, `MIN` and `MAX`
-but not to an order-dependent aggregate; making that sequence the one the
-clause asks for is a separate change to the operator.
+What an order specification does *not* do here is fix the sequence a frame
+is read in: `ValueFrame.frameSeq` sorts a frame by the canonical order on
+annotated tuples, not by the clause. That is harmless exactly where the
+aggregate is symmetric (`SeqAggFunc.Symmetric`), which `SUM`, `COUNT`, `MIN`
+and `MAX` are and `PICKFIRST` is not – `ValueFrame.windowValue_of_perm` says
+any listing of the frame then gives the window's value. Making the sequence
+the clause's, which is what an order-dependent aggregate needs, is a
+separate change to the operator.
 -/
 
 variable {T : Type} {p : ℕ}

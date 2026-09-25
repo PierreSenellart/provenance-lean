@@ -857,6 +857,22 @@ def ValueFrame.windowValue {n m p : ℕ} (P : Tuple (Fin n) m)
     (f : SeqAggFunc T) (R : Relation T n) (u : Tuple T n) : T :=
   f ((sortList (ValueFrame.frameOf (α := Tuple T n) id P O w R u)).map t.eval)
 
+/-- **Where the aggregate is symmetric the sequence a frame is read in does
+not matter**: any listing of the frame gives the value the window gives, so
+the canonical order the library sorts by is as good as the order an `ORDER
+BY` asks for. It is for an aggregate that is not symmetric – `PICKFIRST` –
+that the two have to be the same order. -/
+theorem ValueFrame.windowValue_of_perm {n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)
+    {f : SeqAggFunc T} (hf : f.Symmetric) (R : Relation T n) (u : Tuple T n)
+    (L : List (Tuple T n))
+    (hL : (L : Multiset (Tuple T n))
+      = ValueFrame.frameOf (α := Tuple T n) id P O w R u) :
+    f (L.map t.eval) = ValueFrame.windowValue P O w t f R u := by
+  unfold ValueFrame.windowValue
+  refine hf (List.Perm.map _ ?_)
+  rw [← Multiset.coe_eq_coe, hL, sortList_coe]
+
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
 theorem AggQuery.evaluatePlain_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (w : ValueFrame T p) (t : Term T n)

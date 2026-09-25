@@ -98,6 +98,17 @@ sequence. -/
 def collapse (a : AggValue T K) : T :=
   a.agg (a.occs.map Prod.fst)
 
+/-- **A symmetric aggregate reads its token as a multiset**: two tokens
+with the same aggregate and the same occurrences in a different order
+collapse to the same value. This is what makes the order a group or a frame
+is sequenced in immaterial, and `PICKFIRST` is where it is not. -/
+theorem collapse_congr_of_symmetric {a b : AggValue T K}
+    (hf : a.agg.Symmetric) (hagg : b.agg = a.agg)
+    (hocc : a.occs.Perm b.occs) : a.collapse = b.collapse := by
+  unfold collapse
+  rw [hagg]
+  exact hf (hocc.map Prod.fst)
+
 /-- The world-faithful reading under a valuation `ν` of the annotations:
 restrict to the occurrences whose annotation `ν` realizes, and aggregate
 those in order. -/
