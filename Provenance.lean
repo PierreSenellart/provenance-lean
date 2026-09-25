@@ -3,6 +3,10 @@
   Authors: Pierre Senellart
 -/
 
+/- Three-valued logic and value domains with a null -/
+import Provenance.Util.Kleene
+import Provenance.Util.ValueTypeNull
+
 /- Queries on annotated relations -/
 import Provenance.QueryAnnotatedDatabase
 import Provenance.QueryAnnotatedDatabaseHom
@@ -142,6 +146,24 @@ the provenance-aware relational database system
 - `Provenance.SemiringWithMonus` – definition of a *semiring with monus* (m-semiring),
   the algebraic structure underlying annotated database semantics, together with general
   theorems about it
+- `Provenance.Util.Kleene` – **Kleene's three-valued logic**: `Kleene` with
+  its negation, conjunction and disjunction (the minimum and maximum of
+  `false < unknown < true`). Every law of a De Morgan algebra holds; what
+  fails is the excluded middle, and exactly at `unknown` – a row on which a
+  predicate is unknown is selected by neither the predicate nor its
+  negation, which no two-valued reading can imitate
+- `Provenance.Util.ValueTypeNull` – **value domains with a null**:
+  `ValueTypeNull` extends `ValueType` with a null distinct from the domain's
+  zero and null-strict arithmetic, and `WithNull T` adjoins one value to any
+  value type, strictness holding by construction. `CompOp.eval3` is the
+  three-valued comparison, `unknown` as soon as an operand is null;
+  `CompOp.eval3_eq_true_iff` recovers the two-valued reading away from the
+  null, and `CompOp.negate_eval3` says the operator negator *is* the
+  three-valued negation – unconditionally, since at the null both readings
+  are `unknown` and Kleene negation fixes it. Syntactic equality (`=` on the
+  domain, two nulls identical, SQL's `IS NOT DISTINCT FROM`) is what
+  grouping, partitioning, duplicate elimination and difference use, and is
+  what the library already decides with `DecidableEq`
 - `Provenance.Database` – tuples, relations, and plain databases
 - `Provenance.Query` – relational algebra (select, project, join, union, difference…)
 - `Provenance.AnnotatedDatabase` – databases annotated with values in an m-semiring `K`
