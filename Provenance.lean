@@ -39,6 +39,8 @@ import Provenance.Notation
 import Provenance.AggQueryAdequacy
 
 /- Regression bridges: the fused Having recovered from the general syntax -/
+/- A window over a whole partition is a join with its grouping -/
+import Provenance.WindowPartition
 import Provenance.AggQueryBridges
 
 /- Possible-world foundations for the general evaluator -/
@@ -316,6 +318,18 @@ proven engine several general results reuse internally.
   (`ValueFrame.collapse_token`), the frame projecting onto the plain frame
   because sorting annotated tuples and projecting is sorting the tuples
   (`ValueFrame.sorted_map_fst`)
+- `Provenance.WindowPartition` – **a window over a whole partition is a join
+  with its grouping**: `AggQuery.winByJoin` writes it without a window – join
+  the query with its own grouping on the partition key, keep the group's
+  aggregate column – and `evaluatePlain_winByJoin`, `evaluate_winByJoin` prove
+  the two agree over plain and over annotated relations. The plain statement
+  is a rearrangement; the annotated one is not, since the join carries the
+  group's existence factor `δ(⊕ U)` that a window never produces. The two
+  agree only because the group of a row *contains that row*, so the factor
+  reads `α ⊗ δ(α ⊕ β')`, which is `α` by δ-absorption – a frame excluding the
+  current row would have no such identity and no such rewriting. The
+  combinatorial step is `filter_product_key`: a table with distinct keys,
+  joined on the key, gives each row exactly the entry of its own key
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
   form**: `AggQuery.havingSite` is one aggregate comparison directly above
   the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it

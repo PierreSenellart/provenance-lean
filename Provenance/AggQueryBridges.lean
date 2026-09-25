@@ -28,17 +28,6 @@ variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]
 
-/-- Kind transport is transparent to evaluation (row types do not mention
-the kind vector). -/
-theorem AggQuery.evaluate_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQuery T n κ) (d : AnnotatedDatabase T K) :
-    (q.castKind h).evaluate d = q.evaluate d := by
-  subst h; rfl
-
-/-- The kind vector of a `Gamma` output: key columns then token columns. -/
-abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
-  Fin.append (fun _ : Fin n₁ => ColKind.reg) (fun _ : Fin n₂ => ColKind.agg)
-
 /-- A term over the group key, embedded as a term over the key columns of
 a `Gamma` output. -/
 def Term.toGenKey {n₁ : ℕ} (n₂ : ℕ) :

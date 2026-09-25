@@ -821,6 +821,140 @@ def AggQuery.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .GammaTok _ _ _ _ _ _ => False
   | _, _, .Win _ _ _ _ _ q => q.noProvSum
 
+/-! ## Join conditions on key columns -/
+
+/-- The conjunction of equalities between two blocks of regular columns
+(the join condition of the `Diff` rewriting). -/
+def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
+    (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ (posL k) = ColKind.reg)
+    (hR : ∀ k, κ (posR k) = ColKind.reg) :
+    GenPred T' κ :=
+  ((List.finRange n).map (fun k =>
+    GenPred.cmp CompOp.eq (TermG.index (posL k) (hL k))
+      (TermG.index (posR k) (hR k)))).foldr GenPred.and
+    (GenPred.cmp CompOp.eq (.const 0) (.const 0))
+
+/-- The join condition is a conjunction of column equalities: no
+indicator gate. -/
+theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
+    {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ (posL k) = ColKind.reg)
+    (hR : ∀ k, κ (posR k) = ColKind.reg) :
+    (keyJoinCond (T' := T') posL posR hL hR).chiFree := by
+  unfold keyJoinCond
+  induction List.finRange n with
+  | nil => exact ⟨trivial, trivial⟩
+  | cons k l ih => exact ⟨⟨trivial, trivial⟩, ih⟩
+
+theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
+    {κ' : Fin N → ColKind} {α : Type} (l : List α)
+    (f : α → GenPred T' κ') (base : GenPred T' κ') (u : Tuple T' N) :
+    (((l.map f).foldr GenPred.and base).holdsPlain u)
+      ↔ (∀ x ∈ l, (f x).holdsPlain u) ∧ base.holdsPlain u := by
+  induction l with
+  | nil => simp
+  | cons hd tl ih =>
+    show (f hd).holdsPlain u ∧ _ ↔ _
+    rw [ih]
+    constructor
+    · rintro ⟨hhd, htl, hb⟩
+      exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
+        (htl x), hb⟩
+    · rintro ⟨hall, hb⟩
+      exact ⟨hall hd (List.mem_cons_self), fun x hx => hall x (List.mem_cons_of_mem hd hx), hb⟩
+
+theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] {n m : ℕ}
+    {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ' (posL k) = ColKind.reg)
+    (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
+    (keyJoinCond posL posR hL hR).holdsPlain u
+      ↔ ∀ k, u (posL k) = u (posR k) := by
+  unfold keyJoinCond
+  rw [GenPred.holdsPlain_foldr_and]
+  constructor
+  · rintro ⟨hall, -⟩ k
+    exact hall k (List.mem_finRange k)
+  · intro h
+    exact ⟨fun k _ => h k, rfl⟩
+
+/-- The join condition has no aggregate atom: it filters classically. -/
+theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
+    {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ (posL k) = ColKind.reg)
+    (hR : ∀ k, κ (posR k) = ColKind.reg) :
+    (keyJoinCond (T' := T') posL posR hL hR).hasAggAtom = false := by
+  unfold keyJoinCond
+  induction List.finRange n with
+  | nil => rfl
+  | cons k l ih => simpa [GenPred.hasAggAtom] using ih
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem GenPred.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
+    (l : List α) (f : α → GenPred T κ') (base : GenPred T κ')
+    (u : Tuple (GenValue T K) N) :
+    (((l.map f).foldr GenPred.and base).holds u)
+      ↔ (∀ x ∈ l, (f x).holds u) ∧ base.holds u := by
+  induction l with
+  | nil => simp
+  | cons hd tl ih =>
+    show (f hd).holds u ∧ _ ↔ _
+    rw [ih]
+    constructor
+    · rintro ⟨hhd, htl, hb⟩
+      exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
+        (htl x), hb⟩
+    · rintro ⟨hall, hb⟩
+      exact ⟨hall hd List.mem_cons_self,
+        fun x hx => hall x (List.mem_cons_of_mem hd hx), hb⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- On a lifted tuple the join condition says what it says on the collapsed
+one: its columns are regular, so no token is read. -/
+theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
+    (posL posR : Fin n → Fin m)
+    (hL : ∀ k, κ' (posL k) = ColKind.reg)
+    (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple (GenValue T K) m) :
+    (keyJoinCond posL posR hL hR).holds u
+      ↔ ∀ k, GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
+  unfold keyJoinCond
+  rw [GenPred.holds_foldr_and]
+  constructor
+  · rintro ⟨hall, -⟩ k
+    exact hall k (List.mem_finRange k)
+  · intro h
+    exact ⟨fun k _ => h k, rfl⟩
+
+/-- Kind transport is transparent to evaluation (row types do not mention
+the kind vector). -/
+theorem AggQuery.evaluate_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
+    (h : κ = κ') (q : AggQuery T n κ) (d : AnnotatedDatabase T K) :
+    (q.castKind h).evaluate d = q.evaluate d := by
+  subst h; rfl
+
+/-- The kind vector of a `Gamma` output: key columns then token columns. -/
+abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
+  Fin.append (fun _ : Fin n₁ => ColKind.reg) (fun _ : Fin n₂ => ColKind.agg)
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Kind transport is transparent to plain evaluation too. -/
+theorem AggQuery.evaluatePlain_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
+    (h : κ = κ') (q : AggQuery T n κ) (d : Database T) :
+    (q.castKind h).evaluatePlain d = q.evaluatePlain d := by
+  subst h; rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- The token lists of a row with a single token, in its last column: the
+one token's occurrence annotations. -/
+theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggValue T K) :
+    tokenLists (Fin.snoc (fun k => (Sum.inl (u k) : GenValue T K))
+        (Sum.inr a) : Tuple (GenValue T K) (n + 1))
+      = {a.occs.map Prod.snd} := by
+  unfold tokenLists
+  rw [Fin.univ_castSuccEmb]
+  simp [Fin.snoc_last, Fin.snoc_castSucc]
+
 /-! ## Kind conformance
 
 Rows produced by the general evaluator conform to the query's kind

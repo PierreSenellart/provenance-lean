@@ -425,11 +425,31 @@ removed and put back exactly when `s` holds. -/
 def frameOf {α : Type} [LinearOrder α] (val : α → Tuple T n)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
     (X : Multiset α) (x : α) : Multiset α :=
-  let others :=
+  if w.s (Tuple.key O (val x)) = true then
+    x ::ₘ (X.filter (fun y =>
+      Tuple.key P (val y) = Tuple.key P (val x)
+        ∧ w.ρ (Tuple.key O (val y)) (Tuple.key O (val x)) = true)).erase x
+  else
     (X.filter (fun y =>
       Tuple.key P (val y) = Tuple.key P (val x)
         ∧ w.ρ (Tuple.key O (val y)) (Tuple.key O (val x)) = true)).erase x
-  if w.s (Tuple.key O (val x)) = true then x ::ₘ others else others
+
+/-- **The whole partition is the partition.** With `whole`, an occurrence's
+frame is every row sharing its partition key – its own row included, once. -/
+theorem frameOf_whole {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (X : Multiset α) {x : α}
+    (hx : x ∈ X) :
+    frameOf val P O (whole : ValueFrame T p) X x
+      = X.filter (fun y => Tuple.key P (val y) = Tuple.key P (val x)) := by
+  have hs : (whole : ValueFrame T p).s (Tuple.key O (val x)) = true := rfl
+  have hmem : x ∈ X.filter (fun y =>
+      Tuple.key P (val y) = Tuple.key P (val x)
+        ∧ (whole : ValueFrame T p).ρ (Tuple.key O (val y))
+            (Tuple.key O (val x)) = true) :=
+    Multiset.mem_filter.mpr ⟨hx, rfl, rfl⟩
+  unfold frameOf
+  rw [ite_eq_left hs, Multiset.cons_erase hmem]
+  exact Multiset.filter_congr (fun y _ => and_iff_left rfl)
 
 /-- **A frame is carried along a map that keeps the values.** Changing the
 semiring, or forgetting the annotations, leaves every frame the image of the

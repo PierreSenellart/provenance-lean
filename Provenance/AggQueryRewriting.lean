@@ -194,32 +194,6 @@ theorem ProjCol.castComposite_kind {n : ℕ} {κ : Fin n → ColKind}
   | token k hk => exact ColKind.noConfusion hp
   | provTerm t => exact ColKind.noConfusion hp
 
-/-! ## Join conditions on key columns -/
-
-/-- The conjunction of equalities between two blocks of regular columns
-(the join condition of the `Diff` rewriting). -/
-def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
-    (posL posR : Fin n → Fin m)
-    (hL : ∀ k, κ (posL k) = ColKind.reg)
-    (hR : ∀ k, κ (posR k) = ColKind.reg) :
-    GenPred T' κ :=
-  ((List.finRange n).map (fun k =>
-    GenPred.cmp CompOp.eq (TermG.index (posL k) (hL k))
-      (TermG.index (posR k) (hR k)))).foldr GenPred.and
-    (GenPred.cmp CompOp.eq (.const 0) (.const 0))
-
-/-- The join condition is a conjunction of column equalities: no
-indicator gate. -/
-theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
-    {κ : Fin m → ColKind} (posL posR : Fin n → Fin m)
-    (hL : ∀ k, κ (posL k) = ColKind.reg)
-    (hR : ∀ k, κ (posR k) = ColKind.reg) :
-    (keyJoinCond (T' := T') posL posR hL hR).chiFree := by
-  unfold keyJoinCond
-  induction List.finRange n with
-  | nil => exact ⟨trivial, trivial⟩
-  | cons k l ih => exact ⟨⟨trivial, trivial⟩, ih⟩
-
 /-! ## The rewriting -/
 
 /-- **The (R1)–(R4) rewriting, natively on the general syntax.** Each
@@ -757,37 +731,6 @@ theorem Relation.cast_filter {T' : Type} {n m : ℕ} (hn : n = m)
       = Relation.cast hn (r.filter (fun t => p (Tuple.cast hn t))) := by
   subst hn
   rfl
-
-theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
-    {κ' : Fin N → ColKind} {α : Type} (l : List α)
-    (f : α → GenPred T' κ') (base : GenPred T' κ') (u : Tuple T' N) :
-    (((l.map f).foldr GenPred.and base).holdsPlain u)
-      ↔ (∀ x ∈ l, (f x).holdsPlain u) ∧ base.holdsPlain u := by
-  induction l with
-  | nil => simp
-  | cons hd tl ih =>
-    show (f hd).holdsPlain u ∧ _ ↔ _
-    rw [ih]
-    constructor
-    · rintro ⟨hhd, htl, hb⟩
-      exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
-        (htl x), hb⟩
-    · rintro ⟨hall, hb⟩
-      exact ⟨hall hd (List.mem_cons_self), fun x hx => hall x (List.mem_cons_of_mem hd hx), hb⟩
-
-theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T'] {n m : ℕ}
-    {κ' : Fin m → ColKind} (posL posR : Fin n → Fin m)
-    (hL : ∀ k, κ' (posL k) = ColKind.reg)
-    (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
-    (keyJoinCond posL posR hL hR).holdsPlain u
-      ↔ ∀ k, u (posL k) = u (posR k) := by
-  unfold keyJoinCond
-  rw [GenPred.holdsPlain_foldr_and]
-  constructor
-  · rintro ⟨hall, -⟩ k
-    exact hall k (List.mem_finRange k)
-  · intro h
-    exact ⟨fun k _ => h k, rfl⟩
 
 theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
     (t : Tuple T' n) (k : Fin m) :
