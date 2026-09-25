@@ -220,16 +220,23 @@ present, so no relation on order values decides it. -/
 `RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`. -/
 def whole : ValueFrame T p := ⟨fun _ _ => true, fun _ => true⟩
 
-/-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`, SQL's default frame
-under an `ORDER BY`: the current row, its peers, and everything ordered
-before them. -/
+/-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` read against the
+domain's *own* order on the order values: the current row, its peers, and
+everything that order puts before them.
+
+A clause that names a direction and a null placement orders by its own
+reading, not by the domain's; the frame it determines is
+`ValueFrame.rangeUpTo` in `Provenance.OrderSpec`, and the two agree where
+every column is `ASC` and nothing is null. -/
 def upTo : ValueFrame T p :=
   ⟨fun o' o => decide (o' ≤ o), fun _ => true⟩
 
-/-- The rows strictly before the current row's peers: the frame a running
-total that must not read the row it annotates needs. It contains neither the
-row nor its peers, so it can be empty in a world where the row is present –
-which is why a window over it reads its token in the scalar convention. -/
+/-- The rows the domain's own order puts strictly before the current row's
+peers: the frame a running total that must not read the row it annotates
+needs. It contains neither the row nor its peers, so it can be empty in a
+world where the row is present – which is why a window over it reads its
+token in the scalar convention. Its clause-determined counterpart is
+`ValueFrame.rangeBefore` in `Provenance.OrderSpec`. -/
 def before : ValueFrame T p :=
   ⟨fun o' o => decide (o' < o), fun _ => false⟩
 

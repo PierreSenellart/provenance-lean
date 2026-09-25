@@ -32,6 +32,7 @@ import Provenance.Occurrence
 
 /- Window frames determined by values -/
 import Provenance.Frame
+import Provenance.OrderSpec
 
 /- The window operator's token -/
 import Provenance.Window
@@ -160,10 +161,13 @@ the provenance-aware relational database system
   `CompOp.eval3_eq_true_iff` recovers the two-valued reading away from the
   null, and `CompOp.negate_eval3` says the operator negator *is* the
   three-valued negation – unconditionally, since at the null both readings
-  are `unknown` and Kleene negation fixes it. Syntactic equality (`=` on the
-  domain, two nulls identical, SQL's `IS NOT DISTINCT FROM`) is what
-  grouping, partitioning, duplicate elimination and difference use, and is
-  what the library already decides with `DecidableEq`
+  are `unknown` and Kleene negation fixes it. A comparison is `strict` when
+  a null operand makes it unknown, which `CompOp.syneq` and `CompOp.synne` –
+  SQL's `IS [NOT] DISTINCT FROM` – are not: they compare two values of the
+  domain, two nulls being identical, and never return `unknown`
+  (`CompOp.syneq_eval3_eq_true_iff`). That is the equality grouping,
+  partitioning, duplicate elimination and difference use, and the one the
+  rewritings join on
 - `Provenance.Database` – tuples, relations, and plain databases
 - `Provenance.Query` – relational algebra (select, project, join, union,
   difference…), with selections read in **Kleene's three-valued logic**:
@@ -171,7 +175,11 @@ the provenance-aware relational database system
   the rows on which it is *true*, and a row on which a predicate is unknown
   is kept by neither the predicate nor its negation (`Selection.eval_not`).
   Where nothing is null the reading is two-valued
-  (`Selection.eval3_ne_unknown`, `Selection.eval_not_iff`), with the aggregate catalog `SeqAggFunc` and
+  (`Selection.eval3_ne_unknown`, `Selection.eval_not_iff`). Beside the six
+  comparisons the language has `BoolTerm.SYNEQ` and `BoolTerm.SYNNE`,
+  SQL's `IS [NOT] DISTINCT FROM`, the first written `≐`: they compare two
+  values with two nulls identical, are never unknown, and are what a join
+  on a key column needs. Also the aggregate catalog `SeqAggFunc` and
   `SeqAggFunc.sqlOf`, **SQL's reading of an aggregate on a domain with a
   null**: skip the nulls, and give `NULL` when nothing is left. That is what
   the scalar convention needed and could not have – an aggregation without
@@ -292,9 +300,10 @@ proven engine several general results reuse internally.
   (`frame_eq_of_key_eq`); the frames that fail it are exactly `EXCLUDE
   CURRENT ROW` and `EXCLUDE TIES`, which are exactly the ones needing
   occurrences told apart. The frames of SQL that are determined by values
-  are named: `whole`, `upTo` (the default under an `ORDER BY`), `before`
-  (the rows strictly preceding the current row's peers) and
-  `excludeCurrent`; the `ROWS` frames with offsets are not among them and
+  are named against the domain's own order on the order values: `whole`,
+  `upTo`, `before` (the rows strictly preceding the current row's peers) and
+  `excludeCurrent` – the frames of an explicit `ORDER BY` being
+  `Provenance.OrderSpec`'s; the `ROWS` frames with offsets are not among them and
   cannot be, since which row is the previous one depends on which rows are
   present. `frameOf` reads a frame off the *relation* rather than off an
   indexing – the rows of the partition the frame's relation accepts, the
@@ -362,10 +371,26 @@ proven engine several general results reuse internally.
   (`ValueFrame.collapse_token`), the frame projecting onto the plain frame
   because sorting annotated tuples and projecting is sorting the tuples
   (`ValueFrame.sorted_map_fst`)
+- `Provenance.OrderSpec` – **what an `ORDER BY` orders by**: a direction
+  and a null placement per order column (`OrderCol`, `OrderSpec`), read
+  lexicographically down the columns. It is a total preorder
+  (`OrderSpec.le_refl`, `le_trans`, `le_total`) and not an order: the values
+  it does not separate are SQL's *peers*, and every null is a peer of every
+  other whichever side the clause puts them on. The domain's own order says
+  nothing about either, which is why the frames defined against a clause
+  need one: `ValueFrame.rangeUpTo`, `rangeBefore`, `peerGroup`, and the
+  `EXCLUDE` modifiers `excludeGroup` and `excludeTies`. Each is classified
+  by `ValueFrame.ContainsSelf`, and the classification lands where the
+  general theory says it must – `EXCLUDE GROUP` keeps a frame readable off
+  the relation, `EXCLUDE TIES` does not. Where every column is `ASC` and
+  nothing is null the clause is the library's own tuple order
+  (`OrderSpec.asc_le`) and the frames are `ValueFrame.upTo` and
+  `ValueFrame.before` (`rangeUpTo_asc`, `rangeBefore_asc`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
-  the query with its own grouping on the partition key, keep the group's
-  aggregate column – and `evaluatePlain_winByJoin`, `evaluate_winByJoin` prove
+  the query with its own grouping on the partition key with `≐`, the
+  syntactic equality a window partitions by, and keep the group's aggregate
+  column – and `evaluatePlain_winByJoin`, `evaluate_winByJoin` prove
   the two agree over plain and over annotated relations. The plain statement
   is a rearrangement; the annotated one is not, since the join carries the
   group's existence factor `δ(⊕ U)` that a window never produces. The two
@@ -536,7 +561,9 @@ proven engine several general results reuse internally.
 - `Provenance.QueryRewriting` – alternative query evaluation by rewriting plain
   queries on `T ⊕ K`; implements rules (R1)–(R4) of
   [Sen, Maniu & Senellart][sen2026provsql] on the classical syntax, with
-  correctness `Query.rewriting_valid`. Rule (R5) – aggregation – lives on the
+  correctness `Query.rewriting_valid`. The difference rule joins the two
+  branches on their data columns with `≐`, the syntactic equality difference
+  itself uses, so the rule holds over a domain with a null as it stands. Rule (R5) – aggregation – lives on the
   general syntax instead (`Provenance.AggQueryGroupRewriting`), where an
   aggregate output is a symbolic token rather than a quotiented K-tensor
 **HAVING: algebra, possible worlds, probability, and correctness**
@@ -669,7 +696,9 @@ proven engine several general results reuse internally.
 **Algorithms**
 
 - `Provenance.Algorithms.CompOp` – shared comparison-operator type used by the
-  HAVING enumeration algorithms
+  HAVING enumeration algorithms and by the predicate languages: the six
+  comparisons, which `CompOp.strict` marks as unknown on a null operand, and
+  the two syntactic ones (`syneq`, `synne`) which are not
 - `Provenance.Algorithms.CountEnum` – enumeration of valid possible worlds for
   `HAVING count op C` predicates: definitions of `combinations`, `addExact`, and
   `countEnum`, together with the correctness theorem `countEnum_correct`

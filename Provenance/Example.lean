@@ -7,6 +7,7 @@ import Provenance.QueryAnnotatedDatabase
 import Provenance.AggQueryClosure
 import Provenance.QueryRewriting
 import Provenance.Notation
+import Provenance.OrderSpec
 import Provenance.SemiringWithMonus
 
 import Provenance.Semirings.Nat
@@ -254,3 +255,45 @@ def qwRunningNull := RA[WithNull String |
 
 #eval! hdr "plain: SUM over the rows strictly before – NULL where there are none"
 #eval! qwRunningNull.evaluatePlain dNull
+
+/-! ### Where the nulls go is the clause's business
+
+Three rows of one city, one of them with a null id. The frame is the same
+in both queries below – the rows strictly before the current row's peers –
+and so is the data; only the `ORDER BY` differs, in where it places the
+null. The running counts come out different, which is the point: the
+domain's own order has nothing to say about it, and a frame stated against
+that order cannot express either reading. -/
+
+def rOrdNull : Relation (WithNull String) 4 := Multiset.ofList [
+  ![WithNull.val "1", WithNull.val "John", WithNull.val "Director",
+    WithNull.val "New York"],
+  ![WithNull.nil, WithNull.val "Paul", WithNull.val "Janitor",
+    WithNull.val "New York"],
+  ![WithNull.val "2", WithNull.val "Ann", WithNull.val "Analyst",
+    WithNull.val "New York"]
+]
+
+def dOrdNull : Database (WithNull String) := [("Personnel", ⟨4, rOrdNull⟩)]
+
+/-- `ORDER BY id ASC NULLS LAST`: the null row is counted last. -/
+def ascNullsLast : OrderSpec 1 := fun _ => OrderCol.ASC
+
+/-- `ORDER BY id ASC NULLS FIRST`: the null row is counted first. -/
+def ascNullsFirst : OrderSpec 1 :=
+  fun _ => { OrderCol.ASC with nullsFirst := true }
+
+open Provenance.Notation in
+def qwNullsLast := RA[WithNull String |
+  ⊞[#3 ; #0 ; ValueFrame.rangeBefore ascNullsLast ;
+    `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
+
+open Provenance.Notation in
+def qwNullsFirst := RA[WithNull String |
+  ⊞[#3 ; #0 ; ValueFrame.rangeBefore ascNullsFirst ;
+    `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
+
+#eval! hdr "plain: running count, ORDER BY id ASC NULLS LAST"
+#eval! qwNullsLast.evaluatePlain dOrdNull
+#eval! hdr "plain: running count, ORDER BY id ASC NULLS FIRST"
+#eval! qwNullsFirst.evaluatePlain dOrdNull
