@@ -211,7 +211,15 @@ proven engine several general results reuse internally.
   exactly the compared groups' factors with the predicate provenance, and
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
-  computed over the whole group) and the stripping `AggQuery.stripAgg`
+  computed over the whole group) and the stripping `AggQuery.stripAgg`.
+  The window operator `Win` gives every row of its input a further column
+  holding the aggregate over that row's frame: it removes no row, merges
+  none and changes no annotation, so it creates no group and leaves nothing
+  pending. `AggQuery.evaluate_Win_eq` and `AggQuery.evaluatePlain_Win_eq`
+  read its output off the relation – the input mapped row by row, each row
+  gaining the token (`ValueFrame.tokenOf`) or the value
+  (`ValueFrame.windowValue`) that the relation gives it – which is the form
+  every theorem about the operator uses
 - `Provenance.Occurrence` – **relations as families of occurrences**:
   `OccFam`, a relation read as an indexed family rather than a multiset, so
   that two copies of a row are two occurrences. The row type is a parameter,
@@ -237,7 +245,20 @@ proven engine several general results reuse internally.
   (`mem_of_containsSelf`) and the frame depends only on the tuple
   (`frame_eq_of_key_eq`); the frames that fail it are exactly `EXCLUDE
   CURRENT ROW` and `EXCLUDE TIES`, which are exactly the ones needing
-  occurrences told apart
+  occurrences told apart. The frames of SQL that are determined by values
+  are named: `whole`, `upTo` (the default under an `ORDER BY`), `before`
+  (the rows strictly preceding the current row's peers) and
+  `excludeCurrent`; the `ROWS` frames with offsets are not among them and
+  cannot be, since which row is the previous one depends on which rows are
+  present. `frameOf` reads a frame off the *relation* rather than off an
+  indexing – the rows of the partition the frame's relation accepts, the
+  row's own copy taken out and put back exactly as `s` says – and
+  `frameSeq_eq_sortList` proves the two readings agree, so `tokenOf` gives a
+  token to a row of a relation with no indexing in sight. What that buys is
+  `frameOf_map` (a map keeping the values carries every frame to the image
+  of its frame: changing the semiring, or forgetting the annotations) and
+  `frameOf_filter` (the restriction property again, now on relations),
+  which are what the window's metatheorems run on
 - `Provenance.Window` – **the token a window gives a row**: the aggregate
   over that row's frame, built as a grouping builds one from its group, with
   the convention decided per row by whether the row is in its own frame
@@ -257,7 +278,10 @@ proven engine several general results reuse internally.
   tokens, so which of them receives which is not observable. That rests on
   `OccFam.Congr_of_toMultiset_eq`, proved from `List.Perm.exists_get_equiv` –
   a permutation of rows gives a bijection of positions carrying one to the
-  other, which Mathlib states only for lists without repeats
+  other, which Mathlib states only for lists without repeats.
+  `window_toMultiset_eq` cashes the family reading into the relation
+  reading the evaluator uses: the output is the input mapped row by row
+  through `windowRow`
 - `Provenance.Notation` – **surface syntax** for kind-indexed queries:
   a bracketed `RA[ … ]` with categories of its own for terms, predicates and
   queries, so that `∧`, `∨`, `¬`, `<` and `=` are read as the query
@@ -276,14 +300,22 @@ proven engine several general results reuse internally.
   aggregates being ordinary Lean terms so that the catalog stays open; the
   same term syntax is read into `TermG` under a selection and into the
   classical `Term` under a grouping, which is what the aggregated columns of
-  an all-regular input are. What a query costs to write is then the query
+  an all-regular input are. A window is written `⊞[#i, … ; #j, … ; w ;
+  t : f]`, the three lists before the aggregated column being the partition
+  columns, the order columns and the frame – an ordinary Lean term, so that
+  the catalog of frames stays open as the catalog of aggregates does. What a
+  query costs to write is then the query
 - `Provenance.AggQueryAdequacy` – **data-part adequacy of the general
   evaluator**: forgetting the annotations of `Query.evaluateAnnotated` yields
   the plain evaluation of the stripped query
   (`AggQuery.evaluateAnnotated_toPlain`), the aggregate tokens
   contributing through their deterministic `collapse` reading and the
   fused group sequence projecting onto the plain one
-  (`havingGroup_map_fst`)
+  (`havingGroup_map_fst`). A window's added column is adequate for the same
+  reason: its token collapses to the plain aggregate over the frame
+  (`ValueFrame.collapse_token`), the frame projecting onto the plain frame
+  because sorting annotated tuples and projecting is sorting the tuples
+  (`ValueFrame.sorted_map_fst`)
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
   form**: `AggQuery.havingSite` is one aggregate comparison directly above
   the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it
@@ -305,7 +337,12 @@ proven engine several general results reuse internally.
   (`GenPred.entails_guard`), the σ-aggregate row lemma
   (`GenPred.sel_finalize_eval_iff`), and the conformance and guardedness
   invariants of the evaluator (`evaluate_conform`,
-  `evaluate_guarded`). As corollaries, **unrestricted probabilistic
+  `evaluate_guarded`). A window commutes for the reason it was built to:
+  restricting the relation to a world restricts every frame to that world,
+  so the token reads as the plain aggregate the world's relation gives its
+  row (`tokenOf_specialize`). Its token is guarded by the row it is computed
+  for whenever that row is in its own frame, and scalar – so exempt – when
+  it is not. As corollaries, **unrestricted probabilistic
   query evaluation**: `AggQuery.boolean_pqe` (the probability that a
   random world has a non-empty answer is the probability of the query's
   Boolean provenance, the `⊕`-sum of the rows' finalized annotations) and
@@ -329,7 +366,10 @@ proven engine several general results reuse internally.
   `ofGroup_predProv_hom`, `havingGroup_annSum_hom`) neutralizes the
   `≼`-tie-break of `havingGroup`, and a row-wise simulation
   (`GenRow.Sim`, `AggQuery.evaluate_hom_rel`) carries both through
-  the evaluator
+  the evaluator. A window's frame is carried unchanged, being read off the
+  values; what the pushforward moves is only the order inside a block of
+  equal tuples, which `sortList_hom_tiePerm` and `tokenOf_mapAnn_tiePerm`
+  render invisible exactly as for a group
 - `Provenance.QueryToAgg` – the embedding of the classical query
   syntax into the general evaluator: `Query.toAgg` translates the
   non-aggregating fragment one to one over all-regular kinds, faithfully

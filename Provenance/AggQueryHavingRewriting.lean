@@ -149,6 +149,13 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
       ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0)).map (ts j).eval))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
+  | _, _, @AggQuery.Win _ n' _m' _p' P O w t f q, D =>
+    let r : Relation (T ⊕ K) n' := (q.evaluateRew D).map
+      (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
+    r.map (fun u : Tuple (T ⊕ K) n' =>
+      ((fun k => Sum.inl ((Fin.snoc u (ValueFrame.windowValue P O w t f r u)
+          : Tuple (T ⊕ K) (n' + 1)) k))
+        : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
   | _, _, .Retag _ q, D => q.evaluateRew D
   | _, _, @AggQuery.ProvSum _ _m n₁ _κ is _his t q, D =>
     let r := q.evaluateRew D
@@ -197,6 +204,7 @@ def AggQuery.noGammaTok {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, .Retag _ q => q.noGammaTok
   | _, _, .GammaTok _ _ _ _ _ _ => False
+  | _, _, .Win _ _ _ _ _ q => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
 def AggQuery.chiFree {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
@@ -213,6 +221,7 @@ def AggQuery.chiFree {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, .Retag _ q => q.chiFree
   | _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
+  | _, _, .Win _ _ _ _ _ q => q.chiFree
 
 /-- On `inl`-embedded rows a gate-free term evaluates in the rewritten
 world as its plain evaluation – including the `cmpAgg` gate, whose junk
@@ -410,6 +419,12 @@ theorem AggQuery.evaluateRew_plain :
   | GammaTok is his ts fs a q ih =>
     intro hq hc D
     exact hq.elim
+  | @Win n' m' p' P O w t f q ih =>
+    -- a window reads the collapsed rows, which the embedding leaves alone
+    intro hq hc D
+    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain_Win_eq]
+    rw [ih hq hc D, map_plainTuple_map_inl, Multiset.map_map]
+    exact Multiset.map_congr rfl (fun _ _ => rfl)
 
 /-! ## The fused predicate provenance under the composite embedding
 
@@ -493,6 +508,7 @@ theorem AggQuery.rewriting_noGammaTok :
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ q _ => q
 
 omit [DecidableEq K] in
@@ -552,6 +568,7 @@ theorem AggQuery.rewriting_chiFree :
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ q _ => q
 
 /-! ## The group sequence under the composite embedding -/

@@ -89,7 +89,7 @@ syntax raTerm : raProj
 
 /-- One aggregated column: a term and the aggregate applied to it. The
 aggregate is an ordinary Lean term of type `SeqAggFunc`, so the catalog is
-open – `SeqAggFunc.sum`, `SeqAggFunc.count`, and anything else of that type. -/
+open – `SeqAggFunc.sum`, `SeqAggFunc.sum`, and anything else of that type. -/
 declare_syntax_cat raAgg
 syntax raTerm " : " term : raAgg
 
@@ -106,6 +106,14 @@ syntax:80 "ε " raQuery : raQuery
 grouping, whose single row exists even over an empty input – the absence of
 a `GROUP BY` is what makes an aggregation scalar, here as in SQL. -/
 syntax:80 "γ[" raCol,* " ; " raAgg,* "] " raQuery : raQuery
+/-- A window. The three lists before the aggregated column are the partition
+columns, the order columns and the frame: `⊞[#0 ; #1 ; w ; #2 : f] q` gives
+every row of `q` a further column holding `f` of `#2` over that row's frame,
+which is `w` read on the order column `#1` within the partition given by
+`#0`. The frame is an ordinary Lean term of type `ValueFrame`, so the
+catalog is open – `ValueFrame.whole`, `ValueFrame.upTo`, `ValueFrame.before`
+and `ValueFrame.excludeCurrent` of any of them. -/
+syntax:80 "⊞[" raCol,* " ; " raCol,* " ; " term " ; " raAgg "] " raQuery : raQuery
 syntax:70 raQuery " × " raQuery : raQuery
 syntax:60 raQuery " ⊎ " raQuery : raQuery
 syntax:60 raQuery " ∖ " raQuery : raQuery
@@ -254,6 +262,18 @@ macro_rules
         `(AggQuery.GammaScalar ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
       else
         `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+  | `(ra_query% ⊞[$ps,* ; $os,* ; $w:term ; $a:raAgg] $q:raQuery) => do
+      let keys ← ps.getElems.mapM fun k => match k with
+        | `(raCol| #$i:num) => `(($i : Fin _))
+        | _ => Lean.Macro.throwUnsupported
+      let ords ← os.getElems.mapM fun k => match k with
+        | `(raCol| #$i:num) => `(($i : Fin _))
+        | _ => Lean.Macro.throwUnsupported
+      match a with
+      | `(raAgg| $t:raTerm : $f:term) =>
+          `(AggQuery.Win ![$keys,*] ![$ords,*] $w (ra_cterm% $t) $f
+              (allReg (ra_query% $q)))
+      | _ => Lean.Macro.throwUnsupported
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
       `(AggQuery.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))
 
@@ -262,3 +282,46 @@ macro_rules
   | `(RA[ $t:term | $q:raQuery ]) => `((ra_query% $q : AggQuery $t _ _))
 
 end Provenance.Notation
+
+/-! ### Worked productions
+
+Every production is exercised below. A surface syntax that elaborates is the
+only evidence that it parses and that the obligations it hides – the
+regularity proofs, the kind vectors, the retaggings – really do discharge. -/
+
+section Examples
+
+variable {T : Type} [ValueType T]
+
+/-- Selection, join, projection and duplicate elimination. -/
+example : AggQuery T 1 (ColKind.allReg 1) :=
+  RA[T | ε (π[#3] (σ[#0 < #4 ∧ #3 = #7] (rel 4 "R" × rel 4 "R"))) ]
+
+/-- Union and difference, both retagging their arguments. -/
+example : AggQuery T 2 (ColKind.allReg 2) :=
+  RA[T | (π[#0, #3] (rel 4 "R")) ∖ (π[#0, #3] (rel 4 "S")) ]
+
+example : AggQuery T 4 (ColKind.allReg 4) :=
+  RA[T | rel 4 "R" ⊎ rel 4 "S" ]
+
+/-- Grouping: the key columns before the `;`, the aggregated columns
+after. -/
+example := RA[T | γ[#3 ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+
+/-- Aggregation without grouping: no keys, so the single row survives an
+empty input. -/
+example := RA[T | γ[ ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+
+/-- A comparison against a token column is written like any other
+comparison; which atom it becomes is decided by the kind vector. -/
+example (c : T) :=
+  RA[T | σ[#1 ≥ `(c)] γ[#3 ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+
+/-- A window: partition columns, order columns, frame, aggregated column. -/
+example := RA[T | ⊞[#3 ; #0 ; ValueFrame.whole ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+
+/-- A window over the whole relation, with the frame of the rows strictly
+before the current row's peers. -/
+example := RA[T | ⊞[ ; #0 ; ValueFrame.before ; #0 : SeqAggFunc.sum] rel 4 "R" ]
+
+end Examples

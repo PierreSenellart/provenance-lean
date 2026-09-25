@@ -44,6 +44,18 @@ def realized (a : AggValue T (BoolFunc X)) (v : X → Bool) :
   Finset.univ.filter (fun i => a.anns i v = true)
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- A token has a realized occurrence as soon as one of its occurrences is
+realized. -/
+theorem realized_nonempty_of_mem (a : AggValue T (BoolFunc X)) (v : X → Bool)
+    {x : T × BoolFunc X} (hx : x ∈ a.occs) (hv : x.snd v = true) :
+    (a.realized v).Nonempty := by
+  obtain ⟨j, hj⟩ := List.mem_iff_get.mp hx
+  refine ⟨j, Finset.mem_filter.mpr ⟨Finset.mem_univ j, ?_⟩⟩
+  unfold AggValue.anns
+  rw [hj]
+  exact hv
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- The world-faithful reading under a valuation is the per-world reading
 at the realized world. -/
 theorem specialize_eval (a : AggValue T (BoolFunc X)) (v : X → Bool) :
@@ -770,6 +782,27 @@ theorem AggQuery.evaluate_guarded :
       refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
       rw [AggValue.annList_ofGroup]
       exact hG
+  | @Win n' m' p' P O w t f q ih =>
+    -- a window creates no group, and its one token is guarded by the row it
+    -- is computed for whenever that row is in its own frame; when it is not,
+    -- the token is scalar and the guard is vacuous
+    intro d r hr v hfin k a ha
+    simp only [AggQuery.evaluate] at hr
+    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    revert ha
+    refine Fin.lastCases (fun ha => ?_) (fun k' ha => ?_) k
+    · dsimp only at ha
+      rw [Fin.snoc_last] at ha
+      rw [← Sum.inr.inj ha]
+      by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
+          ((q.evaluate d).map GenRow.toAnnotated)).row i).fst) = true
+      · exact Or.inr (AggValue.realized_nonempty_of_mem _ v
+          (ValueFrame.mem_token_occs P O w t f _ i hs) (by simpa using hfin))
+      · exact Or.inl (ValueFrame.token_scalar_of_not_mem P O w t f _ i
+          (by simpa using hs))
+    · dsimp only at ha
+      rw [Fin.snoc_castSucc] at ha
+      exact absurd ha (by simp)
   | @ProvSum m n₁ κ' is his t q ih =>
     intro d r hr v _ k a ha
     have hconf := AggQuery.evaluate_conform _ d r hr k
@@ -1102,6 +1135,45 @@ private lemma specialize_ofGroup {m n₁ : ℕ}
     List.map_map, List.map_map]
   rfl
 
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+private lemma list_filter_map_comm {α β : Type} (g : α → β) (p : β → Bool)
+    (l : List α) :
+    (l.map g).filter p = (l.filter (fun a => p (g a))).map g := by
+  induction l with
+  | nil => rfl
+  | cons a t ih => by_cases hp : p (g a) <;> simp [hp, ih]
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A window's token is world-faithful.** Under a valuation the token
+reads as the plain aggregate the realized world gives its row: restricting
+the relation to a world restricts every frame to that world, which is the
+only property of frames the annotated semantics uses. -/
+theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (w : ValueFrame T p') (t : Term T n')
+    (f : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    (hc : x.snd v = true) :
+    (ValueFrame.tokenOf P O w t f R x).specialize (fun α => α v)
+      = ValueFrame.windowValue P O w t f (randomWorld v R) x.fst := by
+  have hframe : ValueFrame.frameOf (α := Tuple T n') id P O w
+      (randomWorld v R) x.fst
+      = Multiset.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+        ((ValueFrame.frameOf (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O w R x).filter
+          (fun y : AnnotatedTuple T (BoolFunc X) n' => y.snd v = true)) := by
+    unfold randomWorld
+    rw [ValueFrame.frameOf_map (α := AnnotatedTuple T (BoolFunc X) n')
+        (valα := Prod.fst) (valβ := id) Prod.fst (fun _ => rfl) P O w _
+        (Multiset.mem_filter.mpr ⟨hx, hc⟩),
+      ValueFrame.frameOf_filter (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst _ P O w R hc]
+  unfold AggValue.specialize ValueFrame.windowValue
+  rw [ValueFrame.tokenOf_agg, ValueFrame.tokenOf_occs, hframe,
+    ← ValueFrame.sortList_map_fst, ← sortList_filter]
+  refine congrArg f ?_
+  rw [list_filter_map_comm, List.map_map, List.map_map]
+  simp
+
 /-! ## The random-world commutation -/
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
@@ -1356,6 +1428,30 @@ theorem AggQuery.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q ih =>
     intro hq
     exact hq.elim
+  | @Win nI mI pI P O w t f q ih =>
+    -- one output row per realized input row; the token specializes to the
+    -- aggregate the realized world gives the row, because restricting the
+    -- relation restricts every frame
+    intro hq d v
+    rw [AggQuery.evaluate_Win_eq, AggQuery.evaluatePlain_Win_eq, ← ih hq d v,
+      ← genRandomWorld_allReg q d v]
+    unfold genRandomWorld randomWorld
+    rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
+      Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d) =>
+        show (ValueFrame.windowRow P O w t f (q.evaluateAnnotated d) x).snd.finalize v
+            = true
+          ↔ x.snd v = true from by
+          simp [ValueFrame.windowRow])]
+    refine Multiset.map_congr rfl (fun x hx => ?_)
+    obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
+    simp only [Function.comp_apply, ValueFrame.windowRow]
+    funext k
+    unfold GenRow.specializeTuple
+    refine Fin.lastCases ?_ (fun k' => ?_) k
+    · rw [Fin.snoc_last, Fin.snoc_last]
+      exact tokenOf_specialize P O w t f (q.evaluateAnnotated d) hxR v hxc
+    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      rfl
   | Retag h q ih =>
     intro hq d v
     exact ih hq d v

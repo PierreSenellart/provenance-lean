@@ -546,6 +546,85 @@ theorem havingGroup_annSum_hom (h : SemiringWithMonusHom K K')
     List.map_map]
   exact hperm.sum_eq.trans (by rw [List.map_map]; rfl)
 
+
+/-! ## The window's frame under the pushforward
+
+A frame is read off the values, so the pushforward carries it unchanged;
+what it changes is the order the frame's occurrences are read in, and only
+inside blocks of equal tuple parts – a `TiePerm`, as for a group. -/
+
+omit [DecidableEq K] in
+/-- The sorted reading of a pushed-forward relation is a tie-block
+permutation of the pushed-forward sorted reading: the pushforward keeps the
+tuple part, so only the tie-break between equal tuples can move. -/
+theorem sortList_hom_tiePerm (h : SemiringWithMonusHom K K') {n' : ℕ}
+    (M : Multiset (AnnotatedTuple T K n')) :
+    TiePerm (fun a b : AnnotatedTuple T K' n' => a.fst = b.fst)
+      ((sortList M).map
+        (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')))
+      (sortList (α := AnnotatedTuple T K' n')
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) M)) := by
+  refine tiePerm_of_perm_of_sorted
+    (fun q : AnnotatedTuple T K' n' => q.fst) ?_ ?_ ?_
+  · refine Multiset.coe_eq_coe.mp ?_
+    rw [← Multiset.map_coe, sortList_coe, sortList_coe]
+  · exact List.pairwise_map.mpr
+      ((sortList_pairwise M).imp (fun hab => ValueFrame.le_fst_of_le hab))
+  · exact (sortList_pairwise (α := AnnotatedTuple T K' n')
+      (Multiset.map (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) M)).imp
+      (fun hab => ValueFrame.le_fst_of_le hab)
+
+omit [DecidableEq K] in
+/-- The occurrence payloads of a window's token – base-side pushed forward,
+and hom-side – differ by a tie-block permutation on equal values: the frame
+itself is carried unchanged, only the order inside a block of equal tuples
+can move. -/
+theorem tokenOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (w : ValueFrame T p') (t : Term T n') (f : SeqAggFunc T)
+    (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
+    (hx : x ∈ X) :
+    TiePerm (fun a b : T × K' => a.1 = b.1)
+      ((ValueFrame.tokenOf P O w t f X x).mapAnn ⇑h.toRingHom).occs
+      (ValueFrame.tokenOf P O w t f
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')).occs := by
+  have hframe : ValueFrame.frameOf (α := AnnotatedTuple T K' n') Prod.fst P O w
+      (Multiset.map (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')
+      = Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
+        (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x) :=
+    ValueFrame.frameOf_map _ (fun _ => rfl) P O w X hx
+  have hocc1 : ((ValueFrame.tokenOf P O w t f X x).mapAnn ⇑h.toRingHom).occs
+      = ((sortList (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x)).map
+          (fun q : AnnotatedTuple T K n' =>
+            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))).map
+          (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd)) := by
+    show ((ValueFrame.tokenOf P O w t f X x).occs).map
+        (fun o => (o.fst, h.toRingHom o.snd)) = _
+    rw [ValueFrame.tokenOf_occs, List.map_map, List.map_map]
+    rfl
+  have hocc2 : (ValueFrame.tokenOf P O w t f
+      (Multiset.map (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')).occs
+      = (sortList (α := AnnotatedTuple T K' n')
+          (Multiset.map (fun q : AnnotatedTuple T K n' =>
+            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
+            (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x))).map
+          (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd)) := by
+    rw [ValueFrame.tokenOf_occs, hframe]
+  rw [hocc1, hocc2]
+  exact (sortList_hom_tiePerm h _).map (eqv' := fun a b : T × K' => a.1 = b.1)
+    (fun q : AnnotatedTuple T K' n' => (t.eval q.fst, q.snd))
+    (fun hpq => congrArg t.eval hpq)
+
 end HavingGroupHom
 
 /-! ## The simulation relation
@@ -1127,6 +1206,41 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d
     exact ih d
+  | @Win nI mI pI P O w t f q ih =>
+    -- one output row per input row; the tuple and the annotation are carried
+    -- across unchanged, and the token differs only by a tie-block permutation
+    intro d
+    rw [AggQuery.evaluate_Win_eq, AggQuery.evaluate_Win_eq]
+    have hY : q.evaluateAnnotated (h.mapAnnotatedDatabase d)
+        = Multiset.map (fun p : AnnotatedTuple T K nI =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI))
+          (q.evaluateAnnotated d) := by
+      have h1 : (q.evaluate (h.mapAnnotatedDatabase d)).map GenRow.toAnnotated
+          = ((q.evaluate d).map GenRow.toAnnotated).map
+              (SemiringWithMonusHom.mapAnnotatedTuple h) := by
+        rw [Multiset.map_map]
+        exact map_eq_of_rel (ih d)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+      exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
+    rw [hY, Multiset.map_map]
+    refine rel_map_of_forall (fun x hx => ?_)
+    refine ⟨fun k => ?_, ?_⟩
+    · simp only [Function.comp_apply, ValueFrame.windowRow]
+      refine Fin.lastCases ?_ (fun k' => ?_) k
+      · rw [Fin.snoc_last, Fin.snoc_last]
+        refine ⟨?_, ?_, ?_⟩
+        · rw [ValueFrame.tokenOf_agg]
+          exact (ValueFrame.tokenOf_agg P O w t f _ x).symm
+        · show _ = (ValueFrame.tokenOf P O w t f _ x).scalar
+          rw [ValueFrame.tokenOf_scalar, ValueFrame.tokenOf_scalar]
+        · exact TiePerm.symm (fun e => e.symm)
+            (tokenOf_mapAnn_tiePerm h P O w t f _ hx)
+      · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+        rfl
+    · simp only [Function.comp_apply, ValueFrame.windowRow]
+      show (GenAnn.mk (h.toRingHom x.snd) 0).finalize
+        = h.toRingHom ((GenAnn.mk x.snd 0).finalize)
+      rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
   | @GammaTok mI nI₁ nI₂ κ' is his ts fs a q ih =>
     intro d
     simp only [AggQuery.evaluate]

@@ -84,12 +84,29 @@ theorem List.Perm.exists_get_equiv {l₁ l₂ : List α} (h : l₁.Perm l₂) :
 
 namespace OccFam
 
+/-- Two families are the same when they have the same size and the same row
+at every index. The sizes being equal is not a matter of definition, so the
+indices have to be transported along the equality. -/
+theorem ext_cast {r r' : OccFam α} (h : r.size = r'.size)
+    (hr : ∀ i, r.row i = r'.row (Fin.cast h i)) : r = r' := by
+  obtain ⟨m, f⟩ := r
+  obtain ⟨m', g⟩ := r'
+  cases h
+  exact congrArg _ (funext hr)
+
 /-- Forgetting the index: the multiset of rows the family stands for. -/
 def toMultiset (r : OccFam α) : Multiset α :=
   (Finset.univ : Finset (Fin r.size)).val.map r.row
 
 /-- The empty family. -/
 def nil : OccFam α := ⟨0, fun i => i.elim0⟩
+
+/-- Mapping the rows of a family is mapping the multiset it stands for. -/
+theorem toMultiset_map {β : Type} (f : α → β) (r : OccFam α) :
+    Multiset.map f r.toMultiset = (OccFam.mk r.size (fun i => f (r.row i))).toMultiset := by
+  unfold toMultiset
+  rw [Multiset.map_map]
+  rfl
 
 @[simp] theorem toMultiset_nil : (nil : OccFam α).toMultiset = 0 := rfl
 

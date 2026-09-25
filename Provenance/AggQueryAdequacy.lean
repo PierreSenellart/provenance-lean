@@ -298,6 +298,31 @@ theorem AggQuery.evaluateAnnotated_toPlain :
     apply Multiset.map_congr rfl
     intro r _
     rfl
+  | @Win n' m' p' P O w t f q ih =>
+    -- one output row per input occurrence; the data part of the added column
+    -- is the token's deterministic reading, which is the plain aggregate
+    -- over the frame
+    intro d
+    rw [hplain]
+    -- the canonical indexing of the plain evaluation is the plain reading of
+    -- the canonical indexing of the annotated one
+    have hocc : OccFam.ofSorted (q.stripAgg.evaluatePlain d.toPlain)
+        = (OccFam.ofSorted ((q.evaluate d).map GenRow.toAnnotated)).plain := by
+      rw [← ih d]
+      exact (ValueFrame.ofSorted_plain
+        (Multiset.map GenRow.toAnnotated (q.evaluate d))).symm
+    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    rw [OccFam.toMultiset_map]
+    refine congrArg OccFam.toMultiset ?_
+    rw [hocc]
+    refine OccFam.ext_cast rfl (fun i => ?_)
+    funext k
+    dsimp only [GenRow.plainTuple, OccFam.plain]
+    refine Fin.lastCases ?_ (fun k' => ?_) k
+    · rw [Fin.snoc_last, Fin.snoc_last]
+      exact ValueFrame.collapse_token P O w t f _ i
+    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      rfl
   | @GammaScalar m n₂ ts fs q ih =>
     -- one row on each side; the data part is the aggregate over the whole
     -- input, which is what the token collapses to

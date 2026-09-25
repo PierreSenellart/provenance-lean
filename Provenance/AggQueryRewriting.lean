@@ -72,6 +72,9 @@ def AggQuery.classical : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .ProvSum _ _ _ _ => False
   | _, _, .Retag _ _ => False
   | _, _, .GammaTok _ _ _ _ _ _ => False
+  -- rewriting a window into the provenance-carrying form is not part of
+  -- (R1)-(R5); a window is excluded from the fragment, as a grouping is
+  | _, _, .Win _ _ _ _ _ _ => False
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -500,6 +503,7 @@ def AggQuery.strip :
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ q _ => q
 
 /-- The strip is aggregation-free. -/
@@ -518,6 +522,7 @@ theorem AggQuery.strip_source :
   | _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, .Retag _ _, hq => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq => False.elim hq
 
 end Strip
 
@@ -629,6 +634,7 @@ theorem AggQuery.strip_rel :
   | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq, _ => False.elim hq
 
 /-- **Faithfulness of the strip**: on the classical fragment the general
 annotated evaluator computes the classical annotated semantics of the
@@ -1001,6 +1007,7 @@ theorem AggQuery.rewriting_plain :
   | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, .Win _ _ _ _ _ _, hq, _ => False.elim hq
 
 end PlainAgreement
 
