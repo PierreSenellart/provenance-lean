@@ -210,6 +210,7 @@ theorem TermG.eval_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) = t.eval u := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k hk =>
     show AggValue.collapseSum (AggValue.mapAnnSum ⇑h.toRingHom (u k))
       = AggValue.collapseSum (u k)
@@ -682,6 +683,7 @@ theorem TermG.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
     t.eval u' = t.eval u := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k hk => exact (hu k).collapseSum_eq
   | provIndex k hk => exact (hu k).collapseSum_eq
   | cmpAgg k hk op c ih => rfl

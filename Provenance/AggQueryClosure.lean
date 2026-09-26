@@ -95,7 +95,7 @@ theorem ColKind.rewKindsOf_base_of_reg {n : ℕ} {κ : Fin n → ColKind}
 column keeps its kind and its position, so no all-regular hypothesis is
 needed. The gate, whose generic semantics is the junk value `𝟘`, casts to
 that constant. -/
-def TermG.castRew {n : ℕ} {κ : Fin n → ColKind} :
+def TermGIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
     TermG T κ → TermG (T ⊕ K) (ColKind.rewKindsOf κ)
   | .const a => .const (Sum.inl a)
   | .index k h =>
@@ -107,6 +107,10 @@ def TermG.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .add t₁ t₂ => .add t₁.castRew t₂.castRew
   | .sub t₁ t₂ => .sub t₁.castRew t₂.castRew
   | .mul t₁ t₂ => .mul t₁.castRew t₂.castRew
+
+namespace TermG
+export TermGIn (castRew)
+end TermG
 
 /-- An aggregate-atom-free predicate is unnecessary here: the cast is
 total, aggregate atoms comparing a token's deterministic reading. -/
@@ -141,6 +145,7 @@ theorem TermG.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     t.castRew.evalRew r.toCompositeRow = Sum.inl (t.eval r.fst) := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k h =>
     show AggValue.collapseSum (r.toCompositeRow (Fin.castAdd 1 k)) = _
     rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite]

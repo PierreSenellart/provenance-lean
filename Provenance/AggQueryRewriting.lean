@@ -99,7 +99,7 @@ theorem AggQuery.classical_kinds :
 
 /-- A term over all-regular columns, over the composite domain with its
 columns shifted into the data block of the rewritten schema. -/
-def TermG.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def TermGIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     TermG T κ → TermG (T ⊕ K) (ColKind.rewKinds n)
   | .const a => .const (Sum.inl a)
@@ -113,6 +113,10 @@ def TermG.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .add t₁ t₂ => .add (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .sub t₁ t₂ => .sub (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .mul t₁ t₂ => .mul (t₁.castComposite hκ) (t₂.castComposite hκ)
+
+namespace TermG
+export TermGIn (castComposite)
+end TermG
 
 /-- An aggregate-atom-free predicate, over the composite domain. -/
 def GenPred.castComposite {n : ℕ} {κ : Fin n → ColKind}
@@ -377,7 +381,7 @@ section Strip
 /-- Strip a term over regular columns to a classical term (the
 `provIndex` arm is unreachable on the classical fragment and mapped
 harmlessly). -/
-def TermG.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
+def TermGIn.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
   | .const a => .const a
   | .index k _ => .index k
   | .provIndex k _ => .index k
@@ -387,11 +391,16 @@ def TermG.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
   | .sub t₁ t₂ => .sub t₁.strip t₂.strip
   | .mul t₁ t₂ => .mul t₁.strip t₂.strip
 
+namespace TermG
+export TermGIn (strip)
+end TermG
+
 /-- Plain evaluation factors through the strip. -/
 theorem TermG.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
     (u : Tuple T n) : t.strip.eval u = t.evalPlain u := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k h => rfl
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
@@ -632,6 +641,7 @@ theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
       = (t.strip.castToAnnotatedTuple).eval u := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k h => rfl
   | provIndex k h =>
     exact absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)

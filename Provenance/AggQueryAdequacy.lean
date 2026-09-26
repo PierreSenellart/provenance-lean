@@ -47,6 +47,7 @@ theorem TermG.eval_eq_evalPlain {n : ℕ} {κ : Fin n → ColKind}
     (t.eval u : T) = t.evalPlain (GenRow.plainTuple u) := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k h => rfl
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl

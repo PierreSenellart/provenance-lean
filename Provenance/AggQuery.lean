@@ -145,17 +145,21 @@ output row. -/
 /-- A term over the regular columns of a kind-indexed tuple: the `index`
 constructor requires its column to be regular, so terms over token
 columns are unrepresentable. -/
-inductive TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) where
-  | const : T → TermG T κ
-  | index : (k : Fin n) → κ k = ColKind.reg → TermG T κ
-  | provIndex : (k : Fin n) → κ k = ColKind.prov → TermG T κ
+inductive TermGIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
+  | const : T → TermGIn T c κ
+  /-- An *outer* column: a column of the query this one is applied to,
+  read as a value. It is what makes a query open, and there are none of
+  them in a closed query, `c` being `0` there. -/
+  | outer : Fin c → TermGIn T c κ
+  | index : (k : Fin n) → κ k = ColKind.reg → TermGIn T c κ
+  | provIndex : (k : Fin n) → κ k = ColKind.prov → TermGIn T c κ
   /-- The aggregate-comparison gate (ProvSQL's `provsql_having`): the
   predicate provenance of comparing the token in column `k` against the
   term. Its faithful semantics lives in the rewritten world's term
   evaluator; the generic evaluators give it a total junk value, and on
   token-free kinds the constructor is unrepresentable. -/
-  | cmpAgg : (k : Fin n) → κ k = ColKind.agg → CompOp → TermG T κ →
-      TermG T κ
+  | cmpAgg : (k : Fin n) → κ k = ColKind.agg → CompOp → TermGIn T c κ →
+      TermGIn T c κ
   /-- The regular-comparison indicator gate: the characteristic value
   `χ` of a comparison between two regular terms – `𝟙` if it holds on the
   row, `𝟘` otherwise. It is the primitive a `HAVING` predicate
@@ -165,16 +169,23 @@ inductive TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) where
   constraint, so it is representable over all-regular columns: the
   fragment on which the rewritten world's evaluator collapses to the
   plain semantics is cut out by `TermG.chiFree` instead. -/
-  | chiGate : CompOp → TermG T κ → TermG T κ → TermG T κ
-  | add : TermG T κ → TermG T κ → TermG T κ
-  | sub : TermG T κ → TermG T κ → TermG T κ
-  | mul : TermG T κ → TermG T κ → TermG T κ
+  | chiGate : CompOp → TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
+  | add : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
+  | sub : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
+  | mul : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
+
+/-- A term of a closed query: no outer column to read. -/
+abbrev TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) := TermGIn T 0 κ
+
+namespace TermG
+export TermGIn (const outer index provIndex cmpAgg chiGate add sub mul)
+end TermG
 
 /-- Evaluation of a term on a lifted tuple. On the regular columns the
 kind index guarantees a regular value; the token arm of `collapseSum` is
 never reached on kind-conformant tuples and merely keeps the function
 total. -/
-def TermG.eval {κ : Fin n → ColKind} (t : TermG T κ)
+def TermGIn.eval {κ : Fin n → ColKind} (t : TermG T κ)
     (u : Tuple (GenValue T K) n) : T :=
   match t with
   | .const a => a
@@ -506,7 +517,7 @@ def tokenLists {n : ℕ} (u : Tuple (GenValue T K) n) : Multiset (List K) :=
     | Sum.inl _ => none
     | Sum.inr a => some (a.occs.map Prod.snd)))
 
-def TermG.evalPlain {κ : Fin n → ColKind} (t : TermG T κ)
+def TermGIn.evalPlain {κ : Fin n → ColKind} (t : TermG T κ)
     (u : Tuple T n) : T :=
   match t with
   | .const a => a
@@ -531,11 +542,15 @@ on which the rewritten world's evaluator is the plain semantics
 (`AggQuery.evaluateRew_plain`). -/
 
 /-- No indicator gate in a term. -/
-def TermG.chiFree {T' : Type} {κ : Fin n → ColKind} : TermG T' κ → Prop
+def TermGIn.chiFree {T' : Type} {κ : Fin n → ColKind} : TermG T' κ → Prop
   | .const _ | .index _ _ | .provIndex _ _ => True
   | .cmpAgg _ _ _ t => t.chiFree
   | .chiGate _ _ _ => False
   | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
+
+namespace TermG
+export TermGIn (eval evalPlain chiFree)
+end TermG
 
 /-- No indicator gate in a predicate. -/
 def GenPred.chiFree {T' : Type} {κ : Fin n → ColKind} : GenPred T' κ → Prop

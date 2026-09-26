@@ -52,7 +52,7 @@ def Sum.annPart : T ⊕ K → K
 value-reading constructors, with the `cmpAgg` gate interpreted by the
 predicate provenance of the token against the comparison term, and the
 `chiGate` gate by the characteristic value of its comparison. -/
-def TermG.evalRew {n : ℕ} {κ : Fin n → ColKind} :
+def TermGIn.evalRew {n : ℕ} {κ : Fin n → ColKind} :
     TermG (T ⊕ K) κ → Tuple (GenValue (T ⊕ K) K) n → T ⊕ K
   | .const a, _ => a
   | .index k _, u => AggValue.collapseSum (u k)
@@ -66,6 +66,10 @@ def TermG.evalRew {n : ℕ} {κ : Fin n → ColKind} :
   | .add t₁ t₂, u => t₁.evalRew u + t₂.evalRew u
   | .sub t₁ t₂, u => t₁.evalRew u - t₂.evalRew u
   | .mul t₁ t₂, u => t₁.evalRew u * t₂.evalRew u
+
+namespace TermG
+export TermGIn (evalRew)
+end TermG
 
 /-- Projection-column evaluation in the rewritten world. -/
 def ProjCol.evalRew {n : ℕ} {κ : Fin n → ColKind}

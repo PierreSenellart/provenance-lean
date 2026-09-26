@@ -280,6 +280,7 @@ theorem TermG.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
     t.eval u = t.evalPlain (GenRow.specializeTuple v u) := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | cmpAgg k h op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | index k h =>
