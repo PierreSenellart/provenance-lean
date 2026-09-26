@@ -573,6 +573,93 @@ def countCmp (op : CompOp) (c : T) :
       Fin (k + 1) → ColKind) :=
   .aggCmp (Fin.natAdd k 0) (matchCount_kind 0) op (.const c)
 
+/-! ### What the semijoin and the antijoin compute -/
+
+/-- **Every row of the left arm appears in the left outer join**, matched
+or padded, so the grouping's keys are its distinct rows. -/
+theorem keys_leftOuter (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : Database T) :
+    (Multiset.map
+        (fun w : Tuple T (k + l) => (fun i => w (Fin.castAdd l i) : Tuple T k))
+        (show Multiset (Tuple T (k + l)) from
+          (leftOuter φ R Q).evaluatePlain d)).dedup
+      = (show Multiset (Tuple T k) from R.evaluatePlain d).dedup := by
+  have hsub : ∀ a : Tuple T k, a ∈ matchedLeft φ R Q d →
+      a ∈ (show Multiset (Tuple T k) from R.evaluatePlain d) :=
+    fun a ha => ((mem_matchedLeft φ R Q d a).mp ha).1
+  rw [Multiset.dedup_ext]
+  intro a
+  rw [evaluatePlain_leftOuter, Multiset.map_add, Multiset.map_map,
+    Multiset.mem_add]
+  constructor
+  · rintro (h | h)
+    · exact hsub a h
+    · obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp h
+      have : (fun i => (Fin.append u (fun _ : Fin l => ValueTypeNull.null))
+          (Fin.castAdd l i) : Tuple T k) = u := by
+        funext i; rw [Fin.append_left]
+      rw [Function.comp_apply, this]
+      exact (Multiset.mem_filter.mp hu).1
+  · intro ha
+    by_cases hm : a ∈ matchedLeft φ R Q d
+    · exact Or.inl hm
+    · refine Or.inr (Multiset.mem_map.mpr ⟨a, Multiset.mem_filter.mpr ⟨ha, hm⟩, ?_⟩)
+      show (fun i => (Fin.append a (fun _ : Fin l => ValueTypeNull.null))
+        (Fin.castAdd l i) : Tuple T k) = a
+      funext i; rw [Fin.append_left]
+
+/-- **A key's group in the left outer join is its matches, or the padded
+row when it has none.** Its `κ`-values are therefore all null exactly when
+the key has no match – which is what makes a count of them count the
+matches. -/
+theorem groupSeq_all_isNull_iff (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : Database T)
+    (hκ : ∀ v ∈ (show Multiset (Tuple T l) from Q.evaluatePlain d),
+      ValueType.isNull (v κ) = false)
+    (g : Tuple T k) :
+    (∀ x ∈ (Relation.groupSeq (fun i : Fin k => Fin.castAdd l i)
+        ((leftOuter φ R Q).evaluatePlain d) g).map
+          (Term.index (T := T) (Fin.natAdd k κ)).eval,
+        ValueType.isNull x = true)
+      ↔ g ∉ matchedLeft φ R Q d := by
+  have hval : ∀ w : Tuple T (k + l),
+      (Term.index (T := T) (Fin.natAdd k κ)).eval w = w (Fin.natAdd k κ) :=
+    fun _ => rfl
+  constructor
+  · intro hall hm
+    obtain ⟨hgR, v, hv, hφ⟩ := (mem_matchedLeft φ R Q d g).mp hm
+    have hin : Fin.append g v ∈
+        (show Multiset (Tuple T (k + l)) from (innerJoin φ R Q).evaluatePlain d) := by
+      unfold innerJoin
+      simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+      exact Multiset.mem_filter.mpr
+        ⟨Multiset.mem_map.mpr ⟨(g, v), Multiset.mem_product.mpr ⟨hgR, hv⟩, rfl⟩, hφ⟩
+    have hmem : Fin.append g v ∈ Multiset.filter
+        (fun w : Tuple T (k + l) => ∀ i : Fin k, w (Fin.castAdd l i) = g i)
+        ((leftOuter φ R Q).evaluatePlain d) := by
+      refine Multiset.mem_filter.mpr ⟨?_, fun i => by rw [Fin.append_left]⟩
+      rw [evaluatePlain_leftOuter]
+      exact Multiset.mem_add.mpr (Or.inl hin)
+    have := hall ((Fin.append g v) (Fin.natAdd k κ)) (List.mem_map.mpr
+      ⟨Fin.append g v, by rw [Relation.groupSeq]; exact (Multiset.mem_sort _).mpr hmem,
+        hval _⟩)
+    rw [Fin.append_right] at this
+    rw [hκ v hv] at this
+    exact Bool.noConfusion this
+  · intro hm x hx
+    obtain ⟨w, hw, rfl⟩ := List.mem_map.mp hx
+    rw [Relation.groupSeq, Multiset.mem_sort] at hw
+    obtain ⟨hwr, hwg⟩ := Multiset.mem_filter.mp hw
+    rw [evaluatePlain_leftOuter] at hwr
+    rcases Multiset.mem_add.mp hwr with hin | hpad
+    · exact absurd (Multiset.mem_map.mpr ⟨w, hin, funext hwg⟩) hm
+    · obtain ⟨u, _, rfl⟩ := Multiset.mem_map.mp hpad
+      rw [hval, Fin.append_right]
+      exact ValueTypeNull.isNull_null
+
 /-- **Semijoin**: the rows of the left arm that have a match, one copy of
 each – the grouping merges duplicates, as the definition in the semantics
 of the algebra does. -/
@@ -590,6 +677,111 @@ def antijoin (cnt : SeqAggFunc T) (κ : Fin l)
     AggQuery T k (ColKind.allReg k) :=
   (Proj (keyCols k) (Sel (countCmp CompOp.eq 0) (matchCount cnt κ φ R Q))).castKind
     (funext fun i => keyCols_kind i)
+
+/-- The count the grouping puts on a key: a count of the key's matches. -/
+theorem matchCount_row (cnt : SeqAggFunc T) (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : Database T) :
+    (matchCount cnt κ φ R Q).evaluatePlain d
+      = Multiset.map
+          (fun g : Tuple T k =>
+            (Fin.append g (fun _ : Fin 1 =>
+              cnt ((Relation.groupSeq (fun i : Fin k => Fin.castAdd l i)
+                ((leftOuter φ R Q).evaluatePlain d) g).map
+                  (Term.index (T := T) (Fin.natAdd k κ)).eval))
+              : Tuple T (k + 1)))
+          ((show Multiset (Tuple T k) from R.evaluatePlain d).dedup) := by
+  unfold matchCount
+  show Multiset.map _ (Multiset.dedup (Multiset.map _ _)) = _
+  rw [keys_leftOuter]
+  refine congrArg (Multiset.map · _) (funext fun g => ?_)
+  refine congrArg (Fin.append g) (funext fun j => ?_)
+  rw [show j = 0 from Subsingleton.elim j 0]
+  rfl
+
+/-- **What a semijoin computes**: the distinct rows of the left arm that
+have a match. -/
+theorem evaluatePlain_semijoin (cnt : SeqAggFunc T) (hc : Counts cnt)
+    (κ : Fin l) (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : Database T)
+    (hκ : ∀ v ∈ (show Multiset (Tuple T l) from Q.evaluatePlain d),
+      ValueType.isNull (v κ) = false) :
+    (semijoin cnt κ φ R Q).evaluatePlain d
+      = Multiset.filter (fun u => u ∈ matchedLeft φ R Q d)
+          ((show Multiset (Tuple T k) from R.evaluatePlain d).dedup) := by
+  have hcmp : ∀ g : Tuple T k,
+      (countCmp (k := k) CompOp.ne 0).holdsPlain
+          (Fin.append g (fun _ : Fin 1 =>
+            cnt ((Relation.groupSeq (fun i : Fin k => Fin.castAdd l i)
+              ((leftOuter φ R Q).evaluatePlain d) g).map
+                (Term.index (T := T) (Fin.natAdd k κ)).eval)))
+        ↔ g ∈ matchedLeft φ R Q d := by
+    intro g
+    show CompOp.ne.eval3 _ _ = Kleene.true ↔ _
+    rw [show (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1))
+        (Fin.natAdd k 0) = cnt _ from Fin.append_right _ _ 0]
+    simp only [TermG.evalPlain]
+    rw [CompOp.eval3_eq_true_iff CompOp.ne (hc.not_null _) ValueType.isNull_zero]
+    show ¬ (cnt _ = 0) ↔ _
+    rw [hc.eq_zero, groupSeq_all_isNull_iff κ φ R Q d hκ g, not_not]
+  unfold semijoin
+  rw [AggQuery.evaluatePlain_castKind]
+  show Multiset.map _ (Multiset.filter _ ((matchCount cnt κ φ R Q).evaluatePlain d)) = _
+  rw [matchCount_row, Multiset.filter_map, Multiset.map_map]
+  simp only [Function.comp_def]
+  rw [Multiset.filter_congr (fun g (_ : g ∈ (show Multiset (Tuple T k) from
+      R.evaluatePlain d).dedup) => hcmp g)]
+  refine Eq.trans (Multiset.map_congr rfl (fun g _ => ?_)) (Multiset.map_id _)
+  show (fun i => (keyCols k i).evalPlain
+      (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1)) : Tuple T k) = id g
+  funext i
+  show (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1))
+      (Fin.castAdd 1 i) = g i
+  rw [Fin.append_left]
+
+/-- **What an antijoin computes**: the distinct rows of the left arm with
+no match. By `mem_matchedLeft`, a row is kept exactly when no row of the
+right arm satisfies the join predicate with it. -/
+theorem evaluatePlain_antijoin (cnt : SeqAggFunc T) (hc : Counts cnt)
+    (κ : Fin l) (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : Database T)
+    (hκ : ∀ v ∈ (show Multiset (Tuple T l) from Q.evaluatePlain d),
+      ValueType.isNull (v κ) = false) :
+    (antijoin cnt κ φ R Q).evaluatePlain d
+      = Multiset.filter (fun u => u ∉ matchedLeft φ R Q d)
+          ((show Multiset (Tuple T k) from R.evaluatePlain d).dedup) := by
+  have hcmp : ∀ g : Tuple T k,
+      (countCmp (k := k) CompOp.eq 0).holdsPlain
+          (Fin.append g (fun _ : Fin 1 =>
+            cnt ((Relation.groupSeq (fun i : Fin k => Fin.castAdd l i)
+              ((leftOuter φ R Q).evaluatePlain d) g).map
+                (Term.index (T := T) (Fin.natAdd k κ)).eval)))
+        ↔ g ∉ matchedLeft φ R Q d := by
+    intro g
+    show CompOp.eq.eval3 _ _ = Kleene.true ↔ _
+    rw [show (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1))
+        (Fin.natAdd k 0) = cnt _ from Fin.append_right _ _ 0]
+    simp only [TermG.evalPlain]
+    rw [CompOp.eval3_eq_true_iff CompOp.eq (hc.not_null _) ValueType.isNull_zero]
+    show cnt _ = 0 ↔ _
+    rw [hc.eq_zero, groupSeq_all_isNull_iff κ φ R Q d hκ g]
+  unfold antijoin
+  rw [AggQuery.evaluatePlain_castKind]
+  show Multiset.map _ (Multiset.filter _ ((matchCount cnt κ φ R Q).evaluatePlain d)) = _
+  rw [matchCount_row, Multiset.filter_map, Multiset.map_map]
+  simp only [Function.comp_def]
+  rw [Multiset.filter_congr (fun g (_ : g ∈ (show Multiset (Tuple T k) from
+      R.evaluatePlain d).dedup) => hcmp g)]
+  refine Eq.trans (Multiset.map_congr rfl (fun g _ => ?_)) (Multiset.map_id _)
+  show (fun i => (keyCols k i).evalPlain
+      (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1)) : Tuple T k) = id g
+  funext i
+  show (Fin.append g (fun _ : Fin 1 => cnt _) : Tuple T (k + 1))
+      (Fin.castAdd 1 i) = g i
+  rw [Fin.append_left]
 
 end Semijoin
 
