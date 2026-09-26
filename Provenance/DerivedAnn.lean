@@ -291,6 +291,116 @@ theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂
   · rw [Fin.append_right, Fin.addCases_right]
     rfl
 
+/-- The `⊕`-sum of the annotations of the matches of a row of the right
+arm. -/
+def matchAnnRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
+    (d : AnnotatedDatabase T K) (v : Tuple T n₂) : K :=
+  (Multiset.map Prod.snd (Multiset.filter
+    (fun p : AnnotatedTuple T K (n₁ + n₂) =>
+      (fun j => p.1 (Fin.natAdd n₁ j) : Tuple T n₂) = v)
+    ((innerJoin φ q₁ q₂).evaluateAnnotated d))).sum
+
+/-- The right arm of the difference in a right outer join carries, on a
+tuple, the `⊕`-sum of the annotations of its matches. -/
+theorem annSum_lastCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
+    (d : AnnotatedDatabase T K) (v : Tuple T n₂) :
+    AnnotatedRelation.annSum
+      (((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+        (funext fun j => lastCols_kind n₁ n₂ j)).evaluateAnnotated d) v
+      = matchAnnRight φ q₁ q₂ d v := by
+  show AnnotatedRelation.annSum
+      ((((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+        (funext fun j => lastCols_kind n₁ n₂ j)).evaluate d).map
+          GenRow.toAnnotated) v = _
+  rw [AggQuery.evaluate_castKind]
+  show AnnotatedRelation.annSum
+      ((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) v = _
+  rw [evaluateAnnotated_Proj]
+  unfold AnnotatedRelation.annSum matchAnnRight
+  show (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map _
+    ((innerJoin φ q₁ q₂).evaluate d)))).sum
+    = (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map GenRow.toAnnotated
+        ((innerJoin φ q₁ q₂).evaluate d)))).sum
+  rw [Multiset.filter_map, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+  rfl
+
+/-- The padded part of a right outer join: the rows of the right arm,
+padded on the left, each subtracted the annotations of its matches. -/
+theorem evaluateAnnotated_rightUnmatched
+    (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
+    (rightUnmatched φ q₁ q₂).evaluateAnnotated d
+      = (Multiset.map (fun p : AnnotatedTuple T K n₂ =>
+          ((Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) p.1,
+            p.2 - matchAnnRight φ q₁ q₂ d p.1) :
+            AnnotatedTuple T K (n₁ + n₂)))
+          (show Multiset (AnnotatedTuple T K n₂) from q₂.evaluateAnnotated d)
+         : Multiset (AnnotatedTuple T K (n₁ + n₂))) := by
+  unfold rightUnmatched padLeft pad
+  show (((AggQuery.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
+  rw [AggQuery.evaluate_castKind]
+  show ((AggQuery.Proj _ _).evaluateAnnotated d) = _
+  rw [evaluateAnnotated_Proj, evaluate_Diff, Multiset.map_map]
+  simp only [Function.comp_def]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  rw [annSum_lastCols]
+  refine Prod.ext ?_ (by simp [GenRow.ofAnnotated])
+  funext j
+  show AggValue.collapseSum
+      ((padCol (Fin.addCases (fun _ => none) (fun i => some i) j)).eval
+        (GenRow.ofAnnotated (p.1, p.2 - matchAnnRight φ q₁ q₂ d p.1)).fst)
+    = Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) p.1 j
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.append_left, Fin.addCases_left]
+    rfl
+  · rw [Fin.append_right, Fin.addCases_right]
+    rfl
+
+/-- **What a right outer join annotates**, symmetrically. -/
+theorem evaluateAnnotated_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
+    (rightOuter φ q₁ q₂).evaluateAnnotated d
+      = (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+          (innerJoin φ q₁ q₂).evaluateAnnotated d)
+        + (Multiset.map (fun p : AnnotatedTuple T K n₂ =>
+            ((Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) p.1,
+              p.2 - matchAnnRight φ q₁ q₂ d p.1) :
+              AnnotatedTuple T K (n₁ + n₂)))
+            (show Multiset (AnnotatedTuple T K n₂) from q₂.evaluateAnnotated d)
+           : Multiset (AnnotatedTuple T K (n₁ + n₂))) := by
+  show (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+      (((innerJoin φ q₁ q₂).evaluate d
+        + (rightUnmatched φ q₁ q₂).evaluate d)).map GenRow.toAnnotated) = _
+  rw [Multiset.map_add]
+  exact congrArg (_ + ·) (evaluateAnnotated_rightUnmatched φ q₁ q₂ d)
+
+/-- **What a full outer join annotates**: the left outer join, and the rows
+of the right arm padded on the left, each subtracted the annotations of its
+matches. -/
+theorem evaluateAnnotated_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
+    (fullOuter φ q₁ q₂).evaluateAnnotated d
+      = (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+          (leftOuter φ q₁ q₂).evaluateAnnotated d)
+        + (Multiset.map (fun p : AnnotatedTuple T K n₂ =>
+            ((Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) p.1,
+              p.2 - matchAnnRight φ q₁ q₂ d p.1) :
+              AnnotatedTuple T K (n₁ + n₂)))
+            (show Multiset (AnnotatedTuple T K n₂) from q₂.evaluateAnnotated d)
+           : Multiset (AnnotatedTuple T K (n₁ + n₂))) := by
+  show (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+      (((leftOuter φ q₁ q₂).evaluate d
+        + (rightUnmatched φ q₁ q₂).evaluate d)).map GenRow.toAnnotated) = _
+  rw [Multiset.map_add]
+  exact congrArg (_ + ·) (evaluateAnnotated_rightUnmatched φ q₁ q₂ d)
+
 end Outer
 
 end AggQuery
