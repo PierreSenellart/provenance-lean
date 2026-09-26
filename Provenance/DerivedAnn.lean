@@ -21,11 +21,15 @@ support over `𝔹`, and annotates them by a difference of differences
 instead.
 -/
 
-variable {T : Type} [ValueType T]
+variable {T : Type}
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] {n : ℕ}
 
 namespace AggQuery
+
+section Core
+
+variable [ValueType T]
 
 /-- The `⊕`-sum of the annotations a query gives one tuple: what
 duplicate elimination accumulates on it. -/
@@ -33,6 +37,35 @@ def annSum (q : AggQuery T n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (u : Tuple T n) : K :=
   (Multiset.map Prod.snd (Multiset.filter
     (fun p : AnnotatedTuple T K n => p.1 = u) (q.evaluateAnnotated d))).sum
+
+/-- The `⊕`-sum of the annotations one tuple carries in an annotated
+relation. -/
+def _root_.AnnotatedRelation.annSum (r : AnnotatedRelation T K n)
+    (u : Tuple T n) : K :=
+  (Multiset.map Prod.snd
+    (Multiset.filter (fun p : AnnotatedTuple T K n => p.1 = u) r)).sum
+
+theorem annSum_eq (q : AggQuery T n (ColKind.allReg n))
+    (d : AnnotatedDatabase T K) (u : Tuple T n) :
+    annSum q d u = (q.evaluateAnnotated d).annSum u := rfl
+
+/-- **Difference subtracts, from each row of the left arm, the `⊕`-sum of
+the annotations its tuple carries on the right.** No row is removed: a row
+whose tuple is matched is kept with a monus, which is what ProvSQL
+emits. -/
+theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
+    (d : AnnotatedDatabase T K) :
+    (AggQuery.Diff q₁ q₂).evaluate d
+      = (q₁.evaluateAnnotated d).map (fun p =>
+          GenRow.ofAnnotated
+            (p.1, p.2 - (q₂.evaluateAnnotated d).annSum p.1)) := by
+  show (Multiset.map _ ((q₁.evaluate d).map GenRow.toAnnotated)).map
+      GenRow.ofAnnotated = _
+  rw [Multiset.map_map]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  show GenRow.ofAnnotated (p.1, p.2 - _) = _
+  rw [groupByKey_find_eq_filter_sum]
+  rfl
 
 /-- **Duplicate elimination keeps one copy of each tuple, carrying the
 `⊕`-sum of its copies' annotations.** -/
@@ -59,6 +92,27 @@ private theorem product_map_map {α β γ δ : Type} (f : α → γ) (g : β →
       show (a ::ₘ A).product B = (a ::ₘ A) ×ˢ B from rfl, Multiset.cons_product,
       Multiset.map_add, Multiset.map_map, Multiset.map_map]
     rfl
+
+/-- **A projection carries the finalized annotation across.** What it
+cashes of the pending factors, for the groups whose token columns it
+drops, it takes out of the pending part and multiplies into the concrete
+one, so the two together are unchanged. -/
+theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
+    (ps : Tuple (ProjCol T κ) m) (q : AggQuery T n κ)
+    (d : AnnotatedDatabase T K) :
+    (AggQuery.Proj ps q).evaluateAnnotated d
+      = (q.evaluate d).map (fun r =>
+          ((fun j => AggValue.collapseSum ((ps j).eval r.fst), r.snd.finalize)
+            : AnnotatedTuple T K m)) := by
+  show ((AggQuery.Proj ps q).evaluate d).map GenRow.toAnnotated = _
+  show (Multiset.map _ (q.evaluate d)).map GenRow.toAnnotated = _
+  rw [Multiset.map_map]
+  refine Multiset.map_congr rfl (fun r _ => ?_)
+  refine Prod.ext rfl ?_
+  show r.snd.base * _ * _ = r.snd.finalize
+  unfold GenAnn.finalize
+  rw [mul_assoc, ← Multiset.prod_add, ← Multiset.map_add,
+    tsub_add_cancel_of_le (Multiset.inter_le_left)]
 
 /-- A selection without an aggregate atom filters. -/
 theorem evaluate_Sel_of_noAgg {κ : Fin n → ColKind} (φ : GenPred T κ)
@@ -145,5 +199,98 @@ theorem evaluateAnnotated_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
     rfl
   · show GenAnn.finalize _ = _
     simp [GenAnn.finalize, GenRow.ofAnnotated]
+
+end Core
+
+/-! ## Outer joins -/
+
+section Outer
+
+variable [ValueTypeNull T] {n₁ n₂ : ℕ}
+
+/-- **The `⊕`-sum of the annotations of a row's matches**, over the matches
+of *every copy* of its tuple – the difference the padded copy goes through
+is per tuple and syntactic. -/
+def matchAnn (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
+    (d : AnnotatedDatabase T K) (u : Tuple T n₁) : K :=
+  (Multiset.map Prod.snd (Multiset.filter
+    (fun p : AnnotatedTuple T K (n₁ + n₂) =>
+      (fun j => p.1 (Fin.castAdd n₂ j) : Tuple T n₁) = u)
+    ((innerJoin φ q₁ q₂).evaluateAnnotated d))).sum
+
+/-- The right arm of the difference in a left outer join carries, on a
+tuple, the `⊕`-sum of the annotations of its matches. -/
+theorem annSum_firstCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
+    (d : AnnotatedDatabase T K) (u : Tuple T n₁) :
+    (((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+        (funext fun i => firstCols_kind n₁ n₂ i)).evaluateAnnotated d).annSum u
+      = matchAnn φ q₁ q₂ d u := by
+  show AnnotatedRelation.annSum
+      ((((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+        (funext fun i => firstCols_kind n₁ n₂ i)).evaluate d).map
+          GenRow.toAnnotated) u = _
+  rw [AggQuery.evaluate_castKind]
+  show AnnotatedRelation.annSum
+      ((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) u = _
+  rw [evaluateAnnotated_Proj]
+  unfold AnnotatedRelation.annSum matchAnn
+  show (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map _
+    ((innerJoin φ q₁ q₂).evaluate d)))).sum
+    = (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map GenRow.toAnnotated
+        ((innerJoin φ q₁ q₂).evaluate d)))).sum
+  rw [Multiset.filter_map, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+  rfl
+
+/-- **What a left outer join annotates**: a matching pair by the product of
+the two annotations, and a padded row of the left arm by `α ⊖ ⊕(α' ⊗ β)`,
+the sum over the matches of *every copy* of its tuple – the tuple is
+unmatched in the worlds where none of its matches is present.
+
+The subtracted form is the definition. `α ⊗ (𝟙 ⊖ ⊕β)`, the form one would
+expect, is equal to it when `⊗` distributes over `⊖` and `K` is absorptive,
+and not in general. -/
+theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : AnnotatedDatabase T K) :
+    (leftOuter φ q₁ q₂).evaluateAnnotated d
+      = (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+          (innerJoin φ q₁ q₂).evaluateAnnotated d)
+        + (Multiset.map (fun p : AnnotatedTuple T K n₁ =>
+            ((Fin.append p.1 (fun _ : Fin n₂ => ValueTypeNull.null),
+              p.2 - matchAnn φ q₁ q₂ d p.1) :
+              AnnotatedTuple T K (n₁ + n₂)))
+            (show Multiset (AnnotatedTuple T K n₁) from q₁.evaluateAnnotated d)
+           : Multiset (AnnotatedTuple T K (n₁ + n₂))) := by
+  show (show Multiset (AnnotatedTuple T K (n₁ + n₂)) from
+      (((innerJoin φ q₁ q₂).evaluate d
+        + (leftUnmatched φ q₁ q₂).evaluate d)).map GenRow.toAnnotated) = _
+  rw [Multiset.map_add]
+  refine congrArg (_ + ·) ?_
+  show ((leftUnmatched φ q₁ q₂).evaluateAnnotated d) = _
+  unfold leftUnmatched padRight pad
+  show (((AggQuery.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
+  rw [AggQuery.evaluate_castKind]
+  show ((AggQuery.Proj _ _).evaluateAnnotated d) = _
+  rw [evaluateAnnotated_Proj, evaluate_Diff, Multiset.map_map]
+  simp only [Function.comp_def]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  rw [annSum_firstCols]
+  refine Prod.ext ?_ (by simp [GenRow.ofAnnotated])
+  funext j
+  show AggValue.collapseSum
+      ((padCol (Fin.addCases (fun i => some i) (fun _ => none) j)).eval
+        (GenRow.ofAnnotated (p.1, p.2 - matchAnn φ q₁ q₂ d p.1)).fst)
+    = Fin.append p.1 (fun _ : Fin n₂ => ValueTypeNull.null) j
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.append_left, Fin.addCases_left]
+    rfl
+  · rw [Fin.append_right, Fin.addCases_right]
+    rfl
+
+end Outer
 
 end AggQuery
