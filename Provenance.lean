@@ -602,7 +602,16 @@ proven engine several general results reuse internally.
   `seqOf_injective`), the factored world annotation (`worldAnn`), the
   predicate provenance (`havingProv`) with
   its attachment to the query-free algebra (`havingProv_eq_prov`), and
-  Boolean combinations of aggregate comparisons (`HavingPred`)
+  Boolean combinations of aggregate comparisons (`HavingPred`).
+  **Existential comparisons collapse to the qualifying occurrences**
+  (`havingProv_existential3`): in an absorptive m-semiring the provenance of
+  `f(t) op c` is the `⊕`-sum of the annotations of the occurrences whose
+  value makes the comparison *true*. It holds over a domain with a null as
+  it stands, and SQL's own `MIN` and `MAX` are existential in that reading
+  (`Existential.sqlOf3`, `existential3_sqlOf_min_le` and its three
+  companions) – the values the aggregate skips being exactly the values a
+  strict comparison is unknown on, an occurrence with a null value is in no
+  world's reason for the predicate holding
 - `Provenance.HavingMinMax` – the `HAVING` aggregate comparisons whose validity
   is decided occurrence by occurrence: for `MIN`, `MAX` and `PICKFIRST`, and for
   all six comparison operators, the possible-world provenance of a group

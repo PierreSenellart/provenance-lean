@@ -662,28 +662,48 @@ satisfies `x op c`. -/
 def Existential (f : SeqAggFunc T) (op : CompOp) : Prop :=
   ∀ (L : List T) (c : T), L ≠ [] → (op.eval (f L) c ↔ ∃ x ∈ L, op.eval x c)
 
--- `Existential` is two-valued, so the collapse below is stated over a
--- domain where nothing is null. What an existential comparison collapses to
--- when the aggregated values may be null is a separate question: the
--- aggregate skips them (`SeqAggFunc.sqlOf`) while the comparison does not.
+/-- **An aggregate comparison is existential, read three-valuedly**: on a
+non-empty sequence, `f L op c` is *true* exactly when some element `x` of
+`L` makes `x op c` true. This is the reading SQL's aggregates need: the
+aggregate skips the nulls while the comparison is unknown on them, and both
+readings agree on this – an occurrence whose value is null neither reaches
+the aggregate nor satisfies the comparison. -/
+def Existential3 (f : SeqAggFunc T) (op : CompOp) : Prop :=
+  ∀ (L : List T) (c : T), L ≠ [] →
+    (op.eval3 (f L) c = Kleene.true ↔ ∃ x ∈ L, op.eval3 x c = Kleene.true)
+
+/-- Where nothing is null the two readings agree. -/
+theorem Existential.to3 [NoNulls T] {f : SeqAggFunc T} {op : CompOp}
+    (hf : Existential f op) : Existential3 f op := by
+  intro L c hL
+  rw [CompOp.eval3_eq_true_iff_noNulls]
+  refine Iff.trans (hf L c hL) (exists_congr (fun x => ?_))
+  exact and_congr Iff.rfl (CompOp.eval3_eq_true_iff_noNulls op x c).symm
 
 omit [DecidableEq K] in
 /-- **Existential comparisons collapse to the qualifying occurrences.** In
 an absorptive m-semiring, the predicate provenance of an existential
 comparison `f(t) op c` on the group sequence `U` is the `⊕`-sum of the
-annotations of the occurrences whose `t`-value satisfies `x op c`. No
-distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`). -/
-theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
+annotations of the occurrences whose `t`-value makes `x op c` *true*. No
+distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`).
+
+An occurrence whose value is null contributes nothing, and rightly: SQL's
+aggregate skips it and the comparison is unknown on it, so it is in no
+world's reason for the predicate holding. -/
+theorem havingProv_existential3 (h_abs : absorptive K)
     {f : SeqAggFunc T} {op : CompOp}
-    (hf : Existential f op) (U : List (AnnotatedTuple T K m)) (t : Term T m) (c : T) :
+    (hf : Existential3 f op) (U : List (AnnotatedTuple T K m)) (t : Term T m)
+    (c : T) :
     havingProv U t f op c
-      = ((Multiset.filter (fun p : AnnotatedTuple T K m => op.eval (t.eval p.fst) c)
+      = ((Multiset.filter (fun p : AnnotatedTuple T K m =>
+            op.eval3 (t.eval p.fst) c = Kleene.true)
           (↑U : Multiset (AnnotatedTuple T K m))).map Prod.snd).sum := by
   set H : Finset (Fin U.length) :=
-    Finset.univ.filter (fun i => op.eval (t.eval (U.get i).fst) c) with hH
+    Finset.univ.filter (fun i => op.eval3 (t.eval (U.get i).fst) c = Kleene.true)
+    with hH
   -- the comparison holds in a non-empty world iff the world meets `H`
   have hiff : ∀ W : Finset (Fin U.length), W.Nonempty →
-      (op.eval (aggValOn U t f W) c ↔ (W ∩ H).Nonempty) := by
+      (op.eval3 (aggValOn U t f W) c = Kleene.true ↔ (W ∩ H).Nonempty) := by
     intro W hW
     have hne : ((seqOf U W).map (fun p => t.eval p.fst)) ≠ [] := by
       apply List.ne_nil_of_length_pos
@@ -709,7 +729,8 @@ theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
     rw [Finset.powerset_univ, Finset.sum_filter, Finset.sum_filter]
     refine Finset.sum_congr rfl fun W _ => ?_
     by_cases hW : W.Nonempty
-    · rw [ite_eq_left hW, chi_eq_ite_of_noNulls, worldAnn_eq_ann]
+    · rw [ite_eq_left hW, worldAnn_eq_ann]
+      simp only [chi]
       by_cases hmeet : (W ∩ H).Nonempty
       · rw [ite_eq_left hmeet, ite_eq_left ((hiff W hW).mpr hmeet), mul_one]
       · rw [ite_eq_right hmeet, ite_eq_right (fun h => hmeet ((hiff W hW).mp h)), mul_zero]
@@ -717,6 +738,22 @@ theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
       exact fun hmeet => hW (hmeet.mono Finset.inter_subset_left)
   rw [hsum, sum_ann_meet h_abs _ (Finset.subset_univ H), hH, Finset.sum_filter,
     sum_map_filter_coe]
+
+omit [DecidableEq K] in
+/-- The same over a domain where nothing is null, the comparison then being
+two-valued. -/
+theorem havingProv_existential [NoNulls T] (h_abs : absorptive K)
+    {f : SeqAggFunc T} {op : CompOp}
+    (hf : Existential f op) (U : List (AnnotatedTuple T K m)) (t : Term T m)
+    (c : T) :
+    havingProv U t f op c
+      = ((Multiset.filter (fun p : AnnotatedTuple T K m => op.eval (t.eval p.fst) c)
+          (↑U : Multiset (AnnotatedTuple T K m))).map Prod.snd).sum := by
+  rw [havingProv_existential3 (K := K) h_abs hf.to3 U t c]
+  refine congrArg (fun M : Multiset (AnnotatedTuple T K m) =>
+    (M.map Prod.snd).sum) ?_
+  exact Multiset.filter_congr (fun q _ =>
+    CompOp.eval3_eq_true_iff_noNulls op (t.eval q.fst) c)
 
 /-- `MIN` over a non-empty sequence is below `c` iff some element is. -/
 theorem foldr_min_le_iff {V : Type} [LinearOrder V] (x c : V) :
@@ -793,6 +830,105 @@ theorem existential_max_gt : Existential (SeqAggFunc.max (T := T)) CompOp.gt := 
     show (c < xs.foldr max x) ↔ ∃ y ∈ x :: xs, (c < y)
     rw [lt_foldr_max_iff]
     simp only [List.mem_cons, exists_eq_or_imp]
+
+/-! ### SQL's aggregates are existential too
+
+`MIN` and `MAX` as SQL reads them skip the nulls and answer `NULL` over what
+is left of nothing. That does not disturb the collapse: the values the
+aggregate skips are exactly the values a strict comparison is unknown on, so
+the occurrences that qualify are the same either way. -/
+
+/-- **SQL's reading of an aggregate that returns one of its inputs is
+existential**, three-valuedly, whenever the aggregate is. The two ways a
+null can enter agree: it is dropped before the aggregate sees it, and it
+makes the comparison unknown. -/
+theorem Existential.sqlOf3 {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
+    {op : CompOp} (hs : op.strict = true)
+    (hmem : ∀ {L : List V}, L ≠ [] → f L ∈ L)
+    (hf : Existential f op) : Existential3 f.sqlOf op := by
+  intro L c _
+  by_cases hc : ValueType.isNull c = true
+  · rw [CompOp.eval3_of_isNull_right hs _ hc]
+    constructor
+    · exact fun h => Kleene.noConfusion h
+    · rintro ⟨x, -, hx⟩
+      rw [CompOp.eval3_of_isNull_right hs _ hc] at hx
+      exact Kleene.noConfusion hx
+  -- an occurrence with a null value neither reaches the aggregate nor
+  -- satisfies the comparison
+  have hnull : ∀ x : V, x = ValueTypeNull.null → op.eval3 x c ≠ Kleene.true := by
+    intro x hx h
+    rw [hx, CompOp.eval3_of_isNull_left hs ValueTypeNull.isNull_null] at h
+    exact Kleene.noConfusion h
+  rcases SeqAggFunc.sqlOf_mem_or_null f hmem L with hq | ⟨hqmem, hqne⟩
+  · -- the aggregate is null: nothing of the sequence is left for it
+    rw [hq, CompOp.eval3_of_isNull_left hs ValueTypeNull.isNull_null]
+    constructor
+    · exact fun h => Kleene.noConfusion h
+    · have hemp : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) = [] := by
+        by_contra hne
+        have hm := hmem hne
+        have hnn : f (L.filter (fun a => decide (a ≠ ValueTypeNull.null)))
+            ≠ ValueTypeNull.null := by simpa using (List.mem_filter.mp hm).2
+        have hsq : f.sqlOf L
+            = f (L.filter (fun a => decide (a ≠ ValueTypeNull.null))) := by
+          unfold SeqAggFunc.sqlOf
+          rw [ite_eq_right (by simpa using hne)]
+        exact hnn (hsq.symm.trans hq)
+      rintro ⟨x, hxL, hx⟩
+      have hxn : x = ValueTypeNull.null := by
+        by_contra hxc
+        have hmem' : x ∈ L.filter (fun a => decide (a ≠ ValueTypeNull.null)) :=
+          List.mem_filter.mpr ⟨hxL, by simpa using hxc⟩
+        rw [hemp] at hmem'
+        exact absurd hmem' (List.not_mem_nil)
+      exact absurd hx (hnull x hxn)
+  · -- the aggregate is one of the non-null values
+    have hqnn : ValueType.isNull (f.sqlOf L) = false := by
+      rw [ValueTypeNull.isNull_iff]; simpa using hqne
+    have hcnn : ValueType.isNull c = false := by simpa using hc
+    have hfil : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) ≠ [] := by
+      intro hc'
+      apply hqne
+      unfold SeqAggFunc.sqlOf
+      rw [hc']
+      rfl
+    have hsq : f.sqlOf L = f (L.filter (fun a => decide (a ≠ ValueTypeNull.null))) := by
+      unfold SeqAggFunc.sqlOf
+      rw [ite_eq_right (by simpa using hfil)]
+    rw [CompOp.eval3_eq_true_iff op hqnn hcnn, hsq, hf _ c hfil]
+    constructor
+    · rintro ⟨x, hx, hxc⟩
+      obtain ⟨hxL, hxn⟩ := List.mem_filter.mp hx
+      refine ⟨x, hxL, ?_⟩
+      rw [CompOp.eval3_eq_true_iff op (by rw [ValueTypeNull.isNull_iff]; simpa using hxn) hcnn]
+      exact hxc
+    · rintro ⟨x, hxL, hxc⟩
+      have hxn : ¬ (x = ValueTypeNull.null) := fun hx => hnull x hx hxc
+      refine ⟨x, List.mem_filter.mpr ⟨hxL, by simpa using hxn⟩, ?_⟩
+      rw [CompOp.eval3_eq_true_iff op (by rw [ValueTypeNull.isNull_iff]; simpa using hxn)
+        hcnn] at hxc
+      exact hxc
+
+/-- SQL's `MIN(t) ≤ c` is existential. -/
+theorem existential3_sqlOf_min_le {V : Type} [ValueTypeNull V] :
+    Existential3 (SeqAggFunc.min (T := V)).sqlOf CompOp.le :=
+  Existential.sqlOf3 rfl (fun h => SeqAggFunc.min_mem h) existential_min_le
+
+/-- SQL's `MIN(t) < c` is existential. -/
+theorem existential3_sqlOf_min_lt {V : Type} [ValueTypeNull V] :
+    Existential3 (SeqAggFunc.min (T := V)).sqlOf CompOp.lt :=
+  Existential.sqlOf3 rfl (fun h => SeqAggFunc.min_mem h) existential_min_lt
+
+/-- SQL's `MAX(t) ≥ c` is existential. -/
+theorem existential3_sqlOf_max_ge {V : Type} [ValueTypeNull V] :
+    Existential3 (SeqAggFunc.max (T := V)).sqlOf CompOp.ge :=
+  Existential.sqlOf3 rfl (fun h => SeqAggFunc.max_mem h) existential_max_ge
+
+/-- SQL's `MAX(t) > c` is existential. -/
+theorem existential3_sqlOf_max_gt {V : Type} [ValueTypeNull V] :
+    Existential3 (SeqAggFunc.max (T := V)).sqlOf CompOp.gt :=
+  Existential.sqlOf3 rfl (fun h => SeqAggFunc.max_mem h) existential_max_gt
 
 end Having
 

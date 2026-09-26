@@ -561,6 +561,59 @@ private theorem isEmpty_congr {α : Type} {l l' : List α} (h : l.Perm l') :
     | nil => exact absurd h.length_eq (by simp)
     | cons b bs => rfl
 
+/-! ### `MIN` and `MAX` return one of their inputs -/
+
+private theorem foldr_min_mem (x : T) :
+    ∀ xs : List T, xs.foldr Min.min x ∈ x :: xs
+  | [] => List.mem_cons_self
+  | y :: ys => by
+    rw [List.foldr_cons]
+    rcases min_cases y (ys.foldr Min.min x) with ⟨h, -⟩ | ⟨h, -⟩
+    · rw [h]; exact List.mem_cons_of_mem x List.mem_cons_self
+    · rw [h]
+      rcases List.mem_cons.mp (foldr_min_mem x ys) with h' | h'
+      · rw [h']; exact List.mem_cons_self
+      · exact List.mem_cons_of_mem x (List.mem_cons_of_mem y h')
+
+private theorem foldr_max_mem (x : T) :
+    ∀ xs : List T, xs.foldr Max.max x ∈ x :: xs
+  | [] => List.mem_cons_self
+  | y :: ys => by
+    rw [List.foldr_cons]
+    rcases max_cases y (ys.foldr Max.max x) with ⟨h, -⟩ | ⟨h, -⟩
+    · rw [h]; exact List.mem_cons_of_mem x List.mem_cons_self
+    · rw [h]
+      rcases List.mem_cons.mp (foldr_max_mem x ys) with h' | h'
+      · rw [h']; exact List.mem_cons_self
+      · exact List.mem_cons_of_mem x (List.mem_cons_of_mem y h')
+
+/-- **`MIN` over a non-empty sequence is one of its values.** -/
+theorem min_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.min L ∈ L := by
+  cases L with
+  | nil => exact absurd rfl hL
+  | cons x xs => exact foldr_min_mem x xs
+
+/-- **`MAX` over a non-empty sequence is one of its values.** -/
+theorem max_mem {L : List T} (hL : L ≠ []) : SeqAggFunc.max L ∈ L := by
+  cases L with
+  | nil => exact absurd rfl hL
+  | cons x xs => exact foldr_max_mem x xs
+
+/-- **SQL's reading of an aggregate that returns one of its inputs** gives a
+non-null value of the sequence, unless the sequence has none to give. -/
+theorem sqlOf_mem_or_null {V : Type} [ValueTypeNull V] (f : SeqAggFunc V)
+    (hmem : ∀ {L : List V}, L ≠ [] → f L ∈ L) (L : List V) :
+    f.sqlOf L = ValueTypeNull.null
+      ∨ (f.sqlOf L ∈ L ∧ f.sqlOf L ≠ ValueTypeNull.null) := by
+  unfold SeqAggFunc.sqlOf
+  by_cases h : (L.filter (fun a => decide (a ≠ ValueTypeNull.null))).isEmpty = true
+  · exact Or.inl (by rw [ite_eq_left h])
+  · rw [ite_eq_right h]
+    have hne : L.filter (fun a => decide (a ≠ ValueTypeNull.null)) ≠ [] := by
+      intro hc; rw [hc] at h; simp at h
+    have hm := hmem hne
+    exact Or.inr ⟨List.mem_of_mem_filter hm, by simpa using (List.mem_filter.mp hm).2⟩
+
 /-- **SQL's reading preserves symmetry**: skipping the nulls and answering
 `NULL` over what is left of nothing does not look at the order. -/
 theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
