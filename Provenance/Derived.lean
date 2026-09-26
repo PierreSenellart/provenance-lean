@@ -492,14 +492,29 @@ nulls.
 
 The counting aggregate is a parameter. An aggregate maps a sequence of
 values of the domain to a value of the domain, so a domain that is to
-count has to hold the counts; `SeqAggFunc.count` is the instance at `ℕ`.
-Over the counts the two selections are complementary, `= 0` and `≠ 0`
-standing for SQL's `= 0` and `≥ 1`.
+count has to hold the counts. Over the counts the two selections are
+complementary, `= 0` and `≠ 0` standing for SQL's `= 0` and `≥ 1`.
+
+**The aggregate has to be the one that skips the nulls**, which is SQL's
+`count(e)` and not the catalog's `SeqAggFunc.count`: the latter is
+`List.length`, and it would count the padded row of an unmatched left row
+as a match, making every row of the left arm pass the semijoin. What is
+needed of it is `Counts` below.
 -/
+
 
 section Semijoin
 
 variable [ValueTypeNull T] {k l : ℕ}
+
+/-- What it takes for an aggregate to count matches: it is never null, and
+it is zero exactly when it has no non-null value to count. SQL's `count(e)`
+is such an aggregate. -/
+structure Counts (cnt : SeqAggFunc T) : Prop where
+  /-- A count is a value, never a null. -/
+  not_null : ∀ L : List T, ValueType.isNull (cnt L) = false
+  /-- A count is zero exactly over nothing but nulls. -/
+  eq_zero : ∀ L : List T, cnt L = 0 ↔ ∀ x ∈ L, ValueType.isNull x = true
 
 /-- The left outer join of the two arms, grouped by the columns of the
 left one, with a count of the matches in the added column. -/
