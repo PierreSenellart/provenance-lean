@@ -64,6 +64,59 @@ def padLeft (l : ℕ)
     AggQuery T (l + n) (ColKind.allReg (l + n)) :=
   pad (Fin.addCases (fun _ => none) (fun i => some i)) q
 
+/-- **What padding computes**: the rows of `q`, each read through `π` –
+the column `π` names, or the null where it names none. -/
+theorem evaluatePlain_pad (π : Fin m → Option (Fin n))
+    (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
+    (pad π q).evaluatePlain d
+      = (q.evaluatePlain d).map (fun u => (fun j =>
+          match π j with
+          | some k => u k
+          | none => ValueTypeNull.null : Tuple T m)) := by
+  unfold pad
+  rw [AggQuery.evaluatePlain_castKind]
+  refine congrArg (Multiset.map · _) (funext fun u => funext fun j => ?_)
+  show (padCol (π j)).evalPlain u = _
+  cases π j <;> rfl
+
+/-- Padding on the right keeps every column of `q` and appends nulls. -/
+theorem evaluatePlain_padRight (l : ℕ)
+    (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
+    (padRight l q).evaluatePlain d
+      = (q.evaluatePlain d).map (fun u =>
+          (Fin.append u (fun _ : Fin l => ValueTypeNull.null) : Tuple T (n + l))) := by
+  unfold padRight
+  rw [evaluatePlain_pad]
+  refine congrArg (Multiset.map · _) (funext fun u => funext fun j => ?_)
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.append_left]
+    show (match Fin.addCases (fun i => some i) (fun _ => none) (Fin.castAdd l i) with
+      | some k => u k | none => ValueTypeNull.null) = u i
+    rw [Fin.addCases_left]
+  · rw [Fin.append_right]
+    show (match Fin.addCases (fun i => some i) (fun _ => none) (Fin.natAdd n i) with
+      | some k => u k | none => ValueTypeNull.null) = ValueTypeNull.null
+    rw [Fin.addCases_right]
+
+/-- Padding on the left prepends nulls. -/
+theorem evaluatePlain_padLeft (l : ℕ)
+    (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
+    (padLeft l q).evaluatePlain d
+      = (q.evaluatePlain d).map (fun u =>
+          (Fin.append (fun _ : Fin l => ValueTypeNull.null) u : Tuple T (l + n))) := by
+  unfold padLeft
+  rw [evaluatePlain_pad]
+  refine congrArg (Multiset.map · _) (funext fun u => funext fun j => ?_)
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.append_left]
+    show (match Fin.addCases (fun _ => none) (fun i => some i) (Fin.castAdd n i) with
+      | some k => u k | none => ValueTypeNull.null) = ValueTypeNull.null
+    rw [Fin.addCases_left]
+  · rw [Fin.append_right]
+    show (match Fin.addCases (fun _ => none) (fun i => some i) (Fin.natAdd l i) with
+      | some k => u k | none => ValueTypeNull.null) = u i
+    rw [Fin.addCases_right]
+
 end Padding
 
 /-! ## Intersection -/
@@ -112,6 +165,39 @@ theorem append_allReg (a b : ℕ) :
   · rw [Fin.append_left]; rfl
   · rw [Fin.append_right]; rfl
 
+/-- A product filtered to its diagonal, where the right side has no
+duplicate: the left rows that occur on the right, once each. -/
+theorem filter_product_diag {α : Type} [DecidableEq α]
+    (A B : Multiset α) (hB : B.Nodup)
+    (P' : α × α → Prop) (inst : DecidablePred P')
+    (hP : ∀ a b : α, P' (a, b) ↔ a = b) :
+    @Multiset.filter _ P' inst (A.product B)
+      = (A.filter (fun a => a ∈ B)).map (fun a => (a, a)) := by
+  let _ := inst
+  induction A using Multiset.induction_on with
+  | empty => rfl
+  | cons a A ih =>
+    have hfil : Multiset.filter (fun b => P' (a, b)) B
+        = if a ∈ B then {a} else 0 := by
+      rw [Multiset.filter_congr (fun b _ => hP a b)]
+      by_cases ha : a ∈ B
+      · rw [ite_eq_left ha, Multiset.filter_eq B a,
+          Multiset.count_eq_one_of_mem hB ha]
+        rfl
+      · rw [ite_eq_right ha, Multiset.filter_eq B a,
+          Multiset.count_eq_zero.mpr ha]
+        rfl
+    have hhead : @Multiset.filter _ P' inst (Multiset.map (Prod.mk a) B)
+        = if a ∈ B then {(a, a)} else 0 := by
+      rw [Multiset.filter_map]
+      simp only [Function.comp_def]
+      rw [hfil]
+      by_cases ha : a ∈ B <;> simp [ha]
+    rw [show (a ::ₘ A).product B = (a ::ₘ A) ×ˢ B from rfl,
+      Multiset.cons_product, Multiset.filter_add, hhead,
+      show A ×ˢ B = A.product B from rfl, ih, Multiset.filter_cons]
+    by_cases ha : a ∈ B <;> simp [ha]
+
 /-- **Intersection**, SQL's `INTERSECT`: one copy of each tuple the two
 arms share, matched syntactically. Its annotation is the product of the
 two `⊕`-sums, one per arm – the provenance of a conjunction of the two
@@ -122,6 +208,52 @@ def inter (q₁ q₂ : AggQuery T n (ColKind.allReg n)) :
     (Sel (interCond n)
       ((Prod (Dedup q₁) (Dedup q₂)).castKind (append_allReg n n))))
   |>.castKind (funext fun i => fstBlock_kind n i)
+
+/-- The join condition of `inter` holds on a pair exactly when the two
+blocks are the same tuple. -/
+theorem interCond_holdsPlain (u v : Tuple T n) :
+    (interCond (T := T) n).holdsPlain (Fin.append u v) ↔ u = v := by
+  rw [interCond, keyJoinCond_holdsPlain]
+  constructor
+  · intro h
+    funext k
+    have := h k
+    rwa [Fin.append_left, Fin.append_right] at this
+  · rintro rfl k
+    rw [Fin.append_left, Fin.append_right]
+
+/-- **What intersection computes**: one copy of each tuple the two arms
+share, matched syntactically. -/
+theorem evaluatePlain_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
+    (d : Database T) :
+    (inter q₁ q₂).evaluatePlain d
+      = Multiset.filter
+          (fun u : Tuple T n =>
+            u ∈ (show Multiset (Tuple T n) from q₂.evaluatePlain d))
+          ((show Multiset (Tuple T n) from q₁.evaluatePlain d).dedup) := by
+  unfold inter
+  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  rw [show ∀ A B : Relation T n, A * B
+      = Multiset.map (fun p : Tuple T n × Tuple T n => Fin.append p.1 p.2)
+          (A.product B) from fun _ _ => rfl,
+    Multiset.filter_map]
+  rw [Multiset.filter_congr (fun p (_ : p ∈ (q₁.evaluatePlain d).dedup.product
+      (q₂.evaluatePlain d).dedup) =>
+    show ((interCond (T := T) n).holdsPlain ∘
+        fun p : Tuple T n × Tuple T n => Fin.append p.1 p.2) p ↔ p.1 = p.2 from
+      interCond_holdsPlain p.1 p.2)]
+  rw [filter_product_diag _ _ (Multiset.nodup_dedup _) _ _ (fun _ _ => Iff.rfl),
+    Multiset.map_map, Multiset.map_map]
+  simp only [Function.comp_def]
+  rw [show (fun u : Tuple T n =>
+        (fun j => (fstBlock n j).evalPlain (Fin.append u u) : Tuple T n))
+      = id from by
+    funext u
+    funext j
+    show (Fin.append u u) (Fin.castAdd n j) = u j
+    rw [Fin.append_left]]
+  rw [Multiset.map_id]
+  exact Multiset.filter_congr (fun u _ => Multiset.mem_dedup)
 
 end Inter
 
