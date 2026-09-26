@@ -69,7 +69,7 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
-    (Term.castToAnnotatedTuple_eval t p.fst p.snd).symm
+    (TermIn.castToAnnotatedTuple_eval t p.fst p.snd).symm
 
 /-- Transport a lifted column value to the composite domain. -/
 def GenValue.toComposite : GenValue T K → GenValue (T ⊕ K) K

@@ -338,7 +338,7 @@ theorem rule_projection (ts : Tuple (Term T k) n) (q : Query T k)
       = Proj
           (fun l : Fin (n + 1) =>
             if h : (l : ℕ) < n then (ts ⟨l, h⟩).castToAnnotatedTuple
-            else Term.index (Fin.last q.arity))
+            else TermIn.index (Fin.last q.arity))
           (q.rewriting (Query.sourceProj hq rfl)) :=
   rfl
 
@@ -353,7 +353,7 @@ theorem rule_product {hn : n₁ + n₂ = n} (q₁ : Query T n₁) (q₂ : Query 
           (fun l : Fin (n + 1) =>
             if (l : ℕ) < n₁ then #(l.castLE (by simp))
             else if ((l : ℕ) < n : Prop) then #(Fin.ofNat _ ((l : ℕ) + 1))
-            else Term.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n + 1)))
+            else TermIn.mul #(Fin.ofNat _ n₁) #(Fin.ofNat _ (n + 1)))
           (@Query.Prod (T ⊕ K) (n₁ + 1) (n₂ + 1) (n + 2) (by omega)
             (q₁.rewriting (Query.sourceProd hq rfl).left)
             (q₂.rewriting (Query.sourceProd hq rfl).right)) :=
@@ -387,8 +387,8 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
              (fun t t' => Selection.And t t') Selection.True
          let prod₁t := fun r => Sel joinCond₁ (@Query.Prod _ (n + 1) n (2 * n + 1) (by omega) q'₁ r)
          let prod₁r :=
-           Dedup (Diff (Proj (fun j : Fin n => Term.index (j.castLE (Nat.le_succ _))) q'₁)
-                       (Proj (fun j : Fin n => Term.index (j.castLE (Nat.le_succ _))) q'₂))
+           Dedup (Diff (Proj (fun j : Fin n => TermIn.index (j.castLE (Nat.le_succ _))) q'₁)
+                       (Proj (fun j : Fin n => TermIn.index (j.castLE (Nat.le_succ _))) q'₂))
          let prod₁ := prod₁t prod₁r
          let joinCond₂ :=
            ((List.range n).map
@@ -401,7 +401,7 @@ theorem rule_difference (q₁ q₂ : Query T n) (hq : (Query.Diff q₁ q₂).sou
          let ts₁ := fun j : Fin (n + 1) => #(j.castLE (by omega))
          let ts₂ := fun j : Fin (n + 1) =>
            if (j : ℕ) < n then #(j.castLE (by omega))
-           else Term.sub #(Fin.ofNat _ n) #(Fin.last (2 * n + 1))
+           else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2 * n + 1))
          Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)) :=
   rfl
 

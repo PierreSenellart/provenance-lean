@@ -36,23 +36,29 @@ explicit duplicate elimination, multiset difference, and aggregation.
 
 variable {T: Type} [ValueType T]
 
-inductive Term T n where
-| const : T → Term T n
-| index : Fin n → Term T n
-| add : Term T n → Term T n → Term T n
-| sub : Term T n → Term T n → Term T n
-| mul : Term T n → Term T n → Term T n
+inductive TermIn T (c : ℕ) n where
+| const : T → TermIn T c n
+/-- An *outer* column: a column of the query this one is applied to. There
+are none in a closed query, `c` being `0` there. -/
+| outer : Fin c → TermIn T c n
+| index : Fin n → TermIn T c n
+| add : TermIn T c n → TermIn T c n → TermIn T c n
+| sub : TermIn T c n → TermIn T c n → TermIn T c n
+| mul : TermIn T c n → TermIn T c n → TermIn T c n
 
-def Term.repr [Repr T] : Term T n → ℕ → Std.Format
+/-- A term of a closed query: no outer column to read. -/
+abbrev Term (T : Type) (n : ℕ) := TermIn T 0 n
+
+def TermIn.repr [Repr T] : Term T n → ℕ → Std.Format
 | const a, _ => reprArg a
 | index k, _ => "#" ++ (reprArg k)
 | add t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "+" ++ repr t₂ p) p
 | sub t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "-" ++ repr t₂ p) p
 | mul t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "*" ++ repr t₂ p) p
 
-instance [Repr α] : Repr (Term α n) := ⟨Term.repr⟩
+instance [Repr α] : Repr (Term α n) := ⟨TermIn.repr⟩
 
-def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
+def TermIn.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
 | const c => const (Sum.inl c)
 | index k => index (k.castLT (k.val_lt_of_le (Nat.le_add_right n 1)))
 | add t₁ t₂ => add t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
@@ -60,14 +66,14 @@ def Term.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t with
 | mul t₁ t₂ => mul t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 
 
-def Term.eval (term: Term T n) (tuple: Tuple T n) := match term with
+def TermIn.eval (term: Term T n) (tuple: Tuple T n) := match term with
   | const a => a
   | index k => tuple k
   | add t₁ t₂ => (t₁.eval tuple) + (t₂.eval tuple)
   | sub t₁ t₂ => (t₁.eval tuple) - (t₂.eval tuple)
   | mul t₁ t₂ => (t₁.eval tuple) * (t₂.eval tuple)
 
-theorem Term.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
+theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
 ∀ α: K,
   t.castToAnnotatedTuple.eval (Fin.append (λ k ↦ Sum.inl (tuple k)) ![Sum.inr α]) = Sum.inl (t.eval tuple) := by
   intro α
@@ -75,6 +81,7 @@ theorem Term.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus 
   | const c =>
     unfold castToAnnotatedTuple eval
     simp
+  | outer k => exact k.elim0
   | index k =>
     unfold castToAnnotatedTuple eval
     have hk : k.castLT (lt_trans k.isLt (lt_add_one n)) = Fin.castAdd 1 k := rfl
@@ -94,12 +101,12 @@ theorem Term.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus 
     simp[(·*·),Mul.mul]
 
 instance : Coe T (Term T n) where
-  coe a:= Term.const a
+  coe a:= TermIn.const a
 
 instance : OfNat (Term ℕ n) (a: ℕ) where
-  ofNat := Term.const a
+  ofNat := TermIn.const a
 
-prefix:max "#" => Term.index
+prefix:max "#" => TermIn.index
 
 inductive BoolTerm (T) (n: ℕ) where
 | EQ : Term T n → Term T n → BoolTerm T n
@@ -202,7 +209,7 @@ theorem BoolTerm.castToAnnotatedTuple_eval3 [HasAltLinearOrder K]
           ne_eq, heq, hle, hlt]
   cases t <;>
     (simp only [BoolTerm.castToAnnotatedTuple, BoolTerm.eval3, BoolTerm.toCompOp,
-       BoolTerm.args, Term.castToAnnotatedTuple_eval];
+       BoolTerm.args, TermIn.castToAnnotatedTuple_eval];
      exact hop _ _)
 
 theorem BoolTerm.castToAnnotatedTuple_eval [HasAltLinearOrder K]

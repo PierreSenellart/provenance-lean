@@ -51,8 +51,8 @@ def genCountHavingSite (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
   AggQuery.castKind (funext fun _ => rfl)
     (AggQuery.Proj
       (fun _ : Fin 1 => ProjColIn.term
-        ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
-      (AggQuery.Sel (GenPredIn.fusedCmp op (0 : Fin 1) (Term.const (C + 1)))
+        ((TermIn.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
+      (AggQuery.Sel (GenPredIn.fusedCmp op (0 : Fin 1) (TermIn.const (C + 1)))
         (AggQuery.Gamma keyIdx ts' (fun _ => SeqAggFunc.count) g)))
 
 omit [HasAltLinearOrder K] in
@@ -110,7 +110,7 @@ theorem genCountHavingSite_eval
   refine Eq.trans (Multiset.map_congr rfl (fun r _ =>
     projTerm_row_eq
       (fun _ : Fin 1 => ProjColIn.term
-        ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
+        ((TermIn.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
       (fun _ => ⟨_, rfl⟩) r)) ?_
   unfold AggQuery.evaluateAnnotated
   rw [Multiset.map_map, Multiset.map_map]

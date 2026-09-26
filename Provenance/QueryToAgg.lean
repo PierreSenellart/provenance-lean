@@ -37,7 +37,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 /-! ## Terms and selections over all-regular kinds -/
 
 /-- A classical term, as a term over all-regular columns. -/
-def Term.toGenReg {n : ℕ} : Term T n → TermG T (ColKind.allReg n)
+def TermIn.toGenReg {n : ℕ} : Term T n → TermG T (ColKind.allReg n)
   | .const a => .const a
   | .index k => .index k rfl
   | .add t₁ t₂ => .add t₁.toGenReg t₂.toGenReg
@@ -47,14 +47,15 @@ def Term.toGenReg {n : ℕ} : Term T n → TermG T (ColKind.allReg n)
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded term evaluates on a regular-values row as the original
 term on the underlying tuple. -/
-theorem Term.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
+theorem TermIn.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
     (t.toGenReg).eval (fun k => (Sum.inl (x k) : GenValue T K)) = t.eval x := by
   induction t with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k => rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
-  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
-  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
 
 /-- A comparison atom, as a generalized regular atom. -/
 def BoolTerm.toGenPred {n : ℕ} : BoolTerm T n →
@@ -105,7 +106,7 @@ theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
   | .BT b, x => by
     cases b <;>
       (show CompOp.eval3 _ _ _ = _;
-       rw [Term.toGenReg_eval, Term.toGenReg_eval];
+       rw [TermIn.toGenReg_eval, TermIn.toGenReg_eval];
        rfl)
   | .Not φ, x => by
     show (GenPredIn.eval3 _ _).not = _
@@ -227,7 +228,7 @@ theorem Query.toAgg_rel :
     · funext j
       show Sum.inl (((ts j).toGenReg).eval r.fst)
         = Sum.inl ((ts j).eval p.fst)
-      rw [hr.1, Term.toGenReg_eval]
+      rw [hr.1, TermIn.toGenReg_eval]
     · exact (GenAnn.finalize_cash _ _ _ Multiset.inter_le_left).trans hr.2.1
     · show r.snd.pending ∩ _ = 0
       rw [hr.2.2]

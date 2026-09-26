@@ -79,7 +79,7 @@ theorem BoolTerm.ofCompOp_eval {T : Type} [ValueType T] [NoNulls T] {n : ℕ}
 
 /-- The selection predicate `t op c` of an existential atom. -/
 def atomSel (t : Term ℕ 3) (op : CompOp) (c : ℕ) : Selection ℕ 3 :=
-  Selection.BT (BoolTerm.ofCompOp op t (Term.const c))
+  Selection.BT (BoolTerm.ofCompOp op t (TermIn.const c))
 
 /-- The rewriting `ε(Π_{#0}(σ_{t op c}(q)))` of an existential comparison
 `f(t) op c`: the group keys of the qualifying occurrences, duplicate-
@@ -147,7 +147,7 @@ theorem existentialQuery_perKeySum (t : Term ℕ 3) (op : CompOp) (c : ℕ)
   show (Multiset.map Prod.snd (@Multiset.filter _ _ _ (q.evaluateAnnotated hq d))).sum = _
   congr 2
   exact Multiset.filter_congr fun p _ =>
-    and_congr Iff.rfl (BoolTerm.ofCompOp_eval op t (Term.const c) p.fst)
+    and_congr Iff.rfl (BoolTerm.ofCompOp_eval op t (TermIn.const c) p.fst)
 
 /-- **Existential atoms, per key.** In an absorptive commutative
 m-semiring, the existential rewriting gives every group key the fused
@@ -175,13 +175,13 @@ theorem existential_site_rewrite (h_abs : absorptive K) {f : SeqAggFunc ℕ} {op
     (hf : Existential f op) (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
     ((AggQuery.havingSite keyIdx ts' (fun _ => f) op 0
-        (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) op c) q).evaluateAnnotated
           (keyPadded_source _ q (existentialQuery_source (ts' 0) op c q hq) hq) d :=
   (fused_key_proj_gen (q.toAgg hq) q hq d (Query.toAggHaving_input q hq d)
-      ts' (fun _ => f) op (Term.const c)).trans
+      ts' (fun _ => f) op (TermIn.const c)).trans
     (keyPadded_correct_of (existentialQuery (ts' 0) op c) q
       (existentialQuery_source (ts' 0) op c q hq) hq d _
       (fun x hx => existentialQuery_key_mem (ts' 0) op c q hq d x hx)
@@ -191,7 +191,7 @@ theorem existential_site_rewrite (h_abs : absorptive K) {f : SeqAggFunc ℕ} {op
 theorem minLe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
     ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.le 0
-        (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.le c) q).evaluateAnnotated
@@ -202,7 +202,7 @@ theorem minLe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 theorem minLt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
     ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.lt 0
-        (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.lt c) q).evaluateAnnotated
@@ -213,7 +213,7 @@ theorem minLt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 theorem maxGe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
     ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.ge 0
-        (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.ge c) q).evaluateAnnotated
@@ -224,7 +224,7 @@ theorem maxGe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 theorem maxGt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
     ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.gt 0
-        (Term.const c) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
       = (keyPadded (existentialQuery (ts' 0) CompOp.gt c) q).evaluateAnnotated
@@ -241,10 +241,10 @@ adds the annotations, which is exactly how the fused semantics
 
 /-- The key-equality predicate `#0 = #1` on a pair of one-column rows. -/
 def joinSel : Selection ℕ 2 :=
-  Selection.BT (BoolTerm.EQ (Term.index ⟨0, by omega⟩) (Term.index ⟨1, by omega⟩))
+  Selection.BT (BoolTerm.EQ (TermIn.index ⟨0, by omega⟩) (TermIn.index ⟨1, by omega⟩))
 
 /-- The projection of a pair of one-column rows to its first column. -/
-def pairKey : Tuple (Term ℕ 2) 1 := fun _ => Term.index ⟨0, by omega⟩
+def pairKey : Tuple (Term ℕ 2) 1 := fun _ => TermIn.index ⟨0, by omega⟩
 
 /-- The key-equality selection over the product, `σ_{#0 = #1}(Q₁ × Q₂)`. -/
 def keyJoinInner (Q₁ Q₂ : Query ℕ 1) : Query ℕ 2 :=
@@ -438,9 +438,9 @@ def WF (fs : Tuple (SeqAggFunc ℕ) n₂) : MonoCond n₂ → Prop
 whose provenance is `HavingPred.prov` (`∧ ↦ ⊗`, `∨ ↦ ⊕`). -/
 def toHavingPred (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) :
     MonoCond n₂ → HavingPred ℕ 3 1
-  | countGe l C => HavingPred.cmp (ts l) (fs l) CompOp.ge (Term.const (C + 1))
-  | countGt l C => HavingPred.cmp (ts l) (fs l) CompOp.gt (Term.const (C + 1))
-  | exist l op c => HavingPred.cmp (ts l) (fs l) op (Term.const c)
+  | countGe l C => HavingPred.cmp (ts l) (fs l) CompOp.ge (TermIn.const (C + 1))
+  | countGt l C => HavingPred.cmp (ts l) (fs l) CompOp.gt (TermIn.const (C + 1))
+  | exist l op c => HavingPred.cmp (ts l) (fs l) op (TermIn.const c)
   | and ψ₁ ψ₂ => HavingPred.and (ψ₁.toHavingPred ts fs) (ψ₂.toHavingPred ts fs)
   | or ψ₁ ψ₂ => HavingPred.or (ψ₁.toHavingPred ts fs) (ψ₂.toHavingPred ts fs)
 
@@ -566,9 +566,9 @@ variable {n₂ : ℕ}
 (`GenPredIn.fusedCmp`), and `∧`/`∨` are the Boolean connectives of
 `GenPred`. -/
 def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
-  | countGe l C => GenPredIn.fusedCmp CompOp.ge l (Term.const (C + 1))
-  | countGt l C => GenPredIn.fusedCmp CompOp.gt l (Term.const (C + 1))
-  | exist l op c => GenPredIn.fusedCmp op l (Term.const c)
+  | countGe l C => GenPredIn.fusedCmp CompOp.ge l (TermIn.const (C + 1))
+  | countGt l C => GenPredIn.fusedCmp CompOp.gt l (TermIn.const (C + 1))
+  | exist l op c => GenPredIn.fusedCmp op l (TermIn.const c)
   | and ψ₁ ψ₂ => GenPredIn.and ψ₁.toGenPred ψ₂.toGenPred
   | or ψ₁ ψ₂ => GenPredIn.or ψ₁.toGenPred ψ₂.toGenPred
 
@@ -646,15 +646,15 @@ theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.ge _
   | countGt l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.gt _
   | exist l op c => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      Term.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U op _
   | and ψ₁ ψ₂ => by
     show (if false = true then _ else

@@ -91,17 +91,17 @@ def qgPersonnel : AggQuery String 4 (ColKind.allReg 4) :=
 
 /- This query counts persons by city: `γ_{city}[1 : SUM]`. Its output has
 one regular column (the group key) and one *aggregate-token* column. -/
-def qgCount := AggQuery.Gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+def qgCount := AggQuery.Gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
   qgPersonnel
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/
 def φexactlyTwo : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPredIn.and (GenPredIn.fusedCmp CompOp.ge 0 (Term.const "2"))
-    (GenPredIn.fusedCmp CompOp.le 0 (Term.const "2"))
+  GenPredIn.and (GenPredIn.fusedCmp CompOp.ge 0 (TermIn.const "2"))
+    (GenPredIn.fusedCmp CompOp.le 0 (TermIn.const "2"))
 
 /- `HAVING COUNT(*) ≥ 3`, a single-atom one. -/
 def φatLeastThree : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPredIn.fusedCmp CompOp.ge 0 (Term.const "3")
+  GenPredIn.fusedCmp CompOp.ge 0 (TermIn.const "3")
 
 example : φexactlyTwo.aggOnly = true := rfl
 
@@ -146,11 +146,11 @@ guard by the `provsql_having` gate of the predicate. Rows are printed
 through `AggValue.collapseSum`, which reads each aggregate token as its
 actual-world value. -/
 def qgCountRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.gammaRew ![3] ![Term.const "1"] ![SeqAggFunc.sum] qgPersonnel
+  AggQuery.gammaRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum] qgPersonnel
     trivial
 
 def qgHavingRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+  AggQuery.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φexactlyTwo qgPersonnel trivial
 
 #eval! hdr "rewritten: bare GROUP BY (gammaRew), guard δ(⊕ U) in the last column"
@@ -168,7 +168,7 @@ the predicate no longer entails the group's existence, and the guard
 `δ(⊕ U)` therefore survives as a factor of the provenance column instead
 of being superseded. -/
 def φbigOrBerlin : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPredIn.or (GenPredIn.fusedCmp CompOp.ge 0 (Term.const "3"))
+  GenPredIn.or (GenPredIn.fusedCmp CompOp.ge 0 (TermIn.const "3"))
     (GenPredIn.cmp CompOp.eq
       (TermGIn.index (Fin.castAdd 1 0)
         (Fin.append_left (fun _ : Fin 1 => ColKind.reg)
@@ -180,7 +180,7 @@ example : φbigOrBerlin.aggOnly = false := rfl
 example : φbigOrBerlin.entailsExistence false = false := rfl
 
 def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.havingPredRew ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+  AggQuery.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φbigOrBerlin qgPersonnel trivial
 
 #eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) ≥ 3 OR city = 'Berlin'"
@@ -201,10 +201,10 @@ example : ∃ q' : AggQuery (String ⊕ ℕ) 2
           = q'.evaluateRew d_count.toComposite :=
   let h := AggQuery.RewritesTo.diff
     (AggQuery.RewritesTo.proj cityCols
-      (AggQuery.RewritesTo.gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
+      (AggQuery.RewritesTo.gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
         qgPersonnel trivial))
     (AggQuery.RewritesTo.proj cityCols
-      (AggQuery.RewritesTo.havingPred ![3] ![Term.const "1"]
+      (AggQuery.RewritesTo.havingPred ![3] ![TermIn.const "1"]
         ![SeqAggFunc.sum] φatLeastThree rfl qgPersonnel trivial))
   ⟨_, h, AggQuery.rewritesTo_valid h d_count⟩
 

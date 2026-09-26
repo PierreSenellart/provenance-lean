@@ -119,15 +119,15 @@ theorem AggQuery.havingSite_count_ge_one
     {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) 1)
     (q : Query ℕ m) (hq : q.source) (d : AnnotatedDatabase ℕ K) :
     ((AggQuery.havingSite is ts ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) (q.toAgg hq)).evaluateAnnotated d).map
+        (TermIn.const 1) (q.toAgg hq)).evaluateAnnotated d).map
       (fun p => ((fun k : Fin n₁ => p.fst (Fin.castAdd 1 k)), p.snd))
-      = (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d := by
+      = (ε (Π (fun k : Fin n₁ => TermIn.index (is k)) q)).evaluateAnnotated hq d := by
   rw [AggQuery.havingSite_evaluateAnnotated,
     Query.toAggHaving_input q hq d]
   set r : AnnotatedRelation ℕ K m := q.evaluateAnnotated hq d with hr
   -- The right-hand side: `ε ∘ Π` unfolds to `groupByKey` of the projected
   -- relation, which `groupByKey_eq_dedup_map` characterizes extensionally.
-  have hRHS : (ε (Π (fun k : Fin n₁ => Term.index (is k)) q)).evaluateAnnotated hq d
+  have hRHS : (ε (Π (fun k : Fin n₁ => TermIn.index (is k)) q)).evaluateAnnotated hq d
       = Multiset.ofList (groupByKey
           (Multiset.map (fun p : AnnotatedTuple ℕ K m =>
             ((fun k : Fin n₁ => p.fst (is k)), p.snd)) r)).val := rfl
@@ -452,18 +452,18 @@ copy of the chain: equal group keys and lexicographically larger
 def chainCond (C : ℕ) : Selection ℕ (3 * (C + 1) + 3) :=
   Selection.And
     (Selection.BT (BoolTerm.EQ
-      (Term.index ⟨0, by omega⟩) (Term.index ⟨3 * C + 3, by omega⟩)))
+      (TermIn.index ⟨0, by omega⟩) (TermIn.index ⟨3 * C + 3, by omega⟩)))
     (Selection.Or
       (Selection.BT (BoolTerm.LT
-        (Term.index ⟨3 * C + 1, by omega⟩)
-        (Term.index ⟨3 * C + 3 + 1, by omega⟩)))
+        (TermIn.index ⟨3 * C + 1, by omega⟩)
+        (TermIn.index ⟨3 * C + 3 + 1, by omega⟩)))
       (Selection.And
         (Selection.BT (BoolTerm.EQ
-          (Term.index ⟨3 * C + 1, by omega⟩)
-          (Term.index ⟨3 * C + 3 + 1, by omega⟩)))
+          (TermIn.index ⟨3 * C + 1, by omega⟩)
+          (TermIn.index ⟨3 * C + 3 + 1, by omega⟩)))
         (Selection.BT (BoolTerm.LT
-          (Term.index ⟨3 * C + 2, by omega⟩)
-          (Term.index ⟨3 * C + 3 + 2, by omega⟩)))))
+          (TermIn.index ⟨3 * C + 2, by omega⟩)
+          (TermIn.index ⟨3 * C + 3 + 2, by omega⟩)))))
 
 /-- The `C`-fold self-join chain: `C + 1` copies of the base query, with
 consecutive copies related by `chainCond`. Copy `j` occupies columns
@@ -530,7 +530,7 @@ theorem joinChain_eval_filter (q : Query ℕ 3) (hq : q.source)
     · -- The chain predicate, transported through `chainCombine`.
       simp only [Function.comp_apply, chainCond, Selection.eval_and,
         Selection.eval_or, Selection.eval_bt, BoolTerm.eval_iff,
-        BoolTerm.toCompOp, BoolTerm.args, CompOp.eval, Term.eval]
+        BoolTerm.toCompOp, BoolTerm.args, CompOp.eval, TermIn.eval]
       show ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩ = a)
             ∧ ((Fin.append z.1.1 z.2.1 ⟨0, by omega⟩
                   = Fin.append z.1.1 z.2.1 ⟨3 * C + 3, by omega⟩)
@@ -669,11 +669,11 @@ theorem groupPairs_eq_havingGroup [HasAltLinearOrder K]
     exact h 0
 
 theorem piChain_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
-    ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+    ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))).source := by
   exact joinChain_source q hq C
 
 theorem q2_source (q : Query ℕ 3) (hq : q.source) (C : ℕ) :
-    (ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))).source := by
+    (ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))).source := by
   exact joinChain_source q hq C
 
 /-- **Query-level correctness of the join-based rewriting, general `C`.**
@@ -700,7 +700,7 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup)
     (ts : Tuple (Term ℕ 3) 1) (C : ℕ) (g : Tuple ℕ 1) :
     (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-        ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+        ((ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
           (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = havingProv
           (havingGroup (fun _ : Fin 1 => (⟨0, by omega⟩ : Fin 3))
@@ -746,15 +746,15 @@ theorem Query.joinChain_count_correct [HasAltLinearOrder K]
       List.map_ofFn]
     rfl
   calc (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-        ((ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+        ((ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
           (joinChain q C))).evaluateAnnotated (q2_source q hq C) d))).sum
       = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
           (Multiset.ofList (groupByKey
-            ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+            ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
               (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d)).val))).sum
         := rfl
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
-          ((Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩)
+          ((Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩)
             (joinChain q C)).evaluateAnnotated (piChain_source q hq C) d))).sum
         := perKeySum_groupByKey _ g
     _ = (Multiset.map Prod.snd (Multiset.filter (fun p => p.fst = g)
@@ -924,7 +924,7 @@ theorem diff_perKeySum {T : Type} [ValueType T] {n : ℕ}
 /-- The join-based query for `COUNT(*) ≥ C + 1`: project the `C`-fold
 chain to its group key and eliminate duplicates. -/
 def joinChainQuery (q : Query ℕ 3) (C : ℕ) : Query ℕ 1 :=
-  ε (Π (fun _ : Fin 1 => Term.index ⟨0, by omega⟩) (joinChain q C))
+  ε (Π (fun _ : Fin 1 => TermIn.index ⟨0, by omega⟩) (joinChain q C))
 
 /-- **Query-level correctness for `COUNT(*) = C + 1`.** The join-based
 query `Q₂^{≥C+1} − Q₂^{≥C+2}` gives every group key the fused

@@ -397,9 +397,9 @@ theorem TermGIn.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
-  | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
-  | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 /-- Strip an aggregate-atom-free predicate to a classical selection. -/
 def GenPredIn.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selection T n
@@ -773,13 +773,13 @@ theorem AggQuery.rewriting_plain :
     funext j
     by_cases h₁ : (j : ℕ) < n₁
     · rw [dite_eq_left h₁, ite_eq_left h₁]
-      simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
+      simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval]
       rw [Tuple.cast_coord]
       rfl
     · rw [dite_eq_right h₁, ite_eq_right h₁]
       by_cases h₂ : (j : ℕ) < n₁ + n₂
       · rw [dite_eq_left h₂, ite_eq_left h₂]
-        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
+        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval]
         rw [Tuple.cast_coord]
         refine congrArg t (Fin.ext ?_)
         show n₁ + 1 + ((j : ℕ) - n₁) = _
@@ -787,7 +787,7 @@ theorem AggQuery.rewriting_plain :
         rw [Nat.mod_eq_of_lt (by omega)]
         omega
       · rw [dite_eq_right h₂, ite_eq_right h₂]
-        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
+        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval]
         rw [Tuple.cast_coord, Tuple.cast_coord]
         refine congrArg₂ (· * ·) (congrArg t (Fin.ext ?_))
           (congrArg t (Fin.ext ?_))
@@ -859,12 +859,12 @@ theorem AggQuery.rewriting_plain :
       · funext j
         by_cases hj : (j : ℕ) < n
         · rw [dite_eq_left hj]
-          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval,
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
           rfl
         · rw [dite_eq_right hj]
-          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval,
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
           exact congrArg t (Fin.ext (by
@@ -918,13 +918,13 @@ theorem AggQuery.rewriting_plain :
         · rw [dite_eq_left hj]
           simp only [Function.comp_apply]
           rw [ite_eq_left hj]
-          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval]
           rw [Tuple.cast_coord]
           rfl
         · rw [dite_eq_right hj]
           simp only [Function.comp_apply]
           rw [ite_eq_right hj]
-          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, TermIn.eval]
           rw [Tuple.cast_coord, Tuple.cast_coord]
           refine congrArg₂ _
             (congrArg t (Fin.ext (by

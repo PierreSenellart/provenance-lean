@@ -30,7 +30,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 
 /-- A term over the group key, embedded as a term over the key columns of
 a `Gamma` output. -/
-def Term.toGenKey {n₁ : ℕ} (n₂ : ℕ) :
+def TermIn.toGenKey {n₁ : ℕ} (n₂ : ℕ) :
     Term T n₁ → TermG T (ColKind.gammaKinds n₁ n₂)
   | .const a => .const a
   | .index k => .index (Fin.castAdd n₂ k) (by simp [ColKind.gammaKinds])
@@ -41,7 +41,7 @@ def Term.toGenKey {n₁ : ℕ} (n₂ : ℕ) :
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded key term evaluates on a `Gamma` output row as the
 original term on the group key. -/
-theorem Term.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁)
+theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁)
     (h : Fin n₂ → AggValue T K) :
     (s.toGenKey n₂).eval
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
@@ -49,14 +49,15 @@ theorem Term.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁
       = s.eval g := by
   induction s with
   | const a => rfl
+  | outer k => exact k.elim0
   | index k =>
     show AggValue.collapseSum
         (Fin.append _ _ (Fin.castAdd n₂ k)) = g k
     rw [Fin.append_left]
     rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
-  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
-  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The annotation list of a group token is the group's annotation list. -/
@@ -144,7 +145,7 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       Multiset.notMem_zero, IsEmpty.forall_iff, implies_true, and_true,
       true_and, not_true, ite_false,
       GenPredIn.entailsExistence, ite_true,
-      GenAnn.finalize_of_pending_zero, one_mul, Term.toGenKey_eval,
+      GenAnn.finalize_of_pending_zero, one_mul, TermIn.toGenKey_eval,
       Bool.false_eq_true,
       AggValue.predProvOf, AggValue.scalar_ofGroup,
       Option.map_none, Option.getD_none]

@@ -84,7 +84,7 @@ singleton world contributes its own annotation, the factored
 discarded-occurrence factor `𝟙 ⊖ hi` being `𝟙` in the chain). -/
 theorem chainFive_fused :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
-        (Term.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = {ChainFive.hi} := by
   decide
 
@@ -99,7 +99,7 @@ absorptive but non-distributive `ChainFive`, the fused `COUNT(*) = 1`
 query and its join-based rewriting disagree on a concrete instance. -/
 theorem ChainFive.query_counterexample :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.eq 0
-        (Term.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       ≠ (q2eq1.evaluateAnnotated (by decide) dC).map (fun p => p.snd) := by
   decide
 
@@ -108,7 +108,7 @@ theorem ChainFive.query_counterexample :
 singletons). -/
 theorem chainFive_fused_ge_one :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = {ChainFive.hi} := by
   decide
 
@@ -119,7 +119,7 @@ fused `COUNT(*) ≥ 1` query and `Q₂^{≥1}` agree, as
 m-semiring, distributive or not. -/
 theorem ChainFive.query_ge_agree :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = (q2ge1.evaluateAnnotated (by decide) dC).map (fun p => p.snd) := by
   decide
 
@@ -127,7 +127,7 @@ theorem ChainFive.query_ge_agree :
 `mid ⊗ hi ⊕ mid ⊗ hi ⊕ hi ⊗ hi = hi`. -/
 theorem ChainFive.query_ge_two_agree :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 2) qgR).evaluateAnnotated dC).map (fun p => p.snd)
+        (TermIn.const 2) qgR).evaluateAnnotated dC).map (fun p => p.snd)
       = (q2ge2.evaluateAnnotated (by decide) dC).map (fun p => p.snd) := by
   decide
 
@@ -156,7 +156,7 @@ two singleton worlds have annotation `trop (-1) ⊗ (𝟙 ⊖ trop (-1)) = 𝟘`
 and only the full world `trop (-1) ⊗ trop (-1) = trop (-2)` survives. -/
 theorem tropicalZ_fused :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
       = {MinTropical.trop ((-2 : ℤ) : WithTop ℤ)} := by
   decide
 
@@ -173,7 +173,7 @@ concrete instance. Same phenomenon as the algebra-level
 `MinTropicalR.F_ne_S`, here at the level of evaluated queries. -/
 theorem MinTropicalZ.query_counterexample :
     ((AggQuery.havingSite ![0] ![#1] ![SeqAggFunc.count] CompOp.ge 0
-        (Term.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
+        (TermIn.const 1) qgR).evaluateAnnotated dZ).map (fun p => p.snd)
       ≠ (q2ge1.evaluateAnnotated (by decide) dZ).map (fun p => p.snd) := by
   decide
 

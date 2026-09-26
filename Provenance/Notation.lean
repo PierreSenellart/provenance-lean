@@ -169,12 +169,12 @@ aggregates is a term over the columns of its all-regular input, which carries
 no kinds and so needs no regularity proof. One surface category, two
 readings. -/
 macro_rules
-  | `(ra_cterm% #$i:num)     => `(Term.index $i)
+  | `(ra_cterm% #$i:num)     => `(TermIn.index $i)
   | `(ra_cterm% ($t:raTerm)) => `(ra_cterm% $t)
-  | `(ra_cterm% `($t:term))  => `(Term.const $t)
-  | `(ra_cterm% $a:raTerm + $b:raTerm) => `(Term.add (ra_cterm% $a) (ra_cterm% $b))
-  | `(ra_cterm% $a:raTerm - $b:raTerm) => `(Term.sub (ra_cterm% $a) (ra_cterm% $b))
-  | `(ra_cterm% $a:raTerm * $b:raTerm) => `(Term.mul (ra_cterm% $a) (ra_cterm% $b))
+  | `(ra_cterm% `($t:term))  => `(TermIn.const $t)
+  | `(ra_cterm% $a:raTerm + $b:raTerm) => `(TermIn.add (ra_cterm% $a) (ra_cterm% $b))
+  | `(ra_cterm% $a:raTerm - $b:raTerm) => `(TermIn.sub (ra_cterm% $a) (ra_cterm% $b))
+  | `(ra_cterm% $a:raTerm * $b:raTerm) => `(TermIn.mul (ra_cterm% $a) (ra_cterm% $b))
 
 /-! ### Reading a column
 
