@@ -492,6 +492,36 @@ theorem evaluateAnnotated_antijoin (cnt : SeqAggFunc T) (κ : Fin l)
   dsimp only
   exact Fin.append_left _ _ j
 
+/-- **A semijoin annotates a row of the left arm by the `⊕`-sum of the
+annotations of its matches.** In an absorptive m-semiring the predicate
+provenance of `COUNT(κ) ≠ 0` on the row's group collapses to the
+occurrences that qualify, and those are exactly the matches: the padded
+copy carries a null in column `κ` and a count skips it. -/
+theorem evaluateAnnotated_semijoin_sum (h_abs : absorptive K)
+    {cnt : SeqAggFunc T} (hc : Counts cnt) (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) :
+    (semijoin cnt κ φ R Q).evaluateAnnotated d
+      = Multiset.map (fun g : Tuple T k =>
+          ((g, ((Multiset.filter
+              (fun p : AnnotatedTuple T K (k + l) =>
+                ValueType.isNull (p.fst (Fin.natAdd k κ)) = false)
+              (↑(Having.havingGroup (fun i : Fin k => Fin.castAdd l i)
+                  ((leftOuter φ R Q).evaluateAnnotated d) g) :
+                Multiset (AnnotatedTuple T K (k + l)))).map Prod.snd).sum)
+            : AnnotatedTuple T K k))
+          (Multiset.dedup (Multiset.map
+            (fun p : AnnotatedTuple T K (k + l) =>
+              (fun i : Fin k => p.fst (Fin.castAdd l i) : Tuple T k))
+            (show Multiset (AnnotatedTuple T K (k + l)) from
+              (leftOuter φ R Q).evaluateAnnotated d))) := by
+  rw [evaluateAnnotated_semijoin]
+  refine Multiset.map_congr rfl (fun g _ => ?_)
+  refine Prod.ext rfl ?_
+  dsimp only
+  exact Having.havingProv_existentialOn h_abs (existentialOn_counting hc) _ _
+
 end Outer
 
 end AggQuery

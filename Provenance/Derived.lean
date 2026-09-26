@@ -523,6 +523,28 @@ structure Counts (cnt : SeqAggFunc T) : Prop where
   /-- A count is zero exactly over nothing but nulls. -/
   eq_zero : ∀ L : List T, cnt L = 0 ↔ ∀ x ∈ L, ValueType.isNull x = true
 
+/-- **A counting aggregate compared to zero is existential in
+non-nullness**: `COUNT(t) ≠ 0` holds exactly when some occurrence has a
+non-null `t`-value. This is not a comparison of that value against `0` – a
+non-null value may well be zero – which is why the collapse of an
+existential `HAVING` has to be stated against a predicate on values. -/
+theorem existentialOn_counting {cnt : SeqAggFunc T} (hc : Counts cnt) :
+    Having.ExistentialOn cnt CompOp.ne 0
+      (fun x => ValueType.isNull x = false) := by
+  intro L _
+  rw [CompOp.eval3_eq_true_iff CompOp.ne (hc.not_null L) ValueType.isNull_zero]
+  show ¬ (cnt L = 0) ↔ _
+  rw [hc.eq_zero]
+  constructor
+  · intro h
+    by_contra hc'
+    exact h (fun x hx => by
+      by_contra hn
+      exact hc' ⟨x, hx, by simpa using hn⟩)
+  · rintro ⟨x, hx, hxn⟩ hall
+    rw [hall x hx] at hxn
+    exact Bool.noConfusion hxn
+
 /-- **SQL's counting policy over a plain count counts matches.** A plain
 count is one that is never null and is zero only over the empty sequence;
 reading it through the counting policy, which drops the nulls, gives an

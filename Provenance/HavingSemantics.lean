@@ -662,6 +662,13 @@ satisfies `x op c`. -/
 def Existential (f : SeqAggFunc T) (op : CompOp) : Prop :=
   ∀ (L : List T) (c : T), L ≠ [] → (op.eval (f L) c ↔ ∃ x ∈ L, op.eval x c)
 
+/-- **An aggregate comparison is existential in a predicate on values**:
+on a non-empty sequence, `f L op c` is *true* exactly when some element of
+`L` satisfies `P`. -/
+def ExistentialOn (f : SeqAggFunc T) (op : CompOp) (c : T) (P : T → Prop) :
+    Prop :=
+  ∀ L : List T, L ≠ [] → (op.eval3 (f L) c = Kleene.true ↔ ∃ x ∈ L, P x)
+
 /-- **An aggregate comparison is existential, read three-valuedly**: on a
 non-empty sequence, `f L op c` is *true* exactly when some element `x` of
 `L` makes `x op c` true. This is the reading SQL's aggregates need: the
@@ -681,25 +688,26 @@ theorem Existential.to3 [NoNulls T] {f : SeqAggFunc T} {op : CompOp}
   exact and_congr Iff.rfl (CompOp.eval3_eq_true_iff_noNulls op x c).symm
 
 omit [DecidableEq K] in
-/-- **Existential comparisons collapse to the qualifying occurrences.** In
-an absorptive m-semiring, the predicate provenance of an existential
-comparison `f(t) op c` on the group sequence `U` is the `⊕`-sum of the
-annotations of the occurrences whose `t`-value makes `x op c` *true*. No
-distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`).
+/-- **An existential comparison collapses to the qualifying occurrences.**
+In an absorptive m-semiring, the predicate provenance of `f(t) op c` on the
+group sequence `U`, when the comparison holds exactly of the sequences with
+a `P`-value, is the `⊕`-sum of the annotations of the occurrences whose
+`t`-value satisfies `P`. No distributivity of `⊗` over `⊖` is needed
+(`Having.sum_ann_meet`).
 
-An occurrence whose value is null contributes nothing, and rightly: SQL's
-aggregate skips it and the comparison is unknown on it, so it is in no
-world's reason for the predicate holding. -/
-theorem havingProv_existential3 (h_abs : absorptive K)
-    {f : SeqAggFunc T} {op : CompOp}
-    (hf : Existential3 f op) (U : List (AnnotatedTuple T K m)) (t : Term T m)
-    (c : T) :
+The witness is a predicate on values rather than the comparison itself,
+because the two need not coincide: SQL's `COUNT(t) ≠ 0` holds exactly when
+some occurrence has a *non-null* `t`-value, which is not a comparison of
+that value against `0`. -/
+theorem havingProv_existentialOn (h_abs : absorptive K)
+    {f : SeqAggFunc T} {op : CompOp} {c : T} {P : T → Prop} [DecidablePred P]
+    (hf : ExistentialOn f op c P) (U : List (AnnotatedTuple T K m))
+    (t : Term T m) :
     havingProv U t f op c
-      = ((Multiset.filter (fun p : AnnotatedTuple T K m =>
-            op.eval3 (t.eval p.fst) c = Kleene.true)
+      = ((Multiset.filter (fun p : AnnotatedTuple T K m => P (t.eval p.fst))
           (↑U : Multiset (AnnotatedTuple T K m))).map Prod.snd).sum := by
   set H : Finset (Fin U.length) :=
-    Finset.univ.filter (fun i => op.eval3 (t.eval (U.get i).fst) c = Kleene.true)
+    Finset.univ.filter (fun i => P (t.eval (U.get i).fst))
     with hH
   -- the comparison holds in a non-empty world iff the world meets `H`
   have hiff : ∀ W : Finset (Fin U.length), W.Nonempty →
@@ -710,7 +718,7 @@ theorem havingProv_existential3 (h_abs : absorptive K)
       rw [List.length_map, seqOf_length]
       exact Finset.card_pos.mpr hW
     unfold aggValOn
-    rw [hf _ c hne]
+    rw [hf _ hne]
     constructor
     · rintro ⟨x, hx, hxc⟩
       obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hx
@@ -738,6 +746,27 @@ theorem havingProv_existential3 (h_abs : absorptive K)
       exact fun hmeet => hW (hmeet.mono Finset.inter_subset_left)
   rw [hsum, sum_ann_meet h_abs _ (Finset.subset_univ H), hH, Finset.sum_filter,
     sum_map_filter_coe]
+
+omit [DecidableEq K] in
+/-- **Existential comparisons collapse to the qualifying occurrences.** In
+an absorptive m-semiring, the predicate provenance of an existential
+comparison `f(t) op c` on the group sequence `U` is the `⊕`-sum of the
+annotations of the occurrences whose `t`-value makes `x op c` *true*. No
+distributivity of `⊗` over `⊖` is needed (`Having.sum_ann_meet`).
+
+An occurrence whose value is null contributes nothing, and rightly: SQL's
+aggregate skips it and the comparison is unknown on it, so it is in no
+world's reason for the predicate holding. -/
+theorem havingProv_existential3 (h_abs : absorptive K)
+    {f : SeqAggFunc T} {op : CompOp}
+    (hf : Existential3 f op) (U : List (AnnotatedTuple T K m)) (t : Term T m)
+    (c : T) :
+    havingProv U t f op c
+      = ((Multiset.filter (fun p : AnnotatedTuple T K m =>
+            op.eval3 (t.eval p.fst) c = Kleene.true)
+          (↑U : Multiset (AnnotatedTuple T K m))).map Prod.snd).sum :=
+  havingProv_existentialOn h_abs (P := fun x => op.eval3 x c = Kleene.true)
+    (fun L hL => hf L c hL) U t
 
 omit [DecidableEq K] in
 /-- The same over a domain where nothing is null, the comparison then being
