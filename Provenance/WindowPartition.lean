@@ -96,7 +96,7 @@ theorem filter_product_key {α β γ : Type} [DecidableEq γ]
       ih (fun b hb => hmem b (Multiset.mem_cons_of_mem hb))]
     rfl
 
-namespace AggQuery
+namespace AggQueryIn
 
 /-! ## The window written as a join
 
@@ -150,12 +150,12 @@ aggregate column. -/
 def winByJoin (P : Tuple (Fin n) m) (t : Term T n) (f : SeqAggFunc T)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQuery.castKind (winProj_kinds n m)
-    (AggQuery.Proj (winProj n m)
-      (AggQuery.Sel
+  AggQueryIn.castKind (winProj_kinds n m)
+    (AggQueryIn.Proj (winProj n m)
+      (AggQueryIn.Sel
         (keyJoinCond (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
           (fun k => winLeftPos_kind (P k)) winKeyPos_kind)
-        (AggQuery.Prod q (AggQuery.Gamma P ![t] ![f] q))))
+        (AggQueryIn.Prod q (AggQueryIn.Gamma P ![t] ![f] q))))
 
 /-! ## Over plain relations -/
 
@@ -184,9 +184,9 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
-      = (AggQuery.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluatePlain d := by
-  rw [winByJoin, AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain_Win_eq]
-  simp only [AggQuery.evaluatePlain]
+      = (AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluatePlain d := by
+  rw [winByJoin, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain_Win_eq]
+  simp only [AggQueryIn.evaluatePlain]
   generalize hr : q.evaluatePlain d = r
   set Keys : Multiset (Tuple T m) :=
     (Multiset.map (fun (u : Tuple T n) (k : Fin m) => u (P k)) r).dedup with hKeys
@@ -266,13 +266,13 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map (fun r => (r.fst, r.snd.finalize))
-      = ((AggQuery.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluate d).map
+      = ((AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluate d).map
           (fun r => (r.fst, r.snd.finalize)) := by
   have hagg : (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
       (fun k => winLeftPos_kind (P k)) winKeyPos_kind).hasAggAtom = false :=
     keyJoinCond_hasAggAtom _ _ _ _
   -- the grouping, written as one row per distinct partition key
-  have hGamma : (AggQuery.Gamma P ![t] ![f] q).evaluate d
+  have hGamma : (AggQueryIn.Gamma P ![t] ![f] q).evaluate d
       = Multiset.map (fun g : Tuple T m =>
           ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
               (fun j => Sum.inr (AggValue.ofGroup (![f] j) (![t] j)
@@ -294,8 +294,8 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
             (q.evaluateAnnotated d)).symm,
         ← map_fst_groupByKey, Multiset.map_map]
     rfl
-  rw [winByJoin, AggQuery.evaluate_castKind, AggQuery.evaluate_Win_eq]
-  simp only [AggQuery.evaluate, hagg, Bool.false_eq_true, ite_false] at hGamma ⊢
+  rw [winByJoin, AggQueryIn.evaluate_castKind, AggQueryIn.evaluate_Win_eq]
+  simp only [AggQueryIn.evaluate, hagg, Bool.false_eq_true, ite_false] at hGamma ⊢
   rw [hGamma, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
   refine Eq.trans (congrArg (Multiset.map _)
     (filter_product_key (γ := Tuple T m) (q.evaluate d)
@@ -333,7 +333,7 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
         · intro h k
           rw [hy k]
           exact congrFun h k))) ?_
-  unfold AggQuery.evaluateAnnotated
+  unfold AggQueryIn.evaluateAnnotated
   simp only [Multiset.map_map]
   refine Multiset.map_congr rfl (fun r hr => ?_)
   dsimp only [Function.comp_apply]
@@ -405,4 +405,4 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   rw [Multiset.map_singleton, Multiset.prod_singleton, hsum]
   exact SemiringWithMonus.delta_absorb _ _
 
-end AggQuery
+end AggQueryIn

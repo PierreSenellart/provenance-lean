@@ -13,11 +13,11 @@ turns a query over annotated relations into an ordinary query over the
 lifted value type `T ⊕ K`. With the three-kind discipline the rewriting
 is expressible natively: the annotation column is *marked* `prov`
 (`ColKind.rewKinds`), read back by `TermGIn.provIndex` terms, aggregated by
-`AggQuery.ProvSum` (the `⊕`-gate creation of `ε` and `∖`), and the
-value-kind bookkeeping is `AggQuery.Retag` – semantically the identity.
+`AggQueryIn.ProvSum` (the `⊕`-gate creation of `ε` and `∖`), and the
+value-kind bookkeeping is `AggQueryIn.Retag` – semantically the identity.
 
-`AggQuery.rewriting` below mirrors the classical `Query.rewriting`
-rule for rule on the classical fragment (`AggQuery.classical`) of the
+`AggQueryIn.rewriting` below mirrors the classical `Query.rewriting`
+rule for rule on the classical fragment (`AggQueryIn.classical`) of the
 general syntax. Its correctness against `evaluateAnnotated` is
 assembled in stages: faithfulness of the classical strip, the classical
 correctness theorem `Query.rewriting_valid`, and the plain-semantics
@@ -47,17 +47,17 @@ theorem ColKind.rewKinds_base {n : ℕ} (k : Fin (n + 1)) :
   split <;> rfl
 
 /-- Retag any pointwise value-kinded query to the rewriting kinds. -/
-def AggQuery.retagToRew {T' : Type} {n : ℕ} {κ : Fin (n + 1) → ColKind}
+def AggQueryIn.retagToRew {T' : Type} {n : ℕ} {κ : Fin (n + 1) → ColKind}
     (h : ∀ k, (κ k).base = ColKind.reg)
     (q : AggQuery T' (n + 1) κ) : AggQuery T' (n + 1) (ColKind.rewKinds n) :=
-  AggQuery.Retag (fun k => (h k).trans (ColKind.rewKinds_base k).symm) q
+  AggQueryIn.Retag (fun k => (h k).trans (ColKind.rewKinds_base k).symm) q
 
 /-! ## The classical fragment -/
 
 /-- The classical (R1)–(R4) source fragment of the general syntax: no
 grouping, no provenance aggregation, no retagging, projections through
 regular terms only, selections without aggregate atoms. -/
-def AggQuery.classical : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.classical : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T n κ → Prop
   | _, _, .Rel _ _ => True
   | _, _, .Proj ps q =>
@@ -79,7 +79,7 @@ def AggQuery.classical : {n : ℕ} → {κ : Fin n → ColKind} →
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Classical queries have all-regular kinds (pointwise). -/
-theorem AggQuery.classical_kinds :
+theorem AggQueryIn.classical_kinds :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
       q.classical → ∀ k, κ k = ColKind.reg
   | _, _, .Rel _ _, _, _ => rfl
@@ -204,33 +204,33 @@ provenance columns (R3), unions concatenate (R4, first case),
 deduplication `⊕`-sums the provenance per surviving tuple (R4, `ε`), and
 difference combines the unmatched branch with the matched branch's
 `α ⊖ Σβ` (R4, `∖`). -/
-def AggQuery.rewriting :
+def AggQueryIn.rewriting :
     {n : ℕ} → {κ : Fin n → ColKind} → (q : AggQuery T n κ) →
     q.classical → AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)
   | n, _, .Rel _ s, _ =>
-    AggQuery.retagToRew (fun _ => rfl) (AggQuery.Rel (n + 1) s)
-  | _, _, @AggQuery.Proj _ n m κ ps q, hq =>
-    AggQuery.retagToRew
+    AggQueryIn.retagToRew (fun _ => rfl) (AggQueryIn.Rel (n + 1) s)
+  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+    AggQueryIn.retagToRew
       (fun j => by
         by_cases hj : (j : ℕ) < m
         · rw [dite_eq_left hj, ProjColIn.castComposite_kind]
           rfl
         · rw [dite_eq_right hj]
           rfl)
-      (AggQuery.Proj
+      (AggQueryIn.Proj
         (fun j : Fin (m + 1) =>
           if hj : (j : ℕ) < m then
             (ps ⟨j, hj⟩).castComposite
-              (AggQuery.classical_kinds q hq.2) (hq.1 ⟨j, hj⟩)
+              (AggQueryIn.classical_kinds q hq.2) (hq.1 ⟨j, hj⟩)
           else
             ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
               (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
         (q.rewriting hq.2))
   | _, _, .Sel φ q, hq =>
-    AggQuery.Sel (φ.castComposite (AggQuery.classical_kinds q hq.2) hq.1)
+    AggQueryIn.Sel (φ.castComposite (AggQueryIn.classical_kinds q hq.2) hq.1)
       (q.rewriting hq.2)
-  | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
-    AggQuery.retagToRew
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+    AggQueryIn.retagToRew
       (fun j => by
         by_cases h₁ : (j : ℕ) < n₁
         · rw [dite_eq_left h₁]; rfl
@@ -238,7 +238,7 @@ def AggQuery.rewriting :
           by_cases h₂ : (j : ℕ) < n₁ + n₂
           · rw [dite_eq_left h₂]; rfl
           · rw [dite_eq_right h₂]; rfl)
-      (AggQuery.Proj
+      (AggQueryIn.Proj
         (fun j : Fin (n₁ + n₂ + 1) =>
           if h₁ : (j : ℕ) < n₁ then
             ProjColIn.term (TermGIn.index
@@ -258,30 +258,30 @@ def AggQuery.rewriting :
               (TermGIn.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
                 ((Fin.append_right _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n₂))))))
-        (AggQuery.Prod (q₁.rewriting hq.1) (q₂.rewriting hq.2)))
+        (AggQueryIn.Prod (q₁.rewriting hq.1) (q₂.rewriting hq.2)))
   | _, _, .Sum q₁ q₂, hq =>
-    AggQuery.Sum (q₁.rewriting hq.1) (q₂.rewriting hq.2)
-  | _, _, @AggQuery.Dedup _ n q, hq =>
-    AggQuery.retagToRew
+    AggQueryIn.Sum (q₁.rewriting hq.1) (q₂.rewriting hq.2)
+  | _, _, @AggQueryIn.Dedup _ _ n q, hq =>
+    AggQueryIn.retagToRew
       (fun j => by
         refine Fin.addCases (fun i => ?_) (fun j' => ?_) j
         · rw [Fin.append_left, ColKind.rewKinds_lt i.isLt]
           rfl
         · rw [Fin.append_right]
           rfl)
-      (AggQuery.ProvSum (fun k : Fin n => k.castLE (Nat.le_succ n))
+      (AggQueryIn.ProvSum (fun k : Fin n => k.castLE (Nat.le_succ n))
         (fun k => by
           rw [ColKind.rewKinds_lt k.isLt]
           exact fun hc => ColKind.noConfusion hc)
         (TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         (q.rewriting hq))
-  | _, _, @AggQuery.Diff _ n q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     -- unmatched branch: rows of `q₁` whose data part is absent from `q₂`
     let keyProj : (q : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)) →
         AggQuery (T ⊕ K) n (ColKind.allReg n) := fun q =>
-      AggQuery.Retag (fun _ => rfl)
-        (AggQuery.Proj
+      AggQueryIn.Retag (fun _ => rfl)
+        (AggQueryIn.Proj
           (fun j : Fin n =>
             ProjColIn.term (TermGIn.index (j.castLE (Nat.le_succ n))
               (ColKind.rewKinds_lt j.isLt)))
@@ -289,23 +289,23 @@ def AggQuery.rewriting :
     let q₁r := q₁.rewriting hq.1
     let q₂r := q₂.rewriting hq.2
     let survivors :=
-      AggQuery.Dedup (AggQuery.Diff (keyProj q₁r) (keyProj q₂r))
+      AggQueryIn.Dedup (AggQueryIn.Diff (keyProj q₁r) (keyProj q₂r))
     let joined₁ :=
-      AggQuery.Sel
+      AggQueryIn.Sel
         (keyJoinCond
           (posL := fun k : Fin n => Fin.castAdd n (k.castLE (Nat.le_succ n)))
           (posR := fun k : Fin n => Fin.natAdd (n + 1) k)
           (fun k => (Fin.append_left _ _ _).trans
             (ColKind.rewKinds_lt k.isLt))
           (fun k => (Fin.append_right _ _ _).trans rfl))
-        (AggQuery.Prod q₁r survivors)
+        (AggQueryIn.Prod q₁r survivors)
     let branch₁ :=
-      AggQuery.retagToRew
+      AggQueryIn.retagToRew
         (fun j => by
           by_cases hj : (j : ℕ) < n
           · rw [dite_eq_left hj]; rfl
           · rw [dite_eq_right hj]; rfl)
-        (AggQuery.Proj
+        (AggQueryIn.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
               ProjColIn.term (TermGIn.index
@@ -319,7 +319,7 @@ def AggQuery.rewriting :
           joined₁)
     -- matched branch: `α ⊖ Σβ` against the per-key sum of `q₂`
     let sums₂ :=
-      AggQuery.ProvSum (fun k : Fin n => k.castLE (Nat.le_succ n))
+      AggQueryIn.ProvSum (fun k : Fin n => k.castLE (Nat.le_succ n))
         (fun k => by
           rw [ColKind.rewKinds_lt k.isLt]
           exact fun hc => ColKind.noConfusion hc)
@@ -327,7 +327,7 @@ def AggQuery.rewriting :
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         q₂r
     let joined₂ :=
-      AggQuery.Sel
+      AggQueryIn.Sel
         (keyJoinCond
           (posL := fun k : Fin n =>
             Fin.castAdd (n + 1) (k.castLE (Nat.le_succ n)))
@@ -338,14 +338,14 @@ def AggQuery.rewriting :
           (fun k => (Fin.append_right _ _ _).trans
             ((Fin.append_left _ _ _).trans
               (ColKind.rewKinds_lt k.isLt))))
-        (AggQuery.Prod q₁r sums₂)
+        (AggQueryIn.Prod q₁r sums₂)
     let branch₂ :=
-      AggQuery.retagToRew
+      AggQueryIn.retagToRew
         (fun j => by
           by_cases hj : (j : ℕ) < n
           · rw [dite_eq_left hj]; rfl
           · rw [dite_eq_right hj]; rfl)
-        (AggQuery.Proj
+        (AggQueryIn.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
               ProjColIn.term (TermGIn.index
@@ -362,7 +362,7 @@ def AggQuery.rewriting :
                   ((Fin.append_right _ _ _).trans
                     (Fin.append_right _ _ _)))))
           joined₂)
-    AggQuery.Sum branch₁ branch₂
+    AggQueryIn.Sum branch₁ branch₂
 termination_by structural _ _ q _ => q
 
 /-! ## Stripping to the classical syntax
@@ -456,14 +456,14 @@ def ProjColIn.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T
   | .provTerm t => t.strip
 
 /-- Strip a classical-fragment query to the classical syntax. -/
-def AggQuery.strip :
+def AggQueryIn.strip :
     {n : ℕ} → {κ : Fin n → ColKind} → (q : AggQuery T n κ) →
     q.classical → Query T n
   | n, _, .Rel _ s, _ => .Rel n s
   | _, _, .Proj ps q, hq =>
     .Proj (fun j => (ps j).strip) (q.strip hq.2)
   | _, _, .Sel φ q, hq => .Sel φ.strip (q.strip hq.2)
-  | _, _, @AggQuery.Prod _ n₁ n₂ _ _ q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq =>
     @Query.Prod T n₁ n₂ (n₁ + n₂) rfl (q₁.strip hq.1) (q₂.strip hq.2)
   | _, _, .Sum q₁ q₂, hq => .Sum (q₁.strip hq.1) (q₂.strip hq.2)
   | _, _, .Dedup q, hq => .Dedup (q.strip hq)
@@ -477,7 +477,7 @@ def AggQuery.strip :
 termination_by structural _ _ q _ => q
 
 /-- The strip is aggregation-free. -/
-theorem AggQuery.strip_source :
+theorem AggQueryIn.strip_source :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical), (q.strip hq).source
   | _, _, .Rel _ _, _ => trivial
@@ -511,7 +511,7 @@ theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
 /-- **Row-wise faithfulness of the strip**: on the classical fragment,
 the general evaluator produces rows satisfying the embedding invariant
 against the classical annotated evaluation of the stripped query. -/
-theorem AggQuery.strip_rel :
+theorem AggQueryIn.strip_rel :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluate d)
@@ -549,7 +549,7 @@ theorem AggQuery.strip_rel :
     refine rel_filter_of_iff (strip_rel q hq.2 d) (fun r p hr => ?_)
     rw [GenPredIn.holds_iff_holdsPlain, hr.plainTuple_eq]
     exact (GenPredIn.strip_eval φ hq.1 p.fst).symm
-  | _, _, @AggQuery.Prod _ n₁ n₂ _ _ q₁ q₂, hq, d => by
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq, d => by
     refine rel_map_of_rel
       (rel_product (strip_rel q₁ hq.1 d) (strip_rel q₂ hq.2 d)) ?_
     rintro ⟨x, y⟩ ⟨p, p'⟩ ⟨hx, hy⟩
@@ -609,12 +609,12 @@ theorem AggQuery.strip_rel :
 /-- **Faithfulness of the strip**: on the classical fragment the general
 annotated evaluator computes the classical annotated semantics of the
 stripped query. -/
-theorem AggQuery.strip_bridge {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQueryIn.strip_bridge {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated d
       = (q.strip hq).evaluateAnnotated (q.strip_source hq) d := by
-  unfold AggQuery.evaluateAnnotated
-  exact (map_eq_of_rel (AggQuery.strip_rel q hq d)
+  unfold AggQueryIn.evaluateAnnotated
+  exact (map_eq_of_rel (AggQueryIn.strip_rel q hq d)
     (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)
 
 end StripFaithful
@@ -729,19 +729,19 @@ theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
 /-- **Plain-semantics agreement**: the native rewriting and the classical
 rewriting of the stripped query evaluate identically on any composite
 database. -/
-theorem AggQuery.rewriting_plain :
+theorem AggQueryIn.rewriting_plain :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewriting hq).evaluatePlain D
         = ((q.strip hq).rewriting (q.strip_source hq)).evaluate D
   | n, _, .Rel _ s, _, D => by
-    show (AggQuery.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
+    show (AggQueryIn.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
-    simp only [AggQuery.evaluatePlain, Query.evaluate]
+    simp only [AggQueryIn.evaluatePlain, Query.evaluate]
     cases D.find (n + 1) s <;> rfl
-  | _, _, @AggQuery.Proj _ n m κ ps q, hq, D => by
-    unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq, D => by
+    unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q hq.2 D]
     refine Multiset.map_congr rfl (fun u _ => ?_)
@@ -753,18 +753,18 @@ theorem AggQuery.rewriting_plain :
     · rw [dite_eq_right hj, dite_eq_right hj]
       rfl
   | _, _, .Sel φ q, hq, D => by
-    unfold AggQuery.rewriting AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+    unfold AggQueryIn.rewriting AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q hq.2 D]
     let : DecidablePred (Selection.eval (φ.strip.castToAnnotatedTuple
         (K := K))) := (φ.strip.castToAnnotatedTuple).evalDecidable
     exact Multiset.filter_congr
       (fun u _ => GenPredIn.castComposite_holdsPlain
-        (AggQuery.classical_kinds q hq.2) φ hq.1 u)
-  | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
-    unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+        (AggQueryIn.classical_kinds q hq.2) φ hq.1 u)
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
+    unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
     simp only [Query.evaluate]
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D,
@@ -799,13 +799,13 @@ theorem AggQuery.rewriting_plain :
           rw [Nat.mod_eq_of_lt (by omega)]
           omega
   | _, _, .Sum q₁ q₂, hq, D => by
-    unfold AggQuery.rewriting AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+    unfold AggQueryIn.rewriting AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D]
-  | _, _, @AggQuery.Dedup _ n q, hq, D => by
-    unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+  | _, _, @AggQueryIn.Dedup _ _ n q, hq, D => by
+    unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
     simp only [Query.evaluate]
     rw [rewriting_plain q hq D]
@@ -818,9 +818,9 @@ theorem AggQuery.rewriting_plain :
         show Multiset.fold addFn 0 _ = Multiset.fold addFn 0 _
         refine congrArg _ (Multiset.map_congr ?_ (fun u _ => rfl))
         congr 1
-  | _, _, @AggQuery.Diff _ n q₁ q₂, hq, D => by
-    unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
-    simp only [AggQuery.evaluatePlain]
+  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq, D => by
+    unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
+    simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
     simp only [Query.evaluate]
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D]
@@ -951,12 +951,12 @@ general syntax, evaluating the annotated semantics and folding the result
 into composite `T ⊕ K` tuples agrees with evaluating the rewritten query
 under the plain semantics over the composite database. This is the
 general-syntax form of the classical rewriting correctness. -/
-theorem AggQuery.rewriting_valid {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQueryIn.rewriting_valid {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     (q.evaluateAnnotated d).toComposite
       = (q.rewriting hq).evaluatePlain d.toComposite := by
-  rw [AggQuery.strip_bridge q hq d,
+  rw [AggQueryIn.strip_bridge q hq d,
     Query.rewriting_valid (q.strip hq) (q.strip_source hq) d,
-    AggQuery.rewriting_plain q hq d.toComposite]
+    AggQueryIn.rewriting_plain q hq d.toComposite]
 
 end Correctness

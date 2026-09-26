@@ -48,7 +48,7 @@ recorded here rather than papered over:
   `Query`, the declaration the paper's grammar links to, is the *classical*
   syntax: it carries the operators of RA⁺(∖) plus `ProvSum`, the ⊕-aggregation
   that rules (R1)–(R4) emit. General aggregation, and the rewriting rule for it,
-  live on the kind-indexed syntax (`AggQuery.Gamma`, and the bare-grouping
+  live on the kind-indexed syntax (`AggQueryIn.Gamma`, and the bare-grouping
   rewriting of `Provenance.AggQueryGroupRewriting`), which did not exist when
   the paper was written. This module deliberately does not import those: a
   frozen file should depend on as little as possible, and what it must pin is

@@ -223,7 +223,7 @@ theorem havingGroup_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
 /-- **Data-part adequacy of the general evaluator.** Forgetting the
 annotations of the general annotated evaluation yields the plain
 evaluation of the stripped query on the plain database. -/
-theorem AggQuery.evaluateAnnotated_toPlain :
+theorem AggQueryIn.evaluateAnnotated_toPlain :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (d : AnnotatedDatabase T K),
     (q.evaluateAnnotated d).toPlain = q.stripAgg.evaluatePlain d.toPlain := by
@@ -232,7 +232,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
       (q.evaluateAnnotated d).toPlain
         = (q.evaluate d).map (fun r => GenRow.plainTuple r.fst) := by
     intro n κ q d
-    unfold AggQuery.evaluateAnnotated AnnotatedRelation.toPlain
+    unfold AggQueryIn.evaluateAnnotated AnnotatedRelation.toPlain
     rw [Multiset.map_map]
     rfl
   intro n κ q
@@ -240,7 +240,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | Rel n s =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [AnnotatedDatabase.find_toPlain]
     cases hf : d.find n s
     · rfl
@@ -249,7 +249,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | Proj ps q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih d, hplain, Multiset.map_map, Multiset.map_map]
     apply Multiset.map_congr rfl
     intro r _
@@ -258,19 +258,19 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | Sel φ q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ, ite_eq_left hφ, ← ih d, hplain, Multiset.map_map]
       rfl
     · rw [ite_eq_right hφ, ite_eq_right hφ]
-      simp only [AggQuery.evaluatePlain]
+      simp only [AggQueryIn.evaluatePlain]
       rw [← ih d, hplain]
       exact map_filter_iff _ _ _
         (fun (r : GenRow T K _) => φ.holds_iff_holdsPlain r.fst) _
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih₁ d, ← ih₂ d, hplain, hplain]
     show Multiset.map _ (Multiset.map _ (Multiset.product _ _))
       = Multiset.map _ (Multiset.product
@@ -289,12 +289,12 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [Multiset.map_add, ← ih₁ d, ← ih₂ d, hplain, hplain]
   | Dedup q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [Multiset.map_map, ← ih d, hplain]
     refine Eq.trans
       (Multiset.map_congr rfl
@@ -304,7 +304,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg]
     rw [Multiset.map_map, Multiset.map_map, Multiset.map_map, ← ih₁ d, hplain]
     apply Multiset.map_congr rfl
     intro r _
@@ -322,7 +322,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
       rw [← ih d]
       exact (ValueFrame.ofSorted_plain
         (Multiset.map GenRow.toAnnotated (q.evaluate d))).symm
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [OccFam.toMultiset_map]
     refine congrArg OccFam.toMultiset ?_
     rw [hocc]
@@ -339,7 +339,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
     -- input, which is what the token collapses to
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih d, hplain]
     have hview : AnnotatedRelation.toPlain
         ((q.evaluate d).map GenRow.toAnnotated)
@@ -364,7 +364,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | @Gamma m n₁ n₂ is ts fs q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih d, hplain]
     -- collapse the nested maps deterministically, outermost first
     conv_lhs => rw [Multiset.map_map]
@@ -406,7 +406,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | @ProvSum m n₁ κ' is his t q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih d, hplain]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
@@ -431,7 +431,7 @@ theorem AggQuery.evaluateAnnotated_toPlain :
   | @GammaTok m n₁ n₂ κ' is his ts fs a q ih =>
     intro d
     rw [hplain]
-    simp only [AggQuery.evaluate, AggQuery.stripAgg, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih d, hplain]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]

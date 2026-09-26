@@ -368,7 +368,7 @@ inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
 abbrev ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) := ProjColIn T 0 κ
 
 /-- The kind of the output column. -/
-def ProjColIn.kind {κ : Fin n → ColKind} : ProjCol T κ → ColKind
+def ProjColIn.kind {c : ℕ} {κ : Fin n → ColKind} : ProjColIn T c κ → ColKind
   | term _ => ColKind.reg
   | token _ _ => ColKind.agg
   | provTerm _ => ColKind.prov
@@ -390,36 +390,36 @@ def ColKind.allReg (n : ℕ) : Fin n → ColKind := fun _ => ColKind.reg
 scope conditions: `Gamma` aggregates an all-regular input, `Dedup` and
 `Diff` require all-regular kinds, and the projection/selection grammars
 never compute over tokens. -/
-inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
+inductive AggQueryIn (T : Type) (c : ℕ) : (n : ℕ) → (Fin n → ColKind) → Type where
   /-- Base relation (all-regular). -/
-  | Rel : (n : ℕ) → String → AggQuery T n (ColKind.allReg n)
+  | Rel : (n : ℕ) → String → AggQueryIn T c n (ColKind.allReg n)
   /-- Generalized projection. -/
   | Proj : {n m : ℕ} → {κ : Fin n → ColKind} →
-      (ps : Tuple (ProjCol T κ) m) → AggQuery T n κ →
-      AggQuery T m (fun j => (ps j).kind)
+      (ps : Tuple (ProjColIn T c κ) m) → AggQueryIn T c n κ →
+      AggQueryIn T c m (fun j => (ps j).kind)
   /-- Generalized selection. -/
   | Sel : {n : ℕ} → {κ : Fin n → ColKind} →
-      GenPred T κ → AggQuery T n κ → AggQuery T n κ
+      GenPredIn T c κ → AggQueryIn T c n κ → AggQueryIn T c n κ
   /-- Cartesian product (join). -/
   | Prod : {n₁ n₂ : ℕ} → {κ₁ : Fin n₁ → ColKind} → {κ₂ : Fin n₂ → ColKind} →
-      AggQuery T n₁ κ₁ → AggQuery T n₂ κ₂ →
-      AggQuery T (n₁ + n₂) (Fin.append κ₁ κ₂)
+      AggQueryIn T c n₁ κ₁ → AggQueryIn T c n₂ κ₂ →
+      AggQueryIn T c (n₁ + n₂) (Fin.append κ₁ κ₂)
   /-- Union (all). -/
   | Sum : {n : ℕ} → {κ : Fin n → ColKind} →
-      AggQuery T n κ → AggQuery T n κ → AggQuery T n κ
+      AggQueryIn T c n κ → AggQueryIn T c n κ → AggQueryIn T c n κ
   /-- Duplicate elimination – all-regular only. -/
-  | Dedup : {n : ℕ} → AggQuery T n (ColKind.allReg n) →
-      AggQuery T n (ColKind.allReg n)
+  | Dedup : {n : ℕ} → AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n)
   /-- Difference – all-regular only. -/
-  | Diff : {n : ℕ} → AggQuery T n (ColKind.allReg n) →
-      AggQuery T n (ColKind.allReg n) → AggQuery T n (ColKind.allReg n)
+  | Diff : {n : ℕ} → AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n) → AggQueryIn T c n (ColKind.allReg n)
   /-- The decomposed grouping operator `γ^≼`: group the (all-regular)
   input by the key columns `is`; one output row per group, carrying the
   key followed by one aggregate token per `(term, aggregate)` pair. -/
   | Gamma : {m n₁ n₂ : ℕ} →
-      (is : Tuple (Fin m) n₁) → (ts : Tuple (Term T m) n₂) →
-      (fs : Tuple (SeqAggFunc T) n₂) → AggQuery T m (ColKind.allReg m) →
-      AggQuery T (n₁ + n₂)
+      (is : Tuple (Fin m) n₁) → (ts : Tuple (TermIn T c m) n₂) →
+      (fs : Tuple (SeqAggFunc T) n₂) → AggQueryIn T c m (ColKind.allReg m) →
+      AggQueryIn T c (n₁ + n₂)
         (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg))
   /-- Aggregation without grouping: one output row whatever the input,
   its aggregates reading the whole of it.
@@ -430,25 +430,25 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
   worlds (`AggValue.ofScalarGroup`): an aggregate over an empty input has a
   value, and a comparison against it has to be given one. -/
   | GammaScalar : {m n₂ : ℕ} →
-      (ts : Tuple (Term T m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
-      AggQuery T m (ColKind.allReg m) →
-      AggQuery T n₂ (fun _ => ColKind.agg)
+      (ts : Tuple (TermIn T c m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
+      AggQueryIn T c m (ColKind.allReg m) →
+      AggQueryIn T c n₂ (fun _ => ColKind.agg)
   /-- Provenance aggregation: group by the key columns `is` (none of
   which may be a token column) and `⊕`-sum the term `t` over each group
   into a single `prov` output column – the abstract counterpart of
   ProvSQL's `⊕`-gate creation in rewritten plans. -/
   | ProvSum : {m n₁ : ℕ} → {κ : Fin m → ColKind} →
       (is : Tuple (Fin m) n₁) → (his : ∀ k, κ (is k) ≠ ColKind.agg) →
-      (t : TermG T κ) → AggQuery T m κ →
-      AggQuery T (n₁ + 1)
+      (t : TermGIn T c κ) → AggQueryIn T c m κ →
+      AggQueryIn T c (n₁ + 1)
         (Fin.append (fun k => κ (is k)) (fun _ : Fin 1 => ColKind.prov))
   /-- Retag value columns between the value-armed kinds (`reg` and
   `prov`): semantically the identity, it declares which value columns
   carry provenance – the typing act of casting a value column to
   ProvSQL's uuid type. Token columns cannot be retagged. -/
   | Retag : {n : ℕ} → {κ κ' : Fin n → ColKind} →
-      (h : ∀ k, (κ k).base = (κ' k).base) → AggQuery T n κ →
-      AggQuery T n κ'
+      (h : ∀ k, (κ k).base = (κ' k).base) → AggQueryIn T c n κ →
+      AggQueryIn T c n κ'
   /-- Token-building grouping (ProvSQL's `provsql_agg`): group by the
   key columns `is`, output the keys, one aggregate token per
   `(term, aggregate)` pair whose occurrence annotations are the values
@@ -460,9 +460,9 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
   (`noProvSum`) rule it out of source queries. -/
   | GammaTok : {m n₁ n₂ : ℕ} → {κ : Fin m → ColKind} →
       (is : Tuple (Fin m) n₁) → (his : ∀ k, κ (is k) ≠ ColKind.agg) →
-      (ts : Tuple (Term T m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
-      (a : TermG T κ) → AggQuery T m κ →
-      AggQuery T (n₁ + n₂ + 1)
+      (ts : Tuple (TermIn T c m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
+      (a : TermGIn T c κ) → AggQueryIn T c m κ →
+      AggQueryIn T c (n₁ + n₂ + 1)
         (Fin.append
           (Fin.append (fun k => κ (is k)) (fun _ => ColKind.agg))
           (fun _ : Fin 1 => ColKind.prov))
@@ -484,13 +484,16 @@ inductive AggQuery (T : Type) : (n : ℕ) → (Fin n → ColKind) → Type where
   | Win : {n m p : ℕ} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
       (w : ValueFrame T p) →
-      (t : Term T n) → (f : SeqAggFunc T) →
-      AggQuery T n (ColKind.allReg n) →
-      AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
+      (t : TermIn T c n) → (f : SeqAggFunc T) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
+
+/-- A closed query: one that reads no outer column. -/
+abbrev AggQuery (T : Type) (n : ℕ) (κ : Fin n → ColKind) := AggQueryIn T 0 n κ
 
 /-- Transport a query along an equality of kind vectors (kind vectors
 arising from projections are rarely definitionally all-regular). -/
-def AggQuery.castKind {n : ℕ} {κ κ' : Fin n → ColKind} (h : κ = κ') :
+def AggQueryIn.castKind {n : ℕ} {κ κ' : Fin n → ColKind} (h : κ = κ') :
     AggQuery T n κ → AggQuery T n κ' := h ▸ id
 
 /-! ## The general evaluator -/
@@ -541,7 +544,7 @@ the junk constant. The `cmpAgg` gate escapes the same fate only because
 its kind constraint keeps it off the columns the plain semantics sees.
 The predicates below cut out the fragment where no indicator gate occurs,
 on which the rewritten world's evaluator is the plain semantics
-(`AggQuery.evaluateRew_plain`). -/
+(`AggQueryIn.evaluateRew_plain`). -/
 
 /-- No indicator gate in a term. -/
 def TermGIn.chiFree {T' : Type} {κ : Fin n → ColKind} : TermG T' κ → Prop
@@ -564,13 +567,13 @@ def ProjColIn.chiFree {T' : Type} {κ : Fin n → ColKind} : ProjCol T' κ → P
 
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
-def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T n κ → AnnotatedDatabase T K → Multiset (GenRow T K n)
   | n, _, Rel _ s, d =>
     match d.find n s with
     | none => (∅ : Multiset (GenRow T K n))
     | some rn => (rn : Multiset (AnnotatedTuple T K n)).map GenRow.ofAnnotated
-  | _, _, @Proj _ n m κ ps q, d =>
+  | _, _, @Proj _ _ n m κ ps q, d =>
     (q.evaluate d).map (fun r =>
       let u' : Tuple (GenValue T K) m := fun j => (ps j).eval r.fst
       -- groups all of whose token columns are dropped are cashed
@@ -626,7 +629,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
     (r₁.map (fun (u, α) =>
       (⟨u, α - (((grouped₂.val.find? (·.1 = u)).map Prod.snd).getD 0)⟩ :
         AnnotatedTuple T K _))).map GenRow.ofAnnotated
-  | _, _, @Gamma _ m n₁ n₂ is ts fs q, d =>
+  | _, _, @Gamma _ _ m n₁ n₂ is ts fs q, d =>
     let r : AnnotatedRelation T K m := (q.evaluate d).map GenRow.toAnnotated
     -- one row per group key (the closed form is `havingSite_evaluateAnnotated`)
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
@@ -636,14 +639,14 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
       ⟨Fin.append (fun k => Sum.inl (g k))
         (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, @GammaScalar _ m n₂ ts fs q, d =>
+  | _, _, @GammaScalar _ _ m n₂ ts fs q, d =>
     let r : AnnotatedRelation T K m := (q.evaluate d).map GenRow.toAnnotated
     -- one row whatever the input; the whole of it is the occurrence sequence
     let U := Having.havingGroup (fun k : Fin 0 => k.elim0) r (fun k : Fin 0 => k.elim0)
     {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j) U), ⟨1, 0⟩⟩
       : GenRow T K n₂)}
   | _, _, Retag _ q, d => q.evaluate d
-  | _, _, @ProvSum _ _m n₁ _κ is _his t q, d =>
+  | _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d =>
     let r : AnnotatedRelation T K _ := (q.evaluate d).map GenRow.toAnnotated
     let keys := (r.map (fun p => (fun k => p.fst (is k) : Tuple T n₁))).dedup
     keys.map (fun g =>
@@ -653,7 +656,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
               (fun p => t.evalPlain p.fst)).fold addFn 0)),
         ⟨((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             Prod.snd).sum, 0⟩⟩ : GenRow T K (n₁ + 1)))
-  | _, _, @GammaTok _ m n₁ n₂ _κ is _his ts fs a q, d =>
+  | _, _, @GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q, d =>
     let r : AnnotatedRelation T K m := (q.evaluate d).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
@@ -666,7 +669,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, @Win _ n _m _p P O o w t f q, d =>
+  | _, _, @Win _ _ n _m _p P O o w t f q, d =>
     let r : AnnotatedRelation T K n := (q.evaluate d).map GenRow.toAnnotated
     -- the canonical indexing: an occurrence is what a frame is computed for,
     -- and two occurrences carrying the same row may have different frames
@@ -680,7 +683,7 @@ def AggQuery.evaluate : {n : ℕ} → {κ : Fin n → ColKind} →
 
 /-- The final annotated relation computed by a general query: evaluate,
 then finalize every row. -/
-def AggQuery.evaluateAnnotated {n : ℕ} {κ : Fin n → ColKind}
+def AggQueryIn.evaluateAnnotated {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (d : AnnotatedDatabase T K) :
     AnnotatedRelation T K n :=
   (q.evaluate d).map GenRow.toAnnotated
@@ -700,18 +703,18 @@ the input relation mapped row by row, each row gaining the token its relation
 gives it. This is the form every theorem about the operator uses; that it is
 legitimate – that an occurrence's token is determined by the relation even
 though its frame is not determined by its row – is `ValueFrame.tokenOf`. -/
-theorem AggQuery.evaluate_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluate_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Win P O o w t f q).evaluate d
+    (AggQueryIn.Win P O o w t f q).evaluate d
       = (q.evaluateAnnotated d).map
           (ValueFrame.windowRow P O o w t f (q.evaluateAnnotated d)) := by
   conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluateAnnotated d)]
   rw [OccFam.toMultiset_map]
   refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
   show (_ : GenRow T K (n + 1)) = ValueFrame.windowRow P O o w t f _ _
-  unfold ValueFrame.windowRow AggQuery.evaluateAnnotated
+  unfold ValueFrame.windowRow AggQueryIn.evaluateAnnotated
   dsimp only [Fin.cast_eq_self]
   rw [ValueFrame.token_eq_tokenOf, OccFam.toMultiset_ofSorted]
 
@@ -818,13 +821,13 @@ computing the aggregate of each group's full occurrence sequence (in the
 canonical `≼` order of `Relation.groupSeq`) and every selection filtering
 classically. `Diff` is the all-or-nothing difference of
 `Query.evaluate`. -/
-def AggQuery.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T n κ → Database T → Relation T n
   | n, _, Rel _ s, d =>
     match d.find n s with
     | none => (∅ : Multiset (Tuple T n))
     | some rn => rn
-  | _, _, @Proj _ n _ κ ps q, d =>
+  | _, _, @Proj _ _ n _ κ ps q, d =>
     (q.evaluatePlain d).map (fun u => (fun j => (ps j).evalPlain u))
   | _, _, Sel φ q, d =>
     @Multiset.filter _ φ.holdsPlain φ.decHoldsPlain (q.evaluatePlain d)
@@ -834,24 +837,24 @@ def AggQuery.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, Diff q₁ q₂, d =>
     let r₂ : Multiset (Tuple T _) := q₂.evaluatePlain d
     (q₁.evaluatePlain d).filter (fun t => t ∉ r₂)
-  | _, _, @Gamma _ _m n₁ n₂ is ts fs q, d =>
+  | _, _, @Gamma _ _ _m n₁ n₂ is ts fs q, d =>
     let r := q.evaluatePlain d
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g
       (fun j => (fs j) ((Relation.groupSeq is r g).map (ts j).eval)))
-  | _, _, @GammaScalar _ _m n₂ ts fs q, d =>
+  | _, _, @GammaScalar _ _ _m n₂ ts fs q, d =>
     let r := q.evaluatePlain d
     (Multiset.ofList [(fun j => (fs j)
       ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0)).map (ts j).eval) : Tuple T n₂)] : Relation T n₂)
   | _, _, Retag _ q, d => q.evaluatePlain d
-  | _, _, @ProvSum _ _m n₁ _κ is _his t q, d =>
+  | _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d =>
     let r := q.evaluatePlain d
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g (fun _ : Fin 1 =>
       ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
         (fun u => t.evalPlain u)).fold addFn 0))
-  | _, _, @GammaTok _ _m n₁ n₂ _κ is _his ts fs a q, d =>
+  | _, _, @GammaTok _ _ _m n₁ n₂ _κ is _his ts fs a q, d =>
     let r := q.evaluatePlain d
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append
@@ -860,7 +863,7 @@ def AggQuery.evaluatePlain : {n : ℕ} → {κ : Fin n → ColKind} →
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u)).fold addFn 0))
-  | _, _, @Win _ n _m _p P O o w t f q, d =>
+  | _, _, @Win _ _ n _m _p P O o w t f q, d =>
     -- the canonical indexing again; a frame is computed for an occurrence
     let occ := OccFam.ofSorted (q.evaluatePlain d)
     (OccFam.mk occ.size (fun i =>
@@ -892,10 +895,10 @@ theorem ValueFrame.windowValue_of_perm {n m p : ℕ} (P : Tuple (Fin n) m)
   rw [← Multiset.coe_eq_coe, hL, sortList_coe]
 
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
-theorem AggQuery.evaluatePlain_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluatePlain_Win_eq {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n)) (d : Database T) :
-    (AggQuery.Win P O o w t f q).evaluatePlain d
+    (AggQueryIn.Win P O o w t f q).evaluatePlain d
       = (q.evaluatePlain d).map (fun u : Tuple T n =>
           (Fin.snoc u (ValueFrame.windowValue P O o w t f (q.evaluatePlain d) u)
             : Tuple T (n + 1))) := by
@@ -914,7 +917,7 @@ never removes tuple slots) and selections containing an aggregate atom
 as ProvSQL emits them). The data-part adequacy of `evaluateAnnotated`
 is stated against the plain evaluation of the stripped query, mirroring
 `Query.stripDiff` in `Provenance.QueryAdequacy`. -/
-def AggQuery.stripAgg : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.stripAgg : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T n κ → AggQuery T n κ
   | _, _, Rel n s => Rel n s
   | _, _, Proj ps q => Proj ps q.stripAgg
@@ -936,7 +939,7 @@ metatheorems (random-world commutation, PQE) are about source queries;
 `ProvSum` is a rewriting-target operator whose deterministic group sum
 is not world-faithful – exactly as the classical `Agg` was excluded from
 the annotated evaluators. -/
-def AggQuery.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.noProvSum : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T n κ → Prop
   | _, _, .Rel _ _ => True
   | _, _, .Proj _ q => q.noProvSum
@@ -1080,7 +1083,7 @@ theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
 
 /-- Kind transport is transparent to evaluation (row types do not mention
 the kind vector). -/
-theorem AggQuery.evaluate_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
+theorem AggQueryIn.evaluate_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
     (h : κ = κ') (q : AggQuery T n κ) (d : AnnotatedDatabase T K) :
     (q.castKind h).evaluate d = q.evaluate d := by
   subst h; rfl
@@ -1091,7 +1094,7 @@ abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Kind transport is transparent to plain evaluation too. -/
-theorem AggQuery.evaluatePlain_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
+theorem AggQueryIn.evaluatePlain_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
     (h : κ = κ') (q : AggQuery T n κ) (d : Database T) :
     (q.castKind h).evaluatePlain d = q.evaluatePlain d := by
   subst h; rfl
@@ -1123,7 +1126,7 @@ def GenValue.kindOf : GenValue T K → ColKind
 
 
 /-- **Kind conformance of the general evaluator.** -/
-theorem AggQuery.evaluate_conform :
+theorem AggQueryIn.evaluate_conform :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (d : AnnotatedDatabase T K) (r : GenRow T K n),
       r ∈ q.evaluate d → ∀ k, GenValue.kindOf (r.fst k) = (κ k).base := by
@@ -1131,7 +1134,7 @@ theorem AggQuery.evaluate_conform :
   induction q with
   | Rel n s =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
     | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
     | some rn =>
@@ -1140,7 +1143,7 @@ theorem AggQuery.evaluate_conform :
       rfl
   | Proj ps q ih =>
     intro d r hr j
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     cases hp : ps j with
     | term t => simp [ProjColIn.eval, hp, ProjColIn.kind, GenValue.kindOf,
@@ -1158,7 +1161,7 @@ theorem AggQuery.evaluate_conform :
       | inr a => rfl
   | Sel φ q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
@@ -1167,7 +1170,7 @@ theorem AggQuery.evaluate_conform :
       exact ih d r (Multiset.mem_of_mem_filter hr) k
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨⟨x, y⟩, hxy, rfl⟩ := Multiset.mem_map.mp hr
     have hx := Multiset.mem_product.mp hxy
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -1179,23 +1182,23 @@ theorem AggQuery.evaluate_conform :
           (congrArg ColKind.base (Fin.append_right _ _ j).symm))
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.mp hr with h | h
     · exact ih₁ d r h k
     · exact ih₂ d r h k
   | Dedup q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
   | Gamma is ts fs q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · exact (congrArg GenValue.kindOf
@@ -1218,7 +1221,7 @@ theorem AggQuery.evaluate_conform :
             (fun _ => ColKind.agg) j).symm)
   | ProvSum is his t q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨g, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · dsimp only
@@ -1233,13 +1236,13 @@ theorem AggQuery.evaluate_conform :
   | GammaScalar ts fs q ih =>
     -- one row, every column a token
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
     subst hr
     rfl
   | GammaTok is his ts fs a q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · refine Fin.addCases (fun i' => ?_) (fun j' => ?_) i
@@ -1256,7 +1259,7 @@ theorem AggQuery.evaluate_conform :
       rfl
   | Win P O o w t f q ih =>
     intro d r hr k
-    simp only [AggQuery.evaluate] at hr
+    simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k
     · dsimp only

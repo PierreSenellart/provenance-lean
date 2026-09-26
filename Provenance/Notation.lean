@@ -240,14 +240,14 @@ macro_rules
 
 macro_rules
   | `(ra_query% ($q:raQuery)) => `(ra_query% $q)
-  | `(ra_query% rel $n:num $s:str) => `(AggQuery.Rel $n $s)
+  | `(ra_query% rel $n:num $s:str) => `(AggQueryIn.Rel $n $s)
   | `(ra_query% `($q:term)) => `($q)
   | `(ra_query% π[$ts,*] $q:raQuery) =>
-      `(AggQuery.Proj ![$[ra_proj% $ts],*] (ra_query% $q))
-  | `(ra_query% σ[$p:raPred] $q:raQuery) => `(AggQuery.Sel (ra_pred% $p) (ra_query% $q))
-  | `(ra_query% $a:raQuery × $b:raQuery) => `(AggQuery.Prod (ra_query% $a) (ra_query% $b))
-  | `(ra_query% $a:raQuery ⊎ $b:raQuery) => `(AggQuery.Sum (ra_query% $a) (ra_query% $b))
-  | `(ra_query% ε $q:raQuery)    => `(AggQuery.Dedup (allReg (ra_query% $q)))
+      `(AggQueryIn.Proj ![$[ra_proj% $ts],*] (ra_query% $q))
+  | `(ra_query% σ[$p:raPred] $q:raQuery) => `(AggQueryIn.Sel (ra_pred% $p) (ra_query% $q))
+  | `(ra_query% $a:raQuery × $b:raQuery) => `(AggQueryIn.Prod (ra_query% $a) (ra_query% $b))
+  | `(ra_query% $a:raQuery ⊎ $b:raQuery) => `(AggQueryIn.Sum (ra_query% $a) (ra_query% $b))
+  | `(ra_query% ε $q:raQuery)    => `(AggQueryIn.Dedup (allReg (ra_query% $q)))
   | `(ra_query% γ[$ks,* ; $as,*] $q:raQuery) => do
       let keys ← ks.getElems.mapM fun k => match k with
         | `(raCol| #$i:num) => `(($i : Fin _))
@@ -261,9 +261,9 @@ macro_rules
       -- no keys is not a grouping with none: it is SQL's scalar
       -- aggregation, whose single row survives an empty input
       if ks.getElems.isEmpty then
-        `(AggQuery.GammaScalar ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+        `(AggQueryIn.GammaScalar ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
       else
-        `(AggQuery.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+        `(AggQueryIn.Gamma ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
   | `(ra_query% ⊞[$ps,* ; $os,* ; $o:term ; $w:term ; $a:raAgg] $q:raQuery) => do
       let keys ← ps.getElems.mapM fun k => match k with
         | `(raCol| #$i:num) => `(($i : Fin _))
@@ -273,11 +273,11 @@ macro_rules
         | _ => Lean.Macro.throwUnsupported
       match a with
       | `(raAgg| $t:raTerm : $f:term) =>
-          `(AggQuery.Win ![$keys,*] ![$ords,*] $o $w (ra_cterm% $t) $f
+          `(AggQueryIn.Win ![$keys,*] ![$ords,*] $o $w (ra_cterm% $t) $f
               (allReg (ra_query% $q)))
       | _ => Lean.Macro.throwUnsupported
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
-      `(AggQuery.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))
+      `(AggQueryIn.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))
 
 macro_rules
   | `(RA[ $q:raQuery ]) => `(ra_query% $q)

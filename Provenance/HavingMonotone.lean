@@ -37,7 +37,7 @@ qualifying occurrence (`Having.Existential`).
   and its reading `MonoCond.toGenPred` as a generalized selection
   predicate. `MonoCond.site_evaluateAnnotated` is the closed form of the
   fused site `σ_ψ(γ_{#0}[ts : fs](q))` in the general evaluator, extending
-  `AggQuery.havingSite_evaluateAnnotated` to positive combinations, and
+  `AggQueryIn.havingSite_evaluateAnnotated` to positive combinations, and
   `MonoCond.site_rewrite` is the site substitution: the key-projected fused
   site and the padded rewriting are the same multiset of annotated tuples,
   in every absorptive commutative m-semiring.
@@ -174,7 +174,7 @@ multiset of annotated tuples, for any existential comparison. -/
 theorem existential_site_rewrite (h_abs : absorptive K) {f : SeqAggFunc ℕ} {op : CompOp}
     (hf : Existential f op) (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => f) op 0
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => f) op 0
         (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
@@ -190,7 +190,7 @@ theorem existential_site_rewrite (h_abs : absorptive K) {f : SeqAggFunc ℕ} {op
 /-- `MIN(t) ≤ c`. -/
 theorem minLe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.le 0
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.le 0
         (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
@@ -201,7 +201,7 @@ theorem minLe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 /-- `MIN(t) < c`. -/
 theorem minLt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.lt 0
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.min) CompOp.lt 0
         (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
@@ -212,7 +212,7 @@ theorem minLt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 /-- `MAX(t) ≥ c`. -/
 theorem maxGe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.ge 0
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.ge 0
         (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
@@ -223,7 +223,7 @@ theorem maxGe_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.sour
 /-- `MAX(t) > c`. -/
 theorem maxGt_site_rewrite (h_abs : absorptive K) (q : Query ℕ 3) (hq : q.source)
     (d : AnnotatedDatabase ℕ K) (ts' : Tuple (Term ℕ 3) 1) (c : ℕ) :
-    ((AggQuery.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.gt 0
+    ((AggQueryIn.havingSite keyIdx ts' (fun _ => SeqAggFunc.max) CompOp.gt 0
         (TermIn.const c) (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd)
           : Tuple ℕ 1 × K))
@@ -576,7 +576,7 @@ def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
 general query. -/
 abbrev site (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂)
     (qg : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ (1 + n₂) (ColKind.gammaKinds 1 n₂) :=
-  AggQuery.Sel ψ.toGenPred (AggQuery.Gamma keyIdx ts fs qg)
+  AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma keyIdx ts fs qg)
 
 theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom = true
   | countGe _ _ => rfl
@@ -707,7 +707,7 @@ fused provenance `HavingPred.prov` of the condition on the group's
 occurrence sequence: the pending group factor introduced by `Gamma` is
 superseded by the compared tokens (every atom compares a token of that
 very group), and the atoms' predicate provenances combine by `⊗`/`⊕`.
-Generalizes `AggQuery.havingSite_evaluateAnnotated` from one comparison to
+Generalizes `AggQueryIn.havingSite_evaluateAnnotated` from one comparison to
 a positive Boolean combination. -/
 theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
     (ψ : MonoCond n₂) (qg : AggQuery ℕ 3 (ColKind.allReg 3)) (d : AnnotatedDatabase ℕ K) :
@@ -720,8 +720,8 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
                   (fun p => (ts k).eval p.fst))),
               (ψ.toHavingPred ts fs).prov (havingGroup keyIdx (qg.evaluateAnnotated d) g) g)
               : AnnotatedTuple ℕ K (1 + n₂))) := by
-  unfold AggQuery.evaluateAnnotated
-  simp only [AggQuery.evaluate]
+  unfold AggQueryIn.evaluateAnnotated
+  simp only [AggQueryIn.evaluate]
   rw [ite_eq_left (toGenPred_hasAggAtom ψ)]
   generalize Multiset.map GenRow.toAnnotated (qg.evaluate d) = A
   conv_lhs => rw [Multiset.map_map]

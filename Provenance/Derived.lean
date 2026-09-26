@@ -33,7 +33,7 @@ place: `SeqAggFunc.Counts`, `Having.existentialOn_counting`, and
 
 variable {T : Type} {n m : ℕ}
 
-namespace AggQuery
+namespace AggQueryIn
 
 /-! ## Padding -/
 
@@ -84,7 +84,7 @@ theorem evaluatePlain_pad (π : Fin m → Option (Fin n))
           | some k => u k
           | none => ValueTypeNull.null : Tuple T m)) := by
   unfold pad
-  rw [AggQuery.evaluatePlain_castKind]
+  rw [AggQueryIn.evaluatePlain_castKind]
   refine congrArg (Multiset.map · _) (funext fun u => funext fun j => ?_)
   show (padCol (π j)).evalPlain u = _
   cases π j <;> rfl
@@ -246,7 +246,7 @@ theorem evaluatePlain_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
             u ∈ (show Multiset (Tuple T n) from q₂.evaluatePlain d))
           ((show Multiset (Tuple T n) from q₁.evaluatePlain d).dedup) := by
   unfold inter
-  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  simp only [AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
   rw [show ∀ A B : Relation T n, A * B
       = Multiset.map (fun p : Tuple T n × Tuple T n => Fin.append p.1 p.2)
           (A.product B) from fun _ _ => rfl,
@@ -349,7 +349,7 @@ theorem mem_matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
           ∧ ∃ v ∈ (show Multiset (Tuple T n₂) from q₂.evaluatePlain d),
               (φ.holdsPlain (Fin.append u v))) := by
   unfold matchedLeft innerJoin
-  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  simp only [AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
   rw [Multiset.mem_map]
   constructor
   · rintro ⟨w, hw, rfl⟩
@@ -396,7 +396,7 @@ theorem evaluatePlain_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
   refine congrArg (Multiset.map _) ?_
   show Multiset.filter _ _ = _
   exact Multiset.filter_congr (fun u _ => by
-    rw [matchedLeft, AggQuery.evaluatePlain_castKind]
+    rw [matchedLeft, AggQueryIn.evaluatePlain_castKind]
     rfl)
 
 /-- The rows of the right arm that have a match: the second block of the
@@ -420,7 +420,7 @@ theorem mem_matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
           ∧ ∃ u ∈ (show Multiset (Tuple T n₁) from q₁.evaluatePlain d),
               (φ.holdsPlain (Fin.append u v))) := by
   unfold matchedRight innerJoin
-  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  simp only [AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
   rw [Multiset.mem_map]
   constructor
   · rintro ⟨w, hw, rfl⟩
@@ -465,7 +465,7 @@ theorem evaluatePlain_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
   refine congrArg (Multiset.map _) ?_
   show Multiset.filter _ _ = _
   exact Multiset.filter_congr (fun v _ => by
-    rw [matchedRight, AggQuery.evaluatePlain_castKind]
+    rw [matchedRight, AggQueryIn.evaluatePlain_castKind]
     rfl)
 
 /-- **What a full outer join computes**: the left outer join, and the rows
@@ -491,9 +491,9 @@ theorem evaluatePlain_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
   refine congrArg (Multiset.map _) ?_
   show Multiset.filter _ _ = _
   exact Multiset.filter_congr (fun v _ => by
-    rw [matchedRight, AggQuery.evaluatePlain_castKind]
+    rw [matchedRight, AggQueryIn.evaluatePlain_castKind]
     rfl)
 
 end Outer
 
-end AggQuery
+end AggQueryIn

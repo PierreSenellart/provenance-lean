@@ -7,7 +7,7 @@ ProvSQL evaluates rewritten plans over a value universe that contains,
 next to the regular values and the provenance identifiers, the aggregate
 tokens produced by its `provsql_agg` gate; the `provsql_having` gate then
 reads a token and produces the predicate provenance of an aggregate
-comparison. The formal counterpart is the evaluator `AggQuery.evaluateRew`
+comparison. The formal counterpart is the evaluator `AggQueryIn.evaluateRew`
 defined here: it runs a rewritten query (a `AggQuery` over the composite
 value type `T ⊕ K`) over rows `Tuple (GenValue (T ⊕ K) K) n` – the
 lifted-column carrier of the general evaluator, instantiated at the
@@ -18,7 +18,7 @@ tokens.
   through the `inl` embedding (`Dedup`, `Diff` and `Gamma` collapse their
   statically all-regular rows to plain tuples, exactly as the general
   evaluator reads them through `GenRow.toAnnotated`).
-* `AggQuery.GammaTok` builds tokens: one `AggValue.ofGroup` per
+* `AggQueryIn.GammaTok` builds tokens: one `AggValue.ofGroup` per
   `(term, aggregate)` pair over the group's occurrence sequence, whose
   annotations are the values of the explicit annotation term – in
   rewritten plans, the provenance column of the subquery – and writes the
@@ -30,7 +30,7 @@ tokens.
   its *regular* atoms: `TermGIn.evalRew` interprets it by `Having.chi`,
   the characteristic value `predsem` gives such an atom. Having no kind
   constraint to keep it off plain columns, it is what
-  `AggQuery.chiFree` excludes below.
+  `AggQueryIn.chiFree` excludes below.
 
 The rewriting rules built on this evaluator live downstream:
 `Provenance.AggQueryGroupRewriting` (the bare grouping and the `HAVING`
@@ -110,7 +110,7 @@ instance GenPredIn.instDecidableHoldsRew {n : ℕ} {κ : Fin n → ColKind}
 token-bearing rows. Value-kinded operators act through the `inl`
 embedding; `GammaTok` builds tokens and the group guard; the gates
 inside terms are interpreted by `predProvOf` and `Having.chi`. -/
-def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery (T ⊕ K) n κ → Database (T ⊕ K) →
     Multiset (Tuple (GenValue (T ⊕ K) K) n)
   | n, _, .Rel _ s, D =>
@@ -136,21 +136,21 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
     ((((q₁.evaluateRew D).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).filter
       (fun t => t ∉ r₂)).map (fun t => (fun k => Sum.inl (t k))))
-  | _, _, @AggQuery.Gamma _ m n₁ n₂ is ts fs q, D =>
+  | _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q, D =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     let keys := (r.map
       (fun u => (fun k => u (is k) : Tuple (T ⊕ K) n₁))).dedup
     keys.map (fun g => (fun k => Sum.inl (Fin.append g
       (fun j => (fs j) ((Relation.groupSeq is r g).map (ts j).eval)) k)))
-  | _, _, @AggQuery.GammaScalar _ m n₂ ts fs q, D =>
+  | _, _, @AggQueryIn.GammaScalar _ _ m n₂ ts fs q, D =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     (Multiset.ofList [(fun j => Sum.inl ((fs j)
       ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0)).map (ts j).eval))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
-  | _, _, @AggQuery.Win _ n' _m' _p' P O o w t f q, D =>
+  | _, _, @AggQueryIn.Win _ _ n' _m' _p' P O o w t f q, D =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
     r.map (fun u : Tuple (T ⊕ K) n' =>
@@ -158,7 +158,7 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
   | _, _, .Retag _ q, D => q.evaluateRew D
-  | _, _, @AggQuery.ProvSum _ _m n₁ _κ is _his t q, D =>
+  | _, _, @AggQueryIn.ProvSum _ _ _m n₁ _κ is _his t q, D =>
     let r := q.evaluateRew D
     let keys := (r.map
       (fun u => (fun k => GenRow.plainTuple u (is k)
@@ -169,7 +169,7 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
           (((r.filter (fun u => ∀ k' : Fin n₁,
               GenRow.plainTuple u (is k') = g k')).map
             (fun u => t.evalRew u)).fold addFn 0)))
-  | _, _, @AggQuery.GammaTok _ m n₁ n₂ _κ is _his ts fs a q, D =>
+  | _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q, D =>
     let r := q.evaluateRew D
     let ar : AnnotatedRelation (T ⊕ K) K m :=
       r.map (fun u => (GenRow.plainTuple u, (a.evalRew u).annPart))
@@ -191,7 +191,7 @@ def AggQuery.evaluateRew : {n : ℕ} → {κ : Fin n → ColKind} →
 /-- No token-building grouping: together with gate-freeness, this cuts
 out the fragment on which the rewritten world's evaluator is the plain
 semantics through the `inl` embedding. -/
-def AggQuery.noGammaTok {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.noGammaTok {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T' n κ → Prop
   | _, _, .Rel _ _ => True
   | _, _, .Proj _ q => q.noGammaTok
@@ -208,7 +208,7 @@ def AggQuery.noGammaTok {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, .Win _ _ _ _ _ _ q => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
-def AggQuery.chiFree {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
+def AggQueryIn.chiFree {T' : Type} : {n : ℕ} → {κ : Fin n → ColKind} →
     AggQuery T' n κ → Prop
   | _, _, .Rel _ _ => True
   | _, _, .Proj ps q => (∀ j, (ps j).chiFree) ∧ q.chiFree
@@ -311,7 +311,7 @@ theorem map_plainTuple_map_inl {m : ℕ} (X : Multiset (Tuple (T ⊕ K) m)) :
 
 /-- **Plain agreement.** Off the token-building operator, the rewritten
 world's evaluator is the plain semantics through the `inl` embedding. -/
-theorem AggQuery.evaluateRew_plain :
+theorem AggQueryIn.evaluateRew_plain :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery (T ⊕ K) n κ)
       (_hq : q.noGammaTok) (_hc : q.chiFree) (D : Database (T ⊕ K)),
       q.evaluateRew D
@@ -321,13 +321,13 @@ theorem AggQuery.evaluateRew_plain :
   induction q with
   | Rel n s =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     cases hf : D.find n s
     · rfl
     · rfl
   | Proj ps q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc.2 D, Multiset.map_map, Multiset.map_map]
     refine Multiset.map_congr rfl (fun t _ => ?_)
     simp only [Function.comp_apply]
@@ -335,14 +335,14 @@ theorem AggQuery.evaluateRew_plain :
     exact (ps j).evalRew_inl (hc.1 j) t
   | Sel φ q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc.2 D]
     simp only [Multiset.filter_map]
     exact congrArg _
       (Multiset.filter_congr (fun t _ => φ.holdsRew_inl hc.1 t))
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih₁ hq.1 hc.1 D, ih₂ hq.2 hc.2 D, Multiset.map_product_map,
       Multiset.map_map]
     rw [show (q₁.evaluatePlain D * q₂.evaluatePlain D)
@@ -359,18 +359,18 @@ theorem AggQuery.evaluateRew_plain :
     · rw [Fin.append_right, Fin.append_right]
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih₁ hq.1 hc.1 D, ih₂ hq.2 hc.2 D, Multiset.map_add]
   | Dedup q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D, map_plainTuple_map_inl]
     congr 1
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
       @Multiset.dedup _ i (q.evaluatePlain D)) (Subsingleton.elim _ _)
   | @Diff nD q₁ q₂ ih₁ ih₂ =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih₁ hq.1 hc.1 D, ih₂ hq.2 hc.2 D, map_plainTuple_map_inl,
       map_plainTuple_map_inl]
     exact congrArg (Multiset.map _)
@@ -381,7 +381,7 @@ theorem AggQuery.evaluateRew_plain :
         (Subsingleton.elim _ _))
   | @Gamma m n₁ n₂ is ts fs q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D, map_plainTuple_map_inl, Multiset.map_map]
     refine Multiset.map_congr ?_ (fun g _ => rfl)
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) n₁) =>
@@ -390,7 +390,7 @@ theorem AggQuery.evaluateRew_plain :
       (Subsingleton.elim _ _)
   | @GammaScalar m n₂ ts fs q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D, map_plainTuple_map_inl]
     rfl
   | Retag h q ih =>
@@ -398,7 +398,7 @@ theorem AggQuery.evaluateRew_plain :
     exact ih hq hc D
   | @ProvSum m n₁ κ' is his t q ih =>
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc.2 D, Multiset.map_map]
     rw [show ((fun u : Tuple (GenValue (T ⊕ K) K) m =>
           ((fun k => GenRow.plainTuple u (is k)) : Tuple (T ⊕ K) n₁))
@@ -430,7 +430,7 @@ theorem AggQuery.evaluateRew_plain :
   | @Win n' m' p' P O o w t f q ih =>
     -- a window reads the collapsed rows, which the embedding leaves alone
     intro hq hc D
-    simp only [AggQuery.evaluateRew, AggQuery.evaluatePlain_Win_eq]
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq]
     rw [ih hq hc D, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
 
@@ -507,21 +507,21 @@ theorem Having.chi_inl (op : CompOp) (x y : T) :
 
 omit [DecidableEq K] in
 /-- The classical rewriting emits no token-building grouping. -/
-theorem AggQuery.rewriting_noGammaTok :
+theorem AggQueryIn.rewriting_noGammaTok :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical),
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noGammaTok
   | _, _, .Rel _ _, _ => trivial
-  | _, _, @AggQuery.Proj _ n m κ ps q, hq =>
+  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
     rewriting_noGammaTok q hq.2
   | _, _, .Sel _ q, hq => rewriting_noGammaTok q hq.2
-  | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
     ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩
   | _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩
-  | _, _, @AggQuery.Dedup _ n q, hq => rewriting_noGammaTok q hq
-  | _, _, @AggQuery.Diff _ n q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noGammaTok q hq
+  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     ⟨⟨rewriting_noGammaTok q₁ hq.1,
       ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩,
      ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩
@@ -537,13 +537,13 @@ omit [DecidableEq K] in
 /-- The classical rewriting emits no indicator gate: its terms are
 column reads, their `⊗`/`⊖` combinations, and composite casts of the
 source terms – the gate is introduced only by the `HAVING` site. -/
-theorem AggQuery.rewriting_chiFree :
+theorem AggQueryIn.rewriting_chiFree :
     ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical),
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).chiFree
   | _, _, .Rel _ _, _ => trivial
-  | _, _, @AggQuery.Proj _ n m κ ps q, hq =>
+  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
     ⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < m)
@@ -554,7 +554,7 @@ theorem AggQuery.rewriting_chiFree :
      rewriting_chiFree q hq.2⟩
   | _, _, .Sel _ q, hq =>
     ⟨GenPredIn.castComposite_chiFree _ _ _, rewriting_chiFree q hq.2⟩
-  | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
     ⟨fun j => by
         dsimp only
         by_cases h₁ : ((j : ℕ) < n₁)
@@ -566,8 +566,8 @@ theorem AggQuery.rewriting_chiFree :
      ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩⟩
   | _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩
-  | _, _, @AggQuery.Dedup _ n q, hq => ⟨trivial, rewriting_chiFree q hq⟩
-  | _, _, @AggQuery.Diff _ n q₁ q₂, hq =>
+  | _, _, @AggQueryIn.Dedup _ _ n q, hq => ⟨trivial, rewriting_chiFree q hq⟩
+  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     ⟨⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < n)
@@ -740,7 +740,7 @@ the collapsed data columns of the rewritten evaluation of a classical
 rewriting with the annotation read off its provenance column recovers the
 composite embedding of the classical annotated semantics – the input the
 token-building groupings of the rewritten world consume. -/
-theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
+theorem AggQueryIn.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     Multiset.map (fun u => (GenRow.plainTuple u,
         ((TermGIn.provIndex (Fin.last n)
@@ -754,10 +754,10 @@ theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
           ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) (n + 1)))
         (((q.strip hq).evaluateAnnotated (q.strip_source hq)
           d).toComposite) := by
-    rw [AggQuery.evaluateRew_plain _
-        (AggQuery.rewriting_noGammaTok q hq)
-        (AggQuery.rewriting_chiFree q hq) _,
-      AggQuery.rewriting_plain q hq d.toComposite,
+    rw [AggQueryIn.evaluateRew_plain _
+        (AggQueryIn.rewriting_noGammaTok q hq)
+        (AggQueryIn.rewriting_chiFree q hq) _,
+      AggQueryIn.rewriting_plain q hq d.toComposite,
       ← Query.rewriting_valid (q.strip hq) (q.strip_source hq) d]
   rw [hR]
   unfold AnnotatedRelation.toComposite

@@ -19,10 +19,10 @@ syntax took a whole new value domain – data, annotation and `K`-tensor
 monomials, quotiented – together with its own evaluator. In the general
 framework no new value domain is needed: the rewritten
 world's evaluator already has aggregate tokens as ordinary column
-values, and `AggQuery.GammaTok` – ProvSQL's `provsql_agg` – already
+values, and `AggQueryIn.GammaTok` – ProvSQL's `provsql_agg` – already
 materializes exactly the token that the general evaluator's `Gamma`
 produces. What was missing is the *correspondence at token level*: the
-statement of `AggQuery.havingRewrites_valid` folds an annotated relation
+statement of `AggQueryIn.havingRewrites_valid` folds an annotated relation
 into composite rows through `AnnotatedRelation.toComposite`, which reads
 tokens through their deterministic collapse and therefore cannot express
 a token-bearing output.
@@ -36,7 +36,7 @@ token-free rows it agrees with the old embedding
 extends the compositional rewriting correctness rather than sitting
 beside it.
 
-`AggQuery.gammaRew_valid` is then the (R5) analogue: for a classical
+`AggQueryIn.gammaRew_valid` is then the (R5) analogue: for a classical
 subquery, the general evaluator's grouping – tokens and pending
 group-existence factor included – is computed by the rewritten
 token-building grouping over the classically rewritten subquery, with the
@@ -57,7 +57,7 @@ def AggValue.toComposite (a : AggValue T K) : AggValue (T ⊕ K) K :=
 omit [DecidableEq K] in
 /-- The token of a group transports to the token of the composite
 embedding of that group – the token the rewritten world's
-`AggQuery.GammaTok` builds. -/
+`AggQueryIn.GammaTok` builds. -/
 theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
     (t : Term T m) (U : List (AnnotatedTuple T K m)) :
     (AggValue.ofGroup f t U).toComposite
@@ -225,14 +225,14 @@ the classically rewritten subquery, reading the occurrence annotations
 off the subquery's provenance column. The output carries the group keys,
 one aggregate token per `(term, aggregate)` pair, and the group-existence
 guard `δ(⊕ U)` in the provenance column. -/
-def AggQuery.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+def AggQueryIn.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
-  AggQuery.Retag
+  AggQueryIn.Retag
     (fun k => congrArg ColKind.base
       (congrFun (ColKind.gammaTok_rew_kinds (n₂ := n₂) is) k))
-    (AggQuery.GammaTok
+    (AggQueryIn.GammaTok
       (fun k => (is k).castLE (Nat.le_succ m))
       (fun k => by
         rw [ColKind.rewKinds_lt (is k).isLt]
@@ -250,22 +250,22 @@ framework's rule (R5): for a classical subquery, the general evaluator's
 grouping, embedded row-wise into the composite domain (tokens included,
 finalized annotation appended), is computed by the rewritten world's
 token-building grouping over the classically rewritten subquery. -/
-theorem AggQuery.gammaRew_valid {m n₁ n₂ : ℕ}
+theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
     (hq : qg.classical) (d : AnnotatedDatabase T K) :
-    ((AggQuery.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
-      = (AggQuery.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
+    ((AggQueryIn.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
   have hA : Multiset.map GenRow.toAnnotated (qg.evaluate d)
       = (qg.strip hq).evaluateAnnotated (qg.strip_source hq) d :=
-    AggQuery.strip_bridge qg hq d
-  simp only [AggQuery.evaluate]
+    AggQueryIn.strip_bridge qg hq d
+  simp only [AggQueryIn.evaluate]
   rw [hA]
   conv_lhs => rw [Multiset.map_map]
-  unfold AggQuery.gammaRew
-  show _ = AggQuery.evaluateRew (AggQuery.Retag _ _) d.toComposite
-  simp only [AggQuery.evaluateRew]
-  rw [AggQuery.rewriting_provRel qg hq d, map_comp_fst_groupByKey]
+  unfold AggQueryIn.gammaRew
+  show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) d.toComposite
+  simp only [AggQueryIn.evaluateRew]
+  rw [AggQueryIn.rewriting_provRel qg hq d, map_comp_fst_groupByKey]
   -- the rewritten side's key multiset is the `inl`-embedding of the
   -- annotated side's, so both sides map over the same groups
   simp only [Multiset.map_map]

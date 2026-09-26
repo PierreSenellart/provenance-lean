@@ -87,11 +87,11 @@ The same database, now through `AggQuery`: aggregation, `HAVING`, and the
 rewriting of both into the composite domain `String ⊕ ℕ`. -/
 
 def qgPersonnel : AggQuery String 4 (ColKind.allReg 4) :=
-  AggQuery.Rel 4 "Personnel"
+  AggQueryIn.Rel 4 "Personnel"
 
 /- This query counts persons by city: `γ_{city}[1 : SUM]`. Its output has
 one regular column (the group key) and one *aggregate-token* column. -/
-def qgCount := AggQuery.Gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+def qgCount := AggQueryIn.Gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
   qgPersonnel
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/
@@ -108,14 +108,14 @@ example : φexactlyTwo.aggOnly = true := rfl
 /- Plain semantics: a `HAVING` selection filters, so Paris (3 persons) is
 gone. -/
 #eval! hdr "AggQuery plain: HAVING COUNT(*) = 2"
-#eval! (AggQuery.Sel φexactlyTwo qgCount).evaluatePlain d
+#eval! (AggQueryIn.Sel φexactlyTwo qgCount).evaluatePlain d
 
 /- Annotated semantics: the aggregate token collapses to the actual-world
 count, and the row *survives* with annotation `𝟘` – exactly as ProvSQL
 emits it, since in other possible worlds Paris may well have two
 persons. -/
 #eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) = 2"
-#eval! ((AggQuery.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
+#eval! ((AggQueryIn.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 2)
 
 /- Projecting the group key out of a grouping, of a `HAVING` site, and
@@ -126,10 +126,10 @@ def cityCols : Tuple (ProjCol String (ColKind.gammaKinds 1 1)) 1 :=
       (fun _ : Fin 1 => ColKind.agg) 0))
 
 def qgAllCities : AggQuery String 1 (ColKind.allReg 1) :=
-  AggQuery.Proj cityCols qgCount
+  AggQueryIn.Proj cityCols qgCount
 def qgBigCities : AggQuery String 1 (ColKind.allReg 1) :=
-  AggQuery.Proj cityCols (AggQuery.Sel φatLeastThree qgCount)
-def qgSmallCities := AggQuery.Diff qgAllCities qgBigCities
+  AggQueryIn.Proj cityCols (AggQueryIn.Sel φatLeastThree qgCount)
+def qgSmallCities := AggQueryIn.Diff qgAllCities qgBigCities
 
 #eval! hdr "AggQuery annotated ℕ: all cities"
 #eval! (qgAllCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)
@@ -139,18 +139,18 @@ def qgSmallCities := AggQuery.Diff qgAllCities qgBigCities
 #eval! (qgSmallCities.evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 1)
 
-/- The rewritten world. `AggQuery.gammaRew` is the bare grouping – ProvSQL's
+/- The rewritten world. `AggQueryIn.gammaRew` is the bare grouping – ProvSQL's
 `provsql_agg` over the rewritten subquery – whose provenance column carries
-the group-existence guard `δ(⊕ U)`; `AggQuery.havingPredRew` replaces that
+the group-existence guard `δ(⊕ U)`; `AggQueryIn.havingPredRew` replaces that
 guard by the `provsql_having` gate of the predicate. Rows are printed
 through `AggValue.collapseSum`, which reads each aggregate token as its
 actual-world value. -/
 def qgCountRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.gammaRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum] qgPersonnel
+  AggQueryIn.gammaRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum] qgPersonnel
     trivial
 
 def qgHavingRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+  AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φexactlyTwo qgPersonnel trivial
 
 #eval! hdr "rewritten: bare GROUP BY (gammaRew), guard δ(⊕ U) in the last column"
@@ -180,11 +180,11 @@ example : φbigOrBerlin.aggOnly = false := rfl
 example : φbigOrBerlin.entailsExistence false = false := rfl
 
 def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
-  AggQuery.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+  AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φbigOrBerlin qgPersonnel trivial
 
 #eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) ≥ 3 OR city = 'Berlin'"
-#eval! ((AggQuery.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
+#eval! ((AggQueryIn.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
   : AnnotatedRelation String ℕ 2)
 #eval! hdr "rewritten: the same mixed predicate, gate ⊗ guard in the last column"
 #eval! (qgMixedRew.evaluateRew d_count.toComposite).map
@@ -192,21 +192,21 @@ def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
 
 /- The compositional closure applies to the whole difference query: its
 derivation composes the bare-grouping rule, the `HAVING`-site rule, a
-projection and a difference, and `AggQuery.rewritesTo_valid` transports
+projection and a difference, and `AggQueryIn.rewritesTo_valid` transports
 the correctness to it. -/
 example : ∃ q' : AggQuery (String ⊕ ℕ) 2
       (ColKind.rewKindsOf (ColKind.allReg 1)),
-    AggQuery.RewritesTo qgSmallCities q'
+    AggQueryIn.RewritesTo qgSmallCities q'
       ∧ (qgSmallCities.evaluate d_count).map GenRow.toCompositeRow
           = q'.evaluateRew d_count.toComposite :=
-  let h := AggQuery.RewritesTo.diff
-    (AggQuery.RewritesTo.proj cityCols
-      (AggQuery.RewritesTo.gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+  let h := AggQueryIn.RewritesTo.diff
+    (AggQueryIn.RewritesTo.proj cityCols
+      (AggQueryIn.RewritesTo.gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
         qgPersonnel trivial))
-    (AggQuery.RewritesTo.proj cityCols
-      (AggQuery.RewritesTo.havingPred ![3] ![TermIn.const "1"]
+    (AggQueryIn.RewritesTo.proj cityCols
+      (AggQueryIn.RewritesTo.havingPred ![3] ![TermIn.const "1"]
         ![SeqAggFunc.sum] φatLeastThree rfl qgPersonnel trivial))
-  ⟨_, h, AggQuery.rewritesTo_valid h d_count⟩
+  ⟨_, h, AggQueryIn.rewritesTo_valid h d_count⟩
 
 /-! ### A window
 

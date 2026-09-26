@@ -25,7 +25,7 @@ variable {T : Type}
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] {n : ℕ}
 
-namespace AggQuery
+namespace AggQueryIn
 
 section Core
 
@@ -55,7 +55,7 @@ whose tuple is matched is kept with a monus, which is what ProvSQL
 emits. -/
 theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Diff q₁ q₂).evaluate d
+    (AggQueryIn.Diff q₁ q₂).evaluate d
       = (q₁.evaluateAnnotated d).map (fun p =>
           GenRow.ofAnnotated
             (p.1, p.2 - (q₂.evaluateAnnotated d).annSum p.1)) := by
@@ -71,7 +71,7 @@ theorem evaluate_Diff (q₁ q₂ : AggQuery T n (ColKind.allReg n))
 `⊕`-sum of its copies' annotations.** -/
 theorem evaluate_Dedup (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Dedup q).evaluate d
+    (AggQueryIn.Dedup q).evaluate d
       = ((q.evaluateAnnotated d).map Prod.fst).dedup.map
           (fun u => GenRow.ofAnnotated (u, annSum q d u)) := by
   show (Multiset.ofList (groupByKey ((q.evaluate d).map GenRow.toAnnotated)).val).map
@@ -100,11 +100,11 @@ one, so the two together are unchanged. -/
 theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
     (ps : Tuple (ProjCol T κ) m) (q : AggQuery T n κ)
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Proj ps q).evaluateAnnotated d
+    (AggQueryIn.Proj ps q).evaluateAnnotated d
       = (q.evaluate d).map (fun r =>
           ((fun j => AggValue.collapseSum ((ps j).eval r.fst), r.snd.finalize)
             : AnnotatedTuple T K m)) := by
-  show ((AggQuery.Proj ps q).evaluate d).map GenRow.toAnnotated = _
+  show ((AggQueryIn.Proj ps q).evaluate d).map GenRow.toAnnotated = _
   show (Multiset.map _ (q.evaluate d)).map GenRow.toAnnotated = _
   rw [Multiset.map_map]
   refine Multiset.map_congr rfl (fun r _ => ?_)
@@ -118,7 +118,7 @@ theorem evaluateAnnotated_Proj {m : ℕ} {κ : Fin n → ColKind}
 theorem evaluate_Sel_of_noAgg {κ : Fin n → ColKind} (φ : GenPred T κ)
     (hφ : φ.hasAggAtom = false) (q : AggQuery T n κ)
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Sel φ q).evaluate d
+    (AggQueryIn.Sel φ q).evaluate d
       = (q.evaluate d).filter (fun r => φ.holds r.fst) := by
   show (if φ.hasAggAtom = true then _ else _) = _
   rw [hφ]
@@ -129,7 +129,7 @@ putting the pending factors side by side. -/
 theorem evaluate_Prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
     (q₁ : AggQuery T n₁ κ₁) (q₂ : AggQuery T n₂ κ₂)
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Prod q₁ q₂).evaluate d
+    (AggQueryIn.Prod q₁ q₂).evaluate d
       = ((q₁.evaluate d).product (q₂.evaluate d)).map (fun xy =>
           (⟨Fin.append xy.1.fst xy.2.fst,
             ⟨xy.1.snd.base * xy.2.snd.base,
@@ -150,12 +150,12 @@ theorem evaluateAnnotated_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
   set A₂ := ((q₂.evaluateAnnotated d).map Prod.fst).dedup with hA₂
   show ((inter q₁ q₂).evaluate d).map GenRow.toAnnotated = _
   unfold inter
-  rw [AggQuery.evaluate_castKind]
-  rw [show (AggQuery.Proj (fstBlock n) (AggQuery.Sel (interCond n)
-        ((AggQuery.Prod (AggQuery.Dedup q₁) (AggQuery.Dedup q₂)).castKind
+  rw [AggQueryIn.evaluate_castKind]
+  rw [show (AggQueryIn.Proj (fstBlock n) (AggQueryIn.Sel (interCond n)
+        ((AggQueryIn.Prod (AggQueryIn.Dedup q₁) (AggQueryIn.Dedup q₂)).castKind
           (append_allReg n n)))).evaluate d
-      = ((AggQuery.Sel (interCond n)
-          ((AggQuery.Prod (AggQuery.Dedup q₁) (AggQuery.Dedup q₂)).castKind
+      = ((AggQueryIn.Sel (interCond n)
+          ((AggQueryIn.Prod (AggQueryIn.Dedup q₁) (AggQueryIn.Dedup q₂)).castKind
             (append_allReg n n))).evaluate d).map (fun r =>
         (⟨fun j => (fstBlock n j).eval r.fst,
           ⟨r.snd.base * ((r.snd.pending -
@@ -163,7 +163,7 @@ theorem evaluateAnnotated_inter (q₁ q₂ : AggQuery T n (ColKind.allReg n))
               (fun l => SemiringWithMonus.delta l.sum)).prod,
             r.snd.pending ∩ tokenLists (fun j => (fstBlock n j).eval r.fst)⟩⟩ :
           GenRow T K n)) from rfl,
-    evaluate_Sel_of_noAgg _ (interCond_hasAggAtom n), AggQuery.evaluate_castKind,
+    evaluate_Sel_of_noAgg _ (interCond_hasAggAtom n), AggQueryIn.evaluate_castKind,
     evaluate_Prod, evaluate_Dedup, evaluate_Dedup, product_map_map,
     Multiset.map_map, Multiset.filter_map, Multiset.map_map]
   simp only [Function.comp_def]
@@ -226,16 +226,16 @@ theorem annSum_firstCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (u : Tuple T n₁) :
-    (((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+    (((AggQueryIn.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
         (funext fun i => firstCols_kind n₁ n₂ i)).evaluateAnnotated d).annSum u
       = matchAnn φ q₁ q₂ d u := by
   show AnnotatedRelation.annSum
-      ((((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+      ((((AggQueryIn.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
         (funext fun i => firstCols_kind n₁ n₂ i)).evaluate d).map
           GenRow.toAnnotated) u = _
-  rw [AggQuery.evaluate_castKind]
+  rw [AggQueryIn.evaluate_castKind]
   show AnnotatedRelation.annSum
-      ((AggQuery.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) u = _
+      ((AggQueryIn.Proj (firstCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) u = _
   rw [evaluateAnnotated_Proj]
   unfold AnnotatedRelation.annSum matchAnn
   show (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map _
@@ -272,9 +272,9 @@ theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂
   refine congrArg (_ + ·) ?_
   show ((leftUnmatched φ q₁ q₂).evaluateAnnotated d) = _
   unfold leftUnmatched padRight pad
-  show (((AggQuery.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
-  rw [AggQuery.evaluate_castKind]
-  show ((AggQuery.Proj _ _).evaluateAnnotated d) = _
+  show (((AggQueryIn.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
+  rw [AggQueryIn.evaluate_castKind]
+  show ((AggQueryIn.Proj _ _).evaluateAnnotated d) = _
   rw [evaluateAnnotated_Proj, evaluate_Diff, Multiset.map_map]
   simp only [Function.comp_def]
   refine Multiset.map_congr rfl (fun p _ => ?_)
@@ -309,16 +309,16 @@ theorem annSum_lastCols (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (v : Tuple T n₂) :
     AnnotatedRelation.annSum
-      (((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+      (((AggQueryIn.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
         (funext fun j => lastCols_kind n₁ n₂ j)).evaluateAnnotated d) v
       = matchAnnRight φ q₁ q₂ d v := by
   show AnnotatedRelation.annSum
-      ((((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
+      ((((AggQueryIn.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).castKind
         (funext fun j => lastCols_kind n₁ n₂ j)).evaluate d).map
           GenRow.toAnnotated) v = _
-  rw [AggQuery.evaluate_castKind]
+  rw [AggQueryIn.evaluate_castKind]
   show AnnotatedRelation.annSum
-      ((AggQuery.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) v = _
+      ((AggQueryIn.Proj (lastCols n₁ n₂) (innerJoin φ q₁ q₂)).evaluateAnnotated d) v = _
   rw [evaluateAnnotated_Proj]
   unfold AnnotatedRelation.annSum matchAnnRight
   show (Multiset.map Prod.snd (Multiset.filter _ (Multiset.map _
@@ -342,9 +342,9 @@ theorem evaluateAnnotated_rightUnmatched
           (show Multiset (AnnotatedTuple T K n₂) from q₂.evaluateAnnotated d)
          : Multiset (AnnotatedTuple T K (n₁ + n₂))) := by
   unfold rightUnmatched padLeft pad
-  show (((AggQuery.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
-  rw [AggQuery.evaluate_castKind]
-  show ((AggQuery.Proj _ _).evaluateAnnotated d) = _
+  show (((AggQueryIn.Proj _ _).castKind _).evaluate d).map GenRow.toAnnotated = _
+  rw [AggQueryIn.evaluate_castKind]
+  show ((AggQueryIn.Proj _ _).evaluateAnnotated d) = _
   rw [evaluateAnnotated_Proj, evaluate_Diff, Multiset.map_map]
   simp only [Function.comp_def]
   refine Multiset.map_congr rfl (fun p _ => ?_)
@@ -403,4 +403,4 @@ theorem evaluateAnnotated_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂
 
 end Outer
 
-end AggQuery
+end AggQueryIn

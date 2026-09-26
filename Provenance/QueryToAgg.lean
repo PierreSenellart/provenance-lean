@@ -153,23 +153,23 @@ operator translates to its general counterpart, over all-regular
 kinds. -/
 def Query.toAgg : {n : ℕ} → (q : Query T n) → q.source →
     AggQuery T n (ColKind.allReg n)
-  | n, .Rel _ s, _ => AggQuery.Rel n s
+  | n, .Rel _ s, _ => AggQueryIn.Rel n s
   | _, .Proj ts q, hq =>
-    AggQuery.castKind (funext fun _ => rfl)
-      (AggQuery.Proj (fun j => ProjColIn.term ((ts j).toGenReg))
+    AggQueryIn.castKind (funext fun _ => rfl)
+      (AggQueryIn.Proj (fun j => ProjColIn.term ((ts j).toGenReg))
         (q.toAgg (Query.sourceProj hq rfl)))
   | _, .Sel φ q, hq =>
-    AggQuery.Sel φ.toGenPred (q.toAgg (Query.sourceSel hq rfl))
+    AggQueryIn.Sel φ.toGenPred (q.toAgg (Query.sourceSel hq rfl))
   | _, @Query.Prod _ n₁ n₂ n hn q₁ q₂, hq =>
-    hn ▸ AggQuery.castKind (ColKind.allReg_append n₁ n₂)
-      (AggQuery.Prod (q₁.toAgg (Query.sourceProd hq rfl).left)
+    hn ▸ AggQueryIn.castKind (ColKind.allReg_append n₁ n₂)
+      (AggQueryIn.Prod (q₁.toAgg (Query.sourceProd hq rfl).left)
         (q₂.toAgg (Query.sourceProd hq rfl).right))
   | _, .Sum q₁ q₂, hq =>
-    AggQuery.Sum (q₁.toAgg (Query.sourceSum hq rfl).left)
+    AggQueryIn.Sum (q₁.toAgg (Query.sourceSum hq rfl).left)
       (q₂.toAgg (Query.sourceSum hq rfl).right)
-  | _, .Dedup q, hq => AggQuery.Dedup (q.toAgg (Query.sourceDedup hq rfl))
+  | _, .Dedup q, hq => AggQueryIn.Dedup (q.toAgg (Query.sourceDedup hq rfl))
   | _, .Diff q₁ q₂, hq =>
-    AggQuery.Diff (q₁.toAgg (Query.sourceDiff hq rfl).left)
+    AggQueryIn.Diff (q₁.toAgg (Query.sourceDiff hq rfl).left)
       (q₂.toAgg (Query.sourceDiff hq rfl).right)
   | _, .ProvSum _ _ _, hq => False.elim (by simp [Query.source] at hq)
   | _, .Having _ _ _ _ _ _ _, hq =>
@@ -221,8 +221,8 @@ theorem Query.toAgg_rel :
     | none => exact Multiset.Rel.zero
     | some rn => exact rel_inv_ofAnnotated rn
   | _, .Proj ts q, hq, d => by
-    show Multiset.Rel _ ((AggQuery.castKind _ _).evaluate d) _
-    rw [AggQuery.evaluate_castKind]
+    show Multiset.Rel _ ((AggQueryIn.castKind _ _).evaluate d) _
+    rw [AggQueryIn.evaluate_castKind]
     refine rel_map_of_rel (toAgg_rel q (Query.sourceProj hq rfl) d)
       (fun r p hr => ⟨?_, ?_, ?_⟩)
     · funext j
@@ -246,10 +246,10 @@ theorem Query.toAgg_rel :
     exact Selection.toGenPred_holds φ p.fst
   | _, @Query.Prod _ n₁ n₂ n hn q₁ q₂, hq, d => by
     subst hn
-    show Multiset.Rel _ ((AggQuery.castKind _
-      (AggQuery.Prod (q₁.toAgg (Query.sourceProd hq rfl).left)
+    show Multiset.Rel _ ((AggQueryIn.castKind _
+      (AggQueryIn.Prod (q₁.toAgg (Query.sourceProd hq rfl).left)
         (q₂.toAgg (Query.sourceProd hq rfl).right))).evaluate d) _
-    rw [AggQuery.evaluate_castKind]
+    rw [AggQueryIn.evaluate_castKind]
     refine rel_map_of_rel
       (rel_product (toAgg_rel q₁ (Query.sourceProd hq rfl).left d)
         (toAgg_rel q₂ (Query.sourceProd hq rfl).right d)) ?_
@@ -311,7 +311,7 @@ theorem Query.toAgg_bridge {n : ℕ} (q : Query T n) (hq : q.source)
     (d : AnnotatedDatabase T K) :
     (q.toAgg hq).evaluateAnnotated (K := K) d
       = q.evaluateAnnotated hq d := by
-  unfold AggQuery.evaluateAnnotated
+  unfold AggQueryIn.evaluateAnnotated
   exact (map_eq_of_rel (Query.toAgg_rel q hq d)
     (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)
 
@@ -344,7 +344,7 @@ theorem Query.toAgg_evaluate_eq {n : ℕ} (q : Query T n) (hq : q.source)
 
 /-- **The fused `HAVING` site over an embedded subquery**: its input
 relation is the classical subquery's annotated evaluation, so the closed
-form `AggQuery.havingSite_evaluateAnnotated` specializes to the
+form `AggQueryIn.havingSite_evaluateAnnotated` specializes to the
 classical setting with no side hypothesis. -/
 theorem Query.toAggHaving_input {m : ℕ} (q : Query T m) (hq : q.source)
     (d : AnnotatedDatabase T K) :

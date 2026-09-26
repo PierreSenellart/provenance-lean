@@ -174,11 +174,11 @@ variable [CommSemiringWithMonus K] [DecidableEq K]
 The evaluator reads its input in the canonical order; this says the answer is
 the window of the relation, which by `window_toMultiset_congr` is what any
 reading gives. -/
-theorem AggQuery.evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    (AggQuery.Win P O o w t f q).evaluate d
+    (AggQueryIn.Win P O o w t f q).evaluate d
       = ValueFrame.windowRel P O o w t f (q.evaluateAnnotated d) := by
   show (ValueFrame.window P O o w t f
       (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
@@ -186,18 +186,18 @@ theorem AggQuery.evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
 
 /-- A window keeps its input's rows one for one: it removes none, merges
 none, and adds one column to each. -/
-@[simp] theorem AggQuery.card_evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
+@[simp] theorem AggQueryIn.card_evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
     (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
-    Multiset.card ((AggQuery.Win P O o w t f q).evaluate d)
+    Multiset.card ((AggQueryIn.Win P O o w t f q).evaluate d)
       = Multiset.card (q.evaluate d) := by
   show Multiset.card (ValueFrame.window P O o w t f
       (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
   rw [OccFam.card_toMultiset]
   show (OccFam.ofSorted (q.evaluateAnnotated d)).size = _
   rw [← OccFam.card_toMultiset, OccFam.toMultiset_ofSorted]
-  simp [AggQuery.evaluateAnnotated]
+  simp [AggQueryIn.evaluateAnnotated]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **The window read off the relation.** Its rows are one per row of the

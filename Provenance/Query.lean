@@ -344,7 +344,7 @@ instance : Coe (BoolTerm T n) (Selection T n) where
 
 /-- Addition as a binary function, the fold of the `⊕`-sum performed by
 the rewriting-target operator `Query.ProvSum` (and by its general-syntax
-counterpart `AggQuery.ProvSum`). -/
+counterpart `AggQueryIn.ProvSum`). -/
 def addFn (a b : T) := a + b
 instance : @Std.Commutative T addFn where
   comm := add_comm
@@ -720,10 +720,10 @@ inductive Query (T: Type) : ℕ → Type
 /-- Provenance aggregation: group by the key columns of the first
 argument and `⊕`-sum the term of the second over each group into a single
 trailing output column. It is not a *source* operator – aggregation as
-such lives on the general syntax (`AggQuery.Gamma`) – but the *target* of
+such lives on the general syntax (`AggQueryIn.Gamma`) – but the *target* of
 the (R1)–(R4) rewriting: the ⊕-gate creation of the `ε` and `∖` rules of
 `Query.rewriting`. Its general-syntax counterpart is
-`AggQuery.ProvSum`. -/
+`AggQueryIn.ProvSum`. -/
 | ProvSum   : Tuple (Fin m) n₁ → Term T m → Query T m → Query T (n₁+1)
 /-- The fused `HAVING` operator: grouping by the indices of the first
 argument, computing the sequence aggregates of the third argument applied
@@ -763,7 +763,7 @@ not source operators – `ProvSum`, which the (R1)–(R4) rewriting *emits*,
 and the fused `Having`, whose semantics lives on the general syntax – and
 is exactly the fragment carrying an annotated semantics
 (`Query.evaluateAnnotated`) and accepted by `Query.rewriting`. Its
-general-syntax counterpart is `AggQuery.classical`. -/
+general-syntax counterpart is `AggQueryIn.classical`. -/
 def Query.source (q: Query T n): Prop := match q with
 | Rel   n  s  => True
 | Proj  _ q   => q.source
