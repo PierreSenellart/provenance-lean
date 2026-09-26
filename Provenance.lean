@@ -27,6 +27,9 @@ import Provenance.AggValueCongr
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
 
+/- Operators that abbreviate a query of the basis -/
+import Provenance.Derived
+
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
 
@@ -405,6 +408,17 @@ proven engine several general results reuse internally.
   to a possible world and sorting commute on the values read off. A window
   with no `ORDER BY` is `OrderSpec.unordered`, which separates nothing, and
   its frame is read as a group is (`ValueFrame.frameListOf_of_peer`)
+- `Provenance.Derived` – **the operators that add nothing**: each is an
+  abbreviation, a query of the basis, and its semantics – plain and
+  annotated – is that of the query it abbreviates, so every theorem proved
+  of the basis applies to it as it stands. `pad` replaces columns by the
+  null (`padRight`, `padLeft` are what an outer join does to an unmatched
+  arm); `inter` is SQL's `INTERSECT`, the two deduplicated arms joined on
+  all their columns *syntactically*, which annotates a shared tuple by the
+  product of the two `⊕`-sums – the provenance of a conjunction of the two
+  memberships, and not what `ε(q₁ - (q₁ - q₂))` would give; `leftOuter`,
+  `rightOuter` and `fullOuter` add to the matching rows the unmatched ones
+  of either arm, padded
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
