@@ -133,6 +133,10 @@ def interCond (k : ℕ) :
   keyJoinCond (fun i : Fin k => Fin.castAdd k i) (fun i : Fin k => Fin.natAdd k i)
     (fun _ => rfl) (fun _ => rfl)
 
+@[simp] theorem interCond_hasAggAtom (k : ℕ) :
+    (interCond (T := T) k).hasAggAtom = false :=
+  keyJoinCond_hasAggAtom _ _ _ _
+
 /-- The projection onto the first `a` columns of a schema of `a + b`. -/
 def firstCols (a b : ℕ) : Tuple (ProjCol T (ColKind.allReg (a + b))) a :=
   fun i => .term (TermG.index (Fin.castAdd b i) rfl)

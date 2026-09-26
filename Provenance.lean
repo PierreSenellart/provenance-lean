@@ -29,6 +29,7 @@ import Provenance.AggQuery
 
 /- Operators that abbreviate a query of the basis -/
 import Provenance.Derived
+import Provenance.DerivedAnn
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -437,6 +438,13 @@ proven engine several general results reuse internally.
   `counts_counting` supplies it from SQL's counting policy over a plain
   count. `COUNT(*)` would count the padded row of an unmatched row as a
   match
+- `Provenance.DerivedAnn` – **what the derived operators annotate**, which
+  is what the choice of each definition is answerable for. `annSum` is the
+  `⊕`-sum of the annotations a query gives one tuple, what duplicate
+  elimination accumulates (`evaluate_Dedup`), and
+  `evaluateAnnotated_inter` says intersection annotates a shared tuple by
+  the product of the two sums – the provenance of a conjunction of the two
+  memberships, which `ε(q₁ - (q₁ - q₂))` would not give
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
