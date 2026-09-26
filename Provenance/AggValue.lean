@@ -396,6 +396,62 @@ theorem predProvScalar_count_eq_zero [ValueType T] [CommSemiringWithMonus K]
     rw [hmem x hx] at this
     exact Bool.noConfusion this
 
+/-- **`COUNT(κ) ≥ 1` is the `⊕`-sum of the occurrence annotations.** Where
+the counted values are never null, every non-empty world counts at least
+one and the empty world counts none, so the comparison holds in exactly the
+non-empty worlds – an upward-closed family, which `Having.sum_ann_meet`
+collapses. Absorptivity is what that collapse needs; distributivity of `⊗`
+over `⊖` is not used. -/
+theorem predProvScalar_count_ne_zero [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (h_abs : absorptive K) (a : AggValue T K)
+    (hc : SeqAggFunc.Counts a.agg)
+    (hnn : ∀ o ∈ a.occs, ValueType.isNull o.fst = false) :
+    a.predProvScalar CompOp.ne 0 = ∑ i, a.anns i := by
+  have hnil : a.agg [] = 0 := (hc.eq_zero []).mpr (fun _ h => absurd h (by simp))
+  -- every non-empty world has a non-null value to count
+  have hpos : ∀ W : Finset (Fin a.occs.length), W.Nonempty → a.valOn W ≠ 0 := by
+    intro W hW hcon
+    have hmem : ∀ x ∈ (Having.seqOf a.occs W).map Prod.fst,
+        ValueType.isNull x = false := by
+      intro x hx
+      obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hx
+      exact hnn o ((Having.mem_seqOf a.occs W o).mp ho |>.elim
+        (fun i hi => hi.2 ▸ List.get_mem _ _))
+    obtain ⟨i, hi⟩ := hW
+    have hne : ((Having.seqOf a.occs W).map Prod.fst) ≠ [] := by
+      apply List.ne_nil_of_length_pos
+      rw [List.length_map, Having.seqOf_length]
+      exact Finset.card_pos.mpr ⟨i, hi⟩
+    obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ hne
+    have := ((hc.eq_zero _).mp hcon) x hx
+    rw [hmem x hx] at this
+    exact Bool.noConfusion this
+  -- the empty world contributes nothing, the others contribute their annotation
+  have hempty : Having.chi (K := K) CompOp.ne (a.agg []) 0 = 0 := by
+    show (if CompOp.ne.eval3 (a.agg []) 0 = Kleene.true then (1 : K) else 0) = 0
+    refine ite_eq_right (fun hcon => ?_)
+    rw [hnil, CompOp.eval3_eq_true_iff CompOp.ne ValueType.isNull_zero
+      ValueType.isNull_zero] at hcon
+    exact hcon rfl
+  have hone : ∀ W : Finset (Fin a.occs.length), W.Nonempty →
+      Having.chi (K := K) CompOp.ne (a.valOn W) 0 = 1 := by
+    intro W hW
+    show (if CompOp.ne.eval3 (a.valOn W) 0 = Kleene.true then (1 : K) else 0) = 1
+    refine ite_eq_left ?_
+    rw [show a.valOn W = a.agg ((Having.seqOf a.occs W).map Prod.fst) from rfl,
+      CompOp.eval3_eq_true_iff CompOp.ne (hc.not_null _) ValueType.isNull_zero]
+    exact hpos W hW
+  rw [predProvScalar_eq_predProv_add, hempty, mul_zero, add_zero]
+  unfold predProv
+  rw [Finset.sum_congr rfl (fun W hW => by
+    rw [hone W (Finset.mem_filter.mp hW).2, mul_one,
+      Having.worldAnn_eq_ann])]
+  refine Eq.trans ?_ (Having.sum_ann_meet h_abs a.anns
+    (U := Finset.univ) (H := Finset.univ) (Finset.subset_univ _))
+  refine Finset.sum_congr ?_ (fun _ _ => rfl)
+  ext W
+  simp [Finset.inter_univ]
+
 /-! ## `ofGroup` bridges to the fused semantics -/
 
 section OfGroup

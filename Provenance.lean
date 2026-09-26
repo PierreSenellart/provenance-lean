@@ -246,7 +246,15 @@ proven engine several general results reuse internally.
   transport preserve it, and `predProvOf` reads a token in its own
   convention, commuting with homomorphisms either way
   (`predProvOf_mapAnn`); the annotation pushforward (`mapAnn`), and lifted
-  column values `T ⊕ AggValue T K` mixing key and token columns
+  column values `T ⊕ AggValue T K` mixing key and token columns **A count compared to zero collapses to a single
+  reading**: `predProvScalar_count_eq_zero` gives `𝟙 ⊖ ⊕ᵢ αᵢ` with no
+  hypothesis on `K` at all – the comparison holds in the empty world and in
+  no other, so there is no family of worlds to collapse
+  (`predProvScalar_of_only_empty`) – and `predProvScalar_count_ne_zero`
+  gives `⊕ᵢ αᵢ` under absorptivity, the worlds it sums over being the
+  non-empty ones, which `Having.sum_ann_meet` collapses. Both are stated of
+  an arbitrary occurrence family, so they hold of a family gathered from
+  several sources as well as of one group.
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
