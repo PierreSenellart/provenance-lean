@@ -312,6 +312,174 @@ def fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     AggQuery T (n₁ + n₂) (ColKind.allReg (n₁ + n₂)) :=
   Sum (leftOuter φ q₁ q₂) (rightUnmatched φ q₁ q₂)
 
+/-! ### What the outer joins compute -/
+
+/-- The rows of the left arm that have a match: the first block of the
+inner join. -/
+def matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
+    Multiset (Tuple T n₁) :=
+  Multiset.map (fun w : Tuple T (n₁ + n₂) =>
+      (fun j => w (Fin.castAdd n₂ j) : Tuple T n₁))
+    (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+
+/-- **A row of the left arm is matched exactly when some row of the right
+arm satisfies the join predicate with it.** -/
+theorem mem_matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T)
+    (u : Tuple T n₁) :
+    u ∈ matchedLeft φ q₁ q₂ d
+      ↔ (u ∈ (show Multiset (Tuple T n₁) from q₁.evaluatePlain d)
+          ∧ ∃ v ∈ (show Multiset (Tuple T n₂) from q₂.evaluatePlain d),
+              (φ.holdsPlain (Fin.append u v))) := by
+  unfold matchedLeft innerJoin
+  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  rw [Multiset.mem_map]
+  constructor
+  · rintro ⟨w, hw, rfl⟩
+    rw [Multiset.mem_filter] at hw
+    obtain ⟨hwp, hφ⟩ := hw
+    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hwp
+    rw [show Multiset.product (q₁.evaluatePlain d) (q₂.evaluatePlain d)
+        = (show Multiset (Tuple T n₁) from q₁.evaluatePlain d) ×ˢ
+          (show Multiset (Tuple T n₂) from q₂.evaluatePlain d) from rfl,
+      Multiset.mem_product] at hp
+    refine ⟨?_, p.2, hp.2, ?_⟩
+    · have : (fun j => (Fin.append p.1 p.2) (Fin.castAdd n₂ j) : Tuple T n₁) = p.1 := by
+        funext j; rw [Fin.append_left]
+      rw [this]; exact hp.1
+    · have : (fun j => (Fin.append p.1 p.2) (Fin.castAdd n₂ j) : Tuple T n₁) = p.1 := by
+        funext j; rw [Fin.append_left]
+      rw [this]; exact hφ
+  · rintro ⟨hu, v, hv, hφ⟩
+    refine ⟨Fin.append u v, ?_, ?_⟩
+    · rw [Multiset.mem_filter]
+      exact ⟨Multiset.mem_map.mpr ⟨(u, v), Multiset.mem_product.mpr ⟨hu, hv⟩, rfl⟩, hφ⟩
+    · funext j; rw [Fin.append_left]
+
+/-- **What a left outer join computes**: the matching pairs, and the rows
+of the left arm with no match, padded on the right with nulls. -/
+theorem evaluatePlain_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
+    (leftOuter φ q₁ q₂).evaluatePlain d
+      = (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+        + (Multiset.map
+            (fun u : Tuple T n₁ =>
+              (Fin.append u (fun _ : Fin n₂ => ValueTypeNull.null) :
+                Tuple T (n₁ + n₂)))
+            (Multiset.filter (fun u => u ∉ matchedLeft φ q₁ q₂ d)
+              (show Multiset (Tuple T n₁) from q₁.evaluatePlain d))
+           : Multiset (Tuple T (n₁ + n₂))) := by
+  show (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+      + (show Multiset (Tuple T (n₁ + n₂)) from
+          (leftUnmatched φ q₁ q₂).evaluatePlain d) = _
+  refine congrArg (_ + ·) ?_
+  unfold leftUnmatched
+  rw [evaluatePlain_padRight]
+  refine congrArg (Multiset.map _) ?_
+  show Multiset.filter _ _ = _
+  exact Multiset.filter_congr (fun u _ => by
+    rw [matchedLeft, AggQuery.evaluatePlain_castKind]
+    rfl)
+
+/-- The rows of the right arm that have a match: the second block of the
+inner join. -/
+def matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
+    Multiset (Tuple T n₂) :=
+  Multiset.map (fun w : Tuple T (n₁ + n₂) =>
+      (fun j => w (Fin.natAdd n₁ j) : Tuple T n₂))
+    (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+
+/-- **A row of the right arm is matched exactly when some row of the left
+arm satisfies the join predicate with it.** -/
+theorem mem_matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T)
+    (v : Tuple T n₂) :
+    v ∈ matchedRight φ q₁ q₂ d
+      ↔ (v ∈ (show Multiset (Tuple T n₂) from q₂.evaluatePlain d)
+          ∧ ∃ u ∈ (show Multiset (Tuple T n₁) from q₁.evaluatePlain d),
+              (φ.holdsPlain (Fin.append u v))) := by
+  unfold matchedRight innerJoin
+  simp only [AggQuery.evaluatePlain_castKind, AggQuery.evaluatePlain]
+  rw [Multiset.mem_map]
+  constructor
+  · rintro ⟨w, hw, rfl⟩
+    rw [Multiset.mem_filter] at hw
+    obtain ⟨hwp, hφ⟩ := hw
+    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hwp
+    rw [show Multiset.product (q₁.evaluatePlain d) (q₂.evaluatePlain d)
+        = (show Multiset (Tuple T n₁) from q₁.evaluatePlain d) ×ˢ
+          (show Multiset (Tuple T n₂) from q₂.evaluatePlain d) from rfl,
+      Multiset.mem_product] at hp
+    have hsnd : (fun j => (Fin.append p.1 p.2) (Fin.natAdd n₁ j) : Tuple T n₂) = p.2 := by
+      funext j; rw [Fin.append_right]
+    refine ⟨?_, p.1, hp.1, ?_⟩
+    · rw [hsnd]; exact hp.2
+    · rw [hsnd]; exact hφ
+  · rintro ⟨hv, u, hu, hφ⟩
+    refine ⟨Fin.append u v, ?_, ?_⟩
+    · rw [Multiset.mem_filter]
+      exact ⟨Multiset.mem_map.mpr ⟨(u, v), Multiset.mem_product.mpr ⟨hu, hv⟩, rfl⟩, hφ⟩
+    · funext j; rw [Fin.append_right]
+
+/-- **What a right outer join computes**: the matching pairs, and the rows
+of the right arm with no match, padded on the left with nulls. -/
+theorem evaluatePlain_rightOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
+    (rightOuter φ q₁ q₂).evaluatePlain d
+      = (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+        + (Multiset.map
+            (fun v : Tuple T n₂ =>
+              (Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) v :
+                Tuple T (n₁ + n₂)))
+            (Multiset.filter (fun v => v ∉ matchedRight φ q₁ q₂ d)
+              (show Multiset (Tuple T n₂) from q₂.evaluatePlain d))
+           : Multiset (Tuple T (n₁ + n₂))) := by
+  show (show Multiset (Tuple T (n₁ + n₂)) from (innerJoin φ q₁ q₂).evaluatePlain d)
+      + (show Multiset (Tuple T (n₁ + n₂)) from
+          (rightUnmatched φ q₁ q₂).evaluatePlain d) = _
+  refine congrArg (_ + ·) ?_
+  unfold rightUnmatched
+  rw [evaluatePlain_padLeft]
+  refine congrArg (Multiset.map _) ?_
+  show Multiset.filter _ _ = _
+  exact Multiset.filter_congr (fun v _ => by
+    rw [matchedRight, AggQuery.evaluatePlain_castKind]
+    rfl)
+
+/-- **What a full outer join computes**: the left outer join, and the rows
+of the right arm with no match, padded on the left. -/
+theorem evaluatePlain_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
+    (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
+    (fullOuter φ q₁ q₂).evaluatePlain d
+      = (show Multiset (Tuple T (n₁ + n₂)) from (leftOuter φ q₁ q₂).evaluatePlain d)
+        + (Multiset.map
+            (fun v : Tuple T n₂ =>
+              (Fin.append (fun _ : Fin n₁ => ValueTypeNull.null) v :
+                Tuple T (n₁ + n₂)))
+            (Multiset.filter (fun v => v ∉ matchedRight φ q₁ q₂ d)
+              (show Multiset (Tuple T n₂) from q₂.evaluatePlain d))
+           : Multiset (Tuple T (n₁ + n₂))) := by
+  show (show Multiset (Tuple T (n₁ + n₂)) from (leftOuter φ q₁ q₂).evaluatePlain d)
+      + (show Multiset (Tuple T (n₁ + n₂)) from
+          (rightUnmatched φ q₁ q₂).evaluatePlain d) = _
+  refine congrArg (_ + ·) ?_
+  unfold rightUnmatched
+  rw [evaluatePlain_padLeft]
+  refine congrArg (Multiset.map _) ?_
+  show Multiset.filter _ _ = _
+  exact Multiset.filter_congr (fun v _ => by
+    rw [matchedRight, AggQuery.evaluatePlain_castKind]
+    rfl)
+
 end Outer
 
 /-! ## Semijoin and antijoin
