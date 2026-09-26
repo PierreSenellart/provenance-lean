@@ -769,7 +769,12 @@ proven engine several general results reuse internally.
   that the HAVING / JOIN correspondence for `COUNT(*)` needs both
   absorptivity (tropical over `ℤ ∪ {∞}`, for `≥`) and `⊗`-over-`⊖`
   distributivity (`ChainFive`, for `=`), and that the `≥` correspondence
-  does close in `ChainFive` (`ChainFive.query_ge_agree`).
+  does close in `ChainFive` (`ChainFive.query_ge_agree`). It also witnesses that the collapse of a
+  count needs absorptivity: over `ℕ`, two occurrences annotated `1` and `2`
+  give a possible-world sum of `2`, the product, because every world
+  omitting one of them is killed by the monus – neither the `⊕`-sum `3`
+  that the absorptive collapse gives nor the indicator reading `𝟙`
+  (`natCountToken_ne_sum`, `natCountToken_ne_delta`).
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,

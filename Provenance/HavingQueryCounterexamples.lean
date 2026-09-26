@@ -5,6 +5,7 @@
 import Provenance.QueryToAgg
 import Provenance.Semirings.ChainFive
 import Provenance.Semirings.Tropical
+import Provenance.Semirings.Nat
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -177,3 +178,36 @@ theorem MinTropicalZ.query_counterexample :
   decide
 
 end HavingQueryCounterexamples
+
+/-! ## The collapse of a count needs absorptivity
+
+`AggValue.predProvScalar_count_ne_zero` collapses the possible-world sum of
+`COUNT ≥ 1` to the `⊕`-sum of the occurrence annotations, in an absorptive
+m-semiring. Outside absorptivity *neither* that reading nor the indicator
+one is the sum.
+
+Over `ℕ`, with two occurrences annotated `1` and `2`: a world that omits
+the second is weighted `𝟙 ⊖ 2 = 𝟘`, and one that omits the first `𝟙 ⊖ 1 =
+𝟘`, so the only world contributing is the one holding both, and the sum is
+their product. The reading the collapse gives under absorptivity is
+`⊕αᵢ = 3`, and the indicator reading `δ(⊕αᵢ)` is `𝟙`; the sum is `2`, and
+is neither. What it counts is "every match present", not "at least one". -/
+
+/-- The token of two occurrences annotated `1` and `2`, counted. -/
+def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true⟩
+
+/-- **The possible-world sum of `COUNT ≥ 1` over `ℕ` is the product of the
+two annotations**, not their sum and not `𝟙`. -/
+theorem natCountToken_predProvScalar :
+    natCountToken.predProvScalar CompOp.ne 0 = 2 := by decide
+
+/-- It is not the `⊕`-sum the absorptive collapse gives. -/
+theorem natCountToken_ne_sum :
+    natCountToken.predProvScalar CompOp.ne 0 ≠ ∑ i, natCountToken.anns i := by
+  decide
+
+/-- Nor is it the indicator reading `δ(⊕ᵢ αᵢ)`. -/
+theorem natCountToken_ne_delta :
+    natCountToken.predProvScalar CompOp.ne 0
+      ≠ SemiringWithMonus.delta (∑ i, natCountToken.anns i) := by
+  decide
