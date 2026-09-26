@@ -362,6 +362,14 @@ row exists on its own – an aggregation over no grouping, a frame that may
 exclude the row it is computed for – it is read, by the scalar convention of
 `AggValue.predProvScalar`.
 
+Each aggregate of SQL also comes with an *input policy*, which says what it
+reads of a sequence in which some values are null. There are three.
+*Null-skipping* (`SUM`, `MIN`, `MAX`, `AVG`, …) drops the nulls and answers
+`NULL` over what is left of nothing: that is `sqlOf`. *Counting* (`COUNT`)
+reads every occurrence, which counts when its value is not null, and
+answers `0` over nothing: that is `counting`. *Null-keeping* (`ARRAY_AGG`,
+…) reads every value, nulls included: that is the aggregate itself.
+
 The aggregates below are those of a domain with no null, and they give the
 zero of the value type over no row. `COUNT` is right that way: SQL counts no
 row as `0`. `SUM`, `MIN` and `MAX` are not, since SQL gives `NULL` there, and
@@ -429,6 +437,35 @@ theorem sqlOf_eq_null_of_all_null {V : Type} [ValueTypeNull V]
   unfold sqlOf
   rw [hfil]
   rfl
+
+/-- **SQL's counting input policy**: every occurrence is read, and counts
+when its value is not null. This is `COUNT(t)`.
+
+It is not `sqlOf`. The two agree on dropping the nulls and part company on
+what is left of nothing, where a null-skipping aggregate answers `NULL` and
+a count answers `0`. `COUNT(*)` needs neither, being `COUNT` over a term
+that is never null, so that every occurrence counts and the plain count of
+the sequence is already right. -/
+def counting {V : Type} [ValueType V] (f : SeqAggFunc V) : SeqAggFunc V :=
+  fun L => f (L.filter (fun a => !ValueType.isNull a))
+
+/-- A count over nothing is what the underlying count gives the empty
+sequence – `0`, and not the `NULL` of a null-skipping aggregate. -/
+@[simp] theorem counting_nil {V : Type} [ValueType V] (f : SeqAggFunc V) :
+    f.counting [] = f [] := rfl
+
+/-- Away from the nulls the counting policy reads the whole sequence. -/
+theorem counting_eq_of_no_null {V : Type} [ValueType V] (f : SeqAggFunc V)
+    {L : List V} (h : ∀ a ∈ L, ValueType.isNull a = false) :
+    f.counting L = f L := by
+  unfold counting
+  rw [List.filter_eq_self.mpr (fun a ha => by simp [h a ha])]
+
+/-- **On a domain where nothing is null the counting policy is the count
+itself**, which is why the results proved at `ℕ` are untouched by it. -/
+theorem counting_of_noNulls {V : Type} [ValueType V] [NoNulls V]
+    (f : SeqAggFunc V) : f.counting = f :=
+  funext fun _L => counting_eq_of_no_null f (fun a _ => isNull_eq_false a)
 
 /-! ### Which aggregates read their input as a multiset
 
@@ -625,6 +662,12 @@ theorem Symmetric.sqlOf {V : Type} [ValueTypeNull V] {f : SeqAggFunc V}
   split
   · rfl
   · exact hf hfil
+
+/-- The counting policy preserves symmetry: dropping the nulls does not
+look at the order. -/
+theorem Symmetric.counting {V : Type} [ValueType V] {f : SeqAggFunc V}
+    (hf : f.Symmetric) : (SeqAggFunc.counting f).Symmetric := fun hp =>
+  hf (hp.filter _)
 
 /-- **`PICKFIRST` is not symmetric**, on any domain with two values: it is
 the aggregate for which the order a group or a frame is read in is the

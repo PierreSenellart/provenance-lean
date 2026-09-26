@@ -183,8 +183,14 @@ the provenance-aware relational database system
   SQL's `IS [NOT] DISTINCT FROM`, the first written `≐`: they compare two
   values with two nulls identical, are never unknown, and are what a join
   on a key column needs. Also the aggregate catalog `SeqAggFunc` and
-  `SeqAggFunc.sqlOf`, **SQL's reading of an aggregate on a domain with a
-  null**: skip the nulls, and give `NULL` when nothing is left. That is what
+  the two of SQL's three **input policies** that a null makes visible:
+  `SeqAggFunc.sqlOf`, the *null-skipping* one (`SUM`, `MIN`, `MAX`, `AVG`),
+  which drops the nulls and gives `NULL` when nothing is left, and
+  `SeqAggFunc.counting`, the *counting* one (`COUNT(t)`), which drops them
+  and gives `0` – the third, *null-keeping*, being the aggregate itself.
+  `SeqAggFunc.count` is `COUNT(*)`, `COUNT` over a term that is never null,
+  and needs neither. On a domain where nothing is null the counting policy
+  is the count itself (`counting_of_noNulls`). That is what
   the scalar convention needed and could not have – an aggregation without
   grouping over an empty input, and a frame excluding the row it is computed
   for, both read their value there, and `SUM`, `MIN`, `MAX` over no row are
@@ -416,14 +422,21 @@ proven engine several general results reuse internally.
   arm); `inter` is SQL's `INTERSECT`, the two deduplicated arms joined on
   all their columns *syntactically*, which annotates a shared tuple by the
   product of the two `⊕`-sums – the provenance of a conjunction of the two
-  memberships, and not what `ε(q₁ - (q₁ - q₂))` would give; `leftOuter`,
+  memberships, and not what `ε(q₁ - (q₁ - q₂))` would give – all three
+  characterized over plain relations (`evaluatePlain_pad`,
+  `evaluatePlain_inter`, `evaluatePlain_leftOuter` and its companions,
+  with `mem_matchedLeft`/`mem_matchedRight` saying which rows of an arm
+  have a match); `leftOuter`,
   `rightOuter` and `fullOuter` add to the matching rows the unmatched ones
   of either arm, padded; `semijoin` and `antijoin` count each left row's
   matches over that outer join – reading a column of the right arm that is
   never null on a match, so a padded row counts as none – and keep the rows
-  with one or with none. The counting aggregate is a parameter, an
-  aggregate mapping values of the domain to a value of the domain, so a
-  domain that is to count has to hold the counts
+  with one or with none. The counting aggregate is a parameter, and it has
+  to be `COUNT(t)` and not `COUNT(*)`: `Counts` says what is asked of it –
+  never null, and zero exactly over nothing but nulls – and
+  `counts_counting` supplies it from SQL's counting policy over a plain
+  count. `COUNT(*)` would count the padded row of an unmatched row as a
+  match
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

@@ -495,11 +495,14 @@ values of the domain to a value of the domain, so a domain that is to
 count has to hold the counts. Over the counts the two selections are
 complementary, `= 0` and `≠ 0` standing for SQL's `= 0` and `≥ 1`.
 
-**The aggregate has to be the one that skips the nulls**, which is SQL's
-`count(e)` and not the catalog's `SeqAggFunc.count`: the latter is
-`List.length`, and it would count the padded row of an unmatched left row
-as a match, making every row of the left arm pass the semijoin. What is
-needed of it is `Counts` below.
+**The aggregate has to be `COUNT(t)`, not `COUNT(*)`.** SQL's counting
+input policy reads every occurrence and counts it when its value is not
+null, which is `SeqAggFunc.counting`; `SeqAggFunc.count` is `COUNT(*)`,
+the count over a term that is never null, and it would count the padded
+row of an unmatched left row as a match, so that every row of the left arm
+passed the semijoin and the antijoin were always empty. What is needed of
+the aggregate is `Counts` below, and `counts_counting` says the counting
+policy over a plain count supplies it.
 -/
 
 
@@ -515,6 +518,21 @@ structure Counts (cnt : SeqAggFunc T) : Prop where
   not_null : ∀ L : List T, ValueType.isNull (cnt L) = false
   /-- A count is zero exactly over nothing but nulls. -/
   eq_zero : ∀ L : List T, cnt L = 0 ↔ ∀ x ∈ L, ValueType.isNull x = true
+
+/-- **SQL's counting policy over a plain count counts matches.** A plain
+count is one that is never null and is zero only over the empty sequence;
+reading it through the counting policy, which drops the nulls, gives an
+aggregate that is zero exactly when there was nothing but nulls to
+count. -/
+theorem counts_counting {cnt : SeqAggFunc T}
+    (hnn : ∀ L : List T, ValueType.isNull (cnt L) = false)
+    (hz : ∀ L : List T, cnt L = 0 ↔ L = []) :
+    Counts (SeqAggFunc.counting cnt) where
+  not_null _ := hnn _
+  eq_zero L := by
+    show cnt (L.filter (fun a => !ValueType.isNull a)) = 0 ↔ _
+    rw [hz, List.filter_eq_nil_iff]
+    exact ⟨fun h x hx => by simpa using h x hx, fun h x hx => by simpa using h x hx⟩
 
 /-- The left outer join of the two arms, grouped by the columns of the
 left one, with a count of the matches in the added column. -/
