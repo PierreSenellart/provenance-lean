@@ -444,7 +444,21 @@ proven engine several general results reuse internally.
   elimination accumulates (`evaluate_Dedup`), and
   `evaluateAnnotated_inter` says intersection annotates a shared tuple by
   the product of the two sums – the provenance of a conjunction of the two
-  memberships, which `ε(q₁ - (q₁ - q₂))` would not give
+  memberships, which `ε(q₁ - (q₁ - q₂))` would not give. The reusable
+  step is `evaluateAnnotated_Proj`: **a projection carries the finalized
+  annotation across**, what it cashes of the pending group factors coming
+  out of the pending part and into the concrete one. From it and
+  `evaluate_Diff` – difference subtracts the `⊕`-sum of the annotations a
+  tuple carries on the right, and removes no row – come the outer joins:
+  a matching pair is annotated by the product, and a padded row by
+  `α ⊖ ⊕(α' ⊗ β)` over the matches of *every copy* of its tuple
+  (`evaluateAnnotated_leftOuter` and its right and full companions). That
+  subtracted form is the definition; `α ⊗ (𝟙 ⊖ ⊕β)` equals it only when
+  `⊗` distributes over `⊖` and `K` is absorptive. The semijoin and the
+  antijoin put a selection on an aggregate value directly above a
+  grouping, so they are fused `HAVING` sites and their annotation is the
+  predicate provenance of the comparison on each row's group
+  (`evaluateAnnotated_semijoin`, `evaluateAnnotated_antijoin`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
