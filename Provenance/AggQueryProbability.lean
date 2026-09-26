@@ -274,7 +274,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, a term's lifted evaluation is its plain
 evaluation on the specialized tuple (regular columns hold regular values,
 on which both readings are the identity). -/
-theorem TermG.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
     (t : TermG T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     t.eval u = t.evalPlain (GenRow.specializeTuple v u) := by
@@ -297,50 +297,50 @@ theorem TermG.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
     unfold GenRow.specializeTuple
     rw [hw]
     rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
-  | sub t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
-  | mul t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.evalPlain, ih₁, ih₂]
+  | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate evaluates
 as its plain reading does on the specialized tuple – three-valuedly, so the
 statement covers the unknown case too. -/
-theorem GenPred.eval3_eq_specialize {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.eval3_eq_specialize {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     φ.eval3 u = φ.evalPlain3 (GenRow.specializeTuple v u) := by
   induction φ with
   | cmp op t₁ t₂ =>
-    rw [GenPred.eval3, GenPred.evalPlain3,
-      TermG.eval_specialize t₁ u hconf v, TermG.eval_specialize t₂ u hconf v]
-  | aggCmp k h op t => exact absurd hφ (by simp [GenPred.hasAggAtom])
+    rw [GenPredIn.eval3, GenPredIn.evalPlain3,
+      TermGIn.eval_specialize t₁ u hconf v, TermGIn.eval_specialize t₂ u hconf v]
+  | aggCmp k h op t => exact absurd hφ (by simp [GenPredIn.hasAggAtom])
   | and φ ψ ihφ ihψ =>
-    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
-    rw [GenPred.eval3, GenPred.evalPlain3, ihφ hφ.1, ihψ hφ.2]
+    rw [GenPredIn.hasAggAtom, Bool.or_eq_false_iff] at hφ
+    rw [GenPredIn.eval3, GenPredIn.evalPlain3, ihφ hφ.1, ihψ hφ.2]
   | or φ ψ ihφ ihψ =>
-    rw [GenPred.hasAggAtom, Bool.or_eq_false_iff] at hφ
-    rw [GenPred.eval3, GenPred.evalPlain3, ihφ hφ.1, ihψ hφ.2]
+    rw [GenPredIn.hasAggAtom, Bool.or_eq_false_iff] at hφ
+    rw [GenPredIn.eval3, GenPredIn.evalPlain3, ihφ hφ.1, ihψ hφ.2]
   | not φ ih =>
-    rw [GenPred.hasAggAtom] at hφ
-    rw [GenPred.eval3, GenPred.evalPlain3, ih hφ]
+    rw [GenPredIn.hasAggAtom] at hφ
+    rw [GenPredIn.eval3, GenPredIn.evalPlain3, ih hφ]
 
 omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate holds
 iff its plain reading holds on the specialized tuple. -/
-theorem GenPred.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     φ.holds u ↔ φ.holdsPlain (GenRow.specializeTuple v u) := by
-  unfold GenPred.holds GenPred.holdsPlain
-  rw [GenPred.eval3_eq_specialize φ hφ u hconf v]
+  unfold GenPredIn.holds GenPredIn.holdsPlain
+  rw [GenPredIn.eval3_eq_specialize φ hφ u hconf v]
 
 /-! ## The σ-aggregate row lemma -/
 
 /-- The annotation lists of the tokens compared by a predicate on a row
 (the evaluator's `compared`). -/
-def GenPred.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
@@ -351,7 +351,7 @@ def GenPred.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
 /-- The compared tokens read in the scalar convention. A comparison against
 one of these entails no group's existence – it holds in the empty world – so
 its presence blocks the supersede whatever occurrences it carries. -/
-def GenPred.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
@@ -361,7 +361,7 @@ def GenPred.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
 
 /-- The pending factors after a σ with aggregate atoms (the evaluator's
 update, definitionally). -/
-def GenPred.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
+def GenPredIn.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
     {κ : Fin n → ColKind} (φ : GenPred T κ)
     (u : Tuple (GenValue T K') n) (p : Multiset (List K')) :
     Multiset (List K') :=
@@ -374,7 +374,7 @@ def GenPred.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
 kind-conformant row all of whose compared groups are realized non-empty,
 the predicate provenance is true iff the (polarity-adjusted) plain
 predicate holds on the specialized tuple. -/
-theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
@@ -386,25 +386,25 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
           else φ.evalPlain3 (GenRow.specializeTuple v u) = Kleene.true) := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
-    simp only [GenPred.predsem]
-    rw [chi_eval_iff, GenPred.evalPlain3,
-      ← TermG.eval_specialize t₁ u hconf v,
-      ← TermG.eval_specialize t₂ u hconf v]
+    simp only [GenPredIn.predsem]
+    rw [chi_eval_iff, GenPredIn.evalPlain3,
+      ← TermGIn.eval_specialize t₁ u hconf v,
+      ← TermGIn.eval_specialize t₂ u hconf v]
     cases neg with
     | false => simp
     | true => simp [CompOp.negate_eval3]
   | aggCmp k h op t =>
     obtain ⟨a, ha⟩ := GenValue.eq_inr_of_kindOf_agg
       ((hconf k).trans (by rw [h]; rfl))
-    simp only [GenPred.predsem, ha]
-    rw [AggValue.predProvOf_eval_iff, GenPred.evalPlain3]
+    simp only [GenPredIn.predsem, ha]
+    rw [AggValue.predProvOf_eval_iff, GenPredIn.evalPlain3]
     have hne := hg k (Finset.mem_singleton_self k) a ha
     have hspec : GenRow.specializeTuple v u k
         = a.specialize (fun α => α v) := by
       unfold GenRow.specializeTuple
       rw [ha]
       rfl
-    rw [hspec, ← TermG.eval_specialize t u hconf v]
+    rw [hspec, ← TermGIn.eval_specialize t u hconf v]
     cases neg with
     | false => simp [hne]
     | true => simp [hne, CompOp.negate_eval3]
@@ -417,20 +417,20 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.and φ ψ).predsem false u
+      have he : (GenPredIn.and φ ψ).predsem false u
           = φ.predsem false u * ψ.predsem false u := rfl
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ false hgφ, ihψ false hgψ,
-        GenPred.evalPlain3]
+        GenPredIn.evalPlain3]
       simp
     | true =>
-      have he : (GenPred.and φ ψ).predsem true u
+      have he : (GenPredIn.and φ ψ).predsem true u
           = φ.predsem true u + ψ.predsem true u := rfl
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ true hgφ, ihψ true hgψ,
-        GenPred.evalPlain3]
+        GenPredIn.evalPlain3]
       simp
   | or φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
@@ -441,30 +441,30 @@ theorem GenPred.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.or φ ψ).predsem false u
+      have he : (GenPredIn.or φ ψ).predsem false u
           = φ.predsem false u + ψ.predsem false u := rfl
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ false hgφ, ihψ false hgψ,
-        GenPred.evalPlain3]
+        GenPredIn.evalPlain3]
       simp
     | true =>
-      have he : (GenPred.or φ ψ).predsem true u
+      have he : (GenPredIn.or φ ψ).predsem true u
           = φ.predsem true u * ψ.predsem true u := rfl
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ true hgφ, ihψ true hgψ,
-        GenPred.evalPlain3]
+        GenPredIn.evalPlain3]
       simp
   | not φ ih =>
-    have he : (GenPred.not φ).predsem neg u = φ.predsem (!neg) u := rfl
-    rw [he, ih (!neg) hg, GenPred.evalPlain3]
+    have he : (GenPredIn.not φ).predsem neg u = φ.predsem (!neg) u := rfl
+    rw [he, ih (!neg) hg, GenPredIn.evalPlain3]
     cases neg <;> simp
 
 /-- **Existence entailment extracts the guard.** When a predicate entails
 existence and all its compared tokens carry the annotation list `ℓ₀`, a
 true predicate provenance realizes `ℓ₀`. -/
-theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n) (v : X → Bool)
     (ℓ₀ : List (BoolFunc X))
@@ -473,14 +473,14 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
     (hent : φ.entailsExistence neg = true)
     (hp : (φ.predsem neg u) v = true) : annGuard ℓ₀ v := by
   induction φ generalizing neg with
-  | cmp op t₁ t₂ => exact absurd hent (by simp [GenPred.entailsExistence])
+  | cmp op t₁ t₂ => exact absurd hent (by simp [GenPredIn.entailsExistence])
   | aggCmp k h op t =>
     cases hu : u k with
     | inl w =>
-      simp only [GenPred.predsem, hu] at hp
+      simp only [GenPredIn.predsem, hu] at hp
       exact absurd hp Bool.false_ne_true
     | inr a =>
-      simp only [GenPred.predsem, hu] at hp
+      simp only [GenPredIn.predsem, hu] at hp
       obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
       rw [AggValue.predProvOf_of_grouped hsc] at hp
       have hne := (AggValue.predProv_eval_iff a _ _ v).mp hp |>.1
@@ -495,7 +495,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.and φ ψ).predsem false u
+      have he : (GenPredIn.and φ ψ).predsem false u
           = φ.predsem false u * ψ.predsem false u := rfl
       rw [he] at hp
       have hp' : (φ.predsem false u v && ψ.predsem false u v) = true := hp
@@ -506,7 +506,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hent' with h | h
       exacts [ihφ false huφ h hp'.1, ihψ false huψ h hp'.2]
     | true =>
-      have he : (GenPred.and φ ψ).predsem true u
+      have he : (GenPredIn.and φ ψ).predsem true u
           = φ.predsem true u + ψ.predsem true u := rfl
       rw [he] at hp
       have hp' : (φ.predsem true u v || ψ.predsem true u v) = true := hp
@@ -525,7 +525,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.or φ ψ).predsem false u
+      have he : (GenPredIn.or φ ψ).predsem false u
           = φ.predsem false u + ψ.predsem false u := rfl
       rw [he] at hp
       have hp' : (φ.predsem false u v || ψ.predsem false u v) = true := hp
@@ -536,7 +536,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hp' with h | h
       exacts [ihφ false huφ hent'.1 h, ihψ false huψ hent'.2 h]
     | true =>
-      have he : (GenPred.or φ ψ).predsem true u
+      have he : (GenPredIn.or φ ψ).predsem true u
           = φ.predsem true u * ψ.predsem true u := rfl
       rw [he] at hp
       have hp' : (φ.predsem true u v && ψ.predsem true u v) = true := hp
@@ -547,7 +547,7 @@ theorem GenPred.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hent' with h | h
       exacts [ihφ true huφ h hp'.1, ihψ true huψ h hp'.2]
   | not φ ih =>
-    have he : (GenPred.not φ).predsem neg u = φ.predsem (!neg) u := rfl
+    have he : (GenPredIn.not φ).predsem neg u = φ.predsem (!neg) u := rfl
     rw [he] at hp
     exact ih (!neg) huni hent hp
 
@@ -582,7 +582,7 @@ theorem GenAnn.finalize_mul {K' : Type} [CommSemiringWithMonus K']
 finalized updated annotation implies the finalized original one (the
 superseded factors are recovered from the predicate provenance through
 existence entailment). -/
-theorem GenPred.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
     (h : (GenAnn.mk (b * φ.predsem false u) (φ.selPending u p)).finalize v
@@ -593,12 +593,12 @@ theorem GenPred.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
   have hbp' : (b v && (φ.predsem false u) v) = true := hbp
   rw [Bool.and_eq_true] at hbp'
   refine ⟨hbp'.1, fun l hl => ?_⟩
-  unfold GenPred.selPending at hupd
+  unfold GenPredIn.selPending at hupd
   by_cases hE : φ.entailsExistence false = true
   · rw [ite_eq_left hE] at hupd
     by_cases hcond : (φ.selComparedScalar u = 0 ∧ φ.selCompared u ≠ 0
         ∧ ∀ l' ∈ φ.selCompared u, l' = l)
-    · refine GenPred.entails_guard φ false u v l ?_ hE hbp'.2
+    · refine GenPredIn.entails_guard φ false u v l ?_ hE hbp'.2
       intro k hk a ha
       refine ⟨?_, ?_⟩
       · -- no compared token is scalar, so this one is grouped
@@ -621,7 +621,7 @@ theorem GenPred.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
 /-- **The σ-aggregate row lemma.** On a kind-conformant, guarded row, the
 updated annotation is realized iff the original annotation is realized
 and the plain predicate holds on the specialized tuple. -/
-theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
@@ -634,12 +634,12 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
         ∧ φ.holdsPlain (GenRow.specializeTuple v u) := by
   constructor
   · intro h
-    have hold := GenPred.sel_finalize_old φ u b p v h
+    have hold := GenPredIn.sel_finalize_old φ u b p v h
     have hbp : (b v && (φ.predsem false u) v) = true :=
       ((GenAnn.finalize_eval_iff _ v).mp h).1
     rw [Bool.and_eq_true] at hbp
     refine ⟨hold, ?_⟩
-    have hps := (GenPred.predsem_eval_iff φ false u hconf v
+    have hps := (GenPredIn.predsem_eval_iff φ false u hconf v
       (fun k _ a ha => hguard hold k a ha)).mp hbp.2
     rw [ite_eq_right Bool.false_ne_true] at hps
     exact hps
@@ -648,14 +648,14 @@ theorem GenPred.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     rw [GenAnn.finalize_eval_iff] at hold ⊢
     obtain ⟨hb, hG⟩ := hold
     have hps : (φ.predsem false u) v = true :=
-      (GenPred.predsem_eval_iff φ false u hconf v
+      (GenPredIn.predsem_eval_iff φ false u hconf v
         (fun k _ a ha => hgs k a ha)).mpr
         (by rw [ite_eq_right Bool.false_ne_true]; exact hh)
     refine ⟨?_, fun l hl => ?_⟩
     · show (b v && _) = true
       rw [Bool.and_eq_true]
       exact ⟨hb, hps⟩
-    · unfold GenPred.selPending at hl
+    · unfold GenPredIn.selPending at hl
       by_cases hE : φ.entailsExistence false = true
       · rw [ite_eq_left hE] at hl
         exact hG l (Multiset.mem_of_mem_filter hl)
@@ -706,10 +706,10 @@ theorem AggQuery.evaluate_guarded :
     cases hp : ps j with
     | term t =>
       rw [hp] at ha'
-      exact absurd ha' (by simp [ProjCol.eval])
+      exact absurd ha' (by simp [ProjColIn.eval])
     | provTerm t =>
       rw [hp] at ha'
-      exact absurd ha' (by simp [ProjCol.eval])
+      exact absurd ha' (by simp [ProjColIn.eval])
     | token k hk =>
       rw [hp] at ha'
       exact ih d r₀ hr₀ v hfin₀ k a ha'
@@ -719,7 +719,7 @@ theorem AggQuery.evaluate_guarded :
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
-      have hold := GenPred.sel_finalize_old φ r₀.fst r₀.snd.base
+      have hold := GenPredIn.sel_finalize_old φ r₀.fst r₀.snd.base
         r₀.snd.pending v hfin
       exact ih d r₀ hr₀ v hold k a ha
     · rw [ite_eq_right hφ] at hr
@@ -928,7 +928,7 @@ private lemma genRandomWorld_allReg {n : ℕ}
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- A projection column specializes to its plain reading on the
 specialized tuple. -/
-private lemma ProjCol.specializeAt_eval {n : ℕ} {κ : Fin n → ColKind}
+private lemma ProjColIn.specializeAt_eval {n : ℕ} {κ : Fin n → ColKind}
     (pc : ProjCol T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
     GenValue.specializeAt v (pc.eval u)
@@ -936,11 +936,11 @@ private lemma ProjCol.specializeAt_eval {n : ℕ} {κ : Fin n → ColKind}
   cases pc with
   | term t =>
     show GenValue.specializeAt v (Sum.inl (t.eval u)) = _
-    exact TermG.eval_specialize t u hconf v
+    exact TermGIn.eval_specialize t u hconf v
   | token k hk => rfl
   | provTerm t =>
     show GenValue.specializeAt v (Sum.inl (t.eval u)) = _
-    exact TermG.eval_specialize t u hconf v
+    exact TermGIn.eval_specialize t u hconf v
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
@@ -1230,7 +1230,7 @@ private lemma specializeTuple_append' {n₁ n₂ : ℕ}
 /-- **Random-world commutation for the general evaluator** (over `𝔹[X]`):
 specializing the realized rows of the general annotated evaluation is the
 plain evaluation of the realized world. The σ-aggregate case is the row
-lemma `GenPred.sel_finalize_eval_iff` under the conformance and
+lemma `GenPredIn.sel_finalize_eval_iff` under the conformance and
 guardedness invariants; the `Gamma` case rests on
 `groupSeq_randomWorld`. -/
 theorem AggQuery.genRandomWorld_evaluate :
@@ -1267,7 +1267,7 @@ theorem AggQuery.genRandomWorld_evaluate :
       show GenRow.specializeTuple v (fun j => (ps j).eval r.fst)
         = fun j => (ps j).evalPlain (GenRow.specializeTuple v r.fst)
       funext j
-      exact ProjCol.specializeAt_eval (ps j) r.fst hconf v
+      exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
   | Sel φ q ih =>
     intro hq d v
     simp only [AggQuery.evaluate, AggQuery.evaluatePlain]
@@ -1281,7 +1281,7 @@ theorem AggQuery.genRandomWorld_evaluate :
             r.snd.finalize v = true
               ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst))
           fun r hr => ?_)) ?_
-      · exact GenPred.sel_finalize_eval_iff φ r.fst r.snd.base
+      · exact GenPredIn.sel_finalize_eval_iff φ r.fst r.snd.base
           r.snd.pending v (AggQuery.evaluate_conform q d r hr)
           (fun hfin => AggQuery.evaluate_guarded q d r hr v hfin)
       · rw [← ih hq d v]
@@ -1298,7 +1298,7 @@ theorem AggQuery.genRandomWorld_evaluate :
             r.snd.finalize v = true
               ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst))
           fun r hr => ?_)) ?_
-      · exact and_congr_right fun _ => GenPred.holds_iff_specialize φ
+      · exact and_congr_right fun _ => GenPredIn.holds_iff_specialize φ
           (by simpa using hφ) r.fst
           (AggQuery.evaluate_conform q d r hr) v
       · rw [← ih hq d v]

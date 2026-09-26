@@ -132,7 +132,7 @@ syntax "RA[" term " | " raQuery "]" : term
 
 Each category expands through an internal marker in the term category, which
 is what lets a rule recurse into its own sub-syntax. Column references become
-`TermG.index` with the regularity proof discharged by `rfl`, which is what a
+`TermGIn.index` with the regularity proof discharged by `rfl`, which is what a
 concrete kind vector makes available. -/
 
 /-- A query all of whose columns are regular. This is the shape of a source
@@ -157,12 +157,12 @@ scoped syntax:max "ra_pred% " raPred : term
 scoped syntax:max "ra_query% " raQuery : term
 
 macro_rules
-  | `(ra_term% #$i:num)     => `(TermG.index $i (by rfl))
+  | `(ra_term% #$i:num)     => `(TermGIn.index $i (by rfl))
   | `(ra_term% ($t:raTerm)) => `(ra_term% $t)
-  | `(ra_term% `($t:term))  => `(TermG.const $t)
-  | `(ra_term% $a:raTerm + $b:raTerm)     => `(TermG.add (ra_term% $a) (ra_term% $b))
-  | `(ra_term% $a:raTerm - $b:raTerm)     => `(TermG.sub (ra_term% $a) (ra_term% $b))
-  | `(ra_term% $a:raTerm * $b:raTerm)     => `(TermG.mul (ra_term% $a) (ra_term% $b))
+  | `(ra_term% `($t:term))  => `(TermGIn.const $t)
+  | `(ra_term% $a:raTerm + $b:raTerm)     => `(TermGIn.add (ra_term% $a) (ra_term% $b))
+  | `(ra_term% $a:raTerm - $b:raTerm)     => `(TermGIn.sub (ra_term% $a) (ra_term% $b))
+  | `(ra_term% $a:raTerm * $b:raTerm)     => `(TermGIn.mul (ra_term% $a) (ra_term% $b))
 
 /-- The same term syntax, read into the classical `Term`: what a grouping
 aggregates is a term over the columns of its all-regular input, which carries
@@ -191,17 +191,17 @@ column. -/
 def atomAt {T : Type} {n : ℕ} {κ : Fin n → ColKind} (k : Fin n) (op : CompOp)
     (t : TermG T κ) : GenPred T κ :=
   match h : κ k with
-  | ColKind.reg  => GenPred.cmp op (TermG.index k h) t
-  | ColKind.agg  => GenPred.aggCmp k h op t
-  | ColKind.prov => GenPred.cmp op (TermG.provIndex k h) t
+  | ColKind.reg  => GenPredIn.cmp op (TermGIn.index k h) t
+  | ColKind.agg  => GenPredIn.aggCmp k h op t
+  | ColKind.prov => GenPredIn.cmp op (TermGIn.provIndex k h) t
 
 /-- The projection column carrying column `k` through, whichever kind it
 has. -/
 def projAt {T : Type} {n : ℕ} {κ : Fin n → ColKind} (k : Fin n) : ProjCol T κ :=
   match h : κ k with
-  | ColKind.reg  => ProjCol.term (TermG.index k h)
-  | ColKind.agg  => ProjCol.token k h
-  | ColKind.prov => ProjCol.provTerm (TermG.provIndex k h)
+  | ColKind.reg  => ProjColIn.term (TermGIn.index k h)
+  | ColKind.agg  => ProjColIn.token k h
+  | ColKind.prov => ProjColIn.provTerm (TermGIn.provIndex k h)
 
 /-- A bare column reference, if that is what the term is. -/
 private def asCol : Lean.TSyntax `raTerm → Option (Lean.TSyntax `num)
@@ -215,13 +215,13 @@ private def mkCmp (op conv : Lean.TSyntax `term) (a b : Lean.TSyntax `raTerm) :
     Lean.MacroM (Lean.TSyntax `term) := do
   if let some i := asCol a then `($(Lean.mkIdent ``atomAt) $i $op (ra_term% $b))
   else if let some j := asCol b then `($(Lean.mkIdent ``atomAt) $j $conv (ra_term% $a))
-  else `(GenPred.cmp $op (ra_term% $a) (ra_term% $b))
+  else `(GenPredIn.cmp $op (ra_term% $a) (ra_term% $b))
 
 /-- A projection column: a bare column reference is carried through by
 `projAt`, anything else is a term. -/
 private def mkProj (t : Lean.TSyntax `raTerm) : Lean.MacroM (Lean.TSyntax `term) := do
   if let some i := asCol t then `($(Lean.mkIdent ``projAt) $i)
-  else `(ProjCol.term (ra_term% $t))
+  else `(ProjColIn.term (ra_term% $t))
 
 macro_rules
   | `(ra_proj% $t:raTerm) => mkProj t
@@ -234,9 +234,9 @@ macro_rules
   | `(ra_pred% $a:raTerm ≤ $b:raTerm)  => do mkCmp (← `(CompOp.le)) (← `(CompOp.ge)) a b
   | `(ra_pred% $a:raTerm > $b:raTerm)  => do mkCmp (← `(CompOp.gt)) (← `(CompOp.lt)) a b
   | `(ra_pred% $a:raTerm ≥ $b:raTerm)  => do mkCmp (← `(CompOp.ge)) (← `(CompOp.le)) a b
-  | `(ra_pred% ¬$p:raPred)      => `(GenPred.not (ra_pred% $p))
-  | `(ra_pred% $a:raPred ∧ $b:raPred)  => `(GenPred.and (ra_pred% $a) (ra_pred% $b))
-  | `(ra_pred% $a:raPred ∨ $b:raPred)  => `(GenPred.or (ra_pred% $a) (ra_pred% $b))
+  | `(ra_pred% ¬$p:raPred)      => `(GenPredIn.not (ra_pred% $p))
+  | `(ra_pred% $a:raPred ∧ $b:raPred)  => `(GenPredIn.and (ra_pred% $a) (ra_pred% $b))
+  | `(ra_pred% $a:raPred ∨ $b:raPred)  => `(GenPredIn.or (ra_pred% $a) (ra_pred% $b))
 
 macro_rules
   | `(ra_query% ($q:raQuery)) => `(ra_query% $q)

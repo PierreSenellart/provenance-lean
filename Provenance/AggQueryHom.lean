@@ -22,7 +22,7 @@ with every `SemiringWithMonusHom`:
   against a token commutes: the world annotations are `⊗`/`⊖`-polynomials
   and the characteristic values `χ` are `{𝟘,𝟙}`-valued, with the
   aggregate values themselves untouched by the pushforward;
-* `GenPred.predsem_mapAnn` – the predicate provenance of a whole
+* `GenPredIn.predsem_mapAnn` – the predicate provenance of a whole
   generalized predicate commutes (`∧ ↦ ⊗`, `∨ ↦ ⊕` through `map_mul`
   and `map_add`, `¬` by polarity).
 
@@ -204,7 +204,7 @@ end AggValue
 omit [DecidableEq K] [DecidableEq K'] in
 /-- Terms over regular columns are untouched by the pushforward (their
 token reads collapse, and `collapse` is annotation-independent). -/
-theorem TermG.eval_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.eval_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (t : TermG T κ)
     (u : Tuple (GenValue T K) n) :
     t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) = t.eval u := by
@@ -221,16 +221,16 @@ theorem TermG.eval_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     exact AggValue.collapseSum_mapAnnSum ⇑h.toRingHom (u k)
   | cmpAgg k hk op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
-  | sub t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
-  | mul t₁ t₂ ih₁ ih₂ => rw [TermG.eval, TermG.eval, ih₁, ih₂]
+  | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
 
 /-- **Predicate-level hom commutation.** The predicate provenance of a
 generalized predicate commutes with every `SemiringWithMonusHom`:
 regular atoms through `χ`, aggregate atoms through the token-level
 commutation, `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, and
 `¬` by polarity. -/
-theorem GenPred.predsem_mapAnn {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.predsem_mapAnn {n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPred T κ) (neg : Bool)
     (u : Tuple (GenValue T K) n) :
     φ.predsem neg (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k))
@@ -238,50 +238,50 @@ theorem GenPred.predsem_mapAnn {n : ℕ} {κ : Fin n → ColKind}
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
     show Having.chi _ _ _ = _
-    rw [show ((GenPred.cmp op t₁ t₂).predsem neg (K := K) u)
+    rw [show ((GenPredIn.cmp op t₁ t₂).predsem neg (K := K) u)
         = Having.chi (if neg then op.negate else op)
             (t₁.eval u) (t₂.eval u) from rfl,
-      TermG.eval_mapAnnSum h t₁ u, TermG.eval_mapAnnSum h t₂ u, chi_hom]
+      TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u, chi_hom]
   | aggCmp k hk op t =>
     cases hu : u k with
     | inl w =>
       have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inl w : GenValue T K)
           = (Sum.inl w : GenValue T K') := rfl
-      simp only [GenPred.predsem, hu, hred, map_zero]
+      simp only [GenPredIn.predsem, hu, hred, map_zero]
     | inr a =>
       have hred : AggValue.mapAnnSum (⇑h.toRingHom)
             (Sum.inr a : GenValue T K)
           = Sum.inr (AggValue.mapAnn ⇑h.toRingHom a) := rfl
-      simp only [GenPred.predsem, hu, hred]
-      rw [TermG.eval_mapAnnSum h t u, AggValue.predProvOf_mapAnn]
+      simp only [GenPredIn.predsem, hu, hred]
+      rw [TermGIn.eval_mapAnnSum h t u, AggValue.predProvOf_mapAnn]
   | and φ ψ ihφ ihψ =>
     cases neg with
     | false =>
       show φ.predsem false _ * ψ.predsem false _ = _
       rw [ihφ false, ihψ false,
-        show ((GenPred.and φ ψ).predsem false u)
+        show ((GenPredIn.and φ ψ).predsem false u)
           = φ.predsem false u * ψ.predsem false u from rfl, map_mul]
     | true =>
       show φ.predsem true _ + ψ.predsem true _ = _
       rw [ihφ true, ihψ true,
-        show ((GenPred.and φ ψ).predsem true u)
+        show ((GenPredIn.and φ ψ).predsem true u)
           = φ.predsem true u + ψ.predsem true u from rfl, map_add]
   | or φ ψ ihφ ihψ =>
     cases neg with
     | false =>
       show φ.predsem false _ + ψ.predsem false _ = _
       rw [ihφ false, ihψ false,
-        show ((GenPred.or φ ψ).predsem false u)
+        show ((GenPredIn.or φ ψ).predsem false u)
           = φ.predsem false u + ψ.predsem false u from rfl, map_add]
     | true =>
       show φ.predsem true _ * ψ.predsem true _ = _
       rw [ihφ true, ihψ true,
-        show ((GenPred.or φ ψ).predsem true u)
+        show ((GenPredIn.or φ ψ).predsem true u)
           = φ.predsem true u * ψ.predsem true u from rfl, map_mul]
   | not φ ih =>
     show φ.predsem (!neg) _ = _
     rw [ih (!neg),
-      show ((GenPred.not φ).predsem neg u)
+      show ((GenPredIn.not φ).predsem neg u)
         = φ.predsem (!neg) u from rfl]
 
 /-! ## Guard absorption
@@ -343,7 +343,7 @@ omit [DecidableEq K'] [CommSemiringWithMonus K'] in
 /-- **Guard absorption for entailing predicates**: when a predicate
 entails existence and all its compared tokens carry the annotation list
 `ℓ₀`, its predicate provenance absorbs `δ(⊕ℓ₀)`. -/
-theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (neg : Bool) (u : Tuple (GenValue T K) n)
     (ℓ₀ : List K)
     (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
@@ -352,12 +352,12 @@ theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
     φ.predsem neg u * SemiringWithMonus.delta ℓ₀.sum
       = φ.predsem neg u := by
   induction φ generalizing neg with
-  | cmp op t₁ t₂ => exact absurd hent (by simp [GenPred.entailsExistence])
+  | cmp op t₁ t₂ => exact absurd hent (by simp [GenPredIn.entailsExistence])
   | aggCmp k h op t =>
     cases hu : u k with
-    | inl w => simp only [GenPred.predsem, hu, zero_mul]
+    | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
     | inr a =>
-      simp only [GenPred.predsem, hu]
+      simp only [GenPredIn.predsem, hu]
       obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
       rw [AggValue.predProvOf_of_grouped hsc, ← heq]
       exact AggValue.predProv_delta_absorb a _ _
@@ -370,7 +370,7 @@ theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.and φ ψ).predsem false u
+      have he : (GenPredIn.and φ ψ).predsem false u
           = φ.predsem false u * ψ.predsem false u := rfl
       have hent' : (φ.entailsExistence false || ψ.entailsExistence false)
           = true := hent
@@ -392,7 +392,7 @@ theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
           _ = φ.predsem false u * ψ.predsem false u := by
               rw [ihψ false huψ h]
     | true =>
-      have he : (GenPred.and φ ψ).predsem true u
+      have he : (GenPredIn.and φ ψ).predsem true u
           = φ.predsem true u + ψ.predsem true u := rfl
       have hent' : (φ.entailsExistence true && ψ.entailsExistence true)
           = true := hent
@@ -407,14 +407,14 @@ theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPred.or φ ψ).predsem false u
+      have he : (GenPredIn.or φ ψ).predsem false u
           = φ.predsem false u + ψ.predsem false u := rfl
       have hent' : (φ.entailsExistence false && ψ.entailsExistence false)
           = true := hent
       rw [Bool.and_eq_true] at hent'
       rw [he, add_mul, ihφ false huφ hent'.1, ihψ false huψ hent'.2]
     | true =>
-      have he : (GenPred.or φ ψ).predsem true u
+      have he : (GenPredIn.or φ ψ).predsem true u
           = φ.predsem true u * ψ.predsem true u := rfl
       have hent' : (φ.entailsExistence true || ψ.entailsExistence true)
           = true := hent
@@ -436,7 +436,7 @@ theorem GenPred.predsem_delta_absorb {n : ℕ} {κ : Fin n → ColKind}
           _ = φ.predsem true u * ψ.predsem true u := by
               rw [ihψ true huψ h]
   | not φ ih =>
-    have he : (GenPred.not φ).predsem neg u = φ.predsem (!neg) u := rfl
+    have he : (GenPredIn.not φ).predsem neg u = φ.predsem (!neg) u := rfl
     rw [he]
     exact ih (!neg) huni hent
 
@@ -677,7 +677,7 @@ theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Terms evaluate equally on pointwise-equivalent tuples. -/
-theorem TermG.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
+theorem TermGIn.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
     {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     t.eval u' = t.eval u := by
@@ -688,51 +688,51 @@ theorem TermG.eval_equiv {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | provIndex k hk => exact (hu k).collapseSum_eq
   | cmpAgg k hk op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
-  | add t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
-  | sub t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
-  | mul t₁ t₂ ih₁ ih₂ => simp only [TermG.eval]; rw [ih₁, ih₂]
+  | add t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
+  | sub t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
+  | mul t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The three-valued reading of a predicate is invariant on
 pointwise-equivalent tuples. -/
-theorem GenPred.eval3_equiv {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.eval3_equiv {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.eval3 u' = φ.eval3 u := by
   induction φ with
   | cmp op t₁ t₂ =>
-    simp only [GenPred.eval3]
-    rw [TermG.eval_equiv t₁ hu, TermG.eval_equiv t₂ hu]
+    simp only [GenPredIn.eval3]
+    rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
   | aggCmp k hk op t =>
-    simp only [GenPred.eval3]
-    rw [(hu k).collapseSum_eq, TermG.eval_equiv t hu]
-  | and φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
-  | or φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
-  | not φ ih => simp only [GenPred.eval3, ih]
+    simp only [GenPredIn.eval3]
+    rw [(hu k).collapseSum_eq, TermGIn.eval_equiv t hu]
+  | and φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
+  | or φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
+  | not φ ih => simp only [GenPredIn.eval3, ih]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Truth of a predicate is invariant on pointwise-equivalent tuples. -/
-theorem GenPred.holds_equiv {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.holds_equiv {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.holds u' ↔ φ.holds u := by
-  unfold GenPred.holds
-  rw [GenPred.eval3_equiv φ hu]
+  unfold GenPredIn.holds
+  rw [GenPredIn.eval3_equiv φ hu]
 
 /-- The predicate provenance is invariant on pointwise-equivalent tuples:
 tokens are read only through their predicate provenance
 (`AggValue.predProv_congr`) and their collapse. -/
-theorem GenPred.predsem_equiv {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.predsem_equiv {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (neg : Bool) {u' u : Tuple (GenValue T K) n}
     (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
     φ.predsem neg u' = φ.predsem neg u := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
-    simp only [GenPred.predsem]
-    rw [TermG.eval_equiv t₁ hu, TermG.eval_equiv t₂ hu]
+    simp only [GenPredIn.predsem]
+    rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
   | aggCmp k hk op t =>
     have hk' := hu k
-    simp only [GenPred.predsem]
+    simp only [GenPredIn.predsem]
     cases hu'k : u' k with
     | inl w' =>
       cases huk : u k with
@@ -743,13 +743,13 @@ theorem GenPred.predsem_equiv {n : ℕ} {κ : Fin n → ColKind}
       | inl w => rw [hu'k, huk] at hk'; exact absurd hk' not_false
       | inr a =>
         rw [hu'k, huk] at hk'
-        rw [TermG.eval_equiv t hu]
+        rw [TermGIn.eval_equiv t hu]
         exact AggValue.predProvOf_congr hk'.1 hk'.2.1 hk'.2.2 _ _
   | and φ ψ ihφ ihψ =>
-    simp only [GenPred.predsem]
+    simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
   | or φ ψ ihφ ihψ =>
-    simp only [GenPred.predsem]
+    simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
   | not φ ih => exact ih (!neg)
 
@@ -802,7 +802,7 @@ theorem GenAnn.finalize_cash (b : K) (P kept : Multiset (List K))
 /-- An existence-entailing predicate provenance absorbs the `δ`-guards of
 any collection of pending factors, each of which is the occurrence list of
 *every* compared token. -/
-theorem GenPred.predsem_absorb_prod (φ : GenPred T κ)
+theorem GenPredIn.predsem_absorb_prod (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) (hent : φ.entailsExistence false = true)
     (D : Multiset (List K))
     (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
@@ -814,7 +814,7 @@ theorem GenPred.predsem_absorb_prod (φ : GenPred T κ)
   | empty => rw [Multiset.map_zero, Multiset.prod_zero, mul_one]
   | cons l D ih =>
     rw [Multiset.map_cons, Multiset.prod_cons, ← mul_assoc,
-      GenPred.predsem_delta_absorb φ false u l
+      GenPredIn.predsem_delta_absorb φ false u l
         (hD l (Multiset.mem_cons_self l D)) hent]
     exact ih (fun l' hl' => hD l' (Multiset.mem_cons_of_mem hl'))
 
@@ -846,7 +846,7 @@ theorem GenAnn.finalize_sel (φ : GenPred T κ)
         * ((P.filter dropCond).map
             (fun l => SemiringWithMonus.delta l.sum)).prod
         = φ.predsem false u := by
-      refine GenPred.predsem_absorb_prod φ u hent _ (fun l hl k hk a hka => ?_)
+      refine GenPredIn.predsem_absorb_prod φ u hent _ (fun l hl k hk a hka => ?_)
       have hcond := (Multiset.mem_filter.mp hl).2
       refine ⟨?_, hcond.2.2 (a.occs.map Prod.snd) (hC k hk a hka)⟩
       by_contra hsc
@@ -977,31 +977,31 @@ omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
 /-- The three-valued reading is invariant under the pushforward of the
 tuple. -/
-theorem GenPred.eval3_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.eval3_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) :
     φ.eval3 (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) = φ.eval3 u := by
   induction φ with
   | cmp op t₁ t₂ =>
-    simp only [GenPred.eval3]
-    rw [TermG.eval_mapAnnSum h t₁ u, TermG.eval_mapAnnSum h t₂ u]
+    simp only [GenPredIn.eval3]
+    rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u]
   | aggCmp k hk op t =>
-    simp only [GenPred.eval3]
-    rw [AggValue.collapseSum_mapAnnSum, TermG.eval_mapAnnSum h t u]
-  | and φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
-  | or φ ψ ihφ ihψ => simp only [GenPred.eval3, ihφ, ihψ]
-  | not φ ih => simp only [GenPred.eval3, ih]
+    simp only [GenPredIn.eval3]
+    rw [AggValue.collapseSum_mapAnnSum, TermGIn.eval_mapAnnSum h t u]
+  | and φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
+  | or φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
+  | not φ ih => simp only [GenPredIn.eval3, ih]
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
 /-- Truth is invariant under the pushforward of the tuple. -/
-theorem GenPred.holds_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.holds_mapAnnSum {n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) :
     φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k))
       ↔ φ.holds u := by
-  unfold GenPred.holds
-  rw [GenPred.eval3_mapAnnSum h φ u]
+  unfold GenPredIn.holds
+  rw [GenPredIn.eval3_mapAnnSum h φ u]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
@@ -1079,21 +1079,21 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     · intro j
       cases hp : ps j with
       | term t =>
-        simp only [hp, ProjCol.eval]
+        simp only [hp, ProjColIn.eval]
         show t.eval r'.fst = t.eval r.fst
         calc t.eval r'.fst
             = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) :=
-              TermG.eval_equiv t hs.1
-          _ = t.eval r.fst := TermG.eval_mapAnnSum h t r.fst
+              TermGIn.eval_equiv t hs.1
+          _ = t.eval r.fst := TermGIn.eval_mapAnnSum h t r.fst
       | provTerm t =>
-        simp only [hp, ProjCol.eval]
+        simp only [hp, ProjColIn.eval]
         show t.eval r'.fst = t.eval r.fst
         calc t.eval r'.fst
             = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) :=
-              TermG.eval_equiv t hs.1
-          _ = t.eval r.fst := TermG.eval_mapAnnSum h t r.fst
+              TermGIn.eval_equiv t hs.1
+          _ = t.eval r.fst := TermGIn.eval_mapAnnSum h t r.fst
       | token k hk =>
-        simp only [hp, ProjCol.eval]
+        simp only [hp, ProjColIn.eval]
         exact hs.1 k
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
@@ -1115,14 +1115,14 @@ theorem AggQuery.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)]
-      rw [GenPred.predsem_equiv φ false hs.1,
-        GenPred.predsem_mapAnn h φ false r.fst, hs.2, ← map_mul]
+      rw [GenPredIn.predsem_equiv φ false hs.1,
+        GenPredIn.predsem_mapAnn h φ false r.fst, hs.2, ← map_mul]
     · rw [ite_eq_right hagg, ite_eq_right hagg]
       refine rel_filter_of_iff (ih d) (fun r' r hs => ?_)
       calc φ.holds r'.fst
           ↔ φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) :=
-            GenPred.holds_equiv _ hs.1
-        _ ↔ φ.holds r.fst := GenPred.holds_mapAnnSum h φ r.fst
+            GenPredIn.holds_equiv _ hs.1
+        _ ↔ φ.holds r.fst := GenPredIn.holds_mapAnnSum h φ r.fst
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d
     simp only [AggQuery.evaluate]

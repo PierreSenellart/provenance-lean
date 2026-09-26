@@ -54,9 +54,9 @@ theorem Term.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁
         (Fin.append _ _ (Fin.castAdd n₂ k)) = g k
     rw [Fin.append_left]
     rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermG.eval, ih₁, ih₂]; rfl
-  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermG.eval, ih₁, ih₂]; rfl
-  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermG.eval, ih₁, ih₂]; rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The annotation list of a group token is the group's annotation list. -/
@@ -70,9 +70,9 @@ theorem AggValue.annList_ofGroup {m : ℕ} (f : SeqAggFunc T) (t : Term T m)
 /-- The fused aggregate comparison, as a generalized selection atom on a
 `Gamma` output: the `l`-th token column compared against a term over the
 group key. -/
-def GenPred.fusedCmp {n₁ n₂ : ℕ} (op : CompOp) (l : Fin n₂)
+def GenPredIn.fusedCmp {n₁ n₂ : ℕ} (op : CompOp) (l : Fin n₂)
     (s : Term T n₁) : GenPred T (ColKind.gammaKinds n₁ n₂) :=
-  GenPred.aggCmp (Fin.natAdd n₁ l) (by simp [ColKind.gammaKinds]) op
+  GenPredIn.aggCmp (Fin.natAdd n₁ l) (by simp [ColKind.gammaKinds]) op
     (s.toGenKey n₂)
 
 /-- The fused `HAVING` site as a general query: one aggregate comparison
@@ -82,7 +82,7 @@ abbrev AggQuery.havingSite {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (op : CompOp) (l : Fin n₂) (s : Term T n₁)
     (qg : AggQuery T m (ColKind.allReg m)) :
     AggQuery T (n₁ + n₂) (ColKind.gammaKinds n₁ n₂) :=
-  AggQuery.Sel (GenPred.fusedCmp op l s) (AggQuery.Gamma is ts fs qg)
+  AggQuery.Sel (GenPredIn.fusedCmp op l s) (AggQuery.Gamma is ts fs qg)
 
 /-- **Closed form of the fused `HAVING` site.** On its fragment – one
 aggregate comparison directly above the grouping – the general evaluator
@@ -111,7 +111,7 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
               : AnnotatedTuple T K (n₁ + n₂))) := by
   unfold AggQuery.evaluateAnnotated
   simp only [AggQuery.evaluate]
-  rw [ite_eq_left (show (GenPred.fusedCmp (T := T) op l s).hasAggAtom = true
+  rw [ite_eq_left (show (GenPredIn.fusedCmp (T := T) op l s).hasAggAtom = true
     from rfl)]
   generalize Multiset.map GenRow.toAnnotated (qg.evaluate d) = A
   conv_lhs => rw [Multiset.map_map]
@@ -135,7 +135,7 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
         (funext fun j => AggValue.collapse_ofGroup (fs j) (ts j) _))
   · -- annotation: the predicate provenance of the comparison
     show GenAnn.finalize ⟨1 * _, _⟩ = _
-    simp only [GenPred.fusedCmp, GenPred.predsem, GenPred.comparedCols,
+    simp only [GenPredIn.fusedCmp, GenPredIn.predsem, GenPredIn.comparedCols,
       Finset.singleton_val, ← Multiset.cons_zero, Multiset.filterMap_cons,
       Multiset.filterMap_zero, Fin.append_right, AggValue.annList_ofGroup,
       Option.map_some, Option.getD_some, add_zero,
@@ -143,7 +143,7 @@ theorem AggQuery.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       ne_eq, not_false_eq_true, Multiset.forall_mem_cons,
       Multiset.notMem_zero, IsEmpty.forall_iff, implies_true, and_true,
       true_and, not_true, ite_false,
-      GenPred.entailsExistence, ite_true,
+      GenPredIn.entailsExistence, ite_true,
       GenAnn.finalize_of_pending_zero, one_mul, Term.toGenKey_eval,
       Bool.false_eq_true,
       AggValue.predProvOf, AggValue.scalar_ofGroup,

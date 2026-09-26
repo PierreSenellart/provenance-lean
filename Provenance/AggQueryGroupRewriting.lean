@@ -239,7 +239,7 @@ def AggQuery.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
         exact fun hc => ColKind.noConfusion hc)
       (fun j => (ts j).castToAnnotatedTuple)
       (fun j => (fs j).liftComposite)
-      (TermG.provIndex (Fin.last m)
+      (TermGIn.provIndex (Fin.last m)
         (ColKind.rewKinds_of_not_lt (lt_irrefl m)))
       (qg.rewriting hq))
 

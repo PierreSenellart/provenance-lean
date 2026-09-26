@@ -23,11 +23,11 @@ tokens.
   annotations are the values of the explicit annotation term – in
   rewritten plans, the provenance column of the subquery – and writes the
   group-existence guard `δ(⊕ occs)` into its `prov` output column.
-* `TermG.cmpAgg` is the cmp gate: `TermG.evalRew` interprets it by
+* `TermGIn.cmpAgg` is the cmp gate: `TermGIn.evalRew` interprets it by
   `AggValue.predProvOf`, the primitive the rewriting's correctness is
   stated against, faithfully to ProvSQL's own gate-relative correctness.
-* `TermG.chiGate` is the indicator gate a `HAVING` predicate needs for
-  its *regular* atoms: `TermG.evalRew` interprets it by `Having.chi`,
+* `TermGIn.chiGate` is the indicator gate a `HAVING` predicate needs for
+  its *regular* atoms: `TermGIn.evalRew` interprets it by `Having.chi`,
   the characteristic value `predsem` gives such an atom. Having no kind
   constraint to keep it off plain columns, it is what
   `AggQuery.chiFree` excludes below.
@@ -48,7 +48,7 @@ def Sum.annPart : T ⊕ K → K
   | Sum.inl _ => 0
   | Sum.inr k => k
 
-/-- Term evaluation in the rewritten world: as `TermG.eval` on the
+/-- Term evaluation in the rewritten world: as `TermGIn.eval` on the
 value-reading constructors, with the `cmpAgg` gate interpreted by the
 predicate provenance of the token against the comparison term, and the
 `chiGate` gate by the characteristic value of its comparison. -/
@@ -67,12 +67,8 @@ def TermGIn.evalRew {n : ℕ} {κ : Fin n → ColKind} :
   | .sub t₁ t₂, u => t₁.evalRew u - t₂.evalRew u
   | .mul t₁ t₂, u => t₁.evalRew u * t₂.evalRew u
 
-namespace TermG
-export TermGIn (evalRew)
-end TermG
-
 /-- Projection-column evaluation in the rewritten world. -/
-def ProjCol.evalRew {n : ℕ} {κ : Fin n → ColKind}
+def ProjColIn.evalRew {n : ℕ} {κ : Fin n → ColKind}
     (p : ProjCol (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n) :
     GenValue (T ⊕ K) K :=
   match p with
@@ -82,8 +78,8 @@ def ProjCol.evalRew {n : ℕ} {κ : Fin n → ColKind}
 
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
 tokens read through their deterministic collapse, as in
-`GenPred.eval3`). -/
-def GenPred.evalRew3 {n : ℕ} {κ : Fin n → ColKind} :
+`GenPredIn.eval3`). -/
+def GenPredIn.evalRew3 {n : ℕ} {κ : Fin n → ColKind} :
     GenPred (T ⊕ K) κ → Tuple (GenValue (T ⊕ K) K) n → Kleene
   | .cmp op t₁ t₂, u => op.eval3 (t₁.evalRew u) (t₂.evalRew u)
   | .aggCmp k _ op t, u =>
@@ -94,17 +90,17 @@ def GenPred.evalRew3 {n : ℕ} {κ : Fin n → ColKind} :
 
 /-- The rows a selection keeps in the rewritten world: those on which the
 predicate is *true*. -/
-def GenPred.holdsRew {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.holdsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n) : Prop :=
   φ.evalRew3 u = Kleene.true
 
 /-- Structural decidability of `holdsRew`. -/
-def GenPred.decHoldsRew {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.decHoldsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) (u : Tuple (GenValue (T ⊕ K) K) n) :
     Decidable (φ.holdsRew u) :=
   inferInstanceAs (Decidable (_ = _))
 
-instance GenPred.instDecidableHoldsRew {n : ℕ} {κ : Fin n → ColKind}
+instance GenPredIn.instDecidableHoldsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) : DecidablePred φ.holdsRew :=
   fun u => φ.decHoldsRew u
 
@@ -233,7 +229,7 @@ world as its plain evaluation – including the `cmpAgg` gate, whose junk
 reading `𝟘` is definitionally the composite zero on a row with no
 token. The indicator gate has no such escape: it returns a genuine
 annotation, which is why it is excluded here. -/
-theorem TermG.evalRew_inl {n : ℕ} {κ : Fin n → ColKind} :
+theorem TermGIn.evalRew_inl {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (t : TermG (T ⊕ K) κ), t.chiFree → ∀ (u : Tuple (T ⊕ K) n),
       t.evalRew (fun k => Sum.inl (u k)) = t.evalPlain u
   | .const _, _, _ => rfl
@@ -253,7 +249,7 @@ theorem TermG.evalRew_inl {n : ℕ} {κ : Fin n → ColKind} :
 
 /-- Gate-free projection columns on `inl`-embedded rows evaluate to the
 embedded plain reading. -/
-theorem ProjCol.evalRew_inl {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.evalRew_inl {n : ℕ} {κ : Fin n → ColKind}
     (p : ProjCol (T ⊕ K) κ) (hp : p.chiFree) (u : Tuple (T ⊕ K) n) :
     p.evalRew (fun k => Sum.inl (u k)) = Sum.inl (p.evalPlain u) := by
   cases p with
@@ -263,32 +259,32 @@ theorem ProjCol.evalRew_inl {n : ℕ} {κ : Fin n → ColKind}
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain
 reading. -/
-theorem GenPred.evalRew3_inl {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.evalRew3_inl {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred (T ⊕ K) κ), φ.chiFree → ∀ (u : Tuple (T ⊕ K) n),
       φ.evalRew3 (fun k => Sum.inl (u k)) = φ.evalPlain3 u
   | .cmp op t₁ t₂, hφ, u => by
-    simp only [GenPred.evalRew3, GenPred.evalPlain3,
-      TermG.evalRew_inl t₁ hφ.1, TermG.evalRew_inl t₂ hφ.2]
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
+      TermGIn.evalRew_inl t₁ hφ.1, TermGIn.evalRew_inl t₂ hφ.2]
   | .aggCmp k h op t, hφ, u => by
-    simp only [GenPred.evalRew3, GenPred.evalPlain3,
-      TermG.evalRew_inl t hφ]
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
+      TermGIn.evalRew_inl t hφ]
     rfl
   | .and φ ψ, hφ, u => by
-    simp only [GenPred.evalRew3, GenPred.evalPlain3,
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
       evalRew3_inl φ hφ.1 u, evalRew3_inl ψ hφ.2 u]
   | .or φ ψ, hφ, u => by
-    simp only [GenPred.evalRew3, GenPred.evalPlain3,
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
       evalRew3_inl φ hφ.1 u, evalRew3_inl ψ hφ.2 u]
   | .not φ, hφ, u => by
-    simp only [GenPred.evalRew3, GenPred.evalPlain3, evalRew3_inl φ hφ u]
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3, evalRew3_inl φ hφ u]
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain
 reading. -/
-theorem GenPred.holdsRew_inl {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.holdsRew_inl {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred (T ⊕ K) κ) (hφ : φ.chiFree) (u : Tuple (T ⊕ K) n) :
     φ.holdsRew (fun k => Sum.inl (u k)) ↔ φ.holdsPlain u := by
-  unfold GenPred.holdsRew GenPred.holdsPlain
-  rw [GenPred.evalRew3_inl φ hφ u]
+  unfold GenPredIn.holdsRew GenPredIn.holdsPlain
+  rw [GenPredIn.evalRew3_inl φ hφ u]
 
 /-- Maps push through the multiset product. -/
 theorem Multiset.map_product_map {α β α' β' : Type _} (f : α → α')
@@ -552,12 +548,12 @@ theorem AggQuery.rewriting_chiFree :
         dsimp only
         by_cases hj : ((j : ℕ) < m)
         · rw [dite_eq_left hj]
-          exact ProjCol.castComposite_chiFree _ _ _
+          exact ProjColIn.castComposite_chiFree _ _ _
         · rw [dite_eq_right hj]
           exact trivial,
      rewriting_chiFree q hq.2⟩
   | _, _, .Sel _ q, hq =>
-    ⟨GenPred.castComposite_chiFree _ _ _, rewriting_chiFree q hq.2⟩
+    ⟨GenPredIn.castComposite_chiFree _ _ _, rewriting_chiFree q hq.2⟩
   | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
     ⟨fun j => by
         dsimp only
@@ -747,7 +743,7 @@ token-building groupings of the rewritten world consume. -/
 theorem AggQuery.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.classical) (d : AnnotatedDatabase T K) :
     Multiset.map (fun u => (GenRow.plainTuple u,
-        ((TermG.provIndex (Fin.last n)
+        ((TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n))).evalRew u).annPart))
       ((q.rewriting hq).evaluateRew d.toComposite)
       = ((q.strip hq).evaluateAnnotated (q.strip_source hq) d).map

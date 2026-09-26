@@ -52,9 +52,9 @@ theorem Term.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
   induction t with
   | const a => rfl
   | index k => rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermG.eval, ih₁, ih₂]; rfl
-  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermG.eval, ih₁, ih₂]; rfl
-  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermG.eval, ih₁, ih₂]; rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | sub t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | mul t₁ t₂ ih₁ ih₂ => rw [Term.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
 
 /-- A comparison atom, as a generalized regular atom. -/
 def BoolTerm.toGenPred {n : ℕ} : BoolTerm T n →
@@ -108,15 +108,15 @@ theorem Selection.toGenPred_eval3 {n : ℕ} : ∀ (φ : Selection T n)
        rw [Term.toGenReg_eval, Term.toGenReg_eval];
        rfl)
   | .Not φ, x => by
-    show (GenPred.eval3 _ _).not = _
+    show (GenPredIn.eval3 _ _).not = _
     rw [toGenPred_eval3 φ x]
     rfl
   | .And φ₁ φ₂, x => by
-    show (GenPred.eval3 _ _).and _ = _
+    show (GenPredIn.eval3 _ _).and _ = _
     rw [toGenPred_eval3 φ₁ x, toGenPred_eval3 φ₂ x]
     rfl
   | .Or φ₁ φ₂, x => by
-    show (GenPred.eval3 _ _).or _ = _
+    show (GenPredIn.eval3 _ _).or _ = _
     rw [toGenPred_eval3 φ₁ x, toGenPred_eval3 φ₂ x]
     rfl
   | .True, x => by
@@ -130,7 +130,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 original selection accepts the underlying tuple. -/
 theorem Selection.toGenPred_holds {n : ℕ} (φ : Selection T n) (x : Tuple T n) :
     (φ.toGenPred).holds (K := K) (fun k => Sum.inl (x k)) ↔ φ.eval x := by
-  unfold GenPred.holds Selection.eval
+  unfold GenPredIn.holds Selection.eval
   rw [Selection.toGenPred_eval3 φ x]
 
 /-! ## The embedding -/
@@ -155,7 +155,7 @@ def Query.toAgg : {n : ℕ} → (q : Query T n) → q.source →
   | n, .Rel _ s, _ => AggQuery.Rel n s
   | _, .Proj ts q, hq =>
     AggQuery.castKind (funext fun _ => rfl)
-      (AggQuery.Proj (fun j => ProjCol.term ((ts j).toGenReg))
+      (AggQuery.Proj (fun j => ProjColIn.term ((ts j).toGenReg))
         (q.toAgg (Query.sourceProj hq rfl)))
   | _, .Sel φ q, hq =>
     AggQuery.Sel φ.toGenPred (q.toAgg (Query.sourceSel hq rfl))

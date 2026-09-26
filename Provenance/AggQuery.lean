@@ -25,7 +25,7 @@ statically and no theorem carries a well-formedness hypothesis:
 * `Dedup` and `Diff` exist only at all-regular kind vectors – no
   deduplication or difference over token columns (ProvSQL rejects these);
 * projection columns are either regular terms over regular columns
-  (`ProjCol.term`) or verbatim copies of token columns (`ProjCol.token`) –
+  (`ProjColIn.term`) or verbatim copies of token columns (`ProjColIn.token`) –
   no arithmetic over tokens (the constant-folded normal form);
 * selection atoms are regular comparisons over regular columns, or a
   comparison of one bare token column against a regular term
@@ -55,7 +55,7 @@ This factoring implements the *replace-the-δ-factor* combination rule:
   predicate provenance does not entail each group's existence (a
   disjunction guards only the disjunct that fires), and likewise a
   predicate that does not *entail existence* at all
-  (`GenPred.entailsExistence` – e.g., an aggregate atom `∨`-mixed with a
+  (`GenPredIn.entailsExistence` – e.g., an aggregate atom `∨`-mixed with a
   regular atom, whose `χ` can fire in worlds where the group is empty)
   supersedes nothing. This mirrors ProvSQL's structural supersede
   (`cmp_supersede.cpp` with `having_entails_group_existence`), which
@@ -168,7 +168,7 @@ inductive TermGIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
   give it a total junk value. Unlike `cmpAgg` it carries no kind
   constraint, so it is representable over all-regular columns: the
   fragment on which the rewritten world's evaluator collapses to the
-  plain semantics is cut out by `TermG.chiFree` instead. -/
+  plain semantics is cut out by `TermGIn.chiFree` instead. -/
   | chiGate : CompOp → TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
   | add : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
   | sub : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
@@ -176,10 +176,6 @@ inductive TermGIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
 
 /-- A term of a closed query: no outer column to read. -/
 abbrev TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) := TermGIn T 0 κ
-
-namespace TermG
-export TermGIn (const outer index provIndex cmpAgg chiGate add sub mul)
-end TermG
 
 /-- Evaluation of a term on a lifted tuple. On the regular columns the
 kind index guarantees a regular value; the token arm of `collapseSum` is
@@ -203,18 +199,21 @@ def TermGIn.eval {κ : Fin n → ColKind} (t : TermG T κ)
 over regular columns, aggregate comparisons of one bare token column
 against a regular term (the constant-folded normal form), and Boolean
 structure. -/
-inductive GenPred (T : Type) {n : ℕ} (κ : Fin n → ColKind) where
+inductive GenPredIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
   /-- Regular atom: comparison of two terms over regular columns. -/
-  | cmp : CompOp → TermG T κ → TermG T κ → GenPred T κ
+  | cmp : CompOp → TermGIn T c κ → TermGIn T c κ → GenPredIn T c κ
   /-- Aggregate atom: the token in column `k` compared against a regular
   term (a per-group constant: query constant or group-key attribute). -/
-  | aggCmp : (k : Fin n) → κ k = ColKind.agg → CompOp → TermG T κ →
-      GenPred T κ
-  | and : GenPred T κ → GenPred T κ → GenPred T κ
-  | or : GenPred T κ → GenPred T κ → GenPred T κ
-  | not : GenPred T κ → GenPred T κ
+  | aggCmp : (k : Fin n) → κ k = ColKind.agg → CompOp → TermGIn T c κ →
+      GenPredIn T c κ
+  | and : GenPredIn T c κ → GenPredIn T c κ → GenPredIn T c κ
+  | or : GenPredIn T c κ → GenPredIn T c κ → GenPredIn T c κ
+  | not : GenPredIn T c κ → GenPredIn T c κ
 
-namespace GenPred
+/-- A predicate of a closed query. -/
+abbrev GenPred (T : Type) {n : ℕ} (κ : Fin n → ColKind) := GenPredIn T 0 κ
+
+namespace GenPredIn
 
 variable {n : ℕ} {κ : Fin n → ColKind}
 
@@ -250,12 +249,12 @@ def decHolds (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem holds_and (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
-    (GenPred.and φ ψ).holds u ↔ φ.holds u ∧ ψ.holds u :=
+    (GenPredIn.and φ ψ).holds u ↔ φ.holds u ∧ ψ.holds u :=
   Kleene.and_eq_true_iff _ _
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem holds_or (φ ψ : GenPred T κ) (u : Tuple (GenValue T K) n) :
-    (GenPred.or φ ψ).holds u ↔ φ.holds u ∨ ψ.holds u :=
+    (GenPredIn.or φ ψ).holds u ↔ φ.holds u ∨ ψ.holds u :=
   Kleene.or_eq_true_iff _ _
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -265,31 +264,31 @@ introduced keeps saying what it said. -/
 theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
     ∀ φ : GenPred T κ, φ.eval3 u ≠ Kleene.unknown
   | cmp op t₁ t₂ => by
-    rw [GenPred.eval3, CompOp.eval3_eq_ofBool]
+    rw [GenPredIn.eval3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (t₁.eval u) (t₂.eval u)) <;> simp [Kleene.ofBool]
   | aggCmp k h op t => by
-    rw [GenPred.eval3, CompOp.eval3_eq_ofBool]
+    rw [GenPredIn.eval3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (AggValue.collapseSum (u k)) (t.eval u)) <;>
       simp [Kleene.ofBool]
   | and φ ψ => by
     have h₁ := eval3_ne_unknown u φ
     have h₂ := eval3_ne_unknown u ψ
     cases e₁ : φ.eval3 u <;> cases e₂ : ψ.eval3 u <;>
-      simp_all [GenPred.eval3, Kleene.and]
+      simp_all [GenPredIn.eval3, Kleene.and]
   | or φ ψ => by
     have h₁ := eval3_ne_unknown u φ
     have h₂ := eval3_ne_unknown u ψ
     cases e₁ : φ.eval3 u <;> cases e₂ : ψ.eval3 u <;>
-      simp_all [GenPred.eval3, Kleene.or]
+      simp_all [GenPredIn.eval3, Kleene.or]
   | not φ => by
     have h := eval3_ne_unknown u φ
-    cases e : φ.eval3 u <;> simp_all [GenPred.eval3, Kleene.not]
+    cases e : φ.eval3 u <;> simp_all [GenPredIn.eval3, Kleene.not]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Negation is classical where nothing is null. -/
 theorem holds_not_iff [NoNulls T] (φ : GenPred T κ)
     (u : Tuple (GenValue T K) n) :
-    (GenPred.not φ).holds u ↔ ¬ φ.holds u := by
+    (GenPredIn.not φ).holds u ↔ ¬ φ.holds u := by
   have h := eval3_ne_unknown u φ
   show (φ.eval3 u).not = Kleene.true ↔ ¬ (φ.eval3 u = Kleene.true)
   cases e : φ.eval3 u <;> simp_all [Kleene.not]
@@ -298,7 +297,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **A row is kept by `NOT φ` when `φ` is false**, which is not the same as
 `φ` failing to be true: a row on which `φ` is unknown is kept by neither. -/
 @[simp] theorem holds_not (φ : GenPred T κ) (u : Tuple (GenValue T K) n) :
-    (GenPred.not φ).holds u ↔ φ.eval3 u = Kleene.false :=
+    (GenPredIn.not φ).holds u ↔ φ.eval3 u = Kleene.false :=
   Kleene.not_eq_true_iff _
 
 instance (φ : GenPred T κ) : DecidablePred (φ.holds (K := K)) := φ.decHolds
@@ -353,26 +352,29 @@ def entailsExistence : GenPred T κ → Bool → Bool
       else φ.entailsExistence neg && ψ.entailsExistence neg
   | not φ, neg => φ.entailsExistence (!neg)
 
-end GenPred
+end GenPredIn
 
 /-! ## Projection columns -/
 
 /-- One output column of a generalized projection: a regular term over
 the regular input columns, or a verbatim copy of a token column (no
 arithmetic over tokens: the normal form). -/
-inductive ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) where
-  | term : TermG T κ → ProjCol T κ
-  | token : (k : Fin n) → κ k = ColKind.agg → ProjCol T κ
-  | provTerm : TermG T κ → ProjCol T κ
+inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
+  | term : TermGIn T c κ → ProjColIn T c κ
+  | token : (k : Fin n) → κ k = ColKind.agg → ProjColIn T c κ
+  | provTerm : TermGIn T c κ → ProjColIn T c κ
+
+/-- A projection column of a closed query. -/
+abbrev ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) := ProjColIn T 0 κ
 
 /-- The kind of the output column. -/
-def ProjCol.kind {κ : Fin n → ColKind} : ProjCol T κ → ColKind
+def ProjColIn.kind {κ : Fin n → ColKind} : ProjCol T κ → ColKind
   | term _ => ColKind.reg
   | token _ _ => ColKind.agg
   | provTerm _ => ColKind.prov
 
 /-- Evaluation of a projection column on a lifted tuple. -/
-def ProjCol.eval {κ : Fin n → ColKind} (p : ProjCol T κ)
+def ProjColIn.eval {κ : Fin n → ColKind} (p : ProjCol T κ)
     (u : Tuple (GenValue T K) n) : GenValue T K :=
   match p with
   | term t => Sum.inl (t.eval u)
@@ -531,7 +533,7 @@ def TermGIn.evalPlain {κ : Fin n → ColKind} (t : TermG T κ)
 
 /-! ## The gate-free fragment
 
-The indicator gate `TermG.chiGate` is the one term constructor whose
+The indicator gate `TermGIn.chiGate` is the one term constructor whose
 faithful reading needs the rewritten world: it produces a provenance
 value out of a comparison between regular values, which the generic
 evaluators – having no annotation to return – can only approximate by
@@ -548,19 +550,15 @@ def TermGIn.chiFree {T' : Type} {κ : Fin n → ColKind} : TermG T' κ → Prop
   | .chiGate _ _ _ => False
   | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
 
-namespace TermG
-export TermGIn (eval evalPlain chiFree)
-end TermG
-
 /-- No indicator gate in a predicate. -/
-def GenPred.chiFree {T' : Type} {κ : Fin n → ColKind} : GenPred T' κ → Prop
+def GenPredIn.chiFree {T' : Type} {κ : Fin n → ColKind} : GenPred T' κ → Prop
   | .cmp _ t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
   | .aggCmp _ _ _ t => t.chiFree
   | .and φ ψ | .or φ ψ => φ.chiFree ∧ ψ.chiFree
   | .not φ => φ.chiFree
 
 /-- No indicator gate in a projection column. -/
-def ProjCol.chiFree {T' : Type} {κ : Fin n → ColKind} : ProjCol T' κ → Prop
+def ProjColIn.chiFree {T' : Type} {κ : Fin n → ColKind} : ProjCol T' κ → Prop
   | .term t | .provTerm t => t.chiFree
   | .token _ _ => True
 
@@ -736,7 +734,7 @@ classically-failing rows with annotation `𝟘`, exactly as ProvSQL emits
 them, so adequacy is stated on the query stripped of its aggregate
 selections and differences, `stripAgg`). -/
 
-namespace GenPred
+namespace GenPredIn
 
 variable {n : ℕ} {κ : Fin n → ColKind}
 
@@ -761,54 +759,54 @@ def decHoldsPlain (φ : GenPred T κ) (u : Tuple T n) :
   inferInstanceAs (Decidable (_ = _))
 
 @[simp] theorem holdsPlain_and (φ ψ : GenPred T κ) (u : Tuple T n) :
-    (GenPred.and φ ψ).holdsPlain u ↔ φ.holdsPlain u ∧ ψ.holdsPlain u :=
+    (GenPredIn.and φ ψ).holdsPlain u ↔ φ.holdsPlain u ∧ ψ.holdsPlain u :=
   Kleene.and_eq_true_iff _ _
 
 @[simp] theorem holdsPlain_or (φ ψ : GenPred T κ) (u : Tuple T n) :
-    (GenPred.or φ ψ).holdsPlain u ↔ φ.holdsPlain u ∨ ψ.holdsPlain u :=
+    (GenPredIn.or φ ψ).holdsPlain u ↔ φ.holdsPlain u ∨ ψ.holdsPlain u :=
   Kleene.or_eq_true_iff _ _
 
 @[simp] theorem holdsPlain_not (φ : GenPred T κ) (u : Tuple T n) :
-    (GenPred.not φ).holdsPlain u ↔ φ.evalPlain3 u = Kleene.false :=
+    (GenPredIn.not φ).holdsPlain u ↔ φ.evalPlain3 u = Kleene.false :=
   Kleene.not_eq_true_iff _
 
 /-- Where nothing is null no predicate is ever unknown on a plain row. -/
 theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
     ∀ φ : GenPred T κ, φ.evalPlain3 u ≠ Kleene.unknown
   | cmp op t₁ t₂ => by
-    rw [GenPred.evalPlain3, CompOp.eval3_eq_ofBool]
+    rw [GenPredIn.evalPlain3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (t₁.evalPlain u) (t₂.evalPlain u)) <;>
       simp [Kleene.ofBool]
   | aggCmp k h op t => by
-    rw [GenPred.evalPlain3, CompOp.eval3_eq_ofBool]
+    rw [GenPredIn.evalPlain3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (u k) (t.evalPlain u)) <;> simp [Kleene.ofBool]
   | and φ ψ => by
     have h₁ := evalPlain3_ne_unknown u φ
     have h₂ := evalPlain3_ne_unknown u ψ
     cases e₁ : φ.evalPlain3 u <;> cases e₂ : ψ.evalPlain3 u <;>
-      simp_all [GenPred.evalPlain3, Kleene.and]
+      simp_all [GenPredIn.evalPlain3, Kleene.and]
   | or φ ψ => by
     have h₁ := evalPlain3_ne_unknown u φ
     have h₂ := evalPlain3_ne_unknown u ψ
     cases e₁ : φ.evalPlain3 u <;> cases e₂ : ψ.evalPlain3 u <;>
-      simp_all [GenPred.evalPlain3, Kleene.or]
+      simp_all [GenPredIn.evalPlain3, Kleene.or]
   | not φ => by
     have h := evalPlain3_ne_unknown u φ
-    cases e : φ.evalPlain3 u <;> simp_all [GenPred.evalPlain3, Kleene.not]
+    cases e : φ.evalPlain3 u <;> simp_all [GenPredIn.evalPlain3, Kleene.not]
 
 /-- Negation is classical on a plain row where nothing is null. -/
 theorem holdsPlain_not_iff [NoNulls T] (φ : GenPred T κ) (u : Tuple T n) :
-    (GenPred.not φ).holdsPlain u ↔ ¬ φ.holdsPlain u := by
+    (GenPredIn.not φ).holdsPlain u ↔ ¬ φ.holdsPlain u := by
   have h := evalPlain3_ne_unknown u φ
   show (φ.evalPlain3 u).not = Kleene.true ↔ ¬ (φ.evalPlain3 u = Kleene.true)
   cases e : φ.evalPlain3 u <;> simp_all [Kleene.not]
 
 instance (φ : GenPred T κ) : DecidablePred φ.holdsPlain := φ.decHoldsPlain
 
-end GenPred
+end GenPredIn
 
 /-- Plain evaluation of a projection column. -/
-def ProjCol.evalPlain {κ : Fin n → ColKind} (p : ProjCol T κ)
+def ProjColIn.evalPlain {κ : Fin n → ColKind} (p : ProjCol T κ)
     (u : Tuple T n) : T :=
   match p with
   | .term t => t.evalPlain u
@@ -968,9 +966,9 @@ def keyJoinCond {T' : Type} [Zero T'] {n m : ℕ} {κ : Fin m → ColKind}
     (hR : ∀ k, κ (posR k) = ColKind.reg) :
     GenPred T' κ :=
   ((List.finRange n).map (fun k =>
-    GenPred.cmp CompOp.syneq (TermG.index (posL k) (hL k))
-      (TermG.index (posR k) (hR k)))).foldr GenPred.and
-    (GenPred.cmp CompOp.syneq (.const 0) (.const 0))
+    GenPredIn.cmp CompOp.syneq (TermGIn.index (posL k) (hL k))
+      (TermGIn.index (posR k) (hR k)))).foldr GenPredIn.and
+    (GenPredIn.cmp CompOp.syneq (.const 0) (.const 0))
 
 /-- The join condition is a conjunction of column equalities: no
 indicator gate. -/
@@ -984,15 +982,15 @@ theorem keyJoinCond_chiFree {T' : Type} [Zero T'] {n m : ℕ}
   | nil => exact ⟨trivial, trivial⟩
   | cons k l ih => exact ⟨⟨trivial, trivial⟩, ih⟩
 
-theorem GenPred.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
+theorem GenPredIn.holdsPlain_foldr_and {T' : Type} [ValueType T'] {N : ℕ}
     {κ' : Fin N → ColKind} {α : Type} (l : List α)
     (f : α → GenPred T' κ') (base : GenPred T' κ') (u : Tuple T' N) :
-    (((l.map f).foldr GenPred.and base).holdsPlain u)
+    (((l.map f).foldr GenPredIn.and base).holdsPlain u)
       ↔ (∀ x ∈ l, (f x).holdsPlain u) ∧ base.holdsPlain u := by
   induction l with
   | nil => simp
   | cons hd tl ih =>
-    rw [List.map_cons, List.foldr_cons, GenPred.holdsPlain_and, ih]
+    rw [List.map_cons, List.foldr_cons, GenPredIn.holdsPlain_and, ih]
     constructor
     · rintro ⟨hhd, htl, hb⟩
       exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
@@ -1008,14 +1006,14 @@ theorem keyJoinCond_holdsPlain {T' : Type} [ValueType T']
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple T' m) :
     (keyJoinCond posL posR hL hR).holdsPlain u
       ↔ ∀ k, u (posL k) = u (posR k) := by
-  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.syneq
-      (TermG.index (posL k) (hL k))
-      (TermG.index (posR k) (hR k))).holdsPlain u ↔ u (posL k) = u (posR k) := by
+  have hatom : ∀ k, (GenPredIn.cmp (κ := κ') CompOp.syneq
+      (TermGIn.index (posL k) (hL k))
+      (TermGIn.index (posR k) (hR k))).holdsPlain u ↔ u (posL k) = u (posR k) := by
     intro k
     show CompOp.syneq.eval3 (u (posL k)) (u (posR k)) = Kleene.true ↔ _
     rw [CompOp.syneq_eval3_eq_true_iff]
   unfold keyJoinCond
-  rw [GenPred.holdsPlain_foldr_and]
+  rw [GenPredIn.holdsPlain_foldr_and]
   constructor
   · rintro ⟨hall, -⟩ k
     exact (hatom k).mp (hall k (List.mem_finRange k))
@@ -1033,18 +1031,18 @@ theorem keyJoinCond_hasAggAtom {T' : Type} [Zero T'] {n m : ℕ}
   unfold keyJoinCond
   induction List.finRange n with
   | nil => rfl
-  | cons k l ih => simpa [GenPred.hasAggAtom] using ih
+  | cons k l ih => simpa [GenPredIn.hasAggAtom] using ih
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem GenPred.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
+theorem GenPredIn.holds_foldr_and {N : ℕ} {κ' : Fin N → ColKind} {α : Type}
     (l : List α) (f : α → GenPred T κ') (base : GenPred T κ')
     (u : Tuple (GenValue T K) N) :
-    (((l.map f).foldr GenPred.and base).holds u)
+    (((l.map f).foldr GenPredIn.and base).holds u)
       ↔ (∀ x ∈ l, (f x).holds u) ∧ base.holds u := by
   induction l with
   | nil => simp
   | cons hd tl ih =>
-    rw [List.map_cons, List.foldr_cons, GenPred.holds_and, ih]
+    rw [List.map_cons, List.foldr_cons, GenPredIn.holds_and, ih]
     constructor
     · rintro ⟨hhd, htl, hb⟩
       exact ⟨fun x hx => (List.mem_cons.mp hx).elim (fun he => he ▸ hhd)
@@ -1062,16 +1060,16 @@ theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
     (hR : ∀ k, κ' (posR k) = ColKind.reg) (u : Tuple (GenValue T K) m) :
     (keyJoinCond posL posR hL hR).holds u
       ↔ ∀ k, GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
-  have hatom : ∀ k, (GenPred.cmp (κ := κ') CompOp.syneq
-      (TermG.index (posL k) (hL k))
-      (TermG.index (posR k) (hR k))).holds u
+  have hatom : ∀ k, (GenPredIn.cmp (κ := κ') CompOp.syneq
+      (TermGIn.index (posL k) (hL k))
+      (TermGIn.index (posR k) (hR k))).holds u
       ↔ GenRow.plainTuple u (posL k) = GenRow.plainTuple u (posR k) := by
     intro k
     show CompOp.syneq.eval3 (GenRow.plainTuple u (posL k))
       (GenRow.plainTuple u (posR k)) = Kleene.true ↔ _
     rw [CompOp.syneq_eval3_eq_true_iff]
   unfold keyJoinCond
-  rw [GenPred.holds_foldr_and]
+  rw [GenPredIn.holds_foldr_and]
   constructor
   · rintro ⟨hall, -⟩ k
     exact (hatom k).mp (hall k (List.mem_finRange k))
@@ -1145,14 +1143,14 @@ theorem AggQuery.evaluate_conform :
     simp only [AggQuery.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     cases hp : ps j with
-    | term t => simp [ProjCol.eval, hp, ProjCol.kind, GenValue.kindOf,
+    | term t => simp [ProjColIn.eval, hp, ProjColIn.kind, GenValue.kindOf,
         ColKind.base]
-    | provTerm t => simp [ProjCol.eval, hp, ProjCol.kind, GenValue.kindOf,
+    | provTerm t => simp [ProjColIn.eval, hp, ProjColIn.kind, GenValue.kindOf,
         ColKind.base]
     | token k hk =>
       have := ih d r₀ hr₀ k
       rw [hk] at this
-      simp only [ProjCol.eval, hp, ProjCol.kind]
+      simp only [ProjColIn.eval, hp, ProjColIn.kind]
       cases hu : r₀.fst k with
       | inl v =>
         rw [hu] at this

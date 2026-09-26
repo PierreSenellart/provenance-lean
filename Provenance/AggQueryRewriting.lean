@@ -12,7 +12,7 @@ turns a query over annotated relations into an ordinary query over the
 *composite* encoding: one extra column carries the annotation, of the
 lifted value type `T ⊕ K`. With the three-kind discipline the rewriting
 is expressible natively: the annotation column is *marked* `prov`
-(`ColKind.rewKinds`), read back by `TermG.provIndex` terms, aggregated by
+(`ColKind.rewKinds`), read back by `TermGIn.provIndex` terms, aggregated by
 `AggQuery.ProvSum` (the `⊕`-gate creation of `ε` and `∖`), and the
 value-kind bookkeeping is `AggQuery.Retag` – semantically the identity.
 
@@ -114,12 +114,8 @@ def TermGIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .sub t₁ t₂ => .sub (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .mul t₁ t₂ => .mul (t₁.castComposite hκ) (t₂.castComposite hκ)
 
-namespace TermG
-export TermGIn (castComposite)
-end TermG
-
 /-- An aggregate-atom-free predicate, over the composite domain. -/
-def GenPred.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     (φ : GenPred T κ) → φ.hasAggAtom = false →
     GenPred (T ⊕ K) (ColKind.rewKinds n)
@@ -135,7 +131,7 @@ def GenPred.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .not φ, hφ => .not (φ.castComposite hκ hφ)
 
 /-- A regular projection column, over the composite domain. -/
-def ProjCol.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def ProjColIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     (p : ProjCol T κ) → p.kind = ColKind.reg →
     ProjCol (T ⊕ K) (ColKind.rewKinds n)
@@ -146,7 +142,7 @@ def ProjCol.castComposite {n : ℕ} {κ : Fin n → ColKind}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast emits no indicator gate: a source gate, whose
 generic semantics is the junk constant, casts to that constant. -/
-theorem TermG.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (t : TermG T κ), (t.castComposite hκ (K := K)).chiFree
   | .const _ => trivial
@@ -162,12 +158,12 @@ theorem TermG.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a predicate emits no indicator gate. -/
-theorem GenPred.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false),
       (φ.castComposite hκ hφ (K := K)).chiFree
   | .cmp _ t₁ t₂, _ =>
-      ⟨TermG.castComposite_chiFree hκ t₁, TermG.castComposite_chiFree hκ t₂⟩
+      ⟨TermGIn.castComposite_chiFree hκ t₁, TermGIn.castComposite_chiFree hκ t₂⟩
   | .aggCmp _ _ _ _, hφ => Bool.noConfusion hφ
   | .and φ ψ, hφ =>
       ⟨castComposite_chiFree hκ φ (Bool.or_eq_false_iff.mp hφ).1,
@@ -179,16 +175,16 @@ theorem GenPred.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a projection column emits no indicator gate. -/
-theorem ProjCol.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (p : ProjCol T κ) (hp : p.kind = ColKind.reg),
       (p.castComposite hκ hp (K := K)).chiFree
-  | .term t, _ => TermG.castComposite_chiFree hκ t
+  | .term t, _ => TermGIn.castComposite_chiFree hκ t
   | .token _ _, hp => ColKind.noConfusion hp
   | .provTerm _, hp => ColKind.noConfusion hp
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ProjCol.castComposite_kind {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castComposite_kind {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) (p : ProjCol T κ)
     (hp : p.kind = ColKind.reg) :
     ((p.castComposite hκ hp : ProjCol (T ⊕ K) (ColKind.rewKinds n))).kind
@@ -217,7 +213,7 @@ def AggQuery.rewriting :
     AggQuery.retagToRew
       (fun j => by
         by_cases hj : (j : ℕ) < m
-        · rw [dite_eq_left hj, ProjCol.castComposite_kind]
+        · rw [dite_eq_left hj, ProjColIn.castComposite_kind]
           rfl
         · rw [dite_eq_right hj]
           rfl)
@@ -227,7 +223,7 @@ def AggQuery.rewriting :
             (ps ⟨j, hj⟩).castComposite
               (AggQuery.classical_kinds q hq.2) (hq.1 ⟨j, hj⟩)
           else
-            ProjCol.provTerm (TermG.provIndex (Fin.last n)
+            ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
               (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
         (q.rewriting hq.2))
   | _, _, .Sel φ q, hq =>
@@ -245,21 +241,21 @@ def AggQuery.rewriting :
       (AggQuery.Proj
         (fun j : Fin (n₁ + n₂ + 1) =>
           if h₁ : (j : ℕ) < n₁ then
-            ProjCol.term (TermG.index
+            ProjColIn.term (TermGIn.index
               (Fin.castAdd (n₂ + 1) (⟨j, Nat.lt_succ_of_lt h₁⟩ : Fin (n₁ + 1)))
               ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt h₁)))
           else if h₂ : (j : ℕ) < n₁ + n₂ then
-            ProjCol.term (TermG.index
+            ProjColIn.term (TermGIn.index
               (Fin.natAdd (n₁ + 1)
                 (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1)))
               ((Fin.append_right _ _ _).trans
                 (ColKind.rewKinds_lt (by simp; omega))))
           else
-            ProjCol.provTerm (TermG.mul
-              (TermG.provIndex (Fin.castAdd (n₂ + 1) (Fin.last n₁))
+            ProjColIn.provTerm (TermGIn.mul
+              (TermGIn.provIndex (Fin.castAdd (n₂ + 1) (Fin.last n₁))
                 ((Fin.append_left _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n₁))))
-              (TermG.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
+              (TermGIn.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
                 ((Fin.append_right _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n₂))))))
         (AggQuery.Prod (q₁.rewriting hq.1) (q₂.rewriting hq.2)))
@@ -277,7 +273,7 @@ def AggQuery.rewriting :
         (fun k => by
           rw [ColKind.rewKinds_lt k.isLt]
           exact fun hc => ColKind.noConfusion hc)
-        (TermG.provIndex (Fin.last n)
+        (TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         (q.rewriting hq))
   | _, _, @AggQuery.Diff _ n q₁ q₂, hq =>
@@ -287,7 +283,7 @@ def AggQuery.rewriting :
       AggQuery.Retag (fun _ => rfl)
         (AggQuery.Proj
           (fun j : Fin n =>
-            ProjCol.term (TermG.index (j.castLE (Nat.le_succ n))
+            ProjColIn.term (TermGIn.index (j.castLE (Nat.le_succ n))
               (ColKind.rewKinds_lt j.isLt)))
           q)
     let q₁r := q₁.rewriting hq.1
@@ -312,11 +308,11 @@ def AggQuery.rewriting :
         (AggQuery.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
-              ProjCol.term (TermG.index
+              ProjColIn.term (TermGIn.index
                 (Fin.castAdd n (⟨j, Nat.lt_succ_of_lt hj⟩ : Fin (n + 1)))
                 ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt hj)))
             else
-              ProjCol.provTerm (TermG.provIndex
+              ProjColIn.provTerm (TermGIn.provIndex
                 (Fin.castAdd n (Fin.last n))
                 ((Fin.append_left _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n)))))
@@ -327,7 +323,7 @@ def AggQuery.rewriting :
         (fun k => by
           rw [ColKind.rewKinds_lt k.isLt]
           exact fun hc => ColKind.noConfusion hc)
-        (TermG.provIndex (Fin.last n)
+        (TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         q₂r
     let joined₂ :=
@@ -352,16 +348,16 @@ def AggQuery.rewriting :
         (AggQuery.Proj
           (fun j : Fin (n + 1) =>
             if hj : (j : ℕ) < n then
-              ProjCol.term (TermG.index
+              ProjColIn.term (TermGIn.index
                 (Fin.castAdd (n + 1)
                   (⟨j, Nat.lt_succ_of_lt hj⟩ : Fin (n + 1)))
                 ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt hj)))
             else
-              ProjCol.provTerm (TermG.sub
-                (TermG.provIndex (Fin.castAdd (n + 1) (Fin.last n))
+              ProjColIn.provTerm (TermGIn.sub
+                (TermGIn.provIndex (Fin.castAdd (n + 1) (Fin.last n))
                   ((Fin.append_left _ _ _).trans
                     (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
-                (TermG.provIndex
+                (TermGIn.provIndex
                   (Fin.natAdd (n + 1) (Fin.natAdd n (0 : Fin 1)))
                   ((Fin.append_right _ _ _).trans
                     (Fin.append_right _ _ _)))))
@@ -391,12 +387,8 @@ def TermGIn.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
   | .sub t₁ t₂ => .sub t₁.strip t₂.strip
   | .mul t₁ t₂ => .mul t₁.strip t₂.strip
 
-namespace TermG
-export TermGIn (strip)
-end TermG
-
 /-- Plain evaluation factors through the strip. -/
-theorem TermG.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
+theorem TermGIn.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
     (u : Tuple T n) : t.strip.eval u = t.evalPlain u := by
   induction t with
   | const a => rfl
@@ -405,12 +397,12 @@ theorem TermG.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
-  | add t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
-  | sub t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
-  | mul t₁ t₂ ih₁ ih₂ => rw [TermG.strip, Term.eval, TermG.evalPlain, ih₁, ih₂]
+  | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, Term.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 /-- Strip an aggregate-atom-free predicate to a classical selection. -/
-def GenPred.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selection T n
+def GenPredIn.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selection T n
   | .cmp .eq t₁ t₂ => .BT (.EQ t₁.strip t₂.strip)
   | .cmp .ne t₁ t₂ => .BT (.NE t₁.strip t₂.strip)
   | .cmp .le t₁ t₂ => .BT (.LE t₁.strip t₂.strip)
@@ -426,13 +418,13 @@ def GenPred.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selectio
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates –
 three-valuedly, both readings being Kleene's. -/
-theorem GenPred.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
       φ.strip.eval3 u = φ.evalPlain3 u
   | .cmp op t₁ t₂, _, u => by
     cases op <;>
-      (simp only [GenPred.strip, Selection.eval3, BoolTerm.eval3,
-         BoolTerm.toCompOp, BoolTerm.args, TermG.strip_eval];
+      (simp only [GenPredIn.strip, Selection.eval3, BoolTerm.eval3,
+         BoolTerm.toCompOp, BoolTerm.args, TermGIn.strip_eval];
        rfl)
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
   | .and φ ψ, hφ, u => by
@@ -451,14 +443,14 @@ theorem GenPred.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
     rfl
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates. -/
-theorem GenPred.strip_eval {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.strip_eval {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (hφ : φ.hasAggAtom = false) (u : Tuple T n) :
     φ.strip.eval u ↔ φ.holdsPlain u := by
-  unfold Selection.eval GenPred.holdsPlain
-  rw [GenPred.strip_eval3 φ hφ u]
+  unfold Selection.eval GenPredIn.holdsPlain
+  rw [GenPredIn.strip_eval3 φ hφ u]
 
 /-- Strip a regular projection column to a classical term. -/
-def ProjCol.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T n
+def ProjColIn.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T n
   | .term t => t.strip
   | .token _ _ => .const 0
   | .provTerm t => t.strip
@@ -541,7 +533,7 @@ theorem AggQuery.strip_rel :
       cases hp : ps j with
       | term t =>
         show Sum.inl (t.eval r.fst) = Sum.inl (t.strip.eval p.fst)
-        rw [TermG.strip_eval, TermG.eval_eq_evalPlain t r.fst,
+        rw [TermGIn.strip_eval, TermGIn.eval_eq_evalPlain t r.fst,
           hr.plainTuple_eq]
       | token k hk => rw [hp] at hkind; exact ColKind.noConfusion hkind
       | provTerm t => rw [hp] at hkind; exact ColKind.noConfusion hkind
@@ -555,8 +547,8 @@ theorem AggQuery.strip_rel :
         Multiset.filter _ (q.evaluate d)) _
     rw [ite_eq_right (by rw [hq.1]; exact Bool.false_ne_true)]
     refine rel_filter_of_iff (strip_rel q hq.2 d) (fun r p hr => ?_)
-    rw [GenPred.holds_iff_holdsPlain, hr.plainTuple_eq]
-    exact (GenPred.strip_eval φ hq.1 p.fst).symm
+    rw [GenPredIn.holds_iff_holdsPlain, hr.plainTuple_eq]
+    exact (GenPredIn.strip_eval φ hq.1 p.fst).symm
   | _, _, @AggQuery.Prod _ n₁ n₂ _ _ q₁ q₂, hq, d => by
     refine rel_map_of_rel
       (rel_product (strip_rel q₁ hq.1 d) (strip_rel q₂ hq.2 d)) ?_
@@ -634,7 +626,7 @@ section PlainAgreement
 omit [DecidableEq K] in
 /-- The composite cast of a term agrees with the classical cast of its
 strip. -/
-theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) (t : TermG T κ)
     (u : Tuple (T ⊕ K) (n + 1)) :
     (t.castComposite hκ (K := K)).evalPlain u
@@ -668,7 +660,7 @@ theorem TermG.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of its
 strip – three-valuedly, both readings being Kleene's. -/
-theorem GenPred.castComposite_evalPlain3 {n : ℕ}
+theorem GenPredIn.castComposite_evalPlain3 {n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
       (u : Tuple (T ⊕ K) (n + 1)),
@@ -676,48 +668,48 @@ theorem GenPred.castComposite_evalPlain3 {n : ℕ}
         = (φ.strip.castToAnnotatedTuple).eval3 u
   | .cmp op t₁ t₂, _, u => by
     cases op <;>
-      (simp only [GenPred.castComposite, GenPred.evalPlain3, GenPred.strip,
+      (simp only [GenPredIn.castComposite, GenPredIn.evalPlain3, GenPredIn.strip,
          Selection.castToAnnotatedTuple, BoolTerm.castToAnnotatedTuple,
          Selection.eval3, BoolTerm.eval3, BoolTerm.toCompOp, BoolTerm.args,
-         TermG.castComposite_evalPlain])
+         TermGIn.castComposite_evalPlain])
   | .aggCmp _ _ _ _, hφ, _ => Bool.noConfusion hφ
   | .and φ ψ, hφ, u => by
-    show (GenPred.evalPlain3 _ _).and _ = _
+    show (GenPredIn.evalPlain3 _ _).and _ = _
     rw [castComposite_evalPlain3 hκ φ (Bool.or_eq_false_iff.mp hφ).1 u,
       castComposite_evalPlain3 hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u]
     rfl
   | .or φ ψ, hφ, u => by
-    show (GenPred.evalPlain3 _ _).or _ = _
+    show (GenPredIn.evalPlain3 _ _).or _ = _
     rw [castComposite_evalPlain3 hκ φ (Bool.or_eq_false_iff.mp hφ).1 u,
       castComposite_evalPlain3 hκ ψ (Bool.or_eq_false_iff.mp hφ).2 u]
     rfl
   | .not φ, hφ, u => by
-    show (GenPred.evalPlain3 _ _).not = _
+    show (GenPredIn.evalPlain3 _ _).not = _
     rw [castComposite_evalPlain3 hκ φ hφ u]
     rfl
 
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of
 its strip. -/
-theorem GenPred.castComposite_holdsPlain {n : ℕ}
+theorem GenPredIn.castComposite_holdsPlain {n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg)
     (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
     (u : Tuple (T ⊕ K) (n + 1)) :
     (φ.castComposite hκ hφ (K := K)).holdsPlain u
       ↔ (φ.strip.castToAnnotatedTuple).eval u := by
-  unfold GenPred.holdsPlain Selection.eval
-  rw [GenPred.castComposite_evalPlain3 hκ φ hφ u]
+  unfold GenPredIn.holdsPlain Selection.eval
+  rw [GenPredIn.castComposite_evalPlain3 hκ φ hφ u]
 
 omit [DecidableEq K] in
 /-- The composite cast of a projection column agrees with the classical
 cast of its strip. -/
-theorem ProjCol.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
     ∀ (p : ProjCol T κ) (hp : p.kind = ColKind.reg)
       (u : Tuple (T ⊕ K) (n + 1)),
       (p.castComposite hκ hp (K := K)).evalPlain u
         = (p.strip.castToAnnotatedTuple).eval u
-  | .term t, _, u => TermG.castComposite_evalPlain hκ t u
+  | .term t, _, u => TermGIn.castComposite_evalPlain hκ t u
   | .token _ _, hp, _ => ColKind.noConfusion hp
   | .provTerm _, hp, _ => ColKind.noConfusion hp
 
@@ -757,7 +749,7 @@ theorem AggQuery.rewriting_plain :
     dsimp only
     by_cases hj : (j : ℕ) < m
     · rw [dite_eq_left hj, dite_eq_left hj]
-      exact ProjCol.castComposite_evalPlain _ _ _ u
+      exact ProjColIn.castComposite_evalPlain _ _ _ u
     · rw [dite_eq_right hj, dite_eq_right hj]
       rfl
   | _, _, .Sel φ q, hq, D => by
@@ -768,7 +760,7 @@ theorem AggQuery.rewriting_plain :
     let : DecidablePred (Selection.eval (φ.strip.castToAnnotatedTuple
         (K := K))) := (φ.strip.castToAnnotatedTuple).evalDecidable
     exact Multiset.filter_congr
-      (fun u _ => GenPred.castComposite_holdsPlain
+      (fun u _ => GenPredIn.castComposite_holdsPlain
         (AggQuery.classical_kinds q hq.2) φ hq.1 u)
   | _, _, @AggQuery.Prod _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
     unfold AggQuery.rewriting AggQuery.retagToRew AggQuery.strip
@@ -781,13 +773,13 @@ theorem AggQuery.rewriting_plain :
     funext j
     by_cases h₁ : (j : ℕ) < n₁
     · rw [dite_eq_left h₁, ite_eq_left h₁]
-      simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
+      simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
       rw [Tuple.cast_coord]
       rfl
     · rw [dite_eq_right h₁, ite_eq_right h₁]
       by_cases h₂ : (j : ℕ) < n₁ + n₂
       · rw [dite_eq_left h₂, ite_eq_left h₂]
-        simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
+        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
         rw [Tuple.cast_coord]
         refine congrArg t (Fin.ext ?_)
         show n₁ + 1 + ((j : ℕ) - n₁) = _
@@ -795,7 +787,7 @@ theorem AggQuery.rewriting_plain :
         rw [Nat.mod_eq_of_lt (by omega)]
         omega
       · rw [dite_eq_right h₂, ite_eq_right h₂]
-        simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
+        simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
         rw [Tuple.cast_coord, Tuple.cast_coord]
         refine congrArg₂ (· * ·) (congrArg t (Fin.ext ?_))
           (congrArg t (Fin.ext ?_))
@@ -833,7 +825,7 @@ theorem AggQuery.rewriting_plain :
     simp only [Query.evaluate]
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D]
     refine congrArg₂ (· + ·) ?_ ?_
-    · rw [show (fun x (j : Fin n) => (ProjCol.term (TermG.index
+    · rw [show (fun x (j : Fin n) => (ProjColIn.term (TermGIn.index
           (Fin.castLE (Nat.le_succ n) j)
           (ColKind.rewKinds_lt j.isLt))).evalPlain x)
         = (fun x (k : Fin n) =>
@@ -867,12 +859,12 @@ theorem AggQuery.rewriting_plain :
       · funext j
         by_cases hj : (j : ℕ) < n
         · rw [dite_eq_left hj]
-          simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval,
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
           rfl
         · rw [dite_eq_right hj]
-          simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval,
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval,
             Function.comp_apply]
           rw [Tuple.cast_coord]
           exact congrArg t (Fin.ext (by
@@ -926,13 +918,13 @@ theorem AggQuery.rewriting_plain :
         · rw [dite_eq_left hj]
           simp only [Function.comp_apply]
           rw [ite_eq_left hj]
-          simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
           rw [Tuple.cast_coord]
           rfl
         · rw [dite_eq_right hj]
           simp only [Function.comp_apply]
           rw [ite_eq_right hj]
-          simp only [ProjCol.evalPlain, TermG.evalPlain, Term.eval]
+          simp only [ProjColIn.evalPlain, TermGIn.evalPlain, Term.eval]
           rw [Tuple.cast_coord, Tuple.cast_coord]
           refine congrArg₂ _
             (congrArg t (Fin.ext (by

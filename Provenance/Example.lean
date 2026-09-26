@@ -96,12 +96,12 @@ def qgCount := AggQuery.Gamma ![3] ![Term.const "1"] ![SeqAggFunc.sum]
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/
 def φexactlyTwo : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPred.and (GenPred.fusedCmp CompOp.ge 0 (Term.const "2"))
-    (GenPred.fusedCmp CompOp.le 0 (Term.const "2"))
+  GenPredIn.and (GenPredIn.fusedCmp CompOp.ge 0 (Term.const "2"))
+    (GenPredIn.fusedCmp CompOp.le 0 (Term.const "2"))
 
 /- `HAVING COUNT(*) ≥ 3`, a single-atom one. -/
 def φatLeastThree : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPred.fusedCmp CompOp.ge 0 (Term.const "3")
+  GenPredIn.fusedCmp CompOp.ge 0 (Term.const "3")
 
 example : φexactlyTwo.aggOnly = true := rfl
 
@@ -121,7 +121,7 @@ persons. -/
 /- Projecting the group key out of a grouping, of a `HAVING` site, and
 their difference: the cities with fewer than three persons. -/
 def cityCols : Tuple (ProjCol String (ColKind.gammaKinds 1 1)) 1 :=
-  fun _ => ProjCol.term (TermG.index (Fin.castAdd 1 0)
+  fun _ => ProjColIn.term (TermGIn.index (Fin.castAdd 1 0)
     (Fin.append_left (fun _ : Fin 1 => ColKind.reg)
       (fun _ : Fin 1 => ColKind.agg) 0))
 
@@ -168,12 +168,12 @@ the predicate no longer entails the group's existence, and the guard
 `δ(⊕ U)` therefore survives as a factor of the provenance column instead
 of being superseded. -/
 def φbigOrBerlin : GenPred String (ColKind.gammaKinds 1 1) :=
-  GenPred.or (GenPred.fusedCmp CompOp.ge 0 (Term.const "3"))
-    (GenPred.cmp CompOp.eq
-      (TermG.index (Fin.castAdd 1 0)
+  GenPredIn.or (GenPredIn.fusedCmp CompOp.ge 0 (Term.const "3"))
+    (GenPredIn.cmp CompOp.eq
+      (TermGIn.index (Fin.castAdd 1 0)
         (Fin.append_left (fun _ : Fin 1 => ColKind.reg)
           (fun _ : Fin 1 => ColKind.agg) 0))
-      (TermG.const "Berlin"))
+      (TermGIn.const "Berlin"))
 
 example : φbigOrBerlin.hasAggAtom = true := rfl
 example : φbigOrBerlin.aggOnly = false := rfl

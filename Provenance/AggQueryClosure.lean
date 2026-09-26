@@ -31,8 +31,8 @@ The natural rewritten kind vector of a query of kinds `κ` is
 `ColKind.rewKindsOf κ` – the source kinds followed by the provenance
 column. Casting terms, predicates and projection columns into it is
 *uniform*: a column keeps its kind, so no all-regular hypothesis is
-needed anywhere (`TermG.castRew` and friends), unlike the composite casts
-of the classical rewriting. The gate `TermG.cmpAgg`, whose generic
+needed anywhere (`TermGIn.castRew` and friends), unlike the composite casts
+of the classical rewriting. The gate `TermGIn.cmpAgg`, whose generic
 semantics is the junk value `𝟘`, casts to that constant.
 
 ## Scope
@@ -47,7 +47,7 @@ rewritten subquery rather than only against `rewriting`'s output.
 
 Product closes over arbitrary kinds too. Reassembling a join needs a
 projection column whose kind is read off the operand's kind vector –
-`ProjCol.copy`, which dispatches on that kind – and its faithfulness
+`ProjColIn.copy`, which dispatches on that kind – and its faithfulness
 needs the operands' rows to conform; that comes for free from the
 subderivations, since their rows are embeddings of rows of the general
 evaluator, which conforms by `AggQuery.evaluate_conform`.
@@ -108,13 +108,9 @@ def TermGIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .sub t₁ t₂ => .sub t₁.castRew t₂.castRew
   | .mul t₁ t₂ => .mul t₁.castRew t₂.castRew
 
-namespace TermG
-export TermGIn (castRew)
-end TermG
-
 /-- An aggregate-atom-free predicate is unnecessary here: the cast is
 total, aggregate atoms comparing a token's deterministic reading. -/
-def GenPred.castRew {n : ℕ} {κ : Fin n → ColKind} :
+def GenPredIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
     GenPred T κ → GenPred (T ⊕ K) (ColKind.rewKindsOf κ)
   | .cmp op t₁ t₂ => .cmp op t₁.castRew t₂.castRew
   | .aggCmp k h op t =>
@@ -125,7 +121,7 @@ def GenPred.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .not φ => .not φ.castRew
 
 /-- A projection column, read on the rewritten schema. -/
-def ProjCol.castRew {n : ℕ} {κ : Fin n → ColKind} :
+def ProjColIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
     ProjCol T κ → ProjCol (T ⊕ K) (ColKind.rewKindsOf κ)
   | .term t => .term t.castRew
   | .token k h =>
@@ -133,14 +129,14 @@ def ProjCol.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .provTerm t => .provTerm t.castRew
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-@[simp] theorem ProjCol.castRew_kind {n : ℕ} {κ : Fin n → ColKind}
+@[simp] theorem ProjColIn.castRew_kind {n : ℕ} {κ : Fin n → ColKind}
     (p : ProjCol T κ) :
     (p.castRew (K := K)).kind = p.kind := by
   cases p <;> rfl
 
 /-! ## The casts evaluate faithfully -/
 
-theorem TermG.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     (t : TermG T κ) (r : GenRow T K n) :
     t.castRew.evalRew r.toCompositeRow = Sum.inl (t.eval r.fst) := by
   induction t with
@@ -163,7 +159,7 @@ theorem TermG.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     rfl
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _; rw [ih₁, ih₂]; rfl
 
-theorem GenPred.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (r : GenRow T K n) :
     φ.castRew.evalRew3 r.toCompositeRow = φ.eval3 r.fst := by
   induction φ with
@@ -181,13 +177,13 @@ theorem GenPred.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
   | or φ ψ ihφ ihψ => show (_ : Kleene).or _ = _; rw [ihφ, ihψ]; rfl
   | not φ ihφ => show (_ : Kleene).not = _; rw [ihφ]; rfl
 
-theorem GenPred.castRew_holdsRew {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.castRew_holdsRew {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (r : GenRow T K n) :
     φ.castRew.holdsRew r.toCompositeRow ↔ φ.holds r.fst := by
-  unfold GenPred.holdsRew GenPred.holds
-  rw [GenPred.castRew_evalRew3 φ r]
+  unfold GenPredIn.holdsRew GenPredIn.holds
+  rw [GenPredIn.castRew_evalRew3 φ r]
 
-theorem ProjCol.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     (p : ProjCol T κ) (r : GenRow T K n) :
     p.castRew.evalRew r.toCompositeRow
       = GenValue.toComposite (p.eval r.fst) := by
@@ -238,19 +234,19 @@ theorem ColKind.rewKindsOf_of_not_lt {n : ℕ} (κ : Fin n → ColKind)
 provenance column is read as a value term, a token column is a verbatim
 token copy. This is the projection column a join reassembly needs, since
 the operand's kind vector is not statically known there. -/
-def ProjCol.copy {T' : Type} {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N) :
+def ProjColIn.copy {T' : Type} {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N) :
     ProjCol T' κ' :=
   match h : κ' i with
-  | ColKind.reg => ProjCol.term (TermG.index i h)
-  | ColKind.agg => ProjCol.token i h
-  | ColKind.prov => ProjCol.provTerm (TermG.provIndex i h)
+  | ColKind.reg => ProjColIn.term (TermGIn.index i h)
+  | ColKind.agg => ProjColIn.token i h
+  | ColKind.prov => ProjColIn.provTerm (TermGIn.provIndex i h)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
-@[simp] theorem ProjCol.copy_kind {T' : Type} {N : ℕ}
+@[simp] theorem ProjColIn.copy_kind {T' : Type} {N : ℕ}
     {κ' : Fin N → ColKind} (i : Fin N) :
-    (ProjCol.copy (T' := T') (κ' := κ') i).kind = κ' i := by
-  unfold ProjCol.copy
+    (ProjColIn.copy (T' := T') (κ' := κ') i).kind = κ' i := by
+  unfold ProjColIn.copy
   split
   · rename_i h; exact h.symm
   · rename_i h; exact h.symm
@@ -280,10 +276,10 @@ theorem GenRow.toCompositeRow_conform {n : ℕ} {κ : Fin n → ColKind}
     rfl
 
 /-- A copied column evaluates to the column, on a conformant row. -/
-theorem ProjCol.copy_evalRew {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N)
+theorem ProjColIn.copy_evalRew {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N)
     (u : Tuple (GenValue (T ⊕ K) K) N)
     (hu : GenValue.kindOf (u i) = (κ' i).base) :
-    (ProjCol.copy (T' := T ⊕ K) (κ' := κ') i).evalRew u = u i := by
+    (ProjColIn.copy (T' := T ⊕ K) (κ' := κ') i).evalRew u = u i := by
   have hval : ∀ c : ColKind, κ' i = c → c ≠ ColKind.agg →
       ∃ v, u i = Sum.inl v := by
     intro c hc hne
@@ -293,7 +289,7 @@ theorem ProjCol.copy_evalRew {N : ℕ} {κ' : Fin N → ColKind} (i : Fin N)
       rw [hv] at hu
       rw [hc, ColKind.base_eq_reg_of_ne_agg hne] at hu
       exact absurd hu (by simp [GenValue.kindOf])
-  unfold ProjCol.copy
+  unfold ProjColIn.copy
   split
   · rename_i h
     obtain ⟨v, hv⟩ := hval _ h (fun hc => ColKind.noConfusion hc)
@@ -315,21 +311,21 @@ just as expressible: the predicate provenance `predsem` is `∧ ↦ ⊗`,
 `∨ ↦ ⊕` and `¬` pushed to the atoms by De Morgan duality with operator
 complementation, and the rewritten world's terms have `mul`, `add` and
 the two gates – `provsql_having` for an aggregate atom, the indicator
-gate for a regular one. `GenPred.gateTerm` is that translation; it is
-faithful for an arbitrary predicate (`GenPred.gateTerm_evalRew`), the
+gate for a regular one. `GenPredIn.gateTerm` is that translation; it is
+faithful for an arbitrary predicate (`GenPredIn.gateTerm_evalRew`), the
 gates being the primitives the correctness is relative to.
 
 Regular atoms do change the fate of the group guard. An aggregate atom's
 predicate provenance ranges over non-empty worlds only, so it supersedes
 the guard; a regular atom's `χ` does not entail the group's existence
-(`GenPred.entailsExistence`), and mixing one in can leave the whole
+(`GenPredIn.entailsExistence`), and mixing one in can leave the whole
 predicate non-entailing – `count(*) > 5 ∨ city = 'Paris'` fires in worlds
 where the group is empty. The site rewriting therefore keeps the guard as
-a factor in that case (`GenPred.siteProvTerm`), reproducing what the
+a factor in that case (`GenPredIn.siteProvTerm`), reproducing what the
 general evaluator does with the pending group factor. -/
 
 /-- A predicate all of whose atoms are aggregate comparisons. -/
-def GenPred.aggOnly {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
+def GenPredIn.aggOnly {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
   | .cmp _ _ _ => false
   | .aggCmp _ _ _ _ => true
   | .and φ ψ | .or φ ψ => φ.aggOnly && ψ.aggOnly
@@ -339,19 +335,19 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- An aggregate-only predicate entails its groups' existence, whatever
 the polarity: every atom does, and both connectives preserve that. -/
-theorem GenPred.aggOnly_entailsExistence {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.aggOnly_entailsExistence {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.aggOnly = true → ∀ neg,
       φ.entailsExistence neg = true
   | .cmp _ _ _, hφ, _ => Bool.noConfusion hφ
   | .aggCmp _ _ _ _, _, _ => rfl
   | .and φ ψ, hφ, neg => by
     have h := Bool.and_eq_true_iff.mp hφ
-    simp only [GenPred.entailsExistence, aggOnly_entailsExistence φ h.1 neg,
+    simp only [GenPredIn.entailsExistence, aggOnly_entailsExistence φ h.1 neg,
       aggOnly_entailsExistence ψ h.2 neg]
     split <;> rfl
   | .or φ ψ, hφ, neg => by
     have h := Bool.and_eq_true_iff.mp hφ
-    simp only [GenPred.entailsExistence, aggOnly_entailsExistence φ h.1 neg,
+    simp only [GenPredIn.entailsExistence, aggOnly_entailsExistence φ h.1 neg,
       aggOnly_entailsExistence ψ h.2 neg]
     split <;> rfl
   | .not φ, hφ, neg => aggOnly_entailsExistence φ hφ (!neg)
@@ -360,7 +356,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- A predicate with an aggregate atom compares at least one token
 column. -/
-theorem GenPred.hasAggAtom_comparedCols_nonempty {n : ℕ}
+theorem GenPredIn.hasAggAtom_comparedCols_nonempty {n : ℕ}
     {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.hasAggAtom = true → φ.comparedCols.Nonempty
   | .cmp _ _ _, hφ => Bool.noConfusion hφ
@@ -383,7 +379,7 @@ theorem GenPred.hasAggAtom_comparedCols_nonempty {n : ℕ}
 algebra – aggregate atoms to `provsql_having` gates, regular atoms to
 indicator gates, `∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed down with operator
 complementation. -/
-def GenPred.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
+def GenPredIn.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
     GenPred T κ → Bool → TermG (T ⊕ K) (ColKind.rewKindsOf κ)
   | .cmp op t₁ t₂, neg =>
       .chiGate (if neg then op.negate else op) t₁.castRew t₂.castRew
@@ -401,7 +397,7 @@ def GenPred.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
 /-- **The gate term computes the predicate provenance**, for an
 arbitrary predicate: relative to the two gate primitives, which is
 exactly the sense in which ProvSQL's own rewriting is correct. -/
-theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ) (neg : Bool) (r : GenRow T K n),
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
@@ -426,29 +422,29 @@ theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
       show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
       rw [AggValue.predProvOf_toComposite]
   | .and φ ψ, neg, r => by
-    show TermG.evalRew (if neg then _ else _) _ = _
+    show TermGIn.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
     cases neg with
     | false =>
-      show TermG.evalRew (TermG.mul _ _) _ = _
-      show TermG.evalRew _ _ * TermG.evalRew _ _ = _
+      show TermGIn.evalRew (TermGIn.mul _ _) _ = _
+      show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
       rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
       rfl
     | true =>
-      show TermG.evalRew (TermG.add _ _) _ = _
-      show TermG.evalRew _ _ + TermG.evalRew _ _ = _
+      show TermGIn.evalRew (TermGIn.add _ _) _ = _
+      show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
       rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
       rfl
   | .or φ ψ, neg, r => by
     cases neg with
     | false =>
-      show TermG.evalRew (TermG.add _ _) _ = _
-      show TermG.evalRew _ _ + TermG.evalRew _ _ = _
+      show TermGIn.evalRew (TermGIn.add _ _) _ = _
+      show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
       rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
       rfl
     | true =>
-      show TermG.evalRew (TermG.mul _ _) _ = _
-      show TermG.evalRew _ _ * TermG.evalRew _ _ = _
+      show TermGIn.evalRew (TermGIn.mul _ _) _ = _
+      show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
       rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
       rfl
   | .not φ, neg, r => gateTerm_evalRew φ (!neg) r
@@ -456,15 +452,15 @@ theorem GenPred.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- An aggregate-only predicate has an aggregate atom. -/
-theorem GenPred.aggOnly_hasAggAtom {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.aggOnly_hasAggAtom {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.aggOnly = true → φ.hasAggAtom = true
   | .cmp _ _ _, hφ => Bool.noConfusion hφ
   | .aggCmp _ _ _ _, _ => rfl
   | .and φ ψ, hφ => by
-    rw [GenPred.hasAggAtom, aggOnly_hasAggAtom φ (Bool.and_eq_true_iff.mp hφ).1]
+    rw [GenPredIn.hasAggAtom, aggOnly_hasAggAtom φ (Bool.and_eq_true_iff.mp hφ).1]
     rfl
   | .or φ ψ, hφ => by
-    rw [GenPred.hasAggAtom, aggOnly_hasAggAtom φ (Bool.and_eq_true_iff.mp hφ).1]
+    rw [GenPredIn.hasAggAtom, aggOnly_hasAggAtom φ (Bool.and_eq_true_iff.mp hφ).1]
     rfl
   | .not φ, hφ => aggOnly_hasAggAtom φ hφ
 
@@ -472,9 +468,9 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Compared columns are token columns – by construction of the aggregate
 atom. -/
-theorem GenPred.comparedCols_agg {n : ℕ} {κ : Fin n → ColKind} :
+theorem GenPredIn.comparedCols_agg {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ) {k : Fin n}, k ∈ φ.comparedCols → κ k = ColKind.agg
-  | .cmp _ _ _, k, hk => absurd hk (by simp [GenPred.comparedCols])
+  | .cmp _ _ _, k, hk => absurd hk (by simp [GenPredIn.comparedCols])
   | .aggCmp k' h _ _, k, hk => by
     rw [show k = k' from Finset.mem_singleton.mp hk]
     exact h
@@ -555,13 +551,13 @@ predicate already entails the group's existence, in which case the gate
 term supersedes it. This is ProvSQL's `having_entails_group_existence`
 test: the supersede of the `δ` gate is licensed exactly when every world
 the predicate accepts has the group non-empty. -/
-def GenPred.siteProvTerm {n₁ n₂ : ℕ}
+def GenPredIn.siteProvTerm {n₁ n₂ : ℕ}
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) :
     TermG (T ⊕ K) (ColKind.gammaRewKinds n₁ n₂) :=
   if φ.entailsExistence false then φ.gateTerm false
   else
-    TermG.mul (φ.gateTerm false)
-      (TermG.provIndex (Fin.last (n₁ + n₂))
+    TermGIn.mul (φ.gateTerm false)
+      (TermGIn.provIndex (Fin.last (n₁ + n₂))
         (ColKind.rewKindsOf_last (ColKind.gammaKinds n₁ n₂)))
 
 /-- The output columns of a general `HAVING` site: the group keys and the
@@ -572,9 +568,9 @@ def AggQuery.havingPredCols {n₁ n₂ : ℕ}
     Tuple (ProjCol (T ⊕ K) (ColKind.gammaRewKinds n₁ n₂)) (n₁ + n₂ + 1) :=
   fun j =>
     if hj : (j : ℕ) < n₁ + n₂ then
-      ProjCol.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)))
+      ProjColIn.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)))
     else
-      ProjCol.provTerm (φ.siteProvTerm (K := K))
+      ProjColIn.provTerm (φ.siteProvTerm (K := K))
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The site's output columns have exactly the rewritten `Gamma` kinds. -/
@@ -584,7 +580,7 @@ theorem AggQuery.havingPredCols_kind {n₁ n₂ : ℕ}
       = ColKind.gammaRewKinds n₁ n₂ j := by
   unfold AggQuery.havingPredCols
   by_cases hj : (((j : ℕ) < n₁ + n₂) : Prop)
-  · rw [dite_eq_left hj, ProjCol.copy_kind]
+  · rw [dite_eq_left hj, ProjColIn.copy_kind]
     exact congrArg (ColKind.gammaRewKinds n₁ n₂)
       (Fin.ext rfl : Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)) = j)
   · rw [dite_eq_right hj]
@@ -633,25 +629,25 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
   simp only [Function.comp_apply]
   funext j
   rw [GenRow.toCompositeRow_coord]
-  show _ = ProjCol.evalRew (AggQuery.havingPredCols φ j) _
+  show _ = ProjColIn.evalRew (AggQuery.havingPredCols φ j) _
   unfold AggQuery.havingPredCols
   by_cases hj : (((j : ℕ) < n₁ + n₂) : Prop)
   · rw [dite_eq_left hj, dite_eq_left hj,
-      ProjCol.copy_evalRew _ _
+      ProjColIn.copy_evalRew _ _
         (GenRow.toCompositeRow_gammaRow_conform _ _ _ _),
       GenRow.toCompositeRow_castAdd]
   · rw [dite_eq_right hj, dite_eq_right hj]
     show Sum.inl (Sum.inr (GenAnn.finalize ⟨1 * _, _⟩))
-      = Sum.inl (TermG.evalRew (GenPred.siteProvTerm φ) _)
-    unfold GenPred.siteProvTerm
+      = Sum.inl (TermGIn.evalRew (GenPredIn.siteProvTerm φ) _)
+    unfold GenPredIn.siteProvTerm
     by_cases hE : φ.entailsExistence false = true
     case neg =>
       -- the predicate does not entail the group's existence: the guard
       -- survives in the pending factor and as a factor of the gate term
       rw [show φ.entailsExistence false = false by simpa using hE]
       simp only [Bool.false_eq_true, ite_false]
-      show _ = Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _)
-      rw [GenPred.gateTerm_evalRew (K := K) φ false _]
+      show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
+      rw [GenPredIn.gateTerm_evalRew (K := K) φ false _]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -669,11 +665,11 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
       refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;>
         simp [Fin.append_left, Fin.append_right]
     · intro h0
-      obtain ⟨k, hk⟩ := GenPred.hasAggAtom_comparedCols_nonempty φ hφ
+      obtain ⟨k, hk⟩ := GenPredIn.hasAggAtom_comparedCols_nonempty φ hφ
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
-        (GenPred.comparedCols_agg φ hk)
+        (GenPredIn.comparedCols_agg φ hk)
       refine absurd ?_ (Multiset.notMem_zero
         (List.map Prod.snd (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)))
@@ -686,13 +682,13 @@ theorem AggQuery.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n�
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
-        (GenPred.comparedCols_agg φ (Finset.mem_val.mp hk))
+        (GenPredIn.comparedCols_agg φ (Finset.mem_val.mp hk))
       rw [ha] at hfk
       exact (Option.some.inj hfk).symm.trans hann
     · rw [one_mul]
       refine congrArg Sum.inl ?_
       symm
-      exact GenPred.gateTerm_evalRew (K := K) φ false _
+      exact GenPredIn.gateTerm_evalRew (K := K) φ false _
 
 /-! ## Duplicate elimination in the rewritten world -/
 
@@ -732,8 +728,8 @@ theorem GenRow.plainTuple_toCompositeRow {n : ℕ} (r : GenRow T K n)
 
 /-- The provenance column of an embedded row is its finalized
 annotation. -/
-theorem TermG.evalRew_provLast_toCompositeRow {n : ℕ} (r : GenRow T K n) :
-    (TermG.provIndex (Fin.last n)
+theorem TermGIn.evalRew_provLast_toCompositeRow {n : ℕ} (r : GenRow T K n) :
+    (TermGIn.provIndex (Fin.last n)
         (ColKind.rewKindsOf_last (ColKind.allReg n))).evalRew
       r.toCompositeRow = Sum.inr r.snd.finalize := by
   show AggValue.collapseSum (r.toCompositeRow (Fin.last n)) = _
@@ -760,7 +756,7 @@ def AggQuery.dedupRew {n : ℕ}
       (fun k => by
         rw [ColKind.rewKindsOf_castAdd]
         exact fun hc => ColKind.noConfusion hc)
-      (TermG.provIndex (Fin.last n)
+      (TermGIn.provIndex (Fin.last n)
         (ColKind.rewKindsOf_last (ColKind.allReg n)))
       q')
 
@@ -810,11 +806,11 @@ theorem AggQuery.dedupRew_valid {n : ℕ} {q : AggQuery T n (ColKind.allReg n)}
   refine Eq.symm ?_
   rw [Multiset.filter_map, Multiset.map_map,
     show ((fun x : Tuple (GenValue (T ⊕ K) K) (n + 1) =>
-          (TermG.provIndex (Fin.last n)
+          (TermGIn.provIndex (Fin.last n)
             (ColKind.rewKindsOf_last (ColKind.allReg n))).evalRew x)
         ∘ GenRow.toCompositeRow)
       = (fun r : GenRow T K n => (Sum.inr (GenRow.toAnnotated r).snd : T ⊕ K))
-      from funext (fun r => TermG.evalRew_provLast_toCompositeRow r),
+      from funext (fun r => TermGIn.evalRew_provLast_toCompositeRow r),
     fold_addFn_inr, Multiset.filter_map, Multiset.map_map]
   refine congrArg (fun M : Multiset (GenRow T K n) =>
     (Sum.inr ((M.map (fun r => (GenRow.toAnnotated r).snd)).sum) : T ⊕ K)) ?_
@@ -840,16 +836,16 @@ def AggQuery.prodRewCols {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
       (n₁ + n₂ + 1) :=
   fun j =>
     if hj₁ : (j : ℕ) < n₁ then
-      ProjCol.copy (Fin.castAdd (n₂ + 1)
+      ProjColIn.copy (Fin.castAdd (n₂ + 1)
         (⟨(j : ℕ), Nat.lt_succ_of_lt hj₁⟩ : Fin (n₁ + 1)))
     else if hj₂ : (j : ℕ) < n₁ + n₂ then
-      ProjCol.copy (Fin.natAdd (n₁ + 1)
+      ProjColIn.copy (Fin.natAdd (n₁ + 1)
         (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1)))
     else
-      ProjCol.provTerm (TermG.mul
-        (TermG.provIndex (Fin.castAdd (n₂ + 1) (Fin.last n₁))
+      ProjColIn.provTerm (TermGIn.mul
+        (TermGIn.provIndex (Fin.castAdd (n₂ + 1) (Fin.last n₁))
           ((Fin.append_left _ _ _).trans (ColKind.rewKindsOf_last κ₁)))
-        (TermG.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
+        (TermGIn.provIndex (Fin.natAdd (n₁ + 1) (Fin.last n₂))
           ((Fin.append_right _ _ _).trans (ColKind.rewKindsOf_last κ₂))))
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
@@ -861,7 +857,7 @@ theorem AggQuery.prodRewCols_kind {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKin
       = ColKind.rewKindsOf (Fin.append κ₁ κ₂) j := by
   unfold AggQuery.prodRewCols
   by_cases hj₁ : (((j : ℕ) < n₁) : Prop)
-  · rw [dite_eq_left hj₁, ProjCol.copy_kind, Fin.append_left,
+  · rw [dite_eq_left hj₁, ProjColIn.copy_kind, Fin.append_left,
       ColKind.rewKindsOf_of_lt κ₁ (show LT.lt (j : ℕ) n₁ from hj₁),
       ColKind.rewKindsOf_of_lt (Fin.append κ₁ κ₂)
         (show LT.lt (j : ℕ) (n₁ + n₂) from by omega),
@@ -869,7 +865,7 @@ theorem AggQuery.prodRewCols_kind {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKin
           = Fin.castAdd n₂ (⟨(j : ℕ), hj₁⟩ : Fin n₁) from Fin.ext rfl,
       Fin.append_left]
   · by_cases hj₂ : (((j : ℕ) < n₁ + n₂) : Prop)
-    · rw [dite_eq_right hj₁, dite_eq_left hj₂, ProjCol.copy_kind, Fin.append_right,
+    · rw [dite_eq_right hj₁, dite_eq_left hj₂, ProjColIn.copy_kind, Fin.append_right,
         ColKind.rewKindsOf_of_lt κ₂
           (show LT.lt ((j : ℕ) - n₁) n₂ from by omega),
         ColKind.rewKindsOf_of_lt (Fin.append κ₁ κ₂) hj₂,
@@ -932,11 +928,11 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   simp only [Function.comp_apply, Prod.map]
   funext j
   rw [GenRow.toCompositeRow_coord]
-  show _ = ProjCol.evalRew (AggQuery.prodRewCols κ₁ κ₂ j) _
+  show _ = ProjColIn.evalRew (AggQuery.prodRewCols κ₁ κ₂ j) _
   unfold AggQuery.prodRewCols
   by_cases hj₁ : (((j : ℕ) < n₁) : Prop)
   · rw [dite_eq_left (show LT.lt (j : ℕ) (n₁ + n₂) from by omega), dite_eq_left hj₁,
-      ProjCol.copy_evalRew _ _ (hu _), Fin.append_left]
+      ProjColIn.copy_evalRew _ _ (hu _), Fin.append_left]
     dsimp only
     rw [show (⟨(j : ℕ), by omega⟩ : Fin (n₁ + n₂))
         = Fin.castAdd n₂ (⟨(j : ℕ), hj₁⟩ : Fin n₁) from Fin.ext rfl,
@@ -946,7 +942,7 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
       GenRow.toCompositeRow_castAdd]
   · by_cases hj₂ : (((j : ℕ) < n₁ + n₂) : Prop)
     · rw [dite_eq_left hj₂, dite_eq_right hj₁, dite_eq_left hj₂,
-        ProjCol.copy_evalRew _ _ (hu _), Fin.append_right]
+        ProjColIn.copy_evalRew _ _ (hu _), Fin.append_right]
       dsimp only
       rw [show (⟨(j : ℕ), hj₂⟩ : Fin (n₁ + n₂))
           = Fin.natAdd n₁ (⟨(j : ℕ) - n₁, by omega⟩ : Fin n₂) from
@@ -957,8 +953,8 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     · rw [dite_eq_right hj₂, dite_eq_right hj₁, dite_eq_right hj₂]
       dsimp only
       rw [GenAnn.finalize_prod]
-      show _ = Sum.inl (TermG.evalRew _ _ * TermG.evalRew _ _)
-      rw [show TermG.evalRew (TermG.provIndex
+      show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
+      rw [show TermGIn.evalRew (TermGIn.provIndex
             (Fin.castAdd (n₂ + 1) (Fin.last n₁))
             ((Fin.append_left _ _ _).trans (ColKind.rewKindsOf_last κ₁)))
               (Fin.append (GenRow.toCompositeRow xy.1)
@@ -968,7 +964,7 @@ theorem AggQuery.prodRew_valid {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
           (Fin.castAdd (n₂ + 1) (Fin.last n₁))) = _
         rw [Fin.append_left, GenRow.toCompositeRow_last]
         rfl,
-        show TermG.evalRew (TermG.provIndex
+        show TermGIn.evalRew (TermGIn.provIndex
             (Fin.natAdd (n₁ + 1) (Fin.last n₂))
             ((Fin.append_right _ _ _).trans (ColKind.rewKindsOf_last κ₂)))
               (Fin.append (GenRow.toCompositeRow xy.1)
@@ -988,7 +984,7 @@ rows on the right. ProvSQL's rewriting encodes that missing left outer
 join as a union of two branches: rows whose data part is *absent* from
 the right operand keep their annotation, rows whose data part is present
 are joined against the per-key sums and subtract them. The rewritten
-world's `TermG.sub` supplies the monus directly, so both branches are
+world's `TermGIn.sub` supplies the monus directly, so both branches are
 plain projections of joins, and the two semijoin identities of
 `Provenance.QueryRewriting` reduce them to filters of the left operand. -/
 
@@ -1028,7 +1024,7 @@ def AggQuery.diffKeyProj {n : ℕ}
     AggQuery (T ⊕ K) n (ColKind.allReg n) :=
   AggQuery.Retag (fun _ => rfl)
     (AggQuery.Proj
-      (fun j : Fin n => ProjCol.term (TermG.index (Fin.castAdd 1 j)
+      (fun j : Fin n => ProjColIn.term (TermGIn.index (Fin.castAdd 1 j)
         ((ColKind.rewKindsOf_castAdd (ColKind.allReg n) j).trans rfl)))
       q)
 
@@ -1040,12 +1036,12 @@ def AggQuery.diffColsU {n : ℕ} :
           (ColKind.allReg n))) (n + 1) :=
   fun j =>
     if hj : (j : ℕ) < n then
-      ProjCol.term (TermG.index
+      ProjColIn.term (TermGIn.index
         (Fin.castAdd n (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))
         ((Fin.append_left _ _ _).trans
           ((ColKind.rewKindsOf_castAdd (ColKind.allReg n) _).trans rfl)))
     else
-      ProjCol.provTerm (TermG.provIndex (Fin.castAdd n (Fin.last n))
+      ProjColIn.provTerm (TermGIn.provIndex (Fin.castAdd n (Fin.last n))
         ((Fin.append_left _ _ _).trans
           (ColKind.rewKindsOf_last (ColKind.allReg n))))
 
@@ -1057,16 +1053,16 @@ def AggQuery.diffColsM {n : ℕ} :
           (ColKind.rewKindsOf (ColKind.allReg n)))) (n + 1) :=
   fun j =>
     if hj : (j : ℕ) < n then
-      ProjCol.term (TermG.index
+      ProjColIn.term (TermGIn.index
         (Fin.castAdd (n + 1) (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))
         ((Fin.append_left _ _ _).trans
           ((ColKind.rewKindsOf_castAdd (ColKind.allReg n) _).trans rfl)))
     else
-      ProjCol.provTerm (TermG.sub
-        (TermG.provIndex (Fin.castAdd (n + 1) (Fin.last n))
+      ProjColIn.provTerm (TermGIn.sub
+        (TermGIn.provIndex (Fin.castAdd (n + 1) (Fin.last n))
           ((Fin.append_left _ _ _).trans
             (ColKind.rewKindsOf_last (ColKind.allReg n))))
-        (TermG.provIndex (Fin.natAdd (n + 1) (Fin.last n))
+        (TermGIn.provIndex (Fin.natAdd (n + 1) (Fin.last n))
           ((Fin.append_right _ _ _).trans
             (ColKind.rewKindsOf_last (ColKind.allReg n)))))
 
@@ -1254,7 +1250,7 @@ theorem AggQuery.diffBranchU_evaluateRew {n : ℕ}
           = fun k => Sum.inl (Fin.append pr.1.toComposite
               ((fun k => Sum.inl (pr.2 k)) : Tuple (T ⊕ K) n) k) from
         inl_append _ _]
-      refine Iff.trans (GenPred.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
+      refine Iff.trans (GenPredIn.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
       refine Iff.trans (keyJoinCond_holdsPlain _ _ _ _ _) ?_
       constructor
       · intro h
@@ -1276,7 +1272,7 @@ theorem AggQuery.diffBranchU_evaluateRew {n : ℕ}
               ((fun k => Sum.inl (pr.2 k)) : Tuple (T ⊕ K) n) k) from
         inl_append _ _]
       funext j
-      show ProjCol.evalRew (AggQuery.diffColsU j) _ = _
+      show ProjColIn.evalRew (AggQuery.diffColsU j) _ = _
       unfold AggQuery.diffColsU
       by_cases hj : (((j : ℕ) < n) : Prop)
       · rw [dite_eq_left hj]
@@ -1349,7 +1345,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
               : Tuple (GenValue (T ⊕ K) K) (n + 1))
           = fun k => Sum.inl (Fin.append pr.1.toComposite
               pr.2.toComposite k) from inl_append _ _]
-      refine Iff.trans (GenPred.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
+      refine Iff.trans (GenPredIn.holdsRew_inl _ (keyJoinCond_chiFree _ _ _ _) _) ?_
       refine Iff.trans (keyJoinCond_holdsPlain _ _ _ _ _) ?_
       constructor
       · intro h
@@ -1370,7 +1366,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
           = fun k => Sum.inl (Fin.append pr.1.toComposite
               pr.2.toComposite k) from inl_append _ _]
       funext j
-      show ProjCol.evalRew (AggQuery.diffColsM j) _ = _
+      show ProjColIn.evalRew (AggQuery.diffColsM j) _ = _
       unfold AggQuery.diffColsM
       by_cases hj : (((j : ℕ) < n) : Prop)
       · rw [dite_eq_left hj]
@@ -1390,8 +1386,8 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
           (⟨pr.1.fst, pr.1.snd - pr.2.snd⟩ : AnnotatedTuple T K n) j).trans
           (dite_eq_left hj)).symm
       · rw [dite_eq_right hj]
-        show Sum.inl (TermG.evalRew _ _ - TermG.evalRew _ _) = _
-        rw [show TermG.evalRew (TermG.provIndex
+        show Sum.inl (TermGIn.evalRew _ _ - TermGIn.evalRew _ _) = _
+        rw [show TermGIn.evalRew (TermGIn.provIndex
               (Fin.castAdd (n + 1) (Fin.last n))
               ((Fin.append_left _ _ _).trans
                 (ColKind.rewKindsOf_last (ColKind.allReg n))))
@@ -1404,7 +1400,7 @@ theorem AggQuery.diffBranchM_evaluateRew {n : ℕ}
           rw [Fin.append_left]
           exact (AnnotatedTuple.toComposite_coord _ _).trans
             (dite_eq_right (by simp only [Fin.val_last]; omega)),
-          show TermG.evalRew (TermG.provIndex
+          show TermGIn.evalRew (TermGIn.provIndex
               (Fin.natAdd (n + 1) (Fin.last n))
               ((Fin.append_right _ _ _).trans
                 (ColKind.rewKindsOf_last (ColKind.allReg n))))
@@ -1644,7 +1640,7 @@ inductive AggQuery.RewritesTo :
           (κ' := ColKind.rewKindsOf (fun j' => (ps j').kind))
           (fun j => by
             by_cases hj : (j : ℕ) < m
-            · rw [dite_eq_left hj, ProjCol.castRew_kind,
+            · rw [dite_eq_left hj, ProjColIn.castRew_kind,
                 show ColKind.rewKindsOf (fun j' => (ps j').kind) j
                   = (ps ⟨(j : ℕ), hj⟩).kind from
                   (congrArg (ColKind.rewKindsOf _)
@@ -1661,7 +1657,7 @@ inductive AggQuery.RewritesTo :
           (AggQuery.Proj
             (fun j : Fin (m + 1) =>
               if hj : (j : ℕ) < m then (ps ⟨(j : ℕ), hj⟩).castRew
-              else ProjCol.provTerm (TermG.provIndex (Fin.last n)
+              else ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
                 (ColKind.rewKindsOf_last κ)))
             q'))
   | prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}

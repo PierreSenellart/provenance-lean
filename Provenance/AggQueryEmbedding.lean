@@ -50,9 +50,9 @@ def genCountHavingSite (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
     (g : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ 1 (ColKind.allReg 1) :=
   AggQuery.castKind (funext fun _ => rfl)
     (AggQuery.Proj
-      (fun _ : Fin 1 => ProjCol.term
+      (fun _ : Fin 1 => ProjColIn.term
         ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
-      (AggQuery.Sel (GenPred.fusedCmp op (0 : Fin 1) (Term.const (C + 1)))
+      (AggQuery.Sel (GenPredIn.fusedCmp op (0 : Fin 1) (Term.const (C + 1)))
         (AggQuery.Gamma keyIdx ts' (fun _ => SeqAggFunc.count) g)))
 
 omit [HasAltLinearOrder K] in
@@ -60,7 +60,7 @@ omit [HasAltLinearOrder K] in
 the token lists of the output are empty, so the pending guards are all
 cashed and the output annotation is the finalized input annotation. -/
 theorem projTerm_row_eq {n m : ℕ} {κ : Fin n → ColKind}
-    (ps : Tuple (ProjCol T κ) m) (hps : ∀ j, ∃ t, ps j = ProjCol.term t)
+    (ps : Tuple (ProjCol T κ) m) (hps : ∀ j, ∃ t, ps j = ProjColIn.term t)
     (r : GenRow T K n) :
     ((fun j => (ps j).eval r.fst),
       (⟨r.snd.base * ((r.snd.pending - r.snd.pending ∩
@@ -109,7 +109,7 @@ theorem genCountHavingSite_eval
     ← fused_key_proj g q' hq' d hbridge ts' op C]
   refine Eq.trans (Multiset.map_congr rfl (fun r _ =>
     projTerm_row_eq
-      (fun _ : Fin 1 => ProjCol.term
+      (fun _ : Fin 1 => ProjColIn.term
         ((Term.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
       (fun _ => ⟨_, rfl⟩) r)) ?_
   unfold AggQuery.evaluateAnnotated

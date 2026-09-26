@@ -132,8 +132,8 @@ theorem winAggPos_kind : winJoinKinds n m (winAggPos n m) = ColKind.agg :=
 
 /-- The projection keeping the original columns and the aggregate. -/
 def winProj (n m : ℕ) : Tuple (ProjCol T (winJoinKinds n m)) (n + 1) :=
-  Fin.snoc (fun k : Fin n => ProjCol.term (TermG.index (winLeftPos m k) (winLeftPos_kind k)))
-    (ProjCol.token (winAggPos n m) winAggPos_kind)
+  Fin.snoc (fun k : Fin n => ProjColIn.term (TermGIn.index (winLeftPos m k) (winLeftPos_kind k)))
+    (ProjColIn.token (winAggPos n m) winAggPos_kind)
 
 omit [ValueType T] in
 theorem winProj_kinds (n m : ℕ) :
@@ -222,7 +222,7 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   | last =>
     dsimp only [Function.comp_apply]
     rw [winProj, Fin.snoc_last, Fin.snoc_last]
-    simp only [ProjCol.evalPlain, winAggPos, Fin.append_right]
+    simp only [ProjColIn.evalPlain, winAggPos, Fin.append_right]
     show f (List.map t.eval (Relation.groupSeq P r (Tuple.key P u)))
       = ValueFrame.windowValue P O o ValueFrame.whole t f r u
     unfold ValueFrame.windowValue
@@ -236,7 +236,7 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   | cast k =>
     dsimp only [Function.comp_apply]
     rw [winProj, Fin.snoc_castSucc, Fin.snoc_castSucc]
-    simp only [ProjCol.evalPlain, TermG.evalPlain, winLeftPos, Fin.append_left]
+    simp only [ProjColIn.evalPlain, TermGIn.evalPlain, winLeftPos, Fin.append_left]
 
 /-! ## Over annotated relations -/
 

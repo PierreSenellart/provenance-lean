@@ -563,14 +563,14 @@ variable {n₂ : ℕ}
 
 /-- The condition as a generalized selection predicate over the output of
 `Gamma`: each atom compares its token column against a constant
-(`GenPred.fusedCmp`), and `∧`/`∨` are the Boolean connectives of
+(`GenPredIn.fusedCmp`), and `∧`/`∨` are the Boolean connectives of
 `GenPred`. -/
 def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
-  | countGe l C => GenPred.fusedCmp CompOp.ge l (Term.const (C + 1))
-  | countGt l C => GenPred.fusedCmp CompOp.gt l (Term.const (C + 1))
-  | exist l op c => GenPred.fusedCmp op l (Term.const c)
-  | and ψ₁ ψ₂ => GenPred.and ψ₁.toGenPred ψ₂.toGenPred
-  | or ψ₁ ψ₂ => GenPred.or ψ₁.toGenPred ψ₂.toGenPred
+  | countGe l C => GenPredIn.fusedCmp CompOp.ge l (Term.const (C + 1))
+  | countGt l C => GenPredIn.fusedCmp CompOp.gt l (Term.const (C + 1))
+  | exist l op c => GenPredIn.fusedCmp op l (Term.const c)
+  | and ψ₁ ψ₂ => GenPredIn.and ψ₁.toGenPred ψ₂.toGenPred
+  | or ψ₁ ψ₂ => GenPredIn.or ψ₁.toGenPred ψ₂.toGenPred
 
 /-- The fused site `σ_ψ(γ_{#0}[ts : fs](qg))` of a monotone condition, as a
 general query. -/
@@ -645,15 +645,15 @@ theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc
           (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U)))
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
-    simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
+    simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
       Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.ge _
   | countGt l C => by
-    simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
+    simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
       Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.gt _
   | exist l op c => by
-    simp only [toGenPred, GenPred.fusedCmp, GenPred.predsem, Fin.append_right,
+    simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
       Term.toGenKey_eval, Bool.false_eq_true, ite_false]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U op _
   | and ψ₁ ψ₂ => by

@@ -46,8 +46,8 @@ no column to read. -/
 def padCol (c : Option (Fin n)) :
     ProjCol T (ColKind.allReg n) :=
   match c with
-  | some k => .term (TermG.index k rfl)
-  | none => .term (TermG.const ValueTypeNull.null)
+  | some k => .term (TermGIn.index k rfl)
+  | none => .term (TermGIn.const ValueTypeNull.null)
 
 @[simp] theorem padCol_kind (c : Option (Fin n)) :
     (padCol (T := T) c).kind = ColKind.reg := by
@@ -149,11 +149,11 @@ def interCond (k : ℕ) :
 
 /-- The projection onto the first `a` columns of a schema of `a + b`. -/
 def firstCols (a b : ℕ) : Tuple (ProjCol T (ColKind.allReg (a + b))) a :=
-  fun i => .term (TermG.index (Fin.castAdd b i) rfl)
+  fun i => .term (TermGIn.index (Fin.castAdd b i) rfl)
 
 /-- The projection onto the last `b` columns of a schema of `a + b`. -/
 def lastCols (a b : ℕ) : Tuple (ProjCol T (ColKind.allReg (a + b))) b :=
-  fun j => .term (TermG.index (Fin.natAdd a j) rfl)
+  fun j => .term (TermGIn.index (Fin.natAdd a j) rfl)
 
 /-- The projection onto the first block of a doubled schema. -/
 def fstBlock (k : ℕ) : Tuple (ProjCol T (ColKind.allReg (k + k))) k :=
