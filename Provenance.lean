@@ -418,7 +418,12 @@ proven engine several general results reuse internally.
   product of the two `⊕`-sums – the provenance of a conjunction of the two
   memberships, and not what `ε(q₁ - (q₁ - q₂))` would give; `leftOuter`,
   `rightOuter` and `fullOuter` add to the matching rows the unmatched ones
-  of either arm, padded
+  of either arm, padded; `semijoin` and `antijoin` count each left row's
+  matches over that outer join – reading a column of the right arm that is
+  never null on a match, so a padded row counts as none – and keep the rows
+  with one or with none. The counting aggregate is a parameter, an
+  aggregate mapping values of the domain to a value of the domain, so a
+  domain that is to count has to hold the counts
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

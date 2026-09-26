@@ -182,4 +182,82 @@ def fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 end Outer
 
+/-! ## Semijoin and antijoin
+
+Both count the matches of each row of the left arm, over its left outer
+join with the right one, and keep the rows with at least one or with none.
+The counting reads a column of the right arm that is never null on a
+match, so that a padded row counts as no match: SQL's aggregates skip the
+nulls.
+
+The counting aggregate is a parameter. An aggregate maps a sequence of
+values of the domain to a value of the domain, so a domain that is to
+count has to hold the counts; `SeqAggFunc.count` is the instance at `ℕ`.
+Over the counts the two selections are complementary, `= 0` and `≠ 0`
+standing for SQL's `= 0` and `≥ 1`.
+-/
+
+section Semijoin
+
+variable [ValueTypeNull T] {k l : ℕ}
+
+/-- The left outer join of the two arms, grouped by the columns of the
+left one, with a count of the matches in the added column. -/
+def matchCount (cnt : SeqAggFunc T) (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l)) :
+    AggQuery T (k + 1)
+      (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
+  Gamma (fun i : Fin k => Fin.castAdd l i)
+    ![Term.index (Fin.natAdd k κ)] ![cnt] (leftOuter φ R Q)
+
+/-- The count column of `matchCount` is the aggregate one. -/
+theorem matchCount_kind (i : Fin 1) :
+    (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg) :
+        Fin (k + 1) → ColKind) (Fin.natAdd k i) = ColKind.agg := by
+  rw [Fin.append_right]
+
+/-- The key columns of `matchCount` are the regular ones. -/
+theorem matchCount_kind_reg (i : Fin k) :
+    (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg) :
+        Fin (k + 1) → ColKind) (Fin.castAdd 1 i) = ColKind.reg := by
+  rw [Fin.append_left]
+
+/-- The projection back onto the columns of the left arm. -/
+def keyCols (k : ℕ) :
+    Tuple (ProjCol T
+      (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg) :
+        Fin (k + 1) → ColKind)) k :=
+  fun i => .term (TermG.index (Fin.castAdd 1 i) (matchCount_kind_reg i))
+
+omit [ValueTypeNull T] in
+@[simp] theorem keyCols_kind (i : Fin k) :
+    ((keyCols (T := T) k) i).kind = ColKind.reg := rfl
+
+/-- The comparison of the count column against a constant. -/
+def countCmp (op : CompOp) (c : T) :
+    GenPred T (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg) :
+      Fin (k + 1) → ColKind) :=
+  .aggCmp (Fin.natAdd k 0) (matchCount_kind 0) op (.const c)
+
+/-- **Semijoin**: the rows of the left arm that have a match, one copy of
+each – the grouping merges duplicates, as the definition in the semantics
+of the algebra does. -/
+def semijoin (cnt : SeqAggFunc T) (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l)) :
+    AggQuery T k (ColKind.allReg k) :=
+  (Proj (keyCols k) (Sel (countCmp CompOp.ne 0) (matchCount cnt κ φ R Q))).castKind
+    (funext fun i => keyCols_kind i)
+
+/-- **Antijoin**: the rows of the left arm with no match. -/
+def antijoin (cnt : SeqAggFunc T) (κ : Fin l)
+    (φ : GenPred T (ColKind.allReg (k + l)))
+    (R : AggQuery T k (ColKind.allReg k)) (Q : AggQuery T l (ColKind.allReg l)) :
+    AggQuery T k (ColKind.allReg k) :=
+  (Proj (keyCols k) (Sel (countCmp CompOp.eq 0) (matchCount cnt κ φ R Q))).castKind
+    (funext fun i => keyCols_kind i)
+
+end Semijoin
+
 end AggQuery
