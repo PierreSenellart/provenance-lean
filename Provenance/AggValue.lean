@@ -335,6 +335,67 @@ theorem predProvScalar_eq_predProv_add [ValueType T] [CommSemiringWithMonus K]
     simp [Finset.not_nonempty_iff_eq_empty]
   rw [hempty, Finset.sum_singleton, valOn_empty]
 
+/-- **A comparison that holds in the empty world and in no other has a
+single-term predicate provenance**: the empty world's annotation
+`𝟙 ⊖ ⊕ᵢ αᵢ`.
+
+No absorptivity and no distributivity of `⊗` over `⊖` are used, and none
+could be: there is no family of worlds to collapse, only one term. This is
+what makes `COUNT(κ) = 0` cheap in the scalar convention, where the empty
+world is a world – `COUNT` of nothing is `0`, and a non-empty world of
+occurrences whose `κ` is never null counts at least one. -/
+theorem predProvScalar_of_only_empty [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T)
+    (hempty : Having.chi (K := K) op (a.agg []) c = 1)
+    (hne : ∀ W : Finset (Fin a.occs.length), W.Nonempty →
+      Having.chi (K := K) op (a.valOn W) c = 0) :
+    a.predProvScalar op c = 1 - ∑ i, a.anns i := by
+  have hgrouped : a.predProv op c = 0 := by
+    unfold predProv
+    refine Finset.sum_eq_zero (fun W hW => ?_)
+    rw [hne W (Finset.mem_filter.mp hW).2, mul_zero]
+  rw [predProvScalar_eq_predProv_add, hgrouped, zero_add, hempty, mul_one,
+    Having.worldAnn_empty]
+
+/-- **`COUNT(κ) = 0` in the scalar convention is `𝟙 ⊖ ⊕ᵢ αᵢ`.** Where the
+counted values are never null, a non-empty world counts at least one, so
+the comparison holds in the empty world alone. This is an antijoin's
+annotation, and no hypothesis on `K` enters it: not absorptivity, not
+distributivity of `⊗` over `⊖`. -/
+theorem predProvScalar_count_eq_zero [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (hc : SeqAggFunc.Counts a.agg)
+    (hnn : ∀ o ∈ a.occs, ValueType.isNull o.fst = false) :
+    a.predProvScalar CompOp.eq 0 = 1 - ∑ i, a.anns i := by
+  have hnil : a.agg [] = 0 := (hc.eq_zero []).mpr (fun _ h => absurd h (by simp))
+  refine predProvScalar_of_only_empty a CompOp.eq 0 ?_ (fun W hW => ?_)
+  · show (if CompOp.eq.eval3 (a.agg []) 0 = Kleene.true then (1 : K) else 0) = 1
+    refine ite_eq_left ?_
+    rw [hnil, CompOp.eval3_eq_true_iff CompOp.eq ValueType.isNull_zero
+      ValueType.isNull_zero]
+    rfl
+  · show (if CompOp.eq.eval3 (a.valOn W) 0 = Kleene.true then (1 : K) else 0) = 0
+    refine ite_eq_right (fun hcon => ?_)
+    rw [show a.valOn W = a.agg ((Having.seqOf a.occs W).map Prod.fst) from rfl,
+      CompOp.eval3_eq_true_iff CompOp.eq (hc.not_null _)
+        ValueType.isNull_zero] at hcon
+    -- the world counts at least one occurrence, all of whose values are
+    -- non-null, so its count is not zero
+    have hmem : ∀ x ∈ (Having.seqOf a.occs W).map Prod.fst,
+        ValueType.isNull x = false := by
+      intro x hx
+      obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hx
+      exact hnn o ((Having.mem_seqOf a.occs W o).mp ho |>.elim
+        (fun i hi => hi.2 ▸ List.get_mem _ _))
+    obtain ⟨i, hi⟩ := hW
+    have hne : ((Having.seqOf a.occs W).map Prod.fst) ≠ [] := by
+      apply List.ne_nil_of_length_pos
+      rw [List.length_map, Having.seqOf_length]
+      exact Finset.card_pos.mpr ⟨i, hi⟩
+    obtain ⟨x, hx⟩ := List.exists_mem_of_ne_nil _ hne
+    have := ((hc.eq_zero _).mp hcon) x hx
+    rw [hmem x hx] at this
+    exact Bool.noConfusion this
+
 /-! ## `ofGroup` bridges to the fused semantics -/
 
 section OfGroup

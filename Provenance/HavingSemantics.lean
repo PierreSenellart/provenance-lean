@@ -244,6 +244,14 @@ def worldAnn {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) : K :=
   (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i)
 
 omit [DecidableEq K] in
+/-- **The empty world is annotated `𝟙 ⊖ ⊕ᵢ αᵢ`**: nothing of the group is
+present. -/
+@[simp] theorem worldAnn_empty {N : ℕ} (α : Fin N → K) :
+    worldAnn α ∅ = 1 - ∑ i, α i := by
+  unfold worldAnn
+  rw [Finset.prod_empty, one_mul, Finset.compl_empty]
+
+omit [DecidableEq K] in
 /-- In an m-semiring where `⊗` left-distributes over `⊖`, the factored
 world annotation coincides with the exactly-`W` contribution `Having.T`
 over the full universe of positions. This is the *only* place the
@@ -686,6 +694,29 @@ theorem Existential.to3 [NoNulls T] {f : SeqAggFunc T} {op : CompOp}
   rw [CompOp.eval3_eq_true_iff_noNulls]
   refine Iff.trans (hf L c hL) (exists_congr (fun x => ?_))
   exact and_congr Iff.rfl (CompOp.eval3_eq_true_iff_noNulls op x c).symm
+
+/-- **A counting aggregate compared to zero is existential in
+non-nullness**: `COUNT(t) ≠ 0` holds exactly when some occurrence has a
+non-null `t`-value. This is not a comparison of that value against `0` – a
+non-null value may well be zero – which is why the collapse of an
+existential `HAVING` has to be stated against a predicate on values. -/
+theorem existentialOn_counting {cnt : SeqAggFunc T}
+    (hc : SeqAggFunc.Counts cnt) :
+    ExistentialOn cnt CompOp.ne 0
+      (fun x => ValueType.isNull x = false) := by
+  intro L _
+  rw [CompOp.eval3_eq_true_iff CompOp.ne (hc.not_null L) ValueType.isNull_zero]
+  show ¬ (cnt L = 0) ↔ _
+  rw [hc.eq_zero]
+  constructor
+  · intro h
+    by_contra hc'
+    exact h (fun x hx => by
+      by_contra hn
+      exact hc' ⟨x, hx, by simpa using hn⟩)
+  · rintro ⟨x, hx, hxn⟩ hall
+    rw [hall x hx] at hxn
+    exact Bool.noConfusion hxn
 
 omit [DecidableEq K] in
 /-- **An existential comparison collapses to the qualifying occurrences.**

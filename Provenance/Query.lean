@@ -467,6 +467,30 @@ theorem counting_of_noNulls {V : Type} [ValueType V] [NoNulls V]
     (f : SeqAggFunc V) : f.counting = f :=
   funext fun _L => counting_eq_of_no_null f (fun a _ => isNull_eq_false a)
 
+/-- What it takes for an aggregate to count matches: it is never null, and
+it is zero exactly when it has no non-null value to count. SQL's `count(e)`
+is such an aggregate. -/
+structure Counts {V : Type} [ValueType V] (cnt : SeqAggFunc V) : Prop where
+  /-- A count is a value, never a null. -/
+  not_null : ∀ L : List V, ValueType.isNull (cnt L) = false
+  /-- A count is zero exactly over nothing but nulls. -/
+  eq_zero : ∀ L : List V, cnt L = 0 ↔ ∀ x ∈ L, ValueType.isNull x = true
+
+/-- **SQL's counting policy over a plain count counts matches.** A plain
+count is one that is never null and is zero only over the empty sequence;
+reading it through the counting policy, which drops the nulls, gives an
+aggregate that is zero exactly when there was nothing but nulls to
+count. -/
+theorem counts_counting {V : Type} [ValueType V] {cnt : SeqAggFunc V}
+    (hnn : ∀ L : List V, ValueType.isNull (cnt L) = false)
+    (hz : ∀ L : List V, cnt L = 0 ↔ L = []) :
+    Counts (SeqAggFunc.counting cnt) where
+  not_null _ := hnn _
+  eq_zero L := by
+    show cnt (L.filter (fun a => !ValueType.isNull a)) = 0 ↔ _
+    rw [hz, List.filter_eq_nil_iff]
+    exact ⟨fun h x hx => by simpa using h x hx, fun h x hx => by simpa using h x hx⟩
+
 /-! ### Which aggregates read their input as a multiset
 
 The interface is a function on *sequences*, so an aggregate may depend on

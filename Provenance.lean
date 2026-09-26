@@ -189,6 +189,9 @@ the provenance-aware relational database system
   which drops the nulls and gives `NULL` when nothing is left, and
   `SeqAggFunc.counting`, the *counting* one (`COUNT(t)`), which drops them
   and gives `0` – the third, *null-keeping*, being the aggregate itself.
+  `SeqAggFunc.Counts` says what it takes for an aggregate to count – never
+  null, and zero exactly over nothing but nulls – and `counts_counting`
+  supplies it from the counting policy over a plain count.
   `SeqAggFunc.count` is `COUNT(*)`, `COUNT` over a term that is never null,
   and needs neither. On a domain where nothing is null the counting policy
   is the count itself (`counting_of_noNulls`). That is what
@@ -429,15 +432,10 @@ proven engine several general results reuse internally.
   with `mem_matchedLeft`/`mem_matchedRight` saying which rows of an arm
   have a match); `leftOuter`,
   `rightOuter` and `fullOuter` add to the matching rows the unmatched ones
-  of either arm, padded; `semijoin` and `antijoin` count each left row's
-  matches over that outer join – reading a column of the right arm that is
-  never null on a match, so a padded row counts as none – and keep the rows
-  with one or with none. The counting aggregate is a parameter, and it has
-  to be `COUNT(t)` and not `COUNT(*)`: `Counts` says what is asked of it –
-  never null, and zero exactly over nothing but nulls – and
-  `counts_counting` supplies it from SQL's counting policy over a plain
-  count. `COUNT(*)` would count the padded row of an unmatched row as a
-  match
+  of either arm, padded. The semijoin and the antijoin are deliberately absent:
+  they apply the left arm to a scalar aggregation of the filtered right
+  one, so that each occurrence keeps its multiplicity, and that needs the
+  apply operator this library does not have
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate
@@ -454,11 +452,7 @@ proven engine several general results reuse internally.
   `α ⊖ ⊕(α' ⊗ β)` over the matches of *every copy* of its tuple
   (`evaluateAnnotated_leftOuter` and its right and full companions). That
   subtracted form is the definition; `α ⊗ (𝟙 ⊖ ⊕β)` equals it only when
-  `⊗` distributes over `⊖` and `K` is absorptive. The semijoin and the
-  antijoin put a selection on an aggregate value directly above a
-  grouping, so they are fused `HAVING` sites and their annotation is the
-  predicate provenance of the comparison on each row's group
-  (`evaluateAnnotated_semijoin`, `evaluateAnnotated_antijoin`)
+  `⊗` distributes over `⊖` and `K` is absorptive
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
