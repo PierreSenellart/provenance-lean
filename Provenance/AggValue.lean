@@ -177,6 +177,100 @@ def predProvOf [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     a.predProvOf op c = a.predProvScalar op c := by
   simp [predProvOf, h]
 
+/-! ### Two atoms on one token
+
+A selection whose predicate conjoins two comparisons of the same token –
+a truncation's `m < #(k+1) ≤ m+c`, a `HAVING` such as `count(*) > 2 AND
+count(*) < 5` – multiplies the two atoms' provenances, each summed over
+the worlds of the token separately. That is not in general the sum over
+the worlds where both comparisons hold, and the definitions below name
+the joint reading so that the difference can be stated. -/
+
+/-- The predicate provenance of two aggregate atoms on one token, read
+*jointly*: the `⊕`-sum over the worlds in which both comparisons hold. -/
+def predProvAnd [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (op₁ : CompOp) (c₁ : T)
+    (op₂ : CompOp) (c₂ : T) : K :=
+  ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin a.occs.length) => W.Nonempty),
+    Having.worldAnn a.anns W
+      * (Having.chi op₁ (a.valOn W) c₁ * Having.chi op₂ (a.valOn W) c₂)
+
+/-- **When the conjunction of two atoms on one token reads jointly.** The
+algebra's conjunction multiplies the two atoms' provenances, each summed
+over the worlds of the token separately. Exclusivity kills the terms
+where the two sums pick different worlds, and multiplicative idempotence
+collapses the diagonal, leaving the joint sum. Neither holds of every
+m-semiring: `𝔹[X]` has both, `ℕ` is exclusive and not idempotent, and an
+absorptive domain such as Viterbi is not exclusive. -/
+theorem predProv_mul_predProv [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (hexcl : exclusive K) (hidem : ∀ x : K, x * x = x)
+    (a : AggValue T K) (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProv op₁ c₁ * a.predProv op₂ c₂ = a.predProvAnd op₁ c₁ op₂ c₂ := by
+  unfold predProv predProvAnd
+  rw [Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl (fun W hW => ?_)
+  rw [Finset.sum_eq_single W]
+  · rw [mul_mul_mul_comm, hidem]
+  · intro W' _ hne
+    rw [mul_mul_mul_comm,
+      Having.worldAnn_mul_eq_zero_of_ne hexcl _ (Ne.symm hne), zero_mul]
+  · intro h
+    exact absurd hW h
+
+/-- The scalar-convention counterpart of `predProvAnd`: the same joint
+sum, over all worlds of the token, the empty one included. This is the
+reading a window's token needs, its frame being allowed to exclude the
+row it is computed for. -/
+def predProvScalarAnd [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (op₁ : CompOp) (c₁ : T)
+    (op₂ : CompOp) (c₂ : T) : K :=
+  ∑ W : Finset (Fin a.occs.length),
+    Having.worldAnn a.anns W
+      * (Having.chi op₁ (a.valOn W) c₁ * Having.chi op₂ (a.valOn W) c₂)
+
+/-- The scalar-convention counterpart of `predProv_mul_predProv`. -/
+theorem predProvScalar_mul_predProvScalar [ValueType T]
+    [CommSemiringWithMonus K] [DecidableEq K] (hexcl : exclusive K)
+    (hidem : ∀ x : K, x * x = x) (a : AggValue T K)
+    (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProvScalar op₁ c₁ * a.predProvScalar op₂ c₂
+      = a.predProvScalarAnd op₁ c₁ op₂ c₂ := by
+  unfold predProvScalar predProvScalarAnd
+  rw [Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  rw [Finset.sum_eq_single W]
+  · rw [mul_mul_mul_comm, hidem]
+  · intro W' _ hne
+    rw [mul_mul_mul_comm,
+      Having.worldAnn_mul_eq_zero_of_ne hexcl _ (Ne.symm hne), zero_mul]
+  · intro h
+    exact absurd (Finset.mem_univ W) h
+
+/-- The joint reading in the token's own convention. -/
+def predProvOfAnd [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (op₁ : CompOp) (c₁ : T)
+    (op₂ : CompOp) (c₂ : T) : K :=
+  if a.scalar then a.predProvScalarAnd op₁ c₁ op₂ c₂
+  else a.predProvAnd op₁ c₁ op₂ c₂
+
+/-- **A range test on one token reads jointly exactly under these two
+properties.** A selection whose predicate conjoins two comparisons of the
+same token – a truncation's `m < #(k+1) ≤ m+c`, a `HAVING` such as
+`count(*) > 2 AND count(*) < 5` – multiplies the two provenances, each
+summed over the worlds separately. That is the joint sum over the worlds
+where both hold when the m-semiring is exclusive and its multiplication
+is idempotent, and not otherwise. -/
+theorem predProvOf_mul_predProvOf [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (hexcl : exclusive K)
+    (hidem : ∀ x : K, x * x = x) (a : AggValue T K)
+    (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProvOf op₁ c₁ * a.predProvOf op₂ c₂
+      = a.predProvOfAnd op₁ c₁ op₂ c₂ := by
+  unfold predProvOf predProvOfAnd
+  cases a.scalar
+  · exact predProv_mul_predProv hexcl hidem a op₁ c₁ op₂ c₂
+  · exact predProvScalar_mul_predProvScalar hexcl hidem a op₁ c₁ op₂ c₂
+
 /-- A token built from a group is grouped. -/
 @[simp] theorem scalar_ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :

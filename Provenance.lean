@@ -263,7 +263,16 @@ proven engine several general results reuse internally.
   gives `⊕ᵢ αᵢ` under absorptivity, the worlds it sums over being the
   non-empty ones, which `Having.sum_ann_meet` collapses. Both are stated of
   an arbitrary occurrence family, so they hold of a family gathered from
-  several sources as well as of one group.
+  several sources as well as of one group. **Two comparisons of one
+  token** are another matter: a predicate conjoining them multiplies
+  their provenances, each summed over the worlds separately, and
+  `predProvAnd` (with `predProvScalarAnd`, `predProvOfAnd`) names the
+  joint sum over the worlds where both hold instead.
+  `predProvOf_mul_predProvOf` says the two agree exactly when `K` is
+  exclusive and its multiplication is idempotent – `𝔹[X]` has both, `ℕ`
+  is exclusive and not idempotent, and an absorptive domain such as
+  Viterbi is not exclusive. It is the shape a truncation's range test
+  and a `HAVING` like `count(*) > 2 AND count(*) < 5` have.
 - `Provenance.AggExpr` – **aggregate expressions**: what a term that
   mentions a column of aggregate kind produces. `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the
