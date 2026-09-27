@@ -359,3 +359,42 @@ theorem bool_or_per_atom : (boolTokenT.predProvWith testNe
 
 theorem bool_or_joint :
     Having.jointOr boolTokenT boolTokenF testNe testEq = false := by decide
+
+/-! ### The same over `ℕ`, where the existence factors do not absorb it
+
+The `𝔹` instance above parts at predicate level and closes at row level,
+the `δ` of the empty group killing the row. Over `ℕ` it does not close:
+`δ` records support, and what differs is a multiplicity. Two grouped
+families, one row annotated `𝟙` and one annotated `2`, with the first
+condition satisfied and the second not, give `𝟙` per atom and `2` for
+the one sum over the union – and the row's own factors are
+`δ(1) ⊗ δ(2) = 𝟙`, so nothing absorbs the difference.
+
+The extra factor is the *unsatisfied* disjunct's family, which the
+satisfied disjunct never reads. That is not a derivation count, so it is
+a different kind of error from the multiplicity `⊕` already gives a
+disjunction (`p ∨ p` is `2` in `ℕ`), and it is what makes the one-sum
+reading over the union the wrong reference for a disjunction. -/
+
+/-- One occurrence of multiplicity `𝟙`. -/
+def natTokenOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], false⟩
+
+/-- One occurrence of multiplicity `2`. -/
+def natTokenTwo : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], false⟩
+
+/-- `count ≥ 1`, satisfied. -/
+def testGe1 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 1
+
+/-- `count ≥ 2`, not satisfied on a one-occurrence family. -/
+def testGe2 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 2
+
+theorem nat_or_per_atom :
+    natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2 = 1 := by
+  decide
+
+theorem nat_or_joint :
+    Having.jointOr natTokenOne natTokenTwo testGe1 testGe2 = 2 := by decide
+
+theorem nat_or_ne_joint :
+    natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2
+      ≠ Having.jointOr natTokenOne natTokenTwo testGe1 testGe2 := by decide
