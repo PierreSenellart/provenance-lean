@@ -203,7 +203,7 @@ collapses the diagonal, leaving the joint sum. Neither holds of every
 m-semiring: `𝔹[X]` has both, `ℕ` is exclusive and not idempotent, and an
 absorptive domain such as Viterbi is not exclusive. -/
 theorem predProv_mul_predProv [ValueType T] [CommSemiringWithMonus K]
-    [DecidableEq K] (hexcl : exclusive K) (hidem : ∀ x : K, x * x = x)
+    [DecidableEq K] (hexcl : exclusive K) (hidem : mulIdempotent K)
     (a : AggValue T K) (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProv op₁ c₁ * a.predProv op₂ c₂ = a.predProvAnd op₁ c₁ op₂ c₂ := by
   unfold predProv predProvAnd
@@ -231,7 +231,7 @@ def predProvScalarAnd [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 /-- The scalar-convention counterpart of `predProv_mul_predProv`. -/
 theorem predProvScalar_mul_predProvScalar [ValueType T]
     [CommSemiringWithMonus K] [DecidableEq K] (hexcl : exclusive K)
-    (hidem : ∀ x : K, x * x = x) (a : AggValue T K)
+    (hidem : mulIdempotent K) (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProvScalar op₁ c₁ * a.predProvScalar op₂ c₂
       = a.predProvScalarAnd op₁ c₁ op₂ c₂ := by
@@ -262,7 +262,7 @@ where both hold when the m-semiring is exclusive and its multiplication
 is idempotent, and not otherwise. -/
 theorem predProvOf_mul_predProvOf [ValueType T] [CommSemiringWithMonus K]
     [DecidableEq K] (hexcl : exclusive K)
-    (hidem : ∀ x : K, x * x = x) (a : AggValue T K)
+    (hidem : mulIdempotent K) (a : AggValue T K)
     (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
     a.predProvOf op₁ c₁ * a.predProvOf op₂ c₂
       = a.predProvOfAnd op₁ c₁ op₂ c₂ := by

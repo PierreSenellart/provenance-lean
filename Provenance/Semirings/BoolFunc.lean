@@ -322,3 +322,9 @@ theorem BoolFunc.complemented : _root_.complemented (BoolFunc X) := by
   apply funext
   intro ν
   by_cases ha : a ν <;> by_cases hb : b ν <;> simp[ha,hb]
+
+/-- **`𝔹[X]` is multiplicatively idempotent**: `⊗` is pointwise
+conjunction. -/
+theorem BoolFunc.mulIdempotent : _root_.mulIdempotent (BoolFunc X) := by
+  intro a
+  simp[(· * ·),Mul.mul]

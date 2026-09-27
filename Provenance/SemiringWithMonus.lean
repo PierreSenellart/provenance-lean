@@ -206,6 +206,16 @@ The following properties do not always hold in an arbitrary m-semiring.
 /-- A `Semiring` is idempotent if `a + a = a`. -/
 abbrev idempotent (α) [Semiring α] := ∀ a : α, a + a = a
 
+/-- A `Semiring` is *multiplicatively idempotent* when `a ⊗ a = a`. It is
+the lattice-like condition: with `⊕`-idempotence it makes the semiring a
+bounded distributive lattice, and it is what a world annotation needs in
+order to survive being multiplied by itself – which is what happens when
+two atoms of one predicate read the same occurrence family
+(`AggValue.predProvOf_mul_predProvOf`). `𝔹`, `𝔹[X]`, lineage and
+interval union have it; `ℕ` and the absorptive numeric domains do
+not. -/
+abbrev mulIdempotent (α) [Semiring α] := ∀ a : α, a * a = a
+
 /-- A `Semiring` is absorptive (also called 0-closed or 0-bounded) if `1 + a = 1`. -/
 abbrev absorptive (α) [Semiring α] := ∀ a : α, 1 + a = 1
 

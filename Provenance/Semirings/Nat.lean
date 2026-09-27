@@ -147,3 +147,13 @@ theorem Nat.complemented : _root_.complemented ℕ := by
   intro a b
   cases a <;> cases b <;> simp
   omega
+
+/-- **`ℕ` is not multiplicatively idempotent**, which is what separates
+it from the lattice-like exclusive domains: it is exclusive, so the
+worlds of a family do annihilate each other pairwise, but a world
+annotated `2` is not worth the same squared. It is the one semiring of
+the catalog that is exclusive without being multiplicatively
+idempotent. -/
+theorem Nat.not_mulIdempotent : ¬ _root_.mulIdempotent ℕ := by
+  intro h
+  exact absurd (h 2) (by decide)

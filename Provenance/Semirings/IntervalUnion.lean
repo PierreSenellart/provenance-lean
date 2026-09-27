@@ -1434,6 +1434,16 @@ theorem IntervalUnion.idempotent [DenselyOrdered α] [BoundedOrder α] :
     idempotent (IntervalUnion α) :=
   idempotent_of_absorptive IntervalUnion.absorptive
 
+/-- **The interval-union semiring is multiplicatively idempotent**: `⊗`
+is intersection. -/
+theorem IntervalUnion.mulIdempotent [DenselyOrdered α] [BoundedOrder α] :
+    _root_.mulIdempotent (IntervalUnion α) := by
+  intro a
+  apply ext_toSet
+  ext x
+  rw [mul_eq_inter, mem_inter]
+  tauto
+
 instance [BoundedOrder α] : Nontrivial (IntervalUnion α) := ⟨0, 1, fun h => by
   have : (0 : IntervalUnion α).intervals = (1 : IntervalUnion α).intervals := by rw [h]
   cases this⟩

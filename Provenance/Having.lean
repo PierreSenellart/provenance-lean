@@ -720,7 +720,15 @@ alone, `𝟙 ⊖ S_1(U)` – needs neither hypothesis, `S_0(U)` being `𝟙`.
 Both hypotheses are needed here and not only for the step
 `F_{C+1} = S_{C+1}`: over `ℕ`, which is not absorptive, the two sides
 already part company at `C = 0`, `D = 1` on two occurrences annotated
-`𝟙` (`Having.natRange_ne` in `Provenance.HavingQueryCounterexamples`). -/
+`𝟙` (`Having.natRange_ne` in `Provenance.HavingQueryCounterexamples`).
+
+What they buy is worth separating from what is free. Reading the range
+as a *difference* is free: the worlds of size at least `C + 1` minus
+those of size at least `D + 1` are the worlds in the range, and the
+telescoping needs nothing of `K`. What the hypotheses buy is the
+replacement of each exponential world-sum by the symmetric function
+`S`, which is the step `F = S`, and it is that replacement – the cheap
+form, not the decomposition – that is fragile. -/
 theorem range_eq_S_monus_S (h_abs : absorptive K)
     (h_distrib : mul_sub_left_distributive K)
     (α : ι → K) (U : Finset ι) (C D : ℕ) :

@@ -129,3 +129,6 @@ end Bool
 /-- **`𝔹` is complemented**: `𝟙 ⊖ ·` is negation, and De Morgan turns
 `⊕` into `⊗`. -/
 theorem Bool.complemented : _root_.complemented Bool := by decide
+
+/-- **`𝔹` is multiplicatively idempotent**: `⊗` is conjunction. -/
+theorem Bool.mulIdempotent : _root_.mulIdempotent Bool := by decide

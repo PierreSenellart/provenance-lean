@@ -278,8 +278,13 @@ proven engine several general results reuse internally.
   `𝟙 ⊖ (a ⊕ b) = (𝟙 ⊖ a) ⊗ (𝟙 ⊖ b)`, under which a world's annotation
   splits along a partition of its family (`Having.worldAnn_split`). The
   two hypotheses are independent: `ℕ` is complemented and not
-  multiplicatively idempotent, so it separates the same-family readings
-  and leaves the disjoint ones alone.
+  multiplicatively idempotent (`Nat.not_mulIdempotent`), so it separates
+  the same-family readings and leaves the disjoint ones alone. The
+  domains that satisfy the same-family hypothesis are the exclusive
+  ones whose `⊗` is idempotent, which of the catalog are `𝔹`, `𝔹[X]`,
+  lineage and interval union (`Bool.mulIdempotent`,
+  `BoolFunc.mulIdempotent`, `Which.mulIdempotent`,
+  `IntervalUnion.mulIdempotent`) – the lattice-like ones.
 - `Provenance.AggExpr` – **aggregate expressions**: what a term that
   mentions a column of aggregate kind produces. `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the
