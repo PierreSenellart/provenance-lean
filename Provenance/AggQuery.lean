@@ -1143,9 +1143,10 @@ theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
 
 /-- Kind transport is transparent to evaluation (row types do not mention
 the kind vector). -/
-theorem AggQueryIn.evaluate_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQuery T n κ) (d : AnnotatedDatabase T K) :
-    (q.castKind h).evaluate d = q.evaluate d := by
+theorem AggQueryIn.evaluate_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    (h : κ = κ') (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
+    {γ : Fin c → T} :
+    (q.castKind h).evaluate d γ = q.evaluate d γ := by
   subst h; rfl
 
 /-- The kind vector of a `Gamma` output: key columns then token columns. -/
@@ -1154,9 +1155,10 @@ abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Kind transport is transparent to plain evaluation too. -/
-theorem AggQueryIn.evaluatePlain_castKind {n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQuery T n κ) (d : Database T) :
-    (q.castKind h).evaluatePlain d = q.evaluatePlain d := by
+theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    (h : κ = κ') (q : AggQueryIn T c n κ) (d : Database T)
+    {γ : Fin c → T} :
+    (q.castKind h).evaluatePlain d γ = q.evaluatePlain d γ := by
   subst h; rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]

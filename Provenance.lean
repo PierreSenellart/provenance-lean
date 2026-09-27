@@ -26,6 +26,7 @@ import Provenance.AggValueCongr
 
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
+import Provenance.AggQuerySubst
 
 /- Operators that abbreviate a query of the basis -/
 import Provenance.Derived
@@ -301,6 +302,17 @@ proven engine several general results reuse internally.
   gaining the token (`ValueFrame.tokenOf`) or the value
   (`ValueFrame.windowValue`) that the relation gives it – which is the form
   every theorem about the operator uses
+- `Provenance.AggQuerySubst` – **substituting the outer columns**: the
+  apply is defined by substitution – its right side is read, for each
+  row `u` of the left, as the closed query `q₂[u]` – while the
+  evaluators read it under an outer *valuation*, which is what makes
+  them structurally recursive. `AggQuery.substMap` performs the
+  substitution (generally enough to close only the ambient part of a
+  nested context, which is what passing under an apply needs) and
+  `AggQuery.evaluate_substMap` says the two readings agree, so that the
+  document's clauses `AggQuery.evaluate_Apply_subst` and
+  `AggQuery.evaluatePlain_Apply_subst` are theorems about the evaluator
+  rather than a second semantics
 - `Provenance.Occurrence` – **relations as families of occurrences**:
   `OccFam`, a relation read as an indexed family rather than a multiset, so
   that two copies of a row are two occurrences. The row type is a parameter,
