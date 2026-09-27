@@ -80,9 +80,10 @@ variable {T K K' : Type} {m : ℕ}
 
 /-- The token of a group with occurrence sequence `U`, aggregating the
 term `t` with `f`: the projection of the group payload. -/
-def ofGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
-    (U : List (AnnotatedTuple T K m)) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst, p.snd)), false⟩
+def ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (U : List (AnnotatedTuple T K m))
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=
@@ -153,9 +154,10 @@ def predProvScalar [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 with the empty world among its worlds. This is what an aggregation with no
 grouping produces, and what a window frame that may exclude its current row
 produces. -/
-def ofScalarGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
-    (U : List (AnnotatedTuple T K m)) : AggValue T K :=
-  { ofGroup f t U with scalar := true }
+def ofScalarGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (U : List (AnnotatedTuple T K m))
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  { ofGroup f t U γ with scalar := true }
 
 /-- **Predicate provenance in the token's own convention.** A comparison
 reads a token by the flag it carries, so that an operator settles the
@@ -176,13 +178,14 @@ def predProvOf [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   simp [predProvOf, h]
 
 /-- A token built from a group is grouped. -/
-@[simp] theorem scalar_ofGroup [ValueType T] (f : SeqAggFunc T) (t : Term T m)
-    (U : List (AnnotatedTuple T K m)) : (ofGroup f t U).scalar = false := rfl
+@[simp] theorem scalar_ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
+    (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
+    (ofGroup f t U γ).scalar = false := rfl
 
 /-- A token built from a group in the scalar convention is scalar. -/
-@[simp] theorem scalar_ofScalarGroup [ValueType T] (f : SeqAggFunc T)
-    (t : Term T m) (U : List (AnnotatedTuple T K m)) :
-    (ofScalarGroup f t U).scalar = true := rfl
+@[simp] theorem scalar_ofScalarGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
+    (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
+    (ofScalarGroup f t U γ).scalar = true := rfl
 
 /-! ## Reindexing bridges
 

@@ -557,7 +557,7 @@ def GenPredIn.siteProvTerm {n₁ n₂ : ℕ}
   if φ.entailsExistence false then φ.gateTerm false
   else
     TermGIn.mul (φ.gateTerm false)
-      (TermGIn.provIndex (Fin.last (n₁ + n₂))
+      (TermGIn.provIndex (c := 0) (Fin.last (n₁ + n₂))
         (ColKind.rewKindsOf_last (ColKind.gammaKinds n₁ n₂)))
 
 /-- The output columns of a general `HAVING` site: the group keys and the
@@ -729,7 +729,7 @@ theorem GenRow.plainTuple_toCompositeRow {n : ℕ} (r : GenRow T K n)
 /-- The provenance column of an embedded row is its finalized
 annotation. -/
 theorem TermGIn.evalRew_provLast_toCompositeRow {n : ℕ} (r : GenRow T K n) :
-    (TermGIn.provIndex (Fin.last n)
+    (TermGIn.provIndex (c := 0) (Fin.last n)
         (ColKind.rewKindsOf_last (ColKind.allReg n))).evalRew
       r.toCompositeRow = Sum.inr r.snd.finalize := by
   show AggValue.collapseSum (r.toCompositeRow (Fin.last n)) = _
@@ -756,7 +756,7 @@ def AggQueryIn.dedupRew {n : ℕ}
       (fun k => by
         rw [ColKind.rewKindsOf_castAdd]
         exact fun hc => ColKind.noConfusion hc)
-      (TermGIn.provIndex (Fin.last n)
+      (TermGIn.provIndex (c := 0) (Fin.last n)
         (ColKind.rewKindsOf_last (ColKind.allReg n)))
       q')
 
@@ -806,7 +806,7 @@ theorem AggQueryIn.dedupRew_valid {n : ℕ} {q : AggQuery T n (ColKind.allReg n)
   refine Eq.symm ?_
   rw [Multiset.filter_map, Multiset.map_map,
     show ((fun x : Tuple (GenValue (T ⊕ K) K) (n + 1) =>
-          (TermGIn.provIndex (Fin.last n)
+          (TermGIn.provIndex (c := 0) (Fin.last n)
             (ColKind.rewKindsOf_last (ColKind.allReg n))).evalRew x)
         ∘ GenRow.toCompositeRow)
       = (fun r : GenRow T K n => (Sum.inr (GenRow.toAnnotated r).snd : T ⊕ K))
@@ -1657,7 +1657,7 @@ inductive AggQueryIn.RewritesTo :
           (AggQueryIn.Proj
             (fun j : Fin (m + 1) =>
               if hj : (j : ℕ) < m then (ps ⟨(j : ℕ), hj⟩).castRew
-              else ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
+              else ProjColIn.provTerm (TermGIn.provIndex (c := 0) (Fin.last n)
                 (ColKind.rewKindsOf_last κ)))
             q'))
   | prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}

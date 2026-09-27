@@ -57,52 +57,57 @@ def AggQueryIn.retagToRew {T' : Type} {n : ℕ} {κ : Fin (n + 1) → ColKind}
 /-- The classical (R1)–(R4) source fragment of the general syntax: no
 grouping, no provenance aggregation, no retagging, projections through
 regular terms only, selections without aggregate atoms. -/
-def AggQueryIn.classical : {n : ℕ} → {κ : Fin n → ColKind} →
-    AggQuery T n κ → Prop
-  | _, _, .Rel _ _ => True
-  | _, _, .Proj ps q =>
+def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj ps q =>
       (∀ j, (ps j).kind = ColKind.reg) ∧ q.classical
-  | _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.classical
-  | _, _, .Prod q₁ q₂ => q₁.classical ∧ q₂.classical
-  | _, _, .Sum q₁ q₂ => q₁.classical ∧ q₂.classical
-  | _, _, .Dedup q => q.classical
-  | _, _, .Diff q₁ q₂ => q₁.classical ∧ q₂.classical
-  | _, _, .Gamma _ _ _ _ => False
-  | _, _, .GammaScalar _ _ _ => False
-  | _, _, .ProvSum _ _ _ _ => False
-  | _, _, .Retag _ _ => False
-  | _, _, .GammaTok _ _ _ _ _ _ => False
+  | _, _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.classical
+  | _, _, _, .Prod q₁ q₂ => q₁.classical ∧ q₂.classical
+  | _, _, _, .Sum q₁ q₂ => q₁.classical ∧ q₂.classical
+  | _, _, _, .Dedup q => q.classical
+  | _, _, _, .Diff q₁ q₂ => q₁.classical ∧ q₂.classical
+  -- the apply is not part of (R1)-(R5): its right side is read once per
+  -- row of its left, which the rewritten plan has no way to express
+  | _, _, _, .Apply _ _ => False
+  | _, _, _, .Gamma _ _ _ _ => False
+  | _, _, _, .GammaScalar _ _ _ => False
+  | _, _, _, .ProvSum _ _ _ _ => False
+  | _, _, _, .Retag _ _ => False
+  | _, _, _, .GammaTok _ _ _ _ _ _ => False
   -- rewriting a window into the provenance-carrying form is not part of
   -- (R1)-(R5); a window is excluded from the fragment, as a grouping is
-  | _, _, .Win _ _ _ _ _ _ _ => False
+  | _, _, _, .Win _ _ _ _ _ _ _ => False
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Classical queries have all-regular kinds (pointwise). -/
 theorem AggQueryIn.classical_kinds :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.classical → ∀ k, κ k = ColKind.reg
-  | _, _, .Rel _ _, _, _ => rfl
-  | _, _, .Proj ps _, hq, k => hq.1 k
-  | _, _, .Sel _ q, hq, k => classical_kinds q hq.2 k
-  | _, _, .Prod q₁ q₂, hq, k => by
+  | _, _, _, .Rel _ _, _, _ => rfl
+  | _, _, _, .Proj ps _, hq, k => hq.1 k
+  | _, _, _, .Sel _ q, hq, k => classical_kinds q hq.2 k
+  | _, _, _, .Prod q₁ q₂, hq, k => by
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · rw [Fin.append_left]
       exact classical_kinds q₁ hq.1 i
     · rw [Fin.append_right]
       exact classical_kinds q₂ hq.2 j
-  | _, _, .Sum q₁ q₂, hq, k => classical_kinds q₁ hq.1 k
-  | _, _, .Dedup _, _, _ => rfl
-  | _, _, .Diff _ _, _, _ => rfl
+  | _, _, _, .Sum q₁ q₂, hq, k => classical_kinds q₁ hq.1 k
+  | _, _, _, .Dedup _, _, _ => rfl
+  | _, _, _, .Diff _ _, _, _ => rfl
 
 /-! ## Casting terms, predicates and columns to the composite domain -/
 
 /-- A term over all-regular columns, over the composite domain with its
 columns shifted into the data block of the rewritten schema. -/
-def TermGIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def TermGIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    TermG T κ → TermG (T ⊕ K) (ColKind.rewKinds n)
+    TermGIn T c κ → TermG (T ⊕ K) (ColKind.rewKinds n)
   | .const a => .const (Sum.inl a)
+  -- as in `TermGIn.strip`: the valuation a closed query reads is `𝟘`
+  | .outer _ => .const (Sum.inl 0)
   | .index k _ => .index (k.castLE (Nat.le_succ n))
       (ColKind.rewKinds_lt k.isLt)
   | .provIndex k h =>
@@ -115,9 +120,9 @@ def TermGIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .mul t₁ t₂ => .mul (t₁.castComposite hκ) (t₂.castComposite hκ)
 
 /-- An aggregate-atom-free predicate, over the composite domain. -/
-def GenPredIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    (φ : GenPred T κ) → φ.hasAggAtom = false →
+    (φ : GenPredIn T c κ) → φ.hasAggAtom = false →
     GenPred (T ⊕ K) (ColKind.rewKinds n)
   | .cmp op t₁ t₂, _ =>
       .cmp op (t₁.castComposite hκ) (t₂.castComposite hκ)
@@ -131,9 +136,9 @@ def GenPredIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
   | .not φ, hφ => .not (φ.castComposite hκ hφ)
 
 /-- A regular projection column, over the composite domain. -/
-def ProjColIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
+def ProjColIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    (p : ProjCol T κ) → p.kind = ColKind.reg →
+    (p : ProjColIn T c κ) → p.kind = ColKind.reg →
     ProjCol (T ⊕ K) (ColKind.rewKinds n)
   | .term t, _ => .term (t.castComposite hκ)
   | .token _ _, hp => ColKind.noConfusion hp
@@ -142,10 +147,11 @@ def ProjColIn.castComposite {n : ℕ} {κ : Fin n → ColKind}
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast emits no indicator gate: a source gate, whose
 generic semantics is the junk constant, casts to that constant. -/
-theorem TermGIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem TermGIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    ∀ (t : TermG T κ), (t.castComposite hκ (K := K)).chiFree
+    ∀ (t : TermGIn T c κ), (t.castComposite hκ (K := K)).chiFree
   | .const _ => trivial
+  | .outer _ => trivial
   | .index _ _ => trivial
   | .provIndex k h =>
       absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
@@ -158,9 +164,9 @@ theorem TermGIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a predicate emits no indicator gate. -/
-theorem GenPredIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem GenPredIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false),
+    ∀ (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false),
       (φ.castComposite hκ hφ (K := K)).chiFree
   | .cmp _ t₁ t₂, _ =>
       ⟨TermGIn.castComposite_chiFree hκ t₁, TermGIn.castComposite_chiFree hκ t₂⟩
@@ -175,17 +181,17 @@ theorem GenPredIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a projection column emits no indicator gate. -/
-theorem ProjColIn.castComposite_chiFree {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    ∀ (p : ProjCol T κ) (hp : p.kind = ColKind.reg),
+    ∀ (p : ProjColIn T c κ) (hp : p.kind = ColKind.reg),
       (p.castComposite hκ hp (K := K)).chiFree
   | .term t, _ => TermGIn.castComposite_chiFree hκ t
   | .token _ _, hp => ColKind.noConfusion hp
   | .provTerm _, hp => ColKind.noConfusion hp
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem ProjColIn.castComposite_kind {n : ℕ} {κ : Fin n → ColKind}
-    (hκ : ∀ k, κ k = ColKind.reg) (p : ProjCol T κ)
+theorem ProjColIn.castComposite_kind {c n : ℕ} {κ : Fin n → ColKind}
+    (hκ : ∀ k, κ k = ColKind.reg) (p : ProjColIn T c κ)
     (hp : p.kind = ColKind.reg) :
     ((p.castComposite hκ hp : ProjCol (T ⊕ K) (ColKind.rewKinds n))).kind
       = ColKind.reg := by
@@ -205,11 +211,11 @@ deduplication `⊕`-sums the provenance per surviving tuple (R4, `ε`), and
 difference combines the unmatched branch with the matched branch's
 `α ⊖ Σβ` (R4, `∖`). -/
 def AggQueryIn.rewriting :
-    {n : ℕ} → {κ : Fin n → ColKind} → (q : AggQuery T n κ) →
+    {c n : ℕ} → {κ : Fin n → ColKind} → (q : AggQueryIn T c n κ) →
     q.classical → AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)
-  | n, _, .Rel _ s, _ =>
+  | _, n, _, .Rel _ s, _ =>
     AggQueryIn.retagToRew (fun _ => rfl) (AggQueryIn.Rel (n + 1) s)
-  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         by_cases hj : (j : ℕ) < m
@@ -226,10 +232,10 @@ def AggQueryIn.rewriting :
             ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
               (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
         (q.rewriting hq.2))
-  | _, _, .Sel φ q, hq =>
+  | _, _, _, .Sel φ q, hq =>
     AggQueryIn.Sel (φ.castComposite (AggQueryIn.classical_kinds q hq.2) hq.1)
       (q.rewriting hq.2)
-  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         by_cases h₁ : (j : ℕ) < n₁
@@ -259,9 +265,9 @@ def AggQueryIn.rewriting :
                 ((Fin.append_right _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n₂))))))
         (AggQueryIn.Prod (q₁.rewriting hq.1) (q₂.rewriting hq.2)))
-  | _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, .Sum q₁ q₂, hq =>
     AggQueryIn.Sum (q₁.rewriting hq.1) (q₂.rewriting hq.2)
-  | _, _, @AggQueryIn.Dedup _ _ n q, hq =>
+  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         refine Fin.addCases (fun i => ?_) (fun j' => ?_) j
@@ -276,7 +282,7 @@ def AggQueryIn.rewriting :
         (TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         (q.rewriting hq))
-  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     -- unmatched branch: rows of `q₁` whose data part is absent from `q₂`
     let keyProj : (q : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)) →
         AggQuery (T ⊕ K) n (ColKind.allReg n) := fun q =>
@@ -363,7 +369,7 @@ def AggQueryIn.rewriting :
                     (Fin.append_right _ _ _)))))
           joined₂)
     AggQueryIn.Sum branch₁ branch₂
-termination_by structural _ _ q _ => q
+termination_by structural _ _ _ q _ => q
 
 /-! ## Stripping to the classical syntax
 
@@ -377,22 +383,25 @@ section Strip
 /-- Strip a term over regular columns to a classical term (the
 `provIndex` arm is unreachable on the classical fragment and mapped
 harmlessly). -/
-def TermGIn.strip {n : ℕ} {κ : Fin n → ColKind} : TermG T κ → Term T n
+def TermGIn.strip {c n : ℕ} {κ : Fin n → ColKind} : TermGIn T c κ → Term T n
   | .const a => .const a
   | .index k _ => .index k
   | .provIndex k _ => .index k
   | .cmpAgg _ _ _ _ => .const 0
   | .chiGate _ _ _ => .const 0
+  -- an outer column reads the valuation, which is the constant `𝟘` on a
+  -- closed query – the only valuation the strip is stated against
+  | .outer _ => .const 0
   | .add t₁ t₂ => .add t₁.strip t₂.strip
   | .sub t₁ t₂ => .sub t₁.strip t₂.strip
   | .mul t₁ t₂ => .mul t₁.strip t₂.strip
 
 /-- Plain evaluation factors through the strip. -/
-theorem TermGIn.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
+theorem TermGIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     (u : Tuple T n) : t.strip.eval u = t.evalPlain u := by
   induction t with
   | const a => rfl
-  | outer k => exact k.elim0
+  | outer k => rfl
   | index k h => rfl
   | provIndex k h => rfl
   | cmpAgg k h op c ih => rfl
@@ -402,7 +411,8 @@ theorem TermGIn.strip_eval {n : ℕ} {κ : Fin n → ColKind} (t : TermG T κ)
   | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 /-- Strip an aggregate-atom-free predicate to a classical selection. -/
-def GenPredIn.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Selection T n
+def GenPredIn.strip {c n : ℕ} {κ : Fin n → ColKind} :
+    GenPredIn T c κ → Selection T n
   | .cmp .eq t₁ t₂ => .BT (.EQ t₁.strip t₂.strip)
   | .cmp .ne t₁ t₂ => .BT (.NE t₁.strip t₂.strip)
   | .cmp .le t₁ t₂ => .BT (.LE t₁.strip t₂.strip)
@@ -418,8 +428,8 @@ def GenPredIn.strip {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Select
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates –
 three-valuedly, both readings being Kleene's. -/
-theorem GenPredIn.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
-    ∀ (φ : GenPred T κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
+theorem GenPredIn.strip_eval3 {c n : ℕ} {κ : Fin n → ColKind} :
+    ∀ (φ : GenPredIn T c κ), φ.hasAggAtom = false → ∀ (u : Tuple T n),
       φ.strip.eval3 u = φ.evalPlain3 u
   | .cmp op t₁ t₂, _, u => by
     cases op <;>
@@ -443,56 +453,57 @@ theorem GenPredIn.strip_eval3 {n : ℕ} {κ : Fin n → ColKind} :
     rfl
 
 /-- Truth factors through the strip, on aggregate-atom-free predicates. -/
-theorem GenPredIn.strip_eval {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false) (u : Tuple T n) :
+theorem GenPredIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false) (u : Tuple T n) :
     φ.strip.eval u ↔ φ.holdsPlain u := by
   unfold Selection.eval GenPredIn.holdsPlain
   rw [GenPredIn.strip_eval3 φ hφ u]
 
 /-- Strip a regular projection column to a classical term. -/
-def ProjColIn.strip {n : ℕ} {κ : Fin n → ColKind} : ProjCol T κ → Term T n
+def ProjColIn.strip {c n : ℕ} {κ : Fin n → ColKind} :
+    ProjColIn T c κ → Term T n
   | .term t => t.strip
   | .token _ _ => .const 0
   | .provTerm t => t.strip
 
 /-- Strip a classical-fragment query to the classical syntax. -/
 def AggQueryIn.strip :
-    {n : ℕ} → {κ : Fin n → ColKind} → (q : AggQuery T n κ) →
+    {c n : ℕ} → {κ : Fin n → ColKind} → (q : AggQueryIn T c n κ) →
     q.classical → Query T n
-  | n, _, .Rel _ s, _ => .Rel n s
-  | _, _, .Proj ps q, hq =>
+  | _, n, _, .Rel _ s, _ => .Rel n s
+  | _, _, _, .Proj ps q, hq =>
     .Proj (fun j => (ps j).strip) (q.strip hq.2)
-  | _, _, .Sel φ q, hq => .Sel φ.strip (q.strip hq.2)
-  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq =>
+  | _, _, _, .Sel φ q, hq => .Sel φ.strip (q.strip hq.2)
+  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq =>
     @Query.Prod T n₁ n₂ (n₁ + n₂) rfl (q₁.strip hq.1) (q₂.strip hq.2)
-  | _, _, .Sum q₁ q₂, hq => .Sum (q₁.strip hq.1) (q₂.strip hq.2)
-  | _, _, .Dedup q, hq => .Dedup (q.strip hq)
-  | _, _, .Diff q₁ q₂, hq => .Diff (q₁.strip hq.1) (q₂.strip hq.2)
-  | _, _, .Gamma _ _ _ _, hq => False.elim hq
-  | _, _, .GammaScalar _ _ _, hq => False.elim hq
-  | _, _, .ProvSum _ _ _ _, hq => False.elim hq
-  | _, _, .Retag _ _, hq => False.elim hq
-  | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
-  | _, _, .Win _ _ _ _ _ _ _, hq => False.elim hq
-termination_by structural _ _ q _ => q
+  | _, _, _, .Sum q₁ q₂, hq => .Sum (q₁.strip hq.1) (q₂.strip hq.2)
+  | _, _, _, .Dedup q, hq => .Dedup (q.strip hq)
+  | _, _, _, .Diff q₁ q₂, hq => .Diff (q₁.strip hq.1) (q₂.strip hq.2)
+  | _, _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _, hq => False.elim hq
+termination_by structural _ _ _ q _ => q
 
 /-- The strip is aggregation-free. -/
 theorem AggQueryIn.strip_source :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (hq : q.classical), (q.strip hq).source
-  | _, _, .Rel _ _, _ => trivial
-  | _, _, .Proj _ q, hq => strip_source q hq.2
-  | _, _, .Sel _ q, hq => strip_source q hq.2
-  | _, _, .Prod q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
-  | _, _, .Sum q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
-  | _, _, .Dedup q, hq => strip_source q hq
-  | _, _, .Diff q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
-  | _, _, .Gamma _ _ _ _, hq => False.elim hq
-  | _, _, .GammaScalar _ _ _, hq => False.elim hq
-  | _, _, .ProvSum _ _ _ _, hq => False.elim hq
-  | _, _, .Retag _ _, hq => False.elim hq
-  | _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
-  | _, _, .Win _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, .Proj _ q, hq => strip_source q hq.2
+  | _, _, _, .Sel _ q, hq => strip_source q hq.2
+  | _, _, _, .Prod q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
+  | _, _, _, .Sum q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
+  | _, _, _, .Dedup q, hq => strip_source q hq
+  | _, _, _, .Diff q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
+  | _, _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _, hq => False.elim hq
 
 end Strip
 
@@ -512,11 +523,11 @@ theorem GenRow.Inv.plainTuple_eq {n : ℕ} {r : GenRow T K n}
 the general evaluator produces rows satisfying the embedding invariant
 against the classical annotated evaluation of the stripped query. -/
 theorem AggQueryIn.strip_rel :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (hq : q.classical) (d : AnnotatedDatabase T K),
       Multiset.Rel GenRow.Inv (q.evaluate d)
         ((q.strip hq).evaluateAnnotated (q.strip_source hq) d)
-  | n, _, .Rel _ s, _, d => by
+  | _, n, _, .Rel _ s, _, d => by
     show Multiset.Rel GenRow.Inv (match d.find n s with
       | none => (∅ : Multiset (GenRow T K n))
       | some rn => rn.map GenRow.ofAnnotated)
@@ -525,7 +536,7 @@ theorem AggQueryIn.strip_rel :
     cases d.find n s with
     | none => exact Multiset.Rel.zero
     | some rn => exact rel_inv_ofAnnotated rn
-  | _, _, .Proj ps q, hq, d => by
+  | _, _, _, .Proj ps q, hq, d => by
     refine rel_map_of_rel (strip_rel q hq.2 d) (fun r p hr => ⟨?_, ?_, ?_⟩)
     · funext j
       show (ps j).eval r.fst = Sum.inl ((ps j).strip.eval p.fst)
@@ -541,7 +552,7 @@ theorem AggQueryIn.strip_rel :
     · show r.snd.pending ∩ _ = 0
       rw [hr.2.2]
       exact Multiset.zero_inter _
-  | _, _, .Sel φ q, hq, d => by
+  | _, _, _, .Sel φ q, hq, d => by
     show Multiset.Rel _
       (if φ.hasAggAtom then _ else
         Multiset.filter _ (q.evaluate d)) _
@@ -549,7 +560,7 @@ theorem AggQueryIn.strip_rel :
     refine rel_filter_of_iff (strip_rel q hq.2 d) (fun r p hr => ?_)
     rw [GenPredIn.holds_iff_holdsPlain, hr.plainTuple_eq]
     exact (GenPredIn.strip_eval φ hq.1 p.fst).symm
-  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq, d => by
+  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ _ _ q₁ q₂, hq, d => by
     refine rel_map_of_rel
       (rel_product (strip_rel q₁ hq.1 d) (strip_rel q₂ hq.2 d)) ?_
     rintro ⟨x, y⟩ ⟨p, p'⟩ ⟨hx, hy⟩
@@ -572,9 +583,9 @@ theorem AggQueryIn.strip_rel :
     · show x.snd.pending + y.snd.pending = 0
       rw [hx.2.2, hy.2.2]
       rfl
-  | _, _, .Sum q₁ q₂, hq, d =>
+  | _, _, _, .Sum q₁ q₂, hq, d =>
     Multiset.Rel.add (strip_rel q₁ hq.1 d) (strip_rel q₂ hq.2 d)
-  | _, _, .Dedup q, hq, d => by
+  | _, _, _, .Dedup q, hq, d => by
     show Multiset.Rel _ ((Multiset.ofList (groupByKey
       ((q.evaluate d).map GenRow.toAnnotated)).val).map
         GenRow.ofAnnotated) _
@@ -583,7 +594,7 @@ theorem AggQueryIn.strip_rel :
       (map_eq_of_rel (strip_rel q hq d)
         (fun r p hr => hr.toAnnotated_eq)).trans (Multiset.map_id _)]
     exact rel_inv_ofAnnotated _
-  | _, _, .Diff q₁ q₂, hq, d => by
+  | _, _, _, .Diff q₁ q₂, hq, d => by
     show Multiset.Rel _
       (((((q₁.evaluate d).map GenRow.toAnnotated)).map _).map
         GenRow.ofAnnotated) _
@@ -599,12 +610,12 @@ theorem AggQueryIn.strip_rel :
     refine rel_map_of_forall (fun p _ => ?_)
     obtain ⟨u, α⟩ := p
     exact ⟨rfl, GenAnn.finalize_of_pending_zero _, rfl⟩
-  | _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
-  | _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
-  | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
-  | _, _, .Retag _ _, hq, _ => False.elim hq
-  | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, .Win _ _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
+  | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Retag _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _, hq, _ => False.elim hq
 
 /-- **Faithfulness of the strip**: on the classical fragment the general
 annotated evaluator computes the classical annotated semantics of the
@@ -626,14 +637,14 @@ section PlainAgreement
 omit [DecidableEq K] in
 /-- The composite cast of a term agrees with the classical cast of its
 strip. -/
-theorem TermGIn.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
-    (hκ : ∀ k, κ k = ColKind.reg) (t : TermG T κ)
+theorem TermGIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
+    (hκ : ∀ k, κ k = ColKind.reg) (t : TermGIn T c κ)
     (u : Tuple (T ⊕ K) (n + 1)) :
     (t.castComposite hκ (K := K)).evalPlain u
       = (t.strip.castToAnnotatedTuple).eval u := by
   induction t with
   | const a => rfl
-  | outer k => exact k.elim0
+  | outer k => rfl
   | index k h => rfl
   | provIndex k h =>
     exact absurd ((hκ k).symm.trans h) (fun hc => ColKind.noConfusion hc)
@@ -660,9 +671,9 @@ theorem TermGIn.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of its
 strip – three-valuedly, both readings being Kleene's. -/
-theorem GenPredIn.castComposite_evalPlain3 {n : ℕ}
+theorem GenPredIn.castComposite_evalPlain3 {c n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg) :
-    ∀ (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+    ∀ (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false)
       (u : Tuple (T ⊕ K) (n + 1)),
       (φ.castComposite hκ hφ (K := K)).evalPlain3 u
         = (φ.strip.castToAnnotatedTuple).eval3 u
@@ -691,9 +702,9 @@ theorem GenPredIn.castComposite_evalPlain3 {n : ℕ}
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of
 its strip. -/
-theorem GenPredIn.castComposite_holdsPlain {n : ℕ}
+theorem GenPredIn.castComposite_holdsPlain {c n : ℕ}
     {κ : Fin n → ColKind} (hκ : ∀ k, κ k = ColKind.reg)
-    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+    (φ : GenPredIn T c κ) (hφ : φ.hasAggAtom = false)
     (u : Tuple (T ⊕ K) (n + 1)) :
     (φ.castComposite hκ hφ (K := K)).holdsPlain u
       ↔ (φ.strip.castToAnnotatedTuple).eval u := by
@@ -703,9 +714,9 @@ theorem GenPredIn.castComposite_holdsPlain {n : ℕ}
 omit [DecidableEq K] in
 /-- The composite cast of a projection column agrees with the classical
 cast of its strip. -/
-theorem ProjColIn.castComposite_evalPlain {n : ℕ} {κ : Fin n → ColKind}
+theorem ProjColIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
     (hκ : ∀ k, κ k = ColKind.reg) :
-    ∀ (p : ProjCol T κ) (hp : p.kind = ColKind.reg)
+    ∀ (p : ProjColIn T c κ) (hp : p.kind = ColKind.reg)
       (u : Tuple (T ⊕ K) (n + 1)),
       (p.castComposite hκ hp (K := K)).evalPlain u
         = (p.strip.castToAnnotatedTuple).eval u
@@ -726,20 +737,21 @@ theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
   subst heq
   rfl
 
+set_option maxHeartbeats 2000000 in
 /-- **Plain-semantics agreement**: the native rewriting and the classical
 rewriting of the stripped query evaluate identically on any composite
 database. -/
 theorem AggQueryIn.rewriting_plain :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewriting hq).evaluatePlain D
         = ((q.strip hq).rewriting (q.strip_source hq)).evaluate D
-  | n, _, .Rel _ s, _, D => by
+  | _, n, _, .Rel _ s, _, D => by
     show (AggQueryIn.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
     simp only [AggQueryIn.evaluatePlain, Query.evaluate]
     cases D.find (n + 1) s <;> rfl
-  | _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq, D => by
+  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
@@ -752,7 +764,7 @@ theorem AggQueryIn.rewriting_plain :
       exact ProjColIn.castComposite_evalPlain _ _ _ u
     · rw [dite_eq_right hj, dite_eq_right hj]
       rfl
-  | _, _, .Sel φ q, hq, D => by
+  | _, _, _, .Sel φ q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
@@ -762,7 +774,7 @@ theorem AggQueryIn.rewriting_plain :
     exact Multiset.filter_congr
       (fun u _ => GenPredIn.castComposite_holdsPlain
         (AggQueryIn.classical_kinds q hq.2) φ hq.1 u)
-  | _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
+  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -798,12 +810,12 @@ theorem AggQueryIn.rewriting_plain :
           simp only [Fin.ofNat]
           rw [Nat.mod_eq_of_lt (by omega)]
           omega
-  | _, _, .Sum q₁ q₂, hq, D => by
+  | _, _, _, .Sum q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D]
-  | _, _, @AggQueryIn.Dedup _ _ n q, hq, D => by
+  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -818,7 +830,7 @@ theorem AggQueryIn.rewriting_plain :
         show Multiset.fold addFn 0 _ = Multiset.fold addFn 0 _
         refine congrArg _ (Multiset.map_congr ?_ (fun u _ => rfl))
         congr 1
-  | _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq, D => by
+  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -933,12 +945,12 @@ theorem AggQueryIn.rewriting_plain :
             (congrArg t (Fin.ext (by
               simp only [Fin.val_natAdd, Fin.val_last, Fin.val_zero]
               omega)))
-  | _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
-  | _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
-  | _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
-  | _, _, .Retag _ _, hq, _ => False.elim hq
-  | _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, .Win _ _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
+  | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Retag _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _, hq, _ => False.elim hq
 
 end PlainAgreement
 

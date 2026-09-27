@@ -274,13 +274,13 @@ omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, a term's lifted evaluation is its plain
 evaluation on the specialized tuple (regular columns hold regular values,
 on which both readings are the identity). -/
-theorem TermGIn.eval_specialize {n : ℕ} {κ : Fin n → ColKind}
-    (t : TermG T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
+theorem TermGIn.eval_specialize {c n : ℕ} {κ : Fin n → ColKind}
+    (t : TermGIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
-    t.eval u = t.evalPlain (GenRow.specializeTuple v u) := by
+    t.eval u γ = t.evalPlain (GenRow.specializeTuple v u) γ := by
   induction t with
   | const a => rfl
-  | outer k => exact k.elim0
+  | outer k => rfl
   | cmpAgg k h op c ih => rfl
   | chiGate op t₁ t₂ ih₁ ih₂ => rfl
   | index k h =>
@@ -305,11 +305,11 @@ omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate evaluates
 as its plain reading does on the specialized tuple – three-valuedly, so the
 statement covers the unknown case too. -/
-theorem GenPredIn.eval3_eq_specialize {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+theorem GenPredIn.eval3_eq_specialize {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
-    φ.eval3 u = φ.evalPlain3 (GenRow.specializeTuple v u) := by
+    φ.eval3 u γ = φ.evalPlain3 (GenRow.specializeTuple v u) γ := by
   induction φ with
   | cmp op t₁ t₂ =>
     rw [GenPredIn.eval3, GenPredIn.evalPlain3,
@@ -328,11 +328,11 @@ theorem GenPredIn.eval3_eq_specialize {n : ℕ} {κ : Fin n → ColKind}
 omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate holds
 iff its plain reading holds on the specialized tuple. -/
-theorem GenPredIn.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (hφ : φ.hasAggAtom = false)
+theorem GenPredIn.holds_iff_specialize {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (hφ : φ.hasAggAtom = false)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
-    φ.holds u ↔ φ.holdsPlain (GenRow.specializeTuple v u) := by
+    φ.holds u γ ↔ φ.holdsPlain (GenRow.specializeTuple v u) γ := by
   unfold GenPredIn.holds GenPredIn.holdsPlain
   rw [GenPredIn.eval3_eq_specialize φ hφ u hconf v]
 
@@ -340,8 +340,8 @@ theorem GenPredIn.holds_iff_specialize {n : ℕ} {κ : Fin n → ColKind}
 
 /-- The annotation lists of the tokens compared by a predicate on a row
 (the evaluator's `compared`). -/
-def GenPredIn.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (u : Tuple (GenValue T K') n) :
+def GenPredIn.selCompared {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
     match u k with
@@ -351,8 +351,8 @@ def GenPredIn.selCompared {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
 /-- The compared tokens read in the scalar convention. A comparison against
 one of these entails no group's existence – it holds in the empty world – so
 its presence blocks the supersede whatever occurrences it carries. -/
-def GenPredIn.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (u : Tuple (GenValue T K') n) :
+def GenPredIn.selComparedScalar {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
     match u k with
@@ -361,8 +361,8 @@ def GenPredIn.selComparedScalar {K' : Type} {n : ℕ} {κ : Fin n → ColKind}
 
 /-- The pending factors after a σ with aggregate atoms (the evaluator's
 update, definitionally). -/
-def GenPredIn.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
-    {κ : Fin n → ColKind} (φ : GenPred T κ)
+def GenPredIn.selPending {K' : Type} [DecidableEq K'] {c n : ℕ}
+    {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     (u : Tuple (GenValue T K') n) (p : Multiset (List K')) :
     Multiset (List K') :=
   if φ.entailsExistence false then
@@ -374,16 +374,16 @@ def GenPredIn.selPending {K' : Type} [DecidableEq K'] {n : ℕ}
 kind-conformant row all of whose compared groups are realized non-empty,
 the predicate provenance is true iff the (polarity-adjusted) plain
 predicate holds on the specialized tuple. -/
-theorem GenPredIn.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (neg : Bool)
+theorem GenPredIn.predsem_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
     (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
       u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty) :
-    ((φ.predsem neg u) v = true)
+    ((φ.predsem neg u γ) v = true)
       ↔ (if neg = true
-          then φ.evalPlain3 (GenRow.specializeTuple v u) = Kleene.false
-          else φ.evalPlain3 (GenRow.specializeTuple v u) = Kleene.true) := by
+          then φ.evalPlain3 (GenRow.specializeTuple v u) γ = Kleene.false
+          else φ.evalPlain3 (GenRow.specializeTuple v u) γ = Kleene.true) := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
     simp only [GenPredIn.predsem]
@@ -417,16 +417,16 @@ theorem GenPredIn.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPredIn.and φ ψ).predsem false u
-          = φ.predsem false u * ψ.predsem false u := rfl
+      have he : (GenPredIn.and φ ψ).predsem false u γ
+          = φ.predsem false u γ * ψ.predsem false u γ := rfl
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ false hgφ, ihψ false hgψ,
         GenPredIn.evalPlain3]
       simp
     | true =>
-      have he : (GenPredIn.and φ ψ).predsem true u
-          = φ.predsem true u + ψ.predsem true u := rfl
+      have he : (GenPredIn.and φ ψ).predsem true u γ
+          = φ.predsem true u γ + ψ.predsem true u γ := rfl
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ true hgφ, ihψ true hgψ,
@@ -441,37 +441,37 @@ theorem GenPredIn.predsem_eval_iff {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => hg k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPredIn.or φ ψ).predsem false u
-          = φ.predsem false u + ψ.predsem false u := rfl
+      have he : (GenPredIn.or φ ψ).predsem false u γ
+          = φ.predsem false u γ + ψ.predsem false u γ := rfl
       rw [he]
       show (_ || _) = true ↔ _
       rw [Bool.or_eq_true, ihφ false hgφ, ihψ false hgψ,
         GenPredIn.evalPlain3]
       simp
     | true =>
-      have he : (GenPredIn.or φ ψ).predsem true u
-          = φ.predsem true u * ψ.predsem true u := rfl
+      have he : (GenPredIn.or φ ψ).predsem true u γ
+          = φ.predsem true u γ * ψ.predsem true u γ := rfl
       rw [he]
       show (_ && _) = true ↔ _
       rw [Bool.and_eq_true, ihφ true hgφ, ihψ true hgψ,
         GenPredIn.evalPlain3]
       simp
   | not φ ih =>
-    have he : (GenPredIn.not φ).predsem neg u = φ.predsem (!neg) u := rfl
+    have he : (GenPredIn.not φ).predsem neg u γ = φ.predsem (!neg) u γ := rfl
     rw [he, ih (!neg) hg, GenPredIn.evalPlain3]
     cases neg <;> simp
 
 /-- **Existence entailment extracts the guard.** When a predicate entails
 existence and all its compared tokens carry the annotation list `ℓ₀`, a
 true predicate provenance realizes `ℓ₀`. -/
-theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (neg : Bool)
+theorem GenPredIn.entails_guard {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n) (v : X → Bool)
     (ℓ₀ : List (BoolFunc X))
     (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
       u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀)
     (hent : φ.entailsExistence neg = true)
-    (hp : (φ.predsem neg u) v = true) : annGuard ℓ₀ v := by
+    (hp : (φ.predsem neg u γ) v = true) : annGuard ℓ₀ v := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ => exact absurd hent (by simp [GenPredIn.entailsExistence])
   | aggCmp k h op t =>
@@ -495,10 +495,10 @@ theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPredIn.and φ ψ).predsem false u
-          = φ.predsem false u * ψ.predsem false u := rfl
+      have he : (GenPredIn.and φ ψ).predsem false u γ
+          = φ.predsem false u γ * ψ.predsem false u γ := rfl
       rw [he] at hp
-      have hp' : (φ.predsem false u v && ψ.predsem false u v) = true := hp
+      have hp' : ((φ.predsem false u γ) v && (ψ.predsem false u γ) v) = true := hp
       rw [Bool.and_eq_true] at hp'
       have hent' : (φ.entailsExistence false || ψ.entailsExistence false)
           = true := hent
@@ -506,10 +506,10 @@ theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hent' with h | h
       exacts [ihφ false huφ h hp'.1, ihψ false huψ h hp'.2]
     | true =>
-      have he : (GenPredIn.and φ ψ).predsem true u
-          = φ.predsem true u + ψ.predsem true u := rfl
+      have he : (GenPredIn.and φ ψ).predsem true u γ
+          = φ.predsem true u γ + ψ.predsem true u γ := rfl
       rw [he] at hp
-      have hp' : (φ.predsem true u v || ψ.predsem true u v) = true := hp
+      have hp' : ((φ.predsem true u γ) v || (ψ.predsem true u γ) v) = true := hp
       have hent' : (φ.entailsExistence true && ψ.entailsExistence true)
           = true := hent
       rw [Bool.and_eq_true] at hent'
@@ -525,10 +525,10 @@ theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
-      have he : (GenPredIn.or φ ψ).predsem false u
-          = φ.predsem false u + ψ.predsem false u := rfl
+      have he : (GenPredIn.or φ ψ).predsem false u γ
+          = φ.predsem false u γ + ψ.predsem false u γ := rfl
       rw [he] at hp
-      have hp' : (φ.predsem false u v || ψ.predsem false u v) = true := hp
+      have hp' : ((φ.predsem false u γ) v || (ψ.predsem false u γ) v) = true := hp
       have hent' : (φ.entailsExistence false && ψ.entailsExistence false)
           = true := hent
       rw [Bool.and_eq_true] at hent'
@@ -536,10 +536,10 @@ theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hp' with h | h
       exacts [ihφ false huφ hent'.1 h, ihψ false huψ hent'.2 h]
     | true =>
-      have he : (GenPredIn.or φ ψ).predsem true u
-          = φ.predsem true u * ψ.predsem true u := rfl
+      have he : (GenPredIn.or φ ψ).predsem true u γ
+          = φ.predsem true u γ * ψ.predsem true u γ := rfl
       rw [he] at hp
-      have hp' : (φ.predsem true u v && ψ.predsem true u v) = true := hp
+      have hp' : ((φ.predsem true u γ) v && (ψ.predsem true u γ) v) = true := hp
       rw [Bool.and_eq_true] at hp'
       have hent' : (φ.entailsExistence true || ψ.entailsExistence true)
           = true := hent
@@ -547,7 +547,7 @@ theorem GenPredIn.entails_guard {n : ℕ} {κ : Fin n → ColKind}
       rcases hent' with h | h
       exacts [ihφ true huφ h hp'.1, ihψ true huψ h hp'.2]
   | not φ ih =>
-    have he : (GenPredIn.not φ).predsem neg u = φ.predsem (!neg) u := rfl
+    have he : (GenPredIn.not φ).predsem neg u γ = φ.predsem (!neg) u γ := rfl
     rw [he] at hp
     exact ih (!neg) huni hent hp
 
@@ -582,15 +582,15 @@ theorem GenAnn.finalize_mul {K' : Type} [CommSemiringWithMonus K']
 finalized updated annotation implies the finalized original one (the
 superseded factors are recovered from the predicate provenance through
 existence entailment). -/
-theorem GenPredIn.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
+theorem GenPredIn.sel_finalize_old {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
-    (h : (GenAnn.mk (b * φ.predsem false u) (φ.selPending u p)).finalize v
+    (h : (GenAnn.mk (b * φ.predsem false u γ) (φ.selPending u p)).finalize v
       = true) :
     (GenAnn.mk b p).finalize v = true := by
   rw [GenAnn.finalize_eval_iff] at h ⊢
   obtain ⟨hbp, hupd⟩ := h
-  have hbp' : (b v && (φ.predsem false u) v) = true := hbp
+  have hbp' : (b v && (φ.predsem false u γ) v) = true := hbp
   rw [Bool.and_eq_true] at hbp'
   refine ⟨hbp'.1, fun l hl => ?_⟩
   unfold GenPredIn.selPending at hupd
@@ -621,21 +621,21 @@ theorem GenPredIn.sel_finalize_old {n : ℕ} {κ : Fin n → ColKind}
 /-- **The σ-aggregate row lemma.** On a kind-conformant, guarded row, the
 updated annotation is realized iff the original annotation is realized
 and the plain predicate holds on the specialized tuple. -/
-theorem GenPredIn.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
+theorem GenPredIn.sel_finalize_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
     (hguard : (GenAnn.mk b p).finalize v = true →
       ∀ (k : Fin n) (a : AggValue T (BoolFunc X)), u k = Sum.inr a →
         a.scalar = true ∨ (a.realized v).Nonempty) :
-    ((GenAnn.mk (b * φ.predsem false u) (φ.selPending u p)).finalize v
+    ((GenAnn.mk (b * φ.predsem false u γ) (φ.selPending u p)).finalize v
         = true)
       ↔ (GenAnn.mk b p).finalize v = true
-        ∧ φ.holdsPlain (GenRow.specializeTuple v u) := by
+        ∧ φ.holdsPlain (GenRow.specializeTuple v u) γ := by
   constructor
   · intro h
     have hold := GenPredIn.sel_finalize_old φ u b p v h
-    have hbp : (b v && (φ.predsem false u) v) = true :=
+    have hbp : (b v && (φ.predsem false u γ) v) = true :=
       ((GenAnn.finalize_eval_iff _ v).mp h).1
     rw [Bool.and_eq_true] at hbp
     refine ⟨hold, ?_⟩
@@ -647,7 +647,7 @@ theorem GenPredIn.sel_finalize_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     have hgs := hguard hold
     rw [GenAnn.finalize_eval_iff] at hold ⊢
     obtain ⟨hb, hG⟩ := hold
-    have hps : (φ.predsem false u) v = true :=
+    have hps : (φ.predsem false u γ) v = true :=
       (GenPredIn.predsem_eval_iff φ false u hconf v
         (fun k _ a ha => hgs k a ha)).mpr
         (by rw [ite_eq_right Bool.false_ne_true]; exact hh)
@@ -677,15 +677,16 @@ empty world is one of its worlds, so there is no occurrence to realize. This
 is the case split the possible-world reading of an aggregate comparison
 makes anyway. -/
 theorem AggQueryIn.evaluate_guarded :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-      (d : AnnotatedDatabase T (BoolFunc X)) (r : GenRow T (BoolFunc X) n),
-      r ∈ q.evaluate d → ∀ v : X → Bool, r.snd.finalize v = true →
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+      (d : AnnotatedDatabase T (BoolFunc X)) {γ : Fin c → T}
+      (r : GenRow T (BoolFunc X) n),
+      r ∈ q.evaluate d γ → ∀ v : X → Bool, r.snd.finalize v = true →
       ∀ (k : Fin n) (a : AggValue T (BoolFunc X)), r.fst k = Sum.inr a →
         a.scalar = true ∨ (a.realized v).Nonempty := by
-  intro n κ q
+  intro c n κ q
   induction q with
   | Rel n s =>
-    intro d r hr v _ k a ha
+    intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
     | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
@@ -694,15 +695,15 @@ theorem AggQueryIn.evaluate_guarded :
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
   | Proj ps q ih =>
-    intro d r hr v hfin j a ha
+    intro d γ r hr v hfin j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     have hfin₀ : r₀.snd.finalize v = true := by
       rw [← GenAnn.finalize_cash r₀.snd.base r₀.snd.pending
-        (r₀.snd.pending ∩ tokenLists (fun j => (ps j).eval r₀.fst))
+        (r₀.snd.pending ∩ tokenLists (fun j => (ps j).eval r₀.fst γ))
         Multiset.inter_le_left]
       exact hfin
-    have ha' : (ps j).eval r₀.fst = Sum.inr a := ha
+    have ha' : (ps j).eval r₀.fst γ = Sum.inr a := ha
     cases hp : ps j with
     | term t =>
       rw [hp] at ha'
@@ -714,7 +715,7 @@ theorem AggQueryIn.evaluate_guarded :
       rw [hp] at ha'
       exact ih d r₀ hr₀ v hfin₀ k a ha'
   | Sel φ q ih =>
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
@@ -725,7 +726,7 @@ theorem AggQueryIn.evaluate_guarded :
     · rw [ite_eq_right hφ] at hr
       exact ih d r (Multiset.mem_of_mem_filter hr) v hfin k a ha
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨xy, hxy, rfl⟩ := Multiset.mem_map.mp hr
     have hx := Multiset.mem_product.mp hxy
@@ -742,24 +743,42 @@ theorem AggQueryIn.evaluate_guarded :
         ((Fin.append_left xy.fst.fst xy.snd.fst i).symm.trans ha)
     · exact ih₂ d xy.snd hx.right v hfin'.2 j a
         ((Fin.append_right xy.fst.fst xy.snd.fst j).symm.trans ha)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro d γ r hr v hfin k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨x, hx, hr⟩ := Multiset.mem_bind.mp hr
+    obtain ⟨y, hy, rfl⟩ := Multiset.mem_map.mp hr
+    have hfin' : (x.snd.finalize v && y.snd.finalize v) = true := by
+      have := GenAnn.finalize_mul x.snd y.snd
+      rw [show (GenAnn.mk (x.snd.base * y.snd.base)
+          (x.snd.pending + y.snd.pending)).finalize
+          = x.snd.finalize * y.snd.finalize from this] at hfin
+      exact hfin
+    rw [Bool.and_eq_true] at hfin'
+    revert ha
+    refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro ha
+    · exact ih₁ d x hx v hfin'.1 i a
+        ((Fin.append_left x.fst y.fst i).symm.trans ha)
+    · exact ih₂ d y hy v hfin'.2 j a
+        ((Fin.append_right x.fst y.fst j).symm.trans ha)
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.mp hr with h | h
     exacts [ih₁ d r h v hfin k a ha, ih₂ d r h v hfin k a ha]
   | Dedup q ih =>
-    intro d r hr v _ k a ha
+    intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d r hr v _ k a ha
+    intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | @GammaScalar m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ih =>
     -- every token of a scalar aggregation is scalar, so the guard is vacuous
-    intro d r hr v _ k a ha
+    intro d γ r hr v _ k a ha
     refine Or.inl ?_
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
@@ -767,11 +786,11 @@ theorem AggQueryIn.evaluate_guarded :
     rw [← Sum.inr.inj ha]
     rfl
   | Gamma is ts fs q ih =>
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     have hG : annGuard ((Having.havingGroup is
-        ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map Prod.snd) v :=
+        ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd) v :=
       ((GenAnn.finalize_eval_iff _ v).mp hfin).2 _ (Multiset.mem_singleton_self _)
     revert ha
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro ha
@@ -780,28 +799,28 @@ theorem AggQueryIn.evaluate_guarded :
           (fun k => (Sum.inl (kv.fst k) : GenValue T (BoolFunc X)))
           (fun j' => Sum.inr (AggValue.ofGroup (fs j') (ts j')
             (Having.havingGroup is
-              ((q.evaluate d).map GenRow.toAnnotated) kv.fst))) i).symm.trans
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)) i).symm.trans
           ha
       exact absurd ha' (by simp)
     · have haj : (Sum.inr (AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is
-            ((q.evaluate d).map GenRow.toAnnotated) kv.fst))
+            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)
           : GenValue T (BoolFunc X)) = Sum.inr a :=
         (Fin.append_right
           (fun k => (Sum.inl (kv.fst k) : GenValue T (BoolFunc X)))
           (fun j' => Sum.inr (AggValue.ofGroup (fs j') (ts j')
             (Having.havingGroup is
-              ((q.evaluate d).map GenRow.toAnnotated) kv.fst))) j).symm.trans
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)) j).symm.trans
           ha
       rw [← Sum.inr.inj haj]
       refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
       rw [AggValue.annList_ofGroup]
       exact hG
-  | @Win n' m' p' P O o w t f q ih =>
+  | @Win cI n' m' p' P O o w t f q ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     revert ha
@@ -810,7 +829,7 @@ theorem AggQueryIn.evaluate_guarded :
       rw [Fin.snoc_last] at ha
       rw [← Sum.inr.inj ha]
       by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
-          ((q.evaluate d).map GenRow.toAnnotated)).row i).fst) = true
+          ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true
       · exact Or.inr (AggValue.realized_nonempty_of_mem _ v
           (ValueFrame.mem_token_occs P O o w t f _ i hs) (by simpa using hfin))
       · exact Or.inl (ValueFrame.token_scalar_of_not_mem P O o w t f _ i
@@ -818,8 +837,8 @@ theorem AggQueryIn.evaluate_guarded :
     · dsimp only at ha
       rw [Fin.snoc_castSucc] at ha
       exact absurd ha (by simp)
-  | @ProvSum m n₁ κ' is his t q ih =>
-    intro d r hr v _ k a ha
+  | @ProvSum cI m n₁ κ' is his t q ih =>
+    intro d γ r hr v _ k a ha
     have hconf := AggQueryIn.evaluate_conform _ d r hr k
     rw [ha] at hconf
     revert hconf
@@ -828,14 +847,14 @@ theorem AggQueryIn.evaluate_guarded :
       exact ColKind.noConfusion hconf
     · rw [Fin.append_right] at hconf
       exact ColKind.noConfusion hconf
-  | @GammaTok m n₁ n₂ κ' is his ts fs a' q ih =>
-    intro d r hr v hfin k a ha
+  | @GammaTok cI m n₁ n₂ κ' is his ts fs a' q ih =>
+    intro d γ r hr v hfin k a ha
     have hconf := AggQueryIn.evaluate_conform _ d r hr k
     rw [ha] at hconf
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     have hG : annGuard ((Having.havingGroup is
-        ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map Prod.snd) v :=
+        ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd) v :=
       ((GenAnn.finalize_eval_iff _ v).mp hfin).2 _
         (Multiset.mem_singleton_self _)
     revert hconf ha
@@ -853,7 +872,7 @@ theorem AggQueryIn.evaluate_guarded :
     · rw [Fin.append_right] at hconf
       exact ColKind.noConfusion hconf
   | Retag h q ih =>
-    intro d r hr v hfin k a ha
+    intro d γ r hr v hfin k a ha
     exact ih d r hr v hfin k a ha
 
 /-! ## Realized-world plumbing -/
@@ -907,11 +926,12 @@ omit [Fintype X] [DecidableEq X] in
 /-- On an all-regular subquery, the plain and general realized worlds
 coincide (every column is a regular value, on which the specialized and
 plain readings agree). -/
-private lemma genRandomWorld_allReg {n : ℕ}
-    (q : AggQuery T n (ColKind.allReg n))
-    (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
-    randomWorld v ((q.evaluate d).map GenRow.toAnnotated)
-      = genRandomWorld v (q.evaluate d) := by
+private lemma genRandomWorld_allReg {c n : ℕ}
+    (q : AggQueryIn T c n (ColKind.allReg n))
+    (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
+    {γ : Fin c → T} :
+    randomWorld v ((q.evaluate d γ).map GenRow.toAnnotated)
+      = genRandomWorld v (q.evaluate d γ) := by
   unfold randomWorld genRandomWorld
   rw [filter_map_comm, Multiset.map_map]
   refine Multiset.map_congr
@@ -928,18 +948,19 @@ private lemma genRandomWorld_allReg {n : ℕ}
 omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- A projection column specializes to its plain reading on the
 specialized tuple. -/
-private lemma ProjColIn.specializeAt_eval {n : ℕ} {κ : Fin n → ColKind}
-    (pc : ProjCol T κ) (u : Tuple (GenValue T (BoolFunc X)) n)
-    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
-    GenValue.specializeAt v (pc.eval u)
-      = pc.evalPlain (GenRow.specializeTuple v u) := by
+private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
+    (pc : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
+    {γ : Fin c → T} :
+    GenValue.specializeAt v (pc.eval u γ)
+      = pc.evalPlain (GenRow.specializeTuple v u) γ := by
   cases pc with
   | term t =>
-    show GenValue.specializeAt v (Sum.inl (t.eval u)) = _
+    show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v
   | token k hk => rfl
   | provTerm t =>
-    show GenValue.specializeAt v (Sum.inl (t.eval u)) = _
+    show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
@@ -1139,12 +1160,14 @@ private lemma annGuard_map_snd {m : ℕ}
 
 /-- The specialized group token is the plain aggregate of the group in
 the realized world. -/
-private lemma specialize_ofGroup {m n₁ : ℕ}
+private lemma specialize_ofGroup {c m n₁ : ℕ}
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
-    (g : Tuple T n₁) (f : SeqAggFunc T) (t : Term T m) (v : X → Bool) :
-    (AggValue.ofGroup f t (Having.havingGroup is r g)).specialize
+    (g : Tuple T n₁) (f : SeqAggFunc T) (t : TermIn T c m) (v : X → Bool)
+    {γ : Fin c → T} :
+    (AggValue.ofGroup f t (Having.havingGroup is r g) γ).specialize
         (fun α => α v)
-      = f ((Relation.groupSeq is (randomWorld v r) g).map t.eval) := by
+      = f ((Relation.groupSeq is (randomWorld v r) g).map
+          (fun x => t.eval x γ)) := by
   unfold AggValue.specialize AggValue.ofGroup
   rw [groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
     List.map_map, List.map_map]
@@ -1163,14 +1186,14 @@ omit [Fintype X] [DecidableEq X] in
 reads as the plain aggregate the realized world gives its row: restricting
 the relation to a world restricts every frame to that world, which is the
 only property of frames the annotated semantics uses. -/
-theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
+theorem tokenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
-    (t : Term T n')
+    (t : TermIn T c n')
     (f : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
     {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
-    (hc : x.snd v = true) :
-    (ValueFrame.tokenOf P O o w t f R x).specialize (fun α => α v)
-      = ValueFrame.windowValue P O o w t f (randomWorld v R) x.fst := by
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.tokenOf P O o w t f R x γ).specialize (fun α => α v)
+      = ValueFrame.windowValue P O o w t f (randomWorld v R) x.fst γ := by
   have hframe : ValueFrame.frameOf (α := Tuple T n') id P O w
       (randomWorld v R) x.fst
       = Multiset.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
@@ -1184,9 +1207,9 @@ theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
       ValueFrame.frameOf_filter (α := AnnotatedTuple T (BoolFunc X) n')
         Prod.fst _ P O w R hc]
   have hproj : ∀ L : List (AnnotatedTuple T (BoolFunc X) n'),
-      List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst)
+      List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst γ)
           (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
-        = List.map t.eval (OrderSpec.sortSeq (Tuple.key O)
+        = List.map (fun x => t.eval x γ) (OrderSpec.sortSeq (Tuple.key O)
             (id : Tuple T n' → Tuple T n') o
             (List.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst L)) := by
     intro L
@@ -1200,13 +1223,13 @@ theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
   have hpred : (fun q : AnnotatedTuple T (BoolFunc X) n' => q.snd v)
       = (fun q : AnnotatedTuple T (BoolFunc X) n' => decide (q.snd v = true)) := by
     funext q; simp
-  show List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst)
+  show List.map (fun q : AnnotatedTuple T (BoolFunc X) n' => t.eval q.fst γ)
       (List.filter (fun q : AnnotatedTuple T (BoolFunc X) n' => q.snd v)
         (OrderSpec.sortSeq (Tuple.key O) Prod.fst o
           (sortList (ValueFrame.frameOf
             (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst P O w R x))))
     = _
-  rw [hpred, OrderSpec.filter_sortSeq_map_eq (o := o) t.eval
+  rw [hpred, OrderSpec.filter_sortSeq_map_eq (o := o) (fun x => t.eval x γ)
       (fun q : AnnotatedTuple T (BoolFunc X) n' => decide (q.snd v = true)),
     hproj, sortList_filter, ValueFrame.sortList_map_fst, hframe]
 
@@ -1215,6 +1238,37 @@ theorem tokenOf_specialize {n' m' p' : ℕ} (P : Tuple (Fin n') m')
 omit [ValueType T] [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
 /-- Generic specialization distributes over `Fin.append`. -/
+private lemma filter_bind {α β : Type} (s : Multiset α) (F : α → Multiset β)
+    (p : β → Prop) [DecidablePred p] :
+    (s.bind F).filter p = s.bind (fun a => (F a).filter p) := by
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | cons a s ih => simp [Multiset.filter_add, ih]
+
+private lemma bind_filter {α β : Type} (s : Multiset α) (p : α → Prop)
+    [DecidablePred p] (F : α → Multiset β) :
+    (s.filter p).bind F = s.bind (fun a => if p a then F a else 0) := by
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | cons a s ih =>
+    by_cases h : p a <;> simp [h, ih]
+
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
+/-- On a row all of whose columns are regular the specialized reading is
+the collapsed one: there is no token to specialize. -/
+private lemma specializeTuple_eq_plainTuple {n : ℕ}
+    (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = ColKind.reg) (v : X → Bool) :
+    GenRow.specializeTuple v u = GenRow.plainTuple u := by
+  funext k
+  obtain ⟨w, hw⟩ := GenValue.eq_inl_of_kindOf_reg (hconf k)
+  unfold GenRow.plainTuple GenRow.specializeTuple
+  rw [hw]
+  rfl
+
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
 private lemma specializeTuple_append' {n₁ n₂ : ℕ}
     (u₁ : Tuple (GenValue T (BoolFunc X)) n₁)
     (u₂ : Tuple (GenValue T (BoolFunc X)) n₂) (v : X → Bool) :
@@ -1234,29 +1288,30 @@ lemma `GenPredIn.sel_finalize_eval_iff` under the conformance and
 guardedness invariants; the `Gamma` case rests on
 `groupSeq_randomWorld`. -/
 theorem AggQueryIn.genRandomWorld_evaluate :
-    ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (_hq : q.noProvSum)
-      (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool),
-    genRandomWorld v (q.evaluate d)
-      = q.evaluatePlain (d.randomWorld v) := by
-  intro n κ q
+      (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
+      {γ : Fin c → T},
+    genRandomWorld v (q.evaluate d γ)
+      = q.evaluatePlain (d.randomWorld v) γ := by
+  intro c n κ q
   induction q with
   | Rel n s =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [AnnotatedDatabase.find_randomWorld]
     cases hf : d.find n s with
     | none => rfl
     | some rn => exact genRandomWorld_ofAnnotated rn v
   | Proj ps q ih =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
-    rw [Multiset.filter_congr (fun r (_ : r ∈ q.evaluate d) =>
+    rw [Multiset.filter_congr (fun r (_ : r ∈ q.evaluate d γ) =>
       Iff.of_eq (congrArg (fun α : BoolFunc X => α v = true)
         (GenAnn.finalize_cash r.snd.base r.snd.pending
-          (r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst))
+          (r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst γ))
           Multiset.inter_le_left)))]
     rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map, ← ih hq d v]
     · rfl
@@ -1264,12 +1319,12 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       -- of the specialized tuple
       have hconf := AggQueryIn.evaluate_conform q d r
         (Multiset.mem_of_mem_filter hr)
-      show GenRow.specializeTuple v (fun j => (ps j).eval r.fst)
-        = fun j => (ps j).evalPlain (GenRow.specializeTuple v r.fst)
+      show GenRow.specializeTuple v (fun j => (ps j).eval r.fst γ)
+        = fun j => (ps j).evalPlain (GenRow.specializeTuple v r.fst) γ
       funext j
       exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
   | Sel φ q ih =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ]
@@ -1279,7 +1334,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         (Multiset.filter_congr
           (q := fun r : GenRow T (BoolFunc X) _ =>
             r.snd.finalize v = true
-              ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst))
+              ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst) γ)
           fun r hr => ?_)) ?_
       · exact GenPredIn.sel_finalize_eval_iff φ r.fst r.snd.base
           r.snd.pending v (AggQueryIn.evaluate_conform q d r hr)
@@ -1296,7 +1351,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         (Multiset.filter_congr
           (q := fun r : GenRow T (BoolFunc X) _ =>
             r.snd.finalize v = true
-              ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst))
+              ∧ φ.holdsPlain (GenRow.specializeTuple v r.fst) γ)
           fun r hr => ?_)) ?_
       · exact and_congr_right fun _ => GenPredIn.holds_iff_specialize φ
           (by simpa using hφ) r.fst
@@ -1307,7 +1362,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         exact Multiset.map_congr
           (Multiset.filter_congr fun r _ => and_comm) (fun r _ => rfl)
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
@@ -1323,37 +1378,87 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     · rw [product_filter
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
-        (q₁.evaluate d) (q₂.evaluate d), ← ih₁ hq.1 d v, ← ih₂ hq.2 d v]
+        (q₁.evaluate d γ) (q₂.evaluate d γ), ← ih₁ hq.1 d v, ← ih₂ hq.2 d v]
       show _ = Multiset.map
         (fun uv : Tuple T _ × Tuple T _ => Fin.append uv.fst uv.snd)
-        (Multiset.product (genRandomWorld v (q₁.evaluate d))
-          (genRandomWorld v (q₂.evaluate d)))
+        (Multiset.product (genRandomWorld v (q₁.evaluate d γ))
+          (genRandomWorld v (q₂.evaluate d γ)))
       unfold genRandomWorld
       rw [product_map_map, Multiset.map_map]
       apply Multiset.map_congr rfl
       intro xy _
       exact specializeTuple_append' xy.fst.fst xy.snd.fst v
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro hq d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    -- the left side is all-regular, so its rows specialize as they collapse
+    have hspec : ∀ x ∈ q₁.evaluate d γ,
+        GenRow.specializeTuple v x.fst = GenRow.plainTuple x.fst :=
+      fun x hx => specializeTuple_eq_plainTuple x.fst
+        (fun k => AggQueryIn.evaluate_conform q₁ d x hx k) v
+    conv_rhs => rw [← ih₁ hq.1 d v]
+    unfold genRandomWorld
+    rw [filter_bind, Multiset.map_bind, Multiset.bind_map, bind_filter]
+    refine Multiset.bind_congr (fun x hx => ?_)
+    by_cases hfx : x.snd.finalize v = true
+    · rw [ite_eq_left hfx, hspec x hx]
+      rw [show ∀ M : Multiset (GenRow T (BoolFunc X) _),
+          Multiset.filter (fun r : GenRow T (BoolFunc X) _ =>
+              r.snd.finalize v = true)
+            (M.map (fun y => ((Fin.append x.fst y.fst,
+              ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩)
+                : GenRow T (BoolFunc X) _)))
+            = (M.filter (fun y => y.snd.finalize v = true)).map
+                (fun y => ((Fin.append x.fst y.fst,
+                  ⟨x.snd.base * y.snd.base,
+                    x.snd.pending + y.snd.pending⟩)
+                    : GenRow T (BoolFunc X) _)) from fun M => ?_]
+      · rw [Multiset.map_map, ← ih₂ hq.2 d v]
+        unfold genRandomWorld
+        rw [Multiset.map_map]
+        refine Multiset.map_congr rfl (fun y _ => ?_)
+        show GenRow.specializeTuple v (Fin.append x.fst y.fst) = _
+        rw [specializeTuple_append', hspec x hx]
+        rfl
+      · rw [filter_map_comm]
+        refine congrArg (Multiset.map _) (Multiset.filter_congr (fun y _ => ?_))
+        show ((GenAnn.mk (x.snd.base * y.snd.base)
+            (x.snd.pending + y.snd.pending)).finalize v = true) ↔ _
+        rw [GenAnn.finalize_mul x.snd y.snd]
+        show ((x.snd.finalize v && y.snd.finalize v) = true) ↔ _
+        rw [Bool.and_eq_true]
+        exact ⟨fun h => h.2, fun h => ⟨hfx, h⟩⟩
+    · rw [ite_eq_right hfx]
+      refine Multiset.eq_zero_of_forall_notMem (fun z hz => ?_)
+      obtain ⟨w, hw, -⟩ := Multiset.mem_map.mp hz
+      obtain ⟨y, -, rfl⟩ := Multiset.mem_map.mp (Multiset.mem_of_mem_filter hw)
+      have hfin := (Multiset.of_mem_filter hw)
+      refine hfx ?_
+      have := (Bool.and_eq_true _ _).mp
+        ((congrArg (fun α : BoolFunc X => α v = true)
+          (GenAnn.finalize_mul x.snd y.snd)) ▸ hfin)
+      exact this.1
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_add, ih₁ hq.1 d v, ih₂ hq.2 d v]
   | Dedup q ih =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
       genRandomWorld_allReg, ih hq d v]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     refine Eq.trans (genRandomWorld_ofAnnotated _ v)
       (Eq.trans (randomWorld_monus
-        ((q₁.evaluate d).map GenRow.toAnnotated)
-        ((q₂.evaluate d).map GenRow.toAnnotated) v) ?_)
+        ((q₁.evaluate d γ).map GenRow.toAnnotated)
+        ((q₂.evaluate d γ).map GenRow.toAnnotated) v) ?_)
     rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 d v, ih₂ hq.2 d v]
-  | @GammaScalar m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ih =>
     -- one row on each side, kept in every world, its tokens specializing to
     -- the aggregates over the realized rows
-    intro hq d v
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [← ih hq d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
@@ -1361,62 +1466,62 @@ theorem AggQueryIn.genRandomWorld_evaluate :
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
           {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroup (fun i : Fin 0 => i.elim0)
-                ((q.evaluate d).map GenRow.toAnnotated)
-                (fun i : Fin 0 => i.elim0))), ⟨1, 0⟩⟩
+                ((q.evaluate d γ).map GenRow.toAnnotated)
+                (fun i : Fin 0 => i.elim0)) γ), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         = {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroup (fun i : Fin 0 => i.elim0)
-                ((q.evaluate d).map GenRow.toAnnotated)
-                (fun i : Fin 0 => i.elim0))), ⟨1, 0⟩⟩
+                ((q.evaluate d γ).map GenRow.toAnnotated)
+                (fun i : Fin 0 => i.elim0)) γ), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         from Multiset.filter_eq_self.mpr (fun r hr => by
           rw [Multiset.mem_singleton] at hr; subst hr; rfl)]
     rw [Multiset.map_singleton]
     exact congrArg (fun u => (Multiset.ofList [u] : Multiset (Tuple T n₂)))
       (funext fun j => specialize_ofGroup _
-        ((q.evaluate d).map GenRow.toAnnotated) _ (fs j) (ts j) v)
-  | @Gamma m n₁ n₂ is ts fs q ih =>
-    intro hq d v
+        ((q.evaluate d γ).map GenRow.toAnnotated) _ (fs j) (ts j) v)
+  | @Gamma cI m n₁ n₂ is ts fs q ih =>
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [← ih hq d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
     rw [Multiset.filter_congr (fun kv (_ : kv ∈ Multiset.ofList
-        (groupByKey (((q.evaluate d).map GenRow.toAnnotated).map (fun p =>
+        (groupByKey (((q.evaluate d γ).map GenRow.toAnnotated).map (fun p =>
           ((fun k => p.fst (is k), p.snd)
             : AnnotatedTuple T (BoolFunc X) n₁)))).val) =>
       show (⟨1, {(Having.havingGroup is
-            ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩
+            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩
           : GenAnn (BoolFunc X)).finalize v = true
         ↔ annGuard ((Having.havingGroup is
-            ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map
+            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
               Prod.snd) v
         from Iff.trans (GenAnn.finalize_eval_iff
             ⟨1, {(Having.havingGroup is
-              ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
                 Prod.snd}⟩ v)
           ⟨fun h => h.2 _ (Multiset.mem_singleton_self _),
            fun h => ⟨rfl, fun l hl => (Multiset.mem_singleton.mp hl) ▸ h⟩⟩)]
     -- key multisets: the realized keys are the realized world's keys
     have hkeys : (((randomWorld v
-          ((q.evaluate d).map GenRow.toAnnotated)).map
+          ((q.evaluate d γ).map GenRow.toAnnotated)).map
             (fun u => (fun k => u (is k) : Tuple T n₁))).dedup : Multiset _)
         = Multiset.map Prod.fst
           (Multiset.filter (fun kv : AnnotatedTuple T (BoolFunc X) n₁ =>
             annGuard ((Having.havingGroup is
-              ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
                 Prod.snd) v)
             (Multiset.ofList (groupByKey
-              (((q.evaluate d).map GenRow.toAnnotated).map (fun p =>
+              (((q.evaluate d γ).map GenRow.toAnnotated).map (fun p =>
                 ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T (BoolFunc X) n₁)))).val)) := by
       have hRnodup : (Multiset.map Prod.fst
           (Multiset.filter (fun kv : AnnotatedTuple T (BoolFunc X) n₁ =>
             annGuard ((Having.havingGroup is
-              ((q.evaluate d).map GenRow.toAnnotated) kv.fst).map
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
                 Prod.snd) v)
             (Multiset.ofList (groupByKey
-              (((q.evaluate d).map GenRow.toAnnotated).map (fun p =>
+              (((q.evaluate d γ).map GenRow.toAnnotated).map (fun p =>
                 ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T (BoolFunc X) n₁)))).val))).Nodup := by
         refine Multiset.nodup_of_le
@@ -1430,7 +1535,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       constructor
       · intro hg
         have hkey : g ∈ Multiset.map Prod.fst
-            (((q.evaluate d).map GenRow.toAnnotated).map (fun p =>
+            (((q.evaluate d γ).map GenRow.toAnnotated).map (fun p =>
               ((fun k => p.fst (is k), p.snd)
                 : AnnotatedTuple T (BoolFunc X) n₁))) := by
           obtain ⟨κ₀, hκ₀, hκv⟩ := hg
@@ -1456,7 +1561,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     rw [specializeTuple_append]
     congr 1
     funext j
-    exact specialize_ofGroup is ((q.evaluate d).map GenRow.toAnnotated)
+    exact specialize_ofGroup is ((q.evaluate d γ).map GenRow.toAnnotated)
       kv.fst (fs j) (ts j) v
   | ProvSum is his t q ih =>
     intro hq
@@ -1464,18 +1569,18 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q ih =>
     intro hq
     exact hq.elim
-  | @Win nI mI pI P O o w t f q ih =>
+  | @Win cI nI mI pI P O o w t f q ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame
-    intro hq d v
+    intro hq d v γ
     rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq, ← ih hq d v,
       ← genRandomWorld_allReg q d v]
     unfold genRandomWorld randomWorld
     rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
-      Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d) =>
-        show (ValueFrame.windowRow P O o w t f (q.evaluateAnnotated d) x).snd.finalize v
-            = true
+      Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
+        show (ValueFrame.windowRow P O o w t f
+              (q.evaluateAnnotated d γ) x γ).snd.finalize v = true
           ↔ x.snd v = true from by
           simp [ValueFrame.windowRow])]
     refine Multiset.map_congr rfl (fun x hx => ?_)
@@ -1485,11 +1590,11 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     unfold GenRow.specializeTuple
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact tokenOf_specialize P O o w t f (q.evaluateAnnotated d) hxR v hxc
+      exact tokenOf_specialize P O o w t f (q.evaluateAnnotated d γ) hxR v hxc
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | Retag h q ih =>
-    intro hq d v
+    intro hq d v γ
     exact ih hq d v
 
 /-! ## Unrestricted probabilistic query evaluation (PQE) -/

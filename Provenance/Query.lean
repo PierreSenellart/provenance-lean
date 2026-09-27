@@ -66,12 +66,18 @@ def TermIn.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t wi
 | mul t₁ t₂ => mul t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 
 
-def TermIn.eval (term: Term T n) (tuple: Tuple T n) := match term with
+/-- Value of a term on a row. An open term also reads an *outer
+valuation* `γ`, one value per outer column. A closed term reads none, so
+the argument defaults to a valuation no one looks at (`Fin 0` is empty)
+and closed uses write `t.eval u`. -/
+def TermIn.eval {c : ℕ} (term : TermIn T c n) (tuple : Tuple T n)
+    (γ : Fin c → T := fun _ => 0) : T := match term with
   | const a => a
+  | outer k => γ k
   | index k => tuple k
-  | add t₁ t₂ => (t₁.eval tuple) + (t₂.eval tuple)
-  | sub t₁ t₂ => (t₁.eval tuple) - (t₂.eval tuple)
-  | mul t₁ t₂ => (t₁.eval tuple) * (t₂.eval tuple)
+  | add t₁ t₂ => (t₁.eval tuple γ) + (t₂.eval tuple γ)
+  | sub t₁ t₂ => (t₁.eval tuple γ) - (t₂.eval tuple γ)
+  | mul t₁ t₂ => (t₁.eval tuple γ) * (t₂.eval tuple γ)
 
 theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
 ∀ α: K,

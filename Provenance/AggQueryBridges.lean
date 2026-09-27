@@ -61,10 +61,10 @@ theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n�
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The annotation list of a group token is the group's annotation list. -/
-theorem AggValue.annList_ofGroup {m : ℕ} (f : SeqAggFunc T) (t : Term T m)
-    (U : List (AnnotatedTuple T K m)) :
-    (AggValue.ofGroup f t U).occs.map Prod.snd = U.map Prod.snd := by
-  show (U.map (fun p => (t.eval p.fst, p.snd))).map Prod.snd = _
+theorem AggValue.annList_ofGroup {c m : ℕ} (f : SeqAggFunc T)
+    (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
+    (AggValue.ofGroup f t U γ).occs.map Prod.snd = U.map Prod.snd := by
+  show (U.map (fun p => (t.eval p.fst γ, p.snd))).map Prod.snd = _
   rw [List.map_map]
   rfl
 
