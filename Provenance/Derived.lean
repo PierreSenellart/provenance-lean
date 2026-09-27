@@ -562,4 +562,50 @@ def antijoin (cnt : SeqAggFunc T) (kap : Fin l)
 
 end Semijoin
 
+/-! ## Offset functions
+
+`first_value` and `last_value` read one end of a frame; `lag` and `lead`
+read the frames of the rows strictly before and strictly after. All four
+are the window operator with `PICKFIRST`, the aggregate that takes the
+first value of the sequence it is given, so what tells them apart is the
+frame and the order the frame is read in – the two jobs the clause does,
+which the window operator keeps separate because the frame is an
+argument of its own. -/
+
+section Offset
+
+variable [ValueType T] {n m p : ℕ}
+
+/-- `first_value(t)` over the frame `w`: the value of `t` on the first row
+of the frame in the clause's order. -/
+def firstValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : Term T n)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  Win P O o w t SeqAggFunc.pickFirst q
+
+/-- `last_value(t)`: the same frame, read backwards. Only the reading
+order is reversed – the frame is an argument, so a frame the clause
+bounds is still bounded by the clause as it stands. -/
+def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : Term T n)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  Win P O o.reverse w t SeqAggFunc.pickFirst q
+
+/-- `lag(t)`: `last_value` over the rows strictly before the current
+row's peers. -/
+def lag (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  lastValue P O o (ValueFrame.rangeBefore o) t q
+
+/-- `lead(t)`: `first_value` over the rows strictly after. -/
+def lead (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  firstValue P O o (ValueFrame.rangeAfter o) t q
+
+end Offset
+
 end AggQueryIn

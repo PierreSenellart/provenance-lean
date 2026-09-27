@@ -342,7 +342,10 @@ proven engine several general results reuse internally.
   come in two families. Against the domain's own order on the order values:
   `whole`, `upTo`, `before` (the rows strictly preceding the current row's
   peers) and `excludeCurrent`. Against an explicit `ORDER BY`
-  (`Provenance.OrderSpec`): `rangeUpTo`, `rangeBefore`, `peerGroup` and the
+  (`Provenance.OrderSpec`): `rangeUpTo`, `rangeBefore`, their mirrors
+  `rangeFrom` and `rangeAfter` – which are the first two under the
+  reversed clause (`rangeUpTo_reverse`, `rangeBefore_reverse`) –
+  `peerGroup` and the
   modifiers `excludeGroup` and `excludeTies`, each classified by
   `ContainsSelf` – and the classification lands where the general theory
   says it must, `EXCLUDE GROUP` keeping a frame readable off the relation
@@ -439,7 +442,9 @@ proven engine several general results reuse internally.
   is the working form and `filter_sortSeq_map_eq` says cutting a frame down
   to a possible world and sorting commute on the values read off. A window
   with no `ORDER BY` is `OrderSpec.unordered`, which separates nothing, and
-  its frame is read as a group is (`ValueFrame.frameListOf_of_peer`)
+  its frame is read as a group is (`ValueFrame.frameListOf_of_peer`).
+  `OrderSpec.reverse` reads the clause backwards, direction and null
+  placement together, which is what `last_value` reads its frame in
 - `Provenance.Derived` – **the operators that add nothing**: each is an
   abbreviation, a query of the basis, and its semantics – plain and
   annotated – is that of the query it abbreviates, so every theorem proved
@@ -459,7 +464,12 @@ proven engine several general results reuse internally.
   each occurrence of the left arm keeps its multiplicity – a grouping on
   its columns would merge duplicates, which `WHERE EXISTS` does not – and
   so that a row with no match still has its row, with count `𝟘`;
-  comparing that count against `𝟘` is what tells the two apart
+  comparing that count against `𝟘` is what tells the two apart.
+  `firstValue`, `lastValue`, `lag` and `lead` are the window operator
+  with `PICKFIRST`: what tells them apart is the frame and the order it
+  is read in, which the operator keeps separate because the frame is an
+  argument of its own – so `lastValue` reverses the reading clause and
+  leaves a clause-bounded frame bounded as it stands
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate

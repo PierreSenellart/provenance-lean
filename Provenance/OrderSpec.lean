@@ -82,6 +82,30 @@ def le (c : OrderCol) (a b : T) : Bool :=
 /-- Two values are *peers* in a column when neither sorts before the other. -/
 def peer (c : OrderCol) (a b : T) : Bool := c.le a b && c.le b a
 
+/-- **The column read backwards.** Reversing the direction reverses where
+the nulls go with it, as `ASC`/`DESC` already do: `OrderCol.ASC.reverse` is
+`OrderCol.DESC`. -/
+def reverse (c : OrderCol) : OrderCol :=
+  { desc := !c.desc, nullsFirst := !c.nullsFirst }
+
+@[simp] theorem reverse_ASC : OrderCol.ASC.reverse = OrderCol.DESC := rfl
+
+@[simp] theorem reverse_DESC : OrderCol.DESC.reverse = OrderCol.ASC := rfl
+
+@[simp] theorem reverse_reverse (c : OrderCol) : c.reverse.reverse = c := by
+  cases c; simp [reverse]
+
+@[simp] theorem le_reverse (c : OrderCol) (a b : T) :
+    c.reverse.le a b = c.le b a := by
+  unfold le reverse
+  cases ha : ValueType.isNull a <;> cases hb : ValueType.isNull b <;>
+    cases hd : c.desc <;> cases hn : c.nullsFirst <;> simp
+
+@[simp] theorem peer_reverse (c : OrderCol) (a b : T) :
+    c.reverse.peer a b = c.peer a b := by
+  unfold peer
+  rw [le_reverse, le_reverse, Bool.and_comm]
+
 @[simp] theorem le_rfl (c : OrderCol) (a : T) : c.le a a = true := by
   unfold le
   by_cases ha : ValueType.isNull a = true <;> simp [ha]
@@ -209,6 +233,40 @@ def peer (o : OrderSpec p) (x y : Tuple T p) : Bool := o.le x y && o.le y x
 
 /-- `x` sorts strictly before `y`: `y` is not at or before `x`. -/
 def lt (o : OrderSpec p) (x y : Tuple T p) : Bool := !o.le y x
+
+/-- **The clause read backwards**, column by column: what `last_value`
+reads its frame in where `first_value` reads it forwards. -/
+def reverse (o : OrderSpec p) : OrderSpec p := fun k => (o k).reverse
+
+@[simp] theorem reverse_reverse (o : OrderSpec p) : o.reverse.reverse = o :=
+  funext fun k => OrderCol.reverse_reverse (o k)
+
+@[simp] theorem leOn_reverse (o : OrderSpec p) (l : List (Fin p))
+    (x y : Tuple T p) : o.reverse.leOn l x y = o.leOn l y x := by
+  induction l with
+  | nil => rfl
+  | cons k ks ih =>
+    show (if (o.reverse k).peer (x k) (y k) then o.reverse.leOn ks x y
+      else (o.reverse k).le (x k) (y k)) = _
+    rw [show o.reverse k = (o k).reverse from rfl, OrderCol.peer_reverse,
+      OrderCol.le_reverse, ih]
+    show (if (o k).peer (x k) (y k) then _ else _)
+      = (if (o k).peer (y k) (x k) then _ else _)
+    rw [show (o k).peer (y k) (x k) = (o k).peer (x k) (y k) from by
+      unfold OrderCol.peer; rw [Bool.and_comm]]
+
+@[simp] theorem le_reverse (o : OrderSpec p) (x y : Tuple T p) :
+    o.reverse.le x y = o.le y x := leOn_reverse o _ x y
+
+@[simp] theorem peer_reverse (o : OrderSpec p) (x y : Tuple T p) :
+    o.reverse.peer x y = o.peer x y := by
+  unfold peer
+  rw [le_reverse, le_reverse, Bool.and_comm]
+
+@[simp] theorem lt_reverse (o : OrderSpec p) (x y : Tuple T p) :
+    o.reverse.lt x y = o.lt y x := by
+  unfold lt
+  rw [le_reverse]
 
 /-! ### The clause is a total preorder -/
 

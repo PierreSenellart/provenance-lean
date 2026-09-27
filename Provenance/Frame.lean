@@ -855,6 +855,17 @@ can be empty in a world where that row is present. -/
 def rangeBefore (o : OrderSpec p) : ValueFrame T p :=
   ⟨fun o' ov => o.lt o' ov, fun _ => false⟩
 
+/-- `RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING`: the current row,
+its peers, and everything the clause sorts after them. It is
+`rangeUpTo` under the reversed clause. -/
+def rangeFrom (o : OrderSpec p) : ValueFrame T p :=
+  ⟨fun o' ov => o.le ov o', fun _ => true⟩
+
+/-- The rows the clause sorts *strictly* after the current row's peers:
+the frame `lead` reads. -/
+def rangeAfter (o : OrderSpec p) : ValueFrame T p :=
+  ⟨fun o' ov => o.lt ov o', fun _ => false⟩
+
 /-- `GROUPS BETWEEN CURRENT ROW AND CURRENT ROW`: the current row's peer
 group, and nothing else. -/
 def peerGroup (o : OrderSpec p) : ValueFrame T p :=
@@ -883,6 +894,31 @@ telling from its twin. -/
 @[simp] theorem rangeBefore_containsSelf (o : OrderSpec p) :
     (rangeBefore o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeBefore]
+
+@[simp] theorem rangeFrom_containsSelf (o : OrderSpec p) :
+    (rangeFrom o : ValueFrame T p).ContainsSelf := fun ov => by
+  simp [rangeFrom]
+
+@[simp] theorem rangeFrom_containsCurrent (o : OrderSpec p) :
+    (rangeFrom o : ValueFrame T p).ContainsCurrent := fun _ => rfl
+
+/-- The rows strictly after are determined by the tuple, for the reason the
+rows strictly before are: the peers are outside the frame too. -/
+@[simp] theorem rangeAfter_containsSelf (o : OrderSpec p) :
+    (rangeAfter o : ValueFrame T p).ContainsSelf := fun ov => by
+  simp [rangeAfter]
+
+/-- Reading the clause backwards turns the rows up to the current one into
+the rows from it on, and the rows before into the rows after. -/
+@[simp] theorem rangeUpTo_reverse (o : OrderSpec p) :
+    (rangeUpTo o.reverse : ValueFrame T p) = rangeFrom o := by
+  unfold rangeUpTo rangeFrom
+  simp
+
+@[simp] theorem rangeBefore_reverse (o : OrderSpec p) :
+    (rangeBefore o.reverse : ValueFrame T p) = rangeAfter o := by
+  unfold rangeBefore rangeAfter
+  simp
 
 @[simp] theorem peerGroup_containsSelf (o : OrderSpec p) :
     (peerGroup o : ValueFrame T p).ContainsSelf := fun ov => by
