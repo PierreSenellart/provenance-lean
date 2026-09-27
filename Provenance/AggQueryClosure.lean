@@ -357,10 +357,19 @@ a factor in that case (`GenPredIn.siteProvTerm`), reproducing what the
 general evaluator does with the pending group factor. -/
 
 /-- **No range atom.** A range compares one token against two terms at
-once, and ProvSQL has no gate for that: `provsql_having` carries a single
+once, and there is no gate for that: `provsql_having` carries a single
 comparison. The site rewriting is therefore stated on range-free
-predicates, and a range emitted as the product of two gates is right
-only where `AggValue.predProvOf_mul_predProvOf` applies. -/
+predicates, and a range emitted as the product of two gates *denotes*
+the product of the two atoms' provenances, which is the range's own
+`⊕`-sum only where `AggValue.predProvOf_mul_predProvOf` applies.
+
+What the emitted term denotes and what an evaluator computes from it are
+two questions. An evaluator that recognises the two gates as reading one
+occurrence family may resolve them jointly – enumerate that family's
+worlds once, or use the closed form `Having.range_eq_S_monus_S` where
+its hypotheses hold – and so recover the range's reading from a term
+that does not denote it. What the term cannot do is carry the range to
+an evaluator that does not look for the pattern. -/
 def GenPredIn.rangeFree {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
   | .cmp _ _ _ => true
   | .aggCmp _ _ _ _ => true

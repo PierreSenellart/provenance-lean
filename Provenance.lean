@@ -548,9 +548,12 @@ proven engine several general results reuse internally.
   predicate provenance is the one `⊕`-sum over the worlds where the rank
   is in range that §derivedann asks for (`predsem_rankRange`), with no
   hypothesis on the m-semiring – where a conjunction of two atoms would
-  give the product of two sums. No ProvSQL gate carries a range, so the
-  site rewriting is stated on range-free predicates
-  (`GenPredIn.rangeFree`).
+  give the product of two sums. No `provsql_having` gate carries a range,
+  so the site rewriting is stated on range-free predicates
+  (`GenPredIn.rangeFree`): the term it would emit denotes the product,
+  which an evaluator may resolve back to the range's own sum by
+  recognising that the two gates read one family, but which the term
+  itself does not denote.
   `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
   of the whole key, so that a key column a set drops reads as the null
