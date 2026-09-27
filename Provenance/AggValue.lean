@@ -287,14 +287,14 @@ conjunction of two – one atom, and not a product of two. -/
 def predProvWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (a : AggValue T K) (P : T → Kleene) : K :=
   ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin a.occs.length) => W.Nonempty),
-    Having.worldAnn a.anns W * (if P (a.valOn W) = Kleene.true then 1 else 0)
+    Having.worldAnn a.anns W * Having.chiOf P (a.valOn W)
 
 /-- The scalar-convention counterpart: the same sum over all worlds, the
 empty one included. -/
 def predProvScalarWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
     (a : AggValue T K) (P : T → Kleene) : K :=
   ∑ W : Finset (Fin a.occs.length),
-    Having.worldAnn a.anns W * (if P (a.valOn W) = Kleene.true then 1 else 0)
+    Having.worldAnn a.anns W * Having.chiOf P (a.valOn W)
 
 /-- The test read in the token's own convention. -/
 def predProvOfWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
@@ -316,12 +316,6 @@ theorem predProvOf_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
   unfold predProvOf predProvOfWith
   cases a.scalar <;> rfl
 
-theorem chi_mul_chi [CommSemiringWithMonus K] (x y : Kleene) :
-    ((if x = Kleene.true then (1 : K) else 0)
-      * (if y = Kleene.true then (1 : K) else 0))
-      = if x.and y = Kleene.true then (1 : K) else 0 := by
-  cases x <;> cases y <;> simp [Kleene.and]
-
 /-- **A range is one atom, not a product of two.** The joint reading of
 two tests is the reading of their conjunction. -/
 theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
@@ -330,7 +324,7 @@ theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
     a.predProvAnd op₁ c₁ op₂ c₂
       = a.predProvWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
   refine Finset.sum_congr rfl (fun W _ => ?_)
-  rw [← chi_mul_chi]
+  rw [← Having.chiOf_mul_chiOf]
   rfl
 
 theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
@@ -339,7 +333,7 @@ theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithM
     a.predProvScalarAnd op₁ c₁ op₂ c₂
       = a.predProvScalarWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
   refine Finset.sum_congr rfl (fun W _ => ?_)
-  rw [← chi_mul_chi]
+  rw [← Having.chiOf_mul_chiOf]
   rfl
 
 theorem predProvOfAnd_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]

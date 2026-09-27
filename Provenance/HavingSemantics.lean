@@ -481,6 +481,26 @@ contributes nothing to either provenance. -/
 def chi (op : CompOp) (a b : T) : K :=
   if op.eval3 a b = Kleene.true then 1 else 0
 
+/-- `χ_P`: the characteristic value of an arbitrary three-valued test on
+a value, `𝟙` where the test is true and `𝟘` where it is false or
+unknown. `chi` is the case of a comparison against a constant, and the
+general form is what an atom carrying a test – a range, for one – reads
+its token through. -/
+def chiOf (P : T → Kleene) (a : T) : K :=
+  if P a = Kleene.true then 1 else 0
+
+omit [DecidableEq K] in
+theorem chi_eq_chiOf (op : CompOp) (a b : T) :
+    (chi op a b : K) = chiOf (fun v => op.eval3 v b) a := rfl
+
+omit [ValueType T] [DecidableEq K] in
+/-- **Two tests conjoin by `⊗`**, the characteristic values being
+`{𝟘, 𝟙}`-valued. -/
+theorem chiOf_mul_chiOf (P Q : T → Kleene) (a : T) :
+    (chiOf P a : K) * chiOf Q a = chiOf (fun v => (P v).and (Q v)) a := by
+  unfold chiOf
+  cases hP : P a <;> cases hQ : Q a <;> simp [Kleene.and, hP, hQ]
+
 omit [DecidableEq K] in
 /-- **Away from the null the indicator is the two-valued one.** The
 statements proved before the null was introduced are this case, and over a

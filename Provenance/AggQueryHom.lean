@@ -180,6 +180,53 @@ theorem predProvScalar_mapAnn (h : SemiringWithMonusHom K K')
       = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+theorem chiOf_hom (h : SemiringWithMonusHom K K') (P : T → Kleene) (v : T) :
+    h.toRingHom (Having.chiOf P v : K) = (Having.chiOf P v : K') := by
+  unfold Having.chiOf
+  split <;> simp
+
+/-- **Token-level hom commutation for a test.** As `predProv_mapAnn`,
+with an arbitrary three-valued test in place of the comparison: the test
+reads the aggregate values, which the pushforward leaves alone. -/
+theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
+    (a : AggValue T K) (P : T → Kleene) :
+    (a.mapAnn ⇑h.toRingHom).predProvWith P
+      = h.toRingHom (a.predProvWith P) := by
+  unfold predProvWith
+  rw [map_sum, Finset.sum_filter, Finset.sum_filter]
+  refine (Fintype.sum_equiv (finCongr (length_mapAnn_occs h a)).finsetCongr
+    (fun W => if W.Nonempty
+      then h.toRingHom (Having.worldAnn a.anns W
+        * Having.chiOf P (a.valOn W)) else 0)
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply]
+  by_cases hne : W.Nonempty
+  · rw [ite_eq_left hne, ite_eq_left (by rwa [Finset.map_nonempty]),
+      valOn_mapAnn h a W, worldAnn_map_finCongr, map_mul, worldAnn_hom,
+      chiOf_hom,
+      show (fun i => (a.mapAnn ⇑h.toRingHom).anns
+          (finCongr (length_mapAnn_occs h a) i))
+        = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
+  · rw [ite_eq_right hne, ite_eq_right (by rwa [Finset.map_nonempty])]
+
+/-- The scalar-convention counterpart. -/
+theorem predProvScalarWith_mapAnn (h : SemiringWithMonusHom K K')
+    (a : AggValue T K) (P : T → Kleene) :
+    (a.mapAnn ⇑h.toRingHom).predProvScalarWith P
+      = h.toRingHom (a.predProvScalarWith P) := by
+  unfold predProvScalarWith
+  rw [map_sum]
+  refine (Fintype.sum_equiv (finCongr (length_mapAnn_occs h a)).finsetCongr
+    (fun W => h.toRingHom (Having.worldAnn a.anns W
+      * Having.chiOf P (a.valOn W)))
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply, valOn_mapAnn h a W, worldAnn_map_finCongr,
+    map_mul, worldAnn_hom, chiOf_hom,
+    show (fun i => (a.mapAnn ⇑h.toRingHom).anns
+        (finCongr (length_mapAnn_occs h a) i))
+      = fun i => h.toRingHom (a.anns i) from funext (anns_mapAnn h a)]
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- The pushforward keeps a token's convention. -/
 @[simp] theorem scalar_mapAnn (h : SemiringWithMonusHom K K') (a : AggValue T K) :
     (a.mapAnn ⇑h.toRingHom).scalar = a.scalar := rfl
@@ -196,6 +243,17 @@ theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
   cases a.scalar
   · simpa using predProv_mapAnn h a op c
   · simpa using predProvScalar_mapAnn h a op c
+
+/-- Whichever convention the token carries. -/
+theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
+    (a : AggValue T K) (P : T → Kleene) :
+    (a.mapAnn ⇑h.toRingHom).predProvOfWith P
+      = h.toRingHom (a.predProvOfWith P) := by
+  unfold AggValue.predProvOfWith
+  rw [scalar_mapAnn]
+  cases a.scalar
+  · simpa using predProvWith_mapAnn h a P
+  · simpa using predProvScalarWith_mapAnn h a P
 
 end AggValue
 
