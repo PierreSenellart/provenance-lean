@@ -36,6 +36,10 @@ the last one kept is kept too. Grouping sets are the union of one
 aggregation per set of the family, each padded back onto the columns of
 the whole key, which is what `pad` is for.
 
+A `FILTER` clause is not an operator either: the aggregate reads its
+term through SQL's `CASE`, and the input policy – null-skipping or
+counting – drops what the clause nulls out.
+
 A `DISTINCT` aggregate deduplicates the key columns together with the
 aggregated term and aggregates the added column. Over annotated relations
 that is what gives each distinct value one occurrence, annotated by the
@@ -1140,5 +1144,171 @@ theorem evaluatePlain_gammaScalarDistinct (t : TermIn T c m)
   exact hf (groupSeq_distinctRow_perm _ t _ _)
 
 end Distinct
+
+/-! ## The `FILTER` clause
+
+`f(t) FILTER (WHERE φ)` restricts what the aggregate reads. Over a
+null-skipping aggregate it is `f` over `CASE WHEN φ THEN t END`, and over
+a count it is the same term read through the counting policy: both
+policies drop the nulls, so nulling out the occurrences the clause
+rejects is exactly leaving them out of the sequence. The group, its key
+and its annotation are those of all the occurrences – a filtered-out
+occurrence still witnesses its group – which is why the clause belongs
+in the term and not in a selection under the aggregation.
+
+A guard that is a Boolean combination of comparisons needs nothing more:
+a conjunction is a nested `CASE`, a disjunction a `COALESCE` of the two
+cases, and a negation `CompOp.negate`.
+
+The third input policy is not here. A null-keeping aggregate reads every
+value, the null included, so it cannot tell an occurrence the clause
+rejects from one whose term is null; SQL removes the rejected ones from
+the sequence, which no term can do and which the aggregation operators
+would have to be told about. -/
+
+section Filter
+
+variable [ValueTypeNull T] {c n m : ℕ}
+
+/-- The term a `FILTER` clause makes an aggregate read: the aggregated
+term where the clause holds, the null where it does not. -/
+def filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n) : TermIn T c n :=
+  .caseWhen op t₁ t₂ t (.const ValueTypeNull.null)
+
+/-- Whether a `FILTER` clause holds on a row. -/
+def filterHolds (op : CompOp) (t₁ t₂ : TermIn T c n) (γ : Fin c → T)
+    (u : Tuple T n) : Bool :=
+  decide (op.eval3 (t₁.eval u γ) (t₂.eval u γ) = Kleene.true)
+
+theorem notNull_eq (a : T) :
+    decide (a ≠ ValueTypeNull.null) = !ValueType.isNull a := by
+  rw [ValueTypeNull.isNull_iff]
+  simp
+
+theorem eval_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
+    (u : Tuple T n) (γ : Fin c → T) :
+    (filterTerm op t₁ t₂ t).eval u γ
+      = if filterHolds op t₁ t₂ γ u then t.eval u γ
+        else ValueTypeNull.null := by
+  rw [filterTerm, TermIn.eval, filterHolds]
+  simp only [decide_eq_true_eq]
+  rfl
+
+theorem filter_map_filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n)
+    (γ : Fin c → T) (L : List (Tuple T n)) :
+    (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ)).filter
+        (fun a => !ValueType.isNull a)
+      = ((L.filter (filterHolds op t₁ t₂ γ)).map
+          (fun u => t.eval u γ)).filter (fun a => !ValueType.isNull a) := by
+  induction L with
+  | nil => rfl
+  | cons u L ih =>
+    rw [List.map_cons, eval_filterTerm]
+    by_cases h : filterHolds op t₁ t₂ γ u = true <;>
+      simp [h, List.filter_cons, ih]
+
+/-- **What a `FILTER` clause makes a null-skipping aggregate read**: the
+values of the occurrences the clause keeps. Nulling out the others and
+skipping them is the same as leaving them out of the sequence. -/
+theorem sqlOf_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : TermIn T c n) (γ : Fin c → T) (L : List (Tuple T n)) :
+    f.sqlOf (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ))
+      = f.sqlOf ((L.filter (filterHolds op t₁ t₂ γ)).map
+          (fun u => t.eval u γ)) := by
+  unfold SeqAggFunc.sqlOf
+  simp only [notNull_eq, filter_map_filterTerm]
+
+/-- **What a `FILTER` clause makes a count read**: the same. -/
+theorem counting_map_filterTerm (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : TermIn T c n) (γ : Fin c → T) (L : List (Tuple T n)) :
+    f.counting (L.map (fun u => (filterTerm op t₁ t₂ t).eval u γ))
+      = f.counting ((L.filter (filterHolds op t₁ t₂ γ)).map
+          (fun u => t.eval u γ)) := by
+  unfold SeqAggFunc.counting
+  rw [filter_map_filterTerm]
+
+/-- **An aggregation with a `FILTER` clause**: the aggregate reads the
+term through the clause. The aggregate comes already read through its
+input policy – `SeqAggFunc.sqlOf` for a null-skipping aggregate,
+`SeqAggFunc.counting` for a count – and it is that policy which drops
+the occurrences the clause nulls out. -/
+def gammaFilter {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (op : CompOp)
+    (t₁ t₂ t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) :
+    AggQueryIn T c (n₁ + 1)
+      (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
+  Gamma is ![filterTerm op t₁ t₂ t] ![f] q
+
+/-- **A window aggregate with a `FILTER` clause.** -/
+def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (op : CompOp)
+    (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) :
+    AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  Win P O o w (filterTerm op t₁ t₂ t) f q
+
+/-- **What a filtered null-skipping aggregation computes over plain
+relations**: each group's aggregate reads the occurrences of the group
+the clause keeps. The group itself is unchanged – a filtered-out
+occurrence still witnesses it. -/
+theorem evaluatePlain_gammaFilter_sqlOf {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (op : CompOp) (t₁ t₂ t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaFilter is op t₁ t₂ t f.sqlOf q).evaluatePlain D γ
+      = ((q.evaluatePlain D γ).map
+          (fun u => (fun k => u (is k) : Tuple T n₁))).dedup.map
+          (fun g => Fin.append g (fun _ : Fin 1 =>
+            f.sqlOf (((Relation.groupSeq is (q.evaluatePlain D γ) g).filter
+              (filterHolds op t₁ t₂ γ)).map (fun v => t.eval v γ)))) := by
+  rw [gammaFilter, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun g _ => ?_)
+  refine congrArg (Fin.append g) (funext fun j => ?_)
+  obtain rfl : j = 0 := Fin.fin_one_eq_zero j
+  simp only [Matrix.cons_val_zero]
+  exact sqlOf_map_filterTerm f op t₁ t₂ t γ _
+
+/-- **What a filtered count computes over plain relations**: the same,
+the counting policy dropping the occurrences the clause nulls out. -/
+theorem evaluatePlain_gammaFilter_counting {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (op : CompOp) (t₁ t₂ t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaFilter is op t₁ t₂ t f.counting q).evaluatePlain D γ
+      = ((q.evaluatePlain D γ).map
+          (fun u => (fun k => u (is k) : Tuple T n₁))).dedup.map
+          (fun g => Fin.append g (fun _ : Fin 1 =>
+            f.counting (((Relation.groupSeq is (q.evaluatePlain D γ) g).filter
+              (filterHolds op t₁ t₂ γ)).map (fun v => t.eval v γ)))) := by
+  rw [gammaFilter, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun g _ => ?_)
+  refine congrArg (Fin.append g) (funext fun j => ?_)
+  obtain rfl : j = 0 := Fin.fin_one_eq_zero j
+  simp only [Matrix.cons_val_zero]
+  exact counting_map_filterTerm f op t₁ t₂ t γ _
+
+/-- **What a filtered window aggregate reads**: the rows of the frame the
+clause keeps. -/
+theorem windowValue_filterTerm_sqlOf {n mp p : ℕ} (P : Tuple (Fin n) mp)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (op : CompOp) (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
+    ValueFrame.windowValue P O o w (filterTerm op t₁ t₂ t) f.sqlOf R u γ
+      = f.sqlOf (((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).filter
+          (filterHolds op t₁ t₂ γ)).map (fun v => t.eval v γ)) :=
+  sqlOf_map_filterTerm f op t₁ t₂ t γ _
+
+/-- **What a filtered window count reads**: the same. -/
+theorem windowValue_filterTerm_counting {n mp p : ℕ} (P : Tuple (Fin n) mp)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (op : CompOp) (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
+    ValueFrame.windowValue P O o w (filterTerm op t₁ t₂ t) f.counting R u γ
+      = f.counting (((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).filter
+          (filterHolds op t₁ t₂ γ)).map (fun v => t.eval v γ)) :=
+  counting_map_filterTerm f op t₁ t₂ t γ _
+
+end Filter
+
 
 end AggQueryIn

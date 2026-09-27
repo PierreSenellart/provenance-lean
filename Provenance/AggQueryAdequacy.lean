@@ -55,6 +55,10 @@ theorem TermGIn.eval_eq_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
   | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂, ih₃, ih₄]
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A projection column collapses on a lifted tuple to its plain reading

@@ -123,6 +123,10 @@ def TermGIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
   | .add t₁ t₂ => .add (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .sub t₁ t₂ => .sub (t₁.castComposite hκ) (t₂.castComposite hκ)
   | .mul t₁ t₂ => .mul (t₁.castComposite hκ) (t₂.castComposite hκ)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+      .caseWhen op (t₁.castComposite hκ) (t₂.castComposite hκ)
+        (t₃.castComposite hκ) (t₄.castComposite hκ)
+  | .coalesce t₁ t₂ => .coalesce (t₁.castComposite hκ) (t₂.castComposite hκ)
 
 /-- An aggregate-atom-free predicate, over the composite domain. -/
 def GenPredIn.castComposite {c n : ℕ} {κ : Fin n → ColKind}
@@ -167,6 +171,11 @@ theorem TermGIn.castComposite_chiFree {c n : ℕ} {κ : Fin n → ColKind}
   | .add t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
   | .sub t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
   | .mul t₁ t₂ => ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
+  | .caseWhen _ t₁ t₂ t₃ t₄ =>
+      ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂,
+        castComposite_chiFree hκ t₃, castComposite_chiFree hκ t₄⟩
+  | .coalesce t₁ t₂ =>
+      ⟨castComposite_chiFree hκ t₁, castComposite_chiFree hκ t₂⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The composite cast of a predicate emits no indicator gate. -/

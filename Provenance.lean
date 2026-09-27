@@ -187,7 +187,12 @@ the provenance-aware relational database system
   comparisons the language has `BoolTerm.SYNEQ` and `BoolTerm.SYNNE`,
   SQL's `IS [NOT] DISTINCT FROM`, the first written `≐`: they compare two
   values with two nulls identical, are never unknown, and are what a join
-  on a key column needs. Also the aggregate catalog `SeqAggFunc` and
+  on a key column needs. A term is an index or a constant combined by
+  arithmetic, by SQL's searched `CASE` (`TermIn.caseWhen`, whose `ELSE`
+  is a term, so that the constructor asks nothing of the value domain)
+  and by `TermIn.coalesce`: with those two, a guard that is a Boolean
+  combination of comparisons needs no more – a conjunction is a nested
+  `CASE`, a disjunction a `COALESCE`, a negation `CompOp.negate`. Also the aggregate catalog `SeqAggFunc` and
   the two of SQL's three **input policies** that a null makes visible:
   `SeqAggFunc.sqlOf`, the *null-skipping* one (`SUM`, `MIN`, `MAX`, `AVG`),
   which drops the nulls and gives `NULL` when nothing is left, and
@@ -512,7 +517,14 @@ proven engine several general results reuse internally.
   `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
   of the whole key, so that a key column a set drops reads as the null
-  (`gsRow` says which row each arm contributes).
+  (`gsRow` says which row each arm contributes). `filterTerm` is SQL's
+  `FILTER` clause: the aggregated term read through a `CASE`, which the
+  null-skipping and counting input policies then drop, so that
+  `gammaFilter` and `winFilter` read exactly the occurrences the clause
+  keeps (`sqlOf_map_filterTerm`, `counting_map_filterTerm`) while the
+  group, its key and its annotation stay those of all the occurrences.
+  A null-keeping aggregate is not covered: it reads the null as a value
+  and so cannot tell a rejected occurrence from a null one.
   `gammaDistinct` and `gammaScalarDistinct` are SQL's `DISTINCT`
   aggregates: deduplicate the key columns together with the aggregated
   term, then aggregate the added column, which annotates each distinct

@@ -257,3 +257,42 @@ instance [ToString T] : ToString (WithNull T) where
     | some x => toString x
 
 end WithNull
+
+/-! ## The rewriting domain reads its data arm as the data domain
+
+The rewritten world lives in `V ⊕ K`, the data on the left and the
+annotation on the right. A term carried into it reads the same values on
+the data arm, which is what the lemmas below say of the comparison and of
+the null test. -/
+
+section RewritingDomain
+
+variable {V K : Type} [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K]
+
+@[simp] theorem isNull_inl (a : V) :
+    ValueType.isNull (Sum.inl a : V ⊕ K) = ValueType.isNull a := rfl
+
+@[simp] theorem isNull_inr (x : K) :
+    ValueType.isNull (Sum.inr x : V ⊕ K) = false := rfl
+
+theorem le_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) ≤ Sum.inl b ↔ a ≤ b :=
+  Iff.rfl
+
+theorem lt_inl_inl {a b : V} : (Sum.inl a : V ⊕ K) < Sum.inl b ↔ a < b := by
+  rw [lt_iff_le_not_ge, lt_iff_le_not_ge, le_inl_inl, le_inl_inl]
+
+/-- **Comparison operators restrict along the `inl` embedding.** -/
+theorem CompOp.eval_inl (op : CompOp) (a b : V) :
+    op.eval (Sum.inl a : V ⊕ K) (Sum.inl b) ↔ op.eval a b := by
+  cases op <;>
+    simp only [CompOp.eval, Sum.inl.injEq, ne_eq, le_inl_inl, lt_inl_inl,
+      ge_iff_le, gt_iff_lt]
+
+/-- **A comparison of two data values reads the same on the data arm**:
+the composite domain takes its nulls from the data side. -/
+@[simp] theorem CompOp.eval3_inl (op : CompOp) (a b : V) :
+    op.eval3 (Sum.inl a : V ⊕ K) (Sum.inl b) = op.eval3 a b := by
+  unfold CompOp.eval3
+  rw [isNull_inl, isNull_inl, decide_eq_decide.mpr (CompOp.eval_inl op a b)]
+
+end RewritingDomain

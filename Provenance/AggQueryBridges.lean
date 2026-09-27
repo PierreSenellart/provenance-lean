@@ -37,6 +37,10 @@ def TermIn.toGenKey {n₁ : ℕ} (n₂ : ℕ) :
   | .add t₁ t₂ => .add (t₁.toGenKey n₂) (t₂.toGenKey n₂)
   | .sub t₁ t₂ => .sub (t₁.toGenKey n₂) (t₂.toGenKey n₂)
   | .mul t₁ t₂ => .mul (t₁.toGenKey n₂) (t₂.toGenKey n₂)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op (t₁.toGenKey n₂) (t₂.toGenKey n₂) (t₃.toGenKey n₂)
+      (t₄.toGenKey n₂)
+  | .coalesce t₁ t₂ => .coalesce (t₁.toGenKey n₂) (t₂.toGenKey n₂)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded key term evaluates on a `Gamma` output row as the
@@ -58,6 +62,10 @@ theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n�
   | add t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
   | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
   | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂, ih₃, ih₄]; rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    rw [TermIn.toGenKey, TermGIn.eval, ih₁, ih₂]; rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The annotation list of a group token is the group's annotation list. -/

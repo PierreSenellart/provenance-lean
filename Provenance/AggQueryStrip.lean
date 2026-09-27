@@ -48,6 +48,9 @@ def TermGIn.strip {c n : ℕ} {κ : Fin n → ColKind} : TermGIn T c κ → Term
   | .add t₁ t₂ => .add t₁.strip t₂.strip
   | .sub t₁ t₂ => .sub t₁.strip t₂.strip
   | .mul t₁ t₂ => .mul t₁.strip t₂.strip
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op t₁.strip t₂.strip t₃.strip t₄.strip
+  | .coalesce t₁ t₂ => .coalesce t₁.strip t₂.strip
 
 /-- Plain evaluation factors through the strip. -/
 theorem TermGIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
@@ -62,6 +65,10 @@ theorem TermGIn.strip_eval {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c
   | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂, ih₃, ih₄]
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    rw [TermGIn.strip, TermIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 /-- Strip an aggregate-atom-free predicate to a classical selection. -/
 def GenPredIn.strip {c n : ℕ} {κ : Fin n → ColKind} :

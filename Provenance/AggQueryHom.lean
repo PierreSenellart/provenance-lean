@@ -224,6 +224,9 @@ theorem TermGIn.eval_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
   | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂, ih₃, ih₄]
+  | coalesce t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
 
 /-- **Predicate-level hom commutation.** The predicate provenance of a
 generalized predicate commutes with every `SemiringWithMonusHom`:
@@ -694,6 +697,9 @@ theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c
   | add t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    simp only [TermGIn.eval]; rw [ih₁, ih₂, ih₃, ih₄]
+  | coalesce t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The three-valued reading of a predicate is invariant on

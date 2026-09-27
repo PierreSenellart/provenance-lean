@@ -56,6 +56,19 @@ theorem TermGIn.castComposite_evalPlain {c n : ℕ} {κ : Fin n → ColKind}
       = _
     rw [ih₁, ih₂]
     rfl
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 ((t₁.castComposite hκ).evalPlain u)
+            ((t₂.castComposite hκ).evalPlain u) = Kleene.true
+          then (t₃.castComposite hκ).evalPlain u
+          else (t₄.castComposite hκ).evalPlain u) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull ((t₁.castComposite hκ).evalPlain u)
+          then (t₂.castComposite hκ).evalPlain u
+          else (t₁.castComposite hκ).evalPlain u) = _
+    rw [ih₁, ih₂]
+    rfl
 
 omit [DecidableEq K] in
 /-- The composite cast of a predicate agrees with the classical cast of its

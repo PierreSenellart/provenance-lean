@@ -300,6 +300,10 @@ theorem TermGIn.eval_specialize {c n : ℕ} {κ : Fin n → ColKind}
   | add t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂, ih₃, ih₄]
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    rw [TermGIn.eval, TermGIn.evalPlain, ih₁, ih₂]
 
 omit [Fintype X] [DecidableEq X] in
 /-- On a kind-conformant tuple, an aggregate-atom-free predicate evaluates

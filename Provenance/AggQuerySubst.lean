@@ -51,6 +51,10 @@ def TermIn.substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) :
   | .add t₁ t₂ => .add (t₁.substMap θ) (t₂.substMap θ)
   | .sub t₁ t₂ => .sub (t₁.substMap θ) (t₂.substMap θ)
   | .mul t₁ t₂ => .mul (t₁.substMap θ) (t₂.substMap θ)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op (t₁.substMap θ) (t₂.substMap θ) (t₃.substMap θ)
+      (t₄.substMap θ)
+  | .coalesce t₁ t₂ => .coalesce (t₁.substMap θ) (t₂.substMap θ)
 
 theorem TermIn.eval_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
     (t : TermIn T c n) (u : Tuple T n) (γ : Fin d → T) :
@@ -65,6 +69,14 @@ theorem TermIn.eval_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
   | add t₁ t₂ ih₁ ih₂ => show _ + _ = _ + _; rw [ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => show HSub.hSub _ _ = HSub.hSub _ _; rw [ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _ * _; rw [ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂]
+    rfl
 
 /-- Substitute the outer columns of a generalized term. -/
 def TermGIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
@@ -78,6 +90,10 @@ def TermGIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | .add t₁ t₂ => .add (t₁.substMap θ) (t₂.substMap θ)
   | .sub t₁ t₂ => .sub (t₁.substMap θ) (t₂.substMap θ)
   | .mul t₁ t₂ => .mul (t₁.substMap θ) (t₂.substMap θ)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op (t₁.substMap θ) (t₂.substMap θ) (t₃.substMap θ)
+      (t₄.substMap θ)
+  | .coalesce t₁ t₂ => .coalesce (t₁.substMap θ) (t₂.substMap θ)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 theorem TermGIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
@@ -97,6 +113,14 @@ theorem TermGIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | add t₁ t₂ ih₁ ih₂ => show _ + _ = _ + _; rw [ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => show HSub.hSub _ _ = HSub.hSub _ _; rw [ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _ * _; rw [ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂]
+    rfl
 
 theorem TermGIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (t : TermGIn T c κ) (u : Tuple T n)
@@ -116,6 +140,14 @@ theorem TermGIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | add t₁ t₂ ih₁ ih₂ => show _ + _ = _ + _; rw [ih₁, ih₂]
   | sub t₁ t₂ ih₁ ih₂ => show HSub.hSub _ _ = HSub.hSub _ _; rw [ih₁, ih₂]
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _ * _; rw [ih₁, ih₂]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂]
+    rfl
 
 /-- Substitute the outer columns of a generalized predicate. -/
 def GenPredIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}

@@ -107,6 +107,9 @@ def TermGIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .add t₁ t₂ => .add t₁.castRew t₂.castRew
   | .sub t₁ t₂ => .sub t₁.castRew t₂.castRew
   | .mul t₁ t₂ => .mul t₁.castRew t₂.castRew
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+      .caseWhen op t₁.castRew t₂.castRew t₃.castRew t₄.castRew
+  | .coalesce t₁ t₂ => .coalesce t₁.castRew t₂.castRew
 
 /-- An aggregate-atom-free predicate is unnecessary here: the cast is
 total, aggregate atoms comparing a token's deterministic reading. -/
@@ -163,6 +166,14 @@ theorem TermGIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     rw [ih₁, ih₂]
     rfl
   | mul t₁ t₂ ih₁ ih₂ => show _ * _ = _; rw [ih₁, ih₂]; rfl
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄, CompOp.eval3_inl, TermGIn.eval]
+    split <;> rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂, isNull_inl, TermGIn.eval]
+    split <;> rfl
 
 theorem GenPredIn.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPred T κ) (r : GenRow T K n) :

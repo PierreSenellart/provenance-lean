@@ -68,6 +68,12 @@ def TermGIn.evalRew {c n : ℕ} {κ : Fin n → ColKind} :
   | .add t₁ t₂, u, γ => t₁.evalRew u γ + t₂.evalRew u γ
   | .sub t₁ t₂, u, γ => t₁.evalRew u γ - t₂.evalRew u γ
   | .mul t₁ t₂, u, γ => t₁.evalRew u γ * t₂.evalRew u γ
+  | .caseWhen op t₁ t₂ t₃ t₄, u, γ =>
+    if op.eval3 (t₁.evalRew u γ) (t₂.evalRew u γ) = Kleene.true
+    then t₃.evalRew u γ else t₄.evalRew u γ
+  | .coalesce t₁ t₂, u, γ =>
+    if ValueType.isNull (t₁.evalRew u γ) then t₂.evalRew u γ
+    else t₁.evalRew u γ
 
 /-- Projection-column evaluation in the rewritten world. -/
 def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
@@ -262,6 +268,15 @@ theorem TermGIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
   | .mul t₁ t₂, ht, u => by
     show _ * _ = _ * _
     rw [evalRew_inl t₁ ht.1 u, evalRew_inl t₂ ht.2 u]
+  | .caseWhen op t₁ t₂ t₃ t₄, ht, u => by
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [evalRew_inl t₁ ht.1 u, evalRew_inl t₂ ht.2.1 u,
+      evalRew_inl t₃ ht.2.2.1 u, evalRew_inl t₄ ht.2.2.2 u]
+    rfl
+  | .coalesce t₁ t₂, ht, u => by
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [evalRew_inl t₁ ht.1 u, evalRew_inl t₂ ht.2 u]
+    rfl
 
 /-- Gate-free projection columns on `inl`-embedded rows evaluate to the
 embedded plain reading. -/
@@ -493,42 +508,6 @@ theorem SeqAggFunc.liftComposite_map_inl (f : SeqAggFunc T)
   rw [show (Sum.elim id (fun _ => (0 : T)) ∘ (Sum.inl : T → T ⊕ K)) = id
     from funext (fun x => rfl)]
   rw [List.map_id]
-
-omit [DecidableEq K] in
-/-- Comparison operators restrict along the `inl` embedding. -/
-theorem CompOp.eval_inl (op : CompOp) (x y : T) :
-    op.eval (Sum.inl x : T ⊕ K) (Sum.inl y) ↔ op.eval x y := by
-  have hle : ∀ a b : T, ((Sum.inl a : T ⊕ K) ≤ Sum.inl b) ↔ a ≤ b :=
-    fun a b => Iff.rfl
-  have hlt : ∀ a b : T, ((Sum.inl a : T ⊕ K) < Sum.inl b) ↔ a < b := by
-    intro a b
-    rw [lt_iff_le_not_ge, lt_iff_le_not_ge]
-    exact and_congr (hle a b) (not_congr (hle b a))
-  have heq : ∀ a b : T, ((Sum.inl a : T ⊕ K) = Sum.inl b) ↔ a = b :=
-    fun a b => ⟨Sum.inl.inj, congrArg Sum.inl⟩
-  cases op
-  case eq => exact heq x y
-  case ne => exact not_congr (heq x y)
-  case lt => exact hlt x y
-  case le => exact hle x y
-  case gt => exact hlt y x
-  case ge => exact hle y x
-  case syneq => exact heq x y
-  case synne => exact not_congr (heq x y)
-
-omit [DecidableEq K] in
-/-- The three-valued comparison restricts along the `inl` embedding: the
-composite domain takes its nulls from the data side. -/
-theorem CompOp.eval3_inl (op : CompOp) (x y : T) :
-    op.eval3 (Sum.inl x : T ⊕ K) (Sum.inl y) = op.eval3 x y := by
-  have hn : ∀ z : T, ValueType.isNull (Sum.inl z : T ⊕ K)
-      = ValueType.isNull z := fun _ => rfl
-  unfold CompOp.eval3
-  rw [hn x, hn y]
-  by_cases h : op.strict ∧ (ValueType.isNull x ∨ ValueType.isNull y)
-  · rw [ite_eq_left h, ite_eq_left h]
-  · rw [ite_eq_right h, ite_eq_right h]
-    exact congrArg Kleene.ofBool (by simp [CompOp.eval_inl])
 
 omit [DecidableEq K] in
 /-- The comparison indicator restricts along the `inl` embedding. -/

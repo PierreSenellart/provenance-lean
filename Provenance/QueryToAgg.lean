@@ -43,6 +43,9 @@ def TermIn.toGenReg {n : ℕ} : Term T n → TermG T (ColKind.allReg n)
   | .add t₁ t₂ => .add t₁.toGenReg t₂.toGenReg
   | .sub t₁ t₂ => .sub t₁.toGenReg t₂.toGenReg
   | .mul t₁ t₂ => .mul t₁.toGenReg t₂.toGenReg
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op t₁.toGenReg t₂.toGenReg t₃.toGenReg t₄.toGenReg
+  | .coalesce t₁ t₂ => .coalesce t₁.toGenReg t₂.toGenReg
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded term evaluates on a regular-values row as the original
@@ -56,6 +59,10 @@ theorem TermIn.toGenReg_eval {n : ℕ} (t : Term T n) (x : Tuple T n) :
   | add t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
   | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
   | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂, ih₃, ih₄]; rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    rw [TermIn.toGenReg, TermGIn.eval, ih₁, ih₂]; rfl
 
 /-- A comparison atom, as a generalized regular atom. -/
 def BoolTerm.toGenPred {n : ℕ} : BoolTerm T n →

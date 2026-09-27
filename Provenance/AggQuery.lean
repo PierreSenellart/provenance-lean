@@ -173,6 +173,11 @@ inductive TermGIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
   | add : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
   | sub : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
   | mul : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
+  /-- SQL's searched `CASE`, as `TermIn.caseWhen`. -/
+  | caseWhen : CompOp → TermGIn T c κ → TermGIn T c κ → TermGIn T c κ →
+      TermGIn T c κ → TermGIn T c κ
+  /-- SQL's `COALESCE`, as `TermIn.coalesce`. -/
+  | coalesce : TermGIn T c κ → TermGIn T c κ → TermGIn T c κ
 
 /-- A term of a closed query: no outer column to read. -/
 abbrev TermG (T : Type) {n : ℕ} (κ : Fin n → ColKind) := TermGIn T 0 κ
@@ -193,6 +198,11 @@ def TermGIn.eval {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
   | .add t₁ t₂ => t₁.eval u γ + t₂.eval u γ
   | .sub t₁ t₂ => t₁.eval u γ - t₂.eval u γ
   | .mul t₁ t₂ => t₁.eval u γ * t₂.eval u γ
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    if op.eval3 (t₁.eval u γ) (t₂.eval u γ) = Kleene.true then t₃.eval u γ
+    else t₄.eval u γ
+  | .coalesce t₁ t₂ =>
+    if ValueType.isNull (t₁.eval u γ) then t₂.eval u γ else t₁.eval u γ
 
 /-! ## Generalized selection predicates -/
 
@@ -563,6 +573,12 @@ def TermGIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
   | .add t₁ t₂ => t₁.evalPlain u γ + t₂.evalPlain u γ
   | .sub t₁ t₂ => t₁.evalPlain u γ - t₂.evalPlain u γ
   | .mul t₁ t₂ => t₁.evalPlain u γ * t₂.evalPlain u γ
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    if op.eval3 (t₁.evalPlain u γ) (t₂.evalPlain u γ) = Kleene.true
+    then t₃.evalPlain u γ else t₄.evalPlain u γ
+  | .coalesce t₁ t₂ =>
+    if ValueType.isNull (t₁.evalPlain u γ) then t₂.evalPlain u γ
+    else t₁.evalPlain u γ
 
 /-- **A term over regular columns read as a general term**: the same term,
 the kind index witnessing that every column it reads is regular. It is
@@ -575,6 +591,9 @@ def TermIn.toGen {c n : ℕ} : TermIn T c n → TermGIn T c (ColKind.allReg n)
   | .add t₁ t₂ => .add t₁.toGen t₂.toGen
   | .sub t₁ t₂ => .sub t₁.toGen t₂.toGen
   | .mul t₁ t₂ => .mul t₁.toGen t₂.toGen
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+    .caseWhen op t₁.toGen t₂.toGen t₃.toGen t₄.toGen
+  | .coalesce t₁ t₂ => .coalesce t₁.toGen t₂.toGen
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading a term as a general term does not change what it computes. -/
@@ -587,6 +606,14 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
   | add t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
   | sub t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
   | mul t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂]
+    rfl
 
 /-! ## The gate-free fragment
 
@@ -606,7 +633,10 @@ def TermGIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
   | .const _ | .outer _ | .index _ _ | .provIndex _ _ => True
   | .cmpAgg _ _ _ t => t.chiFree
   | .chiGate _ _ _ => False
-  | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
+  | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ | .coalesce t₁ t₂ =>
+      t₁.chiFree ∧ t₂.chiFree
+  | .caseWhen _ t₁ t₂ t₃ t₄ =>
+      t₁.chiFree ∧ t₂.chiFree ∧ t₃.chiFree ∧ t₄.chiFree
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -620,6 +650,8 @@ theorem TermIn.chiFree_toGen {c n : ℕ} (t : TermIn T c n) : t.toGen.chiFree :=
   | add t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
   | sub t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
   | mul t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ => exact ⟨ih₁, ih₂, ih₃, ih₄⟩
+  | coalesce t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
 
 /-- No indicator gate in a predicate. -/
 def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :

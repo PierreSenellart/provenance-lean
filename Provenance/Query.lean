@@ -45,6 +45,21 @@ are none in a closed query, `c` being `0` there. -/
 | add : TermIn T c n → TermIn T c n → TermIn T c n
 | sub : TermIn T c n → TermIn T c n → TermIn T c n
 | mul : TermIn T c n → TermIn T c n → TermIn T c n
+/-- SQL's searched `CASE`: the third term where the comparison of the
+first two holds, the fourth – the `ELSE` – where it does not. A guard
+that is unknown takes the `ELSE`, as SQL has it. The `ELSE` is a term
+and not the null, so the constructor asks nothing of the value domain;
+`CASE WHEN φ THEN t END` is the case where it is the constant null.
+
+A guard that is a Boolean combination of comparisons needs no more than
+this: a conjunction is a nested `CASE`, a disjunction is `coalesce` of
+the two cases, and a negation is `CompOp.negate`. -/
+| caseWhen : CompOp → TermIn T c n → TermIn T c n → TermIn T c n →
+    TermIn T c n → TermIn T c n
+/-- SQL's `COALESCE` of two terms: the first where it is not null, the
+second where it is. It is not null-strict, which is why it is a
+constructor and not an arithmetic term. -/
+| coalesce : TermIn T c n → TermIn T c n → TermIn T c n
 
 /-- A term of a closed query: no outer column to read. -/
 abbrev Term (T : Type) (n : ℕ) := TermIn T 0 n
@@ -55,6 +70,11 @@ def TermIn.repr [Repr T] : Term T n → ℕ → Std.Format
 | add t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "+" ++ repr t₂ p) p
 | sub t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "-" ++ repr t₂ p) p
 | mul t₁ t₂, p => Repr.addAppParen (repr t₁ p ++ "*" ++ repr t₂ p) p
+| caseWhen op t₁ t₂ t₃ t₄, p =>
+  Repr.addAppParen ("CASE WHEN " ++ repr t₁ p ++ reprArg op ++ repr t₂ p ++
+    " THEN " ++ repr t₃ p ++ " ELSE " ++ repr t₄ p ++ " END") p
+| coalesce t₁ t₂, p =>
+  Repr.addAppParen ("COALESCE(" ++ repr t₁ p ++ ", " ++ repr t₂ p ++ ")") p
 
 instance [Repr α] : Repr (Term α n) := ⟨TermIn.repr⟩
 
@@ -64,6 +84,10 @@ def TermIn.castToAnnotatedTuple (t: Term T n) : Term (T⊕K) (n+1) := match t wi
 | add t₁ t₂ => add t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 | sub t₁ t₂ => sub t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 | mul t₁ t₂ => mul t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
+| caseWhen op t₁ t₂ t₃ t₄ =>
+  caseWhen op t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
+    t₃.castToAnnotatedTuple t₄.castToAnnotatedTuple
+| coalesce t₁ t₂ => coalesce t₁.castToAnnotatedTuple t₂.castToAnnotatedTuple
 
 
 /-- Value of a term on a row. An open term also reads an *outer
@@ -78,6 +102,12 @@ def TermIn.eval {c : ℕ} (term : TermIn T c n) (tuple : Tuple T n)
   | add t₁ t₂ => (t₁.eval tuple γ) + (t₂.eval tuple γ)
   | sub t₁ t₂ => (t₁.eval tuple γ) - (t₂.eval tuple γ)
   | mul t₁ t₂ => (t₁.eval tuple γ) * (t₂.eval tuple γ)
+  | caseWhen op t₁ t₂ t₃ t₄ =>
+    if op.eval3 (t₁.eval tuple γ) (t₂.eval tuple γ) = Kleene.true
+    then t₃.eval tuple γ else t₄.eval tuple γ
+  | coalesce t₁ t₂ =>
+    if ValueType.isNull (t₁.eval tuple γ) then t₂.eval tuple γ
+    else t₁.eval tuple γ
 
 theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonus K] (t: Term T n) (tuple: Tuple T n) :
 ∀ α: K,
@@ -105,6 +135,14 @@ theorem TermIn.castToAnnotatedTuple_eval [HasAltLinearOrder K] [SemiringWithMonu
     unfold castToAnnotatedTuple eval
     rw[ih₁, ih₂]
     simp[(·*·),Mul.mul]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    unfold castToAnnotatedTuple eval
+    rw [ih₁, ih₂, ih₃, ih₄, CompOp.eval3_inl]
+    split <;> rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    unfold castToAnnotatedTuple eval
+    rw [ih₁, ih₂, isNull_inl]
+    split <;> rfl
 
 instance : Coe T (Term T n) where
   coe a:= TermIn.const a
