@@ -211,3 +211,50 @@ theorem natCountToken_ne_delta :
     natCountToken.predProvScalar CompOp.ne 0
       ≠ SemiringWithMonus.delta (∑ i, natCountToken.anns i) := by
   decide
+
+/-! ## Two comparisons of one token do not read jointly
+
+A selection whose predicate conjoins two comparisons of the same token –
+a truncation's `m < #(k+1) ≤ m+c`, a `HAVING` such as
+`count(*) > 2 AND count(*) < 5` – multiplies the two atoms' provenances,
+each summed over the worlds of the token separately
+(`GenPredIn.predsem`). `AggValue.predProvOf_mul_predProvOf` says that
+this is the sum over the worlds where *both* comparisons hold when the
+m-semiring is exclusive and its multiplication is idempotent. Neither
+hypothesis can be dropped, and the *scalar* convention does not rescue
+the identity either: `ℕ` is exclusive, the token below is scalar, and the
+two readings still differ.
+
+What this divergence needs is an occurrence annotated above `𝟙`: the
+same token with its occurrence annotated `𝟙` agrees. A domain whose
+carrier is bounded by `𝟙`, Viterbi for one, has no such annotation to
+offer, so this instance is out of its reach. -/
+
+/-- One occurrence of multiplicity `2`, counted, read in the scalar
+convention. -/
+def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true⟩
+
+/-- **A range test on one token is not the sum over the worlds in the
+range.** The product of the two one-sided provenances is `4`, and the
+joint sum is `2`. -/
+theorem natRangeToken_mul_ne_and :
+    natRangeToken.predProvOf CompOp.gt 0
+        * natRangeToken.predProvOf CompOp.le 1
+      ≠ natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
+
+/-- The joint reading is the one the paper's truncation asks for. -/
+theorem natRangeToken_and :
+    natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 = 2 := by decide
+
+/-- The product is not. -/
+theorem natRangeToken_mul :
+    natRangeToken.predProvOf CompOp.gt 0
+      * natRangeToken.predProvOf CompOp.le 1 = 4 := by decide
+
+/-- The same token with its occurrence annotated `𝟙` agrees. -/
+def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true⟩
+
+theorem natUnitToken_mul_eq_and :
+    natUnitToken.predProvOf CompOp.gt 0
+        * natUnitToken.predProvOf CompOp.le 1
+      = natUnitToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
