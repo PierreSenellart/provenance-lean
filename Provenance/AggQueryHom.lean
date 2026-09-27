@@ -1111,6 +1111,25 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       | token k hk =>
         simp only [hp, ProjColIn.eval]
         exact hs.1 k
+      | aggTerm k hk gf =>
+        -- reading a token through a function leaves its occurrences and
+        -- its convention alone, so the simulation carries over
+        simp only [hp, ProjColIn.eval]
+        have hk' := hs.1 k
+        cases hx' : r'.fst k with
+        | inl v' =>
+          cases hx : r.fst k with
+          | inl v =>
+            rw [hx', hx] at hk'
+            exact congrArg gf hk'
+          | inr a => rw [hx', hx] at hk'; exact hk'.elim
+        | inr a' =>
+          cases hx : r.fst k with
+          | inl v => rw [hx', hx] at hk'; exact hk'.elim
+          | inr a =>
+            rw [hx', hx] at hk'
+            exact ⟨congrArg (fun f => fun L => gf (f L)) hk'.1,
+              hk'.2.1, hk'.2.2⟩
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2

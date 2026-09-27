@@ -608,4 +608,66 @@ def lead (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
 
 end Offset
 
+/-! ## Ranks
+
+SQL's ranks are counts over the rows the clause sorts strictly before the
+current row's peers, plus one. The `+ 1` is a term over an aggregate
+column, so the rank column is an aggregate column too – the unary
+aggregate expression of `Provenance.AggExpr`, which
+`ProjColIn.aggTerm` names and `AggValue.postcomp` represents. -/
+
+section Ranks
+
+variable [ValueType T] {n m p : ℕ}
+
+/-- The projection that keeps a window's input columns and reads its
+added column through `gf`. -/
+def overWindow (n : ℕ) (gf : T → T) :
+    Tuple (ProjCol T (Fin.snoc (ColKind.allReg n) ColKind.agg)) (n + 1) :=
+  Fin.snoc (fun i => .term (TermGIn.index i.castSucc (by simp [ColKind.allReg])))
+    (.aggTerm (Fin.last n) (by simp) gf)
+
+omit [ValueType T] in
+@[simp] theorem overWindow_kind (n : ℕ) (gf : T → T) (j : Fin (n + 1)) :
+    (overWindow n gf j).kind
+      = (Fin.snoc (ColKind.allReg n) ColKind.agg : Fin (n + 1) → ColKind) j
+        := by
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [overWindow, Fin.snoc_last, Fin.snoc_last]
+    rfl
+  · rw [overWindow, Fin.snoc_castSucc, Fin.snoc_castSucc]
+    rfl
+
+/-- **`rank()`**: one plus the count of the rows the clause sorts
+strictly before the current row's peers. `cnt` is the counting
+aggregate, read over the constant term – SQL's `COUNT(*)`. -/
+def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  (Proj (overWindow n (fun x => 1 + x))
+    (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q)).castKind
+      (funext (overWindow_kind n _))
+
+/-- **What a rank computes over plain relations**: each row of the input,
+extended by one plus the count over the rows the clause sorts strictly
+before its peers. -/
+theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (rank cnt P O o q).evaluatePlain D
+      = (q.evaluatePlain D).map (fun u =>
+          (Fin.snoc u (1 + ValueFrame.windowValue P O o
+              (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
+              (q.evaluatePlain D) u)
+            : Tuple T (n + 1))) := by
+  rw [rank, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain,
+    AggQueryIn.evaluatePlain_Win_eq, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun u _ => ?_)
+  funext j
+  refine Fin.lastCases ?_ (fun i => ?_) j <;>
+    simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
+
+end Ranks
+
 end AggQueryIn

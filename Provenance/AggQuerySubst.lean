@@ -226,6 +226,7 @@ def ProjColIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) : ProjColIn T c κ → ProjColIn T d κ
   | .term t => .term (t.substMap θ)
   | .token k h => .token k h
+  | .aggTerm k h gf => .aggTerm k h gf
   | .provTerm t => .provTerm (t.substMap θ)
 
 omit [ValueType T] in
@@ -243,6 +244,7 @@ theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   cases p with
   | term t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
   | token k h => rfl
+  | aggTerm k h gf => rfl
   | provTerm t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
 
 theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
@@ -252,6 +254,7 @@ theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   cases p with
   | term t => exact TermGIn.evalPlain_substMap θ t u γ
   | token k h => rfl
+  | aggTerm k h gf => rfl
   | provTerm t => exact TermGIn.evalPlain_substMap θ t u γ
 
 /-! ## Substitution on queries -/

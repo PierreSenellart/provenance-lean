@@ -714,6 +714,22 @@ theorem AggQueryIn.evaluate_guarded :
     | token k hk =>
       rw [hp] at ha'
       exact ih d r₀ hr₀ v hfin₀ k a ha'
+    | aggTerm k hk gf =>
+      -- reading a token through a function changes neither its
+      -- occurrences nor its convention, so the guard is the token's
+      rw [hp] at ha'
+      replace ha' : Sum.map gf (AggValue.postcomp gf) (r₀.fst k)
+          = Sum.inr a := ha'
+      cases hu : r₀.fst k with
+      | inl w =>
+        rw [hu] at ha'
+        exact absurd ha' (by simp)
+      | inr a₀ =>
+        have hha : a = a₀.postcomp gf := by
+          rw [hu] at ha'
+          exact (Sum.inr.inj ha').symm
+        subst hha
+        exact ih d r₀ hr₀ v hfin₀ k a₀ hu
   | Sel φ q ih =>
     intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -959,6 +975,10 @@ private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
     show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v
   | token k hk => rfl
+  | aggTerm k hk gf =>
+    show GenValue.specializeAt v (Sum.map gf (AggValue.postcomp gf) (u k))
+      = gf (GenValue.specializeAt v (u k))
+    cases u k <;> rfl
   | provTerm t =>
     show GenValue.specializeAt v (Sum.inl (t.eval u γ)) = _
     exact TermGIn.eval_specialize t u hconf v

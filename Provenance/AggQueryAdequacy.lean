@@ -69,6 +69,10 @@ theorem ProjColIn.collapseSum_eval {c n : ℕ} {κ : Fin n → ColKind}
     rw [ProjColIn.evalPlain, ← TermGIn.eval_eq_evalPlain]
     rfl
   | token k h => rfl
+  | aggTerm k h gf =>
+    show AggValue.collapseSum (Sum.map gf (AggValue.postcomp gf) (u k))
+      = gf (AggValue.collapseSum (u k))
+    cases u k <;> rfl
   | provTerm t =>
     show AggValue.collapseSum (Sum.inl (t.eval u γ)) = _
     rw [ProjColIn.evalPlain, ← TermGIn.eval_eq_evalPlain]

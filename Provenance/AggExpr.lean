@@ -257,4 +257,56 @@ theorem disp_ofValue (a : AggValue T K) (hTop : K → Bool) :
 
 end PredProv
 
+/-! ## Unary expressions: a function of one aggregate value -/
+
+/-- **A function of one aggregate value is an aggregate value**: the same
+occurrences, read in the same convention, with the aggregate read through
+`gf`. This is what a term mentioning one aggregate column produces –
+`count(*) + 1`, the ranks – and it is not a shortcut: `valOn_postcomp`
+says it reads in each world what the aggregate expression `gf(a)` reads
+there, and `IsWorld_ofUnary` that it has the same worlds. -/
+def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
+  ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+
+@[simp] theorem _root_.AggValue.occs_postcomp (gf : T → T) (a : AggValue T K) :
+    (a.postcomp gf).occs = a.occs := rfl
+
+@[simp] theorem _root_.AggValue.scalar_postcomp (gf : T → T) (a : AggValue T K) :
+    (a.postcomp gf).scalar = a.scalar := rfl
+
+@[simp] theorem _root_.AggValue.anns_postcomp (gf : T → T) (a : AggValue T K) :
+    (a.postcomp gf).anns = a.anns := rfl
+
+/-- **The value in a world is the function of the value there**, which is
+`val_e(W) = g(val_a(W))` for a unary expression. -/
+@[simp] theorem _root_.AggValue.valOn_postcomp (gf : T → T) (a : AggValue T K)
+    (W : Finset (Fin a.occs.length)) :
+    (a.postcomp gf).valOn W = gf (a.valOn W) := rfl
+
+@[simp] theorem _root_.AggValue.collapse_postcomp (gf : T → T) (a : AggValue T K) :
+    (a.postcomp gf).collapse = gf a.collapse := rfl
+
+/-- The unary aggregate expression `gf(a)`, with `gf` where the document
+puts it. -/
+def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
+  arity := 1
+  occs := a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd))
+  reads := fun _ => Finset.univ
+  aggs := fun _ => a.agg
+  scalar := fun _ => a.scalar
+  g := fun v => gf (v (0 : Fin 1))
+  covered := fun _ => ⟨0, Finset.mem_univ _⟩
+
+/-- **Post-composing the aggregate is the unary expression**: the two
+read the same value in each world. -/
+theorem valOn_ofUnary (gf : T → T) (a : AggValue T K)
+    (W : Finset (Fin (ofValue (a.postcomp gf)).occs.length)) :
+    (ofValue (a.postcomp gf)).valOn W = (ofUnary gf a).valOn W := rfl
+
+/-- … and they have the same worlds, the convention being the token's in
+both. -/
+theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
+    (W : Finset (Fin (ofValue (a.postcomp gf)).occs.length)) :
+    (ofValue (a.postcomp gf)).IsWorld W ↔ (ofUnary gf a).IsWorld W := Iff.rfl
+
 end AggExpr

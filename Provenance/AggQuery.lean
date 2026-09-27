@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggValue
+import Provenance.AggExpr
 import Provenance.Frame
 
 /-!
@@ -366,6 +366,13 @@ arithmetic over tokens: the normal form). -/
 inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) where
   | term : TermGIn T c κ → ProjColIn T c κ
   | token : (k : Fin n) → κ k = ColKind.agg → ProjColIn T c κ
+  /-- **A term over one aggregate column**: the column the term names,
+  read through `gf`. It is again an aggregate column – the unary
+  aggregate expression `gf(a)` of `Provenance.AggExpr`, which
+  `AggValue.postcomp` represents – and it is what SQL's `count(*) + 1`
+  and the ranks produce. Only the value of `gf` in each world is used,
+  so any deterministic function of SQL can be one. -/
+  | aggTerm : (k : Fin n) → κ k = ColKind.agg → (T → T) → ProjColIn T c κ
   | provTerm : TermGIn T c κ → ProjColIn T c κ
 
 /-- A projection column of a closed query. -/
@@ -375,6 +382,7 @@ abbrev ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) := ProjColIn T 0 κ
 def ProjColIn.kind {c : ℕ} {κ : Fin n → ColKind} : ProjColIn T c κ → ColKind
   | term _ => ColKind.reg
   | token _ _ => ColKind.agg
+  | aggTerm _ _ _ => ColKind.agg
   | provTerm _ => ColKind.prov
 
 /-- Evaluation of a projection column on a lifted tuple. -/
@@ -384,6 +392,7 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
   match p with
   | term t => Sum.inl (t.eval u γ)
   | token k _ => u k
+  | aggTerm k _ gf => Sum.map gf (AggValue.postcomp gf) (u k)
   | provTerm t => Sum.inl (t.eval u γ)
 
 /-! ## Kind-indexed queries -/
@@ -587,7 +596,7 @@ def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
 def ProjColIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T' c κ → Prop
   | .term t | .provTerm t => t.chiFree
-  | .token _ _ => True
+  | .token _ _ | .aggTerm _ _ _ => True
 
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
@@ -877,6 +886,7 @@ def ProjColIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ
   match p with
   | .term t => t.evalPlain u γ
   | .token k _ => u k
+  | .aggTerm k _ gf => gf (u k)
   | .provTerm t => t.evalPlain u γ
 
 /-- **The plain evaluator**: standard multiset semantics, with `Gamma`
@@ -1247,6 +1257,15 @@ theorem AggQueryIn.evaluate_conform :
     | provTerm t => simp [ProjColIn.eval, hp, ProjColIn.kind, GenValue.kindOf,
         ColKind.base]
     | token k hk =>
+      have := ih d r₀ hr₀ k
+      rw [hk] at this
+      simp only [ProjColIn.eval, hp, ProjColIn.kind]
+      cases hu : r₀.fst k with
+      | inl v =>
+        rw [hu] at this
+        exact absurd this (by simp [GenValue.kindOf, ColKind.base])
+      | inr a => rfl
+    | aggTerm k hk gf =>
       have := ih d r₀ hr₀ k
       rw [hk] at this
       simp only [ProjColIn.eval, hp, ProjColIn.kind]

@@ -274,7 +274,12 @@ proven engine several general results reuse internally.
   and is smaller than `collapse` exactly where occurrences come through a
   difference or a rejected comparison. `ofValue` embeds a token as the
   expression of itself and `predProv_ofValue`, `collapse_ofValue`,
-  `disp_ofValue` say the embedding changes no reading
+  `disp_ofValue` say the embedding changes no reading. A *unary*
+  expression is again a token: `AggValue.postcomp` reads a token's
+  aggregate through a function, keeping its occurrences and its
+  convention, and `valOn_ofUnary` says it reads in each world what
+  `g(a)` reads there – which is what a term over one aggregate column
+  produces
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
@@ -304,6 +309,13 @@ proven engine several general results reuse internally.
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`.
+  A projection column may also *compute* over one aggregate column
+  (`ProjCol.aggTerm`), which produces an aggregate column again – the
+  unary aggregate expression of `Provenance.AggExpr` – and is what
+  `count(*) + 1` and the ranks need; over plain relations it is an
+  ordinary term, and its token is the input's read through the
+  function, so every reading of it is the input's read through the
+  function too.
   Predicates are read three-valuedly throughout – `GenPred.eval3`,
   `evalPlain3`, `HavingPred.evalOnSeq`, `GenPred.evalRew3` – with `holds`,
   `holdsPlain`, `holdsOnSeq` and `holdsRew` keeping the rows on which the
@@ -486,7 +498,10 @@ proven engine several general results reuse internally.
   with `PICKFIRST`: what tells them apart is the frame and the order it
   is read in, which the operator keeps separate because the frame is an
   argument of its own – so `lastValue` reverses the reading clause and
-  leaves a clause-bounded frame bounded as it stands
+  leaves a clause-bounded frame bounded as it stands. `rank` is one plus
+  the count over the rows the clause sorts strictly before the current
+  row's peers, the `+ 1` being a term over the window's aggregate column
+  (`overWindow`); `evaluatePlain_rank` says so over plain relations
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate

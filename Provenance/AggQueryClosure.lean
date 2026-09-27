@@ -126,6 +126,11 @@ def ProjColIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .term t => .term t.castRew
   | .token k h =>
       .token (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
+  -- the function acts on the data arm of the composite domain and leaves
+  -- the annotation arm alone
+  | .aggTerm k h gf =>
+      .aggTerm (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
+        (Sum.map gf id)
   | .provTerm t => .provTerm t.castRew
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -190,6 +195,12 @@ theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
   cases p with
   | term t => exact congrArg Sum.inl (t.castRew_evalRew r)
   | token k h => exact GenRow.toCompositeRow_castAdd r k
+  | aggTerm k h gf =>
+    show Sum.map (Sum.map gf id) (AggValue.postcomp (Sum.map gf id))
+        (r.toCompositeRow (Fin.castAdd 1 k))
+      = GenValue.toComposite (Sum.map gf (AggValue.postcomp gf) (r.fst k))
+    rw [GenRow.toCompositeRow_castAdd]
+    cases r.fst k <;> rfl
   | provTerm t => exact congrArg Sum.inl (t.castRew_evalRew r)
 
 /-- On an all-regular query the token-aware embedding is the embedding of

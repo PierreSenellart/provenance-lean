@@ -117,6 +117,7 @@ def ProjColIn.strip {c n : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T c κ → Term T n
   | .term t => t.strip
   | .token _ _ => .const 0
+  | .aggTerm _ _ _ => .const 0
   | .provTerm t => t.strip
 
 /-- Strip a classical-fragment query to the classical syntax. -/
@@ -200,6 +201,7 @@ theorem AggQueryIn.strip_rel :
         rw [TermGIn.strip_eval, TermGIn.eval_eq_evalPlain t r.fst,
           hr.plainTuple_eq]
       | token k hk => rw [hp] at hkind; exact ColKind.noConfusion hkind
+      | aggTerm k hk gf => rw [hp] at hkind; exact ColKind.noConfusion hkind
       | provTerm t => rw [hp] at hkind; exact ColKind.noConfusion hkind
     · exact (GenAnn.finalize_cash _ _ _ Multiset.inter_le_left).trans hr.2.1
     · show r.snd.pending ∩ _ = 0
