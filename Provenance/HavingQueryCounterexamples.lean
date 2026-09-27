@@ -258,3 +258,39 @@ theorem natUnitToken_mul_eq_and :
     natUnitToken.predProvOf CompOp.gt 0
         * natUnitToken.predProvOf CompOp.le 1
       = natUnitToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
+
+/-! ## The range closed form needs absorptivity in the difference itself
+
+`Having.range_eq_S_monus_S` reads `HAVING C+1 ≤ count ≤ D` as the
+join-side difference `S_{C+1} ⊖ S_{D+1}` under absorptivity and
+left-distributivity of `⊗` over `⊖`. The hypotheses are not confined to
+the step `F_{C+1} = S_{C+1}` that the proof passes through: the
+difference parts company from the possible-world sum over `ℕ`, which is
+not absorptive, on the smallest instance there is.
+
+Two occurrences, each annotated `𝟙`, and the range `1 ≤ count ≤ 1`.
+Every world of size one has `T_U(W) = 𝟙 ⊖ 𝟙 = 𝟘`, since its one-step
+extension is annotated `𝟙` too, so the possible-world sum is `𝟘`; the
+join side is `S_1 ⊖ S_2 = 2 ⊖ 1 = 𝟙`. -/
+
+/-- The annotation of the counterexample: two occurrences, each `𝟙`. -/
+def natRangeAnn : Fin 2 → ℕ := fun _ => 1
+
+/-- **The range closed form fails over `ℕ`.** -/
+theorem Having.natRange_ne :
+    ∑ W ∈ (Finset.univ : Finset (Fin 2)).powerset.filter
+        (fun W => 0 + 1 ≤ W.card ∧ W.card ≤ 1),
+        Having.T natRangeAnn Finset.univ W
+      ≠ (Having.S natRangeAnn Finset.univ 1
+          - Having.S natRangeAnn Finset.univ 2 : ℕ) := by decide
+
+/-- The possible-world sum is `𝟘` there. -/
+theorem Having.natRange_worlds :
+    ∑ W ∈ (Finset.univ : Finset (Fin 2)).powerset.filter
+        (fun W => 0 + 1 ≤ W.card ∧ W.card ≤ 1),
+        Having.T natRangeAnn Finset.univ W = 0 := by decide
+
+/-- The join side is `𝟙`. -/
+theorem Having.natRange_join :
+    (Having.S natRangeAnn Finset.univ 1
+      - Having.S natRangeAnn Finset.univ 2 : ℕ) = 1 := by decide

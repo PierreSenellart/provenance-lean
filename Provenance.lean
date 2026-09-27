@@ -771,7 +771,12 @@ proven engine several general results reuse internally.
   `T_U(W) ≤ ann_U(W) ≤ A_W` of the factored world annotation and the
   resulting distributivity-free collapse of the monotone case
   (`monus_factor_le`, `witness_identity`, `witness_minimal`, `Fann_eq_S`),
-  and the index-set size facts
+  the range closed form `range_eq_S_monus_S` – `HAVING C+1 ≤ count ≤ D`
+  is `S_{C+1} ⊖ S_{D+1}`, of which `atMost_eq_S_monus_S` and
+  `G_eq_S_monus_S` are the cases `C = 0` and `D = C + 1`, and whose
+  hypotheses are not confined to the step `F = S` it passes through
+  (`Having.natRange_ne` separates the two sides over `ℕ` on two
+  occurrences annotated `𝟙`), and the index-set size facts
 - `Provenance.HavingSemantics` – the possible-world semantics of the fused
   `Query.Having` operator (grouping + aggregate comparison) over annotated
   databases: group-occurrence sequences, the bridge between subsequences and

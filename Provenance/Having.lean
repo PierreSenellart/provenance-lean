@@ -711,6 +711,44 @@ theorem G_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distribu
           rw [Finset.card_insert_of_notMem hxW, hWcard]⟩)
     exact monus_antitone hP _
 
+/-- **The range case.** The possible-world provenance of
+`HAVING C + 1 ≤ count ≤ D` is the join-side difference
+`S_{C+1}(U) ⊖ S_{D+1}(U)`. `atMost_eq_S_monus_S` is the case `C = 0` and
+`G_eq_S_monus_S` the case `D = C + 1`, and `C = D = 0` – the empty world
+alone, `𝟙 ⊖ S_1(U)` – needs neither hypothesis, `S_0(U)` being `𝟙`.
+
+Both hypotheses are needed here and not only for the step
+`F_{C+1} = S_{C+1}`: over `ℕ`, which is not absorptive, the two sides
+already part company at `C = 0`, `D = 1` on two occurrences annotated
+`𝟙` (`Having.natRange_ne` in `Provenance.HavingQueryCounterexamples`). -/
+theorem range_eq_S_monus_S (h_abs : absorptive K)
+    (h_distrib : mul_sub_left_distributive K)
+    (α : ι → K) (U : Finset ι) (C D : ℕ) :
+    ∑ W ∈ U.powerset.filter (fun W => C + 1 ≤ W.card ∧ W.card ≤ D), T α U W
+      = S α U (C + 1) - S α U (D + 1) := by
+  have h_idem : idempotent K := idempotent_of_absorptive h_abs
+  refine le_antisymm ?_ ?_
+  · refine sum_le_of_forall_le h_idem fun W hW => ?_
+    obtain ⟨hWU, h1, h2⟩ := Finset.mem_filter.mp hW
+    exact world_bound h_abs h_distrib α (Finset.mem_powerset.mp hWU) h1 h2
+  · have hF : F α U (C + 1) = S α U (C + 1) := F_eq_S h_abs α U C
+    rw [← hF, F, sum_monus h_idem]
+    have hsub : ∑ W ∈ U.powerset.filter (fun W => C + 1 ≤ W.card ∧ W.card ≤ D),
+          (T α U W - S α U (D + 1))
+        = ∑ W ∈ U.powerset.filter (fun W => C + 1 ≤ W.card),
+            (T α U W - S α U (D + 1)) := by
+      refine Finset.sum_subset (fun W hW => ?_) (fun W hW hW' => ?_)
+      · obtain ⟨hWU, h1, -⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_filter.mpr ⟨hWU, h1⟩
+      · obtain ⟨hWU, h1⟩ := Finset.mem_filter.mp hW
+        have h2 : D + 1 ≤ W.card := by
+          by_contra hc
+          exact hW' (Finset.mem_filter.mpr ⟨hWU, h1, by omega⟩)
+        exact monus_eq_zero_of_le
+          (T_le_S_of_card_le h_abs α (Finset.mem_powerset.mp hWU) h2)
+    rw [← hsub]
+    exact Finset.sum_le_sum fun W _ => monus_le _ _
+
 /-- **The `≤` case.** The possible-world provenance of `HAVING count ≤ C` on
 non-empty worlds is `S_1(U) ⊖ S_{C+1}(U)`. -/
 theorem atMost_eq_S_monus_S (h_abs : absorptive K) (h_distrib : mul_sub_left_distributive K)
