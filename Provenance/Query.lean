@@ -414,6 +414,16 @@ def max : SeqAggFunc T := fun L => match L with
 type as its default on the empty one, where SQL has `null`. -/
 def pickFirst : SeqAggFunc T := fun L => L.headD 0
 
+/-- The value at offset `i` of the sequence, counting from `0`, with the
+zero of the value type where the sequence is shorter, and `PICKFIRST` at
+offset `0`. It is the aggregate SQL's `nth_value`, `lag(t, k)` and
+`lead(t, k)` read a frame through, which `PICKFIRST` alone cannot give:
+it reads one end of the frame and no other position. -/
+def pickNth (i : ℕ) : SeqAggFunc T := fun L => L.getD i 0
+
+@[simp] theorem pickNth_zero : (pickNth 0 : SeqAggFunc T) = pickFirst := by
+  funext L; cases L <;> rfl
+
 /-- **SQL's reading of an aggregate on a domain with a null**: skip the
 nulls, and give `NULL` when nothing is left. `SUM`, `MIN` and `MAX` are read
 this way. `COUNT` is not: it gives `0` over no row, which is what the

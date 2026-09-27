@@ -497,7 +497,9 @@ proven engine several general results reuse internally.
   `firstValue`, `lastValue`, `lag` and `lead` are the window operator
   with `PICKFIRST`: what tells them apart is the frame and the order it
   is read in, which the operator keeps separate because the frame is an
-  argument of its own – so `lastValue` reverses the reading clause and
+  argument of its own; `nthValue`, `lagAt` and `leadAt` are the same
+  three over `SeqAggFunc.pickNth`, which reads a position of the frame
+  other than its end – so `lastValue` reverses the reading clause and
   leaves a clause-bounded frame bounded as it stands. `rank` is one plus
   the count over the rows the clause sorts strictly before the current
   row's peers, the `+ 1` being a term over the window's aggregate column
@@ -506,7 +508,8 @@ proven engine several general results reuse internally.
   dropped again (`truncateFrom` for an infinite count), which keeps a
   row tied with the last one kept – SQL's `FETCH FIRST c ROWS WITH
   TIES`; `evaluatePlain_truncate_noNulls` reads it as the filter on the
-  rank it is. `gammaSets` is SQL's `GROUPING SETS`: the union of one
+  rank it is, and `distinctOn` is `λ^{P,O}_{0,1}`, SQL's `DISTINCT ON`.
+  `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
   of the whole key, so that a key column a set drops reads as the null
   (`gsRow` says which row each arm contributes).

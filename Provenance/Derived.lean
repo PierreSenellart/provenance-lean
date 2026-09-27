@@ -583,7 +583,10 @@ are the window operator with `PICKFIRST`, the aggregate that takes the
 first value of the sequence it is given, so what tells them apart is the
 frame and the order the frame is read in – the two jobs the clause does,
 which the window operator keeps separate because the frame is an
-argument of its own. -/
+argument of its own. A value at an offset other than one needs an
+aggregate that reads a position other than the end, `SeqAggFunc.pickNth`,
+and `nthValue`, `lagAt` and `leadAt` are the same three queries over
+it. -/
 
 section Offset
 
@@ -618,6 +621,42 @@ def lead (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   firstValue P O o (ValueFrame.rangeAfter o) t q
+
+/-- `nth_value(t, i+1)` over the frame `w`: the value of `t` on the row
+at offset `i` of the frame in the clause's order, counting from `0`.
+`firstValue` is the case `i = 0`. -/
+def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (i : ℕ) (t : Term T n)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  Win P O o w t (SeqAggFunc.pickNth i) q
+
+/-- `lag(t, i+1)`: the value `i + 1` rows before the current row's
+peers, the frame of `lag` read backwards from its end. -/
+def lagAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (i : ℕ) (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  nthValue P O o.reverse (ValueFrame.rangeBefore o) i t q
+
+/-- `lead(t, i+1)`: the value `i + 1` rows after. -/
+def leadAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (i : ℕ) (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  nthValue P O o (ValueFrame.rangeAfter o) i t q
+
+theorem lagAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (t : Term T n)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    lagAt P O o 0 t q = lag P O o t q := by
+  unfold lagAt nthValue lag lastValue
+  rw [SeqAggFunc.pickNth_zero]
+
+theorem leadAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (t : Term T n)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    leadAt P O o 0 t q = lead P O o t q := by
+  unfold leadAt nthValue lead firstValue
+  rw [SeqAggFunc.pickNth_zero]
 
 end Offset
 
@@ -765,6 +804,14 @@ before the row's peers. It is what an infinite count asks for – SQL's
 def rankFrom (n : ℕ) (lo : T) :
     GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   .aggCmp (Fin.last n) (by simp) CompOp.gt (.const lo)
+
+/-- **`SELECT DISTINCT ON (P) … ORDER BY P, O`**: one row per partition,
+the first in the clause's order, which is the truncation
+`λ^{P,O}_{0,1}` – and, with peers, the rows tied with it. -/
+def distinctOn [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
+  truncate cnt P O o 0 1 q
 
 /-- **Truncation with an infinite count**, `λ^{P,O}_{m,∞}`. -/
 def truncateFrom [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
