@@ -22,6 +22,7 @@ import Provenance.HavingSemantics
 
 /- Symbolic aggregate tokens for the general HAVING semantics -/
 import Provenance.AggValue
+import Provenance.AggExpr
 import Provenance.AggValueCongr
 
 /- Kind-indexed general queries and their annotated semantics -/
@@ -258,6 +259,22 @@ proven engine several general results reuse internally.
   non-empty ones, which `Having.sum_ann_meet` collapses. Both are stated of
   an arbitrary occurrence family, so they hold of a family gathered from
   several sources as well as of one group.
+- `Provenance.AggExpr` – **aggregate expressions**: what a term that
+  mentions a column of aggregate kind produces. `AggExpr` is the formal
+  `g(a₁, …, a_p)` – the function the term computes, applied to the
+  aggregate values it reads, the regular ones being constants of `g` –
+  over one *shared* occurrence family, which is what makes the leaves
+  answer together: two aggregates over the same group are read over the
+  same occurrences, so an expression of them is not a function of their
+  values separately. A world meets the occurrences of every grouped leaf
+  and is free of the scalar ones (`IsWorld`, the case split
+  `predProv`/`predProvScalar` already make), the value there is
+  `valOn`, and `disp` is the displayed value: the reading in the family
+  of occurrences the database as it is keeps, which is what SQL returns
+  and is smaller than `collapse` exactly where occurrences come through a
+  difference or a rejected comparison. `ofValue` embeds a token as the
+  expression of itself and `predProv_ofValue`, `collapse_ofValue`,
+  `disp_ofValue` say the embedding changes no reading
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
