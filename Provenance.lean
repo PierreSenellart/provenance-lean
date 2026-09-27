@@ -281,7 +281,13 @@ proven engine several general results reuse internally.
   `relAnn_split_union` splits the union of two *overlapping* families
   into the shared part and the two private ones – the third regime,
   whose two known cases are its degenerate ones. The
-  two hypotheses are independent: `ℕ` is complemented and not
+  The `∨` rule is not a decomposition at all: over two *grouped*
+  families the `⊕` of the two atoms differs from the one-sum reading
+  already in `𝔹` (`bool_or_ne_joint`), because a world of the
+  disjunction must meet each family while the `⊕` fires where one group
+  is empty – so what makes it sound is the row's group-existence
+  factors, not the families' independence.
+  The two hypotheses are independent: `ℕ` is complemented and not
   multiplicatively idempotent (`Nat.not_mulIdempotent`), so it separates
   the same-family readings and leaves the disjoint ones alone. The
   domains that satisfy the same-family hypothesis are the exclusive

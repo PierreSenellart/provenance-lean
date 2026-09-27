@@ -294,3 +294,68 @@ theorem Having.natRange_worlds :
 theorem Having.natRange_join :
     (Having.S natRangeAnn Finset.univ 1
       - Having.S natRangeAnn Finset.univ 2 : ℕ) = 1 := by decide
+
+/-! ## `∨` over disjoint families is not the `⊕` of the two atoms
+
+The `∧` rule is a decomposition of the one-sum reading under hypotheses
+(`AggValue.predProvOf_mul_predProvOf`, and `complemented` for disjoint
+families). The `∨` rule is not, and its failure is structural rather
+than algebraic: it shows already in `𝔹`, which is exclusive, has an
+idempotent `⊗` and is complemented, so no capability rescues it.
+
+The reason is which worlds count. A world of a predicate reading two
+*grouped* families must meet each of them, so a world in which one of
+the two groups is empty is no world of the disjunction – while the
+`⊕` of the two atoms fires there, the atom of the non-empty group
+holding on its own. A conjunction is unaffected: its product already
+demands both groups non-empty.
+
+What makes the `⊕` sound in context is not independence of the families
+but that it is multiplied into a row annotation carrying each group's
+existence factor, which kills exactly those worlds. That is why a
+disjunction may remove a `δ` only when *every* disjunct entails
+existence (`GenPredIn.entailsExistence`), and why a disjunction with a
+scalar operand – no existence factor to lean on, the empty world being
+a world – has nothing to absorb the difference. -/
+
+namespace Having
+
+variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+
+/-- The joint reading of a disjunction of two conditions reading two
+*disjoint* families: one `⊕`-sum over the worlds of the union, which
+must meet each grouped family, weighted by whether either condition
+holds there. The annotation of such a world is the product of the two
+halves' (`Having.worldAnn_split`, under `complemented`). -/
+def jointOr (a b : AggValue T K) (P Q : T → Kleene) : K :=
+  ∑ W₁ ∈ Finset.univ.filter
+      (fun W : Finset (Fin a.occs.length) => W.Nonempty),
+    ∑ W₂ ∈ Finset.univ.filter
+        (fun W : Finset (Fin b.occs.length) => W.Nonempty),
+      Having.worldAnn a.anns W₁ * Having.worldAnn b.anns W₂
+        * (if ((P (a.valOn W₁)).or (Q (b.valOn W₂))) = Kleene.true
+            then 1 else 0)
+
+end Having
+
+/-- One occurrence, present. -/
+def boolTokenT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], false⟩
+
+/-- One occurrence, absent. -/
+def boolTokenF : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, false)], false⟩
+
+/-- `count ≠ 0`, true on every non-empty world. -/
+def testNe : ℕ → Kleene := fun v => CompOp.ne.eval3 v 0
+
+/-- `count = 5`, false on every world of a one-occurrence family. -/
+def testEq : ℕ → Kleene := fun v => CompOp.eq.eval3 v 5
+
+theorem bool_or_ne_joint :
+    boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq
+      ≠ Having.jointOr boolTokenT boolTokenF testNe testEq := by decide
+
+theorem bool_or_per_atom : (boolTokenT.predProvWith testNe
+    + boolTokenF.predProvWith testEq) = true := by decide
+
+theorem bool_or_joint :
+    Having.jointOr boolTokenT boolTokenF testNe testEq = false := by decide
