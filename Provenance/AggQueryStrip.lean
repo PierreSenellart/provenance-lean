@@ -82,6 +82,7 @@ def GenPredIn.strip {c n : ℕ} {κ : Fin n → ColKind} :
   | .cmp .syneq t₁ t₂ => .BT (.SYNEQ t₁.strip t₂.strip)
   | .cmp .synne t₁ t₂ => .BT (.SYNNE t₁.strip t₂.strip)
   | .aggCmp _ _ _ _ => .True
+  | .aggRange _ _ _ _ _ _ => .True
   | .and φ ψ => .And φ.strip ψ.strip
   | .or φ ψ => .Or φ.strip ψ.strip
   | .not φ => .Not φ.strip

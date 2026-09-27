@@ -119,6 +119,9 @@ def GenPredIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .aggCmp k h op t =>
       .aggCmp (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
         op t.castRew
+  | .aggRange k h op₁ t₁ op₂ t₂ =>
+      .aggRange (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
+        op₁ t₁.castRew op₂ t₂.castRew
   | .and φ ψ => .and φ.castRew ψ.castRew
   | .or φ ψ => .or φ.castRew ψ.castRew
   | .not φ => .not φ.castRew
@@ -189,6 +192,13 @@ theorem GenPredIn.castRew_evalRew3 {n : ℕ} {κ : Fin n → ColKind}
     rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite,
       t.castRew_evalRew r]
     exact CompOp.eval3_inl op _ _
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    show Kleene.and (CompOp.eval3 _ (AggValue.collapseSum
+        (r.toCompositeRow (Fin.castAdd 1 k))) _) _ = _
+    rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite,
+      t₁.castRew_evalRew r, t₂.castRew_evalRew r, CompOp.eval3_inl,
+      CompOp.eval3_inl]
+    rfl
   | and φ ψ ihφ ihψ => show (_ : Kleene).and _ = _; rw [ihφ, ihψ]; rfl
   | or φ ψ ihφ ihψ => show (_ : Kleene).or _ = _; rw [ihφ, ihψ]; rfl
   | not φ ihφ => show (_ : Kleene).not = _; rw [ihφ]; rfl
@@ -346,10 +356,23 @@ where the group is empty. The site rewriting therefore keeps the guard as
 a factor in that case (`GenPredIn.siteProvTerm`), reproducing what the
 general evaluator does with the pending group factor. -/
 
+/-- **No range atom.** A range compares one token against two terms at
+once, and ProvSQL has no gate for that: `provsql_having` carries a single
+comparison. The site rewriting is therefore stated on range-free
+predicates, and a range emitted as the product of two gates is right
+only where `AggValue.predProvOf_mul_predProvOf` applies. -/
+def GenPredIn.rangeFree {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
+  | .cmp _ _ _ => true
+  | .aggCmp _ _ _ _ => true
+  | .aggRange _ _ _ _ _ _ => false
+  | .and φ ψ | .or φ ψ => φ.rangeFree && ψ.rangeFree
+  | .not φ => φ.rangeFree
+
 /-- A predicate all of whose atoms are aggregate comparisons. -/
 def GenPredIn.aggOnly {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
   | .cmp _ _ _ => false
   | .aggCmp _ _ _ _ => true
+  | .aggRange _ _ _ _ _ _ => true
   | .and φ ψ | .or φ ψ => φ.aggOnly && ψ.aggOnly
   | .not φ => φ.aggOnly
 
@@ -362,6 +385,7 @@ theorem GenPredIn.aggOnly_entailsExistence {n : ℕ} {κ : Fin n → ColKind} :
       φ.entailsExistence neg = true
   | .cmp _ _ _, hφ, _ => Bool.noConfusion hφ
   | .aggCmp _ _ _ _, _, _ => rfl
+  | .aggRange _ _ _ _ _ _, _, _ => rfl
   | .and φ ψ, hφ, neg => by
     have h := Bool.and_eq_true_iff.mp hφ
     simp only [GenPredIn.entailsExistence, aggOnly_entailsExistence φ h.1 neg,
@@ -383,6 +407,7 @@ theorem GenPredIn.hasAggAtom_comparedCols_nonempty {n : ℕ}
     ∀ (φ : GenPred T κ), φ.hasAggAtom = true → φ.comparedCols.Nonempty
   | .cmp _ _ _, hφ => Bool.noConfusion hφ
   | .aggCmp k _ _ _, _ => ⟨k, Finset.mem_singleton_self k⟩
+  | .aggRange k _ _ _ _ _, _ => ⟨k, Finset.mem_singleton_self k⟩
   | .and φ ψ, hφ => by
     rcases Bool.or_eq_true_iff.mp hφ with h | h
     · obtain ⟨k, hk⟩ := hasAggAtom_comparedCols_nonempty φ h
@@ -408,6 +433,16 @@ def GenPredIn.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
   | .aggCmp k h op t, neg =>
       .cmpAgg (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
         (if neg then op.negate else op) t.castRew
+  -- no gate carries a range, so the emitted term is the product of the
+  -- two comparisons, which `gateTerm_evalRew` therefore excludes
+  | .aggRange k h op₁ t₁ op₂ t₂, neg =>
+      let g₁ := TermGIn.cmpAgg (Fin.castAdd 1 k)
+        ((ColKind.rewKindsOf_castAdd κ k).trans h)
+        (if neg then op₁.negate else op₁) t₁.castRew
+      let g₂ := TermGIn.cmpAgg (Fin.castAdd 1 k)
+        ((ColKind.rewKindsOf_castAdd κ k).trans h)
+        (if neg then op₂.negate else op₂) t₂.castRew
+      if neg then .add g₁ g₂ else .mul g₁ g₂
   | .and φ ψ, neg =>
       if neg then .add (φ.gateTerm neg) (ψ.gateTerm neg)
       else .mul (φ.gateTerm neg) (ψ.gateTerm neg)
@@ -420,16 +455,16 @@ def GenPredIn.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
 arbitrary predicate: relative to the two gate primitives, which is
 exactly the sense in which ProvSQL's own rewriting is correct. -/
 theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
-    ∀ (φ : GenPred T κ) (neg : Bool) (r : GenRow T K n),
+    ∀ (φ : GenPred T κ), φ.rangeFree = true → ∀ (neg : Bool) (r : GenRow T K n),
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
-  | .cmp op t₁ t₂, neg, r => by
+  | .cmp op t₁ t₂, _, neg, r => by
     show Sum.inr (Having.chi (if neg then op.negate else op)
         (t₁.castRew.evalRew r.toCompositeRow)
         (t₂.castRew.evalRew r.toCompositeRow)) = _
     rw [t₁.castRew_evalRew r, t₂.castRew_evalRew r]
     exact congrArg Sum.inr (Having.chi_inl _ _ _)
-  | .aggCmp k h op t, neg, r => by
+  | .aggCmp k h op t, _, neg, r => by
     show (match r.toCompositeRow (Fin.castAdd 1 k) with
       | Sum.inl _ => (Sum.inr 0 : T ⊕ K)
       | Sum.inr a => Sum.inr (a.predProvOf (if neg then op.negate else op)
@@ -443,33 +478,34 @@ theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     | inr a =>
       show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
       rw [AggValue.predProvOf_toComposite]
-  | .and φ ψ, neg, r => by
+  | .and φ ψ, hrf, neg, r => by
     show TermGIn.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
     cases neg with
     | false =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r]
       rfl
-  | .or φ ψ, neg, r => by
+  | .or φ ψ, hrf, neg, r => by
     cases neg with
     | false =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ false r, gateTerm_evalRew ψ false r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ true r, gateTerm_evalRew ψ true r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r]
       rfl
-  | .not φ, neg, r => gateTerm_evalRew φ (!neg) r
+  | .aggRange _ _ _ _ _ _, hrf, _, _ => Bool.noConfusion hrf
+  | .not φ, hrf, neg, r => gateTerm_evalRew φ hrf (!neg) r
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -478,6 +514,7 @@ theorem GenPredIn.aggOnly_hasAggAtom {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.aggOnly = true → φ.hasAggAtom = true
   | .cmp _ _ _, hφ => Bool.noConfusion hφ
   | .aggCmp _ _ _ _, _ => rfl
+  | .aggRange _ _ _ _ _ _, _ => rfl
   | .and φ ψ, hφ => by
     rw [GenPredIn.hasAggAtom, aggOnly_hasAggAtom φ (Bool.and_eq_true_iff.mp hφ).1]
     rfl
@@ -494,6 +531,9 @@ theorem GenPredIn.comparedCols_agg {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ) {k : Fin n}, k ∈ φ.comparedCols → κ k = ColKind.agg
   | .cmp _ _ _, k, hk => absurd hk (by simp [GenPredIn.comparedCols])
   | .aggCmp k' h _ _, k, hk => by
+    rw [show k = k' from Finset.mem_singleton.mp hk]
+    exact h
+  | .aggRange k' h _ _ _ _, k, hk => by
     rw [show k = k' from Finset.mem_singleton.mp hk]
     exact h
   | .and φ ψ, k, hk => by
@@ -633,6 +673,7 @@ the general evaluator's treatment of the pending group factor. -/
 theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.hasAggAtom = true)
+    (hrf : φ.rangeFree = true)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical)
     (d : AnnotatedDatabase T K) :
     ((AggQueryIn.Sel φ (AggQueryIn.Gamma is ts fs qg)).evaluate d).map
@@ -669,7 +710,7 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       rw [show φ.entailsExistence false = false by simpa using hE]
       simp only [Bool.false_eq_true, ite_false]
       show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
-      rw [GenPredIn.gateTerm_evalRew (K := K) φ false _]
+      rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false _]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -710,7 +751,7 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
     · rw [one_mul]
       refine congrArg Sum.inl ?_
       symm
-      exact GenPredIn.gateTerm_evalRew (K := K) φ false _
+      exact GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
 
 /-! ## Duplicate elimination in the rewritten world -/
 
@@ -1625,7 +1666,7 @@ inductive AggQueryIn.RewritesTo :
   | havingPred {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
       (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
-      (hφ : φ.hasAggAtom = true)
+      (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
       (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
       RewritesTo (AggQueryIn.Sel φ (AggQueryIn.Gamma is ts fs qg))
         (AggQueryIn.havingPredRew is ts fs φ qg hq)
@@ -1708,8 +1749,8 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
         (AggQueryIn.rewriting_chiFree q hq)]
   | gamma is ts fs qg hq =>
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
-  | havingPred is ts fs φ hφ qg hq =>
-    exact AggQueryIn.havingPredRew_valid is ts fs φ hφ qg hq d
+  | havingPred is ts fs φ hφ hrf qg hq =>
+    exact AggQueryIn.havingPredRew_valid is ts fs φ hφ hrf qg hq d
   | retag h₀ _ ih => exact ih
   | sum h₁ h₂ ih₁ ih₂ =>
     show Multiset.map _ (AggQueryIn.evaluate (AggQueryIn.Sum _ _) d) = _

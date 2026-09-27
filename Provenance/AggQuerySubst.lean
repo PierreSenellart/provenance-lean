@@ -154,6 +154,8 @@ def GenPredIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) : GenPredIn T c κ → GenPredIn T d κ
   | .cmp op t₁ t₂ => .cmp op (t₁.substMap θ) (t₂.substMap θ)
   | .aggCmp k h op t => .aggCmp k h op (t.substMap θ)
+  | .aggRange k h op₁ t₁ op₂ t₂ =>
+      .aggRange k h op₁ (t₁.substMap θ) op₂ (t₂.substMap θ)
   | .and φ ψ => .and (φ.substMap θ) (ψ.substMap θ)
   | .or φ ψ => .or (φ.substMap θ) (ψ.substMap θ)
   | .not φ => .not (φ.substMap θ)
@@ -165,6 +167,7 @@ omit [ValueType T] in
   induction φ with
   | cmp op t₁ t₂ => rfl
   | aggCmp k h op t => rfl
+  | aggRange k h op₁ t₁ op₂ t₂ => rfl
   | and φ ψ ihφ ihψ | or φ ψ ihφ ihψ =>
     simp only [GenPredIn.substMap, GenPredIn.hasAggAtom, ihφ, ihψ]
   | not φ ih => exact ih
@@ -176,6 +179,7 @@ omit [ValueType T] in
   induction φ with
   | cmp op t₁ t₂ => rfl
   | aggCmp k h op t => rfl
+  | aggRange k h op₁ t₁ op₂ t₂ => rfl
   | and φ ψ ihφ ihψ | or φ ψ ihφ ihψ =>
     simp only [GenPredIn.substMap, GenPredIn.comparedCols, ihφ, ihψ]
   | not φ ih => exact ih
@@ -188,6 +192,7 @@ omit [ValueType T] in
   induction φ generalizing neg with
   | cmp op t₁ t₂ => rfl
   | aggCmp k h op t => rfl
+  | aggRange k h op₁ t₁ op₂ t₂ => rfl
   | and φ ψ ihφ ihψ | or φ ψ ihφ ihψ =>
     simp only [GenPredIn.substMap, GenPredIn.entailsExistence, ihφ, ihψ]
   | not φ ih => exact ih (!neg)
@@ -204,6 +209,9 @@ theorem GenPredIn.eval3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k h op t =>
     show op.eval3 _ _ = op.eval3 _ _
     rw [TermGIn.eval_substMap]
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    show Kleene.and _ _ = Kleene.and _ _
+    rw [TermGIn.eval_substMap, TermGIn.eval_substMap]
   | and φ ψ ihφ ihψ => show Kleene.and _ _ = Kleene.and _ _; rw [ihφ, ihψ]
   | or φ ψ ihφ ihψ => show Kleene.or _ _ = Kleene.or _ _; rw [ihφ, ihψ]
   | not φ ih => show Kleene.not _ = Kleene.not _; rw [ih]
@@ -227,6 +235,9 @@ theorem GenPredIn.evalPlain3_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k h op t =>
     show op.eval3 _ _ = op.eval3 _ _
     rw [TermGIn.evalPlain_substMap]
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    show Kleene.and _ _ = Kleene.and _ _
+    rw [TermGIn.evalPlain_substMap, TermGIn.evalPlain_substMap]
   | and φ ψ ihφ ihψ => show Kleene.and _ _ = Kleene.and _ _; rw [ihφ, ihψ]
   | or φ ψ ihφ ihψ => show Kleene.or _ _ = Kleene.or _ _; rw [ihφ, ihψ]
   | not φ ih => show Kleene.not _ = Kleene.not _; rw [ih]
@@ -248,6 +259,8 @@ theorem GenPredIn.predsem_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     show Having.chi _ _ _ = Having.chi _ _ _
     rw [TermGIn.eval_substMap, TermGIn.eval_substMap]
   | aggCmp k h op t =>
+    simp only [GenPredIn.substMap, GenPredIn.predsem, TermGIn.eval_substMap]
+  | aggRange k h op₁ t₁ op₂ t₂ =>
     simp only [GenPredIn.substMap, GenPredIn.predsem, TermGIn.eval_substMap]
   | and φ ψ ihφ ihψ | or φ ψ ihφ ihψ =>
     simp only [GenPredIn.substMap, GenPredIn.predsem, ihφ, ihψ]

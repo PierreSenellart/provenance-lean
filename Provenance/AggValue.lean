@@ -503,6 +503,25 @@ theorem valOn_empty (a : AggValue T K) : a.valOn ∅ = a.agg [] := by
   rw [seqOf_empty]
   rfl
 
+/-- The same splitting for an arbitrary test: the scalar reading is the
+grouped one plus the empty world's term. -/
+theorem predProvScalarWith_eq_predProvWith_add [ValueType T]
+    [CommSemiringWithMonus K] [DecidableEq K] (a : AggValue T K)
+    (P : T → Kleene) :
+    a.predProvScalarWith P
+      = a.predProvWith P
+        + Having.worldAnn a.anns ∅ * Having.chiOf P (a.agg []) := by
+  rw [predProvScalarWith, predProvWith]
+  rw [← Finset.sum_filter_add_sum_filter_not
+    (Finset.univ : Finset (Finset (Fin a.occs.length)))
+    (fun W => W.Nonempty)]
+  congr 1
+  have hempty : (Finset.univ.filter
+      (fun W : Finset (Fin a.occs.length) => ¬ W.Nonempty)) = {∅} := by
+    ext W
+    simp [Finset.not_nonempty_iff_eq_empty]
+  rw [hempty, Finset.sum_singleton, valOn_empty]
+
 /-- The scalar convention adds exactly one term to the grouped one: the
 empty world, annotated `𝟙 ⊖ ⊕ᵢ αᵢ` and reading `f` of the empty sequence. In
 particular the two agree whenever that term vanishes – when the comparison

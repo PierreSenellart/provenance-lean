@@ -205,7 +205,7 @@ example : ∃ q' : AggQuery (String ⊕ ℕ) 2
         qgPersonnel trivial))
     (AggQueryIn.RewritesTo.proj cityCols
       (AggQueryIn.RewritesTo.havingPred ![3] ![TermIn.const "1"]
-        ![SeqAggFunc.sum] φatLeastThree rfl qgPersonnel trivial))
+        ![SeqAggFunc.sum] φatLeastThree rfl rfl qgPersonnel trivial))
   ⟨_, h, AggQueryIn.rewritesTo_valid h d_count⟩
 
 /-! ### A window

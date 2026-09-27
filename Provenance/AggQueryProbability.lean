@@ -126,6 +126,77 @@ theorem predProvScalar_eval_iff (a : AggValue T (BoolFunc X)) (op : CompOp)
         (chi_eval_iff op _ c v).mpr hP⟩
     exact hgoal
 
+/-- **The token-level PQE bridge for a test**, as `predProv_eval_iff`
+with an arbitrary three-valued test in place of the comparison. -/
+theorem predProvWith_eval_iff (a : AggValue T (BoolFunc X)) (P : T → Kleene)
+    (v : X → Bool) :
+    (a.predProvWith P) v = true
+      ↔ (a.realized v).Nonempty
+        ∧ P (a.specialize (fun α => α v)) = Kleene.true := by
+  rw [AggValue.specialize_eval]
+  unfold AggValue.predProvWith
+  rw [sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨W, hW, hWv⟩
+    obtain ⟨-, hne⟩ := Finset.mem_filter.mp hW
+    have hsplit : ((Having.worldAnn a.anns W) v
+        && (Having.chiOf (K := BoolFunc X) P (a.valOn W)) v) = true := hWv
+    rw [Bool.and_eq_true] at hsplit
+    have hWeq : W = a.realized v :=
+      (worldAnn_eval_iff a.anns W v).mp hsplit.1
+    subst hWeq
+    exact ⟨hne, (chiOf_eval_iff P _ v).mp hsplit.2⟩
+  · rintro ⟨hne, hP⟩
+    refine ⟨a.realized v,
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, hne⟩, ?_⟩
+    have hgoal : ((Having.worldAnn a.anns (a.realized v)) v
+        && (Having.chiOf (K := BoolFunc X) P (a.valOn (a.realized v))) v)
+          = true := by
+      rw [Bool.and_eq_true]
+      exact ⟨(worldAnn_eval_iff a.anns _ v).mpr rfl,
+        (chiOf_eval_iff P _ v).mpr hP⟩
+    exact hgoal
+
+/-- The scalar counterpart for a test. -/
+theorem predProvScalarWith_eval_iff (a : AggValue T (BoolFunc X))
+    (P : T → Kleene) (v : X → Bool) :
+    (a.predProvScalarWith P) v = true
+      ↔ P (a.specialize (fun α => α v)) = Kleene.true := by
+  rw [AggValue.specialize_eval]
+  unfold AggValue.predProvScalarWith
+  rw [sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨W, -, hWv⟩
+    have hsplit : ((Having.worldAnn a.anns W) v
+        && (Having.chiOf (K := BoolFunc X) P (a.valOn W)) v) = true := hWv
+    rw [Bool.and_eq_true] at hsplit
+    have hWeq : W = a.realized v :=
+      (worldAnn_eval_iff a.anns W v).mp hsplit.1
+    subst hWeq
+    exact (chiOf_eval_iff P _ v).mp hsplit.2
+  · intro hP
+    refine ⟨a.realized v, Finset.mem_univ _, ?_⟩
+    have hgoal : ((Having.worldAnn a.anns (a.realized v)) v
+        && (Having.chiOf (K := BoolFunc X) P (a.valOn (a.realized v))) v)
+          = true := by
+      rw [Bool.and_eq_true]
+      exact ⟨(worldAnn_eval_iff a.anns _ v).mpr rfl,
+        (chiOf_eval_iff P _ v).mpr hP⟩
+    exact hgoal
+
+/-- The token PQE bridge for a test, in the token's own convention. -/
+theorem predProvOfWith_eval_iff (a : AggValue T (BoolFunc X))
+    (P : T → Kleene) (v : X → Bool) :
+    (a.predProvOfWith P) v = true
+      ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
+        ∧ P (a.specialize (fun α => α v)) = Kleene.true := by
+  unfold AggValue.predProvOfWith
+  cases hs : a.scalar
+  · simpa [hs] using predProvWith_eval_iff a P v
+  · simp only [ite_true]
+    rw [predProvScalarWith_eval_iff]
+    simp
+
 /-- **The token PQE bridge, in the token's own convention.** A grouped
 token needs a realized occurrence; a scalar one does not, the empty world
 being one of its worlds. -/
@@ -319,6 +390,8 @@ theorem GenPredIn.eval3_eq_specialize {c n : ℕ} {κ : Fin n → ColKind}
     rw [GenPredIn.eval3, GenPredIn.evalPlain3,
       TermGIn.eval_specialize t₁ u hconf v, TermGIn.eval_specialize t₂ u hconf v]
   | aggCmp k h op t => exact absurd hφ (by simp [GenPredIn.hasAggAtom])
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    exact absurd hφ (by simp [GenPredIn.hasAggAtom])
   | and φ ψ ihφ ihψ =>
     rw [GenPredIn.hasAggAtom, Bool.or_eq_false_iff] at hφ
     rw [GenPredIn.eval3, GenPredIn.evalPlain3, ihφ hφ.1, ihψ hφ.2]
@@ -412,6 +485,22 @@ theorem GenPredIn.predsem_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
     cases neg with
     | false => simp [hne]
     | true => simp [hne, CompOp.negate_eval3]
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    obtain ⟨a, ha⟩ := GenValue.eq_inr_of_kindOf_agg
+      ((hconf k).trans (by rw [h]; rfl))
+    simp only [GenPredIn.predsem, ha]
+    rw [AggValue.predProvOfWith_eval_iff, GenPredIn.evalPlain3]
+    have hne := hg k (Finset.mem_singleton_self k) a ha
+    have hspec : GenRow.specializeTuple v u k
+        = a.specialize (fun α => α v) := by
+      unfold GenRow.specializeTuple
+      rw [ha]
+      rfl
+    rw [hspec, ← TermGIn.eval_specialize t₁ u hconf v,
+      ← TermGIn.eval_specialize t₂ u hconf v]
+    cases neg with
+    | false => simp [hne]
+    | true => simp [hne]
   | and φ ψ ihφ ihψ =>
     have hgφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
         u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty :=
@@ -490,6 +579,18 @@ theorem GenPredIn.entails_guard {c n : ℕ} {κ : Fin n → ColKind}
       have hne := (AggValue.predProv_eval_iff a _ _ v).mp hp |>.1
       rw [← heq]
       exact (AggValue.annGuard_iff_realized a v).mpr hne
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    cases hu : u k with
+    | inl w =>
+      simp only [GenPredIn.predsem, hu] at hp
+      exact absurd hp Bool.false_ne_true
+    | inr a =>
+      simp only [GenPredIn.predsem, hu] at hp
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
+      have hne := (AggValue.predProvOfWith_eval_iff a _ v).mp hp |>.1
+      rw [← heq]
+      exact (AggValue.annGuard_iff_realized a v).mpr
+        (hne.resolve_left (by rw [hsc]; exact Bool.false_ne_true))
   | and φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
         u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=

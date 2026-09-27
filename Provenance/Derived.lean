@@ -748,8 +748,26 @@ def dropRank (n : ℕ) :
 strictly before the row's peers, and at most `hi`. -/
 def rankRange (n : ℕ) (lo hi : T) :
     GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  .and (.aggCmp (Fin.last n) (by simp) CompOp.gt (.const lo))
-    (.aggCmp (Fin.last n) (by simp) CompOp.le (.const hi))
+  .aggRange (Fin.last n) (by simp) CompOp.gt (.const lo) CompOp.le (.const hi)
+
+/-- **The range a truncation filters on is one atom**, so its predicate
+provenance is the single `⊕`-sum over the worlds where the rank is in
+range – the annotation §derivedann asks of a truncation, with no
+hypothesis on the m-semiring. Written as a conjunction of two atoms it
+would instead be the product of two sums, which is that sum only where
+`AggValue.predProvOf_mul_predProvOf` applies. -/
+theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
+    [DecidableEq K] [HasAltLinearOrder K] (n : ℕ) (lo hi : T)
+    (u : Tuple (GenValue T K) (n + 1)) (a : AggValue T K)
+    (hu : u (Fin.last n) = Sum.inr a) :
+    (rankRange n lo hi).predsem false u
+      = a.predProvOfWith (fun v =>
+          (CompOp.gt.eval3 v lo).and (CompOp.le.eval3 v hi)) := by
+  show (match u (Fin.last n) with
+    | Sum.inl _ => 0
+    | Sum.inr a => a.predProvOfWith _) = _
+  rw [hu]
+  rfl
 
 /-- **Truncation** `λ^{P,O}_{m,c}`. -/
 def truncate [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
@@ -781,10 +799,10 @@ theorem holdsPlain_rankRange [NoNulls T] (n : ℕ) (lo hi : T)
     (u : Tuple T (n + 1)) :
     (rankRange n lo hi).holdsPlain u
       ↔ (lo < u (Fin.last n)) ∧ (u (Fin.last n) ≤ hi) := by
-  rw [rankRange, GenPredIn.holdsPlain_and]
-  show (CompOp.gt.eval3 (u (Fin.last n)) lo = Kleene.true)
-      ∧ (CompOp.le.eval3 (u (Fin.last n)) hi = Kleene.true) ↔ _
-  rw [CompOp.eval3_eq_true_iff_noNulls, CompOp.eval3_eq_true_iff_noNulls]
+  show ((CompOp.gt.eval3 (u (Fin.last n)) lo).and
+      (CompOp.le.eval3 (u (Fin.last n)) hi) = Kleene.true) ↔ _
+  rw [Kleene.and_eq_true_iff, CompOp.eval3_eq_true_iff_noNulls,
+    CompOp.eval3_eq_true_iff_noNulls]
   exact Iff.rfl
 
 /-- **What a truncation keeps over plain relations**: the rows with at

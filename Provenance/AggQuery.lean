@@ -217,6 +217,17 @@ inductive GenPredIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
   term (a per-group constant: query constant or group-key attribute). -/
   | aggCmp : (k : Fin n) → κ k = ColKind.agg → CompOp → TermGIn T c κ →
       GenPredIn T c κ
+  /-- **A range atom**: the token in column `k` compared against two
+  regular terms at once, read as *one* atom and not as the conjunction
+  of two. The difference is not in what it says on a row – the two agree
+  classically – but in what it annotates: one `⊕`-sum over the worlds
+  where both comparisons hold, which is what a truncation's
+  `m < #(k+1) ≤ m+c` asks for. A conjunction of two atoms instead
+  multiplies two sums, and that is the same value only when the
+  m-semiring is exclusive with an idempotent `⊗`
+  (`AggValue.predProvOf_mul_predProvOf_with`). -/
+  | aggRange : (k : Fin n) → κ k = ColKind.agg → CompOp → TermGIn T c κ →
+      CompOp → TermGIn T c κ → GenPredIn T c κ
   | and : GenPredIn T c κ → GenPredIn T c κ → GenPredIn T c κ
   | or : GenPredIn T c κ → GenPredIn T c κ → GenPredIn T c κ
   | not : GenPredIn T c κ → GenPredIn T c κ
@@ -233,6 +244,7 @@ filter classically. -/
 def hasAggAtom : GenPredIn T c κ → Bool
   | cmp _ _ _ => false
   | aggCmp _ _ _ _ => true
+  | aggRange _ _ _ _ _ _ => true
   | and φ ψ | or φ ψ => φ.hasAggAtom || ψ.hasAggAtom
   | not φ => φ.hasAggAtom
 
@@ -244,6 +256,9 @@ def eval3 (φ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
   match φ with
   | cmp op t₁ t₂ => op.eval3 (t₁.eval u γ) (t₂.eval u γ)
   | aggCmp k _ op t => op.eval3 (AggValue.collapseSum (u k)) (t.eval u γ)
+  | aggRange k _ op₁ t₁ op₂ t₂ =>
+    (op₁.eval3 (AggValue.collapseSum (u k)) (t₁.eval u γ)).and
+      (op₂.eval3 (AggValue.collapseSum (u k)) (t₂.eval u γ))
   | and φ ψ => (φ.eval3 u γ).and (ψ.eval3 u γ)
   | or φ ψ => (φ.eval3 u γ).or (ψ.eval3 u γ)
   | not φ => (φ.eval3 u γ).not
@@ -283,6 +298,11 @@ theorem eval3_ne_unknown [NoNulls T] (u : Tuple (GenValue T K) n) :
     rw [GenPredIn.eval3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (AggValue.collapseSum (u k)) (t.eval u)) <;>
       simp [Kleene.ofBool]
+  | aggRange k h op₁ t₁ op₂ t₂ => by
+    rw [GenPredIn.eval3, CompOp.eval3_eq_ofBool, CompOp.eval3_eq_ofBool]
+    cases decide (op₁.eval (AggValue.collapseSum (u k)) (t₁.eval u)) <;>
+      cases decide (op₂.eval (AggValue.collapseSum (u k)) (t₂.eval u)) <;>
+      simp [Kleene.ofBool, Kleene.and]
   | and φ ψ => by
     have h₁ := eval3_ne_unknown u φ
     have h₂ := eval3_ne_unknown u ψ
@@ -331,6 +351,13 @@ def predsem (φ : GenPredIn T c κ) (neg : Bool)
       match u k with
       | Sum.inl _ => 0
       | Sum.inr a => a.predProvOf (if neg then op.negate else op) (t.eval u γ)
+  | aggRange k _ op₁ t₁ op₂ t₂ =>
+      match u k with
+      | Sum.inl _ => 0
+      | Sum.inr a => a.predProvOfWith (fun v =>
+          if neg then ((op₁.eval3 v (t₁.eval u γ)).and
+              (op₂.eval3 v (t₂.eval u γ))).not
+          else (op₁.eval3 v (t₁.eval u γ)).and (op₂.eval3 v (t₂.eval u γ)))
   | and φ ψ =>
       if neg then φ.predsem neg u γ + ψ.predsem neg u γ
       else φ.predsem neg u γ * ψ.predsem neg u γ
@@ -343,6 +370,7 @@ def predsem (φ : GenPredIn T c κ) (neg : Bool)
 def comparedCols : GenPredIn T c κ → Finset (Fin n)
   | cmp _ _ _ => ∅
   | aggCmp k _ _ _ => {k}
+  | aggRange k _ _ _ _ _ => {k}
   | and φ ψ | or φ ψ => φ.comparedCols ∪ ψ.comparedCols
   | not φ => φ.comparedCols
 
@@ -358,6 +386,7 @@ is empty. -/
 def entailsExistence : GenPredIn T c κ → Bool → Bool
   | cmp _ _ _, _ => false
   | aggCmp _ _ _ _, _ => true
+  | aggRange _ _ _ _ _ _, _ => true
   | and φ ψ, neg =>
       if neg then φ.entailsExistence neg && ψ.entailsExistence neg
       else φ.entailsExistence neg || ψ.entailsExistence neg
@@ -658,6 +687,7 @@ def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
     GenPredIn T' c κ → Prop
   | .cmp _ t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
   | .aggCmp _ _ _ t => t.chiFree
+  | .aggRange _ _ _ t₁ _ t₂ => t₁.chiFree ∧ t₂.chiFree
   | .and φ ψ | .or φ ψ => φ.chiFree ∧ ψ.chiFree
   | .not φ => φ.chiFree
 
@@ -886,6 +916,8 @@ def evalPlain3 (φ : GenPredIn T c κ) (u : Tuple T n)
   match φ with
   | cmp op t₁ t₂ => op.eval3 (t₁.evalPlain u γ) (t₂.evalPlain u γ)
   | aggCmp k _ op t => op.eval3 (u k) (t.evalPlain u γ)
+  | aggRange k _ op₁ t₁ op₂ t₂ =>
+    (op₁.eval3 (u k) (t₁.evalPlain u γ)).and (op₂.eval3 (u k) (t₂.evalPlain u γ))
   | and φ ψ => (φ.evalPlain3 u γ).and (ψ.evalPlain3 u γ)
   | or φ ψ => (φ.evalPlain3 u γ).or (ψ.evalPlain3 u γ)
   | not φ => (φ.evalPlain3 u γ).not
@@ -923,6 +955,11 @@ theorem evalPlain3_ne_unknown [NoNulls T] (u : Tuple T n) :
   | aggCmp k h op t => by
     rw [GenPredIn.evalPlain3, CompOp.eval3_eq_ofBool]
     cases decide (op.eval (u k) (t.evalPlain u)) <;> simp [Kleene.ofBool]
+  | aggRange k h op₁ t₁ op₂ t₂ => by
+    rw [GenPredIn.evalPlain3, CompOp.eval3_eq_ofBool, CompOp.eval3_eq_ofBool]
+    cases decide (op₁.eval (u k) (t₁.evalPlain u)) <;>
+      cases decide (op₂.eval (u k) (t₂.evalPlain u)) <;>
+      simp [Kleene.ofBool, Kleene.and]
   | and φ ψ => by
     have h₁ := evalPlain3_ne_unknown u φ
     have h₂ := evalPlain3_ne_unknown u ψ

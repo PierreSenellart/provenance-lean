@@ -544,6 +544,13 @@ proven engine several general results reuse internally.
   row tied with the last one kept – SQL's `FETCH FIRST c ROWS WITH
   TIES`; `evaluatePlain_truncate_noNulls` reads it as the filter on the
   rank it is, and `distinctOn` is `λ^{P,O}_{0,1}`, SQL's `DISTINCT ON`.
+  The range it filters on is a single atom, `GenPredIn.aggRange`, so its
+  predicate provenance is the one `⊕`-sum over the worlds where the rank
+  is in range that §derivedann asks for (`predsem_rankRange`), with no
+  hypothesis on the m-semiring – where a conjunction of two atoms would
+  give the product of two sums. No ProvSQL gate carries a range, so the
+  site rewriting is stated on range-free predicates
+  (`GenPredIn.rangeFree`).
   `gammaSets` is SQL's `GROUPING SETS`: the union of one
   aggregation per set of the family, each padded back onto the columns
   of the whole key, so that a key column a set drops reads as the null

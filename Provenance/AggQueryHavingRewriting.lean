@@ -94,6 +94,9 @@ def GenPredIn.evalRew3 {c n : ℕ} {κ : Fin n → ColKind} :
   | .cmp op t₁ t₂, u, γ => op.eval3 (t₁.evalRew u γ) (t₂.evalRew u γ)
   | .aggCmp k _ op t, u, γ =>
       op.eval3 (AggValue.collapseSum (u k)) (t.evalRew u γ)
+  | .aggRange k _ op₁ t₁ op₂ t₂, u, γ =>
+      (op₁.eval3 (AggValue.collapseSum (u k)) (t₁.evalRew u γ)).and
+        (op₂.eval3 (AggValue.collapseSum (u k)) (t₂.evalRew u γ))
   | .and φ ψ, u, γ => (φ.evalRew3 u γ).and (ψ.evalRew3 u γ)
   | .or φ ψ, u, γ => (φ.evalRew3 u γ).or (ψ.evalRew3 u γ)
   | .not φ, u, γ => (φ.evalRew3 u γ).not
@@ -302,6 +305,10 @@ theorem GenPredIn.evalRew3_inl {c n : ℕ} {κ : Fin n → ColKind}
   | .aggCmp k h op t, hφ, u => by
     simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
       TermGIn.evalRew_inl t hφ]
+    rfl
+  | .aggRange k h op₁ t₁ op₂ t₂, hφ, u => by
+    simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,
+      TermGIn.evalRew_inl t₁ hφ.1, TermGIn.evalRew_inl t₂ hφ.2]
     rfl
   | .and φ ψ, hφ, u => by
     simp only [GenPredIn.evalRew3, GenPredIn.evalPlain3,

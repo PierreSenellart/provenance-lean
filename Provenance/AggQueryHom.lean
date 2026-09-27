@@ -315,6 +315,19 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = Sum.inr (AggValue.mapAnn ⇑h.toRingHom a) := rfl
       simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t u, AggValue.predProvOf_mapAnn]
+  | aggRange k hk op₁ t₁ op₂ t₂ =>
+    cases hu : u k with
+    | inl w =>
+      have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inl w : GenValue T K)
+          = (Sum.inl w : GenValue T K') := rfl
+      simp only [GenPredIn.predsem, hu, hred, map_zero]
+    | inr a =>
+      have hred : AggValue.mapAnnSum (⇑h.toRingHom)
+            (Sum.inr a : GenValue T K)
+          = Sum.inr (AggValue.mapAnn ⇑h.toRingHom a) := rfl
+      simp only [GenPredIn.predsem, hu, hred]
+      rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u,
+        AggValue.predProvOfWith_mapAnn]
   | and φ ψ ihφ ihψ =>
     cases neg with
     | false =>
@@ -356,13 +369,13 @@ sum. -/
 
 omit [DecidableEq K'] [CommSemiringWithMonus K'] in
 /-- A token's predicate provenance absorbs the `δ`-guard of its own
-group. -/
-theorem AggValue.predProv_delta_absorb (a : AggValue T K) (op : CompOp)
-    (c : T) :
-    a.predProv op c
+group, for an arbitrary test on its value. -/
+theorem AggValue.predProvWith_delta_absorb (a : AggValue T K)
+    (P : T → Kleene) :
+    a.predProvWith P
         * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
-      = a.predProv op c := by
-  unfold AggValue.predProv
+      = a.predProvWith P := by
+  unfold AggValue.predProvWith
   rw [Finset.sum_mul]
   refine Finset.sum_congr rfl fun W hW => ?_
   obtain ⟨-, hne⟩ := Finset.mem_filter.mp hW
@@ -386,19 +399,28 @@ theorem AggValue.predProv_delta_absorb (a : AggValue T K) (op : CompOp)
     rw [← Finset.mul_prod_erase W a.anns hi₀, mul_assoc]
   rw [hw]
   calc a.anns i₀ * ((∏ i ∈ W.erase i₀, a.anns i)
-          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chi op (a.valOn W) c
+          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chiOf P (a.valOn W)
         * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
       = ((∏ i ∈ W.erase i₀, a.anns i) * (1 - ∑ i ∈ Wᶜ, a.anns i)
-          * Having.chi op (a.valOn W) c)
+          * Having.chiOf P (a.valOn W))
         * (a.anns i₀
           * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)) := by
         rw [mul_rotate (a.anns i₀), mul_assoc]
     _ = ((∏ i ∈ W.erase i₀, a.anns i) * (1 - ∑ i ∈ Wᶜ, a.anns i)
-          * Having.chi op (a.valOn W) c) * a.anns i₀ := by
+          * Having.chiOf P (a.valOn W)) * a.anns i₀ := by
         rw [key]
     _ = a.anns i₀ * ((∏ i ∈ W.erase i₀, a.anns i)
-          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chi op (a.valOn W) c :=
+          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chiOf P (a.valOn W) :=
         (mul_rotate _ _ _).symm
+
+omit [DecidableEq K'] [CommSemiringWithMonus K'] in
+/-- The comparison case. -/
+theorem AggValue.predProv_delta_absorb (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.predProv op c
+        * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
+      = a.predProv op c :=
+  AggValue.predProvWith_delta_absorb a (fun v => op.eval3 v c)
 
 omit [DecidableEq K'] [CommSemiringWithMonus K'] in
 /-- **Guard absorption for entailing predicates**: when a predicate
@@ -422,6 +444,14 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
       obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
       rw [AggValue.predProvOf_of_grouped hsc, ← heq]
       exact AggValue.predProv_delta_absorb a _ _
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    cases hu : u k with
+    | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
+    | inr a =>
+      simp only [GenPredIn.predsem, hu]
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
+      rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true, ← heq]
+      exact AggValue.predProvWith_delta_absorb a _
   | and φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
         u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
@@ -773,6 +803,10 @@ theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k hk op t =>
     simp only [GenPredIn.eval3]
     rw [(hu k).collapseSum_eq, TermGIn.eval_equiv t hu]
+  | aggRange k hk op₁ t₁ op₂ t₂ =>
+    simp only [GenPredIn.eval3]
+    rw [(hu k).collapseSum_eq, TermGIn.eval_equiv t₁ hu,
+      TermGIn.eval_equiv t₂ hu]
   | and φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
   | or φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
   | not φ ih => simp only [GenPredIn.eval3, ih]
@@ -812,6 +846,21 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
         rw [hu'k, huk] at hk'
         rw [TermGIn.eval_equiv t hu]
         exact AggValue.predProvOf_congr hk'.1 hk'.2.1 hk'.2.2 _ _
+  | aggRange k hk op₁ t₁ op₂ t₂ =>
+    have hk' := hu k
+    simp only [GenPredIn.predsem]
+    cases hu'k : u' k with
+    | inl w' =>
+      cases huk : u k with
+      | inl w => rfl
+      | inr a => rw [hu'k, huk] at hk'; exact absurd hk' not_false
+    | inr a' =>
+      cases huk : u k with
+      | inl w => rw [hu'k, huk] at hk'; exact absurd hk' not_false
+      | inr a =>
+        rw [hu'k, huk] at hk'
+        rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
+        exact AggValue.predProvOfWith_congr hk'.1 hk'.2.1 hk'.2.2 _
   | and φ ψ ihφ ihψ =>
     simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
@@ -1068,6 +1117,10 @@ theorem GenPredIn.eval3_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k hk op t =>
     simp only [GenPredIn.eval3]
     rw [AggValue.collapseSum_mapAnnSum, TermGIn.eval_mapAnnSum h t u]
+  | aggRange k hk op₁ t₁ op₂ t₂ =>
+    simp only [GenPredIn.eval3]
+    rw [AggValue.collapseSum_mapAnnSum, TermGIn.eval_mapAnnSum h t₁ u,
+      TermGIn.eval_mapAnnSum h t₂ u]
   | and φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
   | or φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
   | not φ ih => simp only [GenPredIn.eval3, ih]

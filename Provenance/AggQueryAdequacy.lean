@@ -96,6 +96,10 @@ theorem GenPredIn.eval3_eq_evalPlain3 {c n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k h op t =>
     rw [GenPredIn.eval3, GenPredIn.evalPlain3, TermGIn.eval_eq_evalPlain]
     rfl
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    rw [GenPredIn.eval3, GenPredIn.evalPlain3, TermGIn.eval_eq_evalPlain,
+      TermGIn.eval_eq_evalPlain]
+    rfl
   | and φ ψ ihφ ihψ => rw [GenPredIn.eval3, GenPredIn.evalPlain3, ihφ, ihψ]
   | or φ ψ ihφ ihψ => rw [GenPredIn.eval3, GenPredIn.evalPlain3, ihφ, ihψ]
   | not φ ih => rw [GenPredIn.eval3, GenPredIn.evalPlain3, ih]

@@ -277,25 +277,25 @@ the occurrences discarded so far, and `started` records whether an occurrence
 has been kept (worlds must end up non-empty). Keeping an occurrence
 contributes its annotation as a factor; discarding it moves its annotation
 into the pending `𝟙 ⊖ Σ` factor materialized at the end of the list. -/
-def predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
+def predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
     List T → K → Bool → List (T × K) → K
   | acc, ex, started, [] =>
-      if started then (1 - ex) * Having.chi op (f acc) c else 0
+      if started then (1 - ex) * Having.chiOf P (f acc) else 0
   | acc, ex, started, (v, a) :: t =>
-      a * predProvAux f op c (acc ++ [v]) ex true t
-        + predProvAux f op c acc (ex + a) started t
+      a * predProvAux f P (acc ++ [v]) ex true t
+        + predProvAux f P acc (ex + a) started t
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
 /-- The world-sum defining the predicate provenance, generalized by the three
 accumulators, equals the recursion form. -/
-theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
+theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (P : T → Kleene) :
     ∀ (l : List (T × K)) (acc : List T) (ex : K) (started : Bool),
       ∑ W ∈ Finset.univ.filter
           (fun W : Finset (Fin l.length) => started = true ∨ W.Nonempty),
         (∏ i ∈ W, (l.get i).snd)
           * ((1 - (ex + ∑ i ∈ Wᶜ, (l.get i).snd))
-            * Having.chi op (f (acc ++ (Having.seqOf l W).map Prod.fst)) c)
-        = predProvAux f op c acc ex started l
+            * Having.chiOf P (f (acc ++ (Having.seqOf l W).map Prod.fst)))
+        = predProvAux f P acc ex started l
   | [], acc, ex, started => by
     have hW : ∀ W : Finset (Fin ([] : List (T × K)).length), W = ∅ := fun W =>
       Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (Nat.not_lt_zero _))
@@ -314,11 +314,11 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
         rw [Finset.sum_singleton, Finset.prod_empty, one_mul,
           Finset.sum_eq_zero (fun i _ => absurd i.isLt (Nat.not_lt_zero _)),
           add_zero]
-        show (1 - ex) * Having.chi op (f (acc ++ [])) c = _
+        show (1 - ex) * Having.chiOf P (f (acc ++ [])) = _
         rw [List.append_nil]
         rfl
   | (v, ann) :: t, acc, ex, started => by
-    have ih := sum_worlds_eq_predProvAux f op c t
+    have ih := sum_worlds_eq_predProvAux f P t
     dsimp only [List.length_cons]
     -- Branch A: worlds keeping the head occurrence.
     have hA : (∑ W ∈ (Finset.univ.filter
@@ -326,9 +326,9 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
             (fun W => (0 : Fin (t.length + 1)) ∈ W),
           (∏ i ∈ W, (((v, ann) :: t).get i).snd)
             * ((1 - (ex + ∑ i ∈ Wᶜ, (((v, ann) :: t).get i).snd))
-              * Having.chi op
-                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst)) c))
-        = ann * predProvAux f op c (acc ++ [v]) ex true t := by
+              * Having.chiOf P
+                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst))))
+        = ann * predProvAux f P (acc ++ [v]) ex true t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
@@ -377,9 +377,9 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
             (fun W => ¬ (0 : Fin (t.length + 1)) ∈ W),
           (∏ i ∈ W, (((v, ann) :: t).get i).snd)
             * ((1 - (ex + ∑ i ∈ Wᶜ, (((v, ann) :: t).get i).snd))
-              * Having.chi op
-                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst)) c))
-        = predProvAux f op c acc (ex + ann) started t := by
+              * Having.chiOf P
+                  (f (acc ++ (Having.seqOf ((v, ann) :: t) W).map Prod.fst))))
+        = predProvAux f P acc (ex + ann) started t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
@@ -435,23 +435,23 @@ theorem sum_worlds_eq_predProvAux (f : SeqAggFunc T) (op : CompOp) (c : T) :
     simp only [predProvAux]
 
 /-- The predicate provenance of a token is its recursion form. -/
-theorem predProv_eq_predProvAux (a : AggValue T K) (op : CompOp) (c : T) :
-    a.predProv op c = predProvAux a.agg op c [] 0 false a.occs := by
+theorem predProvWith_eq_predProvAux (a : AggValue T K) (P : T → Kleene) :
+    a.predProvWith P = predProvAux a.agg P [] 0 false a.occs := by
   rw [← sum_worlds_eq_predProvAux]
-  simp only [AggValue.predProv]
+  simp only [AggValue.predProvWith]
   refine Finset.sum_congr (Finset.filter_congr fun W _ => by simp) fun W _ => ?_
   simp only [Having.worldAnn, AggValue.anns, AggValue.valOn]
   rw [zero_add, List.nil_append, mul_assoc]
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
 /-- The recursion form is invariant under tie-block permutations of the
 payload: exchanging two adjacent occurrences with equal values redistributes
 the same annotations over the same world readings. -/
-theorem predProvAux_congr (f : SeqAggFunc T) (op : CompOp) (c : T)
+theorem predProvAux_congr (f : SeqAggFunc T) (P : T → Kleene)
     {l₁ l₂ : List (T × K)} (h : TiePerm (fun p q => p.1 = q.1) l₁ l₂) :
     ∀ (acc : List T) (ex : K) (started : Bool),
-      predProvAux f op c acc ex started l₁
-        = predProvAux f op c acc ex started l₂ := by
+      predProvAux f P acc ex started l₁
+        = predProvAux f P acc ex started l₂ := by
   induction h with
   | nil => intro acc ex started; rfl
   | @cons p l₁ l₂ _ ih =>
@@ -478,12 +478,18 @@ theorem predProvAux_congr (f : SeqAggFunc T) (op : CompOp) (c : T)
 whose payloads differ by a tie-block permutation on equal values have the
 same predicate provenance, for every comparison. This is what makes the
 annotation tie-break of the group sort semantically invisible. -/
+theorem predProvWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvWith P = b.predProvWith P := by
+  rw [predProvWith_eq_predProvAux, predProvWith_eq_predProvAux, hagg,
+    predProvAux_congr b.agg _ h]
+
+/-- The comparison case. -/
 theorem predProv_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
-    a.predProv op c = b.predProv op c := by
-  rw [predProv_eq_predProvAux, predProv_eq_predProvAux, hagg,
-    predProvAux_congr b.agg op c h]
+    a.predProv op c = b.predProv op c :=
+  predProvWith_congr hagg h (fun v => op.eval3 v c)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
@@ -523,25 +529,38 @@ theorem worldAnn_empty_congr {a b : AggValue T K}
 `predProv` is: the empty world it adds reads the aggregate of the empty
 sequence and the sum of all the annotations, neither of which the
 permutation moves. -/
+theorem predProvScalarWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvScalarWith P = b.predProvScalarWith P := by
+  rw [AggValue.predProvScalarWith_eq_predProvWith_add,
+    AggValue.predProvScalarWith_eq_predProvWith_add, predProvWith_congr hagg h,
+    worldAnn_empty_congr h, hagg]
+
+/-- The comparison case. -/
 theorem predProvScalar_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
-    a.predProvScalar op c = b.predProvScalar op c := by
-  rw [AggValue.predProvScalar_eq_predProv_add,
-    AggValue.predProvScalar_eq_predProv_add, predProv_congr hagg h,
-    worldAnn_empty_congr h, hagg]
+    a.predProvScalar op c = b.predProvScalar op c :=
+  predProvScalarWith_congr hagg h (fun v => op.eval3 v c)
 
 /-- A token is read in its own convention, invariantly under a tie-block
 permutation of its payload. -/
+theorem predProvOfWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs) (P : T → Kleene) :
+    a.predProvOfWith P = b.predProvOfWith P := by
+  unfold AggValue.predProvOfWith
+  rw [hsc]
+  cases b.scalar
+  · simpa using predProvWith_congr hagg h P
+  · simpa using predProvScalarWith_congr hagg h P
+
+/-- The comparison case. -/
 theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar)
     (h : TiePerm (fun p q => p.1 = q.1) a.occs b.occs)
     (op : CompOp) (c : T) :
-    a.predProvOf op c = b.predProvOf op c := by
-  unfold AggValue.predProvOf
-  rw [hsc]
-  cases b.scalar
-  · simpa using predProv_congr hagg h op c
-  · simpa using predProvScalar_congr hagg h op c
+    a.predProvOf op c = b.predProvOf op c :=
+  predProvOfWith_congr hagg hsc h (fun v => op.eval3 v c)
 
 end AggValue
