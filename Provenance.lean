@@ -454,10 +454,12 @@ proven engine several general results reuse internally.
   with `mem_matchedLeft`/`mem_matchedRight` saying which rows of an arm
   have a match); `leftOuter`,
   `rightOuter` and `fullOuter` add to the matching rows the unmatched ones
-  of either arm, padded. The semijoin and the antijoin are deliberately absent:
-  they apply the left arm to a scalar aggregation of the filtered right
-  one, so that each occurrence keeps its multiplicity, and that needs the
-  apply operator this library does not have
+  of either arm, padded. `semijoin` and `antijoin` apply the left arm to
+  the scalar aggregation `matchCount` of the filtered right one, so that
+  each occurrence of the left arm keeps its multiplicity – a grouping on
+  its columns would merge duplicates, which `WHERE EXISTS` does not – and
+  so that a row with no match still has its row, with count `𝟘`;
+  comparing that count against `𝟘` is what tells the two apart
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate
@@ -474,7 +476,14 @@ proven engine several general results reuse internally.
   `α ⊖ ⊕(α' ⊗ β)` over the matches of *every copy* of its tuple
   (`evaluateAnnotated_leftOuter` and its right and full companions). That
   subtracted form is the definition; `α ⊗ (𝟙 ⊖ ⊕β)` equals it only when
-  `⊗` distributes over `⊖` and `K` is absorptive
+  `⊗` distributes over `⊖` and `K` is absorptive. The semijoin and the
+  antijoin read their row off one count site
+  (`evaluateAnnotated_countSite`): a semijoin multiplies each occurrence
+  of its left arm by the `⊕`-sum of the annotations of the rows it
+  matches (`evaluateAnnotated_semijoin`, over an absorptive `K`), an
+  antijoin by `𝟙 ⊖` that sum (`evaluateAnnotated_antijoin`, over any
+  `K`) – the comparison being read in the scalar convention, so that no
+  pending group factor is superseded
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

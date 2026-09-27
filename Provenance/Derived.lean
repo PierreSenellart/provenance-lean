@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQuery
+import Provenance.AggQuerySubst
 
 /-!
 # Derived operators
@@ -20,15 +20,14 @@ does – and not `ε(q₁ - (q₁ - q₂))`, which has the same rows but annotat
 them by a difference of differences rather than by a conjunction of the two
 memberships.
 
-The semijoin and the antijoin are *not* here. They apply the left arm to a
-scalar aggregation of the filtered right one, so that each occurrence of
-the left arm keeps its multiplicity – a grouping on the left arm's columns
-would merge its duplicates, which `WHERE EXISTS` does not. That needs the
-apply operator, which this library does not have; over plain relations the
-decorrelation would give the same rows, but not the same annotations, so
-there is nothing to gain by anticipating it. What they will need is in
-place: `SeqAggFunc.Counts`, `Having.existentialOn_counting`, and
-`AggValue.predProvScalar_count_eq_zero`.
+The semijoin and the antijoin apply the left arm to a scalar aggregation
+of the filtered right one, so that each occurrence of the left arm keeps
+its multiplicity – a grouping on the left arm's columns would merge its
+duplicates, which `WHERE EXISTS` does not – and so that a row with no
+match still has its row, with count `𝟘`. Comparing that count against
+`𝟘` is what tells the two apart. Over plain relations the decorrelation
+`R - Π(σ_φ(R × Q))` gives the same rows, but not the same annotations,
+which is why the apply is needed here.
 -/
 
 variable {T : Type} {n m : ℕ}
@@ -495,5 +494,72 @@ theorem evaluatePlain_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     rfl)
 
 end Outer
+
+/-! ## Semijoin and antijoin
+
+`R ⋉_φ Q` keeps the occurrences of `R` that `φ` matches with some row of
+`Q`, and `R ▷_φ Q` those it matches with none. Both are read off one
+query: the apply of `R` to the scalar aggregation that counts the
+matches, followed by a comparison of that count against `𝟘` and a
+projection back onto `R`'s columns. The counted column `kap` is one that
+is never null in a row of `Q` – a key column, or a constant `1` added to
+`Q` – so that the count is `𝟘` exactly where nothing matches. -/
+
+section Semijoin
+
+variable [ValueType T] {k l : ℕ}
+
+/-- The kind vector of a match-count row: the left arm's columns
+followed by the count. -/
+abbrev countKinds (k : ℕ) : Fin (k + 1) → ColKind :=
+  Fin.append (ColKind.allReg k) (fun _ : Fin 1 => ColKind.agg)
+
+/-- The column a match count appends. -/
+abbrev countCol (k : ℕ) : Fin (k + 1) := Fin.natAdd k 0
+
+theorem countKinds_countCol (k : ℕ) : countKinds k (countCol k) = ColKind.agg :=
+  Fin.append_right _ _ 0
+
+/-- **The match count**: one row per occurrence of `R`, carrying that
+occurrence and the token that counts, with `cnt` over the column `kap`,
+the rows of `Q` the condition `φ` matches it with. The aggregation is
+the scalar one, which has its row even where nothing matches. -/
+def matchCount (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l)) :
+    AggQuery T (k + 1) (countKinds k) :=
+  Apply R (GammaScalar ![TermIn.index kap] ![cnt] (Sel φ Q))
+
+/-- The projection that keeps the left arm's columns and drops the
+count. -/
+def dropCount (k : ℕ) : Tuple (ProjCol T (countKinds k)) k :=
+  fun i => .term (TermGIn.index (Fin.castAdd 1 i) (Fin.append_left _ _ i))
+
+/-- **Semijoin**: the occurrences of `R` that `φ` matches with at least
+one row of `Q`. -/
+def semijoin (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l)) :
+    AggQuery T k (ColKind.allReg k) :=
+  Proj (dropCount k)
+    (Sel (GenPredIn.aggCmp (countCol k) (countKinds_countCol k) CompOp.ne
+        (TermGIn.const 0))
+      (matchCount cnt kap φ R Q))
+
+/-- **Antijoin**: the occurrences of `R` that `φ` matches with no row of
+`Q`. -/
+def antijoin (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l)) :
+    AggQuery T k (ColKind.allReg k) :=
+  Proj (dropCount k)
+    (Sel (GenPredIn.aggCmp (countCol k) (countKinds_countCol k) CompOp.eq
+        (TermGIn.const 0))
+      (matchCount cnt kap φ R Q))
+
+end Semijoin
 
 end AggQueryIn

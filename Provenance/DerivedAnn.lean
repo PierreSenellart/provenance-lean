@@ -403,4 +403,274 @@ theorem evaluateAnnotated_fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂
 
 end Outer
 
+/-! ## Semijoin and antijoin -/
+
+section Semijoin
+
+variable [ValueType T] {k l : ℕ}
+
+/-- The `⊕`-sum of every annotation of an annotated relation: the
+provenance of "there is a row here", which is what an existential
+subquery asks for. -/
+def _root_.AnnotatedRelation.annTotal (r : AnnotatedRelation T K n) : K :=
+  (Multiset.map Prod.snd r).sum
+
+/-- The token a match count builds on a row `u` of the left arm: the
+scalar count, over the column `kap`, of the rows of `Q` that `φ` matches
+`u` with. -/
+def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) (u : Tuple T k) : AggValue T K :=
+  AggValue.ofScalarGroup cnt (TermIn.index (c := 0) kap)
+    (Having.havingGroup (fun i : Fin 0 => i.elim0)
+      ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0))
+
+/-- A scalar aggregation on one `(term, aggregate)` pair produces the one
+row that carries its token. -/
+theorem evaluate_GammaScalar_one {c m : ℕ} (t : TermIn T c m)
+    (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) :
+    (GammaScalar ![t] ![cnt] q).evaluate d γ
+      = {(⟨fun _ : Fin 1 => Sum.inr (AggValue.ofScalarGroup cnt t
+            (Having.havingGroup (fun i : Fin 0 => i.elim0)
+              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ),
+          ⟨1, 0⟩⟩ : GenRow T K 1)} := by
+  simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
+    Matrix.cons_val_fin_one]
+
+/-- **What a match count evaluates to**: each occurrence of the left arm,
+its annotation untouched, extended by its match token. -/
+theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) :
+    (matchCount cnt kap φ R Q).evaluate d
+      = (R.evaluate d).map (fun x =>
+          (⟨Fin.append x.fst (fun _ : Fin 1 => Sum.inr
+              (matchToken cnt kap φ Q d (GenRow.plainTuple x.fst))),
+            x.snd⟩ : GenRow T K (k + 1))) := by
+  rw [matchCount, AggQueryIn.evaluate_Apply]
+  refine (Multiset.bind_congr (fun x _ => ?_)).trans
+    (Multiset.bind_singleton _ _)
+  rw [evaluate_GammaScalar_one, Multiset.map_singleton]
+  refine congrArg (fun r : GenRow T K (k + 1) => ({r} : Multiset _)) ?_
+  refine Prod.ext rfl ?_
+  show (⟨x.snd.base * 1, x.snd.pending + 0⟩ : GenAnn K) = x.snd
+  rw [mul_one, add_zero]
+
+/-- **The rows a count site produces**: each occurrence of the left arm,
+its annotation multiplied by the predicate provenance of comparing its
+match count against `𝟘`. -/
+theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
+    (kap : Fin l) (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) :
+    (Proj (dropCount k)
+      (Sel (GenPredIn.aggCmp (countCol k) (countKinds_countCol k) op
+          (TermGIn.const 0))
+        (matchCount cnt kap φ R Q))).evaluateAnnotated d
+      = (R.evaluateAnnotated d).map (fun p =>
+          ((p.fst,
+            p.snd * (matchToken cnt kap φ Q d p.fst).predProvScalar op 0)
+            : AnnotatedTuple T K k)) := by
+  simp only [AggQueryIn.evaluateAnnotated, AggQueryIn.evaluate]
+  rw [evaluate_matchCount]
+  simp only [GenPredIn.hasAggAtom, GenPredIn.entailsExistence,
+    GenPredIn.comparedCols, ite_true, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun x _ => ?_)
+  simp only [Function.comp_apply]
+  set tok := matchToken cnt kap φ Q d (GenRow.plainTuple x.fst) with htok
+  set row : Tuple (GenValue T K) (k + 1) :=
+    Fin.append x.fst (fun _ : Fin 1 => Sum.inr tok) with hrow
+  -- the projection reads the left arm's columns back and keeps no token
+  have hu : (fun j => ProjColIn.eval (dropCount k j) row)
+      = fun j => (Sum.inl (AggValue.collapseSum (x.fst j)) : GenValue T K) := by
+    funext j
+    show (Sum.inl (AggValue.collapseSum (row (Fin.castAdd 1 j)))
+      : GenValue T K) = _
+    rw [hrow, Fin.append_left]
+  have hzero : tokenLists (K := K)
+      (fun j : Fin k => (Sum.inl (AggValue.collapseSum (x.fst j)))) = 0 := by
+    unfold tokenLists
+    refine Multiset.eq_zero_of_forall_notMem (fun b hb => ?_)
+    obtain ⟨i, -, hi⟩ := (Multiset.mem_filterMap _ _).mp hb
+    exact absurd hi (by simp)
+  -- the compared token is scalar, so no pending factor is superseded
+  have hA : Multiset.filterMap
+      (fun i => match row i with
+        | Sum.inl _ => (none : Option (List K))
+        | Sum.inr a => if a.scalar = true then some (a.occs.map Prod.snd)
+          else none)
+      ({countCol k} : Finset (Fin (k + 1))).val ≠ 0 := by
+    intro hcon
+    have hmem : (tok.occs.map Prod.snd) ∈ Multiset.filterMap
+        (fun i => match row i with
+          | Sum.inl _ => (none : Option (List K))
+          | Sum.inr a => if a.scalar = true then some (a.occs.map Prod.snd)
+            else none)
+        ({countCol k} : Finset (Fin (k + 1))).val :=
+      (Multiset.mem_filterMap _ _).mpr ⟨countCol k,
+        Finset.mem_val.mpr (Finset.mem_singleton_self _), by
+          rw [hrow, Fin.append_right]
+          simp [htok, matchToken]⟩
+    rw [hcon] at hmem
+    exact Multiset.notMem_zero _ hmem
+  rw [hu, hzero, Multiset.inter_zero, Multiset.sub_zero,
+    Multiset.filter_eq_self.mpr]
+  -- the comparison is read in the scalar convention the token carries
+  have hpred : (GenPredIn.aggCmp (c := 0) (countCol k)
+        (countKinds_countCol k) op (TermGIn.const 0)).predsem
+          (K := K) false row
+      = tok.predProvScalar op 0 := by
+    show (match row (countCol k) with
+      | Sum.inl _ => (0 : K)
+      | Sum.inr a => a.predProvOf op ((TermGIn.const (0 : T)).eval row)) = _
+    rw [hrow, Fin.append_right]
+    exact AggValue.predProvOf_of_scalar rfl op 0
+  rw [hpred]
+  refine Prod.ext ?_ ?_
+  · funext j
+    show AggValue.collapseSum
+        ((Sum.inl (AggValue.collapseSum (x.fst j)) : GenValue T K))
+      = AggValue.collapseSum (x.fst j)
+    rfl
+  · show GenAnn.finalize ⟨x.snd.base * tok.predProvScalar op 0
+        * (Multiset.map (fun l => SemiringWithMonus.delta l.sum)
+            x.snd.pending).prod, 0⟩
+      = GenAnn.finalize x.snd * tok.predProvScalar op 0
+    rw [GenAnn.finalize_of_pending_zero]
+    show _ = x.snd.base
+      * (Multiset.map (fun l => SemiringWithMonus.delta l.sum)
+          x.snd.pending).prod * tok.predProvScalar op 0
+    rw [mul_right_comm]
+  · exact fun _ _ h => hA h.1
+
+/-! ### What a semijoin and an antijoin annotate -/
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+private theorem sum_fin_get {α : Type} (f : α → K) :
+    ∀ L : List α, ∑ i : Fin L.length, f (L.get i) = (L.map f).sum
+  | [] => by simp
+  | a :: L => by
+    rw [List.map_cons, List.sum_cons, ← sum_fin_get f L]
+    show ∑ i : Fin (L.length + 1), f ((a :: L).get i) = _
+    rw [Fin.sum_univ_succ]
+    rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- With no key columns the group sequence is the whole relation. -/
+theorem havingGroup_nil_coe {m : ℕ} (r : AnnotatedRelation T K m) :
+    (↑(Having.havingGroup (fun i : Fin 0 => i.elim0) r
+        (fun i : Fin 0 => i.elim0)) : Multiset (AnnotatedTuple T K m))
+      = (show Multiset (AnnotatedTuple T K m) from r) := by
+  rw [Having.havingGroup_coe,
+    Multiset.filter_eq_self.mpr (fun _ _ k' => k'.elim0)]
+
+omit [DecidableEq K] in
+/-- With no key columns the group's annotations sum to the relation's. -/
+theorem annTotal_havingGroup {m : ℕ} (r : AnnotatedRelation T K m) :
+    ((Having.havingGroup (fun i : Fin 0 => i.elim0) r
+          (fun i : Fin 0 => i.elim0)).map Prod.snd).sum = r.annTotal := by
+  show ((Multiset.map Prod.snd
+    (↑(Having.havingGroup (fun i : Fin 0 => i.elim0) r
+        (fun i : Fin 0 => i.elim0))
+      : Multiset (AnnotatedTuple T K m)))).sum = _
+  rw [havingGroup_nil_coe]
+  rfl
+
+/-- The occurrences a match token carries are the matching rows, their
+`kap` values paired with their annotations. -/
+theorem matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) (u : Tuple T k) :
+    (matchToken cnt kap φ Q d u).occs
+      = (Having.havingGroup (fun i : Fin 0 => i.elim0)
+          ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0)).map
+        (fun p => (p.fst kap, p.snd)) := rfl
+
+/-- The `⊕`-sum of a match token's occurrence annotations is the `⊕`-sum
+of the annotations of the rows that match. -/
+theorem sum_anns_matchToken (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) (u : Tuple T k) :
+    ∑ i, (matchToken cnt kap φ Q d u).anns i
+      = ((Sel φ Q).evaluateAnnotated d u).annTotal := by
+  rw [show (fun i => (matchToken cnt kap φ Q d u).anns i)
+      = fun i => ((matchToken cnt kap φ Q d u).occs.get i).snd from rfl,
+    sum_fin_get Prod.snd, matchToken_occs, List.map_map]
+  exact annTotal_havingGroup _
+
+/-- Every occurrence a match token carries has the value of a matching
+row in the counted column. -/
+theorem mem_matchToken_occs (cnt : SeqAggFunc T) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K) (u : Tuple T k)
+    {o : T × K} (ho : o ∈ (matchToken cnt kap φ Q d u).occs) :
+    ∃ p ∈ (show Multiset (AnnotatedTuple T K l) from
+      (Sel φ Q).evaluateAnnotated d u), o.fst = p.fst kap := by
+  rw [matchToken_occs] at ho
+  obtain ⟨p, hp, rfl⟩ := List.mem_map.mp ho
+  refine ⟨p, ?_, rfl⟩
+  rw [← havingGroup_nil_coe ((Sel φ Q).evaluateAnnotated d u)]
+  exact Multiset.mem_coe.mpr hp
+
+/-- **The semijoin's annotation.** Each occurrence of the left arm keeps
+its annotation, multiplied by the `⊕`-sum of the annotations of the rows
+it matches – the provenance of "there is a match". -/
+theorem evaluateAnnotated_semijoin (h_abs : absorptive K)
+    (cnt : SeqAggFunc T) (hc : SeqAggFunc.Counts cnt) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K)
+    (hnn : ∀ (u : Tuple T k), ∀ p ∈ (show Multiset (AnnotatedTuple T K l) from
+        (Sel φ Q).evaluateAnnotated d u),
+      ValueType.isNull (p.fst kap) = false) :
+    (semijoin cnt kap φ R Q).evaluateAnnotated d
+      = (R.evaluateAnnotated d).map (fun p =>
+          ((p.fst, p.snd * ((Sel φ Q).evaluateAnnotated d p.fst).annTotal)
+            : AnnotatedTuple T K k)) := by
+  rw [semijoin, evaluateAnnotated_countSite]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  refine congrArg (fun a => ((p.fst, p.snd * a) : AnnotatedTuple T K k)) ?_
+  rw [AggValue.predProvScalar_count_ne_zero h_abs _ hc (fun o ho => ?_),
+    sum_anns_matchToken]
+  obtain ⟨q, hq, ho'⟩ := mem_matchToken_occs cnt kap φ Q d p.fst ho
+  rw [ho']
+  exact hnn p.fst q hq
+
+/-- **The antijoin's annotation.** Each occurrence of the left arm keeps
+its annotation, multiplied by `𝟙 ⊖` the `⊕`-sum of the annotations of the
+rows it matches. No hypothesis on `K` enters it. -/
+theorem evaluateAnnotated_antijoin (cnt : SeqAggFunc T)
+    (hc : SeqAggFunc.Counts cnt) (kap : Fin l)
+    (φ : GenPredIn T k (ColKind.allReg l))
+    (R : AggQuery T k (ColKind.allReg k))
+    (Q : AggQueryIn T k l (ColKind.allReg l))
+    (d : AnnotatedDatabase T K)
+    (hnn : ∀ (u : Tuple T k), ∀ p ∈ (show Multiset (AnnotatedTuple T K l) from
+        (Sel φ Q).evaluateAnnotated d u),
+      ValueType.isNull (p.fst kap) = false) :
+    (antijoin cnt kap φ R Q).evaluateAnnotated d
+      = (R.evaluateAnnotated d).map (fun p =>
+          ((p.fst,
+            p.snd * (1 - ((Sel φ Q).evaluateAnnotated d p.fst).annTotal))
+            : AnnotatedTuple T K k)) := by
+  rw [antijoin, evaluateAnnotated_countSite]
+  refine Multiset.map_congr rfl (fun p _ => ?_)
+  refine congrArg (fun a => ((p.fst, p.snd * a) : AnnotatedTuple T K k)) ?_
+  rw [AggValue.predProvScalar_count_eq_zero _ hc (fun o ho => ?_),
+    sum_anns_matchToken]
+  obtain ⟨q, hq, ho'⟩ := mem_matchToken_occs cnt kap φ Q d p.fst ho
+  rw [ho']
+  exact hnn p.fst q hq
+
+end Semijoin
+
 end AggQueryIn

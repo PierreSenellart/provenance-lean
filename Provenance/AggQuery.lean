@@ -715,6 +715,29 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
 termination_by structural q
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Appending nothing: a closed query's apply gives its right side the
+left row and nothing else. -/
+theorem Fin.append_nil {α : Sort*} {m : ℕ} (u : Fin m → α) (v : Fin 0 → α) :
+    Fin.append u v = u := by
+  funext k
+  exact Fin.append_left u v k
+
+/-- **The apply, read off the two sides.** Each occurrence of the left
+side is paired with each row the right side gives *under that
+occurrence's values*, and the annotations are multiplied. -/
+theorem AggQueryIn.evaluate_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁)) (q₂ : AggQueryIn T n₁ n₂ κ₂)
+    (d : AnnotatedDatabase T K) :
+    (AggQueryIn.Apply q₁ q₂).evaluate d
+      = (q₁.evaluate d).bind (fun x =>
+          (q₂.evaluate d (GenRow.plainTuple x.fst)).map (fun y =>
+            (⟨Fin.append x.fst y.fst,
+              ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩
+              : GenRow T K (n₁ + n₂)))) := by
+  simp only [AggQueryIn.evaluate, Fin.append_nil]
+
 /-- The final annotated relation computed by a general query: evaluate,
 then finalize every row. -/
 def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
@@ -920,6 +943,17 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
         (f ((ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).map
           (fun v => t.eval v γ)))
         : Tuple T (n + 1)))).toMultiset
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Plain counterpart of `AggQueryIn.evaluate_Apply`. -/
+theorem AggQueryIn.evaluatePlain_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁)) (q₂ : AggQueryIn T n₁ n₂ κ₂)
+    (D : Database T) :
+    (AggQueryIn.Apply q₁ q₂).evaluatePlain D
+      = (q₁.evaluatePlain D).bind (fun u =>
+          (q₂.evaluatePlain D u).map (fun v =>
+            (Fin.append u v : Tuple T (n₁ + n₂)))) := by
+  simp only [AggQueryIn.evaluatePlain, Fin.append_nil]
 
 /-- The value a window's added column takes on a row of a plain relation:
 the aggregate of the term over that row's frame, read off the relation. -/

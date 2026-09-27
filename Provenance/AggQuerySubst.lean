@@ -543,14 +543,6 @@ theorem AggQueryIn.evaluate_substMap :
 
 /-! ## Closing a query: the document's `q[u]` -/
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
-/-- Appending nothing. -/
-theorem Fin.append_nil {α : Sort*} {n : ℕ} (u : Fin n → α) (v : Fin 0 → α) :
-    Fin.append u v = u := by
-  funext k
-  exact Fin.append_left u v k
-
 /-- Evaluating a closed instance is evaluating under the values it was
 closed with. -/
 theorem AggQueryIn.evaluate_subst {c n : ℕ} {κ : Fin n → ColKind}
