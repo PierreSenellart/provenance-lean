@@ -506,7 +506,10 @@ proven engine several general results reuse internally.
   dropped again (`truncateFrom` for an infinite count), which keeps a
   row tied with the last one kept – SQL's `FETCH FIRST c ROWS WITH
   TIES`; `evaluatePlain_truncate_noNulls` reads it as the filter on the
-  rank it is.
+  rank it is. `gammaSets` is SQL's `GROUPING SETS`: the union of one
+  aggregation per set of the family, each padded back onto the columns
+  of the whole key, so that a key column a set drops reads as the null
+  (`gsRow` says which row each arm contributes).
   `gammaDistinct` and `gammaScalarDistinct` are SQL's `DISTINCT`
   aggregates: deduplicate the key columns together with the aggregated
   term, then aggregate the added column, which annotates each distinct

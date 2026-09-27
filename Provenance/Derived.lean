@@ -2,6 +2,8 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Mathlib.Data.Finset.Sort
+
 import Provenance.AggQuerySubst
 
 /-!
@@ -30,7 +32,9 @@ match still has its row, with count `𝟘`. Comparing that count against
 which is why the apply is needed here.
 
 Truncation filters the rank and drops the rank column, so a row tied with
-the last one kept is kept too.
+the last one kept is kept too. Grouping sets are the union of one
+aggregation per set of the family, each padded back onto the columns of
+the whole key, which is what `pad` is for.
 
 A `DISTINCT` aggregate deduplicates the key columns together with the
 aggregated term and aggregates the added column. Over annotated relations
@@ -809,6 +813,118 @@ theorem evaluatePlain_truncateFrom_noNulls [NoNulls T] [One T]
   rw [holdsPlain_rankFrom, Fin.snoc_last]
 
 end Truncation
+
+/-! ## Grouping sets
+
+`γ_𝒮[t₁:f₁,…,tₙ:fₙ](q)` is the union, over the sets of the family, of the
+aggregation on the indices that set keeps, padded back onto the columns
+of the whole key: a key column a set drops is the null there. Each arm
+therefore has the same columns – the whole key, then the aggregates –
+and the union is a union of the algebra. It is what SQL's `GROUPING
+SETS`, `ROLLUP` and `CUBE` name. -/
+
+section GroupingSets
+
+variable [ValueTypeNull T] {c k m na : ℕ}
+
+/-- The position of a grouping index inside a grouping set. -/
+abbrev gsPos (S : Finset (Fin m)) (a : Fin m) (ha : a ∈ S) : Fin S.card :=
+  (S.orderIsoOfFin rfl).symm ⟨a, ha⟩
+
+/-- The projection that pads a grouping set's result back onto the
+columns of the whole key: a key column the set drops becomes the null,
+one it keeps is read where the aggregation put it, and the aggregate
+columns follow. -/
+def gsCol (S : Finset (Fin m)) (na : ℕ) (j : Fin (m + na)) :
+    ProjColIn T c (Fin.append (fun _ : Fin S.card => ColKind.reg)
+      (fun _ : Fin na => ColKind.agg)) :=
+  Fin.addCases
+    (fun a : Fin m =>
+      if ha : a ∈ S then
+        .term (TermGIn.index (Fin.castAdd na (gsPos S a ha))
+          (Fin.append_left _ _ _))
+      else .term (TermGIn.const ValueTypeNull.null))
+    (fun l : Fin na => .token (Fin.natAdd S.card l) (Fin.append_right _ _ l))
+    j
+
+theorem gsCol_kind (S : Finset (Fin m)) (na : ℕ) (j : Fin (m + na)) :
+    (gsCol (T := T) (c := c) S na j).kind
+      = Fin.append (fun _ : Fin m => ColKind.reg)
+          (fun _ : Fin na => ColKind.agg) j := by
+  refine Fin.addCases (fun a => ?_) (fun l => ?_) j
+  · rw [gsCol, Fin.addCases_left, Fin.append_left]
+    split <;> rfl
+  · rw [gsCol, Fin.addCases_right, Fin.append_right]
+    rfl
+
+/-- **One grouping set**: the aggregation on the indices the set keeps,
+padded back onto the columns of the whole key. -/
+def gammaSet (is : Tuple (Fin k) m) (ts : Tuple (TermIn T c k) na)
+    (fs : Tuple (SeqAggFunc T) na) (S : Finset (Fin m))
+    (q : AggQueryIn T c k (ColKind.allReg k)) :
+    AggQueryIn T c (m + na)
+      (Fin.append (fun _ : Fin m => ColKind.reg)
+        (fun _ : Fin na => ColKind.agg)) :=
+  (Proj (gsCol S na) (Gamma (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs q)).castKind
+    (funext (gsCol_kind S na))
+
+/-- **Grouping sets**: the union of the aggregations over each set of the
+family, all padded onto the same columns. -/
+def gammaSets (is : Tuple (Fin k) m) (ts : Tuple (TermIn T c k) na)
+    (fs : Tuple (SeqAggFunc T) na) (S₀ : Finset (Fin m))
+    (𝒮 : List (Finset (Fin m))) (q : AggQueryIn T c k (ColKind.allReg k)) :
+    AggQueryIn T c (m + na)
+      (Fin.append (fun _ : Fin m => ColKind.reg)
+        (fun _ : Fin na => ColKind.agg)) :=
+  𝒮.foldr (fun S acc => Sum (gammaSet is ts fs S q) acc) (gammaSet is ts fs S₀ q)
+
+/-- The row a grouping set's padding builds: the null where the set drops
+a key column, the aggregation's column where it keeps it, then the
+aggregates. -/
+def gsRow (S : Finset (Fin m)) (na : ℕ) (v : Tuple T (S.card + na)) :
+    Tuple T (m + na) :=
+  Fin.addCases
+    (fun a : Fin m => if ha : a ∈ S then v (Fin.castAdd na (gsPos S a ha))
+      else ValueTypeNull.null)
+    (fun l : Fin na => v (Fin.natAdd S.card l))
+
+/-- **What one grouping set computes over plain relations**: the rows of
+the aggregation on the indices it keeps, padded. -/
+theorem evaluatePlain_gammaSet (is : Tuple (Fin k) m)
+    (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
+    (S : Finset (Fin m)) (q : AggQueryIn T c k (ColKind.allReg k))
+    (D : Database T) {γ : Fin c → T} :
+    (gammaSet is ts fs S q).evaluatePlain D γ
+      = ((Gamma (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs
+          q).evaluatePlain D γ).map (gsRow S na) := by
+  rw [gammaSet, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun v _ => funext fun j => ?_)
+  show (gsCol S na j).evalPlain v γ = gsRow S na v j
+  refine Fin.addCases (fun a => ?_) (fun l => ?_) j
+  · rw [gsCol, Fin.addCases_left, gsRow, Fin.addCases_left]
+    split <;> rfl
+  · rw [gsCol, Fin.addCases_right, gsRow, Fin.addCases_right]
+    rfl
+
+/-- **What grouping sets compute over plain relations**: the union of
+what each set of the family computes. -/
+theorem evaluatePlain_gammaSets (is : Tuple (Fin k) m)
+    (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
+    (S₀ : Finset (Fin m)) (𝒮 : List (Finset (Fin m)))
+    (q : AggQueryIn T c k (ColKind.allReg k)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaSets is ts fs S₀ 𝒮 q).evaluatePlain D γ
+      = 𝒮.foldr (fun S acc => (gammaSet is ts fs S q).evaluatePlain D γ + acc)
+          ((gammaSet is ts fs S₀ q).evaluatePlain D γ) := by
+  induction 𝒮 with
+  | nil => rfl
+  | cons S l ih =>
+    show (Sum (gammaSet is ts fs S q) _).evaluatePlain D γ = _
+    rw [AggQueryIn.evaluatePlain, List.foldr_cons]
+    exact congrArg (fun x => (gammaSet is ts fs S q).evaluatePlain D γ + x) ih
+
+end GroupingSets
+
 
 
 /-! ## `DISTINCT` aggregates
