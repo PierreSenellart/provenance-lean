@@ -289,6 +289,11 @@ proven engine several general results reuse internally.
   lineage and interval union (`Bool.mulIdempotent`,
   `BoolFunc.mulIdempotent`, `Which.mulIdempotent`,
   `IntervalUnion.mulIdempotent`) – the lattice-like ones.
+  `predProvWith` reads an arbitrary three-valued *test* on the token's
+  value in place of a comparison, which is the form an atom takes once
+  a range is one atom rather than two; `predProvOf_mul_predProvOf_with`
+  is then the `∧` rule in its proper shape, a decomposition of one sum
+  into two rather than a definition.
 - `Provenance.AggExpr` – **aggregate expressions**: what a term that
   mentions a column of aggregate kind produces. `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the

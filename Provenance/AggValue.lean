@@ -271,6 +271,102 @@ theorem predProvOf_mul_predProvOf [ValueType T] [CommSemiringWithMonus K]
   · exact predProv_mul_predProv hexcl hidem a op₁ c₁ op₂ c₂
   · exact predProvScalar_mul_predProvScalar hexcl hidem a op₁ c₁ op₂ c₂
 
+/-! ### A test in place of a comparison
+
+An atom that carries a three-valued *test* on the token's value rather
+than a comparison against a term reads the same way – one sum over the
+worlds, weighted by whether the test holds there – and a range is then
+one atom. The `∧` rule becomes a decomposition of that sum, which is
+what the hypotheses above are for. -/
+
+/-- The predicate provenance of an arbitrary three-valued test on the
+token's value: the `⊕`-sum, over the worlds of the group, of the world's
+annotation weighted by whether the test holds there. `predProv` is the
+case of a comparison against a term, and a range is the case of the
+conjunction of two – one atom, and not a product of two. -/
+def predProvWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (P : T → Kleene) : K :=
+  ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin a.occs.length) => W.Nonempty),
+    Having.worldAnn a.anns W * (if P (a.valOn W) = Kleene.true then 1 else 0)
+
+/-- The scalar-convention counterpart: the same sum over all worlds, the
+empty one included. -/
+def predProvScalarWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (P : T → Kleene) : K :=
+  ∑ W : Finset (Fin a.occs.length),
+    Having.worldAnn a.anns W * (if P (a.valOn W) = Kleene.true then 1 else 0)
+
+/-- The test read in the token's own convention. -/
+def predProvOfWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (a : AggValue T K) (P : T → Kleene) : K :=
+  if a.scalar then a.predProvScalarWith P else a.predProvWith P
+
+theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (op : CompOp) (c : T) :
+    a.predProv op c = a.predProvWith (fun v => op.eval3 v c) := rfl
+
+theorem predProvScalar_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K)
+    (op : CompOp) (c : T) :
+    a.predProvScalar op c = a.predProvScalarWith (fun v => op.eval3 v c) := rfl
+
+theorem predProvOf_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (op : CompOp)
+    (c : T) : a.predProvOf op c = a.predProvOfWith (fun v => op.eval3 v c) := by
+  unfold predProvOf predProvOfWith
+  cases a.scalar <;> rfl
+
+theorem chi_mul_chi [CommSemiringWithMonus K] (x y : Kleene) :
+    ((if x = Kleene.true then (1 : K) else 0)
+      * (if y = Kleene.true then (1 : K) else 0))
+      = if x.and y = Kleene.true then (1 : K) else 0 := by
+  cases x <;> cases y <;> simp [Kleene.and]
+
+/-- **A range is one atom, not a product of two.** The joint reading of
+two tests is the reading of their conjunction. -/
+theorem predProvAnd_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K) (op₁ : CompOp) (c₁ : T)
+    (op₂ : CompOp) (c₂ : T) :
+    a.predProvAnd op₁ c₁ op₂ c₂
+      = a.predProvWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  rw [← chi_mul_chi]
+  rfl
+
+theorem predProvScalarAnd_eq_predProvScalarWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K)
+    (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProvScalarAnd op₁ c₁ op₂ c₂
+      = a.predProvScalarWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  rw [← chi_mul_chi]
+  rfl
+
+theorem predProvOfAnd_eq_predProvOfWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (a : AggValue T K)
+    (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProvOfAnd op₁ c₁ op₂ c₂
+      = a.predProvOfWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
+  unfold predProvOfAnd predProvOfWith
+  cases a.scalar
+  · exact predProvAnd_eq_predProvWith a op₁ c₁ op₂ c₂
+  · exact predProvScalarAnd_eq_predProvScalarWith a op₁ c₁ op₂ c₂
+
+/-- **The product of two atoms on one token is the single atom that
+conjoins their tests**, when the m-semiring is exclusive and its
+multiplication is idempotent. This is the form the `∧` rule takes once
+an atom may carry a test rather than a comparison: not a rule of the
+semantics but a decomposition of one sum into two, valid there and not
+in general. -/
+theorem predProvOf_mul_predProvOf_with [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (hexcl : exclusive K)
+    (hidem : mulIdempotent K) (a : AggValue T K)
+    (op₁ : CompOp) (c₁ : T) (op₂ : CompOp) (c₂ : T) :
+    a.predProvOf op₁ c₁ * a.predProvOf op₂ c₂
+      = a.predProvOfWith (fun v => (op₁.eval3 v c₁).and (op₂.eval3 v c₂)) := by
+  rw [predProvOf_mul_predProvOf hexcl hidem, predProvOfAnd_eq_predProvOfWith]
+
+
 /-- A token built from a group is grouped. -/
 @[simp] theorem scalar_ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T)
     (t : TermIn T c m) (U : List (AnnotatedTuple T K m)) {γ : Fin c → T} :
