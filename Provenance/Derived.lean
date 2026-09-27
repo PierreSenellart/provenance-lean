@@ -1176,8 +1176,8 @@ def filterTerm (op : CompOp) (t₁ t₂ t : TermIn T c n) : TermIn T c n :=
   .caseWhen op t₁ t₂ t (.const ValueTypeNull.null)
 
 /-- Whether a `FILTER` clause holds on a row. -/
-def filterHolds (op : CompOp) (t₁ t₂ : TermIn T c n) (γ : Fin c → T)
-    (u : Tuple T n) : Bool :=
+def filterHolds (op : CompOp) (t₁ t₂ : TermIn T c n)
+    (γ : Fin c → T := fun _ => 0) (u : Tuple T n) : Bool :=
   decide (op.eval3 (t₁.eval u γ) (t₂.eval u γ) = Kleene.true)
 
 theorem notNull_eq (a : T) :

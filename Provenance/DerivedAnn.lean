@@ -673,4 +673,83 @@ theorem evaluateAnnotated_antijoin (cnt : SeqAggFunc T)
 
 end Semijoin
 
+/-! ## The `FILTER` clause
+
+The clause changes nothing about a group: the token carries all of its
+occurrences, so the group's key and its existence factor are those of all
+of them, and a filtered-out occurrence still witnesses it. What changes
+is the value the token takes in a world, and it changes there in the same
+way as over plain relations – the input policy drops what the clause
+nulls out, so the aggregate reads exactly the occurrences of that world
+the clause keeps. -/
+
+section Filter
+
+variable [ValueTypeNull T] {m : ℕ}
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **What a `FILTER` clause makes a group's token read in a world**: the
+occurrences of that world the clause keeps. The token carries all of the
+group's occurrences – a filtered-out occurrence still witnesses its
+group – and it is the input policy that drops the ones the clause nulls
+out, in every world alike. -/
+theorem aggValOn_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
+    (W : Finset (Fin U.length)) :
+    Having.aggValOn U (filterTerm op t₁ t₂ t) f.sqlOf W
+      = f.sqlOf ((((Having.seqOf U W).map Prod.fst).filter
+          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+  show f.sqlOf ((Having.seqOf U W).map
+      (fun p => (filterTerm op t₁ t₂ t).eval p.fst)) = _
+  rw [show (fun p : AnnotatedTuple T K m => (filterTerm op t₁ t₂ t).eval p.fst)
+      = (fun u => (filterTerm op t₁ t₂ t).eval u) ∘ Prod.fst from rfl,
+    ← List.map_map]
+  exact sqlOf_map_filterTerm f op t₁ t₂ t _ _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The same for a count. -/
+theorem aggValOn_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
+    (W : Finset (Fin U.length)) :
+    Having.aggValOn U (filterTerm op t₁ t₂ t) f.counting W
+      = f.counting ((((Having.seqOf U W).map Prod.fst).filter
+          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+  show f.counting ((Having.seqOf U W).map
+      (fun p => (filterTerm op t₁ t₂ t).eval p.fst)) = _
+  rw [show (fun p : AnnotatedTuple T K m => (filterTerm op t₁ t₂ t).eval p.fst)
+      = (fun u => (filterTerm op t₁ t₂ t).eval u) ∘ Prod.fst from rfl,
+    ← List.map_map]
+  exact counting_map_filterTerm f op t₁ t₂ t _ _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The token of a filtered aggregation reads the same way**: its value
+in a world is the aggregate of the occurrences of that world the clause
+keeps. -/
+theorem valOn_ofGroup_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
+    (W : Finset (Fin U.length)) :
+    (AggValue.ofGroup f.sqlOf (filterTerm op t₁ t₂ t) U).valOn
+        (W.map (finCongr
+          (AggValue.length_ofGroup_occs f.sqlOf
+            (filterTerm op t₁ t₂ t) U)).toEmbedding)
+      = f.sqlOf ((((Having.seqOf U W).map Prod.fst).filter
+          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+  rw [AggValue.valOn_ofGroup, aggValOn_filterTerm_sqlOf]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The same for a count. -/
+theorem valOn_ofGroup_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
+    (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
+    (W : Finset (Fin U.length)) :
+    (AggValue.ofGroup f.counting (filterTerm op t₁ t₂ t) U).valOn
+        (W.map (finCongr
+          (AggValue.length_ofGroup_occs f.counting
+            (filterTerm op t₁ t₂ t) U)).toEmbedding)
+      = f.counting ((((Having.seqOf U W).map Prod.fst).filter
+          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+  rw [AggValue.valOn_ofGroup, aggValOn_filterTerm_counting]
+
+end Filter
+
+
 end AggQueryIn

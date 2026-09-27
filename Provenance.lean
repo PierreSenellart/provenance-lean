@@ -524,7 +524,12 @@ proven engine several general results reuse internally.
   keeps (`sqlOf_map_filterTerm`, `counting_map_filterTerm`) while the
   group, its key and its annotation stay those of all the occurrences.
   A null-keeping aggregate is not covered: it reads the null as a value
-  and so cannot tell a rejected occurrence from a null one.
+  and so cannot tell a rejected occurrence from a null one. Over
+  annotated relations the clause changes only what the token reads in
+  each world (`aggValOn_filterTerm_sqlOf`,
+  `valOn_ofGroup_filterTerm_sqlOf` and their counting companions in
+  `Provenance.DerivedAnn`): the token carries every occurrence of the
+  group, so its key and its existence factor are those of all of them.
   `gammaDistinct` and `gammaScalarDistinct` are SQL's `DISTINCT`
   aggregates: deduplicate the key columns together with the aggregated
   term, then aggregate the added column, which annotates each distinct
