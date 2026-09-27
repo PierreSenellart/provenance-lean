@@ -526,6 +526,20 @@ theorem sum_symmetric : (SeqAggFunc.sum : SeqAggFunc T).Symmetric := by
 theorem count_symmetric : (SeqAggFunc.count).Symmetric :=
   fun hp => hp.length_eq
 
+/-- **`f^distinct`**: the aggregate read over the distinct values of its
+sequence. Over plain relations this is SQL's `DISTINCT` aggregate, an
+aggregate value being an ordinary value there. Over annotated relations a
+grouped `DISTINCT` aggregate is not this transformer but the abbreviation
+`AggQueryIn.gammaDistinct`, which deduplicates the rows first, so that each
+distinct value is one occurrence annotated by the `⊕` of the occurrences it
+stands for. -/
+def distinct (f : SeqAggFunc T) : SeqAggFunc T := fun L => f L.dedup
+
+/-- Reading the distinct values keeps an aggregate symmetric: permuting a
+sequence permutes its distinct values. -/
+theorem distinct_symmetric {f : SeqAggFunc T} (hf : f.Symmetric) :
+    f.distinct.Symmetric := fun hp => hf hp.dedup
+
 section MinMax
 
 variable {L : List T} {a c s s' : T}
@@ -896,6 +910,20 @@ commutative aggregates it is irrelevant. -/
 def Relation.groupSeq (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁) :
     List (Tuple T m) :=
   Multiset.sort (Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k') r) (· ≤ ·)
+
+/-- **What a group holds**: the tuples of the relation whose key is the
+group's. -/
+theorem Relation.mem_groupSeq {m n₁ : ℕ} {is : Tuple (Fin m) n₁}
+    {r : Multiset (Tuple T m)} {g : Tuple T n₁} {u : Tuple T m} :
+    u ∈ Relation.groupSeq is r g ↔ u ∈ r ∧ ∀ k, u (is k) = g k := by
+  rw [Relation.groupSeq, Multiset.mem_sort, Multiset.mem_filter]
+
+/-- A group of a relation that has no duplicate row has none either. -/
+theorem Relation.nodup_groupSeq {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    {r : Multiset (Tuple T m)} (h : r.Nodup) (g : Tuple T n₁) :
+    (Relation.groupSeq is r g).Nodup := by
+  rw [← Multiset.coe_nodup, Relation.groupSeq, Multiset.sort_eq]
+  exact h.filter _
 
 /-- Standard multiset semantics of a query over a plain database.
 

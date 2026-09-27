@@ -501,7 +501,16 @@ proven engine several general results reuse internally.
   leaves a clause-bounded frame bounded as it stands. `rank` is one plus
   the count over the rows the clause sorts strictly before the current
   row's peers, the `+ 1` being a term over the window's aggregate column
-  (`overWindow`); `evaluatePlain_rank` says so over plain relations
+  (`overWindow`); `evaluatePlain_rank` says so over plain relations.
+  `gammaDistinct` and `gammaScalarDistinct` are SQL's `DISTINCT`
+  aggregates: deduplicate the key columns together with the aggregated
+  term, then aggregate the added column, which annotates each distinct
+  value by the `⊕` of the occurrences it stands for;
+  `evaluatePlain_gammaDistinct` reads them over plain relations as the
+  aggregate over the distinct values (`SeqAggFunc.distinct`), for a
+  symmetric aggregate. The `DISTINCT` of a *window* aggregate is not
+  among them: it would merge the occurrences of a frame by value in
+  place, which the window operator does not do
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate

@@ -28,6 +28,12 @@ match still has its row, with count `𝟘`. Comparing that count against
 `𝟘` is what tells the two apart. Over plain relations the decorrelation
 `R - Π(σ_φ(R × Q))` gives the same rows, but not the same annotations,
 which is why the apply is needed here.
+
+A `DISTINCT` aggregate deduplicates the key columns together with the
+aggregated term and aggregates the added column. Over annotated relations
+that is what gives each distinct value one occurrence, annotated by the
+`⊕` of the occurrences it stands for; over plain ones it is the aggregate
+read over the distinct values (`SeqAggFunc.distinct`).
 -/
 
 variable {T : Type} {n m : ℕ}
@@ -669,5 +675,172 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
     simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
 
 end Ranks
+
+/-! ## `DISTINCT` aggregates
+
+`γ_i[t:f^distinct](q)` is the aggregate of the distinct values of `t` in
+each group. It is an abbreviation: deduplicate the key columns together
+with `t`, then aggregate the added column. Over annotated relations that
+is what gives each distinct value one occurrence, annotated by the `⊕` of
+the occurrences it stands for – the reading of the paper – and the group,
+its key and its existence factor are those of the deduplicated projection,
+which are those of the input.
+
+The `DISTINCT` of a *window* aggregate is not this: the frame's
+occurrences would have to be merged by value in place, which the window
+operator does not do. Only the grouped and the scalar forms are here. -/
+
+section Distinct
+
+variable [ValueType T] {c n₁ : ℕ}
+
+/-- The projection `Π_{#i₁,…,#i_{n₁},t}` that a `DISTINCT` aggregate
+deduplicates. -/
+def distinctCols (is : Tuple (Fin m) n₁) (t : TermIn T c m) :
+    Tuple (ProjColIn T c (ColKind.allReg m)) (n₁ + 1) :=
+  fun j => .term ((Fin.snoc (fun k => (TermIn.index (is k)).toGen) t.toGen :
+    Fin (n₁ + 1) → TermGIn T c (ColKind.allReg m)) j)
+
+omit [ValueType T] in
+@[simp] theorem distinctCols_kind (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (j : Fin (n₁ + 1)) : (distinctCols is t j).kind = ColKind.reg := rfl
+
+/-- The row that projection builds: the key columns followed by the value
+of the aggregated term. -/
+def distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (γ : Fin c → T := fun _ => 0) (u : Tuple T m) : Tuple T (n₁ + 1) :=
+  Fin.snoc (fun k => u (is k)) (t.eval u γ)
+
+theorem evaluatePlain_distinctProj (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    ((Proj (distinctCols is t) q).castKind
+        (funext (distinctCols_kind is t))).evaluatePlain D γ
+      = (q.evaluatePlain D γ).map (distinctRow is t γ) := by
+  rw [AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun u _ => funext fun j => ?_)
+  show (distinctCols is t j).evalPlain u γ = _
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [distinctCols, Fin.snoc_last, distinctRow, Fin.snoc_last]
+    exact TermIn.evalPlain_toGen t u γ
+  · rw [distinctCols, Fin.snoc_castSucc, distinctRow, Fin.snoc_castSucc]
+    rfl
+
+/-- **Deduplicating the projection does not change the groups**: a key is
+one of the deduplicated projection exactly when it is one of the input. -/
+theorem keys_distinctRow (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (r : Multiset (Tuple T m)) {γ : Fin c → T} :
+    (((r.map (distinctRow is t γ)).dedup).map
+        (fun v => (fun k => v k.castSucc : Tuple T n₁))).dedup
+      = (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup := by
+  refine (Multiset.Nodup.ext (Multiset.nodup_dedup _)
+    (Multiset.nodup_dedup _)).mpr (fun g => ?_)
+  simp only [Multiset.mem_dedup, Multiset.mem_map]
+  constructor
+  · rintro ⟨v, ⟨u, hu, rfl⟩, rfl⟩
+    exact ⟨u, hu, funext fun k => by rw [distinctRow, Fin.snoc_castSucc]⟩
+  · rintro ⟨u, hu, rfl⟩
+    refine ⟨distinctRow is t γ u, ⟨u, hu, rfl⟩, funext fun k => ?_⟩
+    rw [distinctRow, Fin.snoc_castSucc]
+
+/-- **What the deduplicated projection leaves a group to aggregate**: the
+distinct values of the term over that group, in some order. -/
+theorem groupSeq_distinctRow_perm (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (r : Multiset (Tuple T m)) (g : Tuple T n₁) {γ : Fin c → T} :
+    ((Relation.groupSeq (fun k : Fin n₁ => k.castSucc)
+        ((r.map (distinctRow is t γ)).dedup) g).map
+        (fun v => v (Fin.last n₁))).Perm
+      (((Relation.groupSeq is r g).map (fun v => t.eval v γ)).dedup) := by
+  have hmem : ∀ a : T,
+      a ∈ ((Relation.groupSeq (fun k : Fin n₁ => k.castSucc)
+          ((r.map (distinctRow is t γ)).dedup) g).map
+          (fun v => v (Fin.last n₁)))
+        ↔ ∃ u ∈ r, (∀ k, u (is k) = g k) ∧ t.eval u γ = a := by
+    intro a
+    simp only [List.mem_map, Relation.mem_groupSeq, Multiset.mem_dedup,
+      Multiset.mem_map]
+    constructor
+    · rintro ⟨v, ⟨⟨u, hu, rfl⟩, hk⟩, rfl⟩
+      refine ⟨u, hu, fun k => ?_, ?_⟩
+      · rw [← hk k, distinctRow, Fin.snoc_castSucc]
+      · rw [distinctRow, Fin.snoc_last]
+    · rintro ⟨u, hu, hk, rfl⟩
+      refine ⟨distinctRow is t γ u, ⟨⟨u, hu, rfl⟩, fun k => ?_⟩, ?_⟩
+      · rw [distinctRow, Fin.snoc_castSucc]; exact hk k
+      · rw [distinctRow, Fin.snoc_last]
+  refine (List.perm_ext_iff_of_nodup ?_ (List.nodup_dedup _)).mpr (fun a => ?_)
+  · refine List.Nodup.map_on (fun v hv w hw hvw => ?_)
+      (Relation.nodup_groupSeq _ (Multiset.nodup_dedup _) g)
+    rw [Relation.mem_groupSeq] at hv hw
+    funext j
+    refine Fin.lastCases hvw (fun i => ?_) j
+    rw [hv.2 i, hw.2 i]
+  · rw [hmem a, List.mem_dedup, List.mem_map]
+    constructor
+    · rintro ⟨u, hu, hk, rfl⟩
+      exact ⟨u, Relation.mem_groupSeq.mpr ⟨hu, hk⟩, rfl⟩
+    · rintro ⟨u, hu, rfl⟩
+      rw [Relation.mem_groupSeq] at hu
+      exact ⟨u, hu.1, hu.2, rfl⟩
+
+/-- **A `DISTINCT` aggregate**, `γ_i[t:f^distinct](q)`: deduplicate the
+key columns together with the aggregated term, then aggregate the added
+column over each group. -/
+def gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    (f : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m)) :
+    AggQueryIn T c (n₁ + 1)
+      (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
+  Gamma (fun k => k.castSucc) ![TermIn.index (Fin.last n₁)] ![f]
+    (Dedup ((Proj (distinctCols is t) q).castKind (funext (distinctCols_kind is t))))
+
+/-- **What a `DISTINCT` aggregate computes over plain relations**: the
+aggregate, read through `SeqAggFunc.distinct`, of the term over each
+group. The aggregate has to be symmetric, the two readings sequencing the
+distinct values of a group differently. -/
+theorem evaluatePlain_gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+    {f : SeqAggFunc T} (hf : f.Symmetric)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaDistinct is t f q).evaluatePlain D γ
+      = (Gamma is ![t] ![f.distinct] q).evaluatePlain D γ := by
+  simp only [gammaDistinct, AggQueryIn.evaluatePlain, evaluatePlain_distinctProj]
+  rw [keys_distinctRow]
+  refine Multiset.map_congr rfl (fun g _ => ?_)
+  refine congrArg (Fin.append g) (funext fun j => ?_)
+  obtain rfl : j = 0 := Fin.fin_one_eq_zero j
+  simp only [Matrix.cons_val_zero]
+  show f (List.map (fun v : Tuple T (n₁ + 1) => v (Fin.last n₁)) _)
+    = f (List.map (fun v : Tuple T m => t.eval v γ) _).dedup
+  exact hf (groupSeq_distinctRow_perm is t _ g)
+
+/-- **A `DISTINCT` aggregate without grouping**: the same abbreviation
+with no key column, so that the deduplication is that of the values of
+the term alone. -/
+def gammaScalarDistinct (t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) :
+    AggQueryIn T c 1 (fun _ => ColKind.agg) :=
+  GammaScalar ![TermIn.index (Fin.last 0)] ![f]
+    (Dedup ((Proj (distinctCols (fun k : Fin 0 => k.elim0) t) q).castKind
+      (funext (distinctCols_kind _ t))))
+
+/-- **What a `DISTINCT` aggregate without grouping computes over plain
+relations**: the aggregate of the distinct values of the term over the
+whole input. -/
+theorem evaluatePlain_gammaScalarDistinct (t : TermIn T c m)
+    {f : SeqAggFunc T} (hf : f.Symmetric)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaScalarDistinct t f q).evaluatePlain D γ
+      = (GammaScalar ![t] ![f.distinct] q).evaluatePlain D γ := by
+  simp only [gammaScalarDistinct, AggQueryIn.evaluatePlain,
+    evaluatePlain_distinctProj]
+  refine congrArg (fun u => (Multiset.ofList [u] : Relation T 1)) (funext fun j => ?_)
+  obtain rfl : j = 0 := Fin.fin_one_eq_zero j
+  simp only [Matrix.cons_val_zero]
+  show f (List.map (fun v : Tuple T (0 + 1) => v (Fin.last 0)) _)
+    = f (List.map (fun v : Tuple T m => t.eval v γ) _).dedup
+  exact hf (groupSeq_distinctRow_perm _ t _ _)
+
+end Distinct
 
 end AggQueryIn

@@ -564,6 +564,30 @@ def TermGIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
   | .sub t₁ t₂ => t₁.evalPlain u γ - t₂.evalPlain u γ
   | .mul t₁ t₂ => t₁.evalPlain u γ * t₂.evalPlain u γ
 
+/-- **A term over regular columns read as a general term**: the same term,
+the kind index witnessing that every column it reads is regular. It is
+what a projection needs to carry a term of the aggregation grammar, whose
+input is all-regular. -/
+def TermIn.toGen {c n : ℕ} : TermIn T c n → TermGIn T c (ColKind.allReg n)
+  | .const a => .const a
+  | .outer k => .outer k
+  | .index k => .index k rfl
+  | .add t₁ t₂ => .add t₁.toGen t₂.toGen
+  | .sub t₁ t₂ => .sub t₁.toGen t₂.toGen
+  | .mul t₁ t₂ => .mul t₁.toGen t₂.toGen
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Reading a term as a general term does not change what it computes. -/
+@[simp] theorem TermIn.evalPlain_toGen {c n : ℕ} (t : TermIn T c n)
+    (u : Tuple T n) (γ : Fin c → T) : t.toGen.evalPlain u γ = t.eval u γ := by
+  induction t with
+  | const a => rfl
+  | outer k => rfl
+  | index k => rfl
+  | add t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | sub t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | mul t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+
 /-! ## The gate-free fragment
 
 The indicator gate `TermGIn.chiGate` is the one term constructor whose
@@ -583,6 +607,19 @@ def TermGIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
   | .cmpAgg _ _ _ t => t.chiFree
   | .chiGate _ _ _ => False
   | .add t₁ t₂ | .sub t₁ t₂ | .mul t₁ t₂ => t₁.chiFree ∧ t₂.chiFree
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- A term over regular columns has no indicator gate: the grammar of
+`TermIn` has none to build. -/
+theorem TermIn.chiFree_toGen {c n : ℕ} (t : TermIn T c n) : t.toGen.chiFree := by
+  induction t with
+  | const a => exact trivial
+  | outer k => exact trivial
+  | index k => exact trivial
+  | add t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
+  | sub t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
+  | mul t₁ t₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
 
 /-- No indicator gate in a predicate. -/
 def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
