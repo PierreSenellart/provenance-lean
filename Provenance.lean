@@ -276,7 +276,11 @@ proven engine several general results reuse internally.
   atoms read *disjoint* families instead – several subquery conditions,
   say – what is needed is not that but `complemented`, the De Morgan law
   `𝟙 ⊖ (a ⊕ b) = (𝟙 ⊖ a) ⊗ (𝟙 ⊖ b)`, under which a world's annotation
-  splits along a partition of its family (`Having.worldAnn_split`). The
+  splits along a partition of its family (`Having.worldAnn_split`).
+  `Having.relAnn` is the relative form that composes, and
+  `relAnn_split_union` splits the union of two *overlapping* families
+  into the shared part and the two private ones – the third regime,
+  whose two known cases are its degenerate ones. The
   two hypotheses are independent: `ℕ` is complemented and not
   multiplicatively idempotent (`Nat.not_mulIdempotent`), so it separates
   the same-family readings and leaves the disjoint ones alone. The

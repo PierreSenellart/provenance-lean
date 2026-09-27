@@ -271,6 +271,63 @@ theorem worldAnn_eq_ann {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
     worldAnn α W = Having.ann α Finset.univ W := by
   rw [worldAnn, Having.ann, Having.A, Finset.compl_eq_univ_sdiff]
 
+/-- The annotation a world gives the part of an occurrence family lying
+in `S`: the product of the annotations it keeps there against the monus
+of those it drops there. `worldAnn` is the case `S = univ`, and the
+point of the relative form is that it composes. -/
+def relAnn {N : ℕ} (α : Fin N → K) (S W : Finset (Fin N)) : K :=
+  (∏ i ∈ W ∩ S, α i) * (1 - ∑ i ∈ S \ W, α i)
+
+omit [DecidableEq K] in
+theorem relAnn_univ {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
+    relAnn α Finset.univ W = worldAnn α W := by
+  rw [relAnn, worldAnn, Finset.inter_univ, ← Finset.compl_eq_univ_sdiff]
+
+omit [DecidableEq K] in
+/-- **The relative annotation splits along any subset**: the part inside
+`T` and the part outside contribute independently, when the semiring is
+complemented. Iterating it splits a family into as many parts as one
+likes – the shared part of two overlapping families and their two
+private parts, for one. -/
+theorem relAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+    (S T W : Finset (Fin N)) :
+    relAnn α S W = relAnn α (S ∩ T) W * relAnn α (S \ T) W := by
+  have he₁ : W ∩ (S ∩ T) = (W ∩ S) ∩ T := by
+    ext x; simp only [Finset.mem_inter]; tauto
+  have he₂ : W ∩ (S \ T) = (W ∩ S) \ T := by
+    ext x; simp only [Finset.mem_inter, Finset.mem_sdiff]; tauto
+  have he₃ : (S ∩ T) \ W = (S \ W) ∩ T := by
+    ext x; simp only [Finset.mem_inter, Finset.mem_sdiff]; tauto
+  have he₄ : (S \ T) \ W = (S \ W) \ T := by
+    ext x; simp only [Finset.mem_sdiff]; tauto
+  have hprod : (∏ i ∈ W ∩ (S ∩ T), α i) * (∏ i ∈ W ∩ (S \ T), α i)
+      = ∏ i ∈ W ∩ S, α i := by
+    rw [he₁, he₂]
+    exact Finset.prod_inter_mul_prod_sdiff (W ∩ S) T α
+  have hsum : (∑ i ∈ (S ∩ T) \ W, α i) + (∑ i ∈ (S \ T) \ W, α i)
+      = ∑ i ∈ S \ W, α i := by
+    rw [he₃, he₄]
+    exact Finset.sum_inter_add_sum_sdiff (S \ W) T α
+  rw [relAnn, relAnn, relAnn, mul_mul_mul_comm, hprod, ← hc, hsum]
+
+omit [DecidableEq K] in
+/-- **The three parts of two overlapping families.** A world's
+annotation over the union of two families is the annotation of the
+shared part times those of the two private ones. With the families
+disjoint the shared part is empty and this is the disjoint split; with
+them equal the private parts are, and it says nothing – which is the
+regime `AggValue.predProvOf_mul_predProvOf` governs instead. -/
+theorem relAnn_split_union (hc : complemented K) {N : ℕ} (α : Fin N → K)
+    (V₁ V₂ W : Finset (Fin N)) :
+    relAnn α (V₁ ∪ V₂) W
+      = relAnn α (V₁ ∩ V₂) W * relAnn α (V₁ \ V₂) W
+        * relAnn α (V₂ \ V₁) W := by
+  have h₁ : (V₁ ∪ V₂) ∩ V₁ = V₁ := by
+    ext x; simp only [Finset.mem_inter, Finset.mem_union]; tauto
+  have h₂ : (V₁ ∪ V₂) \ V₁ = V₂ \ V₁ := by
+    ext x; simp only [Finset.mem_sdiff, Finset.mem_union]; tauto
+  rw [relAnn_split hc α (V₁ ∪ V₂) V₁ W, h₁, h₂, relAnn_split hc α V₁ V₂ W]
+
 omit [DecidableEq K] in
 /-- **A world's annotation splits along a partition of its family** when
 the semiring is complemented: the occurrences inside `S` and those
