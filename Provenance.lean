@@ -62,6 +62,8 @@ import Provenance.AggQueryEmbedding
 
 /- Provenance-aware rewriting stated natively on the general syntax -/
 import Provenance.AggQueryRewriting
+import Provenance.AggQueryStrip
+import Provenance.AggQueryRewritingValid
 
 /- The rewritten world's token-bearing evaluator (HAVING rewriting) -/
 import Provenance.AggQueryHavingRewriting
@@ -552,13 +554,16 @@ proven engine several general results reuse internally.
   column), the fragment predicate `AggQuery.classical`, and the rewriting
   `AggQuery.rewriting` mirroring the classical rules – with
   deduplication and difference expressed through the native `ProvSum`
-  aggregation of provenance columns and the `Retag` cast. Correctness,
-  `AggQuery.rewriting_valid`, states that the annotated semantics
-  folded into composite `T ⊕ K` tuples agrees with the plain evaluation
-  of the rewritten query; it is proven by stripping to the classical
-  fragment (`AggQuery.strip`, faithful by `AggQuery.strip_bridge` through
-  the row invariant `GenRow.Inv`) and the plain-semantics agreement
-  `AggQuery.rewriting_plain` of the two rewritten queries
+  aggregation of provenance columns and the `Retag` cast
+- `Provenance.AggQueryStrip` – the strip of the classical fragment back
+  to the classical `Query` syntax (`AggQuery.strip`) and its
+  faithfulness `AggQuery.strip_bridge`, through the row invariant
+  `GenRow.Inv`
+- `Provenance.AggQueryRewritingValid` – **correctness of the native
+  rewriting**: the plain-semantics agreement `AggQuery.rewriting_plain`
+  of the two rewritten queries, and `AggQuery.rewriting_valid`, which
+  states that the annotated semantics folded into composite `T ⊕ K`
+  tuples agrees with the plain evaluation of the rewritten query
 - `Provenance.AggQueryHavingRewriting` – **the rewritten world's
   evaluator, with tokens as ordinary column values**: rewritten
   queries run over rows `Tuple (GenValue (T ⊕ K) K) n`
