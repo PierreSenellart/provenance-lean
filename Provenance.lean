@@ -272,7 +272,14 @@ proven engine several general results reuse internally.
   exclusive and its multiplication is idempotent – `𝔹[X]` has both, `ℕ`
   is exclusive and not idempotent, and an absorptive domain such as
   Viterbi is not exclusive. It is the shape a truncation's range test
-  and a `HAVING` like `count(*) > 2 AND count(*) < 5` have.
+  and a `HAVING` like `count(*) > 2 AND count(*) < 5` have. When the two
+  atoms read *disjoint* families instead – several subquery conditions,
+  say – what is needed is not that but `complemented`, the De Morgan law
+  `𝟙 ⊖ (a ⊕ b) = (𝟙 ⊖ a) ⊗ (𝟙 ⊖ b)`, under which a world's annotation
+  splits along a partition of its family (`Having.worldAnn_split`). The
+  two hypotheses are independent: `ℕ` is complemented and not
+  multiplicatively idempotent, so it separates the same-family readings
+  and leaves the disjoint ones alone.
 - `Provenance.AggExpr` – **aggregate expressions**: what a term that
   mentions a column of aggregate kind produces. `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the

@@ -136,3 +136,14 @@ theorem Nat.counterexample_having :
     let t₃ : ℕ := 1
     (t₁ * t₂) * (1 - t₃) + (t₁ * t₃) * (1 - t₂) + (t₂ * t₃) * (1 - t₁)
       ≠ (t₁ * t₂ + t₁ * t₃ + t₂ * t₃) - t₁ * t₂ * t₃ := by decide
+
+/-- **`ℕ` is complemented**, for the other of the two reasons: `𝟙 ⊖ a` is
+`𝟙` when `a` is `𝟘` and `𝟘` otherwise, so both sides are `𝟙` exactly when
+both summands vanish. It is complemented and not multiplicatively
+idempotent, which is the combination that separates the two readings of a
+conjunction of atoms over *one* family while leaving disjoint families
+alone. -/
+theorem Nat.complemented : _root_.complemented ℕ := by
+  intro a b
+  cases a <;> cases b <;> simp
+  omega

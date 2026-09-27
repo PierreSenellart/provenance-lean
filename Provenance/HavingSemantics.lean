@@ -272,6 +272,31 @@ theorem worldAnn_eq_ann {N : ℕ} (α : Fin N → K) (W : Finset (Fin N)) :
   rw [worldAnn, Having.ann, Having.A, Finset.compl_eq_univ_sdiff]
 
 omit [DecidableEq K] in
+/-- **A world's annotation splits along a partition of its family** when
+the semiring is complemented: the occurrences inside `S` and those
+outside contribute independently. It is what lets a predicate whose
+atoms read disjoint families be evaluated atom by atom rather than over
+the union of the families, and `complemented` is exactly what it needs –
+the product part splits in any semiring, the `𝟙 ⊖ ·` part only there. -/
+theorem worldAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+    (S W : Finset (Fin N)) :
+    worldAnn α W
+      = ((∏ i ∈ W ∩ S, α i) * (1 - ∑ i ∈ S \ W, α i))
+        * ((∏ i ∈ W ∩ Sᶜ, α i) * (1 - ∑ i ∈ Sᶜ \ W, α i)) := by
+  have hprod : (∏ i ∈ W ∩ S, α i) * (∏ i ∈ W ∩ Sᶜ, α i) = ∏ i ∈ W, α i := by
+    rw [← Finset.sdiff_eq_inter_compl]
+    exact Finset.prod_inter_mul_prod_sdiff W S α
+  have hsum : (∑ i ∈ S \ W, α i) + (∑ i ∈ Sᶜ \ W, α i) = ∑ i ∈ Wᶜ, α i := by
+    rw [show S \ W = Wᶜ ∩ S by
+        rw [Finset.sdiff_eq_inter_compl, Finset.inter_comm],
+      show Sᶜ \ W = Wᶜ \ S by
+        rw [Finset.sdiff_eq_inter_compl, Finset.sdiff_eq_inter_compl,
+          Finset.inter_comm]]
+    exact Finset.sum_inter_add_sum_sdiff Wᶜ S α
+  rw [mul_mul_mul_comm, hprod, ← hc, hsum]
+  rfl
+
+omit [DecidableEq K] in
 /-- **Distinct worlds of one occurrence family annihilate each other**, in an
 exclusive m-semiring. A position kept by one world and dropped by the other
 contributes a factor `α u` to the first annotation and a factor
