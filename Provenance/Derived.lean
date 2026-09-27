@@ -29,6 +29,9 @@ match still has its row, with count `𝟘`. Comparing that count against
 `R - Π(σ_φ(R × Q))` gives the same rows, but not the same annotations,
 which is why the apply is needed here.
 
+Truncation filters the rank and drops the rank column, so a row tied with
+the last one kept is kept too.
+
 A `DISTINCT` aggregate deduplicates the key columns together with the
 aggregated term and aggregates the added column. Over annotated relations
 that is what gives each distinct value one occurrence, annotated by the
@@ -675,6 +678,138 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
     simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
 
 end Ranks
+
+/-! ## Truncation
+
+`λ^{P,O}_{m,c}` keeps the occurrences with at least `m` and fewer than
+`m + c` rows ranked strictly before them in their partition: it filters
+the rank and drops the rank column again. Rows tied with the last one
+kept are kept too, the rank counting the rows strictly before a row's
+peers – SQL's `FETCH FIRST c ROWS WITH TIES`. An infinite count is
+`truncateFrom`, the same query with the upper bound dropped. -/
+
+section Truncation
+
+variable [ValueType T] {n m p : ℕ}
+
+/-- The projection that drops the rank column a truncation filters on. -/
+def dropRank (n : ℕ) :
+    Tuple (ProjCol T (Fin.snoc (ColKind.allReg n) ColKind.agg)) n :=
+  fun i => .term (TermGIn.index i.castSucc (by simp [ColKind.allReg]))
+
+/-- The range of ranks a truncation keeps: more than `lo` rows ranked
+strictly before the row's peers, and at most `hi`. -/
+def rankRange (n : ℕ) (lo hi : T) :
+    GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  .and (.aggCmp (Fin.last n) (by simp) CompOp.gt (.const lo))
+    (.aggCmp (Fin.last n) (by simp) CompOp.le (.const hi))
+
+/-- **Truncation** `λ^{P,O}_{m,c}`. -/
+def truncate [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
+    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
+  Proj (dropRank n) (Sel (rankRange n lo hi) (rank cnt P O o q))
+
+theorem evaluatePlain_truncate [One T] (cnt : SeqAggFunc T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (truncate cnt P O o lo hi q).evaluatePlain D
+      = (q.evaluatePlain D).filter (fun u =>
+          (rankRange n lo hi).holdsPlain
+            (Fin.snoc u (1 + ValueFrame.windowValue P O o
+              (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
+              (q.evaluatePlain D) u))) := by
+  rw [truncate, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain,
+    evaluatePlain_rank]
+  rw [Multiset.filter_map, Multiset.map_map]
+  simp only [Function.comp_def]
+  refine Eq.trans (Multiset.map_congr rfl (fun u _ => ?_)) (Multiset.map_id' _)
+  funext j
+  show ProjColIn.evalPlain (dropRank n j) _ = _
+  rw [dropRank]
+  show (Fin.snoc u _ : Tuple T (n + 1)) j.castSucc = _
+  rw [Fin.snoc_castSucc]
+
+theorem holdsPlain_rankRange [NoNulls T] (n : ℕ) (lo hi : T)
+    (u : Tuple T (n + 1)) :
+    (rankRange n lo hi).holdsPlain u
+      ↔ (lo < u (Fin.last n)) ∧ (u (Fin.last n) ≤ hi) := by
+  rw [rankRange, GenPredIn.holdsPlain_and]
+  show (CompOp.gt.eval3 (u (Fin.last n)) lo = Kleene.true)
+      ∧ (CompOp.le.eval3 (u (Fin.last n)) hi = Kleene.true) ↔ _
+  rw [CompOp.eval3_eq_true_iff_noNulls, CompOp.eval3_eq_true_iff_noNulls]
+  exact Iff.rfl
+
+/-- **What a truncation keeps over plain relations**: the rows with at
+least `lo` and at most `hi` rows ranked strictly before their peers. -/
+theorem evaluatePlain_truncate_noNulls [NoNulls T] [One T] (cnt : SeqAggFunc T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (truncate cnt P O o lo hi q).evaluatePlain D
+      = (q.evaluatePlain D).filter (fun u =>
+          (lo < 1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
+              (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u)
+            ∧ (1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
+              (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u ≤ hi)) := by
+  rw [evaluatePlain_truncate]
+  refine Multiset.filter_congr (fun u _ => ?_)
+  rw [holdsPlain_rankRange, Fin.snoc_last]
+
+/-- The lower half of the range: at least `lo` rows ranked strictly
+before the row's peers. It is what an infinite count asks for – SQL's
+`OFFSET` with no `LIMIT`. -/
+def rankFrom (n : ℕ) (lo : T) :
+    GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  .aggCmp (Fin.last n) (by simp) CompOp.gt (.const lo)
+
+/-- **Truncation with an infinite count**, `λ^{P,O}_{m,∞}`. -/
+def truncateFrom [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (lo : T)
+    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
+  Proj (dropRank n) (Sel (rankFrom n lo) (rank cnt P O o q))
+
+theorem evaluatePlain_truncateFrom [One T] (cnt : SeqAggFunc T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo : T)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (truncateFrom cnt P O o lo q).evaluatePlain D
+      = (q.evaluatePlain D).filter (fun u =>
+          (rankFrom n lo).holdsPlain
+            (Fin.snoc u (1 + ValueFrame.windowValue P O o
+              (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
+              (q.evaluatePlain D) u))) := by
+  rw [truncateFrom, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain,
+    evaluatePlain_rank]
+  rw [Multiset.filter_map, Multiset.map_map]
+  simp only [Function.comp_def]
+  refine Eq.trans (Multiset.map_congr rfl (fun u _ => ?_)) (Multiset.map_id' _)
+  funext j
+  show ProjColIn.evalPlain (dropRank n j) _ = _
+  rw [dropRank]
+  show (Fin.snoc u _ : Tuple T (n + 1)) j.castSucc = _
+  rw [Fin.snoc_castSucc]
+
+theorem holdsPlain_rankFrom [NoNulls T] (n : ℕ) (lo : T)
+    (u : Tuple T (n + 1)) :
+    (rankFrom n lo).holdsPlain u ↔ (lo < u (Fin.last n)) := by
+  show (CompOp.gt.eval3 (u (Fin.last n)) lo = Kleene.true) ↔ _
+  rw [CompOp.eval3_eq_true_iff_noNulls]
+  exact Iff.rfl
+
+/-- **What an offset with no limit keeps over plain relations.** -/
+theorem evaluatePlain_truncateFrom_noNulls [NoNulls T] [One T]
+    (cnt : SeqAggFunc T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (lo : T) (q : AggQuery T n (ColKind.allReg n))
+    (D : Database T) :
+    (truncateFrom cnt P O o lo q).evaluatePlain D
+      = (q.evaluatePlain D).filter (fun u =>
+          (lo < 1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
+            (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u)) := by
+  rw [evaluatePlain_truncateFrom]
+  refine Multiset.filter_congr (fun u _ => ?_)
+  rw [holdsPlain_rankFrom, Fin.snoc_last]
+
+end Truncation
+
 
 /-! ## `DISTINCT` aggregates
 

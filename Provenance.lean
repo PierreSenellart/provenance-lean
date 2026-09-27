@@ -502,6 +502,11 @@ proven engine several general results reuse internally.
   the count over the rows the clause sorts strictly before the current
   row's peers, the `+ 1` being a term over the window's aggregate column
   (`overWindow`); `evaluatePlain_rank` says so over plain relations.
+  `truncate` is `λ`, the rank filtered to a range and the rank column
+  dropped again (`truncateFrom` for an infinite count), which keeps a
+  row tied with the last one kept – SQL's `FETCH FIRST c ROWS WITH
+  TIES`; `evaluatePlain_truncate_noNulls` reads it as the filter on the
+  rank it is.
   `gammaDistinct` and `gammaScalarDistinct` are SQL's `DISTINCT`
   aggregates: deduplicate the key columns together with the aggregated
   term, then aggregate the added column, which annotates each distinct
