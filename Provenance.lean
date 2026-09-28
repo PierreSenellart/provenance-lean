@@ -1056,7 +1056,15 @@ proven engine several general results reuse internally.
   `natOrExpr` and `natCaseExpr` are the two Boolean functions as
   `AggExpr`s over one shared family, and `natOrExpr_ne_structural` and
   `natCaseExpr_ne_split` are the same two numbers read off
-  `AggExpr.predProv`.
+  `AggExpr.predProv`. At the **row level** the picture differs and the
+  file says so: what an implementation reports is
+  `δ(β₁) ⊗ δ(β₂) ⊗ predsem(ψ)`, and over `𝔹` those factors close the
+  gap the `∨` rule opens (`bool_row_agree`), so the `𝔹` instance is
+  about the predicate provenance and not about the row. An idempotent
+  `⊕` is not what closes it: `ChainFive` is absorptive, hence
+  `⊕`-idempotent, and its `δ` is not the identity, and there the
+  reported row is `hi` where the joint reading is `lo`
+  (`chain_row_ne`).
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,

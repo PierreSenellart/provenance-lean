@@ -668,3 +668,61 @@ theorem natCaseExpr_ne_split :
         + Having.joint2 natTokenOne natTokenTwo
           (fun x y => (Kleene.ofBool (!(testGe1 x).isTrue)).and (testEq1 y))
       ≠ natCaseExpr.predProv CompOp.eq 1 := by decide
+
+/-! ### At the row level: an idempotent `⊕` is not what makes the `⊕` exact
+
+What an implementation reports is not a bare predicate provenance but a
+row annotation, a group carrying its existence factor: `δ(β₁) ⊗ δ(β₂) ⊗
+predsem(ψ)`. Over `𝔹` those factors close the gap the `∨` rule opens –
+`bool_or_ne_joint` is a statement about the *predicate* provenance and
+not about the row, and `bool_row_agree` says so.
+
+They do not close it in general, and an idempotent `⊕` is not the
+condition. `ChainFive` is absorptive, so its `⊕` is idempotent, and its
+`δ` is not the identity: `δ(hi) = 𝟙`. Two singleton grouped families
+annotated `hi` and `mid`, the first side's test satisfied and the
+second's not, give `hi` for the reported row and `lo` for the joint
+reading, the `δ` factors having replaced the second family's `mid` by
+`𝟙`. The missing factor is the other side's annotation, and `δ` can
+only restore it where `δ` *is* the identity, which `𝔹` and `𝔹[X]` have
+and `ChainFive`, Viterbi, `ℕ`, the tropical semirings and `MinMax` do
+not. -/
+
+/-- One occurrence annotated `hi`, grouped. -/
+def chainTokenHi : AggValue ℕ ChainFive :=
+  ⟨SeqAggFunc.count, [(1, ChainFive.hi)], false⟩
+
+/-- One occurrence annotated `mid`, grouped. -/
+def chainTokenMid : AggValue ℕ ChainFive :=
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false⟩
+
+/-- **The reported row**: the two groups' existence factors times the
+structural `⊕` of the two sides. -/
+theorem chain_row_structural :
+    SemiringWithMonus.delta ChainFive.hi * SemiringWithMonus.delta ChainFive.mid
+        * (chainTokenHi.predProvWith testGe1
+          + chainTokenMid.predProvWith testGe2)
+      = ChainFive.hi := by decide
+
+/-- **The joint reading of the same row.** -/
+theorem chain_row_joint :
+    Having.jointPair chainTokenHi chainTokenMid
+        (fun x y => (testGe1 x).or (testGe2 y)) = ChainFive.lo := by decide
+
+/-- **So the existence factors do not make the `⊕` exact**, in a
+semiring whose `⊕` is idempotent. -/
+theorem chain_row_ne :
+    SemiringWithMonus.delta ChainFive.hi * SemiringWithMonus.delta ChainFive.mid
+        * (chainTokenHi.predProvWith testGe1
+          + chainTokenMid.predProvWith testGe2)
+      ≠ Having.jointPair chainTokenHi chainTokenMid
+          (fun x y => (testGe1 x).or (testGe2 y)) := by decide
+
+/-- **Over `𝔹` they do**, which is why the `𝔹` instance above is about
+the predicate provenance and not about the row: `δ` is the identity
+there, so the factor the `⊕` drops is restored. -/
+theorem bool_row_agree :
+    SemiringWithMonus.delta true * SemiringWithMonus.delta false
+        * (boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq)
+      = Having.jointPair boolTokenT boolTokenF
+          (fun x y => (testNe x).or (testEq y)) := by decide
