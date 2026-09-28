@@ -491,6 +491,51 @@ theorem predProv_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     a.predProv op c = b.predProv op c :=
   predProvWith_congr hagg h (fun v => op.eval3 v c)
 
+omit [DecidableEq K] in
+theorem notMem_mergeOccs_of_notMem {u : T} {l : List (T × K)}
+    (h : u ∉ l.map Prod.fst) : u ∉ (mergeOccs l).map Prod.fst := by
+  rw [map_fst_mergeOccs]
+  exact fun hc => h (List.mem_dedup.mp hc)
+
+omit [DecidableEq K] in
+/-- **The merge is blind to a tie-block permutation of its payload**:
+exchanging two adjacent occurrences of equal value moves the same
+annotations into the same class. This is what lets the merged token
+inherit every congruence the unmerged one has. -/
+theorem mergeOccs_congr {l₁ l₂ : List (T × K)}
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) l₁ l₂) :
+    mergeOccs l₁ = mergeOccs l₂ := by
+  induction h with
+  | nil => rfl
+  | @cons a l₁ l₂ h ih =>
+    obtain ⟨u, α⟩ := a
+    rw [mergeOccs, mergeOccs, h.map_fst_eq, ih]
+  | @swap a b hab l₁ l₂ h ih =>
+    obtain ⟨u, α⟩ := a
+    obtain ⟨u', β⟩ := b
+    dsimp only at hab
+    subst hab
+    simp only [mergeOccs, List.map_cons]
+    rw [ite_eq_left List.mem_cons_self, ite_eq_left List.mem_cons_self,
+      h.map_fst_eq, ih]
+    by_cases hu : u ∈ (l₂.map Prod.fst)
+    · rw [ite_eq_left hu, ite_eq_left hu, List.map_map, List.map_map]
+      refine congrArg (fun g => List.map g (mergeOccs l₂)) (funext fun p => ?_)
+      by_cases hp : p.1 = u <;> simp [hp, add_left_comm]
+    · rw [ite_eq_right hu, ite_eq_right hu, List.map_cons, List.map_cons]
+      have hid : ∀ q ∈ mergeOccs l₂, (if q.1 = u then (q.1, α + q.2) else q) = q
+          ∧ (if q.1 = u then (q.1, β + q.2) else q) = q := by
+        intro q hq
+        have : q.1 ≠ u := by
+          intro hc
+          exact notMem_mergeOccs_of_notMem hu
+            (List.mem_map.mpr ⟨q, hq, hc⟩)
+        exact ⟨ite_eq_right this, ite_eq_right this⟩
+      rw [List.map_congr_left (fun q hq => (hid q hq).1),
+        List.map_congr_left (fun q hq => (hid q hq).2)]
+      simp [add_comm]
+  | trans h₁ h₂ ih₁ ih₂ => exact ih₁.trans ih₂
+
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
 which a tie-block permutation preserves. -/
