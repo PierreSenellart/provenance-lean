@@ -726,7 +726,14 @@ proven engine several general results reuse internally.
   pending factor belongs to leaves both parts of the annotation alone
   (`AggQueryIn.evaluate_Proj_of_pending_le`) – so such a projection
   standing inside a chain of aggregate selections changes neither the
-  families read nor the annotation built
+  families read nor the annotation built. It also carries **equality up
+  to impossible rows**: `AnnotatedRelation.dropZero` removes the tuples
+  annotated `𝟘`, which are in no world, `ZEq` is equality after that,
+  and `AggQueryIn.evaluate_Sel_reg_absorb` says a regular selection may
+  be absorbed into the aggregate predicate below it in exactly that
+  sense and not as an equality of relations – a selection with an
+  aggregate atom keeps its failing rows annotated `𝟘` where a regular
+  one removes them
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
