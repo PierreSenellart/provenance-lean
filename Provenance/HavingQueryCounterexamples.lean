@@ -297,11 +297,24 @@ theorem Having.natRange_join :
 
 /-! ## `∨` over disjoint families is not the `⊕` of the two atoms
 
-The `∧` rule is a decomposition of the one-sum reading under hypotheses
-(`AggValue.predProvOf_mul_predProvOf`, and `complemented` for disjoint
-families). The `∨` rule is not, and its failure is structural rather
-than algebraic: it shows already in `𝔹`, which is exclusive, has an
-idempotent `⊗` and is complemented, so no capability rescues it.
+**What a predicate annotates is the joint evaluation of its Boolean
+function in every world**: the `⊕`, over the worlds of the union of the
+families the function reads, of the world's annotation times the
+function's truth there. That is one rule for `∧`, `∨`, `¬`, a
+Boolean-valued aggregate column and a searched `CASE` alike, and it is
+`AggExpr.predProv` – an expression's occurrences are one shared family
+`V = ⋃ⱼ Uⱼ`, a world must meet each *grouped* leaf, and `g` may be any
+deterministic function of SQL, a Boolean combination among them.
+
+`GenPredIn.predsem` is not that definition. It is ProvSQL's structural
+computation, `∧ ↦ ⊗` and `∨ ↦ ⊕`, and the question each instance below
+settles is where the two agree. For `∧` they do under hypotheses
+(`Having.sum_mul_sum_of_overlap`, with `complemented` alone for
+disjoint families and `AggValue.predProvOf_mul_predProvOf` for one
+family). For `∨` there is no such theorem, and the failure is
+structural rather than algebraic: it shows already in `𝔹`, which is
+exclusive, has an idempotent `⊗` and is complemented, so no capability
+rescues it.
 
 The reason is which worlds count. A world of a predicate reading two
 *grouped* families must meet each of them, so a world in which one of
@@ -310,13 +323,19 @@ the two groups is empty is no world of the disjunction – while the
 holding on its own. A conjunction is unaffected: its product already
 demands both groups non-empty.
 
-What makes the `⊕` sound in context is not independence of the families
-but that it is multiplied into a row annotation carrying each group's
-existence factor, which kills exactly those worlds. That is why a
-disjunction may remove a `δ` only when *every* disjunct entails
-existence (`GenPredIn.entailsExistence`), and why a disjunction with a
-scalar operand – no existence factor to lean on, the empty world being
-a world – has nothing to absorb the difference. -/
+Over `𝔹` the row's own factors hide the difference: the `δ` of the
+empty group kills the row the `⊕` kept, which is why a disjunction may
+remove a `δ` only when *every* disjunct entails existence
+(`GenPredIn.entailsExistence`). Over `ℕ` they do not, `δ` recording
+support where the difference is a multiplicity – so the structural `⊕`
+is not a way of computing the joint reading, only a rule that coincides
+with it in some semirings.
+
+The double sums `joint2` and `joint3` below write the joint reading in
+split form, a product of the halves' world annotations. That is the
+annotation of a world of the union in a *complemented* `K`
+(`Having.worldAnn_split`); `𝔹` and `ℕ` are complemented, so over them
+the instances are instances about the union reading. -/
 
 namespace Having
 
@@ -542,3 +561,59 @@ theorem natCase_ne :
       ≠ Having.joint3 natTokenOne natTokenOne natTokenTwo
           (fun x y z => testEq1 (if testGe1 x = Kleene.true then y else z)) := by
   decide
+
+/-! ### The same two instances against the definition
+
+The sums above are written family by family. Stated against
+`AggExpr.predProv` – the joint evaluation over the worlds of one shared
+family, which is the definition – the same numbers come out, and
+nothing is assumed of `ℕ` to get them. Two singleton families are two
+occurrences of one family that the leaves read one each. -/
+
+/-- `c ≥ 1 ∨ d ≥ 1` over two families each annotated `𝟙`, as the
+Boolean function the joint reading evaluates: `𝟙` where the disjunction
+holds, `𝟘` where it does not. -/
+def natOrExpr : AggExpr ℕ ℕ where
+  arity := 2
+  occs := [(![1, 1], 1), (![1, 1], 1)]
+  reads := ![{0}, {1}]
+  aggs := ![SeqAggFunc.count, SeqAggFunc.count]
+  scalar := ![false, false]
+  g := fun v => if 1 ≤ v 0 ∨ 1 ≤ v 1 then 1 else 0
+  covered := by decide
+
+/-- **The joint reading of the disjunction is `𝟙`**: its one world meets
+both families and carries `𝟙 ⊗ 𝟙`. -/
+theorem natOrExpr_joint : natOrExpr.predProv CompOp.eq 1 = 1 := by decide
+
+/-- **The structural `⊕` is `2`**, counting the world once per disjunct. -/
+theorem natOrExpr_ne_structural :
+    natTokenOne.predProvWith testGe1 + natTokenOne.predProvWith testGe1
+      ≠ natOrExpr.predProv CompOp.eq 1 := by decide
+
+/-- `CASE WHEN c ≥ 1 THEN d ELSE e END`, with `c` and `d` annotated `𝟙`
+and `e` – which no world in which the guard holds reads – annotated
+`2`. -/
+def natCaseExpr : AggExpr ℕ ℕ where
+  arity := 3
+  occs := [(![1, 1, 1], 1), (![1, 1, 1], 1), (![1, 1, 1], 2)]
+  reads := ![{0}, {1}, {2}]
+  aggs := ![SeqAggFunc.count, SeqAggFunc.count, SeqAggFunc.count]
+  scalar := ![false, false, false]
+  g := fun v => if 1 ≤ v 0 then v 1 else v 2
+  covered := by decide
+
+/-- **The joint reading of the conditional is `2`**: its one world meets
+all three families, `e` among them, though the branch that fires never
+reads `e`. -/
+theorem natCaseExpr_joint : natCaseExpr.predProv CompOp.eq 1 = 2 := by decide
+
+/-- **The branch decomposition is `𝟙`**, so a conditional whose branches
+read different families parts from the definition with no disjunction
+anywhere in the query. -/
+theorem natCaseExpr_ne_split :
+    Having.joint2 natTokenOne natTokenOne
+          (fun x y => (testGe1 x).and (testEq1 y))
+        + Having.joint2 natTokenOne natTokenTwo
+          (fun x y => (Kleene.ofBool (!(testGe1 x).isTrue)).and (testEq1 y))
+      ≠ natCaseExpr.predProv CompOp.eq 1 := by decide

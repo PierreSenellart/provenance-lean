@@ -314,8 +314,19 @@ proven engine several general results reuse internally.
   a range is one atom rather than two; `predProvOf_mul_predProvOf_with`
   is then the `∧` rule in its proper shape, a decomposition of one sum
   into two rather than a definition.
-- `Provenance.AggExpr` – **aggregate expressions**: what a term that
-  mentions a column of aggregate kind produces. `AggExpr` is the formal
+- `Provenance.AggExpr` – **aggregate expressions, and with them what a
+  predicate annotates**: the joint evaluation of its Boolean function in
+  every world. `AggExpr.predProv` is the `⊕`, over the worlds of the
+  union of the families the expression reads, of the world's annotation
+  times the truth of the comparison there; since `g` may be any
+  deterministic function of SQL, a Boolean combination among them, this
+  is one rule for `∧`, `∨`, `¬`, a Boolean-valued aggregate column and a
+  searched `CASE` alike, and it is the definition the structural rules
+  of `GenPred.predsem` are answerable to (they are ProvSQL's
+  computation: agreeing on an atom, a decomposition of the joint reading
+  for `∧` under hypotheses, and not a theorem at all for `∨`).
+  What a term that
+  mentions a column of aggregate kind produces: `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the
   aggregate values it reads, the regular ones being constants of `g` –
   over one *shared* occurrence family, which is what makes the leaves
@@ -356,7 +367,8 @@ proven engine several general results reuse internally.
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
-  operator complementation), and the general evaluator
+  operator complementation – ProvSQL's structural computation, which
+  the joint reading of `Provenance.AggExpr` is the definition for), and the general evaluator
   `AggQuery.evaluate` with factored row annotations `GenAnn`
   implementing the replace-the-δ-factor combination rule: `Gamma` leaves
   its group-existence factor pending, an aggregate selection supersedes
@@ -1006,7 +1018,12 @@ proven engine several general results reuse internally.
   `𝟘` where the guard is unknown; but the split parts from the one sum
   over the union as soon as two branches read different families, with
   no disjunction anywhere in the query (`natCase_ne`, `1` against `2`
-  over `ℕ`).
+  over `ℕ`). Both instances are also stated against the definition
+  itself rather than against a sum written family by family –
+  `natOrExpr` and `natCaseExpr` are the two Boolean functions as
+  `AggExpr`s over one shared family, and `natOrExpr_ne_structural` and
+  `natCaseExpr_ne_split` are the same two numbers read off
+  `AggExpr.predProv`.
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,
