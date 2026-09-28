@@ -132,14 +132,25 @@ theorem classSum_perm [ValueType T] [AddCommMonoid K] {l l' : List (T × K)}
   (h.map _).sum_eq
 
 /-- A class sum commutes with a pushforward of the annotations. -/
+theorem sum_map_of_additive {K'' : Type} [AddCommMonoid K] [AddCommMonoid K'']
+    {g : K → K''} (hg0 : g 0 = 0) (hg : ∀ x y, g (x + y) = g x + g y) :
+    ∀ l : List K, g l.sum = (l.map g).sum
+  | [] => hg0
+  | a :: t => by
+    rw [List.sum_cons, List.map_cons, List.sum_cons, hg,
+      sum_map_of_additive hg0 hg t]
+
+/-- A class sum commutes with a pushforward of the annotations. The map
+is taken bare rather than bundled, so that it matches the coercion a
+homomorphism is applied through at the use sites. -/
 theorem classSum_map [ValueType T] [AddCommMonoid K] {K'' : Type}
-    [AddCommMonoid K'']
-    (h : K →+ K'') (l : List (T × K)) (v : T) :
+    [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
+    (hg : ∀ x y, h (x + y) = h x + h y) (l : List (T × K)) (v : T) :
     classSum (l.map (fun p => (p.1, h p.2))) v = h (classSum l v) := by
   unfold classSum
-  rw [map_list_sum h, List.map_map, List.map_map]
+  rw [sum_map_of_additive hg0 hg, List.map_map, List.map_map]
   refine congrArg List.sum (List.map_congr_left (fun p _ => ?_))
-  by_cases hp : p.1 = v <;> simp [hp]
+  by_cases hp : p.1 = v <;> simp [hp, hg0]
 
 /-- **A token read over its distinct values**: one occurrence per class
 of equal values, carrying the `⊕` of the class's annotations, the
@@ -209,7 +220,8 @@ def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
 
 /-- **The merge commutes with a pushforward of the annotations.** -/
 theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
-    [AddCommMonoid K''] (h : K →+ K'') (a : AggValue T K) :
+    [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
+    (hg : ∀ x y, h (x + y) = h x + h y) (a : AggValue T K) :
     mergeByValue (a.mapAnn h) = (mergeByValue a).mapAnn h := by
   unfold mergeByValue mapAnn
   simp only [AggValue.mk.injEq, true_and, and_true]
@@ -220,7 +232,7 @@ theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     = List.map _ (List.map _ _)
   rw [List.map_map]
   exact List.map_congr_left (fun v _ =>
-    Prod.ext rfl (classSum_map h a.occs v))
+    Prod.ext rfl (classSum_map hg0 hg a.occs v))
 
 /-- **Predicate provenance of an atomic comparison against a token**: the
 `⊕`-sum, over the non-empty possible worlds of the token's group, of the

@@ -199,7 +199,7 @@ none, and adds one column to each. -/
   rw [← OccFam.card_toMultiset, OccFam.toMultiset_ofSorted]
   simp [AggQueryIn.evaluateAnnotated]
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
+omit [DecidableEq K] in
 /-- **The window read off the relation.** Its rows are one per row of the
 input, each determined by the input relation and that row alone. The family
 reading is what justifies this – two occurrences of an equal row may have
@@ -216,6 +216,6 @@ theorem ValueFrame.window_toMultiset_eq {n m p : ℕ} (P : Tuple (Fin n) m)
     = ValueFrame.windowRow P O o w t f r.toMultiset (r.row i)
   unfold ValueFrame.window ValueFrame.windowRow
   dsimp only
-  rw [ValueFrame.token_eq_tokenOf]
+  rw [ValueFrame.tokenOfDist_false, ValueFrame.token_eq_tokenOf]
 
 end Evaluator

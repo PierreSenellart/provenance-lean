@@ -1102,6 +1102,49 @@ section EvaluatorHom
 
 variable [HasAltLinearOrder K] [HasAltLinearOrder K']
 
+omit [DecidableEq K] in
+/-- **A token read over the frame's distinct values is carried by the
+pushforward too**: the merge commutes with it, and is blind to the
+tie-block permutation the two unmerged tokens differ by. -/
+theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
+    (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
+    (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
+    (hx : x ∈ X) :
+    GenValue.Equiv
+      (Sum.inr (ValueFrame.tokenOfDist P O o w t f dist
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ))
+      (Sum.inr ((ValueFrame.tokenOfDist P O o w t f dist X x γ).mapAnn
+        ⇑h.toRingHom)) := by
+  have hagg : (ValueFrame.tokenOf P O o w t f
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).agg
+      = ((ValueFrame.tokenOf P O o w t f X x γ).mapAnn ⇑h.toRingHom).agg := by
+    rw [ValueFrame.tokenOf_agg]
+    exact (ValueFrame.tokenOf_agg P O o w t f X x).symm
+  have hsc : (ValueFrame.tokenOf P O o w t f
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).scalar
+      = ((ValueFrame.tokenOf P O o w t f X x γ).mapAnn ⇑h.toRingHom).scalar := by
+    show _ = (ValueFrame.tokenOf P O o w t f X x γ).scalar
+    rw [ValueFrame.tokenOf_scalar, ValueFrame.tokenOf_scalar]
+  have htie := TiePerm.symm (fun e => e.symm)
+    (tokenOf_mapAnn_tiePerm h P O o w t (γ := γ) f X hx)
+  unfold ValueFrame.tokenOfDist
+  cases dist
+  · exact ⟨hagg, hsc, htie⟩
+  · simp only [ite_true]
+    rw [AggValue.mergeByValue_congr hagg hsc htie,
+      AggValue.mergeByValue_map (map_zero h.toRingHom)
+        (fun x y => map_add h.toRingHom x y)]
+    exact ⟨rfl, rfl, TiePerm.refl _ _⟩
+
+
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
 /-- The three-valued reading is invariant under the pushforward of the
@@ -1410,7 +1453,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d γ
     exact ih d γ
-  | @Win cI nI mI pI P O o w t f q ih =>
+  | @Win cI nI mI pI P O o w t f q dist ih =>
     -- one output row per input row; the tuple and the annotation are carried
     -- across unchanged, and the token differs only by a tie-block permutation
     intro d γ
@@ -1432,13 +1475,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     · simp only [Function.comp_apply, ValueFrame.windowRow]
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        refine ⟨?_, ?_, ?_⟩
-        · rw [ValueFrame.tokenOf_agg]
-          exact (ValueFrame.tokenOf_agg P O o w t f _ x).symm
-        · show _ = (ValueFrame.tokenOf P O o w t f _ x γ).scalar
-          rw [ValueFrame.tokenOf_scalar, ValueFrame.tokenOf_scalar]
-        · exact TiePerm.symm (fun e => e.symm)
-            (tokenOf_mapAnn_tiePerm h P O o w t f _ hx)
+        exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hx
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         rfl
     · simp only [Function.comp_apply, ValueFrame.windowRow]

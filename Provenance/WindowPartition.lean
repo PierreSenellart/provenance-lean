@@ -371,7 +371,7 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       = AggValue.ofGroup f t U :=
     ValueFrame.tokenOf_whole P O o ho t f _ hmemX
   refine Prod.ext ?_ ?_
-  · simp only [ValueFrame.windowRow, htok]
+  · simp only [ValueFrame.windowRow, ValueFrame.tokenOfDist_false, htok]
     exact hu'
   -- the token lists of the projected row are the group's occurrence
   -- annotations, so the join keeps exactly the group's factor pending

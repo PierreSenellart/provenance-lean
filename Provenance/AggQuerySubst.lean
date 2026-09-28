@@ -334,8 +334,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .GammaTok is his ts fs a q =>
       .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
         (q.substMap θ)
-  | _, _, _, _, θ, .Win P O o w t f q =>
-      .Win P O o w (t.substMap θ) f (q.substMap θ)
+  | _, _, _, _, θ, .Win P O o w t f q dist =>
+      .Win P O o w (t.substMap θ) f (q.substMap θ) dist
 termination_by structural q
 
 /-- Close a query: give every outer column a value. This is the
@@ -465,13 +465,13 @@ theorem AggQueryIn.evaluatePlain_substMap :
       exact congrArg (Multiset.fold addFn 0)
         (Multiset.map_congr rfl
           (fun u _ => TermGIn.evalPlain_substMap θ a u γ))
-  | @Win cI n' m' p' P O o w t f q ih =>
+  | @Win cI n' m' p' P O o w t f q dist ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
     rw [ih θ D γ]
     refine congrArg OccFam.toMultiset (congrArg (OccFam.mk _) (funext fun i =>
-      congrArg (Fin.snoc _) (congrArg f ?_)))
+      congrArg (Fin.snoc _) (congrArg (if dist then f.distinct else f) ?_)))
     exact List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ)
 
 /-! ### Tokens under substitution -/
@@ -583,10 +583,11 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       TermGIn.evalPlain_substMap]
     rw [ih θ dB γ]
-  | @Win cI n' m' p' P O o w t f q ih =>
+  | @Win cI n' m' p' P O o w t f q dist ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, ValueFrame.token_substMap]
+    simp only [AggQueryIn.evaluate, ValueFrame.tokenDist,
+      ValueFrame.token_substMap]
     rw [ih θ dB γ]
 
 /-! ## Closing a query: the document's `q[u]` -/

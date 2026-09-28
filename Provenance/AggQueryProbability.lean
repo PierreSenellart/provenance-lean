@@ -1029,7 +1029,7 @@ theorem AggQueryIn.evaluate_guarded :
       refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
       rw [AggValue.annList_ofGroup]
       exact hG
-  | @Win cI n' m' p' P O o w t f q ih =>
+  | @Win cI n' m' p' P O o w t f q dist ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
@@ -1043,10 +1043,20 @@ theorem AggQueryIn.evaluate_guarded :
       rw [← Sum.inr.inj ha]
       by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
           ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true
-      · exact Or.inr (AggValue.realized_nonempty_of_mem _ v
-          (ValueFrame.mem_token_occs P O o w t f _ i hs) (by simpa using hfin))
-      · exact Or.inl (ValueFrame.token_scalar_of_not_mem P O o w t f _ i
-          (by simpa using hs))
+      · refine Or.inr ?_
+        cases dist
+        · exact AggValue.realized_nonempty_of_mem _ v
+            (ValueFrame.mem_token_occs P O o w t f _ i hs) (by simpa using hfin)
+        · refine AggValue.realized_nonempty_of_mem _ v
+            (AggValue.mem_occs_mergeByValue _
+              (ValueFrame.mem_token_occs P O o w t f _ i hs)) ?_
+          exact (AggValue.classSum_eval_iff v _ _).mpr
+            ⟨_, ValueFrame.mem_token_occs P O o w t f _ i hs, rfl,
+              by simpa using hfin⟩
+      · refine Or.inl ?_
+        rw [ValueFrame.scalar_tokenDist]
+        exact ValueFrame.token_scalar_of_not_mem P O o w t f _ i
+          (by simpa using hs)
     · dsimp only at ha
       rw [Fin.snoc_castSucc] at ha
       exact absurd ha (by simp)
@@ -1824,7 +1834,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q ih =>
     intro hq
     exact hq.elim
-  | @Win cI nI mI pI P O o w t f q ih =>
+  | @Win cI nI mI pI P O o w t f q dist ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame
@@ -1835,7 +1845,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
       Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
         show (ValueFrame.windowRow P O o w t f
-              (q.evaluateAnnotated d γ) x γ).snd.finalize v = true
+              (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
           ↔ x.snd v = true from by
           simp [ValueFrame.windowRow])]
     refine Multiset.map_congr rfl (fun x hx => ?_)
@@ -1845,7 +1855,8 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     unfold GenRow.specializeTuple
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact tokenOf_specialize P O o w t f (q.evaluateAnnotated d γ) hxR v hxc
+      exact tokenOfDist_specialize P O o w t f dist
+        (q.evaluateAnnotated d γ) hxR v hxc
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | Retag h q ih =>

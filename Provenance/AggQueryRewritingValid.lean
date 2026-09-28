@@ -353,7 +353,7 @@ theorem AggQueryIn.rewriting_plain :
   | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _, hq, _ => False.elim hq
 
 end PlainAgreement
 
