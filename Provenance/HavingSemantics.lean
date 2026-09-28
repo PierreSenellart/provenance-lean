@@ -354,6 +354,63 @@ theorem worldAnn_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
   rfl
 
 omit [DecidableEq K] in
+/-- A relative world annotation reads only the part of the world inside
+the family. -/
+theorem relAnn_inter {N : ℕ} (α : Fin N → K) (S W : Finset (Fin N)) :
+    relAnn α S W = relAnn α S (W ∩ S) := by
+  unfold relAnn
+  rw [show W ∩ S ∩ S = W ∩ S by ext x; simp only [Finset.mem_inter]; tauto,
+    show S \ (W ∩ S) = S \ W by
+      ext x; simp only [Finset.mem_sdiff, Finset.mem_inter]; tauto]
+
+omit [DecidableEq K] in
+/-- **Summing over the worlds of a family is summing over the pairs of
+worlds of its two halves.** -/
+theorem sum_split {N : ℕ} (S : Finset (Fin N))
+    (F : Finset (Fin N) → Finset (Fin N) → K) :
+    ∑ W : Finset (Fin N), F (W ∩ S) (W ∩ Sᶜ)
+      = ∑ A ∈ S.powerset, ∑ B ∈ Sᶜ.powerset, F A B := by
+  rw [← Finset.sum_product']
+  refine Finset.sum_nbij' (fun W => (W ∩ S, W ∩ Sᶜ)) (fun p => p.1 ∪ p.2)
+    (fun W _ => ?_) (fun p hp => Finset.mem_univ _) (fun W _ => ?_)
+    (fun p hp => ?_) (fun W _ => rfl)
+  · refine Finset.mem_product.mpr ⟨?_, ?_⟩ <;>
+      exact Finset.mem_powerset.mpr Finset.inter_subset_right
+  · ext x
+    simp only [Finset.mem_union, Finset.mem_inter, Finset.mem_compl]
+    tauto
+  · obtain ⟨hA, hB⟩ := Finset.mem_product.mp hp
+    rw [Finset.mem_powerset] at hA hB
+    refine Prod.ext ?_ ?_ <;> ext x <;>
+      simp only [Finset.mem_inter, Finset.mem_union, Finset.mem_compl]
+    · exact ⟨fun h => h.1.resolve_right
+          (fun hc => absurd h.2 (Finset.mem_compl.mp (hB hc))),
+        fun h => ⟨Or.inl h, hA h⟩⟩
+    · exact ⟨fun h => h.1.resolve_left (fun hc => h.2 (hA hc)),
+        fun h => ⟨Or.inr h, Finset.mem_compl.mp (hB h)⟩⟩
+
+omit [DecidableEq K] in
+/-- **Two atoms reading disjoint families may be read one at a time.**
+The product of the two families' world-sums is the single sum over the
+worlds of their union, when the semiring is complemented – which is
+what makes `worldAnn` split and is the only thing this needs of `K`.
+
+It is the disjoint half of the `∧` rule: over *one* family the product
+is not that sum, and what it takes there is exclusivity with an
+idempotent `⊗` (`AggValue.predProvOf_mul_predProvOf`). -/
+theorem sum_mul_sum_of_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+    (S : Finset (Fin N)) (χ₁ χ₂ : Finset (Fin N) → K) :
+    (∑ A ∈ S.powerset, relAnn α S A * χ₁ A)
+        * (∑ B ∈ Sᶜ.powerset, relAnn α Sᶜ B * χ₂ B)
+      = ∑ W : Finset (Fin N),
+          worldAnn α W * (χ₁ (W ∩ S) * χ₂ (W ∩ Sᶜ)) := by
+  rw [Finset.sum_mul_sum, ← sum_split S
+    (fun A B => relAnn α S A * χ₁ A * (relAnn α Sᶜ B * χ₂ B))]
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  rw [worldAnn_split hc α S W, ← relAnn_inter, ← relAnn_inter, mul_mul_mul_comm]
+  rfl
+
+omit [DecidableEq K] in
 /-- **Distinct worlds of one occurrence family annihilate each other**, in an
 exclusive m-semiring. A position kept by one world and dropped by the other
 contributes a factor `α u` to the first annotation and a factor

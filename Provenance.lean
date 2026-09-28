@@ -280,7 +280,12 @@ proven engine several general results reuse internally.
   `Having.relAnn` is the relative form that composes, and
   `relAnn_split_union` splits the union of two *overlapping* families
   into the shared part and the two private ones – the third regime,
-  whose two known cases are its degenerate ones. The
+  whose two known cases are its degenerate ones.
+  `Having.sum_mul_sum_of_split` is the disjoint case at the level of the
+  sums rather than of one world: the product of the two families'
+  world-sums is the single sum over the worlds of their union, needing
+  `complemented` and nothing else, on the reindexing `Having.sum_split`
+  of the worlds of a family by the pairs of worlds of its halves. The
   The `∨` rule is not a decomposition at all: over two *grouped*
   families the `⊕` of the two atoms differs from the one-sum reading
   already in `𝔹` (`bool_or_ne_joint`), because a world of the
