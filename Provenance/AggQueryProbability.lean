@@ -63,6 +63,98 @@ theorem specialize_eval (a : AggValue T (BoolFunc X)) (v : X → Bool) :
   rw [AggValue.specialize_eq_valOn]
   congr 1
 
+/-! ### A token read over its distinct values
+
+The merged token reads one occurrence per class, annotated by the `⊕`
+of the class's members and ordered by the domain. Under a valuation it
+therefore reads the classes the world holds, in that world's own order,
+and its reading is the distinct aggregate of the realized occurrences –
+with no condition on the aggregate, which is what the order being a
+function of the values buys. -/
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+theorem zero_boolFunc_eval (v : X → Bool) : (0 : BoolFunc X) v = false := rfl
+
+
+omit [Fintype X] [DecidableEq X] in
+/-- A class sum is realized by a valuation exactly when one of the
+class's occurrences is. -/
+theorem classSum_eval_iff (v : X → Bool) (u : T) :
+    ∀ l : List (T × BoolFunc X),
+      (classSum l u) v = true ↔ ∃ p ∈ l, p.1 = u ∧ p.2 v = true
+  | [] => by
+    constructor
+    · intro h
+      exact absurd h (by simp [classSum, zero_boolFunc_eval])
+    · rintro ⟨p, hp, -⟩; exact absurd hp List.not_mem_nil
+  | (w, α) :: t => by
+    rw [classSum, List.map_cons, List.sum_cons]
+    show ((if w = u then α else 0) v || (classSum t u) v) = true ↔ _
+    rw [Bool.or_eq_true, classSum_eval_iff v u t]
+    constructor
+    · rintro (h | ⟨p, hp, hpu, hpv⟩)
+      · by_cases hw : w = u
+        · exact ⟨(w, α), List.mem_cons_self, hw, by simpa [hw] using h⟩
+        · rw [ite_eq_right hw, zero_boolFunc_eval] at h
+          exact absurd h Bool.false_ne_true
+      · exact ⟨p, List.mem_cons_of_mem _ hp, hpu, hpv⟩
+    · rintro ⟨p, hp, hpu, hpv⟩
+      rcases List.mem_cons.mp hp with rfl | hpt
+      · refine Or.inl ?_
+        rw [ite_eq_left hpu]
+        exact hpv
+      · exact Or.inr ⟨p, hpt, hpu, hpv⟩
+
+
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+private theorem map_fst_filter_map_pair (p : BoolFunc X → Bool)
+    (g : T → BoolFunc X) :
+    ∀ l : List T,
+      (((l.map (fun u => (u, g u))).filter (fun o => p o.snd)).map Prod.fst)
+        = l.filter (fun u => p (g u))
+  | [] => rfl
+  | u :: t => by
+    rw [List.map_cons, List.filter_cons, List.filter_cons]
+    by_cases hu : p (g u) <;>
+      simp [hu, map_fst_filter_map_pair p g t]
+
+theorem nodup_sort_dedup (l : List T) :
+    (Multiset.sort (Multiset.ofList (List.dedup l)) (· ≤ ·)).Nodup :=
+  (Quotient.exact
+    (Multiset.sort_eq (Multiset.ofList (List.dedup l)) (· ≤ ·))).symm.nodup
+      (List.nodup_dedup l)
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A merged token specializes to the distinct aggregate of the
+realized occurrences.** Restricting to a world keeps the classes the
+world holds, in the order the domain gives their values, which is that
+world's own order. -/
+theorem specialize_mergeByValue (a : AggValue T (BoolFunc X)) (v : X → Bool) :
+    (mergeByValue a).specialize (fun α => α v)
+      = a.agg.distinct ((a.occs.filter (fun o => o.snd v)).map Prod.fst) := by
+  show a.agg _ = a.agg _
+  refine congrArg a.agg ?_
+  rw [show (mergeByValue a).occs
+      = (Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
+        (fun u => (u, classSum a.occs u)) from rfl,
+    map_fst_filter_map_pair (fun α => α v) (fun u => classSum a.occs u)]
+  refine List.Perm.eq_of_pairwise' ((Multiset.pairwise_sort _ _).filter _)
+    (Multiset.pairwise_sort _ _) ?_
+  refine (List.perm_ext_iff_of_nodup ((nodup_sort_dedup _).filter _)
+    (nodup_sort_dedup _)).mpr (fun u => ?_)
+  rw [List.mem_filter, Multiset.mem_sort, Multiset.mem_sort,
+        Multiset.mem_coe, Multiset.mem_coe, List.mem_dedup, List.mem_dedup,
+        List.mem_map, List.mem_map]
+  constructor
+  · rintro ⟨-, hq⟩
+    obtain ⟨p, hp, hpu, hpv⟩ := (classSum_eval_iff v u a.occs).mp hq
+    exact ⟨p, List.mem_filter.mpr ⟨hp, hpv⟩, hpu⟩
+  · rintro ⟨p, hp, rfl⟩
+    obtain ⟨hpo, hpv⟩ := List.mem_filter.mp hp
+    exact ⟨⟨p, hpo, rfl⟩,
+      (classSum_eval_iff v p.fst a.occs).mpr ⟨p, hpo, rfl, hpv⟩⟩
+
 /-- **The token-level PQE bridge.** Under a valuation `v`, the predicate
 provenance of `⟨token⟩ op c` is true iff the token's realized group is
 non-empty and its specialized aggregate value satisfies the comparison.
