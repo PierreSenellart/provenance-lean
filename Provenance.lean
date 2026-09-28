@@ -589,10 +589,14 @@ proven engine several general results reuse internally.
   `array_agg(DISTINCT t ORDER BY u)` is rejected – and it makes
   `distinct_symmetric` hold of every aggregate.
   The `DISTINCT` of a *window* aggregate is not among them: it merges
-  the occurrences of a frame by value (`AggValue.mergeByValue`, with
-  `mergeOccs_congr` and `mergeOccs_map` for the metatheorems), which no
-  reading of a token recovers and which the window operator does not
-  yet carry
+  the occurrences of a frame by value (`AggValue.mergeByValue`: one
+  occurrence per class carrying the `⊕` of its members, the classes in
+  the domain's order, with `classSum`, `mergeByValue_map` and
+  `mergeByValue_congr` for the metatheorems), which no reading of a
+  token recovers and which the window operator does not yet carry.
+  Reading the classes in the domain's order is what makes the merged
+  token world-faithful with no condition on the aggregate: that order
+  restricted to the classes a world holds is the world's own order
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate

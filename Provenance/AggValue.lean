@@ -107,89 +107,75 @@ is a transformation of the occurrence payload, and it has to be decided
 where the token is built: no reading of a token recovers it, the
 deterministic reading having already collapsed the sequence.
 
-The operator that would carry it is not here yet. Over the whole
-relation the merged reading and `SeqAggFunc.distinct` agree
-(`collapse_mergeByValue`), but *in a world* they need not: the merged
-token orders the classes as the whole frame orders them – by each
-class's last occurrence – while the distinct reading of a world dedups
-that world's own sequence, and the two orders differ once a value's
-last occurrence is absent from the world. They agree for a symmetric
-aggregate, so a `DISTINCT` window is world-faithful exactly there, and
-that is a condition the operator will have to carry. -/
+The classes are read in the order the domain gives their values, which
+is what makes the reading a function of the values and not of the input
+sequence: deduplication leaves one value per class and not a sequence,
+so nothing else could fix the order, and an order-dependent aggregate
+would otherwise read one the query does not determine. SQL draws the
+line in the same place, rejecting an `ORDER BY` inside a `DISTINCT`
+aggregate unless it appears in the argument list.
 
-/-- Merge the occurrences of equal value, summing their annotations and
-keeping one occurrence per value. The convention is `List.dedup`'s: the
-*last* occurrence of a value is the one kept, so that the values of the
-merged list are the deduplicated values of the original
-(`map_fst_mergeOccs`). -/
-def mergeOccs [ValueType T] [Add K] : List (T × K) → List (T × K)
-  | [] => []
-  | (v, α) :: t =>
-      if v ∈ t.map Prod.fst then
-        (mergeOccs t).map (fun p => if p.1 = v then (p.1, α + p.2) else p)
-      else (v, α) :: mergeOccs t
+It is also what makes the reading world by world sound with no
+condition on the aggregate: the domain's order restricted to the
+classes a world holds is that world's own order, an order being stable
+under passing to a subsequence. The operator that carries the flag is
+not here yet. -/
 
-@[simp] theorem map_fst_mergeOccs [ValueType T] [Add K] :
-    ∀ l : List (T × K), (mergeOccs l).map Prod.fst = (l.map Prod.fst).dedup
-  | [] => rfl
-  | (v, α) :: t => by
-    rw [mergeOccs, List.map_cons, List.dedup_cons]
-    by_cases h : v ∈ t.map Prod.fst
-    · rw [ite_eq_left h, ite_eq_left h, List.map_map]
-      rw [show (Prod.fst ∘ fun p : T × K => if p.1 = v then (p.1, α + p.2) else p)
-          = Prod.fst from funext (fun p => by by_cases hp : p.1 = v <;> simp [hp])]
-      exact map_fst_mergeOccs t
-    · rw [ite_eq_right h, ite_eq_right h, List.map_cons]
-      exact congrArg _ (map_fst_mergeOccs t)
+/-- The `⊕` of the annotations of the occurrences of one value: the
+annotation its class carries once the occurrences of equal value are
+merged. -/
+def classSum [ValueType T] [AddCommMonoid K] (l : List (T × K)) (v : T) : K :=
+  (l.map (fun p => if p.1 = v then p.2 else 0)).sum
 
-@[simp] theorem map_fst_map_snd [Add K] {K' : Type} (h : K → K')
-    (l : List (T × K)) :
-    ((l.map (fun p => (p.1, h p.2))).map Prod.fst) = l.map Prod.fst := by
+theorem classSum_perm [ValueType T] [AddCommMonoid K] {l l' : List (T × K)}
+    (h : l.Perm l') (v : T) : classSum l v = classSum l' v :=
+  (h.map _).sum_eq
+
+/-- A class sum commutes with a pushforward of the annotations. -/
+theorem classSum_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+    [AddCommMonoid K'']
+    (h : K →+ K'') (l : List (T × K)) (v : T) :
+    classSum (l.map (fun p => (p.1, h p.2))) v = h (classSum l v) := by
+  unfold classSum
+  rw [map_list_sum h, List.map_map, List.map_map]
+  refine congrArg List.sum (List.map_congr_left (fun p _ => ?_))
+  by_cases hp : p.1 = v <;> simp [hp]
+
+/-- **A token read over its distinct values**: one occurrence per class
+of equal values, carrying the `⊕` of the class's annotations, the
+classes read in the order the domain gives their values. This is what a
+`DISTINCT` window aggregate reads, and the order being a function of the
+values is what makes it a reading rather than a choice – so nothing is
+asked of the aggregate, and in particular not symmetry. -/
+def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
+    AggValue T K :=
+  ⟨a.agg,
+    (Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
+      (fun v => (v, classSum a.occs v)),
+    a.scalar⟩
+
+@[simp] theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
+    (a : AggValue T K) : (mergeByValue a).agg = a.agg := rfl
+
+@[simp] theorem scalar_mergeByValue [ValueType T] [AddCommMonoid K]
+    (a : AggValue T K) : (mergeByValue a).scalar = a.scalar := rfl
+
+@[simp] theorem map_fst_mergeByValue [ValueType T] [AddCommMonoid K]
+    (a : AggValue T K) :
+    (mergeByValue a).occs.map Prod.fst
+      = Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·) := by
+  unfold mergeByValue
   rw [List.map_map]
-  rfl
-
-/-- **The merge commutes with a pushforward of the annotations**, the
-classes being determined by the values and an additive map carrying the
-sum of a class to the sum of its images. -/
-theorem mergeOccs_map [ValueType T] [Add K] {K' : Type} [Add K'] (h : K → K')
-    (hadd : ∀ x y : K, h (x + y) = h x + h y) :
-    ∀ l : List (T × K),
-      mergeOccs (l.map (fun p => (p.1, h p.2)))
-        = (mergeOccs l).map (fun p => (p.1, h p.2))
-  | [] => rfl
-  | (v, α) :: t => by
-    rw [List.map_cons, mergeOccs, mergeOccs, map_fst_map_snd]
-    by_cases hv : v ∈ t.map Prod.fst
-    · rw [ite_eq_left hv, ite_eq_left hv, mergeOccs_map h hadd t,
-        List.map_map, List.map_map]
-      refine congrArg (fun g => List.map g (mergeOccs t)) (funext fun p => ?_)
-      by_cases hp : p.1 = v <;> simp [hp, hadd]
-    · rw [ite_eq_right hv, ite_eq_right hv, List.map_cons,
-        mergeOccs_map h hadd t]
-
-/-- **A token read over its distinct values**: the same aggregate, with
-the occurrences of equal value merged into one carrying the `⊕` of their
-annotations. This is what a `DISTINCT` window aggregate reads – one
-occurrence per class of the frame, annotated by the sum of its
-members. -/
-def mergeByValue [ValueType T] [Add K] (a : AggValue T K) : AggValue T K :=
-  ⟨a.agg, mergeOccs a.occs, a.scalar⟩
-
-@[simp] theorem scalar_mergeByValue [ValueType T] [Add K] (a : AggValue T K) :
-    (mergeByValue a).scalar = a.scalar := rfl
+  exact List.map_id' _
 
 /-- **The merged token reads the distinct values.** Its deterministic
-reading is the aggregate over the deduplicated value sequence.
-
-It is the *deduplicated* sequence and not the sorted one, which is what
-`SeqAggFunc.distinct` reads: the two differ only in the order of the
-classes, and agree for every aggregate that reads its input as a
-multiset. Making the merge sort its classes – so that the order is a
-function of the values, as SQL requires of a `DISTINCT` aggregate – is
-what would remove that gap. -/
-theorem collapse_mergeByValue [ValueType T] [Add K] (a : AggValue T K) :
-    (mergeByValue a).collapse = a.agg ((a.occs.map Prod.fst).dedup) := by
-  rw [collapse, mergeByValue, map_fst_mergeOccs]
+reading is `SeqAggFunc.distinct` of the original: the aggregate over the
+distinct values in the domain's order. -/
+theorem collapse_mergeByValue [ValueType T] [AddCommMonoid K]
+    (a : AggValue T K) :
+    (mergeByValue a).collapse = a.agg.distinct (a.occs.map Prod.fst) := by
+  rw [collapse, agg_mergeByValue, map_fst_mergeByValue]
+  rfl
 
 /-- **A symmetric aggregate reads its token as a multiset**: two tokens
 with the same aggregate and the same occurrences in a different order
@@ -212,6 +198,21 @@ def specialize (a : AggValue T K) (ν : K → Bool) : T :=
 values are untouched. -/
 def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
   ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar⟩
+
+/-- **The merge commutes with a pushforward of the annotations.** -/
+theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+    [AddCommMonoid K''] (h : K →+ K'') (a : AggValue T K) :
+    mergeByValue (a.mapAnn h) = (mergeByValue a).mapAnn h := by
+  unfold mergeByValue mapAnn
+  simp only [AggValue.mk.injEq, true_and, and_true]
+  show List.map _ (Multiset.sort ((List.map Prod.fst
+      (List.map (fun o => (o.fst, h o.snd)) a.occs)).dedup : Multiset T) _) = _
+  rw [List.map_map]
+  show List.map _ (Multiset.sort ((List.map Prod.fst a.occs).dedup : Multiset T) _)
+    = List.map _ (List.map _ _)
+  rw [List.map_map]
+  exact List.map_congr_left (fun v _ =>
+    Prod.ext rfl (classSum_map h a.occs v))
 
 /-- **Predicate provenance of an atomic comparison against a token**: the
 `⊕`-sum, over the non-empty possible worlds of the token's group, of the
