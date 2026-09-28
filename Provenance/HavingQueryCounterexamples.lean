@@ -237,7 +237,14 @@ def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true⟩
 
 /-- **A range test on one token is not the sum over the worlds in the
 range.** The product of the two one-sided provenances is `4`, and the
-joint sum is `2`. -/
+joint sum is `2`.
+
+It is also the instance for **two spellings of one selection**: a chain
+`σ_{ψ₁}(σ_{ψ₂}(q))` multiplies the two predicates' provenances, while
+`σ_{ψ₁ ∧ ψ₂}(q)` reads the conjunction jointly, one sum over the
+family. The structural rule makes the two agree (`predsem_and`); the
+joint reading does not, so the two spellings of what a SQL user would
+call one query part here – `4` against `2`. -/
 theorem natRangeToken_mul_ne_and :
     natRangeToken.predProvOf CompOp.gt 0
         * natRangeToken.predProvOf CompOp.le 1
@@ -434,6 +441,14 @@ def testNe : ℕ → Kleene := fun v => CompOp.ne.eval3 v 0
 /-- `count = 5`, false on every world of a one-occurrence family. -/
 def testEq : ℕ → Kleene := fun v => CompOp.eq.eval3 v 5
 
+/-- **The `⊕` claims a provenance for a tuple that is in no world.**
+The second family is absent – its one occurrence is annotated `𝟘` – so
+every world of the union that meets it carries `𝟘` and the joint
+reading is `⊥`, while the structural `⊕` takes the first side's own sum
+and gives `⊤`. A tuple carrying both aggregate columns comes from a
+join of two groupings and does not exist when one group is empty, so
+`⊥` is the right answer and the `⊕` is wrong rather than merely
+different. -/
 theorem bool_or_ne_joint :
     boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq
       ≠ Having.jointOr boolTokenT boolTokenF testNe testEq := by decide

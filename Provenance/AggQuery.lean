@@ -385,6 +385,35 @@ def predsem (φ : GenPredIn T c κ) (neg : Bool)
       else φ.predsem neg u γ + ψ.predsem neg u γ
   | not φ => φ.predsem (!neg) u γ
 
+omit [HasAltLinearOrder K] in
+/-- **The structural rule makes a chain of selections and one selection
+on the conjunction agree.** `Sel ψ₁ (Sel ψ₂ q)` multiplies the two
+predicates' structural provenances into the row's concrete part one
+after the other, and `Sel (ψ₁ ∧ ψ₂) q` multiplies their product in one
+go, so in a commutative `K` the two spellings give the same concrete
+part. Under the joint reading they need not: there the conjunction is
+one sum over the worlds of the union while the chain is still a
+product, so the two spellings agree exactly where the conjunction
+decomposes (`Having.sum_mul_sum_of_overlap`) and part where it does
+not – over `ℕ` on a single family, `4` against `2`
+(`natRangeToken_mul_ne_and`). Whether a chain of selections over one
+family is read as one predicate is therefore not a free choice once the
+joint reading is the definition: it is the same question as whether the
+decomposition is licensed. -/
+theorem predsem_and (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
+    (γ : Fin c → T) :
+    (GenPredIn.and φ ψ).predsem false u γ
+      = φ.predsem false u γ * ψ.predsem false u γ := rfl
+
+omit [HasAltLinearOrder K] in
+/-- The disjunction's structural rule, named rather than unfolded for
+the same reason: it is `⊕`, and `bool_or_ne_joint` and `nat_or_ne_joint`
+say it is not the joint reading. -/
+theorem predsem_or (φ ψ : GenPredIn T c κ) (u : Tuple (GenValue T K) n)
+    (γ : Fin c → T) :
+    (GenPredIn.or φ ψ).predsem false u γ
+      = φ.predsem false u γ + ψ.predsem false u γ := rfl
+
 /-- The token columns compared by the predicate's aggregate atoms. -/
 def comparedCols : GenPredIn T c κ → Finset (Fin n)
   | cmp _ _ _ => ∅
