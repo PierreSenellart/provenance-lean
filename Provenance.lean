@@ -364,6 +364,28 @@ proven engine several general results reuse internally.
   projections cash the factors of dropped token columns. Also the plain
   evaluator `AggQuery.evaluatePlain` (classical filtering, aggregates
   computed over the whole group) and the stripping `AggQuery.stripAgg`.
+  The two **recursions** `Mu` (SQL's `WITH RECURSIVE … UNION ALL`) and
+  `MuSet` (`… UNION`) bind a relation name to the previous round –
+  `AnnotatedDatabase.assign`, a cons, since a database is searched front
+  to back – and iterate: `Mu` sums its rounds, `MuSet` runs the fixpoint
+  iteration of `ε(q₀ ⊎ q₁)`. The semantics' operators are partial,
+  defined where some round is empty or the iteration stabilizes, which a
+  total evaluator cannot decide, so the number of rounds is in the
+  syntax and `AggQuery.evaluate_Mu_eq_of_le` and
+  `evaluate_MuSet_eq_of_le` say the bound drops out past that round: on
+  the fragment where the semantics is defined, the bound is not part of
+  what the query means. That `⨄_{i≥0} Mᵢ` is a relation at all needs an
+  empty round to be a fixpoint of the round function, which SQL buys by
+  requiring the recursive reference to occur in the body and the bare
+  syntax does not, so it is the hypothesis `step 0 = 0` where it is
+  used. The rounds carry their own lemmas (`muSum`, `muIter`,
+  `muSum_map`, `muIter_map`, `muSum_congr`, `muIter_congr`), which is
+  what carries adequacy, the random-world commutation and the
+  homomorphism through them round by round. Recursion is outside the
+  (R1)–(R5) rewriting fragment (`AggQuery.classical`): a rewritten body
+  carries the provenance column, so the bound name would have to be
+  bound to the rewritten relation and the fixpoint would be over another
+  schema.
   A projection column may also *compute* over one aggregate column
   (`ProjCol.aggTerm`), which produces an aggregate column again – the
   unary aggregate expression of `Provenance.AggExpr` – and is what
@@ -968,6 +990,23 @@ proven engine several general results reuse internally.
   omitting one of them is killed by the monus – neither the `⊕`-sum `3`
   that the absorptive collapse gives nor the indicator reading `𝟙`
   (`natCountToken_ne_sum`, `natCountToken_ne_delta`).
+  The `∨` rule is witnessed not to be a decomposition of the one sum over
+  the union of the disjuncts' families, in `𝔹` and in `ℕ`
+  (`bool_or_ne_joint`, `nat_or_ne_joint`), the `𝔹` instance closing at
+  row level where the `ℕ` one does not. Beside them, `joint2` and
+  `joint3` are the one-sum readings over two and three families, and:
+  the two alternatives of a *Boolean* aggregate column overcount – over
+  `ℕ` they carry `2` where the worlds of the two families together carry
+  `𝟙`, which is what every non-Boolean column's alternatives carry
+  (`nat_or_alternatives_ne_support`); a searched `CASE` splits into its
+  branches without double counting, since the guards exclude each other,
+  in every m-semiring and with no hypothesis on it
+  (`Having.joint2_branch_split`), the second branch's guard being the
+  test that the first is *not true* and not its negation, which would be
+  `𝟘` where the guard is unknown; but the split parts from the one sum
+  over the union as soon as two branches read different families, with
+  no disjunction anywhere in the query (`natCase_ne`, `1` against `2`
+  over `ℕ`).
 - `Provenance.Tseitin` – the Tseitin CNF transformation encoding a
   circuit as an equisatisfiable CNF over `X ⊕ Circuit X`. Provides
   syntactic `Literal` / `Clause` / `CNF` types, the Tseitin encoder,

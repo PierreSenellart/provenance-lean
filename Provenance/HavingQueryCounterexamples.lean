@@ -327,14 +327,62 @@ variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 must meet each grouped family, weighted by whether either condition
 holds there. The annotation of such a world is the product of the two
 halves' (`Having.worldAnn_split`, under `complemented`). -/
-def jointOr (a b : AggValue T K) (P Q : T → Kleene) : K :=
+def joint2 (a b : AggValue T K) (χ : T → T → Kleene) : K :=
   ∑ W₁ ∈ Finset.univ.filter
       (fun W : Finset (Fin a.occs.length) => W.Nonempty),
     ∑ W₂ ∈ Finset.univ.filter
         (fun W : Finset (Fin b.occs.length) => W.Nonempty),
       Having.worldAnn a.anns W₁ * Having.worldAnn b.anns W₂
-        * (if ((P (a.valOn W₁)).or (Q (b.valOn W₂))) = Kleene.true
-            then 1 else 0)
+        * (if χ (a.valOn W₁) (b.valOn W₂) = Kleene.true then 1 else 0)
+
+/-- The joint reading of a disjunction of two conditions reading two
+*disjoint* families. -/
+def jointOr (a b : AggValue T K) (P Q : T → Kleene) : K :=
+  joint2 a b (fun x y => (P x).or (Q y))
+
+/-- The joint reading of an atom over three families: one `⊕`-sum over
+the worlds of the union, each of which meets all three. -/
+def joint3 (a b c : AggValue T K) (χ : T → T → T → Kleene) : K :=
+  ∑ W₁ ∈ Finset.univ.filter
+      (fun W : Finset (Fin a.occs.length) => W.Nonempty),
+    ∑ W₂ ∈ Finset.univ.filter
+        (fun W : Finset (Fin b.occs.length) => W.Nonempty),
+      ∑ W₃ ∈ Finset.univ.filter
+          (fun W : Finset (Fin c.occs.length) => W.Nonempty),
+        Having.worldAnn a.anns W₁ * Having.worldAnn b.anns W₂
+            * Having.worldAnn c.anns W₃
+          * (if χ (a.valOn W₁) (b.valOn W₂) (c.valOn W₃) = Kleene.true
+              then 1 else 0)
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The branches of a conditional exclude each other.** Read world by
+world, a two-branch case split is the one sum: in each world the guard
+either holds or does not, so exactly one branch fires and the `⊕` counts
+it once. No property of the m-semiring is used – and the guard of the
+second branch is the test that the first is *not true*, not its
+negation, which would be `𝟘` in a world where the guard is unknown and
+leave that world satisfying neither branch, while SQL falls through.
+
+What the statement needs is that the branches read *one* family. Where
+they read different ones the case split and the one sum over the union
+part (`natCase_ne`). -/
+theorem joint2_branch_split (a b : AggValue T K) (P : T → Kleene)
+    (χ₁ χ₂ : T → T → Kleene) :
+    joint2 a b (fun x y => if P x = Kleene.true then χ₁ x y else χ₂ x y)
+      = joint2 a b (fun x y => (P x).and (χ₁ x y))
+        + joint2 a b
+            (fun x y => (Kleene.ofBool (!(P x).isTrue)).and (χ₂ x y)) := by
+  unfold joint2
+  rw [← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl (fun W₁ _ => ?_)
+  rw [← Finset.sum_add_distrib]
+  refine Finset.sum_congr rfl (fun W₂ _ => ?_)
+  rw [← mul_add]
+  refine congrArg _ ?_
+  cases hP : P (a.valOn W₁) <;>
+    cases h₁ : χ₁ (a.valOn W₁) (b.valOn W₂) <;>
+    cases h₂ : χ₂ (a.valOn W₁) (b.valOn W₂) <;>
+    simp [hP, h₁, h₂, Kleene.and, Kleene.ofBool, Kleene.isTrue]
 
 end Having
 
@@ -398,3 +446,99 @@ theorem nat_or_joint :
 theorem nat_or_ne_joint :
     natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2
       ≠ Having.jointOr natTokenOne natTokenTwo testGe1 testGe2 := by decide
+
+/-! ### Two alternatives of a Boolean aggregate column
+
+A Boolean combination of aggregate comparisons need not be written as a
+predicate: SQL lets it be the value of a column, and an enclosing block
+then reads that column through the atom `flag = true` – as a filter, or
+as a key. Read structurally, the `true` alternative is the `⊕` of the
+disjuncts and the `false` one the `⊗` of their negations, a conjunction
+over disjoint families which decomposes under `complemented` alone.
+
+The two alternatives of one occurrence do not then partition the worlds
+of the families the column reads. Over `ℕ`, with both disjuncts
+satisfied on two families each annotated `𝟙`, they carry `2 ⊕ 𝟘 = 2`,
+where the worlds of the two families together carry `𝟙` – which is what
+every *non*-Boolean column's alternatives carry, and what `δ` of the
+support is. The excess is the worlds where both disjuncts hold, counted
+once per disjunct. -/
+
+/-- `count < 1`, the negation of `testGe1`, satisfied by no world of a
+one-occurrence family. -/
+def testLt1 : ℕ → Kleene := fun v => CompOp.lt.eval3 v 1
+
+theorem nat_or_both_per_atom :
+    natTokenOne.predProvWith testGe1 + natTokenOne.predProvWith testGe1
+      = 2 := by decide
+
+theorem nat_or_both_joint :
+    Having.jointOr natTokenOne natTokenOne testGe1 testGe1 = 1 := by decide
+
+/-- The `false` alternative of the same column is `𝟘` here: neither
+disjunct fails. -/
+theorem nat_or_false_alt :
+    natTokenOne.predProvWith testLt1 * natTokenOne.predProvWith testLt1
+      = 0 := by decide
+
+/-- What the worlds of the two families together carry, which is what a
+non-Boolean column's alternatives sum to. -/
+theorem nat_or_support :
+    Having.joint2 natTokenOne natTokenOne (fun _ _ => Kleene.true) = 1 := by
+  decide
+
+/-- **The alternatives of a Boolean aggregate column overcount.** -/
+theorem nat_or_alternatives_ne_support :
+    (natTokenOne.predProvWith testGe1 + natTokenOne.predProvWith testGe1)
+        + natTokenOne.predProvWith testLt1 * natTokenOne.predProvWith testLt1
+      ≠ Having.joint2 natTokenOne natTokenOne (fun _ _ => Kleene.true) := by
+  decide
+
+/-! ### A conditional whose branches read different families
+
+SQL's searched `CASE` puts a Boolean combination inside a term and a
+value comes out, so the atom `CASE … END = v` is the disjunction of the
+branches, `ψ̄₁ ∧ … ∧ ψ̄ⱼ₋₁ ∧ ψⱼ ∧ eⱼ ≐ v`, with `ψ̄` the test that `ψ` is
+not *true* and not its negation – a negated comparison is `𝟘` where the
+comparison is unknown, which would leave such a world satisfying no
+branch at all, while SQL falls through to the next one.
+
+The branch guards exclude each other, so the `⊕` over the branches
+counts no world twice: that is `Having.joint2_branch_split`, which holds
+in every m-semiring and asks nothing of it. What it needs is that the
+branches read *one* family. As soon as two branches read aggregates
+over different occurrence sequences, the case split and the one sum over
+the union of all the families part, with no disjunction anywhere in the
+query: the union charges the branch that fires for the family the other
+branch would have read. -/
+
+/-- `count = 1`, satisfied by the world of a one-occurrence family. -/
+def testEq1 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 1
+
+/-- The case split of `CASE WHEN c ≥ 1 THEN d ELSE e END ≐ 1`, with `c`
+and `d` annotated `𝟙` and `e` – read by no world, the guard holding –
+annotated `2`. Only the first branch fires. -/
+theorem natCase_split :
+    Having.joint2 natTokenOne natTokenOne
+        (fun x y => (testGe1 x).and (testEq1 y))
+      + Having.joint2 natTokenOne natTokenTwo
+        (fun x y => (Kleene.ofBool (!(testGe1 x).isTrue)).and (testEq1 y))
+      = 1 := by decide
+
+/-- The one sum over the union of all three families charges the world
+for `e` as well. -/
+theorem natCase_joint :
+    Having.joint3 natTokenOne natTokenOne natTokenTwo
+        (fun x y z => testEq1 (if testGe1 x = Kleene.true then y else z))
+      = 2 := by decide
+
+/-- **A conditional parts the two readings with no disjunction in the
+query**, as soon as its branches read different families. -/
+theorem natCase_ne :
+    Having.joint2 natTokenOne natTokenOne
+          (fun x y => (testGe1 x).and (testEq1 y))
+        + Having.joint2 natTokenOne natTokenTwo
+          (fun x y => (Kleene.ofBool (!(testGe1 x).isTrue)).and (testEq1 y))
+      ≠ Having.joint3 natTokenOne natTokenOne natTokenTwo
+          (fun x y z => testEq1 (if testGe1 x = Kleene.true then y else z)) := by
+  decide
