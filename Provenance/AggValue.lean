@@ -179,14 +179,17 @@ def mergeByValue [ValueType T] [Add K] (a : AggValue T K) : AggValue T K :=
     (mergeByValue a).scalar = a.scalar := rfl
 
 /-- **The merged token reads the distinct values.** Its deterministic
-reading is the aggregate over the deduplicated value sequence, which is
-`SeqAggFunc.distinct` of the original – so a window that merges its
-frame by value agrees, over plain relations, with the same window under
-the distinct aggregate. -/
+reading is the aggregate over the deduplicated value sequence.
+
+It is the *deduplicated* sequence and not the sorted one, which is what
+`SeqAggFunc.distinct` reads: the two differ only in the order of the
+classes, and agree for every aggregate that reads its input as a
+multiset. Making the merge sort its classes – so that the order is a
+function of the values, as SQL requires of a `DISTINCT` aggregate – is
+what would remove that gap. -/
 theorem collapse_mergeByValue [ValueType T] [Add K] (a : AggValue T K) :
-    (mergeByValue a).collapse = a.agg.distinct (a.occs.map Prod.fst) := by
+    (mergeByValue a).collapse = a.agg ((a.occs.map Prod.fst).dedup) := by
   rw [collapse, mergeByValue, map_fst_mergeOccs]
-  rfl
 
 /-- **A symmetric aggregate reads its token as a multiset**: two tokens
 with the same aggregate and the same occurrences in a different order

@@ -582,9 +582,17 @@ proven engine several general results reuse internally.
   value by the `⊕` of the occurrences it stands for;
   `evaluatePlain_gammaDistinct` reads them over plain relations as the
   aggregate over the distinct values (`SeqAggFunc.distinct`), for a
-  symmetric aggregate. The `DISTINCT` of a *window* aggregate is not
-  among them: it would merge the occurrences of a frame by value in
-  place, which the window operator does not do
+  symmetric aggregate. `distinct` reads the distinct values *sorted*:
+  deduplication leaves one value per class and not a sequence, so
+  nothing but the values can fix the order, which is SQL's own rule –
+  `array_agg(DISTINCT t)` is legal and ordered by the values, while
+  `array_agg(DISTINCT t ORDER BY u)` is rejected – and it makes
+  `distinct_symmetric` hold of every aggregate.
+  The `DISTINCT` of a *window* aggregate is not among them: it merges
+  the occurrences of a frame by value (`AggValue.mergeByValue`, with
+  `mergeOccs_congr` and `mergeOccs_map` for the metatheorems), which no
+  reading of a token recovers and which the window operator does not
+  yet carry
 - `Provenance.DerivedAnn` – **what the derived operators annotate**, which
   is what the choice of each definition is answerable for. `annSum` is the
   `⊕`-sum of the annotations a query gives one tuple, what duplicate

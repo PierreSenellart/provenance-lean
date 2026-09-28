@@ -581,12 +581,29 @@ grouped `DISTINCT` aggregate is not this transformer but the abbreviation
 `AggQueryIn.gammaDistinct`, which deduplicates the rows first, so that each
 distinct value is one occurrence annotated by the `⊕` of the occurrences it
 stands for. -/
-def distinct (f : SeqAggFunc T) : SeqAggFunc T := fun L => f L.dedup
+def distinct (f : SeqAggFunc T) : SeqAggFunc T :=
+  fun L => f (Multiset.sort (L.dedup : Multiset T) (· ≤ ·))
 
-/-- Reading the distinct values keeps an aggregate symmetric: permuting a
-sequence permutes its distinct values. -/
-theorem distinct_symmetric {f : SeqAggFunc T} (hf : f.Symmetric) :
-    f.distinct.Symmetric := fun hp => hf hp.dedup
+/-- **A distinct aggregate reads its input as a multiset**, whatever the
+aggregate: what deduplication leaves is one value per class and not a
+sequence, so nothing but the values can fix the order, and the domain's
+order fixes it. This is SQL's own rule – `array_agg(DISTINCT t)` is
+legal and ordered by the values, while `array_agg(DISTINCT t ORDER BY
+u)` is rejected – and it is why `distinct` needs no hypothesis on `f`
+where a dedup-order reading would have needed symmetry. -/
+theorem distinct_symmetric (f : SeqAggFunc T) : f.distinct.Symmetric := by
+  intro L L' hp
+  show f (Multiset.sort _ (· ≤ ·)) = f (Multiset.sort _ (· ≤ ·))
+  exact congrArg f (congrArg (fun s => Multiset.sort s (· ≤ ·))
+    (Quot.sound hp.dedup))
+
+/-- **Any enumeration of the distinct values gives the distinct
+aggregate its value**, for a symmetric aggregate: what the order is
+fixed by does not matter once the aggregate does not read it. -/
+theorem distinct_eq_of_perm {f : SeqAggFunc T} (hf : f.Symmetric)
+    {L L' : List T} (h : L'.Perm L.dedup) : f.distinct L = f L' :=
+  hf ((Quotient.exact (Multiset.sort_eq (L.dedup : Multiset T) (· ≤ ·))).trans
+    h.symm)
 
 section MinMax
 

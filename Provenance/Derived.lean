@@ -1129,9 +1129,8 @@ theorem evaluatePlain_gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
   refine congrArg (Fin.append g) (funext fun j => ?_)
   obtain rfl : j = 0 := Fin.fin_one_eq_zero j
   simp only [Matrix.cons_val_zero]
-  show f (List.map (fun v : Tuple T (n₁ + 1) => v (Fin.last n₁)) _)
-    = f (List.map (fun v : Tuple T m => t.eval v γ) _).dedup
-  exact hf (groupSeq_distinctRow_perm is t _ g)
+  exact (SeqAggFunc.distinct_eq_of_perm hf
+    (groupSeq_distinctRow_perm is t _ g)).symm
 
 /-- **A `DISTINCT` aggregate without grouping**: the same abbreviation
 with no key column, so that the deduplication is that of the values of
@@ -1157,9 +1156,8 @@ theorem evaluatePlain_gammaScalarDistinct (t : TermIn T c m)
   refine congrArg (fun u => (Multiset.ofList [u] : Relation T 1)) (funext fun j => ?_)
   obtain rfl : j = 0 := Fin.fin_one_eq_zero j
   simp only [Matrix.cons_val_zero]
-  show f (List.map (fun v : Tuple T (0 + 1) => v (Fin.last 0)) _)
-    = f (List.map (fun v : Tuple T m => t.eval v γ) _).dedup
-  exact hf (groupSeq_distinctRow_perm _ t _ _)
+  exact (SeqAggFunc.distinct_eq_of_perm hf
+    (groupSeq_distinctRow_perm _ t _ _)).symm
 
 end Distinct
 
