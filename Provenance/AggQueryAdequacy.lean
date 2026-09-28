@@ -333,6 +333,48 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
         (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
     rw [map_fst_groupByKey, Multiset.map_map]
     rfl
+  | Mu b s q₀ q₁ ih₀ ih₁ =>
+    intro d γ
+    rw [hplain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
+      AggQueryIn.evaluatePlain]
+    rw [Multiset.map_map]
+    refine Eq.trans (Multiset.map_congr rfl
+      (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
+    refine Eq.trans (muSum_map (h := Multiset.map Prod.fst)
+      (fun x y => Multiset.map_add _ x y)
+      (stepP := fun X => q₁.stripAgg.evaluatePlain (d.toPlain.assign s X) γ)
+      (fun X => ih₁ (d.assign s X)) b _) ?_
+    rw [show (Multiset.map Prod.fst
+        ((q₀.evaluate d γ).map GenRow.toAnnotated) : Multiset (Tuple T _))
+      = q₀.stripAgg.evaluatePlain d.toPlain γ from by
+        rw [← ih₀ d]; rfl]
+  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+    intro d γ
+    rw [hplain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
+      AggQueryIn.evaluatePlain]
+    rw [Multiset.map_map]
+    refine Eq.trans (Multiset.map_congr rfl
+      (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
+    refine muIter_map (h := Multiset.map Prod.fst) (Multiset.map_zero _)
+      (stepP := fun X => (q₀.stripAgg.evaluatePlain (d.toPlain.assign s X) γ
+        + q₁.stripAgg.evaluatePlain (d.toPlain.assign s X) γ).dedup)
+      (fun X => ?_) b
+    have h₀ : Multiset.map Prod.fst
+          (Multiset.map GenRow.toAnnotated (q₀.evaluate (d.assign s X) γ))
+        = q₀.stripAgg.evaluatePlain
+            (d.toPlain.assign s (Multiset.map Prod.fst X)) γ :=
+      ih₀ (d.assign s X)
+    have h₁ : Multiset.map Prod.fst
+          (Multiset.map GenRow.toAnnotated (q₁.evaluate (d.assign s X) γ))
+        = q₁.stripAgg.evaluatePlain
+            (d.toPlain.assign s (Multiset.map Prod.fst X)) γ :=
+      ih₁ (d.assign s X)
+    show Multiset.map Prod.fst
+        (AnnotatedRelation.dedupAnn (_ + _)) = _
+    rw [AnnotatedRelation.dedupAnn, map_fst_groupByKey, Multiset.map_add,
+      h₀, h₁]
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d γ
     rw [hplain]

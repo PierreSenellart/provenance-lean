@@ -272,6 +272,27 @@ def Database.find (n: ℕ) (s: String) (d: Database T) : Option (Relation T n) :
   | (s',rn)::tl => if h: n = rn.fst ∧ s=s' then some (Eq.mp (by rw[h.left]) rn.snd) else f tl
   f d
 
+/-- **Binding a relation name**, the `I[R ↦ M]` of a recursion's rounds.
+A database is searched front to back, so a binding is a cons: it shadows
+whatever the name had, and nothing else moves. -/
+def Database.assign (s : String) {k : ℕ} (X : Relation T k)
+    (d : Database T) : Database T := (s, ⟨k, X⟩) :: d
+
+omit [ValueType T] in
+@[simp] theorem Database.find_assign (s : String) {k : ℕ} (X : Relation T k)
+    (d : Database T) : (d.assign s X).find k s = some X := by
+  show (if h : k = k ∧ s = s then _ else _) = _
+  rw [dite_eq_left ⟨rfl, rfl⟩]
+  rfl
+
+omit [ValueType T] in
+theorem Database.find_assign_of_ne (s s' : String) {k k' : ℕ}
+    (X : Relation T k) (d : Database T) (h : ¬(k' = k ∧ s' = s)) :
+    (d.assign s X).find k' s' = d.find k' s' := by
+  show (if h : k' = k ∧ s' = s then _ else _) = _
+  rw [dite_eq_right h]
+  rfl
+
 def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Pairwise (· ≤ ·) l}) :
     {l : List α // List.Pairwise (· ≤ ·) l} :=
   ⟨l.val.orderedInsert (· ≤ ·) x, List.Pairwise.orderedInsert x l.val l.property⟩

@@ -481,6 +481,37 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   /-- Difference – all-regular only. -/
   | Diff : {c n : ℕ} → AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n) → AggQueryIn T c n (ColKind.allReg n)
+  /-- **Recursion with duplicate-preserving rounds**: SQL's
+  `WITH RECURSIVE … UNION ALL`. The relation name `s` of arity `n` is
+  bound to the previous round inside `q₁`, so the rounds are
+  `M₀ = ⟦q₀⟧` and `M_{i+1} = ⟦q₁⟧_{d[s ↦ Mᵢ]}`, and the query is their
+  multiset sum.
+
+  The operator of the semantics is *partial*: it is defined where some
+  round is empty, which is where SQL's own iteration ends. A total
+  evaluator cannot decide that, so the number of rounds is in the
+  syntax – `Mu b` sums the rounds up to `b`. Where some round `i ≤ b` is
+  empty this is the semantics' `⨄_{i≥0} Mᵢ`, and then it does not depend
+  on `b` (`AggQueryIn.evaluate_Mu_eq_of_le`); where no round is empty,
+  `Mu b` says what SQL says after `b` rounds and the semantics' operator
+  says nothing. -/
+  | Mu : {c n : ℕ} → (b : ℕ) → (s : String) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n)
+  /-- **Recursion up to duplicates**: SQL's `WITH RECURSIVE … UNION`.
+  Read as the least fixpoint the semantics says it is: `X₀` empty and
+  `X_{j+1} = ⟦ε(q₀ ⊎ q₁)⟧_{d[s ↦ X_j]}`, annotations included, and the
+  query is `X_b`. Where the iteration stabilizes at some `j ≤ b` this is
+  the semantics' value and does not depend on `b`
+  (`AggQueryIn.evaluate_MuSet_eq_of_le`); the semantics says nothing
+  where it does not stabilize. Unlike `Mu` it stabilizes whenever no
+  tuple has a derivation through itself, and in an absorptive semiring
+  with such derivations too. -/
+  | MuSet : {c n : ℕ} → (b : ℕ) → (s : String) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n)
   /-- The decomposed grouping operator `γ^≼`: group the (all-regular)
   input by the key columns `is`; one output row per group, carrying the
   key followed by one aggregate token per `(term, aggregate)` pair. -/
@@ -707,6 +738,124 @@ def ProjColIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
   | .term t | .provTerm t => t.chiFree
   | .token _ _ | .aggTerm _ _ _ => True
 
+/-! ## The rounds of a recursion
+
+Both recursions iterate a step on relations; neither needs the query
+syntax, so both are plain recursions on the round number with their own
+lemmas. `muSum` collects the rounds of `Mu` – their multiset sum –
+and `muIter` runs the fixpoint iteration of `MuSet`.
+
+What the semantics calls “some round is empty” is in force here as the
+hypothesis `step 0 = 0`: the sum `⨄_{i≥0} Mᵢ` over *all* rounds is a
+relation only because an empty round is a fixpoint of the round
+function, which is what SQL's requirement that the recursive reference
+occur in the body buys. Nothing in this syntax enforces that, so it is
+asked for where it is used. -/
+
+/-- The multiset sum of the first `b + 1` iterates of `step` from `M`. -/
+def muSum {α : Type} (step : Multiset α → Multiset α) :
+    ℕ → Multiset α → Multiset α
+  | 0, M => M
+  | b + 1, M => M + muSum step b (step M)
+
+/-- The `b`-th iterate of `step` from the empty relation. -/
+def muIter {α : Type} (step : Multiset α → Multiset α) : ℕ → Multiset α
+  | 0 => 0
+  | b + 1 => step (muIter step b)
+
+/-- One more round adds one more iterate. -/
+theorem muSum_succ {α : Type} (step : Multiset α → Multiset α) (b : ℕ)
+    (M : Multiset α) :
+    muSum step (b + 1) M = muSum step b M + step^[b + 1] M := by
+  induction b generalizing M with
+  | zero => simp [muSum]
+  | succ b ih =>
+    rw [muSum, ih (step M), ← add_assoc, Function.iterate_succ_apply]
+    rfl
+
+/-- **An empty round stays empty.** -/
+theorem iterate_eq_zero_of_le {α : Type} {step : Multiset α → Multiset α}
+    (h0 : step 0 = 0) {M : Multiset α} {i : ℕ} (hi : step^[i] M = 0)
+    {j : ℕ} (hij : i ≤ j) : step^[j] M = 0 := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hij
+  rw [Nat.add_comm, Function.iterate_add_apply, hi, Function.iterate_fixed h0]
+
+/-- **Past an empty round the sum no longer grows**: once the `i`-th
+round is empty, every bound at least `i` gives the same value. This is
+what makes `Mu b` the semantics' `⨄_{i≥0} Mᵢ` – on the fragment where
+the rounds end, the bound is not part of what the query means. -/
+theorem muSum_eq_of_le {α : Type} {step : Multiset α → Multiset α}
+    (h0 : step 0 = 0) {M : Multiset α} {i : ℕ} (hi : step^[i] M = 0)
+    {b b' : ℕ} (hb : i ≤ b) (hbb : b ≤ b') :
+    muSum step b' M = muSum step b M := by
+  induction b' with
+  | zero => rw [Nat.le_zero.mp hbb]
+  | succ b' ih =>
+    rcases Nat.lt_or_ge b (b' + 1) with h | h
+    · have hb' : b ≤ b' := Nat.lt_succ_iff.mp h
+      rw [muSum_succ, ih hb',
+        iterate_eq_zero_of_le h0 hi (hb.trans (hb'.trans (Nat.le_succ b'))),
+        add_zero]
+    · rw [le_antisymm hbb h]
+
+/-- **Past the fixpoint the iteration no longer moves**: once a round
+repeats, every bound at least that one gives the same value. -/
+theorem muIter_eq_of_le {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
+    (hj : step (muIter step j) = muIter step j) {b : ℕ} (hb : j ≤ b) :
+    muIter step b = muIter step j := by
+  induction b with
+  | zero => rw [Nat.le_zero.mp hb]
+  | succ b ih =>
+    rcases Nat.lt_or_ge j (b + 1) with h | h
+    · rw [muIter, ih (Nat.lt_succ_iff.mp h), hj]
+    · rw [le_antisymm hb h]
+
+/-- Rounds built from the same step on the same seed agree. -/
+theorem muSum_congr {α : Type} {step step' : Multiset α → Multiset α}
+    (h : ∀ X, step X = step' X) (b : ℕ) :
+    ∀ {M M' : Multiset α}, M = M' → muSum step b M = muSum step' b M' := by
+  induction b with
+  | zero => intro M M' hM; exact hM
+  | succ b ih =>
+    intro M M' hM
+    rw [muSum, muSum, hM]
+    exact congrArg _ (ih (h M'))
+
+/-- Iterations of the same step agree. -/
+theorem muIter_congr {α : Type} {step step' : Multiset α → Multiset α}
+    (h : ∀ X, step X = step' X) (b : ℕ) : muIter step b = muIter step' b := by
+  induction b with
+  | zero => rfl
+  | succ b ih => rw [muIter, muIter, ih, h]
+
+/-- **An additive map commutes with the rounds of `Mu`**: forgetting
+annotations, or applying a semiring homomorphism, round by round is the
+same as doing it to the sum. -/
+theorem muSum_map {α β : Type} {h : Multiset α → Multiset β}
+    (hadd : ∀ x y, h (x + y) = h x + h y)
+    {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
+    (hstep : ∀ X, h (step X) = stepP (h X)) (b : ℕ) (M : Multiset α) :
+    h (muSum step b M) = muSum stepP b (h M) := by
+  induction b generalizing M with
+  | zero => rfl
+  | succ b ih => rw [muSum, hadd, ih, hstep, muSum]
+
+/-- **A map sending the empty relation to the empty relation commutes
+with the iteration of `MuSet`.** -/
+theorem muIter_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+    {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
+    (hstep : ∀ X, h (step X) = stepP (h X)) (b : ℕ) :
+    h (muIter step b) = muIter stepP b := by
+  induction b with
+  | zero => exact h0
+  | succ b ih => rw [muIter, hstep, ih, muIter]
+
+/-- Duplicate elimination on an annotated relation: one slot per tuple,
+annotated by the `⊕` of its copies – what `Dedup` computes, named for
+the rounds of `MuSet`. -/
+def AnnotatedRelation.dedupAnn {n : ℕ} (r : AnnotatedRelation T K n) :
+    AnnotatedRelation T K n := Multiset.ofList (groupByKey r).val
+
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
 def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
@@ -773,6 +922,15 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, Dedup q, d, γ =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey r).val).map GenRow.ofAnnotated
+  | _, _, _, Mu b s q₀ q₁, d, γ =>
+    (muSum (fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated) b
+      ((q₀.evaluate d γ).map GenRow.toAnnotated)).map GenRow.ofAnnotated
+  | _, _, _, MuSet b s q₀ q₁, d, γ =>
+    (muIter (fun X =>
+      AnnotatedRelation.dedupAnn
+        (((q₀.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
+          + ((q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated))) b).map
+      GenRow.ofAnnotated
   | _, _, _, Diff q₁ q₂, d, γ =>
     let r₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ).map GenRow.toAnnotated
     let r₂ : AnnotatedRelation T K _ := (q₂.evaluate d γ).map GenRow.toAnnotated
@@ -862,6 +1020,72 @@ def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) : AnnotatedRelation T K n :=
   (q.evaluate d γ).map GenRow.toAnnotated
+
+/-! ## What the recursions compute, and when the bound drops out -/
+
+/-- The round function of `Mu`: the body read with the name bound to the
+previous round. -/
+def AggQueryIn.muStep {c n : ℕ} (s : String)
+    (q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T := fun _ => 0) :
+    AnnotatedRelation T K n → AnnotatedRelation T K n :=
+  fun X => q₁.evaluateAnnotated (d.assign s X) γ
+
+/-- The round function of `MuSet`: `ε(q₀ ⊎ q₁)` read with the name bound
+to the previous round. -/
+def AggQueryIn.muSetStep {c n : ℕ} (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T := fun _ => 0) :
+    AnnotatedRelation T K n → AnnotatedRelation T K n :=
+  fun X => AnnotatedRelation.dedupAnn
+    (q₀.evaluateAnnotated (d.assign s X) γ
+      + q₁.evaluateAnnotated (d.assign s X) γ)
+
+/-- `Mu` is the multiset sum of its rounds. -/
+theorem AggQueryIn.evaluate_Mu {c n : ℕ} (b : ℕ) (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T) :
+    (AggQueryIn.Mu b s q₀ q₁).evaluate d γ
+      = (muSum (AggQueryIn.muStep s q₁ d γ) b (q₀.evaluateAnnotated d γ)).map
+          GenRow.ofAnnotated :=
+  rfl
+
+/-- `MuSet` is the `b`-th step of its fixpoint iteration. -/
+theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (b : ℕ) (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T) :
+    (AggQueryIn.MuSet b s q₀ q₁).evaluate d γ
+      = (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) b).map GenRow.ofAnnotated :=
+  rfl
+
+/-- **The bound drops out of `Mu` where the rounds end.** Given a round
+that is empty and a round function that keeps an empty round empty –
+which is what the semantics asks for in asking that some round be empty –
+every bound past that round computes the same relation, so on that
+fragment `Mu b` is the semantics' `⨄_{i≥0} Mᵢ` and the bound is not part
+of what the query means. -/
+theorem AggQueryIn.evaluate_Mu_eq_of_le {c n : ℕ} {b b' i : ℕ} (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T) (h0 : AggQueryIn.muStep s q₁ d γ 0 = 0)
+    (hi : (AggQueryIn.muStep s q₁ d γ)^[i] (q₀.evaluateAnnotated d γ) = 0)
+    (hb : i ≤ b) (hbb : b ≤ b') :
+    (AggQueryIn.Mu b' s q₀ q₁).evaluate d γ
+      = (AggQueryIn.Mu b s q₀ q₁).evaluate d γ := by
+  rw [AggQueryIn.evaluate_Mu, AggQueryIn.evaluate_Mu,
+    muSum_eq_of_le h0 hi hb hbb]
+
+/-- **The bound drops out of `MuSet` where the iteration stabilizes.** -/
+theorem AggQueryIn.evaluate_MuSet_eq_of_le {c n : ℕ} {b b' j : ℕ} (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T)
+    (hj : AggQueryIn.muSetStep s q₀ q₁ d γ
+        (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j)
+      = muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j)
+    (hb : j ≤ b) (hbb : b ≤ b') :
+    (AggQueryIn.MuSet b' s q₀ q₁).evaluate d γ
+      = (AggQueryIn.MuSet b s q₀ q₁).evaluate d γ := by
+  rw [AggQueryIn.evaluate_MuSet, AggQueryIn.evaluate_MuSet,
+    muIter_eq_of_le hj (hb.trans hbb), muIter_eq_of_le hj hb]
 
 /-- The row a window gives a row of its input relation: the row itself, one
 column longer, with the token the relation gives it, its annotation kept and
@@ -1031,6 +1255,11 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
         (Fin.append u v : Tuple T (n₁ + _))))
   | _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
   | _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
+  | _, _, _, Mu b s q₀ q₁, d, γ =>
+    muSum (fun X => q₁.evaluatePlain (d.assign s X) γ) b (q₀.evaluatePlain d γ)
+  | _, _, _, MuSet b s q₀ q₁, d, γ =>
+    muIter (fun X => (q₀.evaluatePlain (d.assign s X) γ
+      + q₁.evaluatePlain (d.assign s X) γ).dedup) b
   | _, _, _, Diff q₁ q₂, d, γ =>
     let r₂ : Multiset (Tuple T _) := q₂.evaluatePlain d γ
     (q₁.evaluatePlain d γ).filter (fun t => t ∉ r₂)
@@ -1151,6 +1380,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Sum q₁ q₂ => Sum q₁.stripAgg q₂.stripAgg
   | _, _, _, Dedup q => Dedup q.stripAgg
   | _, _, _, Diff q₁ _ => q₁.stripAgg
+  | _, _, _, Mu b s q₀ q₁ => Mu b s q₀.stripAgg q₁.stripAgg
+  | _, _, _, MuSet b s q₀ q₁ => MuSet b s q₀.stripAgg q₁.stripAgg
   | _, _, _, Gamma is ts fs q => Gamma is ts fs q.stripAgg
   | _, _, _, GammaScalar ts fs q => GammaScalar ts fs q.stripAgg
   | _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
@@ -1173,6 +1404,8 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Sum q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, .Dedup q => q.noProvSum
   | _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, .Gamma _ _ _ q => q.noProvSum
   | _, _, _, .GammaScalar _ _ q => q.noProvSum
   | _, _, _, .ProvSum _ _ _ _ => False
@@ -1435,6 +1668,16 @@ theorem AggQueryIn.evaluate_conform :
     · exact ih₁ d r h k
     · exact ih₂ d r h k
   | Dedup q ih =>
+    intro d γ r hr k
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+    rfl
+  | Mu b s q₀ q₁ ih₀ ih₁ =>
+    intro d γ r hr k
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+    rfl
+  | MuSet b s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr

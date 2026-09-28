@@ -75,6 +75,12 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- the apply is not part of (R1)-(R5): its right side is read once per
   -- row of its left, which the rewritten plan has no way to express
   | _, _, _, .Apply _ _ => False
+  -- recursion is not part of (R1)-(R5): a rewritten body carries the
+  -- provenance column, so the name bound by the rounds would have to be
+  -- bound to the rewritten relation, and the fixpoint is then over a
+  -- different schema than the one the source query iterates
+  | _, _, _, .Mu _ _ _ _ => False
+  | _, _, _, .MuSet _ _ _ _ => False
   | _, _, _, .Gamma _ _ _ _ => False
   | _, _, _, .GammaScalar _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False

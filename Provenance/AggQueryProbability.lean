@@ -984,6 +984,16 @@ theorem AggQueryIn.evaluate_guarded :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Mu b s q₀ q₁ ih₀ ih₁ =>
+    intro d γ r hr v _ k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+    exact absurd ha (by simp [GenRow.ofAnnotated])
+  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+    intro d γ r hr v _ k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+    exact absurd ha (by simp [GenRow.ofAnnotated])
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -1712,6 +1722,30 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
       genRandomWorld_allReg, ih hq d v]
+  | Mu b s q₀ q₁ ih₀ ih₁ =>
+    intro hq d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rw [genRandomWorld_ofAnnotated]
+    refine Eq.trans (muSum_map (h := _root_.randomWorld v)
+      (randomWorld_add v)
+      (stepP := fun Y => q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ)
+      (fun Y => by
+        rw [genRandomWorld_allReg]
+        exact ih₁ hq.2 (d.assign s Y) v) b _) ?_
+    rw [genRandomWorld_allReg, ih₀ hq.1 d v]
+  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+    intro hq d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rw [genRandomWorld_ofAnnotated]
+    refine muIter_map (h := _root_.randomWorld v) rfl
+      (stepP := fun Y => (q₀.evaluatePlain ((d.randomWorld v).assign s Y) γ
+        + q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ).dedup)
+      (fun Y => ?_) b
+    show _root_.randomWorld v (AnnotatedRelation.dedupAnn (_ + _)) = _
+    rw [AnnotatedRelation.dedupAnn, randomWorld_groupByKey, randomWorld_add,
+      genRandomWorld_allReg, genRandomWorld_allReg, ih₀ hq.1 (d.assign s Y) v,
+      ih₁ hq.2 (d.assign s Y) v]
+    rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]

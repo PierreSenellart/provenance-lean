@@ -138,6 +138,22 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
     (q.evaluateRew D γ).map (fun u => (fun j => (ps j).evalRew u γ))
   | _, _, _, .Sel φ q, D, γ =>
     (q.evaluateRew D γ).filter (fun u => φ.holdsRew u γ)
+  | _, _, _, .Mu b s q₀ q₁, D, γ =>
+    -- the rounds are relations of the rewritten schema, so each round is
+    -- read back through the collapse that `Rel` embeds
+    (muSum (fun X : Relation (T ⊕ K) _ =>
+        (q₁.evaluateRew (D.assign s X) γ).map
+          (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))) b
+      ((q₀.evaluateRew D γ).map
+        (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _)))).map
+      (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
+  | _, _, _, .MuSet b s q₀ q₁, D, γ =>
+    (muIter (fun X : Relation (T ⊕ K) _ =>
+      (((q₀.evaluateRew (D.assign s X) γ).map
+          (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))
+        + (q₁.evaluateRew (D.assign s X) γ).map
+            (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).dedup)) b).map
+      (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
   | _, _, _, .Prod q₁ q₂, D, γ =>
     ((q₁.evaluateRew D γ).product (q₂.evaluateRew D γ)).map
       (fun (x, y) => Fin.append x y)
@@ -223,6 +239,8 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .Sum q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
   | _, _, _, .Dedup q => q.noGammaTok
   | _, _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, .Gamma _ _ _ q => q.noGammaTok
   | _, _, _, .GammaScalar _ _ q => q.noGammaTok
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
@@ -241,6 +259,8 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Sum q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
   | _, _, _, .Dedup q => q.chiFree
   | _, _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, .Gamma _ _ _ q => q.chiFree
   | _, _, _, .GammaScalar _ _ q => q.chiFree
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
@@ -426,6 +446,21 @@ theorem AggQueryIn.evaluateRew_plain :
     congr 1
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
       @Multiset.dedup _ i (q.evaluatePlain D γ)) (Subsingleton.elim _ _)
+  | Mu b s q₀ q₁ ih₀ ih₁ =>
+    intro hq hc D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
+    refine congrArg _ (muSum_congr (fun X => ?_) b ?_)
+    · rw [ih₁ hq.2 hc.2 (D.assign s X) γ, map_plainTuple_map_inl]
+    · rw [ih₀ hq.1 hc.1 D γ, map_plainTuple_map_inl]
+  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+    intro hq hc D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
+    refine congrArg _ (muIter_congr (fun X => ?_) b)
+    rw [ih₀ hq.1 hc.1 (D.assign s X) γ, ih₁ hq.2 hc.2 (D.assign s X) γ,
+      map_plainTuple_map_inl, map_plainTuple_map_inl]
+    exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
+      @Multiset.dedup _ i (q₀.evaluatePlain (D.assign s X) γ
+        + q₁.evaluatePlain (D.assign s X) γ)) (Subsingleton.elim _ _)
   | @Diff cI nD q₁ q₂ ih₁ ih₂ =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
