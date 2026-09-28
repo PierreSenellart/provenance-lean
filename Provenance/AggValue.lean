@@ -99,6 +99,95 @@ sequence. -/
 def collapse (a : AggValue T K) : T :=
   a.agg (a.occs.map Prod.fst)
 
+/-! ### Merging the occurrences of equal value
+
+A `DISTINCT` window aggregate reads one occurrence per class of equal
+values in its frame, annotated by the `⊕` of the class's members. That
+is a transformation of the occurrence payload, and it has to be decided
+where the token is built: no reading of a token recovers it, the
+deterministic reading having already collapsed the sequence.
+
+The operator that would carry it is not here yet. Over the whole
+relation the merged reading and `SeqAggFunc.distinct` agree
+(`collapse_mergeByValue`), but *in a world* they need not: the merged
+token orders the classes as the whole frame orders them – by each
+class's last occurrence – while the distinct reading of a world dedups
+that world's own sequence, and the two orders differ once a value's
+last occurrence is absent from the world. They agree for a symmetric
+aggregate, so a `DISTINCT` window is world-faithful exactly there, and
+that is a condition the operator will have to carry. -/
+
+/-- Merge the occurrences of equal value, summing their annotations and
+keeping one occurrence per value. The convention is `List.dedup`'s: the
+*last* occurrence of a value is the one kept, so that the values of the
+merged list are the deduplicated values of the original
+(`map_fst_mergeOccs`). -/
+def mergeOccs [ValueType T] [Add K] : List (T × K) → List (T × K)
+  | [] => []
+  | (v, α) :: t =>
+      if v ∈ t.map Prod.fst then
+        (mergeOccs t).map (fun p => if p.1 = v then (p.1, α + p.2) else p)
+      else (v, α) :: mergeOccs t
+
+@[simp] theorem map_fst_mergeOccs [ValueType T] [Add K] :
+    ∀ l : List (T × K), (mergeOccs l).map Prod.fst = (l.map Prod.fst).dedup
+  | [] => rfl
+  | (v, α) :: t => by
+    rw [mergeOccs, List.map_cons, List.dedup_cons]
+    by_cases h : v ∈ t.map Prod.fst
+    · rw [ite_eq_left h, ite_eq_left h, List.map_map]
+      rw [show (Prod.fst ∘ fun p : T × K => if p.1 = v then (p.1, α + p.2) else p)
+          = Prod.fst from funext (fun p => by by_cases hp : p.1 = v <;> simp [hp])]
+      exact map_fst_mergeOccs t
+    · rw [ite_eq_right h, ite_eq_right h, List.map_cons]
+      exact congrArg _ (map_fst_mergeOccs t)
+
+@[simp] theorem map_fst_map_snd [Add K] {K' : Type} (h : K → K')
+    (l : List (T × K)) :
+    ((l.map (fun p => (p.1, h p.2))).map Prod.fst) = l.map Prod.fst := by
+  rw [List.map_map]
+  rfl
+
+/-- **The merge commutes with a pushforward of the annotations**, the
+classes being determined by the values and an additive map carrying the
+sum of a class to the sum of its images. -/
+theorem mergeOccs_map [ValueType T] [Add K] {K' : Type} [Add K'] (h : K → K')
+    (hadd : ∀ x y : K, h (x + y) = h x + h y) :
+    ∀ l : List (T × K),
+      mergeOccs (l.map (fun p => (p.1, h p.2)))
+        = (mergeOccs l).map (fun p => (p.1, h p.2))
+  | [] => rfl
+  | (v, α) :: t => by
+    rw [List.map_cons, mergeOccs, mergeOccs, map_fst_map_snd]
+    by_cases hv : v ∈ t.map Prod.fst
+    · rw [ite_eq_left hv, ite_eq_left hv, mergeOccs_map h hadd t,
+        List.map_map, List.map_map]
+      refine congrArg (fun g => List.map g (mergeOccs t)) (funext fun p => ?_)
+      by_cases hp : p.1 = v <;> simp [hp, hadd]
+    · rw [ite_eq_right hv, ite_eq_right hv, List.map_cons,
+        mergeOccs_map h hadd t]
+
+/-- **A token read over its distinct values**: the same aggregate, with
+the occurrences of equal value merged into one carrying the `⊕` of their
+annotations. This is what a `DISTINCT` window aggregate reads – one
+occurrence per class of the frame, annotated by the sum of its
+members. -/
+def mergeByValue [ValueType T] [Add K] (a : AggValue T K) : AggValue T K :=
+  ⟨a.agg, mergeOccs a.occs, a.scalar⟩
+
+@[simp] theorem scalar_mergeByValue [ValueType T] [Add K] (a : AggValue T K) :
+    (mergeByValue a).scalar = a.scalar := rfl
+
+/-- **The merged token reads the distinct values.** Its deterministic
+reading is the aggregate over the deduplicated value sequence, which is
+`SeqAggFunc.distinct` of the original – so a window that merges its
+frame by value agrees, over plain relations, with the same window under
+the distinct aggregate. -/
+theorem collapse_mergeByValue [ValueType T] [Add K] (a : AggValue T K) :
+    (mergeByValue a).collapse = a.agg.distinct (a.occs.map Prod.fst) := by
+  rw [collapse, mergeByValue, map_fst_mergeOccs]
+  rfl
+
 /-- **A symmetric aggregate reads its token as a multiset**: two tokens
 with the same aggregate and the same occurrences in a different order
 collapse to the same value. This is what makes the order a group or a frame
