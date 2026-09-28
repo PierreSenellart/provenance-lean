@@ -278,7 +278,16 @@ def AnnotatedRelation.dropZero {n : ℕ} (r : AnnotatedRelation T K n) :
     AnnotatedRelation T K n :=
   Multiset.filter (fun p => p.snd ≠ 0) r
 
-/-- **Equality up to impossible rows.** -/
+/-- **Equality up to impossible rows.**
+
+This drops `𝟘`-annotated *tuples* only. It is stated on annotated
+relations, where that is all there is to drop: `GenRow.toAnnotated`
+collapses every aggregate column through `GenRow.plainTuple`, so a
+finalized relation carries no aggregate value and hence no occurrence
+annotation. A coarser equivalence that also dropped the `𝟘`-annotated
+occurrences *inside* aggregate values would differ from this one on
+`GenRow`s, which still carry their tokens, and coincide with it on
+everything `evaluateAnnotated` returns. -/
 def AnnotatedRelation.ZEq {n : ℕ} (r s : AnnotatedRelation T K n) : Prop :=
   r.dropZero = s.dropZero
 
