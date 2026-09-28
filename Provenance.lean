@@ -54,6 +54,7 @@ import Provenance.AggQueryAdequacy
 /- A window over a whole partition is a join with its grouping -/
 import Provenance.WindowPartition
 import Provenance.AggQueryBridges
+import Provenance.Normalize
 
 /- Possible-world foundations for the general evaluator -/
 import Provenance.AggQueryProbability
@@ -734,6 +735,20 @@ proven engine several general results reuse internally.
   sense and not as an equality of relations – a selection with an
   aggregate atom keeps its failing rows annotated `𝟘` where a regular
   one removes them
+- `Provenance.Normalize` – **reading a chain of selections as one
+  predicate**. Under the joint reading `σ_{ψ₁ ∧ ψ₂}` is one sum where
+  `σ_{ψ₁} ∘ σ_{ψ₂}` is a product of two, and they agree only where the
+  conjunction decomposes, so the two spellings of what a SQL user calls
+  one query part would differ – `4` against `2` over `ℕ`
+  (`natRangeToken_mul_ne_and`). `AggQuery.normalize` merges adjacent
+  selections, a query being read as `evaluate (normalize q)`, and
+  `normalize_chainFree`, `normalize_id_of_chainFree` and
+  `normalize_idem` say the result has no selection above a selection,
+  that normalizing a normal form changes nothing, and that the pass is
+  idempotent. The equality it buys is up to impossible rows and not of
+  relations (`AggQuery.evaluate_Sel_reg_absorb`), since merging a
+  regular selection keeps the rows it would have removed, annotated
+  `𝟘`
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
