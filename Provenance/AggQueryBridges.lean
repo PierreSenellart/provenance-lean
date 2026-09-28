@@ -159,3 +159,65 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       Option.map_none, Option.getD_none]
     exact AggValue.predProv_ofGroup (fs l) (ts l)
       (Having.havingGroup is A kv.fst) op (s.eval kv.fst)
+
+/-! ## A predicate over two groups keeps both groups' factors
+
+The general evaluator drops a pending group factor only where *every*
+compared token carries that group's annotation list. A predicate reading
+two groups therefore removes nothing: both factors stay pending, and
+`GenAnn.finalize` cashes them into the row's annotation.
+
+This is what keeps the `⊕` of a disjunction from ever being read on its
+own. The predicate provenance of `φ₁ ∨ φ₂` over two groups can be
+non-`𝟘` in worlds where neither group is read at all – `𝔹` with both
+disjuncts on `⊤` is the instance – and it is the factors the row keeps
+that make the row's annotation `𝟘` there. -/
+theorem AggQueryIn.evaluate_Sel_of_two_groups {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (q : AggQueryIn T c n κ)
+    (d : AnnotatedDatabase T K) (γ : Fin c → T)
+    (hagg : φ.hasAggAtom = true)
+    (htwo : ∀ r ∈ q.evaluate d γ, ∃ k₁ ∈ φ.comparedCols, ∃ k₂ ∈ φ.comparedCols,
+      ∃ a₁ a₂ : AggValue T K, r.fst k₁ = Sum.inr a₁ ∧ r.fst k₂ = Sum.inr a₂ ∧
+        a₁.occs.map Prod.snd ≠ a₂.occs.map Prod.snd) :
+    (AggQueryIn.Sel φ q).evaluate d γ
+      = (q.evaluate d γ).map (fun r =>
+          (⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst γ, r.snd.pending⟩⟩
+            : GenRow T K n)) := by
+  simp only [AggQueryIn.evaluate]
+  rw [ite_eq_left hagg]
+  refine Multiset.map_congr rfl (fun r hr => ?_)
+  obtain ⟨k₁, hk₁, k₂, hk₂, a₁, a₂, he₁, he₂, hne⟩ := htwo r hr
+  refine congrArg
+    (fun p => (⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst γ, p⟩⟩
+      : GenRow T K n)) ?_
+  split
+  · refine Multiset.filter_eq_self.mpr (fun l _ => ?_)
+    rintro ⟨-, -, hall⟩
+    exact hne (((hall _ ((Multiset.mem_filterMap _ _).mpr
+        ⟨k₁, Finset.mem_val.mpr hk₁, by rw [he₁]⟩)).trans
+      (hall _ ((Multiset.mem_filterMap _ _).mpr
+        ⟨k₂, Finset.mem_val.mpr hk₂, by rw [he₂]⟩)).symm))
+  · rfl
+
+/-- **The disjunction of two aggregate atoms over two groups keeps both
+group factors.** The instance of `AggQueryIn.evaluate_Sel_of_two_groups`
+the `∨` rule is about: the row's annotation is the disjunction's `⊕`
+times every group's pending factor, never the `⊕` alone. -/
+theorem AggQueryIn.evaluate_Sel_or_of_two_groups {c n : ℕ}
+    {κ : Fin n → ColKind} {k₁ k₂ : Fin n} (h₁ : κ k₁ = ColKind.agg)
+    (h₂ : κ k₂ = ColKind.agg) (op₁ op₂ : CompOp) (t₁ t₂ : TermGIn T c κ)
+    (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+    (hdis : ∀ r ∈ q.evaluate d γ, ∃ a₁ a₂ : AggValue T K,
+      r.fst k₁ = Sum.inr a₁ ∧ r.fst k₂ = Sum.inr a₂ ∧
+        a₁.occs.map Prod.snd ≠ a₂.occs.map Prod.snd) :
+    (AggQueryIn.Sel (GenPredIn.or (GenPredIn.aggCmp k₁ h₁ op₁ t₁)
+        (GenPredIn.aggCmp k₂ h₂ op₂ t₂)) q).evaluate d γ
+      = (q.evaluate d γ).map (fun r =>
+          (⟨r.fst, ⟨r.snd.base * (GenPredIn.or (GenPredIn.aggCmp k₁ h₁ op₁ t₁)
+              (GenPredIn.aggCmp k₂ h₂ op₂ t₂)).predsem false r.fst γ,
+            r.snd.pending⟩⟩ : GenRow T K n)) :=
+  AggQueryIn.evaluate_Sel_of_two_groups _ q d γ rfl
+    (fun r hr => by
+      obtain ⟨a₁, a₂, he₁, he₂, hne⟩ := hdis r hr
+      exact ⟨k₁, by simp [GenPredIn.comparedCols], k₂,
+        by simp [GenPredIn.comparedCols], a₁, a₂, he₁, he₂, hne⟩)

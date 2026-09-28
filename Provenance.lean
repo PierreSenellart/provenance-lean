@@ -660,7 +660,13 @@ proven engine several general results reuse internally.
   pending group factor is superseded by the token's predicate provenance
   (`AggValue.predProv_ofGroup`) and the data part collapses to the
   whole-group aggregates. The fused site is thereby a theorem about the
-  single annotated evaluator, not a semantics of its own
+  single annotated evaluator, not a semantics of its own. The file also
+  records the opposite regime: a predicate whose compared tokens carry
+  two different groups supersedes nothing, so both group factors stay
+  pending and are cashed into the row
+  (`AggQueryIn.evaluate_Sel_of_two_groups`, and
+  `AggQueryIn.evaluate_Sel_or_of_two_groups` for the disjunction the
+  `∨` rule is about)
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
