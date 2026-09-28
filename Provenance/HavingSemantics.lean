@@ -411,6 +411,273 @@ theorem sum_mul_sum_of_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
   rfl
 
 omit [DecidableEq K] in
+/-- **Summing over the worlds of a union of two disjoint families is
+summing over the pairs.** `sum_split` is the case where the two halves
+are a subset and its complement. -/
+theorem sum_split_of_union {N : ℕ} {A B : Finset (Fin N)}
+    (hd : Disjoint A B) (F : Finset (Fin N) → Finset (Fin N) → K) :
+    ∑ W ∈ (A ∪ B).powerset, F (W ∩ A) (W ∩ B)
+      = ∑ X ∈ A.powerset, ∑ Y ∈ B.powerset, F X Y := by
+  rw [← Finset.sum_product']
+  refine Finset.sum_nbij' (fun W => (W ∩ A, W ∩ B)) (fun p => p.1 ∪ p.2)
+    (fun W _ => ?_) (fun p hp => ?_) (fun W hW => ?_) (fun p hp => ?_)
+    (fun W _ => rfl)
+  · refine Finset.mem_product.mpr ⟨?_, ?_⟩ <;>
+      exact Finset.mem_powerset.mpr Finset.inter_subset_right
+  · obtain ⟨hA, hB⟩ := Finset.mem_product.mp hp
+    rw [Finset.mem_powerset] at hA hB ⊢
+    exact Finset.union_subset (hA.trans Finset.subset_union_left)
+      (hB.trans Finset.subset_union_right)
+  · have hW' := Finset.mem_powerset.mp hW
+    ext x
+    simp only [Finset.mem_union, Finset.mem_inter]
+    constructor
+    · rintro (⟨h, -⟩ | ⟨h, -⟩) <;> exact h
+    · intro h
+      rcases Finset.mem_union.mp (hW' h) with hx | hx
+      · exact Or.inl ⟨h, hx⟩
+      · exact Or.inr ⟨h, hx⟩
+  · obtain ⟨hA, hB⟩ := Finset.mem_product.mp hp
+    rw [Finset.mem_powerset] at hA hB
+    refine Prod.ext ?_ ?_ <;> ext x <;>
+      simp only [Finset.mem_inter, Finset.mem_union]
+    · constructor
+      · rintro ⟨h | h, hx⟩
+        · exact h
+        · exact absurd (hB h) (Finset.disjoint_left.mp hd hx)
+      · exact fun h => ⟨Or.inl h, hA h⟩
+    · constructor
+      · rintro ⟨h | h, hx⟩
+        · exact absurd hx (Finset.disjoint_left.mp hd (hA h))
+        · exact h
+      · exact fun h => ⟨Or.inr h, hB h⟩
+
+omit [DecidableEq K] in
+/-- **Distinct worlds of a sub-family annihilate each other** in an
+exclusive m-semiring: the relative counterpart of
+`worldAnn_mul_eq_zero_of_ne`, which is its case `S = univ`. -/
+theorem relAnn_mul_eq_zero_of_ne (hexcl : exclusive K) {N : ℕ}
+    (α : Fin N → K) (S : Finset (Fin N)) {X X' : Finset (Fin N)}
+    (hX : X ⊆ S) (hX' : X' ⊆ S) (h : X ≠ X') :
+    relAnn α S X * relAnn α S X' = 0 := by
+  have key : ∀ (V V' : Finset (Fin N)), V ⊆ S → V' ⊆ S → ∀ u : Fin N,
+      u ∈ V → u ∉ V' → relAnn α S V * relAnn α S V' = 0 := by
+    intro V V' hV hV' u huV huV'
+    have hVS : V ∩ S = V := Finset.inter_eq_left.mpr hV
+    have hV'S : V' ∩ S = V' := Finset.inter_eq_left.mpr hV'
+    have hprod : ∏ i ∈ V ∩ S, α i = α u * ∏ i ∈ V.erase u, α i := by
+      rw [hVS]
+      exact (Finset.mul_prod_erase V α huV).symm
+    have hsum : ∑ i ∈ S \ V', α i = α u + ∑ i ∈ (S \ V').erase u, α i :=
+      (Finset.add_sum_erase (S \ V') α
+        (Finset.mem_sdiff.mpr ⟨hV huV, huV'⟩)).symm
+    have hzero : α u * (1 - (α u + ∑ i ∈ (S \ V').erase u, α i)) = 0 :=
+      mul_one_monus_add_eq_zero hexcl _ _
+    have hring : (α u * ∏ i ∈ V.erase u, α i) * (1 - ∑ i ∈ S \ V, α i) *
+          ((∏ i ∈ V' ∩ S, α i) * (1 - (α u + ∑ i ∈ (S \ V').erase u, α i)))
+        = ((∏ i ∈ V.erase u, α i) * (1 - ∑ i ∈ S \ V, α i) *
+            ∏ i ∈ V' ∩ S, α i) *
+          (α u * (1 - (α u + ∑ i ∈ (S \ V').erase u, α i))) := by
+      simp [mul_comm, mul_assoc, mul_left_comm]
+    rw [relAnn, relAnn, hprod, hsum, hring, hzero, mul_zero]
+  rw [Ne, Finset.ext_iff, not_forall] at h
+  obtain ⟨u, hu⟩ := h
+  by_cases huX : u ∈ X
+  · exact key X X' hX hX' u huX (by tauto)
+  · rw [mul_comm]
+    exact key X' X hX' hX u (by tauto) huX
+
+omit [DecidableEq K] in
+theorem inter_union_sdiff_self {N : ℕ} (V T : Finset (Fin N)) :
+    ((V ∩ T) ∪ (V \ T) : Finset (Fin N)) = V := by
+  ext x
+  simp only [Finset.mem_union, Finset.mem_inter, Finset.mem_sdiff]
+  tauto
+
+omit [DecidableEq K] in
+theorem disjoint_inter_sdiff {N : ℕ} (V T : Finset (Fin N)) :
+    Disjoint (V ∩ T) (V \ T) :=
+  Finset.disjoint_left.mpr (fun _x hx hx' =>
+    (Finset.mem_sdiff.mp hx').2 (Finset.mem_inter.mp hx).2)
+
+omit [DecidableEq K] in
+/-- **A family's world-sum splits along any subset**: the worlds of `V`
+are the pairs of a world of `V ∩ T` and a world of `V \ T`, and the
+annotation splits with them when the semiring is complemented. -/
+theorem sum_family_split (hc : complemented K) {N : ℕ} (α : Fin N → K)
+    (V T : Finset (Fin N)) (χ : Finset (Fin N) → K) :
+    ∑ A ∈ V.powerset, relAnn α V A * χ A
+      = ∑ X ∈ (V ∩ T).powerset, ∑ Y ∈ (V \ T).powerset,
+          relAnn α (V ∩ T) X * relAnn α (V \ T) Y * χ (X ∪ Y) := by
+  rw [← sum_split_of_union (disjoint_inter_sdiff V T)
+    (fun X Y => relAnn α (V ∩ T) X * relAnn α (V \ T) Y * χ (X ∪ Y)),
+    inter_union_sdiff_self]
+  refine Finset.sum_congr rfl (fun W hW => ?_)
+  have hWV := Finset.mem_powerset.mp hW
+  have hsplit : ((W ∩ (V ∩ T)) ∪ (W ∩ (V \ T)) : Finset (Fin N)) = W := by
+    ext x
+    simp only [Finset.mem_union, Finset.mem_inter, Finset.mem_sdiff]
+    constructor
+    · rintro (⟨h, -⟩ | ⟨h, -⟩) <;> exact h
+    · intro h
+      by_cases hx : x ∈ T
+      · exact Or.inl ⟨h, hWV h, hx⟩
+      · exact Or.inr ⟨h, hWV h, hx⟩
+  rw [hsplit, relAnn_split hc α V T W, ← relAnn_inter, ← relAnn_inter]
+
+omit [DecidableEq K] in
+theorem overlap_sets {N : ℕ} (V₁ V₂ : Finset (Fin N)) :
+    ((V₁ ∪ V₂) ∩ (V₁ ∩ V₂) : Finset (Fin N)) = V₁ ∩ V₂
+    ∧ ((V₁ ∪ V₂) \ (V₁ ∩ V₂) : Finset (Fin N)) = (V₁ \ V₂) ∪ (V₂ \ V₁)
+    ∧ (((V₁ \ V₂) ∪ (V₂ \ V₁)) ∩ (V₁ \ V₂) : Finset (Fin N)) = V₁ \ V₂
+    ∧ (((V₁ \ V₂) ∪ (V₂ \ V₁)) \ (V₁ \ V₂) : Finset (Fin N)) = V₂ \ V₁ := by
+  refine ⟨?_, ?_, ?_, ?_⟩ <;> ext x <;>
+    simp only [Finset.mem_inter, Finset.mem_union, Finset.mem_sdiff] <;> tauto
+
+omit [DecidableEq K] in
+theorem overlap_tests {N : ℕ} (V₁ V₂ X Y₁ Y₂ : Finset (Fin N))
+    (hX : X ⊆ V₁ ∩ V₂) (hY₁ : Y₁ ⊆ V₁ \ V₂) (hY₂ : Y₂ ⊆ V₂ \ V₁) :
+    ((X ∪ (Y₁ ∪ Y₂)) ∩ V₁ : Finset (Fin N)) = X ∪ Y₁
+    ∧ ((X ∪ (Y₁ ∪ Y₂)) ∩ V₂ : Finset (Fin N)) = X ∪ Y₂ := by
+  have hX' := fun {x} (h : x ∈ X) => Finset.mem_inter.mp (hX h)
+  have hY₁' := fun {x} (h : x ∈ Y₁) => Finset.mem_sdiff.mp (hY₁ h)
+  have hY₂' := fun {x} (h : x ∈ Y₂) => Finset.mem_sdiff.mp (hY₂ h)
+  constructor <;> ext x <;>
+    simp only [Finset.mem_inter, Finset.mem_union] <;>
+    constructor
+  · rintro ⟨h | h | h, hv⟩
+    · exact Or.inl h
+    · exact Or.inr h
+    · exact absurd hv (hY₂' h).2
+  · rintro (h | h)
+    · exact ⟨Or.inl h, (hX' h).1⟩
+    · exact ⟨Or.inr (Or.inl h), (hY₁' h).1⟩
+  · rintro ⟨h | h | h, hv⟩
+    · exact Or.inl h
+    · exact absurd hv (hY₁' h).2
+    · exact Or.inr h
+  · rintro (h | h)
+    · exact ⟨Or.inl h, (hX' h).2⟩
+    · exact ⟨Or.inr (Or.inr h), (hY₂' h).1⟩
+
+omit [DecidableEq K] in
+/-- The three-part counterpart of `sum_split_of_union`. -/
+theorem sum_split_of_union3 {N : ℕ} {A B C : Finset (Fin N)}
+    (hAB : Disjoint A B) (hAC : Disjoint A C) (hBC : Disjoint B C)
+    (F : Finset (Fin N) → Finset (Fin N) → Finset (Fin N) → K) :
+    ∑ W ∈ ((A ∪ (B ∪ C) : Finset (Fin N))).powerset,
+        F (W ∩ A) (W ∩ B) (W ∩ C)
+      = ∑ X ∈ A.powerset, ∑ Y ∈ B.powerset, ∑ Z ∈ C.powerset, F X Y Z := by
+  have hA : Disjoint A ((B ∪ C : Finset (Fin N))) :=
+    Finset.disjoint_union_right.mpr ⟨hAB, hAC⟩
+  have step2 : ∀ X : Finset (Fin N),
+      ∑ Z' ∈ ((B ∪ C : Finset (Fin N))).powerset, F X (Z' ∩ B) (Z' ∩ C)
+        = ∑ Y ∈ B.powerset, ∑ Z ∈ C.powerset, F X Y Z := by
+    intro X
+    rw [← sum_split_of_union hBC (fun Y Z => F X Y Z)]
+  have step1 : ∑ W ∈ ((A ∪ (B ∪ C) : Finset (Fin N))).powerset,
+        F (W ∩ A) (W ∩ B) (W ∩ C)
+      = ∑ X ∈ A.powerset,
+          ∑ Z' ∈ ((B ∪ C : Finset (Fin N))).powerset, F X (Z' ∩ B) (Z' ∩ C) := by
+    rw [← sum_split_of_union hA (fun X Z' => F X (Z' ∩ B) (Z' ∩ C))]
+    refine Finset.sum_congr rfl (fun W _ => ?_)
+    have hB : (W ∩ (B ∪ C) ∩ B : Finset (Fin N)) = W ∩ B := by
+      ext x; simp only [Finset.mem_inter, Finset.mem_union]; tauto
+    have hC : (W ∩ (B ∪ C) ∩ C : Finset (Fin N)) = W ∩ C := by
+      ext x; simp only [Finset.mem_inter, Finset.mem_union]; tauto
+    rw [hB, hC]
+  rw [step1]
+  exact Finset.sum_congr rfl (fun X _ => step2 X)
+
+omit [DecidableEq K] in
+/-- **Two atoms reading families that overlap without being equal.**
+The product of the two families' world-sums is the single sum over the
+worlds of their union, under the hypotheses of *both* settled regimes,
+each on the part it governs: `complemented` splits the two private
+parts off, and exclusivity with an idempotent `⊗` collapses the shared
+part, which each side reads. The disjoint case is the one where the
+shared part is empty, the same-family case the one where the private
+parts are. -/
+theorem sum_mul_sum_of_overlap (hc : complemented K) (hexcl : exclusive K)
+    (hidem : mulIdempotent K) {N : ℕ} (α : Fin N → K)
+    (V₁ V₂ : Finset (Fin N)) (χ₁ χ₂ : Finset (Fin N) → K) :
+    (∑ A ∈ V₁.powerset, relAnn α V₁ A * χ₁ A)
+        * (∑ B ∈ V₂.powerset, relAnn α V₂ B * χ₂ B)
+      = ∑ W ∈ ((V₁ ∪ V₂ : Finset (Fin N))).powerset,
+          relAnn α (V₁ ∪ V₂) W * (χ₁ (W ∩ V₁) * χ₂ (W ∩ V₂)) := by
+  set M : Finset (Fin N) := V₁ ∩ V₂ with hM
+  set P₁ : Finset (Fin N) := V₁ \ V₂ with hP₁
+  set P₂ : Finset (Fin N) := V₂ \ V₁ with hP₂
+  have hdMP₁ : Disjoint M P₁ := Finset.disjoint_left.mpr (fun x hx hx' =>
+    (Finset.mem_sdiff.mp hx').2 (Finset.mem_inter.mp hx).2)
+  have hdMP₂ : Disjoint M P₂ := Finset.disjoint_left.mpr (fun x hx hx' =>
+    (Finset.mem_sdiff.mp hx').2 (Finset.mem_inter.mp hx).1)
+  have hdP : Disjoint P₁ P₂ := Finset.disjoint_left.mpr (fun x hx hx' =>
+    (Finset.mem_sdiff.mp hx').2 (Finset.mem_sdiff.mp hx).1)
+  have hUnion : ((V₁ ∪ V₂ : Finset (Fin N))) = M ∪ (P₁ ∪ P₂) := by
+    ext x
+    simp only [hM, hP₁, hP₂, Finset.mem_union, Finset.mem_inter,
+      Finset.mem_sdiff]
+    tauto
+  have hV₁ : ∀ W : Finset (Fin N),
+      (W ∩ V₁ : Finset (Fin N)) = (W ∩ M) ∪ (W ∩ P₁) := by
+    intro W; ext x
+    simp only [hM, hP₁, Finset.mem_union, Finset.mem_inter, Finset.mem_sdiff]
+    tauto
+  have hV₂ : ∀ W : Finset (Fin N),
+      (W ∩ V₂ : Finset (Fin N)) = (W ∩ M) ∪ (W ∩ P₂) := by
+    intro W; ext x
+    simp only [hM, hP₂, Finset.mem_union, Finset.mem_inter, Finset.mem_sdiff]
+    tauto
+  have hR : (∑ W ∈ ((V₁ ∪ V₂ : Finset (Fin N))).powerset,
+        relAnn α (V₁ ∪ V₂) W * (χ₁ (W ∩ V₁) * χ₂ (W ∩ V₂)))
+      = ∑ X ∈ M.powerset, ∑ Y₁ ∈ P₁.powerset, ∑ Y₂ ∈ P₂.powerset,
+          relAnn α M X * relAnn α P₁ Y₁ * relAnn α P₂ Y₂ *
+            (χ₁ (X ∪ Y₁) * χ₂ (X ∪ Y₂)) := by
+    rw [← sum_split_of_union3 hdMP₁ hdMP₂ hdP
+      (fun X Y₁ Y₂ => relAnn α M X * relAnn α P₁ Y₁ * relAnn α P₂ Y₂ *
+        (χ₁ (X ∪ Y₁) * χ₂ (X ∪ Y₂))), ← hUnion]
+    refine Finset.sum_congr rfl (fun W _ => ?_)
+    rw [relAnn_split_union hc α V₁ V₂ W, ← hM, ← hP₁, ← hP₂,
+      hV₁ W, hV₂ W, relAnn_inter α M W, relAnn_inter α P₁ W,
+      relAnn_inter α P₂ W]
+  have hL1 : (∑ A ∈ V₁.powerset, relAnn α V₁ A * χ₁ A)
+      = ∑ X ∈ M.powerset, ∑ Y₁ ∈ P₁.powerset,
+          relAnn α M X * relAnn α P₁ Y₁ * χ₁ (X ∪ Y₁) :=
+    sum_family_split hc α V₁ V₂ χ₁
+  have hL2 : (∑ B ∈ V₂.powerset, relAnn α V₂ B * χ₂ B)
+      = ∑ X ∈ M.powerset, ∑ Y₂ ∈ P₂.powerset,
+          relAnn α M X * relAnn α P₂ Y₂ * χ₂ (X ∪ Y₂) := by
+    have h := sum_family_split hc α V₂ V₁ χ₂
+    rwa [show (V₂ ∩ V₁ : Finset (Fin N)) = M from Finset.inter_comm V₂ V₁] at h
+  rw [hL1, hL2, hR, Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl (fun X hX => ?_)
+  have hXM := Finset.mem_powerset.mp hX
+  rw [Finset.sum_eq_single X]
+  · rw [Finset.sum_mul_sum]
+    refine Finset.sum_congr rfl (fun Y₁ _ => Finset.sum_congr rfl (fun Y₂ _ => ?_))
+    rw [show relAnn α M X * relAnn α P₁ Y₁ * χ₁ (X ∪ Y₁) *
+          (relAnn α M X * relAnn α P₂ Y₂ * χ₂ (X ∪ Y₂))
+        = (relAnn α M X * relAnn α M X) *
+          (relAnn α P₁ Y₁ * relAnn α P₂ Y₂ *
+            (χ₁ (X ∪ Y₁) * χ₂ (X ∪ Y₂))) by
+      simp [mul_assoc, mul_left_comm], hidem]
+    simp [mul_assoc]
+  · intro X' hX' hne
+    rw [Finset.sum_mul_sum]
+    refine Finset.sum_eq_zero (fun Y₁ _ => Finset.sum_eq_zero (fun Y₂ _ => ?_))
+    rw [show relAnn α M X * relAnn α P₁ Y₁ * χ₁ (X ∪ Y₁) *
+          (relAnn α M X' * relAnn α P₂ Y₂ * χ₂ (X' ∪ Y₂))
+        = (relAnn α M X * relAnn α M X') *
+          (relAnn α P₁ Y₁ * relAnn α P₂ Y₂ *
+            (χ₁ (X ∪ Y₁) * χ₂ (X' ∪ Y₂))) by
+      simp [mul_assoc, mul_left_comm],
+      relAnn_mul_eq_zero_of_ne hexcl α M hXM (Finset.mem_powerset.mp hX')
+        (Ne.symm hne), zero_mul]
+  · intro h
+    exact absurd hX h
+
+omit [DecidableEq K] in
 /-- **Distinct worlds of one occurrence family annihilate each other**, in an
 exclusive m-semiring. A position kept by one world and dropped by the other
 contributes a factor `α u` to the first annotation and a factor
