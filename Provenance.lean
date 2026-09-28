@@ -23,6 +23,7 @@ import Provenance.HavingSemantics
 /- Symbolic aggregate tokens for the general HAVING semantics -/
 import Provenance.AggValue
 import Provenance.AggExpr
+import Provenance.JointFamily
 import Provenance.AggValueCongr
 
 /- Kind-indexed general queries and their annotated semantics -/
@@ -321,10 +322,11 @@ proven engine several general results reuse internally.
   times the truth of the comparison there; since `g` may be any
   deterministic function of SQL, a Boolean combination among them, this
   is one rule for `∧`, `∨`, `¬`, a Boolean-valued aggregate column and a
-  searched `CASE` alike, and it is the definition the structural rules
-  of `GenPred.predsem` are answerable to (they are ProvSQL's
-  computation: agreeing on an atom, a decomposition of the joint reading
-  for `∧` under hypotheses, and not a theorem at all for `∨`).
+  searched `CASE` alike, and it is the semantics – ProvSQL's too – that
+  the structural rules of `GenPred.predsem` are a short cut for:
+  agreeing on an atom, a decomposition of the joint reading for `∧`
+  under hypotheses, and not a theorem at all for `∨`, where the sum has
+  to be computed instead.
   What a term that
   mentions a column of aggregate kind produces: `AggExpr` is the formal
   `g(a₁, …, a_p)` – the function the term computes, applied to the
@@ -346,6 +348,23 @@ proven engine several general results reuse internally.
   convention, and `valOn_ofUnary` says it reads in each world what
   `g(a)` reads there – which is what a term over one aggregate column
   produces
+- `Provenance.JointFamily` – **two occurrence families as one**, which
+  is what a predicate reading two aggregate values reads. The two
+  families are indexed separately, so the union is built:
+  `Having.catAnn` concatenates the annotation functions on
+  `Fin (m + n)`, `leftFam`/`rightFam` are the parts inside it,
+  `catWorld` pairs a world of each and `leftPart`/`rightPart` read them
+  back, with `catWorldEquiv` and `sum_catWorld` re-summing a sum over
+  the worlds of the union as the double sum over pairs. Reading a part
+  of the concatenation is reading the family it came from and needs
+  nothing of `K` (`relAnn_catWorld_left` and its twin); from that, a
+  world of the union carries the product of its halves' annotations
+  exactly where `K` is complemented (`worldAnn_catWorld`).
+  `Having.jointPair` is then **what a predicate reading two tokens
+  annotates** – the `⊕` over the worlds of the union that meet each
+  grouped family – and `jointPair_eq_split` says it is the split double
+  sum in which such a reading is usually written, complementedness being
+  what that costs
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
@@ -367,8 +386,8 @@ proven engine several general results reuse internally.
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
-  operator complementation – ProvSQL's structural computation, which
-  the joint reading of `Provenance.AggExpr` is the definition for), and the general evaluator
+  operator complementation – the short cut the joint reading of
+  `Provenance.AggExpr` licenses, semiring permitting), and the general evaluator
   `AggQuery.evaluate` with factored row annotations `GenAnn`
   implementing the replace-the-δ-factor combination rule: `Gamma` leaves
   its group-existence factor pending, an aggregate selection supersedes

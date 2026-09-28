@@ -343,21 +343,24 @@ atom the predicate provenance `predProv` of the comparison over its
 token's group, `∧ ↦ ⊗` and `∨ ↦ ⊕` (swapped under `neg`), and negated
 atoms complement their comparison operator, as in ProvSQL.
 
-**This is ProvSQL's structural computation, not the semantics'
-definition.** What a predicate annotates is the joint evaluation of its
-Boolean function in every world – the `⊕`, over the worlds of the union
-of the families the predicate reads, of the world's annotation times
-the function's truth there – which is `AggExpr.predProv`. On one atom
-the two agree (`AggExpr.predProv_ofValue`). On a conjunction the
-product is a *decomposition* of the joint reading, valid under
-complementedness, exclusivity and an idempotent `⊗`
-(`Having.sum_mul_sum_of_overlap`, and `complemented` alone where the
-families are disjoint). On a disjunction there is no such theorem: the
-`⊕` fires in worlds where one group is empty, which are no worlds of
-the predicate, and `𝔹` and `ℕ` both witness the difference
-(`bool_or_ne_joint`, `nat_or_ne_joint`). A range is the same point for
-`∧` on one family, which is why `aggRange` is an atom of its own rather
-than two atoms conjoined. -/
+**These rules are a short cut, and what they are a short cut for is the
+joint evaluation of the predicate's Boolean function in every world**:
+the `⊕`, over the worlds of the union of the families the predicate
+reads, of the world's annotation times the function's truth there,
+which is `AggExpr.predProv`. That is the semantics, for ProvSQL as for
+the library; computing it structurally is what an m-semiring with the
+right properties permits, and the properties are the content of the
+theorems. On one atom the two always agree
+(`AggExpr.predProv_ofValue`). On a conjunction the product is a
+decomposition of the joint reading under complementedness, exclusivity
+and an idempotent `⊗` (`Having.sum_mul_sum_of_overlap`, and
+`complemented` alone where the families are disjoint). On a disjunction
+there is no such theorem: the `⊕` fires in worlds where one group is
+empty, which are no worlds of the predicate, and `𝔹` and `ℕ` both
+witness the difference (`bool_or_ne_joint`, `nat_or_ne_joint`), so
+there the sum has to be computed rather than short cut. A range is the
+same point for `∧` on one family, which is why `aggRange` is an atom of
+its own rather than two atoms conjoined. -/
 def predsem (φ : GenPredIn T c κ) (neg : Bool)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T := fun _ => 0) : K :=
   match φ with

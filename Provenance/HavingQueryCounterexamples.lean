@@ -2,6 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Provenance.JointFamily
 import Provenance.QueryToAgg
 import Provenance.Semirings.ChainFive
 import Provenance.Semirings.Tropical
@@ -306,9 +307,11 @@ Boolean-valued aggregate column and a searched `CASE` alike, and it is
 `V = ⋃ⱼ Uⱼ`, a world must meet each *grouped* leaf, and `g` may be any
 deterministic function of SQL, a Boolean combination among them.
 
-`GenPredIn.predsem` is not that definition. It is ProvSQL's structural
-computation, `∧ ↦ ⊗` and `∨ ↦ ⊕`, and the question each instance below
-settles is where the two agree. For `∧` they do under hypotheses
+`GenPredIn.predsem` is not that definition but a short cut for it,
+`∧ ↦ ⊗` and `∨ ↦ ⊕`, the computation ProvSQL performs where the
+m-semiring's properties license it – the same semantics, computed
+cheaply. The question each instance below settles is where the licence
+runs out. For `∧` they do under hypotheses
 (`Having.sum_mul_sum_of_overlap`, with `complemented` alone for
 disjoint families and `AggValue.predProvOf_mul_predProvOf` for one
 family). For `∨` there is no such theorem, and the failure is
@@ -327,9 +330,9 @@ Over `𝔹` the row's own factors hide the difference: the `δ` of the
 empty group kills the row the `⊕` kept, which is why a disjunction may
 remove a `δ` only when *every* disjunct entails existence
 (`GenPredIn.entailsExistence`). Over `ℕ` they do not, `δ` recording
-support where the difference is a multiplicity – so the structural `⊕`
-is not a way of computing the joint reading, only a rule that coincides
-with it in some semirings.
+support where the difference is a multiplicity – so over `ℕ` the `⊕` is
+not a licensed short cut for a disjunction and the sum has to be
+computed.
 
 The double sums `joint2` and `joint3` below write the joint reading in
 split form, a product of the halves' world annotations. That is the
@@ -372,6 +375,20 @@ def joint3 (a b c : AggValue T K) (χ : T → T → T → Kleene) : K :=
             * Having.worldAnn c.anns W₃
           * (if χ (a.valOn W₁) (b.valOn W₂) (c.valOn W₃) = Kleene.true
               then 1 else 0)
+
+omit [ValueType T] [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
+/-- **`joint2` is the union reading**: the split double sum is the `⊕`
+over the worlds of the concatenated family where `K` is complemented
+(`Having.jointPair_eq_split`). `𝔹` and `ℕ` are, so over them the
+instances below are instances about the union reading; over a
+non-complemented `K` it is `jointPair` that says what a predicate
+annotates, and the double sum that does not. -/
+theorem joint2_eq_jointPair (hc : complemented K) (a b : AggValue T K)
+    (ha : a.scalar = false) (hb : b.scalar = false) (χ : T → T → Kleene) :
+    joint2 a b χ = jointPair a b χ := by
+  rw [jointPair_eq_split hc]
+  simp only [joint2, ha, hb, Bool.false_eq_true, false_or]
 
 omit [ValueType T] [DecidableEq K] in
 /-- **The branches of a conditional exclude each other.** Read world by
@@ -465,6 +482,25 @@ theorem nat_or_joint :
 theorem nat_or_ne_joint :
     natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2
       ≠ Having.jointOr natTokenOne natTokenTwo testGe1 testGe2 := by decide
+
+/-- **The same, against the union reading itself.** `ℕ` is
+complemented, so the double sum above is `Having.jointPair` – the `⊕`
+over the worlds of the concatenated family – and the structural `⊕` of
+the two atoms is not it. -/
+theorem nat_or_ne_jointPair :
+    natTokenOne.predProvWith testGe1 + natTokenTwo.predProvWith testGe2
+      ≠ Having.jointPair natTokenOne natTokenTwo
+          (fun x y => (testGe1 x).or (testGe2 y)) := by
+  rw [← Having.joint2_eq_jointPair Nat.complemented _ _ rfl rfl]
+  exact nat_or_ne_joint
+
+/-- And over `𝔹`, which is complemented too. -/
+theorem bool_or_ne_jointPair :
+    boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq
+      ≠ Having.jointPair boolTokenT boolTokenF
+          (fun x y => (testNe x).or (testEq y)) := by
+  rw [← Having.joint2_eq_jointPair Bool.complemented _ _ rfl rfl]
+  exact bool_or_ne_joint
 
 /-! ### Two alternatives of a Boolean aggregate column
 
