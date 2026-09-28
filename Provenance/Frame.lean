@@ -388,6 +388,33 @@ def token {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p
     AggValue.ofScalarGroup f t
       (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i) γ
 
+/-- An occurrence's token, read over the frame's distinct values when
+the window asks for it: the same token with the occurrences of equal
+value merged, one per class in the domain's order and annotated by the
+`⊕` of its members. -/
+def tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  if dist then (token P O o w t f r i γ).mergeByValue
+  else token P O o w t f r i γ
+
+@[simp] theorem tokenDist_false [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    tokenDist P O o w t f false r i γ = token P O o w t f r i γ := rfl
+
+@[simp] theorem scalar_tokenDist [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    (tokenDist P O o w t f dist r i γ).scalar
+      = (token P O o w t f r i γ).scalar := by
+  unfold tokenDist
+  cases dist <;> rfl
+
 /-- A row inside its own frame reads its aggregate as a group's. -/
 @[simp] theorem token_scalar_of_mem {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -696,6 +723,22 @@ def tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     AggValue.ofScalarGroup f t
       (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x) γ
 
+/-- The relation-level counterpart of `ValueFrame.tokenDist`. -/
+def tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  if dist then (tokenOf P O o w t f X x γ).mergeByValue
+  else tokenOf P O o w t f X x γ
+
+@[simp] theorem tokenOfDist_false [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    {γ : Fin c → T} :
+    tokenOfDist P O o w t f false X x γ = tokenOf P O o w t f X x γ := rfl
+
 /-- An occurrence's token is the token its relation gives its row. -/
 theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
@@ -835,6 +878,24 @@ theorem collapse_token {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   unfold AggValue.collapse
   rw [token_occs, token_agg, List.map_map, ← frameSeqOn_plain, List.map_map]
   rfl
+
+/-- The same for a token read over the frame's distinct values: its
+deterministic reading is the distinct aggregate of the frame. -/
+theorem collapse_tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    (tokenDist P O o w t f dist r i γ).collapse
+      = (if dist then f.distinct else f)
+        ((frameSeqOn (α := Tuple T n) id P O o w r.plain i).map
+          (fun v => t.eval v γ)) := by
+  unfold tokenDist
+  cases dist
+  · simpa using collapse_token P O o w t f r i (γ := γ)
+  · simp only [ite_true]
+    rw [AggValue.collapse_mergeByValue, token_agg, token_occs, List.map_map,
+      ← frameSeqOn_plain, List.map_map]
+    rfl
 
 
 /-! ## The frames the clause determines

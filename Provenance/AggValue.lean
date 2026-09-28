@@ -168,6 +168,14 @@ def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
   rw [List.map_map]
   exact List.map_id' _
 
+/-- Every occurrence's class is an occurrence of the merged token. -/
+theorem mem_occs_mergeByValue [ValueType T] [AddCommMonoid K]
+    (a : AggValue T K) {x : T × K} (hx : x ∈ a.occs) :
+    (x.fst, classSum a.occs x.fst) ∈ (mergeByValue a).occs := by
+  refine List.mem_map.mpr ⟨x.fst, ?_, rfl⟩
+  rw [Multiset.mem_sort, Multiset.mem_coe, List.mem_dedup]
+  exact List.mem_map.mpr ⟨x, hx, rfl⟩
+
 /-- **The merged token reads the distinct values.** Its deterministic
 reading is `SeqAggFunc.distinct` of the original: the aggregate over the
 distinct values in the domain's order. -/

@@ -1403,14 +1403,15 @@ omit [Fintype X] [DecidableEq X] in
 reads as the plain aggregate the realized world gives its row: restricting
 the relation to a world restricts every frame to that world, which is the
 only property of frames the annotated semantics uses. -/
-theorem tokenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+theorem tokenOf_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
     (t : TermIn T c n')
-    (f : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
+    (f g : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
     {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
     {γ : Fin c → T} (hc : x.snd v = true) :
-    (ValueFrame.tokenOf P O o w t f R x γ).specialize (fun α => α v)
-      = ValueFrame.windowValue P O o w t f (randomWorld v R) x.fst γ := by
+    g ((((ValueFrame.tokenOf P O o w t f R x γ).occs.filter
+        (fun o => o.snd v)).map Prod.fst))
+      = ValueFrame.windowValue P O o w t g (randomWorld v R) x.fst γ := by
   have hframe : ValueFrame.frameOf (α := Tuple T n') id P O w
       (randomWorld v R) x.fst
       = Multiset.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
@@ -1432,9 +1433,9 @@ theorem tokenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     intro L
     rw [← ValueFrame.sortSeq_map_fst, List.map_map]
     rfl
-  unfold AggValue.specialize ValueFrame.windowValue ValueFrame.frameListOf
-  rw [ValueFrame.tokenOf_agg, ValueFrame.tokenOf_occs]
-  refine congrArg f ?_
+  unfold ValueFrame.windowValue ValueFrame.frameListOf
+  rw [ValueFrame.tokenOf_occs]
+  refine congrArg g ?_
   unfold ValueFrame.frameListOf
   rw [list_filter_map_comm, List.map_map]
   have hpred : (fun q : AnnotatedTuple T (BoolFunc X) n' => q.snd v)
@@ -1449,6 +1450,43 @@ theorem tokenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
   rw [hpred, OrderSpec.filter_sortSeq_map_eq (o := o) (fun x => t.eval x γ)
       (fun q : AnnotatedTuple T (BoolFunc X) n' => decide (q.snd v = true)),
     hproj, sortList_filter, ValueFrame.sortList_map_fst, hframe]
+
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A token specializes to the aggregate of the realized frame**: the
+case of `tokenOf_filter_agg` where the aggregate applied is the token's
+own. -/
+theorem tokenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n')
+    (f : SeqAggFunc T) (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.tokenOf P O o w t f R x γ).specialize (fun α => α v)
+      = ValueFrame.windowValue P O o w t f (randomWorld v R) x.fst γ := by
+  unfold AggValue.specialize
+  rw [ValueFrame.tokenOf_agg]
+  exact tokenOf_filter_agg P O o w t f f R hx v hc
+
+omit [Fintype X] [DecidableEq X] in
+/-- **The same for a token read over the frame's distinct values**: it
+specializes to the distinct aggregate of the realized frame, with no
+condition on the aggregate. -/
+theorem tokenOfDist_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
+    (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.tokenOfDist P O o w t f dist R x γ).specialize (fun α => α v)
+      = ValueFrame.windowValue P O o w t (if dist then f.distinct else f)
+        (randomWorld v R) x.fst γ := by
+  unfold ValueFrame.tokenOfDist
+  cases dist
+  · simpa using tokenOf_specialize P O o w t f R hx v hc
+  · simp only [ite_true]
+    rw [AggValue.specialize_mergeByValue, ValueFrame.tokenOf_agg]
+    exact tokenOf_filter_agg P O o w t f f.distinct R hx v hc
 
 /-! ## The random-world commutation -/
 
