@@ -221,3 +221,29 @@ theorem AggQueryIn.evaluate_Sel_or_of_two_groups {c n : ℕ}
       obtain ⟨a₁, a₂, he₁, he₂, hne⟩ := hdis r hr
       exact ⟨k₁, by simp [GenPredIn.comparedCols], k₂,
         by simp [GenPredIn.comparedCols], a₁, a₂, he₁, he₂, hne⟩)
+
+/-! ## A projection that keeps every group's tokens changes nothing
+
+The projection clause cashes the pending factors of the groups whose
+token columns it drops. Where it drops none – a reordering, a renaming,
+anything keeping every token column a pending factor belongs to – the
+concrete part and the pending part come through untouched, so such a
+projection standing inside a chain of aggregate selections changes
+neither the families the chain reads nor the annotation it builds. -/
+theorem AggQueryIn.evaluate_Proj_of_pending_le {c n m : ℕ}
+    {κ : Fin n → ColKind} (ps : Fin m → ProjColIn T c κ)
+    (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+    (h : ∀ r ∈ q.evaluate d γ,
+      r.snd.pending ≤ tokenLists (fun j => (ps j).eval r.fst γ)) :
+    (AggQueryIn.Proj ps q).evaluate d γ
+      = (q.evaluate d γ).map (fun r =>
+          ((fun j => (ps j).eval r.fst γ, r.snd) : GenRow T K m)) := by
+  simp only [AggQueryIn.evaluate]
+  refine Multiset.map_congr rfl (fun r hr => ?_)
+  have hk : r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst γ)
+      = r.snd.pending :=
+    le_antisymm Multiset.inter_le_left
+      (Multiset.le_inter (le_refl _) (h r hr))
+  refine Prod.ext rfl ?_
+  show (⟨r.snd.base * _, _⟩ : GenAnn K) = r.snd
+  rw [hk, tsub_self, Multiset.map_zero, Multiset.prod_zero, mul_one]

@@ -364,7 +364,10 @@ proven engine several general results reuse internally.
   annotates** – the `⊕` over the worlds of the union that meet each
   grouped family – and `jointPair_eq_split` says it is the split double
   sum in which such a reading is usually written, complementedness being
-  what that costs
+  what that costs. `jointPair_and_const` says a test that does not
+  depend on the world – a regular atom, reading no family – factors out
+  of the joint reading, which is what makes a selection on regular
+  columns transparent to a chain of aggregate selections
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
@@ -719,7 +722,11 @@ proven engine several general results reuse internally.
   pending and are cashed into the row
   (`AggQueryIn.evaluate_Sel_of_two_groups`, and
   `AggQueryIn.evaluate_Sel_or_of_two_groups` for the disjunction the
-  `∨` rule is about)
+  `∨` rule is about), and that a projection dropping no token column a
+  pending factor belongs to leaves both parts of the annotation alone
+  (`AggQueryIn.evaluate_Proj_of_pending_le`) – so such a projection
+  standing inside a chain of aggregate selections changes neither the
+  families read nor the annotation built
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows

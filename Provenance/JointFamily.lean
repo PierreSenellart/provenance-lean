@@ -322,4 +322,25 @@ theorem jointPair_eq_split (hc : complemented K) (a b : AggValue T K)
     simp only [leftPart_catWorld, rightPart_catWorld, h₁, false_and,
       ite_false]
 
+omit [ValueType T] [DecidableEq K] in
+/-- **A test that does not depend on the world factors out of the joint
+reading.** A regular atom is such a test – it reads no occurrence
+family, so its truth is the same in every world – so conjoining one to
+a predicate multiplies the predicate's provenance by `𝟙` or by `𝟘` and
+changes nothing else. This is why a selection on regular columns
+standing between two aggregate selections neither changes a family nor
+contributes to the annotation of a row that survives it. -/
+theorem jointPair_and_const (a b : AggValue T K) (c : Kleene)
+    (P : T → T → Kleene) :
+    jointPair a b (fun x y => c.and (P x y))
+      = (if c = Kleene.true then 1 else 0) * jointPair a b P := by
+  unfold jointPair
+  rw [Finset.mul_sum]
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  by_cases hc : c = Kleene.true
+  · simp only [hc, ite_true, one_mul, Kleene.and_eq_true_iff, true_and]
+  · rw [ite_eq_right hc, zero_mul,
+      ite_eq_right (fun hcon => hc (Kleene.and_eq_true_iff _ _ |>.mp hcon).1),
+      mul_zero]
+
 end Having
