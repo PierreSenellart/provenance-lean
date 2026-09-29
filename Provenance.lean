@@ -748,7 +748,14 @@ proven engine several general results reuse internally.
   idempotent. The equality it buys is up to impossible rows and not of
   relations (`AggQuery.evaluate_Sel_reg_absorb`), since merging a
   regular selection keeps the rows it would have removed, annotated
-  `𝟘`
+  `𝟘`. That the merge is *sound* is
+  `AggQuery.evaluate_Sel_merge_of_readsOne`: where both predicates read
+  one family on every row (`GenPred.ReadsOne`) and both entail its
+  existence, the merged selection computes what the chain computes, and
+  nothing is asked of `K` – the concrete parts agree by commutativity
+  and the pending parts because each supersede test reduces to "drop
+  that family's factor" (`Having.supersede_test_iff`) and dropping it
+  twice is dropping it once
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows

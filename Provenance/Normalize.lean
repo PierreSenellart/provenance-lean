@@ -156,3 +156,147 @@ omit [ValueType T] in
 theorem AggQueryIn.normalize_idem {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) : q.normalize.normalize = q.normalize :=
   AggQueryIn.normalize_id_of_chainFree _ (AggQueryIn.normalize_chainFree q)
+
+/-! ## What the merge does to the pending factors
+
+The concrete parts of a chain and of its merge always agree: both
+multiply the two predicates' provenances in, and `K` is commutative.
+The pending parts are the question, since the supersede test runs once
+per selection in a chain and once on the union of the compared columns
+in the merge. Over **one family** they agree exactly, with nothing asked
+of `K`: each test reduces to "drop that family's factor", and dropping
+it twice is dropping it once. -/
+
+/-- The annotation lists the compared tokens of a predicate carry on a
+row – what the evaluator's supersede test compares. -/
+abbrev GenPredIn.comparedLists {c n : ℕ} {κ : Fin n → ColKind}
+    (χ : GenPredIn T c κ) (u : Tuple (GenValue T K) n) : Multiset (List K) :=
+  χ.comparedCols.val.filterMap (fun k =>
+    match u k with
+    | Sum.inl _ => none
+    | Sum.inr a => some (a.occs.map Prod.snd))
+
+/-- Those of the *scalar* compared tokens, which block the supersede. -/
+abbrev GenPredIn.comparedScalarLists {c n : ℕ} {κ : Fin n → ColKind}
+    (χ : GenPredIn T c κ) (u : Tuple (GenValue T K) n) : Multiset (List K) :=
+  χ.comparedCols.val.filterMap (fun k =>
+    match u k with
+    | Sum.inl _ => none
+    | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
+
+/-- **A predicate reads one family on a row**: every column it compares
+holds a grouped token, and they all carry the same annotation list. -/
+def GenPredIn.ReadsOne {c n : ℕ} {κ : Fin n → ColKind}
+    (χ : GenPredIn T c κ) (u : Tuple (GenValue T K) n) (ℓ : List K) : Prop :=
+  χ.comparedCols.Nonempty ∧
+    ∀ k ∈ χ.comparedCols, ∃ a : AggValue T K, u k = Sum.inr a ∧
+      a.scalar = false ∧ a.occs.map Prod.snd = ℓ
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Reading one family, every compared list is that family's. -/
+theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
+    {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
+    (h : χ.ReadsOne u ℓ) {x : List K} (hx : x ∈ χ.comparedLists u) : x = ℓ := by
+  obtain ⟨k, hk, hfk⟩ := (Multiset.mem_filterMap _ _).mp hx
+  obtain ⟨a, hu, -, hocc⟩ := h.2 k (Finset.mem_val.mp hk)
+  rw [hu] at hfk
+  exact (Option.some.inj hfk).symm.trans hocc
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Reading one family, some column does hold a token. -/
+theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
+    {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
+    (h : χ.ReadsOne u ℓ) : χ.comparedLists u ≠ 0 := by
+  obtain ⟨k, hk⟩ := h.1
+  obtain ⟨a, hu, -, hocc⟩ := h.2 k hk
+  intro hcon
+  exact Multiset.notMem_zero ℓ (hcon ▸ (Multiset.mem_filterMap _ _).mpr
+    ⟨k, Finset.mem_val.mpr hk, by rw [hu]; exact congrArg some hocc⟩)
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Reading one family, no compared token is scalar. -/
+theorem GenPredIn.comparedScalarLists_eq_zero {c n : ℕ} {κ : Fin n → ColKind}
+    {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
+    (h : χ.ReadsOne u ℓ) : χ.comparedScalarLists u = 0 := by
+  refine Multiset.eq_zero_of_forall_notMem (fun x hx => ?_)
+  obtain ⟨k, hk, hfk⟩ := (Multiset.mem_filterMap _ _).mp hx
+  obtain ⟨a, hu, hsc, -⟩ := h.2 k (Finset.mem_val.mp hk)
+  simp [hu, hsc] at hfk
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- **The supersede test says "drop that family's factor"** when the
+compared lists are all one list and none of them is scalar. Stated on
+bare multisets so that it unifies with whatever the evaluator's clause
+has built. -/
+theorem Having.supersede_test_iff {S L : Multiset (List K)} {ℓ : List K}
+    (hsc : S = 0) (hnz : L ≠ 0) (hall : ∀ x ∈ L, x = ℓ) (l : List K) :
+    (¬(S = 0 ∧ L ≠ 0 ∧ ∀ l' ∈ L, l' = l)) ↔ l ≠ ℓ := by
+  constructor
+  · intro hn hl
+    exact hn ⟨hsc, hnz, fun l' hl' => (hall l' hl').trans hl.symm⟩
+  · rintro hne ⟨-, -, hforall⟩
+    obtain ⟨x, hx⟩ := Multiset.exists_mem_of_ne_zero hnz
+    exact hne ((hforall x hx).symm.trans (hall x hx))
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- A conjunction of two predicates reading one family reads it too. -/
+theorem GenPredIn.ReadsOne.and {c n : ℕ} {κ : Fin n → ColKind}
+    {φ ψ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
+    (hφ : φ.ReadsOne u ℓ) (hψ : ψ.ReadsOne u ℓ) :
+    (GenPredIn.and φ ψ).ReadsOne u ℓ := by
+  refine ⟨?_, ?_⟩
+  · obtain ⟨k, hk⟩ := hφ.1
+    exact ⟨k, by
+      show k ∈ φ.comparedCols ∪ ψ.comparedCols
+      exact Finset.mem_union_left _ hk⟩
+  · intro k hk
+    rcases Finset.mem_union.mp (show k ∈ φ.comparedCols ∪ ψ.comparedCols from hk)
+      with h | h
+    · exact hφ.2 k h
+    · exact hψ.2 k h
+
+/-- **Merging a chain over one family is sound.** Where both predicates
+read the same family on every row and both entail its existence, a
+selection on the conjunction computes what the chain computes – the
+concrete parts by commutativity, and the pending parts because each
+supersede test says "drop that family's factor" and dropping it twice
+is dropping it once. Nothing is asked of `K`. -/
+theorem AggQueryIn.evaluate_Sel_merge_of_readsOne {c n : ℕ}
+    {κ : Fin n → ColKind} (φ ψ : GenPredIn T c κ)
+    (hφa : φ.hasAggAtom = true) (hψa : ψ.hasAggAtom = true)
+    (hφe : φ.entailsExistence false = true)
+    (hψe : ψ.entailsExistence false = true)
+    (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+    (ℓ : GenRow T K n → List K)
+    (hone : ∀ r ∈ q.evaluate d γ,
+      φ.ReadsOne r.fst (ℓ r) ∧ ψ.ReadsOne r.fst (ℓ r)) :
+    (AggQueryIn.Sel (GenPredIn.and φ ψ) q).evaluate d γ
+      = (AggQueryIn.Sel φ (AggQueryIn.Sel ψ q)).evaluate d γ := by
+  simp only [AggQueryIn.evaluate]
+  rw [ite_eq_left (show (GenPredIn.and φ ψ).hasAggAtom = true from by
+      simp [GenPredIn.hasAggAtom, hφa]),
+    ite_eq_left hψa, ite_eq_left hφa, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun r hr => ?_)
+  obtain ⟨hφ1, hψ1⟩ := hone r hr
+  refine Prod.ext rfl ?_
+  show (⟨_, _⟩ : GenAnn K) = ⟨_, _⟩
+  have hiff : ∀ {χ : GenPredIn T c κ}, χ.ReadsOne r.fst (ℓ r) → ∀ l : List K,
+      (¬(χ.comparedScalarLists r.fst = 0 ∧ χ.comparedLists r.fst ≠ 0
+        ∧ ∀ l' ∈ χ.comparedLists r.fst, l' = l)) ↔ l ≠ ℓ r :=
+    fun {χ} h l => Having.supersede_test_iff
+      (GenPredIn.comparedScalarLists_eq_zero h)
+      (GenPredIn.comparedLists_ne_zero h)
+      (fun x hx => GenPredIn.mem_comparedLists h hx) l
+  congr 1
+  · simp only [GenPredIn.predsem_and, mul_comm, mul_left_comm]
+  · simp only [GenPredIn.entailsExistence, hφe, hψe, Bool.false_eq_true,
+      ite_false, Bool.or_self, ite_true]
+    rw [Multiset.filter_filter]
+    exact Multiset.filter_congr (fun l _ =>
+      (hiff (hφ1.and hψ1) l).trans
+        ((and_congr (hiff hφ1 l) (hiff hψ1 l)).trans and_self_iff).symm)
