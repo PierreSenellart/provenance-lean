@@ -1121,7 +1121,12 @@ proven engine several general results reuse internally.
   `𝟘` where the guard is unknown; but the split parts from the one sum
   over the union as soon as two branches read different families, with
   no disjunction anywhere in the query (`natCase_ne`, `1` against `2`
-  over `ℕ`). Both instances are also stated against the definition
+  over `ℕ`). And **inclusion–exclusion is not the joint reading of a
+  disjunction**: `S₁ ⊕ S₂ ⊖ S₁ ⊗ S₂` holds over `ℕ`
+  (`nat_incl_excl_eq`) and fails in `𝔹` (`bool_incl_excl_ne`), where
+  `⊤ ⊕ ⊤ ⊖ ⊤ ⊗ ⊤` is `⊥` while both sides hold – the overlap is not a
+  quantity to remove, and where `⊕` is idempotent it was never counted
+  twice. Both instances are also stated against the definition
   itself rather than against a sum written family by family –
   `natOrExpr` and `natCaseExpr` are the two Boolean functions as
   `AggExpr`s over one shared family, and `natOrExpr_ne_structural` and

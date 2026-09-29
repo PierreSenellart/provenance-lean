@@ -726,3 +726,44 @@ theorem bool_row_agree :
         * (boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq)
       = Having.jointPair boolTokenT boolTokenF
           (fun x y => (testNe x).or (testEq y)) := by decide
+
+/-! ### Inclusion–exclusion is not the joint reading of a disjunction
+
+Over disjoint families whose totals are `𝟙` – the scalar convention,
+where the empty world counts – the joint reading of a disjunction is
+sometimes written `S₁ ⊕ S₂ ⊖ S₁ ⊗ S₂`, on the reading of `⊖` as a
+subtraction that removes the worlds counted twice. That is an identity
+about numbers, not about m-semirings: it holds over `ℕ`, and fails in
+`𝔹`, where `⊤ ⊕ ⊤ ⊖ ⊤ ⊗ ⊤` is `⊤ ⊖ ⊤ = ⊥` while both sides of the
+disjunction hold. The overlap is not a quantity to be removed; in an
+idempotent `⊕` it was never counted twice. -/
+
+/-- One occurrence, present, read in the scalar convention – so the
+empty world counts and the family's total is `𝟙`. -/
+def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true⟩
+
+theorem bool_incl_excl_sides :
+    boolScalarT.predProvOfWith testNe = true
+      ∧ Having.jointPair boolScalarT boolScalarT
+          (fun x y => (testNe x).or (testNe y)) = true := by
+  constructor <;> decide
+
+/-- **Inclusion–exclusion fails in `𝔹`**: the joint reading is `⊤` and
+the formula gives `⊥`. -/
+theorem bool_incl_excl_ne :
+    Having.jointPair boolScalarT boolScalarT
+        (fun x y => (testNe x).or (testNe y))
+      ≠ boolScalarT.predProvOfWith testNe + boolScalarT.predProvOfWith testNe
+          - boolScalarT.predProvOfWith testNe * boolScalarT.predProvOfWith testNe := by
+  decide
+
+/-- One occurrence annotated `𝟙`, scalar – the `ℕ` counterpart, where
+the formula does hold. -/
+def natScalarOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true⟩
+
+theorem nat_incl_excl_eq :
+    Having.jointPair natScalarOne natScalarOne
+        (fun x y => (testGe1 x).or (testGe1 y))
+      = natScalarOne.predProvOfWith testGe1 + natScalarOne.predProvOfWith testGe1
+          - natScalarOne.predProvOfWith testGe1 * natScalarOne.predProvOfWith testGe1 := by
+  decide
