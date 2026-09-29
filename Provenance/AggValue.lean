@@ -905,6 +905,63 @@ def worlds (a : AggValue T K) : Finset (Finset (Fin a.occs.length)) :=
 /-- `Val(a)`: the values the aggregate value takes over its worlds. -/
 def vals (a : AggValue T K) : Finset T := a.worlds.image a.valOn
 
+/-- The same set, read off the aggregate, the convention and the list of
+*values* alone – which is what makes it insensitive to anything that
+moves occurrences without moving their values. -/
+def valsOf (f : SeqAggFunc T) (sc : Bool) (L : List T) : Finset T :=
+  (Finset.univ.filter (fun W : Finset (Fin L.length) => sc = true ∨ W.Nonempty)).image
+    (fun W => f (Having.seqOf L W))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **The values a token takes depend on its occurrences only through
+their values.** -/
+theorem vals_eq_valsOf (a : AggValue T K) :
+    a.vals = valsOf a.agg a.scalar (a.occs.map Prod.fst) := by
+  have hlen : a.occs.length = (a.occs.map Prod.fst).length :=
+    (List.length_map _).symm
+  have hval : ∀ W : Finset (Fin a.occs.length),
+      a.valOn W = a.agg (Having.seqOf (a.occs.map Prod.fst)
+        (W.map (finCongr hlen).toEmbedding)) := by
+    intro W
+    rw [AggValue.seqOf_map Prod.fst a.occs hlen W]
+    rfl
+  have hround : ∀ W' : Finset (Fin (a.occs.map Prod.fst).length),
+      (W'.map (finCongr hlen.symm).toEmbedding).map (finCongr hlen).toEmbedding
+        = W' := by
+    intro W'
+    ext j
+    simp only [Finset.mem_map_equiv, finCongr_symm]
+    rfl
+  unfold vals valsOf worlds
+  rw [Finset.image_congr (fun W _ => hval W)]
+  refine Finset.ext (fun t => ?_)
+  constructor
+  · intro h
+    obtain ⟨W, hW, rfl⟩ := Finset.mem_image.mp h
+    refine Finset.mem_image.mpr ⟨W.map (finCongr hlen).toEmbedding,
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩, rfl⟩
+    rcases (Finset.mem_filter.mp hW).2 with hs | ⟨i, hi⟩
+    · exact Or.inl hs
+    · exact Or.inr ⟨_, Finset.mem_map_of_mem _ hi⟩
+  · intro h
+    obtain ⟨W', hW', rfl⟩ := Finset.mem_image.mp h
+    refine Finset.mem_image.mpr ⟨W'.map (finCongr hlen.symm).toEmbedding,
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩, ?_⟩
+    · rcases (Finset.mem_filter.mp hW').2 with hs | ⟨i, hi⟩
+      · exact Or.inl hs
+      · exact Or.inr ⟨_, Finset.mem_map_of_mem _ hi⟩
+    · rw [hround W']
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- Pushing the annotations forward changes no value the token takes. -/
+theorem vals_mapAnn {K'' : Type} (h : K → K'') (a : AggValue T K) :
+    (a.mapAnn h).vals = a.vals := by
+  rw [vals_eq_valsOf, vals_eq_valsOf]
+  show valsOf a.agg a.scalar ((a.occs.map (fun o => (o.fst, h o.snd))).map Prod.fst)
+    = valsOf a.agg a.scalar (a.occs.map Prod.fst)
+  rw [List.map_map]
+  rfl
+
 /-- **A test read over the worlds.** The two conventions differ only in
 which subfamilies count, which is what `worlds` records. -/
 theorem predProvOfWith_eq_sum_worlds (a : AggValue T K) (P : T → Kleene) :

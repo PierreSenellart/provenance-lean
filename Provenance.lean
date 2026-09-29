@@ -769,9 +769,13 @@ proven engine several general results reuse internally.
   the random-world commutation covers it. It is **not** data-part
   adequate, and cannot be: it gives one row per value the column takes
   in *some* world, so `AggQuery.evaluateAnnotated_toPlain` carries the
-  hypothesis `AggQuery.altFree`. The homomorphism simulation carries it
-  too, pending a congruence for the values a token takes under
-  tie-block equivalence. `Alt` is outside the (R1)–(R5) fragment. An
+  hypothesis `AggQuery.altFree`. It **commutes with homomorphisms**
+  (`AggQuery.sim_alternativesAt`), since the values a token takes
+  survive both the pushforward (`AggValue.vals_mapAnn`) and tie-block
+  equivalence (`AggValue.vals_congr`) – both because `AggValue.vals`
+  reads the occurrences only through their values
+  (`AggValue.vals_eq_valsOf`). `Alt` is outside the (R1)–(R5)
+  fragment. An
   operator that compares a key reads an occurrence whose column holds
   an aggregate value through its *alternatives*, one per value the
   column takes: `(u[i ↦ v], α ⊗ [a ≐ v])`, where

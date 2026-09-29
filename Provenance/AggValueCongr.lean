@@ -570,6 +570,17 @@ theorem predProvOfWith_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
   · simpa using predProvWith_congr hagg h P
   · simpa using predProvScalarWith_congr hagg h P
 
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Tie-block permutation changes no value the token takes**: its
+swaps exchange occurrences of equal value, so the list of values is
+untouched and `AggValue.vals` reads only that. -/
+theorem vals_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
+    (hsc : a.scalar = b.scalar)
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
+    a.vals = b.vals := by
+  rw [AggValue.vals_eq_valsOf, AggValue.vals_eq_valsOf, hagg, hsc,
+    h.map_fst_eq]
+
 /-- The comparison case. -/
 theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar)
