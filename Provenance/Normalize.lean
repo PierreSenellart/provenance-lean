@@ -49,6 +49,7 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Sum q₁ q₂ => .Sum q₁.normalize q₂.normalize
   | _, _, _, .Dedup q => .Dedup q.normalize
   | _, _, _, .Diff q₁ q₂ => .Diff q₁.normalize q₂.normalize
+  | _, _, _, .Alt k h q => .Alt k h q.normalize
   | _, _, _, .Mu b s q₀ q₁ => .Mu b s q₀.normalize q₁.normalize
   | _, _, _, .MuSet b s q₀ q₁ => .MuSet b s q₀.normalize q₁.normalize
   | _, _, _, .Gamma is ts fs q => .Gamma is ts fs q.normalize
@@ -72,6 +73,7 @@ def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Sum q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
   | _, _, _, .Dedup q => q.chainFree
   | _, _, _, .Diff q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
+  | _, _, _, .Alt _ _ q => q.chainFree
   | _, _, _, .Mu _ _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
   | _, _, _, .Gamma _ _ _ q => q.chainFree
@@ -104,6 +106,7 @@ theorem AggQueryIn.normalize_chainFree :
   | Sum q₁ q₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
+  | Alt k h q ih => exact ih
   | Mu b s q₀ q₁ ih₀ ih₁ => exact ⟨ih₀, ih₁⟩
   | MuSet b s q₀ q₁ ih₀ ih₁ => exact ⟨ih₀, ih₁⟩
   | Gamma is ts fs q ih => exact ih
@@ -140,6 +143,7 @@ theorem AggQueryIn.normalize_id_of_chainFree :
   | Dedup q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro h; rw [AggQueryIn.normalize, ih₁ h.1, ih₂ h.2]
+  | Alt k hk q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro h; rw [AggQueryIn.normalize, ih₀ h.1, ih₁ h.2]
   | MuSet b s q₀ q₁ ih₀ ih₁ =>

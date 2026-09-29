@@ -887,4 +887,94 @@ pushforward. -/
     collapseSum (mapAnnSum h x) = collapseSum x := by
   cases x <;> simp [collapseSum, mapAnnSum]
 
+/-! ### Reading an aggregate value as a key: its worlds and its values
+
+An operator comparing keys reads an aggregate column in each world, so
+what it needs of the column is the set of values it takes and, for
+each, the provenance of taking it. -/
+
+section Alternatives
+
+variable [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+
+/-- The worlds of an aggregate value: every subfamily when it is read
+in the scalar convention, the non-empty ones when it is grouped. -/
+def worlds (a : AggValue T K) : Finset (Finset (Fin a.occs.length)) :=
+  Finset.univ.filter (fun W => a.scalar = true ∨ W.Nonempty)
+
+/-- `Val(a)`: the values the aggregate value takes over its worlds. -/
+def vals (a : AggValue T K) : Finset T := a.worlds.image a.valOn
+
+/-- **A test read over the worlds.** The two conventions differ only in
+which subfamilies count, which is what `worlds` records. -/
+theorem predProvOfWith_eq_sum_worlds (a : AggValue T K) (P : T → Kleene) :
+    a.predProvOfWith P
+      = ∑ W ∈ a.worlds, Having.worldAnn a.anns W * Having.chiOf P (a.valOn W) := by
+  unfold AggValue.predProvOfWith AggValue.worlds
+  cases hs : a.scalar with
+  | true =>
+    rw [ite_eq_left rfl, Finset.filter_true_of_mem (fun W _ => Or.inl rfl)]
+    rfl
+  | false =>
+    rw [ite_eq_right Bool.false_ne_true]
+    unfold AggValue.predProvWith
+    refine Finset.sum_congr (Finset.filter_congr (fun W _ => ?_)) (fun _ _ => rfl)
+    simp
+
+/-- **`[a ≐ v]`**: the predicate provenance of the atom comparing the
+aggregate value with `v`, under SQL's null-safe equality – so the case
+`v = NULL` is the atom `a IS NULL` and asks for no separate clause. -/
+def altProv (a : AggValue T K) (v : T) : K :=
+  a.predProvOfWith (fun x => CompOp.syneq.eval3 x v)
+
+/-- The share of a value is the mass of the worlds that take it. -/
+theorem altProv_eq_sum (a : AggValue T K) (v : T) :
+    a.altProv v
+      = ∑ W ∈ a.worlds.filter (fun W => a.valOn W = v),
+          Having.worldAnn a.anns W := by
+  rw [altProv, predProvOfWith_eq_sum_worlds, Finset.sum_filter]
+  refine Finset.sum_congr rfl (fun W _ => ?_)
+  by_cases h : a.valOn W = v
+  · rw [ite_eq_left h, Having.chiOf,
+      ite_eq_left ((CompOp.syneq_eval3_eq_true_iff _ _).mpr h), mul_one]
+  · rw [ite_eq_right h, Having.chiOf,
+      ite_eq_right (fun hc => h ((CompOp.syneq_eval3_eq_true_iff _ _).mp hc)),
+      mul_zero]
+
+/-- **The alternatives exhaust the worlds**: their shares add up to
+what the aggregate value's worlds carry, so reading a key through them
+loses nothing and invents nothing. -/
+theorem sum_altProv (a : AggValue T K) :
+    ∑ v ∈ a.vals, a.altProv v = ∑ W ∈ a.worlds, Having.worldAnn a.anns W := by
+  simp only [altProv_eq_sum]
+  rw [← Finset.sum_biUnion]
+  · refine Finset.sum_congr (Finset.ext (fun W => ?_)) (fun _ _ => rfl)
+    constructor
+    · intro h
+      obtain ⟨v, hv, hW⟩ := Finset.mem_biUnion.mp h
+      exact (Finset.mem_filter.mp hW).1
+    · intro h
+      exact Finset.mem_biUnion.mpr ⟨a.valOn W,
+        Finset.mem_image.mpr ⟨W, h, rfl⟩, Finset.mem_filter.mpr ⟨h, rfl⟩⟩
+  · intro v _ v' _ hvv
+    simp only [Function.onFun, Finset.disjoint_left, Finset.mem_filter]
+    rintro W ⟨-, rfl⟩ ⟨-, h'⟩
+    exact hvv h'
+
+/-- **Distinct alternatives of one occurrence exclude each other**,
+where `K` is exclusive: distinct values come from distinct worlds, and
+two distinct worlds' annotations multiply to `𝟘`. In `𝔹[X]` this is
+the statement that exactly one alternative of a present occurrence
+holds under each valuation; over `ℕ[X]`, where exclusivity fails, an
+operator that combines two alternatives of one occurrence – a window
+over a partition holding both – counts worlds that do not exist. -/
+theorem altProv_mul_eq_zero (hexcl : exclusive K) (a : AggValue T K)
+    {v v' : T} (h : v ≠ v') : a.altProv v * a.altProv v' = 0 := by
+  rw [altProv_eq_sum, altProv_eq_sum, Finset.sum_mul_sum]
+  refine Finset.sum_eq_zero (fun W hW => Finset.sum_eq_zero (fun W' hW' => ?_))
+  refine Having.worldAnn_mul_eq_zero_of_ne hexcl a.anns (fun hcon => h ?_)
+  rw [← (Finset.mem_filter.mp hW).2, ← (Finset.mem_filter.mp hW').2, hcon]
+
+end Alternatives
+
 end AggValue

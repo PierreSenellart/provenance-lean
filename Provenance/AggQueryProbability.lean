@@ -859,6 +859,23 @@ theorem GenPredIn.sel_finalize_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
       · rw [ite_eq_right hE] at hl
         exact hG l hl
 
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- Dropping a middle factor of a `𝔹[X]` product keeps it realized. -/
+private lemma mul_mul_eval_iff (x y z : BoolFunc X) (v : X → Bool)
+    (h : (x * z) v = true) : ((x * y) * z) v = true ↔ y v = true := by
+  have h' : (x v && z v) = true := h
+  simp only [Bool.and_eq_true] at h'
+  show ((x v && y v) && z v) = true ↔ _
+  simp [h'.1, h'.2]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+private lemma mul_mul_eval_drop (x y z : BoolFunc X) (v : X → Bool)
+    (h : ((x * y) * z) v = true) : (x * z) v = true := by
+  have h' : ((x v && y v) && z v) = true := h
+  show (x v && z v) = true
+  simp only [Bool.and_eq_true] at h' ⊢
+  exact ⟨h'.1.1, h'.2⟩
+
 /-! ## The guardedness invariant -/
 
 variable [HasAltLinearOrder (BoolFunc X)]
@@ -984,6 +1001,24 @@ theorem AggQueryIn.evaluate_guarded :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Alt k hk q ih =>
+    intro d γ r hr v hfin j a ha
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
+    cases hfk : r₀.fst k with
+    | inl w =>
+      rw [GenRow.alternativesAt, hfk, Multiset.mem_singleton] at hs
+      subst hs
+      exact ih d _ hr₀ v hfin j a ha
+    | inr b =>
+      rw [GenRow.alternativesAt, hfk] at hs
+      obtain ⟨v', -, rfl⟩ := Multiset.mem_map.mp hs
+      by_cases hj : j = k
+      · subst hj
+        exact absurd ha (by simp)
+      · refine ih d r₀ hr₀ v ?_ j a
+          ((Function.update_of_ne hj (Sum.inl v') r₀.fst).symm.trans ha)
+        exact mul_mul_eval_drop _ _ _ v hfin
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -1556,6 +1591,97 @@ private lemma specializeTuple_append' {n₁ n₂ : ℕ}
   · rw [Fin.append_left, Fin.append_left]
   · rw [Fin.append_right, Fin.append_right]
 
+omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
+/-- The value a token specializes to under a valuation is one of the
+values it takes, its group being realized. -/
+private lemma specialize_mem_vals (a : AggValue T (BoolFunc X)) (v : X → Bool)
+    (hr : a.scalar = true ∨ (a.realized v).Nonempty) :
+    a.specialize (fun α => α v) ∈ a.vals := by
+  rw [AggValue.specialize_eval]
+  exact Finset.mem_image.mpr ⟨a.realized v,
+    Finset.mem_filter.mpr ⟨Finset.mem_univ _, hr⟩, rfl⟩
+
+omit [HasAltLinearOrder (BoolFunc X)] in
+/-- **Exactly one alternative of an occurrence survives a valuation**:
+the one whose value is the column's value in that world – and it
+specializes to what the occurrence specializes to, so reading an
+aggregate column as a key changes no realized world. -/
+private lemma genRandomWorld_alternativesAt {n : ℕ}
+    (r : GenRow T (BoolFunc X) n) (k : Fin n) (v : X → Bool)
+    (hg : ∀ a : AggValue T (BoolFunc X), r.fst k = Sum.inr a →
+      r.snd.finalize v = true → (a.scalar = true ∨ (a.realized v).Nonempty)) :
+    genRandomWorld v (r.alternativesAt k) = genRandomWorld v {r} := by
+  cases hfk : r.fst k with
+  | inl w => rw [GenRow.alternativesAt, hfk]
+  | inr a =>
+    rw [GenRow.alternativesAt, hfk]
+    unfold genRandomWorld
+    rw [filter_map_comm, Multiset.map_map, Multiset.filter_singleton]
+    by_cases hfin : r.snd.finalize v = true
+    · have hr := hg a hfk hfin
+      have hp : ∀ v' : T,
+          ((⟨r.snd.base * a.altProv v', r.snd.pending⟩ : GenAnn (BoolFunc X)).finalize) v
+            = true ↔ v' = a.specialize (fun α => α v) := by
+        intro v'
+        rw [show ((⟨r.snd.base * a.altProv v', r.snd.pending⟩
+              : GenAnn (BoolFunc X)).finalize)
+            = (r.snd.base * a.altProv v')
+              * (r.snd.pending.map (fun l => SemiringWithMonus.delta l.sum)).prod
+            from rfl,
+          mul_mul_eval_iff _ _ _ v hfin, AggValue.altProv,
+          AggValue.predProvOfWith_eval_iff]
+        constructor
+        · rintro ⟨-, h2⟩
+          exact ((CompOp.syneq_eval3_eq_true_iff _ _).mp h2).symm
+        · intro h
+          exact ⟨hr, (CompOp.syneq_eval3_eq_true_iff _ _).mpr h.symm⟩
+      have hfil : Multiset.filter
+            (fun v' => ((⟨r.snd.base * a.altProv v', r.snd.pending⟩
+              : GenAnn (BoolFunc X)).finalize) v = true) a.vals.val
+          = {a.specialize (fun α => α v)} := by
+        rw [← Finset.filter_val,
+          Finset.filter_congr (fun v' _ => hp v'), Finset.filter_eq',
+          ite_eq_left (specialize_mem_vals a v hr)]
+        rfl
+      rw [ite_eq_left hfin, hfil, Multiset.map_singleton, Multiset.map_singleton]
+      refine congrArg _ (funext (fun j => ?_))
+      by_cases hj : j = k
+      · subst hj
+        show GenValue.specializeAt v (Function.update r.fst j (Sum.inl _) j)
+          = GenValue.specializeAt v (r.fst j)
+        rw [Function.update_self, hfk]
+        rfl
+      · exact congrArg (GenValue.specializeAt v)
+          (Function.update_of_ne hj (Sum.inl (a.specialize fun α => α v)) r.fst)
+    · rw [ite_eq_right hfin]
+      refine Multiset.eq_zero_of_forall_notMem (fun t ht => ?_)
+      obtain ⟨v', hv', -⟩ := Multiset.mem_map.mp ht
+      obtain ⟨-, hp⟩ := Multiset.mem_filter.mp hv'
+      have hmem : ((r.snd.base * a.altProv v')
+          * ((r.snd.pending.map (fun l => SemiringWithMonus.delta l.sum)).prod)) v
+            = true := hp
+      exact hfin (mul_mul_eval_drop _ _ _ v hmem)
+
+omit [HasAltLinearOrder (BoolFunc X)] in
+/-- Reading an aggregate column as a key changes no realized world. -/
+private lemma genRandomWorld_bind_alternativesAt {n : ℕ} (k : Fin n)
+    (v : X → Bool) :
+    ∀ R : Multiset (GenRow T (BoolFunc X) n),
+      (∀ r ∈ R, ∀ a : AggValue T (BoolFunc X), r.fst k = Sum.inr a →
+        r.snd.finalize v = true → (a.scalar = true ∨ (a.realized v).Nonempty)) →
+      genRandomWorld v (R.bind (fun r => r.alternativesAt k))
+        = genRandomWorld v R := by
+  intro R
+  induction R using Multiset.induction_on with
+  | empty => intro _; rfl
+  | cons r R ih =>
+    intro hg
+    rw [← Multiset.singleton_add, Multiset.add_bind, genRandomWorld_add,
+      genRandomWorld_add, Multiset.singleton_bind,
+      genRandomWorld_alternativesAt r k v
+        (fun a ha => hg r (Multiset.mem_cons_self r R) a ha),
+      ih (fun r' hr' => hg r' (Multiset.mem_cons_of_mem hr'))]
+
 /-- **Random-world commutation for the general evaluator** (over `𝔹[X]`):
 specializing the realized rows of the general annotated evaluation is the
 plain evaluation of the realized world. The σ-aggregate case is the row
@@ -1722,6 +1848,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
       genRandomWorld_allReg, ih hq d v]
+  | Alt k hk q ih =>
+    intro hq d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rw [genRandomWorld_bind_alternativesAt k v (q.evaluate d γ)
+      (fun r hr a ha hfin =>
+        AggQueryIn.evaluate_guarded q d r hr v hfin k a ha)]
+    exact ih hq d v
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]

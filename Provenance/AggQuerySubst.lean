@@ -324,6 +324,7 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .Sum q₁ q₂ => .Sum (q₁.substMap θ) (q₂.substMap θ)
   | _, _, _, _, θ, .Dedup q => .Dedup (q.substMap θ)
   | _, _, _, _, θ, .Diff q₁ q₂ => .Diff (q₁.substMap θ) (q₂.substMap θ)
+  | _, _, _, _, θ, .Alt k h q => .Alt k h (q.substMap θ)
   | _, _, _, _, θ, .Mu b s q₀ q₁ => .Mu b s (q₀.substMap θ) (q₁.substMap θ)
   | _, _, _, _, θ, .MuSet b s q₀ q₁ =>
       .MuSet b s (q₀.substMap θ) (q₁.substMap θ)
@@ -427,6 +428,10 @@ theorem AggQueryIn.evaluatePlain_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
     rw [ih₁ θ D γ, ih₂ θ D γ]
+  | Alt k h q ih =>
+    intro d θ D γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.evaluatePlain, ih]
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
@@ -572,6 +577,10 @@ theorem AggQueryIn.evaluate_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
     rw [ih₁ θ dB γ, ih₂ θ dB γ]
+  | Alt k h q ih =>
+    intro d θ dB γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.evaluate, ih]
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]

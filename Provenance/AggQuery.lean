@@ -560,6 +560,17 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n)
+  /-- **Reading an aggregate column as a key.** Every operator here
+  that compares keys – `Dedup`, `Diff`, the grouping and partition
+  indices – takes regular columns, so a query that groups on a count
+  or deduplicates on an aggregate is written by first reading the
+  column as a key: the occurrence is replaced by its alternatives, one
+  per value the column takes, each carrying `[a ≐ v]`, and the column
+  becomes regular (`GenRow.alternativesAt`). Over a plain relation an
+  aggregate value is a value and this is the identity. -/
+  | Alt : {c n : ℕ} → {κ : Fin n → ColKind} → (k : Fin n) →
+      κ k = ColKind.agg → AggQueryIn T c n κ →
+      AggQueryIn T c n (Function.update κ k ColKind.reg)
   /-- The decomposed grouping operator `γ^≼`: group the (all-regular)
   input by the key columns `is`; one output row per group, carrying the
   key followed by one aggregate token per `(term, aggregate)` pair. -/
@@ -670,6 +681,21 @@ def GenRow.toAnnotated {n : ℕ} (r : GenRow T K n) : AnnotatedTuple T K n :=
 pending). -/
 def GenRow.ofAnnotated {n : ℕ} (p : AnnotatedTuple T K n) : GenRow T K n :=
   ⟨fun k => Sum.inl (p.fst k), ⟨p.snd, 0⟩⟩
+
+/-- **The alternatives of an occurrence at one aggregate column**: one
+row per value the column's aggregate value takes, the column made
+regular and the annotation multiplied by `[a ≐ v]`
+(`AggValue.altProv`). A column already regular has the occurrence
+itself as its only alternative. This is how an operator that compares
+keys reads an aggregate column. -/
+def GenRow.alternativesAt {n : ℕ} (r : GenRow T K n) (i : Fin n) :
+    Multiset (GenRow T K n) :=
+  match r.fst i with
+  | Sum.inl _ => {r}
+  | Sum.inr a =>
+    a.vals.val.map (fun v =>
+      (Function.update r.fst i (Sum.inl v),
+        (⟨r.snd.base * a.altProv v, r.snd.pending⟩ : GenAnn K)))
 
 /-- The multiset of occurrence-annotation lists of the token columns of a
 tuple (used by projection to detect dropped groups). -/
@@ -970,6 +996,8 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, Dedup q, d, γ =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey r).val).map GenRow.ofAnnotated
+  | _, _, _, Alt k _ q, d, γ =>
+    (q.evaluate d γ).bind (fun r => r.alternativesAt k)
   | _, _, _, Mu b s q₀ q₁, d, γ =>
     (muSum (fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated) b
       ((q₀.evaluate d γ).map GenRow.toAnnotated)).map GenRow.ofAnnotated
@@ -1303,6 +1331,7 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
         (Fin.append u v : Tuple T (n₁ + _))))
   | _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
   | _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
+  | _, _, _, Alt _ _ q, d, γ => q.evaluatePlain d γ
   | _, _, _, Mu b s q₀ q₁, d, γ =>
     muSum (fun X => q₁.evaluatePlain (d.assign s X) γ) b (q₀.evaluatePlain d γ)
   | _, _, _, MuSet b s q₀ q₁, d, γ =>
@@ -1428,6 +1457,7 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Sum q₁ q₂ => Sum q₁.stripAgg q₂.stripAgg
   | _, _, _, Dedup q => Dedup q.stripAgg
   | _, _, _, Diff q₁ _ => q₁.stripAgg
+  | _, _, _, Alt k h q => Alt k h q.stripAgg
   | _, _, _, Mu b s q₀ q₁ => Mu b s q₀.stripAgg q₁.stripAgg
   | _, _, _, MuSet b s q₀ q₁ => MuSet b s q₀.stripAgg q₁.stripAgg
   | _, _, _, Gamma is ts fs q => Gamma is ts fs q.stripAgg
@@ -1452,6 +1482,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Sum q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, .Dedup q => q.noProvSum
   | _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, .Alt _ _ q => q.noProvSum
   | _, _, _, .Mu _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, .Gamma _ _ _ q => q.noProvSum
@@ -1460,6 +1491,32 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag _ q => q.noProvSum
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.noProvSum
+
+/-- **No aggregate column read as a key.** Reading one produces a row
+per value the column takes in *some* world, so the data part of the
+annotated evaluation is not the data part of any one world, and the
+annotation-forgetting adequacy of `evaluateAnnotated_toPlain` does not
+hold for it – unlike the readings that *are* world readings, the
+Boolean support and the random world, which `Alt` respects. -/
+def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T' c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.altFree
+  | _, _, _, .Sel _ q => q.altFree
+  | _, _, _, .Prod q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, .Apply q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, .Sum q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, .Dedup q => q.altFree
+  | _, _, _, .Diff q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, .Alt _ _ _ => False
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, .Gamma _ _ _ q => q.altFree
+  | _, _, _, .GammaScalar _ _ q => q.altFree
+  | _, _, _, .ProvSum _ _ _ q => q.altFree
+  | _, _, _, .Retag _ q => q.altFree
+  | _, _, _, .GammaTok _ _ _ _ _ q => q.altFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ => q.altFree
 
 /-! ## Join conditions on key columns -/
 
@@ -1720,6 +1777,27 @@ theorem AggQueryIn.evaluate_conform :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
+  | Alt k hk q ih =>
+    intro d γ r hr j
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
+    cases hfk : r₀.fst k with
+    | inl w =>
+      rw [GenRow.alternativesAt, hfk, Multiset.mem_singleton] at hs
+      subst hs
+      by_cases hj : j = k
+      · subst hj; rw [Function.update_self, hfk]; rfl
+      · rw [Function.update_of_ne hj]; exact ih d _ hr₀ j
+    | inr a =>
+      rw [GenRow.alternativesAt, hfk] at hs
+      obtain ⟨v, -, rfl⟩ := Multiset.mem_map.mp hs
+      by_cases hj : j = k
+      · subst hj
+        show GenValue.kindOf (Function.update r₀.fst j (Sum.inl v) j) = _
+        rw [Function.update_self, Function.update_self]; rfl
+      · show GenValue.kindOf (Function.update r₀.fst k (Sum.inl v) j) = _
+        rw [Function.update_of_ne hj, Function.update_of_ne hj]
+        exact ih d r₀ hr₀ j
   | Mu b s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr

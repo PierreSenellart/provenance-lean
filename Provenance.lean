@@ -757,7 +757,21 @@ proven engine several general results reuse internally.
   and the pending parts because each supersede test reduces to "drop
   that family's factor" (`Having.supersede_test_iff`) and dropping it
   twice is dropping it once
-- `Provenance.Alternatives` – **aggregate columns read as keys**. An
+- `Provenance.Alternatives` – **aggregate columns read as keys**, the
+  operator being `AggQuery.Alt` in `Provenance.AggQuery`: it replaces
+  each occurrence by its alternatives and makes the column regular, so
+  a `GROUP BY` on a count or a `DISTINCT` on an aggregate can be
+  written at all – every key-comparing operator takes regular columns.
+  Over a plain relation an aggregate value is a value and `Alt` is the
+  identity. It is **world-faithful**: under a valuation exactly one
+  alternative survives, the one whose value the column has in that
+  world, and it specializes to what the occurrence specializes to, so
+  the random-world commutation covers it. It is **not** data-part
+  adequate, and cannot be: it gives one row per value the column takes
+  in *some* world, so `AggQuery.evaluateAnnotated_toPlain` carries the
+  hypothesis `AggQuery.altFree`. The homomorphism simulation carries it
+  too, pending a congruence for the values a token takes under
+  tie-block equivalence. `Alt` is outside the (R1)–(R5) fragment. An
   operator that compares a key reads an occurrence whose column holds
   an aggregate value through its *alternatives*, one per value the
   column takes: `(u[i ↦ v], α ⊗ [a ≐ v])`, where
