@@ -55,6 +55,7 @@ import Provenance.AggQueryAdequacy
 import Provenance.WindowPartition
 import Provenance.AggQueryBridges
 import Provenance.Normalize
+import Provenance.Alternatives
 
 /- Possible-world foundations for the general evaluator -/
 import Provenance.AggQueryProbability
@@ -756,6 +757,27 @@ proven engine several general results reuse internally.
   and the pending parts because each supersede test reduces to "drop
   that family's factor" (`Having.supersede_test_iff`) and dropping it
   twice is dropping it once
+- `Provenance.Alternatives` – **aggregate columns read as keys**. An
+  operator that compares a key reads an occurrence whose column holds
+  an aggregate value through its *alternatives*, one per value the
+  column takes: `(u[i ↦ v], α ⊗ [a ≐ v])`, where
+  `AggValue.altProv` is `[a ≐ v]`, the predicate provenance of the
+  atom `a = v` under SQL's null-safe equality – so the case `v = NULL`
+  is the atom `a IS NULL` and needs no clause of its own.
+  `AggValue.worlds` and `AggValue.vals` are the worlds and the values
+  they take, `predProvOfWith_eq_sum_worlds` says the two reading
+  conventions differ only in which subfamilies count, and
+  `GenRow.alternativesAt` is the reading of an occurrence, whose column
+  an alternative makes regular (`alternativesAt_reg`). Two facts make
+  it a reading of the worlds rather than an enumeration of values:
+  `AggValue.sum_altProv`, the alternatives' shares add up to what the
+  worlds carry, so nothing is lost or invented; and
+  `AggValue.altProv_mul_eq_zero`, **distinct alternatives exclude each
+  other where `K` is exclusive**, since distinct values come from
+  distinct worlds – the remark that in `𝔹[X]` exactly one alternative
+  of a present occurrence holds under each valuation, and that over
+  `ℕ[X]` an operator combining two alternatives of one occurrence
+  counts worlds that do not exist
 - `Provenance.AggQueryProbability` – **the random-world commutation for
   the general evaluator** over `𝔹[X]`:
   `AggQuery.genRandomWorld_evaluate` – specializing the realized rows
