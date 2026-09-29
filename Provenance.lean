@@ -23,6 +23,7 @@ import Provenance.HavingSemantics
 /- Symbolic aggregate tokens for the general HAVING semantics -/
 import Provenance.AggValue
 import Provenance.AggExpr
+import Provenance.Nested
 import Provenance.JointFamily
 import Provenance.AggValueCongr
 
@@ -350,6 +351,26 @@ proven engine several general results reuse internally.
   convention, and `valOn_ofUnary` says it reads in each world what
   `g(a)` reads there – which is what a term over one aggregate column
   produces
+- `Provenance.Nested` – **nested aggregate values**: what an
+  aggregation or a window builds when its term reads an aggregate
+  column. Its occurrences are those of its own family together with
+  those of the inner values, which an `AggValue` cannot hold – its
+  reading consults its own list alone – so `NestedValue` carries the
+  inner aggregate value per outer occurrence and a `World` chooses both
+  which outer occurrences are present and which occurrences of each
+  inner value are. A world meets the family of each grouped inner value
+  **that it reads**, which is to say at an outer occurrence it keeps
+  (`World.IsWorld`): an absent outer occurrence contributes nothing, and
+  asking its inner family to be met would ask a group to be non-empty
+  while the row carrying it is absent. This is deliberately *not* the
+  condition a predicate's worlds satisfy – a predicate's families belong
+  to one tuple, which exists or does not, while a nested value's belong
+  to different outer occurrences the world is choosing between. Whether
+  a world should also be *barred* from meeting the family of an inner
+  value it does not read is open, so the world predicate is a parameter
+  (`World.IsWorldWith`, with `World.IsWorldCoherent` the other answer)
+  and either settles by substitution. `valOn_full` says the world with
+  everything present reads as the collapse
 - `Provenance.JointFamily` – **two occurrence families as one**, which
   is what a predicate reading two aggregate values reads. The two
   families are indexed separately, so the union is built:
