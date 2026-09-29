@@ -775,7 +775,15 @@ proven engine several general results reuse internally.
   equivalence (`AggValue.vals_congr`) – both because `AggValue.vals`
   reads the occurrences only through their values
   (`AggValue.vals_eq_valsOf`). `Alt` is outside the (R1)–(R5)
-  fragment. An
+  fragment. **Several** aggregate columns compared as one key ask for a
+  single atom on the tuple of values rather than two atoms conjoined,
+  and the two coincide wherever `K` is complemented – which is the
+  whole catalog – since two columns hold two different tokens and so
+  two disjoint families, over which the joint reading of a conjunction
+  of one-column tests factorizes (`Having.jointPair_and`,
+  `Having.altProvPair_eq_mul`). Reading the columns one after the other
+  therefore implements the tuple clause, and no operator on tuples of
+  columns is needed. An
   operator that compares a key reads an occurrence whose column holds
   an aggregate value through its *alternatives*, one per value the
   column takes: `(u[i ↦ v], α ⊗ [a ≐ v])`, where

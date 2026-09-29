@@ -343,4 +343,42 @@ theorem jointPair_and_const (a b : AggValue T K) (c : Kleene)
       ite_eq_right (fun hcon => hc (Kleene.and_eq_true_iff _ _ |>.mp hcon).1),
       mul_zero]
 
+/-! ## Several aggregate columns compared as one key
+
+Comparing two aggregate columns as one key asks for a *single* atom on
+the tuple of values, not two atoms conjoined. The two coincide wherever
+`K` is complemented, which is the whole catalog: the two columns hold
+two *different* tokens, so their families are disjoint by construction,
+and over disjoint families the joint reading of a conjunction of
+one-column tests factorizes. So reading the columns one after the other
+– two `Alt`s – implements the tuple clause there, and no operator on
+tuples of columns is needed. -/
+
+/-- **Two one-column tests read jointly factorize over disjoint
+families**, `K` being complemented. -/
+theorem jointPair_and (hc : complemented K) (a b : AggValue T K)
+    (P Q : T → Kleene) :
+    jointPair a b (fun x y => (P x).and (Q y))
+      = a.predProvOfWith P * b.predProvOfWith Q := by
+  rw [jointPair_eq_split hc, AggValue.predProvOfWith_eq_sum_worlds,
+    AggValue.predProvOfWith_eq_sum_worlds, Finset.sum_mul_sum]
+  refine Finset.sum_congr rfl (fun W₁ _ => ?_)
+  refine Finset.sum_congr rfl (fun W₂ _ => ?_)
+  simp only [Having.chiOf]
+  by_cases hP : P (a.valOn W₁) = Kleene.true
+  · by_cases hQ : Q (b.valOn W₂) = Kleene.true
+    · simp [Kleene.and_eq_true_iff, hP, hQ]
+    · simp [Kleene.and_eq_true_iff, hQ]
+  · simp [Kleene.and_eq_true_iff, hP]
+
+/-- **The tuple atom on two aggregate columns is the two columns read
+one after the other**, `K` being complemented: `[a ≐ v₁] ⊗ [b ≐ v₂]` is
+the single atom comparing the tuple `(a, b)` with `(v₁, v₂)`. -/
+theorem altProvPair_eq_mul (hc : complemented K) (a b : AggValue T K)
+    (v₁ v₂ : T) :
+    jointPair a b (fun x y =>
+        (CompOp.syneq.eval3 x v₁).and (CompOp.syneq.eval3 y v₂))
+      = a.altProv v₁ * b.altProv v₂ :=
+  jointPair_and hc a b _ _
+
 end Having
