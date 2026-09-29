@@ -393,4 +393,23 @@ theorem altProvPair_eq_mul (hc : complemented K) (a b : AggValue T K)
       = a.altProv v₁ * b.altProv v₂ :=
   jointPair_and hc a b _ _
 
+/-- **Reading one family as two independent halves is exactly the
+column-by-column product.** Instantiating the factorization at `a = b`
+says it: where a conjunction's two tests are read over one family split
+in two, what comes out is the product of the two one-test readings. So
+the gap between the tuple atom and the column-by-column reading, within
+one grouping, *is* the gap between a conjunction over one family and the
+product of its atoms – which needs exclusivity and an idempotent `⊗`
+(`AggValue.predProvOf_mul_predProvOf`) and fails over `ℕ`.
+
+Three constructs that look unrelated in SQL meet the same identity: a
+range atom against its two bounds, two selections against one selection
+on their conjunction, and two aggregate key columns against the atom on
+their tuple. They fail together, at `4` against `2`, or not at all. -/
+theorem jointPair_self_eq_mul (hc : complemented K) (a : AggValue T K)
+    (P Q : T → Kleene) :
+    jointPair a a (fun x y => (P x).and (Q y))
+      = a.predProvOfWith P * a.predProvOfWith Q :=
+  jointPair_and hc a a P Q
+
 end Having

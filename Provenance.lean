@@ -785,7 +785,12 @@ proven engine several general results reuse internally.
   independent ones counts a world once per half, and over `ℕ` that is
   `4` against `2` (`natRange_jointPair_ne`). So the tuple atom is a
   definition, coinciding with the column-by-column reading only across
-  groupings. An
+  groupings. `Having.jointPair_self_eq_mul` makes the coincidence a
+  theorem: reading one family as two independent halves *is* the
+  column-by-column product, so a range atom against its two bounds, two
+  selections against one on their conjunction, and two key columns
+  against the atom on their tuple are the same identity, failing
+  together at `4` against `2` or not at all. An
   operator that compares a key reads an occurrence whose column holds
   an aggregate value through its *alternatives*, one per value the
   column takes: `(u[i ↦ v], α ⊗ [a ≐ v])`, where
