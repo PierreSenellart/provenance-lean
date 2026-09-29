@@ -767,3 +767,35 @@ theorem nat_incl_excl_eq :
       = natScalarOne.predProvOfWith testGe1 + natScalarOne.predProvOfWith testGe1
           - natScalarOne.predProvOfWith testGe1 * natScalarOne.predProvOfWith testGe1 := by
   decide
+
+/-! ### `jointPair` reads two families as *disjoint*
+
+`Having.jointPair` sums over the worlds of the concatenation of the two
+occurrence families, so it reads them as independent. That is the joint
+reading when the families genuinely are disjoint – two columns coming
+from two different groupings – and it is *not* the joint reading when
+they coincide. Two aggregates of one group are one family
+(`AggValue.annList_ofGroup`), and reading them as two independent ones
+counts a world once per half: over `ℕ`, `4` where the one-family
+reading gives `2`. So a conjunction of tests on two aggregate columns
+is the column-by-column product exactly where the columns come from
+different groupings, and parts from it where they come from one – the
+same `4` against `2` that separates a chain of selections from one
+selection on the conjunction. -/
+
+/-- `count > 0`, on the range token's worlds. -/
+def testGt0 : ℕ → Kleene := fun v => CompOp.gt.eval3 v 0
+
+/-- `count ≤ 1`. -/
+def testLe1 : ℕ → Kleene := fun v => CompOp.le.eval3 v 1
+
+/-- **Read as two disjoint families, one family is counted twice.** -/
+theorem natRange_jointPair_self :
+    Having.jointPair natRangeToken natRangeToken
+        (fun x y => (testGt0 x).and (testLe1 y)) = 4 := by decide
+
+/-- The one-family reading of the same conjunction is `2`. -/
+theorem natRange_jointPair_ne :
+    Having.jointPair natRangeToken natRangeToken
+        (fun x y => (testGt0 x).and (testLe1 y))
+      ≠ natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide

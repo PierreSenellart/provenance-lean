@@ -343,19 +343,28 @@ theorem jointPair_and_const (a b : AggValue T K) (c : Kleene)
       ite_eq_right (fun hcon => hc (Kleene.and_eq_true_iff _ _ |>.mp hcon).1),
       mul_zero]
 
-/-! ## Several aggregate columns compared as one key
+/-! ## Two columns from two different groupings
 
-Comparing two aggregate columns as one key asks for a *single* atom on
-the tuple of values, not two atoms conjoined. The two coincide wherever
-`K` is complemented, which is the whole catalog: the two columns hold
-two *different* tokens, so their families are disjoint by construction,
-and over disjoint families the joint reading of a conjunction of
-one-column tests factorizes. So reading the columns one after the other
-– two `Alt`s – implements the tuple clause there, and no operator on
-tuples of columns is needed. -/
+Everything here reads the two families as **disjoint** – `jointPair`
+sums over the worlds of their concatenation, where the two halves are
+chosen independently. That is the joint reading when the families
+genuinely are disjoint, which is what two columns coming from two
+different groupings give; it is *not* the joint reading when the
+families coincide. Two aggregates of one group are one family, the
+sequence of occurrences alone making it
+(`AggValue.annList_ofGroup`), and reading them as two independent
+families counts a world once per half – over `ℕ`, `4` where the
+one-family reading gives `2` (`natRange_jointPair_ne`).
+
+So the factorization below is about columns from different groupings,
+and says nothing about a conjunction of tests on two aggregates of one
+group, which needs exclusivity and an idempotent `⊗`
+(`AggValue.predProvOf_mul_predProvOf`) and fails over `ℕ`. -/
 
 /-- **Two one-column tests read jointly factorize over disjoint
-families**, `K` being complemented. -/
+families**, `K` being complemented. The disjointness is in `jointPair`
+itself, so this is a statement about two families that genuinely are
+disjoint and not about two columns of one group. -/
 theorem jointPair_and (hc : complemented K) (a b : AggValue T K)
     (P Q : T → Kleene) :
     jointPair a b (fun x y => (P x).and (Q y))
@@ -371,9 +380,12 @@ theorem jointPair_and (hc : complemented K) (a b : AggValue T K)
     · simp [Kleene.and_eq_true_iff, hQ]
   · simp [Kleene.and_eq_true_iff, hP]
 
-/-- **The tuple atom on two aggregate columns is the two columns read
-one after the other**, `K` being complemented: `[a ≐ v₁] ⊗ [b ≐ v₂]` is
-the single atom comparing the tuple `(a, b)` with `(v₁, v₂)`. -/
+/-- **Where the two columns come from different groupings**, the single
+atom comparing the tuple `(a, b)` with `(v₁, v₂)` is the two columns
+read one after the other, `K` being complemented: `[a ≐ v₁] ⊗ [b ≐ v₂]`.
+Where they come from one grouping their families coincide and this does
+not apply; there the tuple atom is a definition and the column-by-column
+product is a different value. -/
 theorem altProvPair_eq_mul (hc : complemented K) (a b : AggValue T K)
     (v₁ v₂ : T) :
     jointPair a b (fun x y =>
