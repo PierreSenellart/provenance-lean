@@ -200,4 +200,84 @@ theorem World.isWorld_of_isWorldCoherent {a : NestedValue T K}
     {W : a.World} (h : W.IsWorldCoherent) : W.IsWorld :=
   ⟨h.1, h.2.1, trivial⟩
 
+
+
+/-! ## Nothing nested: the degenerate case
+
+A nested value whose inner values read nothing is an ordinary aggregate
+value, and it had better be annotated like one. `constInner v` is the
+inner value that reads no occurrence and returns `v`; `ofAggValue`
+builds the nested value of a token by putting one at each of its
+occurrences, and `ann_worldOf` says a world of it carries exactly
+`Having.worldAnn` of the token's own family. -/
+
+/-- The inner value that reads nothing and returns `v`. Its only world
+is the empty one, and it contributes no occurrence. -/
+def constInner (v : T) : AggValue T K := ⟨fun _ => v, [], true⟩
+
+/-- **The nested value of an ordinary token**: nothing is nested, each
+occurrence carrying a value rather than a family. -/
+def ofAggValue (a : AggValue T K) : NestedValue T K :=
+  ⟨a.agg, a.occs.map (fun o => (constInner o.fst, o.snd)), a.scalar⟩
+
+omit [ValueType T] in
+theorem length_ofAggValue (a : AggValue T K) :
+    a.occs.length = (ofAggValue a).occs.length := (List.length_map _).symm
+
+omit [ValueType T] in
+@[simp] theorem outerAnn_ofAggValue (a : AggValue T K)
+    (i : Fin a.occs.length) :
+    (ofAggValue a).outerAnn (finCongr (length_ofAggValue a) i) = a.anns i := by
+  show ((a.occs.map (fun o => (constInner o.fst, o.snd))).get
+    (finCongr (length_ofAggValue a) i)).snd = _
+  simp [AggValue.anns]
+
+/-- A world of the token, as a world of its nested form. -/
+def worldOf (a : AggValue T K) (W : Finset (Fin a.occs.length)) :
+    (ofAggValue a).World :=
+  ⟨W.map (finCongr (length_ofAggValue a)).toEmbedding, fun _ => ∅⟩
+
+section DegenerateAnn
+
+variable [CommSemiringWithMonus K]
+
+omit [ValueType T] in
+/-- **A world of an unnested value is annotated as the token's own
+family annotates it.** -/
+theorem ann_worldOf (a : AggValue T K) (W : Finset (Fin a.occs.length)) :
+    (worldOf a W).ann = Having.worldAnn a.anns W := by
+  have hinner : ∀ i : Fin (ofAggValue a).occs.length,
+      ((ofAggValue a).innerAt i).occs.length = 0 := by
+    intro i
+    simp only [NestedValue.innerAt, ofAggValue, List.get_eq_getElem,
+      List.getElem_map]
+    rfl
+  unfold World.ann World.presentProd World.absentSum worldOf Having.worldAnn
+  have h1 : (∏ i ∈ W.map (finCongr (length_ofAggValue a)).toEmbedding,
+        (ofAggValue a).outerAnn i) = ∏ i ∈ W, a.anns i := by
+    rw [Finset.prod_map]
+    exact Finset.prod_congr rfl (fun i _ => outerAnn_ofAggValue a i)
+  have h3 : (∑ i ∈ (W.map (finCongr (length_ofAggValue a)).toEmbedding)ᶜ,
+        (ofAggValue a).outerAnn i) = ∑ i ∈ Wᶜ, a.anns i := by
+    have hcompl : ((W.map (finCongr (length_ofAggValue a)).toEmbedding))ᶜ
+        = Wᶜ.map (finCongr (length_ofAggValue a)).toEmbedding := by
+      ext j
+      rw [Finset.mem_compl, Finset.mem_map_equiv, Finset.mem_map_equiv,
+        Finset.mem_compl]
+    rw [hcompl, Finset.sum_map]
+    exact Finset.sum_congr rfl (fun i _ => outerAnn_ofAggValue a i)
+  have h2 : (∏ i : Fin (ofAggValue a).occs.length,
+        ∏ j ∈ (∅ : Finset (Fin ((ofAggValue a).innerAt i).occs.length)),
+          ((ofAggValue a).innerAt i).anns j) = 1 :=
+    Finset.prod_eq_one (fun i _ => Finset.prod_empty)
+  have h4 : (∑ i : Fin (ofAggValue a).occs.length,
+        ∑ j ∈ (∅ : Finset (Fin ((ofAggValue a).innerAt i).occs.length))ᶜ,
+          ((ofAggValue a).innerAt i).anns j) = 0 := by
+    refine Finset.sum_eq_zero (fun i _ => Finset.sum_eq_zero (fun j _ => ?_))
+    have hj := j.isLt
+    exact absurd (hinner i) (by omega)
+  rw [h1, h2, h3, h4, mul_one, add_zero]
+
+end DegenerateAnn
+
 end NestedValue

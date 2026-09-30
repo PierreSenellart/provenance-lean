@@ -377,7 +377,12 @@ proven engine several general results reuse internally.
   and not about how one is weighed: `World.ann_full` for the full
   world, and `World.presentProd_eq_of_coherent` saying that under the
   coherent reading the inner products collapse to the occurrences the
-  world actually reads
+  world actually reads. The structure degenerates as it should:
+  `ofAggValue` nests an ordinary token by giving each occurrence an
+  inner value that reads nothing (`constInner`), and `ann_worldOf` says
+  a world of it carries exactly `Having.worldAnn` of the token's own
+  family – so nesting adds weight only where something is actually
+  nested
 - `Provenance.JointFamily` – **two occurrence families as one**, which
   is what a predicate reading two aggregate values reads. The two
   families are indexed separately, so the union is built:
