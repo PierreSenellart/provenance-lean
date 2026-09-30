@@ -3,10 +3,12 @@
   Authors: Pierre Senellart
 -/
 import Provenance.JointFamily
+import Provenance.Nested
 import Provenance.QueryToAgg
 import Provenance.Semirings.ChainFive
 import Provenance.Semirings.Tropical
 import Provenance.Semirings.Nat
+import Provenance.Semirings.MinMax
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -799,3 +801,88 @@ theorem natRange_jointPair_ne :
     Having.jointPair natRangeToken natRangeToken
         (fun x y => (testGt0 x).and (testLe1 y))
       ≠ natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
+
+/-! ### Min-max: `δ = id` with no exclusivity, and the row still absorbs
+
+`ChainFive` shows an idempotent `⊕` is not what makes the existence
+factors absorb the `∨` rule's difference (`chain_row_ne`); `δ = id` is
+necessary, by the identity `a ⊗ δ(b) = a ⊗ b` at `a = 𝟙`. Min-max has
+`δ = id` and is *not* exclusive, which is the one place in the catalog
+where the two roads to killing an invented world both fail – so whether
+it keeps the row-level absorption is exactly whether `δ = id` suffices.
+It does, here: `⊗` is `max` and `⊕` is `min`, so
+`max(a, b, min(a, b)) = max(a, b)` and the reported row is the joint
+one, in each configuration of the two tests. -/
+
+/-- The three-element min-max semiring, `δ` the identity. -/
+abbrev MM3 := MinMax (Fin 3)
+
+/-- One occurrence, graded. -/
+def mmTokenA : AggValue ℕ MM3 :=
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (1 : Fin 3))], false⟩
+
+/-- Another, graded differently. -/
+def mmTokenB : AggValue ℕ MM3 :=
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (2 : Fin 3))], false⟩
+
+/-- **One test satisfied**: the configuration `ChainFive` parts on. -/
+theorem mm_row_agree_one :
+    SemiringWithMonus.delta (MinMax.mk (1 : Fin 3)) * SemiringWithMonus.delta (MinMax.mk (2 : Fin 3))
+        * (mmTokenA.predProvWith testGe1 + mmTokenB.predProvWith testGe2)
+      = Having.jointPair mmTokenA mmTokenB
+          (fun x y => (testGe1 x).or (testGe2 y)) := by decide
+
+/-- **Both satisfied**, where the overlap would be counted twice were
+`⊕` not idempotent. -/
+theorem mm_row_agree_both :
+    SemiringWithMonus.delta (MinMax.mk (1 : Fin 3)) * SemiringWithMonus.delta (MinMax.mk (2 : Fin 3))
+        * (mmTokenA.predProvWith testGe1 + mmTokenB.predProvWith testGe1)
+      = Having.jointPair mmTokenA mmTokenB
+          (fun x y => (testGe1 x).or (testGe1 y)) := by decide
+
+/-- **Neither satisfied.** -/
+theorem mm_row_agree_neither :
+    SemiringWithMonus.delta (MinMax.mk (1 : Fin 3)) * SemiringWithMonus.delta (MinMax.mk (2 : Fin 3))
+        * (mmTokenA.predProvWith testGe2 + mmTokenB.predProvWith testGe2)
+      = Having.jointPair mmTokenA mmTokenB
+          (fun x y => (testGe2 x).or (testGe2 y)) := by decide
+
+/-! ### An aggregate over an inner grouping's aggregates: min-max invents a world
+
+A nested aggregate's worlds range over the occurrences of the outer
+family *and* those of the inner values, so a world may keep an inner
+occurrence of an outer occurrence it drops – a combination of rows the
+inner grouping could not have produced. Such a world carries
+`(⊗ over what it keeps) ⊗ (𝟙 ⊖ α)` for the dropped outer occurrence's
+annotation `α`, so it dies exactly where that product is `𝟘`.
+
+Over `ℕ` it dies: `α = 𝟙` and `𝟙 ⊖ 𝟙 = 𝟘`. Over min-max it does not:
+`𝟙` is `⊥`, and `⊥ ⊖ g = ⊥ = 𝟙` for any grade `g ≠ 𝟙`, so the
+complement factor is `𝟙` and the invented world keeps the weight of the
+rows it does hold. That is the one row of the catalog where neither
+road – an exclusive `⊕` nor a `δ` saturating to `𝟙` – is open. -/
+
+/-- Two outer occurrences, each carrying a one-occurrence inner
+family. -/
+abbrev nestOf {K : Type} [CommSemiringWithMonus K] (α₀ α₁ β₀ β₁ : K) :
+    NestedValue ℕ K :=
+  ⟨SeqAggFunc.count,
+    [(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀),
+     (⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁)],
+    false⟩
+
+/-- **The invented world**: it keeps the first outer occurrence and an
+inner occurrence of the second, which it drops. -/
+abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K]
+    (α₀ α₁ β₀ β₁ : K) : (nestOf α₀ α₁ β₀ β₁).World :=
+  ⟨{(0 : Fin 2)}, fun _ => Finset.univ⟩
+
+/-- **Over `ℕ` the invented world is annotated `𝟘`.** -/
+theorem nat_incoherentWorld_eq_zero :
+    (incoherentWorld (1 : ℕ) 1 1 1).ann = 0 := by decide
+
+/-- **Over min-max it is not**: the complement factor is `𝟙`, so the
+world keeps the weight of the rows it holds. -/
+theorem mm_incoherentWorld_ne_zero :
+    (incoherentWorld (MinMax.mk (1 : Fin 3)) (MinMax.mk 1)
+      (MinMax.mk 1) (MinMax.mk 1)).ann ≠ 0 := by decide

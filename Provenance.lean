@@ -1166,7 +1166,16 @@ proven engine several general results reuse internally.
   (`nat_incl_excl_eq`) and fails in `𝔹` (`bool_incl_excl_ne`), where
   `⊤ ⊕ ⊤ ⊖ ⊤ ⊗ ⊤` is `⊥` while both sides hold – the overlap is not a
   quantity to remove, and where `⊕` is idempotent it was never counted
-  twice. Both instances are also stated against the definition
+  twice. Min-max is the row where the two roads to killing an *invented*
+  world of a nested aggregate – an exclusive `⊕`, or a `δ` saturating
+  to `𝟙` – are both closed, and the instances say so: over `ℕ` the
+  world that keeps an inner occurrence of a dropped outer one is
+  annotated `𝟘` (`nat_incoherentWorld_eq_zero`), over min-max it is not
+  (`mm_incoherentWorld_ne_zero`), since `𝟙 ⊖ g = 𝟙` there. Min-max does
+  nonetheless keep the **row-level** absorption of the `∨` rule, in
+  every configuration of the two tests (`mm_row_agree_one`,
+  `mm_row_agree_both`, `mm_row_agree_neither`) – so `δ = id` suffices
+  for that where `ChainFive` showed an idempotent `⊕` does not. Both instances are also stated against the definition
   itself rather than against a sum written family by family –
   `natOrExpr` and `natCaseExpr` are the two Boolean functions as
   `AggExpr`s over one shared family, and `natOrExpr_ne_structural` and

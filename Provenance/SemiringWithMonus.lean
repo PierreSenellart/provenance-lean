@@ -567,6 +567,33 @@ theorem delta_natCast_pos_id {K : Type} [Semiring K] (h : idempotent K)
     {n : ℕ} (hn : 0 < n) : (id ((n : K)) : K) = 1 :=
   natCast_pos_eq_one_of_idempotent h hn
 
+/-- **What the `δ` axioms ask of a candidate**, as a predicate, so that
+the choices open to a given semiring can be compared. -/
+structure IsLegalDelta {K : Type} [Semiring K] (δ : K → K) : Prop where
+  /-- `δ` sends `𝟘` to `𝟘`. -/
+  zero : δ 0 = 0
+  /-- `δ` sends every positive natural cast to `𝟙`. -/
+  natCast_pos : ∀ {n : ℕ}, 0 < n → δ ((n : K)) = 1
+  /-- A `δ`-guard is absorbed by any multiple of one of its summands. -/
+  absorb : ∀ a b : K, a * δ (a + b) = a
+
+/-- **The identity is a legal `δ` exactly where the semiring absorbs and
+its `𝟙` is additively idempotent.** The absorption clause is the one a
+reader expects – `a ⊓ (a ⊔ b) = a` in a lattice-like semiring – but it
+is not the whole condition: `δ` must send every positive cast of `𝟙`
+to `𝟙`, which for the identity says `n · 𝟙 = 𝟙`, that is, that `⊕`
+does not accumulate copies of `𝟙`. Min-max satisfies both; `ℕ` fails
+the second, which is why the identity is not available there even
+though the first is what one thinks to check. -/
+theorem isLegalDelta_id_iff {K : Type} [Semiring K] :
+    IsLegalDelta (id : K → K)
+      ↔ (∀ a b : K, a * (a + b) = a) ∧ ∀ n : ℕ, 0 < n → ((n : K)) = 1 := by
+  constructor
+  · intro h
+    exact ⟨fun a b => h.absorb a b, fun n hn => h.natCast_pos hn⟩
+  · intro ⟨habs, hcast⟩
+    exact ⟨rfl, fun {n} hn => hcast n hn, habs⟩
+
 /-- The “indicator-of-nonzero” recipe: `δ a = 0` when `a = 0` and
 `δ a = 1` otherwise. Captured abstractly so a single set of axioms can
 serve all the concrete instances that use it (`ℕ`, `ℕ[X]`, Tropical,
@@ -599,6 +626,16 @@ theorem delta_absorb_indicator
   · rw [h.nonzero _ hab, mul_one]
 
 /-! ## Admissibility of a candidate `δ`
+
+/-- **The support map is a legal `δ` wherever the casts are non-zero.**
+It is the greatest legal choice, the identity the least where it is
+available. -/
+theorem isLegalDelta_indicator {K : Type} [Semiring K] [PartialOrder K]
+    [IsOrderedAddMonoid K] [CanonicallyOrderedAdd K] [CharZero K]
+    [Nontrivial K] {δ : K → K} (h : IsDeltaIndicator δ) :
+    IsLegalDelta δ :=
+  ⟨h.zero, fun hn => delta_natCast_pos_indicator h hn,
+    delta_absorb_indicator h⟩
 
 `δ` is not determined by the axioms, and the two operators used in practice
 are the identity and the support indicator. `IsDelta` states the axioms as a
