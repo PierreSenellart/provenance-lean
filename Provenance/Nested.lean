@@ -202,6 +202,90 @@ theorem World.isWorld_of_isWorldCoherent {a : NestedValue T K}
 
 
 
+/-! ## The readings over the nested worlds
+
+With the world set fixed – the coherence clause not imposed – the two
+readings a nested value owes can be written: the predicate provenance
+of a test of its value, and the world-faithful reading under a
+valuation of the annotations. Both are the `AggValue` ones with
+`World` in place of a subfamily and `World.ann` in place of
+`Having.worldAnn`.
+
+Summing over the worlds needs them to be finitely many, which they are:
+a world is a subfamily of the outer occurrences together with one of
+each inner family. -/
+
+section Readings
+
+variable [CommSemiringWithMonus K] [DecidableEq K]
+
+/-- A world is an outer subfamily together with one subfamily per inner
+value. -/
+def World.equivSigma (a : NestedValue T K) :
+    a.World ≃ (Finset (Fin a.occs.length)
+      × ((i : Fin a.occs.length) → Finset (Fin (a.innerAt i).occs.length))) where
+  toFun W := (W.outer, W.inner)
+  invFun p := ⟨p.1, p.2⟩
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+instance (a : NestedValue T K) : Fintype a.World :=
+  Fintype.ofEquiv _ (World.equivSigma a).symm
+
+instance (a : NestedValue T K) : DecidableEq a.World :=
+  fun _ _ => decidable_of_iff _ (World.equivSigma a).apply_eq_iff_eq
+
+instance {a : NestedValue T K} : DecidablePred (World.IsWorld (a := a)) :=
+  fun _ => inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+
+/-- **The predicate provenance of a test of a nested value**: the `⊕`
+over its worlds of the world's annotation times the truth of the test
+there. -/
+def predProvWith (a : NestedValue T K) (P : T → Kleene) : K :=
+  ∑ W ∈ Finset.univ.filter (fun W : a.World => W.IsWorld),
+    W.ann * Having.chiOf P (valOn W)
+
+/-- The comparison case. -/
+def predProvOf (a : NestedValue T K) (op : CompOp) (c : T) : K :=
+  a.predProvWith (fun v => op.eval3 v c)
+
+/-- **The world a valuation of the annotations realizes**: every
+occurrence, outer or inner, whose annotation the valuation makes
+true. -/
+def realizedWorld (a : NestedValue T K) (ν : K → Bool) : a.World :=
+  ⟨Finset.univ.filter (fun i => ν (a.outerAnn i)),
+    fun i => Finset.univ.filter (fun j => ν ((a.innerAt i).anns j))⟩
+
+/-- **The world-faithful reading**: the value in the realized world. -/
+def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
+  valOn (a.realizedWorld ν)
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- A valuation that keeps every occurrence realizes the full world. -/
+theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
+    (h : ∀ x : K, ν x = true) : a.realizedWorld ν = World.full a := by
+  unfold realizedWorld World.full
+  refine congrArg₂ World.mk (Finset.filter_true_of_mem (fun i _ => h _)) ?_
+  funext i
+  exact Finset.filter_true_of_mem (fun j _ => h _)
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **Where every occurrence is realized the reading is the
+collapse**, so the world-faithful reading and the deterministic one
+agree on the database as it is. -/
+theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
+    (h : ∀ x : K, ν x = true) : a.specialize ν = a.collapse := by
+  rw [specialize, realizedWorld_of_forall a ν h, valOn_full]
+
+omit [ValueType T] [DecidableEq K] in
+/-- **A test no value satisfies annotates `𝟘`.** -/
+theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
+    (h : ∀ v : T, P v ≠ Kleene.true) : a.predProvWith P = 0 := by
+  refine Finset.sum_eq_zero (fun W _ => ?_)
+  rw [Having.chiOf, ite_eq_right (h _), mul_zero]
+
+end Readings
+
 /-! ## Nothing nested: the degenerate case
 
 A nested value whose inner values read nothing is an ordinary aggregate

@@ -377,7 +377,14 @@ proven engine several general results reuse internally.
   and not about how one is weighed: `World.ann_full` for the full
   world, and `World.presentProd_eq_of_coherent` saying that under the
   coherent reading the inner products collapse to the occurrences the
-  world actually reads. The structure degenerates as it should:
+  world actually reads. The **readings** the value owes are there too,
+  over the world set the coherence clause does not restrict:
+  `NestedValue.predProvWith` and `predProvOf` for a test of its value,
+  and `realizedWorld`/`specialize` for the world-faithful reading under
+  a valuation – with `specialize_of_forall` saying the two agree where
+  every occurrence is realized, and `predProvWith_of_never` that a test
+  no value satisfies annotates `𝟘`. The structure degenerates as it
+  should:
   `ofAggValue` nests an ordinary token by giving each occurrence an
   inner value that reads nothing (`constInner`), and `ann_worldOf` says
   a world of it carries exactly `Having.worldAnn` of the token's own

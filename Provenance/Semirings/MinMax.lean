@@ -315,3 +315,47 @@ theorem TVL.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
     obtain ⟨w⟩ := y
     cases w <;> decide
   exact key (φ (1 - v)) ⟨hadd, hmul⟩
+
+/-! ## Orientation
+
+The carrier is `α` with its order *reversed*: `𝟘` is `α`'s top and `𝟙`
+its bottom, `⊕` is `α`'s `min` and `⊗` its `max`, and `≤` on `MinMax α`
+is `≥` on `α`. The point of the reversal is that the semiring order
+comes out the right way up – `𝟘` least and `𝟙` greatest, as a
+canonically ordered semiring needs – so read in the *semiring*, `⊕` is
+the join, `⊗` the meet, `𝟙` the top and `𝟘` the bottom. A statement
+about min-max is therefore true in either telling; only the `α`-values
+change places, which is worth saying because `𝟙 = ⟨⊥⟩` reads as
+"`𝟙` is the bottom" and means the opposite. -/
+
+/-- `𝟙` is `α`'s bottom, hence the semiring's top. -/
+theorem MinMax.one_eq_bot {α : Type} [LinearOrder α] [BoundedOrder α] :
+    (1 : MinMax α) = ⟨⊥⟩ := rfl
+
+/-- `𝟘` is `α`'s top, hence the semiring's bottom. -/
+theorem MinMax.zero_eq_top {α : Type} [LinearOrder α] [BoundedOrder α] :
+    (0 : MinMax α) = ⟨⊤⟩ := rfl
+
+/-- `⊕` is `α`'s `min`. -/
+theorem MinMax.add_eq_min {α : Type} [LinearOrder α] [BoundedOrder α]
+    (a b : MinMax α) : a + b = ⟨min a.val b.val⟩ := rfl
+
+/-- `⊗` is `α`'s `max`. -/
+theorem MinMax.mul_eq_max {α : Type} [LinearOrder α] [BoundedOrder α]
+    (a b : MinMax α) : a * b = ⟨max a.val b.val⟩ := rfl
+
+/-- **`𝟙` is additively idempotent**, which is the second clause of
+`isLegalDelta_id_iff` and what makes the identity a legal `δ` here. -/
+theorem MinMax.one_add_one {α : Type} [LinearOrder α] [BoundedOrder α] :
+    (1 : MinMax α) + 1 = 1 := by
+  rw [MinMax.add_eq_min]
+  exact congrArg MinMax.mk (min_self _)
+
+/-- **The semiring order has `𝟘` least**, so the reversal is what keeps
+the semiring canonically ordered. -/
+theorem MinMax.zero_le {α : Type} [LinearOrder α] [BoundedOrder α]
+    (a : MinMax α) : (0 : MinMax α) ≤ a := le_top
+
+/-- **And `𝟙` greatest.** -/
+theorem MinMax.le_one {α : Type} [LinearOrder α] [BoundedOrder α]
+    (a : MinMax α) : a ≤ (1 : MinMax α) := bot_le
