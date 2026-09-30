@@ -133,6 +133,66 @@ theorem valOn_full (a : NestedValue T K) :
       = ⟨i, by simpa using h₂⟩ from by simp]
   exact (AggValue.collapse_eq_valOn_univ _).symm
 
+/-! ## What a world of a nested value is annotated
+
+The annotation is the one every family gets: the product of what is
+present times `𝟙 ⊖` the sum of what is absent. It does not depend on
+`q:nestedcoherent`, which is about *which* worlds are admitted and not
+about how a given one is weighed – so it can be written now. The inner
+products range over every outer occurrence, which is the literal
+reading of "the occurrences present in `W`"; under the coherent reading
+they collapse to the occurrences the world actually reads
+(`World.presentProd_eq_of_coherent`). -/
+
+section Annotation
+
+variable [CommSemiringWithMonus K]
+
+/-- The product of the annotations a world keeps: the outer occurrences
+it keeps and, for each outer occurrence, the inner ones it keeps. -/
+def World.presentProd {a : NestedValue T K} (W : a.World) : K :=
+  (∏ i ∈ W.outer, a.outerAnn i)
+    * ∏ i : Fin a.occs.length, ∏ j ∈ W.inner i, (a.innerAt i).anns j
+
+/-- The sum of the annotations a world leaves out. -/
+def World.absentSum {a : NestedValue T K} (W : a.World) : K :=
+  (∑ i ∈ W.outerᶜ, a.outerAnn i)
+    + ∑ i : Fin a.occs.length, ∑ j ∈ (W.inner i)ᶜ, (a.innerAt i).anns j
+
+/-- **The annotation of a world of a nested value.** -/
+def World.ann {a : NestedValue T K} (W : a.World) : K :=
+  W.presentProd * (1 - W.absentSum)
+
+omit [ValueType T] in
+/-- Nothing is absent from the full world. -/
+@[simp] theorem World.absentSum_full (a : NestedValue T K) :
+    (World.full a).absentSum = 0 := by
+  unfold World.absentSum World.full
+  simp
+
+omit [ValueType T] in
+/-- **The full world is annotated by the product of everything.** -/
+theorem World.ann_full (a : NestedValue T K) :
+    (World.full a).ann = (World.full a).presentProd := by
+  rw [World.ann, World.absentSum_full, monus_zero, mul_one]
+
+omit [ValueType T] in
+/-- **Under the coherent reading the inner products are over the
+occurrences the world reads**: an outer occurrence the world drops
+keeps no inner occurrence, so its factor is empty. -/
+theorem World.presentProd_eq_of_coherent {a : NestedValue T K}
+    {W : a.World} (h : ∀ i ∉ W.outer, W.inner i = ∅) :
+    W.presentProd
+      = (∏ i ∈ W.outer, a.outerAnn i)
+        * ∏ i ∈ W.outer, ∏ j ∈ W.inner i, (a.innerAt i).anns j := by
+  have hp : (∏ i : Fin a.occs.length, ∏ j ∈ W.inner i, (a.innerAt i).anns j)
+      = ∏ i ∈ W.outer, ∏ j ∈ W.inner i, (a.innerAt i).anns j :=
+    (Finset.prod_subset (Finset.subset_univ _) (fun i _ hi => by
+      rw [h i hi, Finset.prod_empty])).symm
+  rw [World.presentProd, hp]
+
+end Annotation
+
 omit [ValueType T] in
 /-- A world of the document's reading is one of the coherent reading's
 as soon as it keeps no inner occurrence it does not read. -/

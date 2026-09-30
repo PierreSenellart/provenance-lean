@@ -370,7 +370,14 @@ proven engine several general results reuse internally.
   value it does not read is open, so the world predicate is a parameter
   (`World.IsWorldWith`, with `World.IsWorldCoherent` the other answer)
   and either settles by substitution. `valOn_full` says the world with
-  everything present reads as the collapse
+  everything present reads as the collapse. A world's **annotation** is
+  the one every family gets – `World.ann`, the product of what is
+  present times `𝟙 ⊖` the sum of what is absent – and it does not
+  depend on the open question, which is about which worlds are admitted
+  and not about how one is weighed: `World.ann_full` for the full
+  world, and `World.presentProd_eq_of_coherent` saying that under the
+  coherent reading the inner products collapse to the occurrences the
+  world actually reads
 - `Provenance.JointFamily` – **two occurrence families as one**, which
   is what a predicate reading two aggregate values reads. The two
   families are indexed separately, so the union is built:
