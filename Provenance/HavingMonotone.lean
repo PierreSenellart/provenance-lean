@@ -642,7 +642,7 @@ theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc
     ∀ ψ : MonoCond n₂,
       ψ.toGenPred.predsem false
         (Fin.append (fun k => (Sum.inl (g k) : GenValue ℕ K))
-          (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U)))
+          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U))))
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
@@ -742,7 +742,8 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst _).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => AggValue.collapse_ofGroup (fs j) (ts j) _))
+        (funext fun j => AggTok.collapse_tok _ ▸
+          AggValue.collapse_ofGroup (fs j) (ts j) _))
   · -- annotation: the fused provenance of the condition
     show GenAnn.finalize ⟨1 * _, _⟩ = _
     rw [ite_eq_left (toGenPred_entailsExistence ψ)]
@@ -763,7 +764,8 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
           simp [Fin.append_left, Fin.append_right]
       all_goals
       · intro l
-        simp only [Fin.append_right, AggValue.annList_ofGroup]
+        simp only [Fin.append_right, AggTok.annList_tok,
+          AggValue.annList_ofGroup]
     · rw [one_mul]
       exact toGenPred_predsem ts fs _ kv.fst ψ
 

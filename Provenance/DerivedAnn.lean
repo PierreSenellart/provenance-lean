@@ -432,9 +432,9 @@ theorem evaluate_GammaScalar_one {c m : ℕ} (t : TermIn T c m)
     (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) :
     (GammaScalar ![t] ![cnt] q).evaluate d γ
-      = {(⟨fun _ : Fin 1 => Sum.inr (AggValue.ofScalarGroup cnt t
+      = {(⟨fun _ : Fin 1 => Sum.inr (AggTok.tok (AggValue.ofScalarGroup cnt t
             (Having.havingGroup (fun i : Fin 0 => i.elim0)
-              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ),
+              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
     Matrix.cons_val_fin_one]
@@ -448,8 +448,8 @@ theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
     (d : AnnotatedDatabase T K) :
     (matchCount cnt kap φ R Q).evaluate d
       = (R.evaluate d).map (fun x =>
-          (⟨Fin.append x.fst (fun _ : Fin 1 => Sum.inr
-              (matchToken cnt kap φ Q d (GenRow.plainTuple x.fst))),
+          (⟨Fin.append x.fst (fun _ : Fin 1 => Sum.inr (AggTok.tok
+              (matchToken cnt kap φ Q d (GenRow.plainTuple x.fst)))),
             x.snd⟩ : GenRow T K (k + 1))) := by
   rw [matchCount, AggQueryIn.evaluate_Apply]
   refine (Multiset.bind_congr (fun x _ => ?_)).trans
@@ -484,7 +484,7 @@ theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
   simp only [Function.comp_apply]
   set tok := matchToken cnt kap φ Q d (GenRow.plainTuple x.fst) with htok
   set row : Tuple (GenValue T K) (k + 1) :=
-    Fin.append x.fst (fun _ : Fin 1 => Sum.inr tok) with hrow
+    Fin.append x.fst (fun _ : Fin 1 => Sum.inr (AggTok.tok tok)) with hrow
   -- the projection reads the left arm's columns back and keeps no token
   have hu : (fun j => ProjColIn.eval (dropCount k j) row)
       = fun j => (Sum.inl (AggValue.collapseSum (x.fst j)) : GenValue T K) := by
@@ -502,14 +502,14 @@ theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
   have hA : Multiset.filterMap
       (fun i => match row i with
         | Sum.inl _ => (none : Option (List K))
-        | Sum.inr a => if a.scalar = true then some (a.occs.map Prod.snd)
+        | Sum.inr a => if a.scalar = true then some a.annList
           else none)
       ({countCol k} : Finset (Fin (k + 1))).val ≠ 0 := by
     intro hcon
     have hmem : (tok.occs.map Prod.snd) ∈ Multiset.filterMap
         (fun i => match row i with
           | Sum.inl _ => (none : Option (List K))
-          | Sum.inr a => if a.scalar = true then some (a.occs.map Prod.snd)
+          | Sum.inr a => if a.scalar = true then some a.annList
             else none)
         ({countCol k} : Finset (Fin (k + 1))).val :=
       (Multiset.mem_filterMap _ _).mpr ⟨countCol k,
@@ -529,7 +529,7 @@ theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
       | Sum.inl _ => (0 : K)
       | Sum.inr a => a.predProvOf op ((TermGIn.const (0 : T)).eval row)) = _
     rw [hrow, Fin.append_right]
-    exact AggValue.predProvOf_of_scalar rfl op 0
+    exact AggValue.predProvOf_of_scalar (a := tok) (by simp [htok, matchToken]) op 0
   rw [hpred]
   refine Prod.ext ?_ ?_
   · funext j

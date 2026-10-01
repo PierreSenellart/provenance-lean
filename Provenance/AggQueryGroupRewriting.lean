@@ -71,6 +71,27 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
   exact congrArg (fun v => (v, p.snd))
     (TermIn.castToAnnotatedTuple_eval t p.fst p.snd).symm
 
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The deterministic reading of a transported token** is the transport
+of its reading: the lifted aggregate function agrees with the original on
+embedded values. -/
+theorem AggValue.collapse_toComposite (a : AggValue T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  unfold AggValue.toComposite AggValue.collapse
+  rw [List.map_map,
+    show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
+        ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
+      = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
+    ← List.map_map]
+  exact SeqAggFunc.liftComposite_map_inl a.agg (a.occs.map Prod.fst)
+
+/-- Transport a token, ordinary or nested, to the composite value
+domain. A nested token transports its inner values the same way. -/
+def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
+  | .tok a => .tok a.toComposite
+  | .nest a => .nest ⟨a.agg.liftComposite,
+      a.occs.map (fun o => (o.1.toComposite, o.2)), a.scalar⟩
+
 /-- Transport a lifted column value to the composite domain. -/
 def GenValue.toComposite : GenValue T K → GenValue (T ⊕ K) K
   | Sum.inl v => Sum.inl (Sum.inl v)
@@ -131,15 +152,19 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
       = Sum.inl (AggValue.collapseSum x) := by
   cases x with
   | inl v => rfl
-  | inr a =>
-    show (AggValue.toComposite a).collapse = Sum.inl a.collapse
-    unfold AggValue.toComposite AggValue.collapse
-    rw [List.map_map,
-      show ((Prod.fst : (T ⊕ K) × K → T ⊕ K)
-          ∘ fun o : T × K => ((Sum.inl o.fst, o.snd) : (T ⊕ K) × K))
-        = ((Sum.inl : T → T ⊕ K) ∘ Prod.fst) from rfl,
-      ← List.map_map]
-    exact SeqAggFunc.liftComposite_map_inl a.agg (a.occs.map Prod.fst)
+  | inr x =>
+    cases x with
+    | tok a => exact AggValue.collapse_toComposite a
+    | nest a =>
+      show (SeqAggFunc.liftComposite a.agg) _ = Sum.inl (a.agg _)
+      rw [List.map_map,
+        show ((fun o : AggValue (T ⊕ K) K × K => o.1.collapse)
+            ∘ fun o : AggValue T K × K => (o.1.toComposite, o.2))
+          = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggValue T K × K => o.1.collapse)
+          from funext (fun o => AggValue.collapse_toComposite o.1),
+        ← List.map_map]
+      exact SeqAggFunc.liftComposite_map_inl a.agg
+        (a.occs.map (fun o => o.1.collapse))
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- Coordinates of the token-aware embedding, in `dite` form. -/
@@ -159,7 +184,7 @@ theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A key column of the embedding of a grouping row. -/
 theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (a : GenAnn K) (i : Fin n₁) :
+    (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₁) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun i' => Sum.inr (h i')), a) : GenRow T K (n₁ + n₂))
@@ -173,7 +198,7 @@ theorem GenRow.toCompositeRow_gammaRow_left {n₁ n₂ : ℕ} (g : Tuple T n₁)
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- A token column of the embedding of a grouping row. -/
 theorem GenRow.toCompositeRow_gammaRow_right {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (a : GenAnn K) (i : Fin n₂) :
+    (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin n₂) :
     GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun i' => Sum.inr (h i')), a) : GenRow T K (n₁ + n₂))
@@ -323,7 +348,8 @@ theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
     · rw [Fin.append_left, Fin.append_left]
       rfl
     · rw [Fin.append_right, Fin.append_right]
-      exact congrArg Sum.inr (AggValue.ofGroup_toComposite _ _ _)
+      exact congrArg (fun a => Sum.inr (AggTok.tok a))
+        (AggValue.ofGroup_toComposite _ _ _)
   · rw [Fin.append_right, Fin.append_right]
     dsimp only
     rw [GenAnn.finalize_gamma, List.map_map]

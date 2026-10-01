@@ -82,7 +82,7 @@ def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
   match p with
   | .term t => Sum.inl (t.evalRew u γ)
   | .token k _ => u k
-  | .aggTerm k _ gf => Sum.map gf (AggValue.postcomp gf) (u k)
+  | .aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
   | .provTerm t => Sum.inl (t.evalRew u γ)
 
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
@@ -221,8 +221,8 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
       ((fun g : Tuple (T ⊕ K) n₁ =>
         Fin.append
           (Fin.append (fun k => (Sum.inl (g k) : GenValue (T ⊕ K) K))
-            (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j)
-              (Having.havingGroup is ar g) γ)))
+            (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
+              (Having.havingGroup is ar g) γ))))
           (fun _ : Fin 1 => Sum.inl
             (Sum.inr (SemiringWithMonus.delta
               ((Having.havingGroup is ar g).map Prod.snd).sum))))

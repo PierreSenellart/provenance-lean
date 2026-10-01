@@ -293,7 +293,7 @@ commutation, `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, an
 `¬` by polarity. -/
 theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
-    (u : Tuple (GenValue T K) n) :
+    (u : Tuple (GenValue T K) n) (hnn : GenRow.NoNested u) :
     φ.predsem neg (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ
       = h.toRingHom (φ.predsem neg u γ) := by
   induction φ generalizing neg with
@@ -309,11 +309,12 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
       have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inl w : GenValue T K)
           = (Sum.inl w : GenValue T K') := rfl
       simp only [GenPredIn.predsem, hu, hred, map_zero]
-    | inr a =>
+    | inr x =>
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested (hnn k x hu)
       have hred : AggValue.mapAnnSum (⇑h.toRingHom)
-            (Sum.inr a : GenValue T K)
-          = Sum.inr (AggValue.mapAnn ⇑h.toRingHom a) := rfl
-      simp only [GenPredIn.predsem, hu, hred]
+            (Sum.inr (AggTok.tok a) : GenValue T K)
+          = Sum.inr (AggTok.tok (AggValue.mapAnn ⇑h.toRingHom a)) := rfl
+      simp only [GenPredIn.predsem, hu, hred, AggTok.predProvOf_tok]
       rw [TermGIn.eval_mapAnnSum h t u, AggValue.predProvOf_mapAnn]
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     cases hu : u k with
@@ -321,11 +322,12 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
       have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inl w : GenValue T K)
           = (Sum.inl w : GenValue T K') := rfl
       simp only [GenPredIn.predsem, hu, hred, map_zero]
-    | inr a =>
+    | inr x =>
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested (hnn k x hu)
       have hred : AggValue.mapAnnSum (⇑h.toRingHom)
-            (Sum.inr a : GenValue T K)
-          = Sum.inr (AggValue.mapAnn ⇑h.toRingHom a) := rfl
-      simp only [GenPredIn.predsem, hu, hred]
+            (Sum.inr (AggTok.tok a) : GenValue T K)
+          = Sum.inr (AggTok.tok (AggValue.mapAnn ⇑h.toRingHom a)) := rfl
+      simp only [GenPredIn.predsem, hu, hred, AggTok.predProvOfWith_tok]
       rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u,
         AggValue.predProvOfWith_mapAnn]
   | and φ ψ ihφ ihψ =>
@@ -429,8 +431,9 @@ entails existence and all its compared tokens carry the annotation list
 theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) (u : Tuple (GenValue T K) n)
     (ℓ₀ : List K)
-    (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-      u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀)
+    (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
+        ∧ a.annList = ℓ₀)
     (hent : φ.entailsExistence neg = true) :
     φ.predsem neg u γ * SemiringWithMonus.delta ℓ₀.sum
       = φ.predsem neg u γ := by
@@ -439,25 +442,33 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
   | aggCmp k h op t =>
     cases hu : u k with
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
-    | inr a =>
-      simp only [GenPredIn.predsem, hu]
-      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
+    | inr x =>
+      obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested hnn
+      simp only [AggTok.scalar_tok] at hsc
+      simp only [AggTok.annList_tok] at heq
+      simp only [GenPredIn.predsem, hu, AggTok.predProvOf_tok]
       rw [AggValue.predProvOf_of_grouped hsc, ← heq]
       exact AggValue.predProv_delta_absorb a _ _
   | aggRange k h op₁ t₁ op₂ t₂ =>
     cases hu : u k with
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
-    | inr a =>
-      simp only [GenPredIn.predsem, hu]
-      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) a hu
+    | inr x =>
+      obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested hnn
+      simp only [AggTok.scalar_tok] at hsc
+      simp only [AggTok.annList_tok] at heq
+      simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_tok]
       rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true, ← heq]
       exact AggValue.predProvWith_delta_absorb a _
   | and φ ψ ihφ ihψ =>
-    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
+    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
+          ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
-    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T K,
-        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
+    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
+          ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -490,11 +501,13 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
       rw [Bool.and_eq_true] at hent'
       rw [he, add_mul, ihφ true huφ hent'.1, ihψ true huψ hent'.2]
   | or φ ψ ihφ ihψ =>
-    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
+    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
+          ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
-    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggValue T K,
-        u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = ℓ₀ :=
+    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
+          ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -748,9 +761,38 @@ section Simulation
 same aggregate and tie-block-permuted payloads. -/
 def GenValue.Equiv : GenValue T K → GenValue T K → Prop
   | Sum.inl v', Sum.inl v => v' = v
-  | Sum.inr a', Sum.inr a => a'.agg = a.agg ∧ a'.scalar = a.scalar ∧
-      TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs
+  | Sum.inr (AggTok.tok a'), Sum.inr (AggTok.tok a) =>
+      a'.agg = a.agg ∧ a'.scalar = a.scalar ∧
+        TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs
   | _, _ => False
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- A regular value is equivalent to no token. -/
+theorem GenValue.Equiv.not_inl_inr {w : T} {x : AggTok T K} :
+    ¬ GenValue.Equiv (Sum.inl w) (Sum.inr x) := by
+  cases x <;> exact not_false
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- And a token to no regular value. -/
+theorem GenValue.Equiv.not_inr_inl {w : T} {x : AggTok T K} :
+    ¬ GenValue.Equiv (Sum.inr x) (Sum.inl w) := by
+  cases x <;> exact not_false
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- Two equivalent tokens are ordinary ones with the same aggregate and
+tie-block-permuted payloads: the simulation never meets a nested token,
+which `GenRow.NoNested` is what keeps out. -/
+theorem GenValue.Equiv.inr_inr {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
+    ∃ a' a : AggValue T K, x' = AggTok.tok a' ∧ x = AggTok.tok a
+      ∧ a'.agg = a.agg ∧ a'.scalar = a.scalar
+      ∧ TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs := by
+  cases x' with
+  | nest a' => exact absurd h not_false
+  | tok a' =>
+    cases x with
+    | nest a => exact absurd h not_false
+    | tok a => exact ⟨a', a, rfl, rfl, h.1, h.2.1, h.2.2⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Equivalent lifted values collapse to the same regular value. -/
@@ -761,13 +803,14 @@ theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
   | inl w' =>
     cases v with
     | inl w => exact congrArg Sum.inl h ▸ rfl
-    | inr a => exact absurd h not_false
-  | inr a' =>
+    | inr a => exact absurd h GenValue.Equiv.not_inl_inr
+  | inr x' =>
     cases v with
-    | inl w => exact absurd h not_false
-    | inr a =>
+    | inl w => exact absurd h GenValue.Equiv.not_inr_inl
+    | inr x =>
+      obtain ⟨a', a, rfl, rfl, h1, -, h3⟩ := h.inr_inr
       show a'.collapse = a.collapse
-      exact AggValue.collapse_congr h.1 h.2.2
+      exact AggValue.collapse_congr h1 h3
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Terms evaluate equally on pointwise-equivalent tuples. -/
@@ -838,14 +881,19 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     | inl w' =>
       cases huk : u k with
       | inl w => rfl
-      | inr a => rw [hu'k, huk] at hk'; exact absurd hk' not_false
-    | inr a' =>
-      cases huk : u k with
-      | inl w => rw [hu'k, huk] at hk'; exact absurd hk' not_false
       | inr a =>
         rw [hu'k, huk] at hk'
+        exact absurd hk' GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      cases huk : u k with
+      | inl w =>
+        rw [hu'k, huk] at hk'
+        exact absurd hk' GenValue.Equiv.not_inr_inl
+      | inr x =>
+        rw [hu'k, huk] at hk'
+        obtain ⟨a', a, rfl, rfl, h1, h2, h3⟩ := hk'.inr_inr
         rw [TermGIn.eval_equiv t hu]
-        exact AggValue.predProvOf_congr hk'.1 hk'.2.1 hk'.2.2 _ _
+        exact AggValue.predProvOf_congr h1 h2 h3 _ _
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     have hk' := hu k
     simp only [GenPredIn.predsem]
@@ -853,14 +901,19 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     | inl w' =>
       cases huk : u k with
       | inl w => rfl
-      | inr a => rw [hu'k, huk] at hk'; exact absurd hk' not_false
-    | inr a' =>
-      cases huk : u k with
-      | inl w => rw [hu'k, huk] at hk'; exact absurd hk' not_false
       | inr a =>
         rw [hu'k, huk] at hk'
+        exact absurd hk' GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      cases huk : u k with
+      | inl w =>
+        rw [hu'k, huk] at hk'
+        exact absurd hk' GenValue.Equiv.not_inr_inl
+      | inr x =>
+        rw [hu'k, huk] at hk'
+        obtain ⟨a', a, rfl, rfl, h1, h2, h3⟩ := hk'.inr_inr
         rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
-        exact AggValue.predProvOfWith_congr hk'.1 hk'.2.1 hk'.2.2 _
+        exact AggValue.predProvOfWith_congr h1 h2 h3 _
   | and φ ψ ihφ ihψ =>
     simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
@@ -878,6 +931,38 @@ def GenRow.Sim (h : SemiringWithMonusHom K K') {n : ℕ}
   (∀ k, GenValue.Equiv (r'.fst k)
       (AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)))
     ∧ r'.snd.finalize = h.toRingHom r.snd.finalize
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- **A simulated row holds no nested token**, on either side: a token
+column is equivalent to the pushforward of a token column, and only
+ordinary tokens are equivalent to anything. -/
+theorem GenRow.Sim.noNested (h : SemiringWithMonusHom K K') {n : ℕ}
+    {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
+    GenRow.NoNested r.fst := by
+  intro k x hx
+  cases x with
+  | tok a => rfl
+  | nest a =>
+    have hk := hs.1 k
+    rw [hx] at hk
+    cases hr' : r'.fst k with
+    | inl w => rw [hr'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
+    | inr x' => rw [hr'] at hk; cases x' <;> exact absurd hk (fun hc => hc)
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- The same on the hom side. -/
+theorem GenRow.Sim.noNested' (h : SemiringWithMonusHom K K') {n : ℕ}
+    {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
+    GenRow.NoNested r'.fst := by
+  intro k x' hx'
+  cases x' with
+  | tok a => rfl
+  | nest a =>
+    have hk := hs.1 k
+    rw [hx'] at hk
+    cases hr : r.fst k with
+    | inl w => rw [hr] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
+    | inr x => rw [hr] at hk; cases x <;> exact absurd hk (fun hc => hc)
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- Simulated rows finalize to pushed-forward annotated tuples. -/
@@ -920,9 +1005,9 @@ any collection of pending factors, each of which is the occurrence list of
 *every* compared token. -/
 theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (hent : φ.entailsExistence false = true)
-    (D : Multiset (List K))
-    (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-      u k = Sum.inr a → a.scalar = false ∧ a.occs.map Prod.snd = l) :
+    (D : Multiset (List K)) (hnn : GenRow.NoNested u)
+    (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.scalar = false ∧ a.annList = l) :
     φ.predsem false u γ
         * (D.map (fun l => SemiringWithMonus.delta l.sum)).prod
       = φ.predsem false u γ := by
@@ -931,7 +1016,8 @@ theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
   | cons l D ih =>
     rw [Multiset.map_cons, Multiset.prod_cons, ← mul_assoc,
       GenPredIn.predsem_delta_absorb φ false u l
-        (hD l (Multiset.mem_cons_self l D)) hent]
+        (fun k hk a hka => ⟨hnn k a hka,
+          hD l (Multiset.mem_cons_self l D) k hk a hka⟩) hent]
     exact ih (fun l' hl' => hD l' (Multiset.mem_cons_of_mem hl'))
 
 /-- **Selection finalize identity.** On each side separately, the
@@ -943,11 +1029,11 @@ license. The compared-lists multiset `C` is abstract; the only fact used
 is that every compared token's occurrence list belongs to it. -/
 theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (b : K) (P : Multiset (List K))
-    (C Cs : Multiset (List K))
-    (hC : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-      u k = Sum.inr a → (a.occs.map Prod.snd) ∈ C)
-    (hCs : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T K,
-      u k = Sum.inr a → a.scalar = true → (a.occs.map Prod.snd) ∈ Cs) :
+    (C Cs : Multiset (List K)) (hnn : GenRow.NoNested u)
+    (hC : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.annList ∈ C)
+    (hCs : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.scalar = true → a.annList ∈ Cs) :
     GenAnn.finalize ⟨b * φ.predsem false u γ,
       if φ.entailsExistence false then
         P.filter (fun l => ¬(Cs = 0 ∧ C ≠ 0 ∧ ∀ l' ∈ C, l' = l))
@@ -962,9 +1048,10 @@ theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
         * ((P.filter dropCond).map
             (fun l => SemiringWithMonus.delta l.sum)).prod
         = φ.predsem false u γ := by
-      refine GenPredIn.predsem_absorb_prod φ u hent _ (fun l hl k hk a hka => ?_)
+      refine GenPredIn.predsem_absorb_prod φ u hent _ hnn
+        (fun l hl k hk a hka => ?_)
       have hcond := (Multiset.mem_filter.mp hl).2
-      refine ⟨?_, hcond.2.2 (a.occs.map Prod.snd) (hC k hk a hka)⟩
+      refine ⟨?_, hcond.2.2 a.annList (hC k hk a hka)⟩
       by_contra hsc
       rw [Bool.not_eq_false] at hsc
       have := hCs k hk a hka hsc
@@ -1127,12 +1214,12 @@ theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
     (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
     (hx : x ∈ X) :
     GenValue.Equiv
-      (Sum.inr (ValueFrame.tokenOfDist P O o w t f dist
+      (Sum.inr (AggTok.tok (ValueFrame.tokenOfDist P O o w t f dist
         (Multiset.map (fun q : AnnotatedTuple T K n' =>
           ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ))
-      (Sum.inr ((ValueFrame.tokenOfDist P O o w t f dist X x γ).mapAnn
-        ⇑h.toRingHom)) := by
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ)))
+      (Sum.inr (AggTok.tok ((ValueFrame.tokenOfDist P O o w t f dist X x γ).mapAnn
+        ⇑h.toRingHom))) := by
   have hagg : (ValueFrame.tokenOf P O o w t f
         (Multiset.map (fun q : AnnotatedTuple T K n' =>
           ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
@@ -1277,13 +1364,19 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
       rw [hr'k] at hk
       simp only [GenRow.alternativesAt, hrk, hr'k]
       exact Multiset.Rel.cons hs Multiset.Rel.zero
-    | inr a' => rw [hr'k] at hk; exact absurd hk (by exact fun hc => hc)
-  | inr a =>
+    | inr a' => rw [hr'k] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
+  | inr x =>
     rw [hrk] at hk
     cases hr'k : r'.fst k with
-    | inl w' => rw [hr'k] at hk; exact absurd hk (by exact fun hc => hc)
-    | inr a' =>
-      rw [hr'k] at hk
+    | inl w' => rw [hr'k] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
+    | inr x' =>
+    rw [hr'k] at hk
+    cases x with
+    | nest a => cases x' <;> exact absurd hk (fun hc => hc)
+    | tok a =>
+    cases x' with
+    | nest a' => exact absurd hk (fun hc => hc)
+    | tok a' =>
       obtain ⟨hagg, hsc, hperm⟩ := hk
       have hvals : a'.vals = a.vals := by
         rw [AggValue.vals_congr hagg hsc hperm]
@@ -1293,7 +1386,8 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
         rw [AggValue.altProv, AggValue.altProv,
           AggValue.predProvOfWith_congr hagg hsc hperm,
           AggValue.predProvOfWith_mapAnn]
-      simp only [GenRow.alternativesAt, hrk, hr'k, hvals]
+      simp only [GenRow.alternativesAt, hrk, hr'k, hvals, AggTok.vals_tok,
+        AggTok.altProv_tok]
       refine rel_map_of_forall (fun v _ => ⟨fun j => ?_, ?_⟩)
       · by_cases hj : j = k
         · subst hj
@@ -1369,14 +1463,24 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           | inl v =>
             rw [hx', hx] at hk'
             exact congrArg gf hk'
-          | inr a => rw [hx', hx] at hk'; exact hk'.elim
-        | inr a' =>
-          cases hx : r.fst k with
-          | inl v => rw [hx', hx] at hk'; exact hk'.elim
           | inr a =>
             rw [hx', hx] at hk'
-            exact ⟨congrArg (fun f => fun L => gf (f L)) hk'.1,
-              hk'.2.1, hk'.2.2⟩
+            exact absurd hk' GenValue.Equiv.not_inl_inr
+        | inr x' =>
+          cases hx : r.fst k with
+          | inl v =>
+            rw [hx', hx] at hk'
+            exact absurd hk' GenValue.Equiv.not_inr_inl
+          | inr x =>
+            rw [hx', hx] at hk'
+            cases x' with
+            | nest a' => cases x <;> exact hk'.elim
+            | tok a' =>
+              cases x with
+              | nest a => exact hk'.elim
+              | tok a =>
+                exact ⟨congrArg (fun f => fun L => gf (f L)) hk'.1,
+                  hk'.2.1, hk'.2.2⟩
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2
@@ -1388,17 +1492,20 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       refine rel_map_of_rel (ih d γ) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
+          (hs.noNested' h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩),
         GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
+          (hs.noNested h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)]
       rw [GenPredIn.predsem_equiv φ false hs.1,
-        GenPredIn.predsem_mapAnn h φ false r.fst, hs.2, ← map_mul]
+        GenPredIn.predsem_mapAnn h φ false r.fst (hs.noNested h), hs.2,
+        ← map_mul]
     · rw [ite_eq_right hagg, ite_eq_right hagg]
       refine rel_filter_of_iff (ih d γ) (fun r' r hs => ?_)
       calc φ.holds r'.fst γ

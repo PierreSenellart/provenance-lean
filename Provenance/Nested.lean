@@ -428,6 +428,17 @@ def isNested : AggTok T K → Bool
 @[simp] theorem isNested_tok (a : AggValue T K) :
     (AggTok.tok a).isNested = false := rfl
 
+@[simp] theorem isNested_nest (a : NestedValue T K) :
+    (AggTok.nest a).isNested = true := rfl
+
+/-- A token that is not nested is an ordinary one. -/
+theorem eq_tok_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
+    ∃ a : AggValue T K, x = AggTok.tok a := by
+  cases x with
+  | tok a => exact ⟨a, rfl⟩
+  | nest a => exact absurd h (by simp)
+
+
 end AggTok
 
 /-! ## Lifted values over the widened token
@@ -468,6 +479,11 @@ one aggregate column produces. -/
 def postcomp (gf : T → T) : AggTok T K → AggTok T K
   | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
   | .nest a => .nest ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isNested_postcomp (gf : T → T) (x : AggTok T K) :
+    (x.postcomp gf).isNested = x.isNested := by
+  cases x <;> rfl
 
 /-- The comparison case. -/
 def predProvOf (op : CompOp) (c : T) (x : AggTok T K) : K :=
@@ -527,5 +543,22 @@ omit [ValueType T] in
 omit [ValueType T] in
 @[simp] theorem collapseSum_tok (a : AggValue T K) :
     collapseSum (Sum.inr (AggTok.tok a) : T ⊕ AggTok T K) = a.collapse := rfl
+
+omit [ValueType T] in
+/-- **The deterministic reading ignores the annotations**, so it is
+unchanged by a pushforward – on an ordinary token and on a nested one,
+whose inner collapses are unchanged for the same reason. -/
+@[simp] theorem collapseSum_mapAnnSum {K' : Type} (h : K → K')
+    (x : T ⊕ AggTok T K) : collapseSum (mapAnnSum h x) = collapseSum x := by
+  cases x with
+  | inl v => rfl
+  | inr x =>
+    cases x with
+    | tok a => exact AggValue.collapse_mapAnn h a
+    | nest a =>
+      show a.agg _ = a.agg _
+      refine congrArg a.agg ?_
+      rw [List.map_map]
+      exact List.map_congr_left (fun o _ => AggValue.collapse_mapAnn h o.1)
 
 end AggValue

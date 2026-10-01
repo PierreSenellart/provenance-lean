@@ -217,11 +217,13 @@ theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
   | term t => exact congrArg Sum.inl (t.castRew_evalRew r)
   | token k h => exact GenRow.toCompositeRow_castAdd r k
   | aggTerm k h gf =>
-    show Sum.map (Sum.map gf id) (AggValue.postcomp (Sum.map gf id))
+    show Sum.map (Sum.map gf id) (AggTok.postcomp (Sum.map gf id))
         (r.toCompositeRow (Fin.castAdd 1 k))
-      = GenValue.toComposite (Sum.map gf (AggValue.postcomp gf) (r.fst k))
+      = GenValue.toComposite (Sum.map gf (AggTok.postcomp gf) (r.fst k))
     rw [GenRow.toCompositeRow_castAdd]
-    cases r.fst k <;> rfl
+    cases r.fst k with
+    | inl v => rfl
+    | inr x => cases x <;> rfl
   | provTerm t => exact congrArg Sum.inl (t.castRew_evalRew r)
 
 /-- On an all-regular query the token-aware embedding is the embedding of
@@ -465,15 +467,16 @@ arbitrary predicate: relative to the two gate primitives, which is
 exactly the sense in which ProvSQL's own rewriting is correct. -/
 theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.rangeFree = true → ∀ (neg : Bool) (r : GenRow T K n),
+      GenRow.NoNested r.fst →
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
-  | .cmp op t₁ t₂, _, neg, r => by
+  | .cmp op t₁ t₂, _, neg, r, _ => by
     show Sum.inr (Having.chi (if neg then op.negate else op)
         (t₁.castRew.evalRew r.toCompositeRow)
         (t₂.castRew.evalRew r.toCompositeRow)) = _
     rw [t₁.castRew_evalRew r, t₂.castRew_evalRew r]
     exact congrArg Sum.inr (Having.chi_inl _ _ _)
-  | .aggCmp k h op t, _, neg, r => by
+  | .aggCmp k h op t, _, neg, r, hnn => by
     show (match r.toCompositeRow (Fin.castAdd 1 k) with
       | Sum.inl _ => (Sum.inr 0 : T ⊕ K)
       | Sum.inr a => Sum.inr (a.predProvOf (if neg then op.negate else op)
@@ -482,39 +485,41 @@ theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     show _ = Sum.inr (match r.fst k with
       | Sum.inl _ => 0
       | Sum.inr a => a.predProvOf (if neg then op.negate else op) (t.eval r.fst))
-    cases r.fst k with
+    cases hx : r.fst k with
     | inl v => rfl
-    | inr a =>
+    | inr x =>
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested (hnn k x hx)
       show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
       rw [AggValue.predProvOf_toComposite]
-  | .and φ ψ, hrf, neg, r => by
+      rfl
+  | .and φ ψ, hrf, neg, r, hnn => by
     show TermGIn.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
     cases neg with
     | false =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
       rfl
-  | .or φ ψ, hrf, neg, r => by
+  | .or φ ψ, hrf, neg, r, hnn => by
     cases neg with
     | false =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
       rfl
-  | .aggRange _ _ _ _ _ _, hrf, _, _ => Bool.noConfusion hrf
-  | .not φ, hrf, neg, r => gateTerm_evalRew φ hrf (!neg) r
+  | .aggRange _ _ _ _ _ _, hrf, _, _, _ => Bool.noConfusion hrf
+  | .not φ, hrf, neg, r, hnn => gateTerm_evalRew φ hrf (!neg) r hnn
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -559,7 +564,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Kind conformance of a grouping row. -/
 theorem gammaRow_conform {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (k : Fin (n₁ + n₂)) :
+    (h : Fin n₂ → AggTok T K) (k : Fin (n₁ + n₂)) :
     GenValue.kindOf (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
         (fun j => Sum.inr (h j)) k)
       = (ColKind.gammaKinds n₁ n₂ k).base := by
@@ -569,10 +574,26 @@ theorem gammaRow_conform {n₁ n₂ : ℕ} (g : Tuple T n₁)
   · rw [Fin.append_right, ColKind.gammaKinds, Fin.append_right]
     rfl
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- A grouping row holds no nested token: a key column is regular and an
+aggregate column is the ordinary token the grouping builds. -/
+theorem gammaRow_noNested {n₁ n₂ : ℕ} (g : Tuple T n₁)
+    (h : Fin n₂ → AggValue T K) :
+    GenRow.NoNested (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
+      (fun j => Sum.inr (AggTok.tok (h j)))) := by
+  intro k x hx
+  revert hx
+  refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro hx
+  · exact absurd hx (by simp [Fin.append_left])
+  · rw [Fin.append_right] at hx
+    rw [← Sum.inr.inj hx]
+    rfl
+
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- Kind conformance of the embedding of a grouping row. -/
 theorem GenRow.toCompositeRow_gammaRow_conform {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) (a : GenAnn K) (i : Fin (n₁ + n₂ + 1)) :
+    (h : Fin n₂ → AggTok T K) (a : GenAnn K) (i : Fin (n₁ + n₂ + 1)) :
     GenValue.kindOf (GenRow.toCompositeRow
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun j => Sum.inr (h j)), a) : GenRow T K (n₁ + n₂)) i)
@@ -588,7 +609,8 @@ theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
     (hk : ColKind.gammaKinds n₁ n₂ k = ColKind.agg) :
     ∃ a : AggValue T K,
       Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
-          (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U)) k = Sum.inr a
+          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U))) k
+          = Sum.inr (AggTok.tok a)
         ∧ a.occs.map Prod.snd = U.map Prod.snd := by
   revert hk
   refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -719,7 +741,10 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       rw [show φ.entailsExistence false = false by simpa using hE]
       simp only [Bool.false_eq_true, ite_false]
       show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
-      rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false _]
+      rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
+        (gammaRow_noNested kv.fst (fun j => AggValue.ofGroup (fs j) (ts j)
+          (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
+            kv.fst)))]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -761,6 +786,9 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       refine congrArg Sum.inl ?_
       symm
       exact GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
+        (gammaRow_noNested kv.fst (fun j => AggValue.ofGroup (fs j) (ts j)
+          (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
+            kv.fst)))
 
 /-! ## Duplicate elimination in the rewritten world -/
 
