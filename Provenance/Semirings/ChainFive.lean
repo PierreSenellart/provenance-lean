@@ -168,6 +168,41 @@ theorem ChainFive.not_exclusive : ¬ exclusive ChainFive := by decide
 
 namespace ChainFive
 
+/-! ## The antijoin against the difference that expresses it
+
+`WHERE NOT EXISTS (Q)` is the antijoin, and a row annotated `α` whose
+matches are annotated `βᵢ` gets `α ⊗ (𝟙 ⊖ ⊕βᵢ)` from it in every
+m-semiring (`evaluateAnnotated_antijoin`, which asks nothing of `K`).
+The difference `R ∖ Π(σ(R × Q))` that expresses the same condition --
+what an uncorrelated `EXCEPT` uses -- gets `α ⊖ ⊕(α ⊗ βᵢ)` instead, and
+the two are each other's only where `⊗` distributes over `⊖`. `ChainFive`
+is where they part company, and by the whole of the row: the antijoin
+keeps it, the difference annihilates it. -/
+
+/-- The antijoin's annotation of a row annotated `hi` with one match
+annotated `hi`: `hi ⊗ (𝟙 ⊖ hi) = hi ⊗ 𝟙 = hi`, the row's own annotation
+undiminished, since the chain monus leaves `𝟙` alone above `hi`. -/
+theorem antijoin_ann : (hi : ChainFive) * (1 - hi) = hi := by decide
+
+/-- The difference's annotation of the same row: `hi ⊖ hi ⊗ hi = hi ⊖ hi
+= 𝟘`. The product the difference subtracts is the row's own annotation
+back again, which the chain monus cancels completely. -/
+theorem difference_ann : (hi : ChainFive) - hi * hi = 0 := by decide
+
+/-- **The `EXCEPT` that expresses `WHERE NOT EXISTS` loses the row.** In
+the absorptive, non-distributive `ChainFive`, a row annotated `hi` with a
+single match annotated `hi` is annotated `hi` by the antijoin and `𝟘` by
+the difference: the condition the two spell is the same and the row is
+kept by one and dropped by the other.
+
+`α = lo, β = hi` is the only other pair that parts them (`lo` against
+`𝟘`); every other pair of the twenty-five agrees. Together with
+`ChainFive.absorptive` this isolates the distribution: the semijoin's
+own collapse, which needs absorptivity, is available here, so what fails
+is `ChainFive.not_mul_sub_left_distributive` and nothing else. -/
+theorem antijoin_ne_difference :
+    (hi : ChainFive) * (1 - hi) ≠ hi - hi * hi := by decide
+
 /-- The witness family `α = (mid, hi, hi)` on a three-element universe. -/
 def alphaCE : Fin 3 → ChainFive := fun i => if i.val = 0 then .mid else .hi
 

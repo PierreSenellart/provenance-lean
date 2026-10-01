@@ -169,6 +169,47 @@ theorem tropicalZ_join :
       = {MinTropical.trop ((-1 : ℤ) : WithTop ℤ)} := by
   decide
 
+/-! #### What a `WHERE EXISTS` loses outside absorptivity
+
+`evaluateAnnotated_semijoin` reads a row kept by `WHERE EXISTS (Q)` as its
+own annotation times the `⊕`-sum of its witnesses' – the collapse of
+`AggValue.predProvScalar_count_ne_zero`, which asks `K` to be absorptive.
+Outside absorptivity the annotation is still the sum over the worlds in
+which a match is present, and that is not the sum of the matches'
+annotations: here it is their *product*, since every world that omits a
+match is weighted `𝟙 ⊖ trop(-1) = 𝟘` and only the full world survives.
+`MinTropicalZ` isolates the property, being distributive
+(`MinTropicalZ.mul_sub_left_distributive`) and not absorptive
+(`MinTropicalZ.not_absorptive_witness`). -/
+
+/-- The token a `WHERE EXISTS` reads over two matches, both annotated
+`trop (-1)`: counted, in the scalar convention, so that the empty world is
+one of its worlds. -/
+noncomputable def MinTropicalZ.existsToken :
+    AggValue ℕ (MinTropical (WithTop ℤ)) :=
+  ⟨SeqAggFunc.count,
+    [(1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ)),
+      (1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ))], true⟩
+
+/-- What the row actually carries: `trop (-1) ⊗ trop (-1) = trop (-2)`,
+the annotation of the one world that keeps both matches. -/
+theorem MinTropicalZ.existsToken_predProvScalar :
+    MinTropicalZ.existsToken.predProvScalar CompOp.ne 0
+      = MinTropical.trop ((-2 : ℤ) : WithTop ℤ) := by decide
+
+/-- What the absorptive collapse would give: the `⊕`-sum of the matches'
+annotations, `trop (-1) ⊕ trop (-1) = trop (-1)`. -/
+theorem MinTropicalZ.existsToken_sum :
+    ∑ i, MinTropicalZ.existsToken.anns i
+      = MinTropical.trop ((-1 : ℤ) : WithTop ℤ) := by decide
+
+/-- **`WHERE EXISTS` is not "times the sum of the witnesses" outside
+absorptivity.** The two differ by a whole `trop (-1)`: the row is read as
+asking that *every* match be present, not that at least one is. -/
+theorem MinTropicalZ.existsToken_ne_sum :
+    MinTropicalZ.existsToken.predProvScalar CompOp.ne 0
+      ≠ ∑ i, MinTropicalZ.existsToken.anns i := by decide
+
 /-- **Query-level part of the absorptivity necessity**: in the idempotent
 and distributive but non-absorptive tropical semiring over `ℤ ∪ {∞}`, the
 fused `COUNT(*) ≥ 1` query and its join-based rewriting disagree on a
