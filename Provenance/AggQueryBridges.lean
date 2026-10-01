@@ -46,7 +46,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The embedded key term evaluates on a `Gamma` output row as the
 original term on the group key. -/
 theorem TermIn.toGenKey_eval {n₁ n₂ : ℕ} (s : Term T n₁) (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) :
+    (h : Fin n₂ → AggTok T K) :
     (s.toGenKey n₂).eval
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun j => Sum.inr (h j)))
@@ -139,7 +139,9 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
   unfold GenRow.toAnnotated
   refine Prod.ext ?_ ?_
   · -- data part: whole-group aggregate values
-    exact (GenRow.plainTuple_append kv.fst _).trans
+    exact (GenRow.plainTuple_append kv.fst
+        (fun j => AggTok.tok (AggValue.ofGroup (fs j) (ts j)
+          (Having.havingGroup is A kv.fst)))).trans
       (congrArg (Fin.append kv.fst)
         (funext fun j => AggValue.collapse_ofGroup (fs j) (ts j) _))
   · -- annotation: the predicate provenance of the comparison
@@ -155,7 +157,8 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
       GenPredIn.entailsExistence, ite_true,
       GenAnn.finalize_of_pending_zero, one_mul, TermIn.toGenKey_eval,
       Bool.false_eq_true,
-      AggValue.predProvOf, AggValue.scalar_ofGroup,
+      AggTok.predProvOf, AggTok.predProvOfWith, AggTok.scalar,
+      AggTok.annList, AggValue.predProvOf, AggValue.scalar_ofGroup,
       Option.map_none, Option.getD_none]
     exact AggValue.predProv_ofGroup (fs l) (ts l)
       (Having.havingGroup is A kv.fst) op (s.eval kv.fst)
@@ -177,8 +180,8 @@ theorem AggQueryIn.evaluate_Sel_of_two_groups {c n : ℕ} {κ : Fin n → ColKin
     (d : AnnotatedDatabase T K) (γ : Fin c → T)
     (hagg : φ.hasAggAtom = true)
     (htwo : ∀ r ∈ q.evaluate d γ, ∃ k₁ ∈ φ.comparedCols, ∃ k₂ ∈ φ.comparedCols,
-      ∃ a₁ a₂ : AggValue T K, r.fst k₁ = Sum.inr a₁ ∧ r.fst k₂ = Sum.inr a₂ ∧
-        a₁.occs.map Prod.snd ≠ a₂.occs.map Prod.snd) :
+      ∃ a₁ a₂ : AggTok T K, r.fst k₁ = Sum.inr a₁ ∧ r.fst k₂ = Sum.inr a₂ ∧
+        a₁.annList ≠ a₂.annList) :
     (AggQueryIn.Sel φ q).evaluate d γ
       = (q.evaluate d γ).map (fun r =>
           (⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst γ, r.snd.pending⟩⟩
@@ -207,9 +210,9 @@ theorem AggQueryIn.evaluate_Sel_or_of_two_groups {c n : ℕ}
     {κ : Fin n → ColKind} {k₁ k₂ : Fin n} (h₁ : κ k₁ = ColKind.agg)
     (h₂ : κ k₂ = ColKind.agg) (op₁ op₂ : CompOp) (t₁ t₂ : TermGIn T c κ)
     (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) (γ : Fin c → T)
-    (hdis : ∀ r ∈ q.evaluate d γ, ∃ a₁ a₂ : AggValue T K,
+    (hdis : ∀ r ∈ q.evaluate d γ, ∃ a₁ a₂ : AggTok T K,
       r.fst k₁ = Sum.inr a₁ ∧ r.fst k₂ = Sum.inr a₂ ∧
-        a₁.occs.map Prod.snd ≠ a₂.occs.map Prod.snd) :
+        a₁.annList ≠ a₂.annList) :
     (AggQueryIn.Sel (GenPredIn.or (GenPredIn.aggCmp k₁ h₁ op₁ t₁)
         (GenPredIn.aggCmp k₂ h₂ op₂ t₂)) q).evaluate d γ
       = (q.evaluate d γ).map (fun r =>

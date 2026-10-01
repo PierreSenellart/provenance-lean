@@ -873,19 +873,20 @@ end MapAnn
 
 /-- Pushforward of `h : K → K'` on a lifted column value: data is
 untouched, a token maps its annotations. -/
-def mapAnnSum (h : K → K') : T ⊕ AggValue T K → T ⊕ AggValue T K' :=
+def mapAnnSumVal (h : K → K') : T ⊕ AggValue T K → T ⊕ AggValue T K' :=
   Sum.map id (mapAnn h)
 
 /-- Deterministic reading of a lifted column value: data is itself, a
 token collapses. -/
-def collapseSum : T ⊕ AggValue T K → T :=
+def collapseSumVal : T ⊕ AggValue T K → T :=
   Sum.elim id collapse
 
 /-- The deterministic reading of a lifted value is unchanged by the
 pushforward. -/
-@[simp] theorem collapseSum_mapAnnSum (h : K → K') (x : T ⊕ AggValue T K) :
-    collapseSum (mapAnnSum h x) = collapseSum x := by
-  cases x <;> simp [collapseSum, mapAnnSum]
+@[simp] theorem collapseSumVal_mapAnnSumVal (h : K → K')
+    (x : T ⊕ AggValue T K) :
+    collapseSumVal (mapAnnSumVal h x) = collapseSumVal x := by
+  cases x <;> simp [collapseSumVal, mapAnnSumVal]
 
 /-! ### Reading an aggregate value as a key: its worlds and its values
 

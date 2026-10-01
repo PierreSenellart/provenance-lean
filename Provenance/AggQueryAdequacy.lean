@@ -74,9 +74,11 @@ theorem ProjColIn.collapseSum_eval {c n : ℕ} {κ : Fin n → ColKind}
     rfl
   | token k h => rfl
   | aggTerm k h gf =>
-    show AggValue.collapseSum (Sum.map gf (AggValue.postcomp gf) (u k))
+    show AggValue.collapseSum (Sum.map gf (AggTok.postcomp gf) (u k))
       = gf (AggValue.collapseSum (u k))
-    cases u k <;> rfl
+    cases h : u k with
+    | inl v => rfl
+    | inr x => cases x <;> rfl
   | provTerm t =>
     show AggValue.collapseSum (Sum.inl (t.eval u γ)) = _
     rw [ProjColIn.evalPlain, ← TermGIn.eval_eq_evalPlain]
@@ -122,7 +124,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Collapsing distributes over appending a regular and a token part. -/
 theorem GenRow.plainTuple_append {n₁ n₂ : ℕ} (g : Tuple T n₁)
-    (h : Fin n₂ → AggValue T K) :
+    (h : Fin n₂ → AggTok T K) :
     GenRow.plainTuple
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
           (fun j => Sum.inr (h j)))
@@ -478,6 +480,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     rw [GenRow.plainTuple_append]
     congr 1
     funext j
+    show (AggValue.ofGroup (fs j) (ts j) _ γ).collapse = _
     rw [AggValue.collapse_ofGroup]
     have hg := congrArg (List.map (fun v => (ts j).eval v γ))
       (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
@@ -548,7 +551,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       · show AggValue.collapseSum _ = _
         rw [Fin.append_left, Fin.append_left, Fin.append_right,
           Fin.append_right]
-        simp only [AggValue.collapseSum, Sum.elim_inr]
+        simp only [AggValue.collapseSum, Sum.elim_inr, AggTok.collapse]
         rw [AggValue.collapse_ofGroup]
         have hg := congrArg (List.map (fun v => (ts j').eval v γ))
           (havingGroup_map_fst is

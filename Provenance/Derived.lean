@@ -759,7 +759,7 @@ would instead be the product of two sums, which is that sum only where
 theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] [HasAltLinearOrder K] (n : ℕ) (lo hi : T)
     (u : Tuple (GenValue T K) (n + 1)) (a : AggValue T K)
-    (hu : u (Fin.last n) = Sum.inr a) :
+    (hu : u (Fin.last n) = Sum.inr (AggTok.tok a)) :
     (rankRange n lo hi).predsem false u
       = a.predProvOfWith (fun v =>
           (CompOp.gt.eval3 v lo).and (CompOp.le.eval3 v hi)) := by

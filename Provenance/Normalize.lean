@@ -178,7 +178,7 @@ abbrev GenPredIn.comparedLists {c n : ℕ} {κ : Fin n → ColKind}
   χ.comparedCols.val.filterMap (fun k =>
     match u k with
     | Sum.inl _ => none
-    | Sum.inr a => some (a.occs.map Prod.snd))
+    | Sum.inr a => some a.annList)
 
 /-- Those of the *scalar* compared tokens, which block the supersede. -/
 abbrev GenPredIn.comparedScalarLists {c n : ℕ} {κ : Fin n → ColKind}
@@ -186,15 +186,15 @@ abbrev GenPredIn.comparedScalarLists {c n : ℕ} {κ : Fin n → ColKind}
   χ.comparedCols.val.filterMap (fun k =>
     match u k with
     | Sum.inl _ => none
-    | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
+    | Sum.inr a => if a.scalar then some a.annList else none)
 
 /-- **A predicate reads one family on a row**: every column it compares
 holds a grouped token, and they all carry the same annotation list. -/
 def GenPredIn.ReadsOne {c n : ℕ} {κ : Fin n → ColKind}
     (χ : GenPredIn T c κ) (u : Tuple (GenValue T K) n) (ℓ : List K) : Prop :=
   χ.comparedCols.Nonempty ∧
-    ∀ k ∈ χ.comparedCols, ∃ a : AggValue T K, u k = Sum.inr a ∧
-      a.scalar = false ∧ a.occs.map Prod.snd = ℓ
+    ∀ k ∈ χ.comparedCols, ∃ a : AggTok T K, u k = Sum.inr a ∧
+      a.scalar = false ∧ a.annList = ℓ
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in

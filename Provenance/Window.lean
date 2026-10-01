@@ -43,7 +43,7 @@ def window (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (r : OccFam (AnnotatedTuple T K n)) : OccFam (GenRow T K (n + 1)) :=
   ⟨r.size, fun i =>
     (Fin.snoc (fun k => (Sum.inl ((r.row i).fst k) : GenValue T K))
-        (Sum.inr (token P O o w t f r i)),
+        (Sum.inr (AggTok.tok (token P O o w t f r i))),
      ⟨(r.row i).snd, 0⟩)⟩
 
 omit [HasAltLinearOrder K] in

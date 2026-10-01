@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Provenance.AggExpr
+import Provenance.Nested
 import Provenance.Frame
 
 /-!
@@ -105,8 +106,13 @@ theorem ColKind.base_eq_reg_of_ne_agg {c : ColKind} (h : c ≠ ColKind.agg) :
   · rfl
 
 
-/-- A lifted column value: a regular value or an aggregate token. -/
-abbrev GenValue (T K : Type) := T ⊕ AggValue T K
+/-- A lifted column value: a regular value or an aggregate token, the
+token being an ordinary one or a nested one (`AggTok`). -/
+abbrev GenValue (T K : Type) := T ⊕ AggTok T K
+
+/-- The deterministic reading of a lifted value. -/
+def GenValue.collapse : GenValue T K → T :=
+  Sum.elim id AggTok.collapse
 
 /-- The factored annotation of a row of the general evaluator: the
 concrete part `base`, and one pending group-existence factor per
@@ -479,7 +485,7 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
   match p with
   | term t => Sum.inl (t.eval u γ)
   | token k _ => u k
-  | aggTerm k _ gf => Sum.map gf (AggValue.postcomp gf) (u k)
+  | aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
   | provTerm t => Sum.inl (t.eval u γ)
 
 /-! ## Kind-indexed queries -/
@@ -703,7 +709,7 @@ def tokenLists {n : ℕ} (u : Tuple (GenValue T K) n) : Multiset (List K) :=
   (Finset.univ.val.filterMap (fun k =>
     match u k with
     | Sum.inl _ => none
-    | Sum.inr a => some (a.occs.map Prod.snd)))
+    | Sum.inr a => some a.annList))
 
 def TermGIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
@@ -963,7 +969,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           φ.comparedCols.val.filterMap (fun k =>
             match r.fst k with
             | Sum.inl _ => none
-            | Sum.inr a => some (a.occs.map Prod.snd))
+            | Sum.inr a => some a.annList)
         -- and only when none of them is scalar: a scalar token holds in the
         -- empty world, so a comparison against it entails no group's
         -- existence and must not remove any group's factor, whatever
@@ -972,7 +978,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           φ.comparedCols.val.filterMap (fun k =>
             match r.fst k with
             | Sum.inl _ => none
-            | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
+            | Sum.inr a => if a.scalar then some a.annList else none)
         ⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst γ,
           if φ.entailsExistence false then
             r.snd.pending.filter
@@ -1022,13 +1028,13 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
       let g : Tuple T n₁ := kv.fst
       let U := Having.havingGroup is r g
       ⟨Fin.append (fun k => Sum.inl (g k))
-        (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U γ)),
+        (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ))),
        ⟨1, {U.map Prod.snd}⟩⟩)
   | _, _, _, @GammaScalar _ _ m n₂ ts fs q, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     -- one row whatever the input; the whole of it is the occurrence sequence
     let U := Having.havingGroup (fun k : Fin 0 => k.elim0) r (fun k : Fin 0 => k.elim0)
-    {(⟨fun j => Sum.inr (AggValue.ofScalarGroup (fs j) (ts j) U γ), ⟨1, 0⟩⟩
+    {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j) U γ)), ⟨1, 0⟩⟩
       : GenRow T K n₂)}
   | _, _, _, Retag _ q, d, γ => q.evaluate d γ
   | _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ =>
@@ -1049,7 +1055,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
       let U := Having.havingGroup is r g
       ⟨Fin.append
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
-          (fun j => Sum.inr (AggValue.ofGroup (fs j) (ts j) U γ)))
+          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ))))
         (fun _ : Fin 1 => Sum.inl
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
@@ -1063,7 +1069,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     -- no row is removed and no group is created, so nothing goes pending
     (OccFam.mk occ.size (fun i =>
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
-          (Sum.inr (ValueFrame.tokenDist P O o w t f dist occ i γ)),
+          (Sum.inr (AggTok.tok (ValueFrame.tokenDist P O o w t f dist occ i γ))),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
 termination_by structural q
 
@@ -1173,7 +1179,7 @@ def ValueFrame.windowRow {c n m p : ℕ} (P : Tuple (Fin n) m)
     (dist : Bool := false) :
     GenRow T K (n + 1) :=
   ⟨Fin.snoc (fun k => (Sum.inl (x.fst k) : GenValue T K))
-      (Sum.inr (ValueFrame.tokenOfDist P O o w t f dist X x γ)), ⟨x.snd, 0⟩⟩
+      (Sum.inr (AggTok.tok (ValueFrame.tokenOfDist P O o w t f dist X x γ))), ⟨x.snd, 0⟩⟩
 
 /-- **The `Win` case of the evaluator, read off the relation.** The output is
 the input relation mapped row by row, each row gaining the token its relation
@@ -1668,10 +1674,10 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- The token lists of a row with a single token, in its last column: the
 one token's occurrence annotations. -/
-theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggValue T K) :
+theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggTok T K) :
     tokenLists (Fin.snoc (fun k => (Sum.inl (u k) : GenValue T K))
         (Sum.inr a) : Tuple (GenValue T K) (n + 1))
-      = {a.occs.map Prod.snd} := by
+      = {a.annList} := by
   unfold tokenLists
   rw [Fin.univ_castSuccEmb]
   simp [Fin.snoc_last, Fin.snoc_castSucc]
@@ -1820,18 +1826,18 @@ theorem AggQueryIn.evaluate_conform :
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · exact (congrArg GenValue.kindOf
         (Fin.append_left (fun k => (Sum.inl (kv.fst k) : GenValue T K))
-          (fun j' => (Sum.inr (AggValue.ofGroup (fs j') (ts j')
+          (fun j' => (Sum.inr (AggTok.tok (AggValue.ofGroup (fs j') (ts j')
             (Having.havingGroup is
-              (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) kv.fst) γ)
+              (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) kv.fst) γ))
             : GenValue T K)) i)).trans
         (congrArg ColKind.base
           (Fin.append_left (fun _ => ColKind.reg)
             (fun _ => ColKind.agg) i).symm)
     · exact (congrArg GenValue.kindOf
         (Fin.append_right (fun k => (Sum.inl (kv.fst k) : GenValue T K))
-          (fun j' => (Sum.inr (AggValue.ofGroup (fs j') (ts j')
+          (fun j' => (Sum.inr (AggTok.tok (AggValue.ofGroup (fs j') (ts j')
             (Having.havingGroup is
-              (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) kv.fst) γ)
+              (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) kv.fst) γ))
             : GenValue T K)) j)).trans
         (congrArg ColKind.base
           (Fin.append_right (fun _ => ColKind.reg)

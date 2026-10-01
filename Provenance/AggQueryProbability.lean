@@ -43,6 +43,19 @@ def realized (a : AggValue T (BoolFunc X)) (v : X → Bool) :
     Finset (Fin a.occs.length) :=
   Finset.univ.filter (fun i => a.anns i v = true)
 
+/-- **Whether a token's group is realized** under a valuation – what
+guardedness asserts of every grouped token of a row. A nested token is
+not covered by these results, and the predicate is `True` there, so the
+statements stay true and say nothing about it. -/
+def _root_.AggTok.Realized (v : X → Bool) : AggTok T (BoolFunc X) → Prop
+  | .tok a => a.scalar = true ∨ (a.realized v).Nonempty
+  | .nest _ => True
+
+@[simp] theorem _root_.AggTok.Realized_tok (a : AggValue T (BoolFunc X))
+    (v : X → Bool) :
+    (AggTok.tok a).Realized v ↔ (a.scalar = true ∨ (a.realized v).Nonempty) :=
+  Iff.rfl
+
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- A token has a realized occurrence as soon as one of its occurrences is
 realized. -/
@@ -515,7 +528,7 @@ def GenPredIn.selCompared {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
   φ.comparedCols.val.filterMap (fun k =>
     match u k with
     | Sum.inl _ => none
-    | Sum.inr a => some (a.occs.map Prod.snd))
+    | Sum.inr a => some a.annList)
 
 /-- The compared tokens read in the scalar convention. A comparison against
 one of these entails no group's existence – it holds in the empty world – so
@@ -526,7 +539,7 @@ def GenPredIn.selComparedScalar {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
   φ.comparedCols.val.filterMap (fun k =>
     match u k with
     | Sum.inl _ => none
-    | Sum.inr a => if a.scalar then some (a.occs.map Prod.snd) else none)
+    | Sum.inr a => if a.scalar then some a.annList else none)
 
 /-- The pending factors after a σ with aggregate atoms (the evaluator's
 update, definitionally). -/
@@ -547,8 +560,8 @@ theorem GenPredIn.predsem_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
     (u : Tuple (GenValue T (BoolFunc X)) n)
     (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
-    (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggValue T (BoolFunc X),
-      u k = Sum.inr a → a.scalar = true ∨ (a.realized v).Nonempty) :
+    (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T (BoolFunc X),
+      u k = Sum.inr a → a.Realized v) :
     ((φ.predsem neg u γ) v = true)
       ↔ (if neg = true
           then φ.evalPlain3 (GenRow.specializeTuple v u) γ = Kleene.false

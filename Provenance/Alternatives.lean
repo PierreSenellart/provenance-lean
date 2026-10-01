@@ -48,7 +48,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 /-- An alternative's column is regular, which is what lets the operator
 compare it as a key. -/
 theorem GenRow.alternativesAt_reg {n : ℕ} (r : GenRow T K n) (i : Fin n)
-    (a : AggValue T K) (h : r.fst i = Sum.inr a) :
+    (a : AggTok T K) (h : r.fst i = Sum.inr a) :
     ∀ s ∈ r.alternativesAt i, ∃ v : T, s.fst i = Sum.inl v := by
   intro s hs
   rw [GenRow.alternativesAt, h] at hs
@@ -60,7 +60,7 @@ concrete part times the whole of what the aggregate value's worlds
 carry. Where that mass is `𝟙` – and a group row's existence factor is
 what makes it so – the alternatives carry exactly the occurrence. -/
 theorem GenRow.sum_alternativesAt_base {n : ℕ} (r : GenRow T K n) (i : Fin n)
-    (a : AggValue T K) (h : r.fst i = Sum.inr a) :
+    (a : AggValue T K) (h : r.fst i = Sum.inr (AggTok.tok a)) :
     ((r.alternativesAt i).map (fun s => s.snd.base)).sum
       = r.snd.base * ∑ W ∈ a.worlds, Having.worldAnn a.anns W := by
   rw [GenRow.alternativesAt, h, Multiset.map_map, ← AggValue.sum_altProv,

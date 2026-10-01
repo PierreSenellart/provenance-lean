@@ -260,6 +260,11 @@ def realizedWorld (a : NestedValue T K) (ν : K → Bool) : a.World :=
 def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
   valOn (a.realizedWorld ν)
 
+/-- **The values a nested value takes over its worlds**, for a key
+reading. -/
+def vals (a : NestedValue T K) : Finset T :=
+  (Finset.univ.filter (fun W : a.World => W.IsWorld)).image valOn
+
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A valuation that keeps every occurrence realizes the full world. -/
 theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
@@ -365,3 +370,162 @@ theorem ann_worldOf (a : AggValue T K) (W : Finset (Fin a.occs.length)) :
 end DegenerateAnn
 
 end NestedValue
+
+/-! ## The aggregate side of a lifted value
+
+A column of aggregate kind holds either an ordinary token or a nested
+one. `AggTok` is that choice, and `GenValue` is built on it, so an
+ordinary token keeps its type and everything already proved about
+`AggValue` applies to the `tok` case unchanged; only the `nest` case
+needs new readings, and the theorems that do not yet have them carry a
+`noNested` hypothesis rather than pretending to cover it. -/
+
+/-- An aggregate column's value: an ordinary token, or a **nested** one
+whose occurrences include those of the aggregate values its term
+read. -/
+inductive AggTok (T K : Type) where
+  /-- An ordinary aggregate value. -/
+  | tok : AggValue T K → AggTok T K
+  /-- A nested one. -/
+  | nest : NestedValue T K → AggTok T K
+
+namespace AggTok
+
+omit [ValueType T]
+
+/-- The deterministic reading. -/
+def collapse : AggTok T K → T
+  | .tok a => a.collapse
+  | .nest a => a.collapse
+
+/-- Whether the value is read in the scalar convention. -/
+def scalar : AggTok T K → Bool
+  | .tok a => a.scalar
+  | .nest a => a.scalar
+
+/-- The occurrence-annotation list – the outer one for a nested value.
+It is what the evaluator's supersede test compares, and what makes a
+family. -/
+def annList : AggTok T K → List K
+  | .tok a => a.occs.map Prod.snd
+  | .nest a => a.occs.map Prod.snd
+
+/-- Whether the value is nested. The readings that do not yet cover a
+nested value exclude it with this. -/
+def isNested : AggTok T K → Bool
+  | .tok _ => false
+  | .nest _ => true
+
+@[simp] theorem collapse_tok (a : AggValue T K) :
+    (AggTok.tok a).collapse = a.collapse := rfl
+
+@[simp] theorem scalar_tok (a : AggValue T K) :
+    (AggTok.tok a).scalar = a.scalar := rfl
+
+@[simp] theorem annList_tok (a : AggValue T K) :
+    (AggTok.tok a).annList = a.occs.map Prod.snd := rfl
+
+@[simp] theorem isNested_tok (a : AggValue T K) :
+    (AggTok.tok a).isNested = false := rfl
+
+end AggTok
+
+/-! ## Lifted values over the widened token
+
+`AggValue.collapseSum` and `AggValue.mapAnnSum` keep their names and
+their meaning; only the token they range over is the widened one. An
+ordinary token coerces into it, so a lifted value is still written
+`Sum.inr a`. -/
+
+namespace AggTok
+
+omit [ValueType T] in
+/-- Push the annotations forward through a token, ordinary or nested. -/
+def mapAnn {K' : Type} (h : K → K') : AggTok T K → AggTok T K'
+  | .tok a => .tok (a.mapAnn h)
+  | .nest a => .nest ⟨a.agg,
+      a.occs.map (fun o => (o.1.mapAnn h, h o.2)), a.scalar⟩
+
+/-! ### The readings, on either kind of token
+
+Each reading delegates: to `AggValue` on an ordinary token and to
+`NestedValue` on a nested one, over the world set `q:nestedcoherent`
+leaves as a choice between two available definitions. So the
+*definitions* cover both kinds; what the metatheory has not yet proved
+for a nested token it excludes with `AggTok.isNested`, which is a
+statement about the proofs and no longer about the definitions. -/
+
+variable [CommSemiringWithMonus K] [DecidableEq K]
+
+/-- The predicate provenance of a comparison against the token, in its
+own convention. Junk on a nested token. -/
+def predProvOfWith (P : T → Kleene) : AggTok T K → K
+  | .tok a => a.predProvOfWith P
+  | .nest a => a.predProvWith P
+
+/-- Read the token's aggregate through a function – what a term over
+one aggregate column produces. -/
+def postcomp (gf : T → T) : AggTok T K → AggTok T K
+  | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+  | .nest a => .nest ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+
+/-- The comparison case. -/
+def predProvOf (op : CompOp) (c : T) (x : AggTok T K) : K :=
+  x.predProvOfWith (fun v => op.eval3 v c)
+
+/-- The world-faithful reading under a valuation of the annotations.
+Junk on a nested token, whose reading ranges over the nested worlds. -/
+def specialize (ν : K → Bool) : AggTok T K → T
+  | .tok a => a.specialize ν
+  | .nest a => a.specialize ν
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem specialize_tok (a : AggValue T K) (ν : K → Bool) :
+    (AggTok.tok a).specialize ν = a.specialize ν := rfl
+
+/-- The values the token takes over its worlds, for a key reading.
+Empty on a nested token. -/
+def vals : AggTok T K → Finset T
+  | .tok a => a.vals
+  | .nest a => a.vals
+
+/-- `[a ≐ v]`. Junk on a nested token. -/
+def altProv (x : AggTok T K) (v : T) : K :=
+  x.predProvOfWith (fun y => CompOp.syneq.eval3 y v)
+
+@[simp] theorem predProvOfWith_tok (a : AggValue T K) (P : T → Kleene) :
+    (AggTok.tok a).predProvOfWith P = a.predProvOfWith P := rfl
+
+@[simp] theorem predProvOf_tok (a : AggValue T K) (op : CompOp) (c : T) :
+    (AggTok.tok a).predProvOf op c = a.predProvOf op c := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem vals_tok (a : AggValue T K) :
+    (AggTok.tok a).vals = a.vals := rfl
+
+@[simp] theorem altProv_tok (a : AggValue T K) (v : T) :
+    (AggTok.tok a).altProv v = a.altProv v := rfl
+
+end AggTok
+
+namespace AggValue
+
+omit [ValueType T] in
+/-- The deterministic reading of a lifted value. -/
+def collapseSum : T ⊕ AggTok T K → T :=
+  Sum.elim id AggTok.collapse
+
+omit [ValueType T] in
+/-- The annotation pushforward on a lifted value. -/
+def mapAnnSum {K' : Type} (h : K → K') : T ⊕ AggTok T K → T ⊕ AggTok T K' :=
+  Sum.map id (AggTok.mapAnn h)
+
+omit [ValueType T] in
+@[simp] theorem collapseSum_inl (v : T) :
+    collapseSum (Sum.inl v : T ⊕ AggTok T K) = v := rfl
+
+omit [ValueType T] in
+@[simp] theorem collapseSum_tok (a : AggValue T K) :
+    collapseSum (Sum.inr (AggTok.tok a) : T ⊕ AggTok T K) = a.collapse := rfl
+
+end AggValue
