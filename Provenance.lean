@@ -409,7 +409,15 @@ proven engine several general results reuse internally.
   what that costs. `jointPair_and_const` says a test that does not
   depend on the world – a regular atom, reading no family – factors out
   of the joint reading, which is what makes a selection on regular
-  columns transparent to a chain of aggregate selections
+  columns transparent to a chain of aggregate selections.
+  `Having.row_absorb_singleton` settles the **row-level** absorption
+  for two *singleton* grouped families: where `δ` is the identity and
+  `⊕` is idempotent, the existence factors do absorb the `∨` rule's
+  difference – `⊗`-idempotence collapsing the repeated factor where
+  one test holds, which `δ = id` gives free from `δ(x) ⊗ x = x`, and
+  `⊕`-idempotence the two copies where both do. Families of several
+  occurrences are not covered, and `ChainFive` shows an idempotent `⊕`
+  alone is not enough (`chain_row_ne`)
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal

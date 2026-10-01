@@ -412,4 +412,38 @@ theorem jointPair_self_eq_mul (hc : complemented K) (a : AggValue T K)
       = a.predProvOfWith P * a.predProvOfWith Q :=
   jointPair_and hc a a P Q
 
+/-! ## When the existence factors do absorb the `∨` rule
+
+`ChainFive` shows an idempotent `⊕` is not enough and `δ = id` is
+necessary. For two **singleton** grouped families the two hypotheses
+together are enough, and the statement is pure algebra: with `δ` the
+identity each existence factor is its family's own annotation, so the
+reported row is `α ⊗ β ⊗ (α⊗[P] ⊕ β⊗[Q])` and the joint one
+`α ⊗ β ⊗ [P ∨ Q]`, the single world of the union carrying `α ⊗ β`.
+
+Each hypothesis does an identifiable job. Where one test holds the
+reported row repeats that side's annotation – `α ⊗ β ⊗ α` – and
+`⊗`-idempotence collapses it, which `δ = id` supplies for free from
+the axiom `δ(x) ⊗ x = x`. Where both hold it carries two copies of
+`α ⊗ β`, and `⊕`-idempotence collapses those. Where neither holds both
+sides are `𝟘`. What is *not* covered is families of several
+occurrences, where the complement factors are no longer trivial. -/
+
+omit [DecidableEq K] in
+/-- **The row-level absorption for two singleton grouped families.** -/
+theorem row_absorb_singleton (hmul : mulIdempotent K) (hadd : idempotent K)
+    (α β : K) (p q : Kleene) :
+    α * β * (α * (if p = Kleene.true then 1 else 0)
+        + β * (if q = Kleene.true then 1 else 0))
+      = α * β * (if (p.or q) = Kleene.true then 1 else 0) := by
+  cases p <;> cases q <;>
+    simp only [Kleene.or, ite_true, ite_false, reduceCtorEq, mul_one, mul_zero,
+      add_zero, zero_add] <;>
+    first
+      | rfl
+      | rw [mul_assoc, hmul]
+      | rw [mul_right_comm, hmul]
+      | rw [mul_add, mul_right_comm α β α, hmul α, mul_assoc α β β, hmul β,
+          hadd]
+
 end Having
