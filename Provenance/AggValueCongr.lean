@@ -957,4 +957,95 @@ theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
 
+/-- **The walk commutes with a homomorphism.** Every step is a sum, a
+product, a monus or the indicator of a test on *values*, and a
+`SemiringWithMonusHom` preserves all four – the test reads the aggregate
+values, which the pushforward leaves alone. Proving it on the recursion
+rather than on the world sum is the whole point of having the recursion:
+the induction is one line per constructor. -/
+theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
+    (h : SemiringWithMonusHom K K') (aggs : Fin q → SeqAggFunc T)
+    (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool))) (acc : Fin q → List T)
+      (ex : K) (started : Fin q → Bool),
+      h.toRingHom (exprProvAux aggs sc g P acc ex started L)
+        = exprProvAux aggs sc g P acc (h.toRingHom ex) started
+            (L.map (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd)))
+  | [], acc, ex, started => by
+    show h.toRingHom (if _ then _ else _) = if _ then _ else _
+    by_cases hall : (List.finRange q).all (fun l => sc l || started l) = true
+    · rw [hall]
+      show h.toRingHom ((1 - ex) * Having.chiOf P _) = _
+      rw [map_mul, SemiringWithMonusHom.map_sub, map_one]
+      refine congrArg₂ (· * ·) rfl ?_
+      unfold Having.chiOf
+      split
+      · exact map_one _
+      · exact map_zero _
+    · rw [show (List.finRange q).all (fun l => sc l || started l) = false from
+        by simpa using hall]
+      exact map_zero _
+  | (v, a, rd) :: t, acc, ex, started => by
+    show h.toRingHom (a * _ + _) = _
+    rw [map_add, map_mul, exprProvAux_mapAnn h aggs sc g P t _ ex _,
+      exprProvAux_mapAnn h aggs sc g P t acc (ex + a) started, map_add]
+    rfl
+
+/-- **Predicate provenance commutes with a homomorphism**, for an
+aggregate expression as for a token: the pushforward moves the
+annotations and no reading. -/
+theorem predProvWith_mapAnn {K' : Type} [CommSemiringWithMonus K']
+    [DecidableEq K'] (h : SemiringWithMonusHom K K') (e : AggExpr T K)
+    (P : T → Kleene) :
+    h.toRingHom (e.predProvWith P) = (e.mapAnn ⇑h.toRingHom).predProvWith P := by
+  rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux,
+    exprProvAux_mapAnn h e.aggs e.scalar e.g P e.occs (fun _ => []) 0
+      (fun _ => false), map_zero]
+  rfl
+
+/-- **An expression's predicate provenance absorbs the `δ`-guard of its
+own family**, provided some leaf is grouped – which is what forces every
+world to be non-empty, so that one occurrence annotation is there to
+swallow `δ` of the whole family's sum. Where every leaf is scalar the
+empty world is a world and there is nothing to absorb with. -/
+theorem predProvWith_delta_absorb (e : AggExpr T K)
+    (hgr : ∃ l, e.scalar l = false) (P : T → Kleene) :
+    e.predProvWith P * SemiringWithMonus.delta e.annList.sum
+      = e.predProvWith P := by
+  unfold predProvWith
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl fun W hW => ?_
+  obtain ⟨-, hworld⟩ := Finset.mem_filter.mp hW
+  obtain ⟨l, hl⟩ := hgr
+  obtain ⟨i₀, hi₀'⟩ := hworld l hl
+  have hi₀ : i₀ ∈ W := (Finset.mem_inter.mp hi₀').1
+  have hmem : e.anns i₀ ∈ (↑e.annList : Multiset K) :=
+    Multiset.mem_coe.mpr
+      (List.mem_map.mpr ⟨e.occs.get i₀, List.get_mem _ _, rfl⟩)
+  have hr : e.annList.sum
+      = e.anns i₀ + ((↑e.annList : Multiset K).erase (e.anns i₀)).sum := by
+    rw [← Multiset.sum_coe, ← Multiset.sum_cons, Multiset.cons_erase hmem]
+  have key : e.anns i₀ * SemiringWithMonus.delta e.annList.sum = e.anns i₀ := by
+    rw [hr]
+    exact SemiringWithMonus.delta_absorb _ _
+  have hw : Having.worldAnn e.anns W
+      = e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) := by
+    unfold Having.worldAnn
+    rw [← Finset.mul_prod_erase W e.anns hi₀, mul_assoc]
+  rw [hw]
+  calc e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) * Having.chiOf P (e.valOn W)
+        * SemiringWithMonus.delta e.annList.sum
+      = ((∏ i ∈ W.erase i₀, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i)
+          * Having.chiOf P (e.valOn W))
+        * (e.anns i₀ * SemiringWithMonus.delta e.annList.sum) := by
+        rw [mul_rotate (e.anns i₀), mul_assoc]
+    _ = ((∏ i ∈ W.erase i₀, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i)
+          * Having.chiOf P (e.valOn W)) * e.anns i₀ := by
+        rw [key]
+    _ = e.anns i₀ * ((∏ i ∈ W.erase i₀, e.anns i)
+          * (1 - ∑ i ∈ Wᶜ, e.anns i)) * Having.chiOf P (e.valOn W) :=
+        (mul_rotate _ _ _).symm
+
 end AggExpr
