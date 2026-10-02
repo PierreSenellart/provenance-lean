@@ -248,7 +248,7 @@ world and no stripping recovers it. The readings that *are* world
 readings – the Boolean support and the random world – do cover it. -/
 theorem AggQueryIn.evaluateAnnotated_toPlain :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (_hq : q.altFree)
-      (_hw : q.noWinExpr)
+      (_hw : q.symmetricWindows)
       (d : AnnotatedDatabase T K) {γ : Fin c → T},
     (q.evaluateAnnotated d γ).toPlain
       = q.stripAgg.evaluatePlain d.toPlain γ := by
@@ -575,8 +575,26 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       = (q.stripAgg.evaluatePlain d.toPlain γ : Relation T _)
     rw [← hplain]
     exact ih hq hw d
-  | WinExpr P O o ws ts fs g q ih =>
-    -- the plain reading of an expression column is not yet proved, and
-    -- `noWinExpr` excludes it
-    intro _ hw
-    exact absurd hw not_false
+  | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
+    -- one output row per input occurrence, as for a single-frame window;
+    -- the data part of the added column is the expression's collapse,
+    -- which is each leaf's plain aggregate over its own frame
+    intro hq hw d γ
+    rw [hplain]
+    have hocc : OccFam.ofSorted (q.stripAgg.evaluatePlain d.toPlain γ)
+        = (OccFam.ofSorted ((q.evaluate d γ).map GenRow.toAnnotated)).plain := by
+      rw [← ih hq hw.2 d]
+      exact (ValueFrame.ofSorted_plain
+        (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).symm
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
+    rw [OccFam.toMultiset_map]
+    refine congrArg OccFam.toMultiset ?_
+    rw [hocc]
+    refine OccFam.ext_cast rfl (fun i => ?_)
+    funext k
+    dsimp only [GenRow.plainTuple, OccFam.plain]
+    refine Fin.lastCases ?_ (fun k' => ?_) k
+    · rw [Fin.snoc_last, Fin.snoc_last]
+      exact ValueFrame.collapse_exprOf P O o ws ts fs hw.1 g _ i γ
+    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      rfl

@@ -1807,6 +1807,35 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.noWinExpr
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ => False
 
+/-- **Every multi-frame window aggregates symmetrically.** A window
+expression lists its shared family by occurrence index and the plain
+reading lists each frame by row, so the two agree up to a permutation of
+the frame: the readings that compare them ask this of the leaves, which
+`count`, `sum`, `min` and `max` satisfy and `first_value` does not.
+Nothing is asked of a single-frame window, whose family *is* the frame.
+-/
+def AggQueryIn.symmetricWindows : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.symmetricWindows
+  | _, _, _, .Sel _ q => q.symmetricWindows
+  | _, _, _, .Prod q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
+  | _, _, _, .Apply q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
+  | _, _, _, .Sum q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
+  | _, _, _, .Dedup q => q.symmetricWindows
+  | _, _, _, .Diff q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
+  | _, _, _, .Alt _ _ q => q.symmetricWindows
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.symmetricWindows ∧ q₁.symmetricWindows
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.symmetricWindows ∧ q₁.symmetricWindows
+  | _, _, _, .Gamma _ _ _ q => q.symmetricWindows
+  | _, _, _, .GammaScalar _ _ q => q.symmetricWindows
+  | _, _, _, .ProvSum _ _ _ q => q.symmetricWindows
+  | _, _, _, .Retag _ q => q.symmetricWindows
+  | _, _, _, .GammaTok _ _ _ _ _ q => q.symmetricWindows
+  | _, _, _, .Win _ _ _ _ _ _ q _ => q.symmetricWindows
+  | _, _, _, .WinExpr _ _ _ _ _ fs _ q =>
+      (∀ l, (fs l).Symmetric) ∧ q.symmetricWindows
+
 /-- **No evaluator builds a nested token or an expression.** Every
 aggregate column of every row a query produces holds an ordinary token,
 because no operator constructs either of the other two: the grouping and
