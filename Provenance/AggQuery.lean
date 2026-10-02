@@ -668,15 +668,26 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   for `percent_rank`, `c/N` for `cume_dist`, the bucket arithmetic for
   `ntile` – each reading two frames of one partition.
 
-  It is a separate operator and not a term over two window columns
-  because the two families are *nested*, and only the operator knows the
-  occurrences: it reads the union of its frames as one family and
-  records per leaf which of those occurrences that leaf reads
-  (`ValueFrame.exprOf`). A term over two already-built columns would
-  have to guess that, and guessing wrong invents worlds – a rank of
-  three beside a count of one. Everything is indexed by occurrence, so
-  an `EXCLUDE CURRENT ROW` frame is as exact here as a single-frame
-  window's.
+  It reads the union of its frames as one family and records per leaf
+  which of those occurrences that leaf reads (`ValueFrame.exprOf`). The
+  two families are *nested* – `w_≺` inside the partition – so a reading
+  that cannot tell which occurrences the two share invents worlds: a
+  rank of three beside a count of one. Everything is indexed by
+  occurrence, so an `EXCLUDE CURRENT ROW` frame is as exact here as a
+  single-frame window's.
+
+  **Why this is an operator and not a projection, here.** It is a
+  primitive of *this* syntax and not of the semantics. The document's
+  aggregate value is `⟨f, t, U⟩`, carrying the occurrence sequence
+  itself, so a projection forming a term over two window columns already
+  denotes the right aggregate expression over `U₁ ∪ U₂` and nothing has
+  to be reconstructed. `AggValue` keeps a *value* per occurrence instead
+  of `U` (the term is applied when the token is built), so two finished
+  columns can no longer be related, and the sharing has to be recorded
+  where it is still known. `AggExpr.occs` does record it – the value
+  each leaf reads at each occurrence – but only for a leaf set fixed
+  when the family is built, which is what an operator has and a
+  projection does not.
 
   Like `Win` it removes no row, merges none and changes no annotation,
   so it creates no group and leaves nothing pending. It is the one
