@@ -6,7 +6,7 @@ import Provenance.Derived
 import Provenance.QueryAdequacy
 
 /-!
-# The distribution functions on a worked relation
+# The distribution functions, and the two ranks, on a worked relation
 
 `percent_rank`, `cume_dist` and `ntile` are aggregate expressions over
 two frames of one partition (`AggQueryIn.WinExpr`), so what they compute
@@ -20,6 +20,10 @@ class together.
 The arithmetic is the parameter each of the three takes: here the
 numerators are scaled by `100` so that `ℕ`'s truncating division shows
 the fraction.
+
+The file also contrasts `rank` with `dense_rank`, which differ exactly
+where the order has peers: the one counts rows before a class, the other
+counts distinct order values.
 
 The checks are `#eval`s, as the worked example of `Provenance.Example`
 is: the plain evaluator sorts each frame, and the kernel does not reduce
@@ -104,5 +108,24 @@ separately would allow `2` beside `1`. -/
     ![TermIn.const 1, TermIn.const 1] ![SeqAggFunc.count, SeqAggFunc.count]
     (fun v => v 0 * 10 + v 1) base).evaluatePlain D3).map
   (fun u => (u 0, u 1))
+
+/-! **`rank` against `dense_rank` with peers**: on `10, 10, 30` the ranks
+are `1, 1, 3` – the two tied rows share rank `1` and the third counts the
+two rows before it – while the dense ranks are `1, 1, 2`, counting the
+one distinct order value before `30`. That is the whole difference
+between the two, and it is why `drank` counts values and `rank` counts
+rows. -/
+#eval ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+  D4).map (fun u => (u 0, u 1))
+
+#eval ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+  D4).map (fun u => (u 0, u 1))
+
+/-! And on three distinct values the two agree, at `1, 2, 3`. -/
+#eval ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+  D3).map (fun u => (u 0, u 1))
+
+#eval ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+  D3).map (fun u => (u 0, u 1))
 
 end DistributionExample

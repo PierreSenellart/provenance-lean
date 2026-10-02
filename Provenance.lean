@@ -1109,7 +1109,8 @@ proven engine several general results reuse internally.
 - `Provenance.DistributionExample` – `percent_rank`, `cume_dist` and
   `ntile` evaluated on a three-row partition, including a partition of one
   row and one with peers: the values SQL gives, and the pair of counts the
-  two nested frames supply.
+  two nested frames supply. Also `rank` against `dense_rank`, which part
+  exactly where the order has peers.
 - `Provenance.HavingExample` – worked examples on a three-occurrence group:
   the `SUM ≥ 5` possible-world provenance in `𝔹[X]` and its collapse to
   minimal worlds (both computed by kernel evaluation), and the

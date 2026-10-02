@@ -724,6 +724,42 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
   refine Fin.lastCases ?_ (fun i => ?_) j <;>
     simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
 
+/-- **`dense_rank()`**: one plus the count of the *distinct order values*
+the clause sorts strictly before the current row's peers. The paper's
+`drank` counts `O` read as a single row value, so that every class of
+peers counts once; here the order is a single column and that value is
+the column's, which is what `Win`'s distinct reading merges by
+(`AggValue.mergeByValue`). A multi-column order needs a term whose value
+is the whole key, which the value domain does not have – `TermIn` builds
+no tuple – so this is the one-column case and not the general one. -/
+def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) 1) (o : OrderSpec 1)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  (Proj (overWindow n (fun x => 1 + x))
+    (Win P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
+      true)).castKind (funext (overWindow_kind n _))
+
+/-- **What a dense rank computes over plain relations**: one plus the
+distinct count of the order column over the rows sorted strictly before
+the current row's peers. -/
+theorem evaluatePlain_denseRank [One T] (cnt : SeqAggFunc T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) 1) (o : OrderSpec 1)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (denseRank cnt P O o q).evaluatePlain D
+      = (q.evaluatePlain D).map (fun u =>
+          (Fin.snoc u (1 + ValueFrame.windowValue P O o
+              (ValueFrame.rangeBefore o)
+              (TermIn.index (c := 0) (O 0)) cnt.distinct
+              (q.evaluatePlain D) u)
+            : Tuple T (n + 1))) := by
+  rw [denseRank, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain,
+    AggQueryIn.evaluatePlain_Win_eq, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun u _ => ?_)
+  funext j
+  refine Fin.lastCases ?_ (fun i => ?_) j <;>
+    simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
+
 /-! ### The distribution functions
 
 `percent_rank`, `cume_dist` and `ntile` are **aggregate expressions**
