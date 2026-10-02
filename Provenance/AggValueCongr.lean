@@ -957,6 +957,7 @@ theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
 
+omit [ValueType T] [DecidableEq K] in
 /-- **The walk commutes with a homomorphism.** Every step is a sum, a
 product, a monus or the indicator of a test on *values*, and a
 `SemiringWithMonusHom` preserves all four – the test reads the aggregate
