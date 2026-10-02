@@ -180,6 +180,17 @@ theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
     · rw [ite_eq_right (fun h => hPa (h0.mp h)),
         List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
 
+/-- **Equal lists select equally**, the positions carried across by the
+length equality. This is the `seqOf` congruence a dependent `congrArg`
+cannot give, since the type of the position set depends on the list. -/
+theorem seqOf_congr_list {β : Type} : ∀ {L₁ L₂ : List β} (h : L₁ = L₂)
+    (S : Finset (Fin L₁.length)),
+      seqOf L₁ S = seqOf L₂ (S.map (finCongr (congrArg List.length h)).toEmbedding)
+  | _, _, rfl, S => by
+    refine congrArg (seqOf _) ?_
+    ext x
+    simp
+
 /-- **The normal form of a selection**: the positions a world keeps, in
 order, read off the list. Everything about `seqOf` can be settled in this
 form, where the index bookkeeping is a `List.filter` on the index list

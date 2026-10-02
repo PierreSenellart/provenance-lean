@@ -209,6 +209,155 @@ reading. -/
 def vals [DecidableEq T] (e : AggExpr T K) : Finset T :=
   (Finset.univ.filter (fun W => e.IsWorld W)).image e.valOn
 
+/-- **A leaf's reading depends only on the values and the leaf flags.**
+Stripping the annotations off the family and selecting there is
+selecting and then stripping, so two families with the same stripped
+list give every leaf the same sequence in corresponding worlds. -/
+theorem leafSeq_of_strip {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd)))
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (hlen : occs₁.length = occs₂.length) (l : Fin q)
+    (W : Finset (Fin occs₁.length)) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).leafSeq l W
+      = (AggExpr.mk q occs₂ aggs sc g cov₂).leafSeq l
+        (W.map (finCongr hlen).toEmbedding) := by
+  have h₁ : occs₁.length
+      = (occs₁.map (fun z => (z.fst, z.snd.snd))).length :=
+    (List.length_map _).symm
+  have h₂ : occs₂.length
+      = (occs₂.map (fun z => (z.fst, z.snd.snd))).length :=
+    (List.length_map _).symm
+  rw [leafSeq_eq_filter, leafSeq_eq_filter]
+  show (((Having.seqOf occs₁ W).filter (fun z => z.snd.snd l)).map
+      (fun z => z.fst l))
+    = (((Having.seqOf occs₂ (W.map (finCongr hlen).toEmbedding)).filter
+      (fun z => z.snd.snd l)).map (fun z => z.fst l))
+  have key : (Having.seqOf occs₁ W).map (fun z => (z.fst, z.snd.snd))
+      = (Having.seqOf occs₂ (W.map (finCongr hlen).toEmbedding)).map
+        (fun z => (z.fst, z.snd.snd)) := by
+    rw [← AggValue.seqOf_map _ occs₁ h₁ W,
+      ← AggValue.seqOf_map _ occs₂ h₂ (W.map (finCongr hlen).toEmbedding),
+      Having.seqOf_congr_list hstrip]
+    refine congrArg (Having.seqOf _) ?_
+    ext x
+    simp only [Finset.mem_map]
+    constructor
+    · rintro ⟨i, hi, rfl⟩
+      obtain ⟨i', hi', rfl⟩ := hi
+      exact ⟨Fin.cast hlen i', ⟨i', hi', rfl⟩, by simp⟩
+    · rintro ⟨i, hi, rfl⟩
+      obtain ⟨i', hi', rfl⟩ := hi
+      exact ⟨Fin.cast h₁ i', ⟨i', hi', rfl⟩, by simp⟩
+  have hf : ∀ (L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool))),
+      L₁.map (fun z => (z.fst, z.snd.snd))
+          = L₂.map (fun z => (z.fst, z.snd.snd)) →
+        (L₁.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
+          = (L₂.filter (fun z => z.snd.snd l)).map (fun z => z.fst l) := by
+    intro L₁ L₂ hL
+    have e₁ : (L₁.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
+        = ((L₁.map (fun z => (z.fst, z.snd.snd))).filter
+          (fun w => w.snd l)).map (fun w => w.fst l) := by
+      rw [List.filter_map, List.map_map]
+      rfl
+    have e₂ : (L₂.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
+        = ((L₂.map (fun z => (z.fst, z.snd.snd))).filter
+          (fun w => w.snd l)).map (fun w => w.fst l) := by
+      rw [List.filter_map, List.map_map]
+      rfl
+    rw [e₁, e₂, hL]
+  exact hf _ _ key
+
+/-- Two families with the same stripped list have the same worlds: the
+condition reads the leaf flags and the conventions, not the
+annotations. -/
+theorem isWorld_of_strip {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd)))
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (hlen : occs₁.length = occs₂.length)
+    (W : Finset (Fin occs₁.length)) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).IsWorld W
+      ↔ (AggExpr.mk q occs₂ aggs sc g cov₂).IsWorld
+        (W.map (finCongr hlen).toEmbedding) := by
+  have hflag : ∀ (i : Fin occs₁.length) (l : Fin q),
+      (occs₁.get i).snd.snd l = (occs₂.get (Fin.cast hlen i)).snd.snd l := by
+    intro i l
+    have hi₂ : (i : ℕ) < occs₂.length := by rw [← hlen]; exact i.isLt
+    have h' := congrArg (fun L => L[(i : ℕ)]?) hstrip
+    simp only [List.getElem?_map, List.getElem?_eq_getElem i.isLt,
+      List.getElem?_eq_getElem hi₂, Option.map_some] at h'
+    have heq := Option.some.inj h'
+    have hres := congrArg (fun z : (Fin q → T) × (Fin q → Bool) => z.snd l) heq
+    simpa only [List.get_eq_getElem, Fin.val_cast] using hres
+  constructor
+  · intro h l hsc
+    obtain ⟨i, hi⟩ := h l hsc
+    obtain ⟨hiW, hir⟩ := Finset.mem_inter.mp hi
+    refine ⟨Fin.cast hlen i, Finset.mem_inter.mpr
+      ⟨Finset.mem_map.mpr ⟨i, hiW, rfl⟩, ?_⟩⟩
+    rw [mem_reads] at hir ⊢
+    rw [← hflag i l]
+    exact hir
+  · intro h l hsc
+    obtain ⟨j, hj⟩ := h l hsc
+    obtain ⟨hjW, hjr⟩ := Finset.mem_inter.mp hj
+    obtain ⟨i, hiW, rfl⟩ := Finset.mem_map.mp hjW
+    refine ⟨i, Finset.mem_inter.mpr ⟨hiW, ?_⟩⟩
+    rw [mem_reads] at hjr ⊢
+    rw [hflag i l]
+    exact hjr
+
+/-- **`Val(e)` depends only on the values and the leaf flags**, so two
+families that differ by a tie-block permutation – occurrences carrying
+the same value vector and read by the same leaves – give the same set of
+values. This is what lets an aggregate expression be read as a key. -/
+theorem vals_congr [DecidableEq T] {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd))) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).vals
+      = (AggExpr.mk q occs₂ aggs sc g cov₂).vals := by
+  have hlen : occs₁.length = occs₂.length := by
+    have hc := congrArg List.length hstrip
+    simpa only [List.length_map] using hc
+  have hval : ∀ W : Finset (Fin occs₁.length),
+      (AggExpr.mk q occs₁ aggs sc g cov₁).valOn W
+        = (AggExpr.mk q occs₂ aggs sc g cov₂).valOn
+          (W.map (finCongr hlen).toEmbedding) :=
+    fun W => congrArg g (funext (fun l => congrArg (aggs l)
+      (leafSeq_of_strip hstrip aggs sc g cov₁ cov₂ hlen l W)))
+  have hback : ∀ W' : Finset (Fin occs₂.length),
+      (W'.map (finCongr hlen.symm).toEmbedding).map
+          (finCongr hlen).toEmbedding = W' := by
+    intro W'
+    rw [Finset.map_map]
+    ext x
+    simp
+  ext x
+  simp only [vals, Finset.mem_image, Finset.mem_filter, Finset.mem_univ,
+    true_and]
+  constructor
+  · rintro ⟨W, hW, rfl⟩
+    exact ⟨W.map (finCongr hlen).toEmbedding,
+      (isWorld_of_strip hstrip aggs sc g cov₁ cov₂ hlen W).mp hW,
+      (hval W).symm⟩
+  · rintro ⟨W', hW', rfl⟩
+    refine ⟨W'.map (finCongr hlen.symm).toEmbedding, ?_, ?_⟩
+    · refine (isWorld_of_strip hstrip aggs sc g cov₁ cov₂ hlen _).mpr ?_
+      rw [hback]
+      exact hW'
+    · rw [hval, hback]
+
 /-- **Reading the expression through a function**: the term `gf(e)`,
 which is again an expression over the same family. -/
 def postcomp (gf : T → T) (e : AggExpr T K) : AggExpr T K :=
