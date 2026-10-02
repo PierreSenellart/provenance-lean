@@ -661,6 +661,35 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
       (t : TermIn T c n) → (f : SeqAggFunc T) →
       AggQueryIn T c n (ColKind.allReg n) → (dist : Bool := false) →
       AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
+  /-- **A window over several frames of one partition**, whose column is
+  an aggregate *expression* and not an aggregate: leaf `l` aggregates
+  `ts l` with `fs l` over the frame `ws l`, and `g` combines the leaves'
+  values. SQL's distribution functions are this operator – `(r-1)/(N-1)`
+  for `percent_rank`, `c/N` for `cume_dist`, the bucket arithmetic for
+  `ntile` – each reading two frames of one partition.
+
+  It is a separate operator and not a term over two window columns
+  because the two families are *nested*, and only the operator knows the
+  occurrences: it reads the union of its frames as one family and
+  records per leaf which of those occurrences that leaf reads
+  (`ValueFrame.exprOf`). A term over two already-built columns would
+  have to guess that, and guessing wrong invents worlds – a rank of
+  three beside a count of one. Everything is indexed by occurrence, so
+  an `EXCLUDE CURRENT ROW` frame is as exact here as a single-frame
+  window's.
+
+  Like `Win` it removes no row, merges none and changes no annotation,
+  so it creates no group and leaves nothing pending. It is the one
+  operator of the syntax that builds a non-`tok` column, which is why
+  `AggQueryIn.evaluate_ordinaryTokens` is conditional on
+  `noWinExpr`. -/
+  | WinExpr : {c n m p q : ℕ} →
+      (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
+      (ws : Fin q → ValueFrame T p) →
+      (ts : Fin q → TermIn T c n) → (fs : Fin q → SeqAggFunc T) →
+      (g : (Fin q → T) → T) →
+      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
 
 /-- A closed query: one that reads no outer column. -/
 abbrev AggQuery (T : Type) (n : ℕ) (κ : Fin n → ColKind) := AggQueryIn T 0 n κ
@@ -1071,6 +1100,15 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
           (Sum.inr (AggTok.tok (ValueFrame.tokenDist P O o w t f dist occ i γ))),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
+  | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q, d, γ =>
+    let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
+    let occ := OccFam.ofSorted r
+    -- the column is an expression over the union of the frames, which the
+    -- operator knows because it is what the frames are computed from
+    (OccFam.mk occ.size (fun i =>
+      (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
+          (Sum.inr (AggTok.expr (ValueFrame.exprOf P O o ws ts fs g occ i γ))),
+        ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
 termination_by structural q
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
@@ -1384,6 +1422,14 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
           ((ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).map
             (fun v => t.eval v γ)))
         : Tuple T (n + 1)))).toMultiset
+  | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q, d, γ =>
+    let occ := OccFam.ofSorted (q.evaluatePlain d γ)
+    (OccFam.mk occ.size (fun i =>
+      (Fin.snoc (occ.row i)
+        (g (fun l => (fs l)
+          ((ValueFrame.frameSeqOn (α := Tuple T n) id P O o (ws l) occ i).map
+            (fun v => (ts l).eval v γ))))
+        : Tuple T (n + 1)))).toMultiset
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Plain counterpart of `AggQueryIn.evaluate_Apply`. -/
@@ -1445,6 +1491,32 @@ theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
   dsimp only [Fin.cast_eq_self]
   rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
 
+/-- **The `WinExpr` case of the plain evaluator, read off the
+relation**: each leaf aggregates over its own frame, and `g` combines
+the values. -/
+theorem AggQueryIn.evaluatePlain_WinExpr_eq {c n m p na : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
+    (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
+    {γ : Fin c → T} :
+    (AggQueryIn.WinExpr P O o ws ts fs g q).evaluatePlain d γ
+      = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
+          (Fin.snoc u
+            (g (fun l => ValueFrame.windowValue P O o (ws l) (ts l) (fs l)
+              (q.evaluatePlain d γ) u γ))
+            : Tuple T (n + 1))) := by
+  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluatePlain d γ)]
+  rw [OccFam.toMultiset_map]
+  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
+  show (_ : Tuple T (n + 1))
+    = Fin.snoc _ (g (fun l => ValueFrame.windowValue P O o (ws l) (ts l)
+        (fs l) _ _ _))
+  unfold ValueFrame.windowValue
+  dsimp only [Fin.cast_eq_self]
+  refine congrArg (Fin.snoc _) (congrArg g (funext (fun l => ?_)))
+  rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
+
 /-- Strip a general query of the constructs whose annotated data part
 keeps rows the classical semantics removes: differences (annotated `Diff`
 never removes tuple slots) and selections containing an aggregate atom
@@ -1472,6 +1544,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Retag h q => Retag h q.stripAgg
   | _, _, _, GammaTok is his ts fs a q => GammaTok is his ts fs a q.stripAgg
   | _, _, _, Win P O o w t f q dist => Win P O o w t f q.stripAgg dist
+  | _, _, _, WinExpr P O o ws ts fs g q =>
+      WinExpr P O o ws ts fs g q.stripAgg
 
 /-- No plan-level provenance aggregation. The possible-world
 metatheorems (random-world commutation, PQE) are about source queries;
@@ -1497,6 +1571,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag _ q => q.noProvSum
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.noProvSum
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noProvSum
 
 /-- **No aggregate column read as a key.** Reading one produces a row
 per value the column takes in *some* world, so the data part of the
@@ -1523,6 +1598,7 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Retag _ q => q.altFree
   | _, _, _, .GammaTok _ _ _ _ _ q => q.altFree
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.altFree
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.altFree
 
 /-! ## Join conditions on key columns -/
 
@@ -1696,17 +1772,46 @@ def GenValue.kindOf : GenValue T K → ColKind
   | Sum.inr _ => ColKind.agg
 
 
-/-- **No column of a tuple holds a nested token.** This is the
-metatheory's standing assumption while the nested readings are
+/-- **Every aggregate column of a tuple holds an ordinary token** –
+neither a nested value nor an expression over several of them. This is
+the metatheory's standing assumption while those two readings are
 unproved; on a row the evaluator produces it is a theorem,
-`AggQueryIn.evaluate_not_nested`, so no result on a query carries it. -/
-def GenRow.NoNested {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
-  ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isNested = false
+`AggQueryIn.evaluate_ordinaryTokens`, so no result on a query carries
+it. -/
+def GenRow.OrdinaryTokens {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
+  ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isTok = true
 
-/-- **No evaluator builds a nested token.** Every aggregate column of
-every row a query produces holds an ordinary token, because no operator
-constructs a nested one: the grouping and the window build their tokens
-with `AggTok.tok`, a projection copies or post-composes one, and
+/-- **No multi-frame window.** `WinExpr` is the one operator of the
+syntax that builds an aggregate column holding an expression rather than
+an ordinary token, so the results proved only for ordinary tokens
+exclude it with this – as the possible-world results exclude `ProvSum`
+with `noProvSum`. -/
+def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.noWinExpr
+  | _, _, _, .Sel _ q => q.noWinExpr
+  | _, _, _, .Prod q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, .Apply q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, .Sum q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, .Dedup q => q.noWinExpr
+  | _, _, _, .Diff q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, .Alt _ _ q => q.noWinExpr
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, .Gamma _ _ _ q => q.noWinExpr
+  | _, _, _, .GammaScalar _ _ q => q.noWinExpr
+  | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
+  | _, _, _, .Retag _ q => q.noWinExpr
+  | _, _, _, .GammaTok _ _ _ _ _ q => q.noWinExpr
+  | _, _, _, .Win _ _ _ _ _ _ q _ => q.noWinExpr
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ => False
+
+/-- **No evaluator builds a nested token or an expression.** Every
+aggregate column of every row a query produces holds an ordinary token,
+because no operator constructs either of the other two: the grouping and
+the window build their tokens with `AggTok.tok`, a projection copies or
+post-composes one – and `AggTok.postcomp` keeps the kind – and
 everything else carries rows through or rebuilds them from annotated
 tuples.
 
@@ -1716,14 +1821,15 @@ here" from this lemma rather than from a hypothesis on the query. When
 an operator does build one – a `Gamma` or a `Win` whose term reads an
 aggregate column – this lemma becomes conditional on excluding it, and
 that is the one place the change has to be made. -/
-theorem AggQueryIn.evaluate_not_nested :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-      (d : AnnotatedDatabase T K) {γ : Fin c → T} (r : GenRow T K n),
-      r ∈ q.evaluate d γ → GenRow.NoNested r.fst := by
+theorem AggQueryIn.evaluate_ordinaryTokens :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.noWinExpr → ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T}
+        (r : GenRow T K n),
+      r ∈ q.evaluate d γ → GenRow.OrdinaryTokens r.fst := by
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
     | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
@@ -1732,14 +1838,14 @@ theorem AggQueryIn.evaluate_not_nested :
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
   | Proj ps q ih =>
-    intro d γ r hr j a ha
+    intro hq d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     cases hp : ps j with
     | term t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | provTerm t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | token k hk =>
-      refine ih d r₀ hr₀ k a ?_
+      refine ih hq d r₀ hr₀ k a ?_
       show r₀.fst k = Sum.inr a
       rw [← ha]
       simp [ProjColIn.eval, hp]
@@ -1751,78 +1857,78 @@ theorem AggQueryIn.evaluate_not_nested :
           have := ha
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
-        rw [hax, AggTok.isNested_postcomp]
-        exact ih d r₀ hr₀ k x hu
+        rw [hax, AggTok.isTok_postcomp]
+        exact ih hq d r₀ hr₀ k x hu
   | Sel φ q ih =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
-      exact ih d r₀ hr₀ k a ha
+      exact ih hq d r₀ hr₀ k a ha
     · rw [ite_eq_right hφ] at hr
-      exact ih d r (Multiset.mem_of_mem_filter hr) k a ha
+      exact ih hq d r (Multiset.mem_of_mem_filter hr) k a ha
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hr
     obtain ⟨h₁, h₂⟩ := Multiset.mem_product.mp hp
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ d p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ d p.2 h₂ j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hq.1 d p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · exact ih₂ hq.2 d p.2 h₂ j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hx, hy⟩ := Multiset.mem_bind.mp hr
     obtain ⟨y, hy', rfl⟩ := Multiset.mem_map.mp hy
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ d x hx i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ d y hy' j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hq.1 d x hx i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · exact ih₂ hq.2 d y hy' j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.mp hr with h | h
-    · exact ih₁ d r h k a ha
-    · exact ih₂ d r h k a ha
+    · exact ih₁ hq.1 d r h k a ha
+    · exact ih₂ hq.2 d r h k a ha
   | Dedup q ih =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Alt k hk q ih =>
-    intro d γ r hr j a ha
+    intro hq d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
     cases hfk : r₀.fst k with
     | inl w =>
       rw [GenRow.alternativesAt, hfk, Multiset.mem_singleton] at hs
       subst hs
-      exact ih d _ hr₀ j a ha
+      exact ih hq d _ hr₀ j a ha
     | inr x =>
       rw [GenRow.alternativesAt, hfk] at hs
       obtain ⟨v, -, rfl⟩ := Multiset.mem_map.mp hs
       by_cases hj : j = k
       · subst hj
         exact absurd ha (by simp)
-      · exact ih d r₀ hr₀ j a
+      · exact ih hq d r₀ hr₀ j a
           ((Function.update_of_ne hj (Sum.inl v) r₀.fst).symm.trans ha)
   | Mu b s q₀ q₁ ih₀ ih₁ =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | MuSet b s q₀ q₁ ih₀ ih₁ =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Gamma is ts fs q ih =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
@@ -1830,27 +1936,29 @@ theorem AggQueryIn.evaluate_not_nested :
     · cases a with
       | tok _ => rfl
       | nest _ => exact absurd ha (by simp [Fin.append_right])
+      | expr _ => exact absurd ha (by simp [Fin.append_right])
   | GammaScalar ts fs q ih =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
     subst hr
     cases a with
     | tok _ => rfl
     | nest _ => exact absurd ha (by simp)
+    | expr _ => exact absurd ha (by simp)
   | ProvSum is his t q ih =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
     · exact absurd ha (by simp [Fin.append_left])
     · exact absurd ha (by simp [Fin.append_right])
   | Retag hk q ih =>
-    intro d γ r hr k a ha
+    intro hq d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
-    exact ih d r hr k a ha
+    exact ih hq d r hr k a ha
   | GammaTok is his ts fs ann q ih =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -1860,10 +1968,12 @@ theorem AggQueryIn.evaluate_not_nested :
         | tok _ => rfl
         | nest _ =>
           exact absurd ha (by simp [Fin.append_left, Fin.append_right])
+        | expr _ =>
+          exact absurd ha (by simp [Fin.append_left, Fin.append_right])
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
   | Win P O o w t f q dist ih =>
-    intro d γ r hr k
+    intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
@@ -1871,7 +1981,13 @@ theorem AggQueryIn.evaluate_not_nested :
       | tok _ => rfl
       | nest _ =>
         exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
+      | expr _ =>
+        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
     · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
+  | WinExpr P O o ws ts fs g q ih =>
+    -- the one operator that builds an expression, which `noWinExpr` excludes
+    intro hq
+    exact absurd hq not_false
 
 /-- **Kind conformance of the general evaluator.** -/
 theorem AggQueryIn.evaluate_conform :
@@ -2058,6 +2174,17 @@ theorem AggQueryIn.evaluate_conform :
       rw [Fin.append_right, Fin.append_right]
       rfl
   | Win P O o w t f q ih =>
+    intro d γ r hr k
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    refine Fin.lastCases ?_ (fun i' => ?_) k
+    · dsimp only
+      rw [Fin.snoc_last, Fin.snoc_last]
+      rfl
+    · dsimp only
+      rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      rfl
+  | WinExpr P O o ws ts fs g q ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr

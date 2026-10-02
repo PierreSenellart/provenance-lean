@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggValue
+import Provenance.AggExpr
 
 /-!
 # Nested aggregate values
@@ -388,6 +388,12 @@ inductive AggTok (T K : Type) where
   | tok : AggValue T K → AggTok T K
   /-- A nested one. -/
   | nest : NestedValue T K → AggTok T K
+  /-- An aggregate expression: a function of several aggregate values
+  over one shared family of occurrences, which is what a term over more
+  than one aggregate column produces. A term over *one* stays a `tok`,
+  post-composed, since `AggValue.postcomp` represents that case already
+  and keeping it spares the metatheory a case. -/
+  | expr : AggExpr T K → AggTok T K
 
 namespace AggTok
 
@@ -397,11 +403,13 @@ omit [ValueType T]
 def collapse : AggTok T K → T
   | .tok a => a.collapse
   | .nest a => a.collapse
+  | .expr a => a.collapse
 
 /-- Whether the value is read in the scalar convention. -/
 def scalar : AggTok T K → Bool
   | .tok a => a.scalar
   | .nest a => a.scalar
+  | .expr a => a.isScalar
 
 /-- The occurrence-annotation list – the outer one for a nested value.
 It is what the evaluator's supersede test compares, and what makes a
@@ -409,12 +417,23 @@ family. -/
 def annList : AggTok T K → List K
   | .tok a => a.occs.map Prod.snd
   | .nest a => a.occs.map Prod.snd
+  | .expr a => a.annList
 
-/-- Whether the value is nested. The readings that do not yet cover a
-nested value exclude it with this. -/
+/-- Whether the value is nested. -/
 def isNested : AggTok T K → Bool
   | .tok _ => false
   | .nest _ => true
+  | .expr _ => false
+
+/-- **Whether the column holds an ordinary aggregate value.** The
+readings that cover neither a nested value nor an expression over several
+of them require this; it is a statement about the proofs and not about
+the definitions, and `AggQueryIn.evaluate_ordinaryTokens` discharges it
+for every row an operator of the current syntax produces. -/
+def isTok : AggTok T K → Bool
+  | .tok _ => true
+  | .nest _ => false
+  | .expr _ => false
 
 @[simp] theorem collapse_tok (a : AggValue T K) :
     (AggTok.tok a).collapse = a.collapse := rfl
@@ -431,12 +450,34 @@ def isNested : AggTok T K → Bool
 @[simp] theorem isNested_nest (a : NestedValue T K) :
     (AggTok.nest a).isNested = true := rfl
 
-/-- A token that is not nested is an ordinary one. -/
-theorem eq_tok_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
+@[simp] theorem collapse_expr (a : AggExpr T K) :
+    (AggTok.expr a).collapse = a.collapse := rfl
+
+@[simp] theorem scalar_expr (a : AggExpr T K) :
+    (AggTok.expr a).scalar = a.isScalar := rfl
+
+@[simp] theorem annList_expr (a : AggExpr T K) :
+    (AggTok.expr a).annList = a.annList := rfl
+
+@[simp] theorem isNested_expr (a : AggExpr T K) :
+    (AggTok.expr a).isNested = false := rfl
+
+@[simp] theorem isTok_tok (a : AggValue T K) :
+    (AggTok.tok a).isTok = true := rfl
+
+@[simp] theorem isTok_nest (a : NestedValue T K) :
+    (AggTok.nest a).isTok = false := rfl
+
+@[simp] theorem isTok_expr (a : AggExpr T K) :
+    (AggTok.expr a).isTok = false := rfl
+
+/-- An ordinary token is an aggregate value. -/
+theorem eq_tok_of_isTok {x : AggTok T K} (h : x.isTok = true) :
     ∃ a : AggValue T K, x = AggTok.tok a := by
   cases x with
   | tok a => exact ⟨a, rfl⟩
   | nest a => exact absurd h (by simp)
+  | expr a => exact absurd h (by simp)
 
 
 end AggTok
@@ -456,15 +497,18 @@ def mapAnn {K' : Type} (h : K → K') : AggTok T K → AggTok T K'
   | .tok a => .tok (a.mapAnn h)
   | .nest a => .nest ⟨a.agg,
       a.occs.map (fun o => (o.1.mapAnn h, h o.2)), a.scalar⟩
+  | .expr a => .expr (a.mapAnn h)
 
-/-! ### The readings, on either kind of token
+/-! ### The readings, on each kind of token
 
-Each reading delegates: to `AggValue` on an ordinary token and to
-`NestedValue` on a nested one, over the world set `q:nestedcoherent`
-leaves as a choice between two available definitions. So the
-*definitions* cover both kinds; what the metatheory has not yet proved
-for a nested token it excludes with `AggTok.isNested`, which is a
-statement about the proofs and no longer about the definitions. -/
+Each reading delegates: to `AggValue` on an ordinary token, to
+`NestedValue` on a nested one – over the world set `q:nestedcoherent`
+leaves as a choice between two available definitions – and to `AggExpr`
+on an expression, whose worlds are the subfamilies of the shared family
+meeting every grouped leaf. So the *definitions* cover all three kinds;
+what the metatheory has not yet proved beyond an ordinary token it
+excludes with `AggTok.isTok`, which is a statement about the proofs and
+no longer about the definitions. -/
 
 variable [CommSemiringWithMonus K] [DecidableEq K]
 
@@ -473,16 +517,23 @@ own convention. Junk on a nested token. -/
 def predProvOfWith (P : T → Kleene) : AggTok T K → K
   | .tok a => a.predProvOfWith P
   | .nest a => a.predProvWith P
+  | .expr a => a.predProvWith P
 
 /-- Read the token's aggregate through a function – what a term over
 one aggregate column produces. -/
 def postcomp (gf : T → T) : AggTok T K → AggTok T K
   | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
   | .nest a => .nest ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+  | .expr a => .expr (a.postcomp gf)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem isNested_postcomp (gf : T → T) (x : AggTok T K) :
     (x.postcomp gf).isNested = x.isNested := by
+  cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isTok_postcomp (gf : T → T) (x : AggTok T K) :
+    (x.postcomp gf).isTok = x.isTok := by
   cases x <;> rfl
 
 /-- The comparison case. -/
@@ -494,6 +545,7 @@ Junk on a nested token, whose reading ranges over the nested worlds. -/
 def specialize (ν : K → Bool) : AggTok T K → T
   | .tok a => a.specialize ν
   | .nest a => a.specialize ν
+  | .expr a => a.specialize ν
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem specialize_tok (a : AggValue T K) (ν : K → Bool) :
@@ -504,6 +556,7 @@ Empty on a nested token. -/
 def vals : AggTok T K → Finset T
   | .tok a => a.vals
   | .nest a => a.vals
+  | .expr a => a.vals
 
 /-- `[a ≐ v]`. Junk on a nested token. -/
 def altProv (x : AggTok T K) (v : T) : K :=
@@ -546,8 +599,9 @@ omit [ValueType T] in
 
 omit [ValueType T] in
 /-- **The deterministic reading ignores the annotations**, so it is
-unchanged by a pushforward – on an ordinary token and on a nested one,
-whose inner collapses are unchanged for the same reason. -/
+unchanged by a pushforward – on an ordinary token, on a nested one whose
+inner collapses are unchanged for the same reason, and on an expression,
+whose leaves read the same sequences. -/
 @[simp] theorem collapseSum_mapAnnSum {K' : Type} (h : K → K')
     (x : T ⊕ AggTok T K) : collapseSum (mapAnnSum h x) = collapseSum x := by
   cases x with
@@ -560,5 +614,6 @@ whose inner collapses are unchanged for the same reason. -/
       refine congrArg a.agg ?_
       rw [List.map_map]
       exact List.map_congr_left (fun o _ => AggValue.collapse_mapAnn h o.1)
+    | expr a => exact AggExpr.collapse_mapAnn h a
 
 end AggValue

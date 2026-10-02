@@ -467,7 +467,7 @@ arbitrary predicate: relative to the two gate primitives, which is
 exactly the sense in which ProvSQL's own rewriting is correct. -/
 theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.rangeFree = true → ∀ (neg : Bool) (r : GenRow T K n),
-      GenRow.NoNested r.fst →
+      GenRow.OrdinaryTokens r.fst →
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
   | .cmp op t₁ t₂, _, neg, r, _ => by
@@ -488,7 +488,7 @@ theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     cases hx : r.fst k with
     | inl v => rfl
     | inr x =>
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_not_nested (hnn k x hx)
+      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok (hnn k x hx)
       show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
       rw [AggValue.predProvOf_toComposite]
       rfl
@@ -580,7 +580,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 aggregate column is the ordinary token the grouping builds. -/
 theorem gammaRow_noNested {n₁ n₂ : ℕ} (g : Tuple T n₁)
     (h : Fin n₂ → AggValue T K) :
-    GenRow.NoNested (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
+    GenRow.OrdinaryTokens (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
       (fun j => Sum.inr (AggTok.tok (h j)))) := by
   intro k x hx
   revert hx

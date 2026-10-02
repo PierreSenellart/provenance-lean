@@ -109,6 +109,137 @@ def predProv [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   ∑ W ∈ Finset.univ.filter (fun W => e.IsWorld W),
     Having.worldAnn e.anns W * Having.chi op (e.valOn W) c
 
+/-- **Predicate provenance of an arbitrary three-valued test**, the
+reading a range atom and a null test need: `predProv` is the case of a
+comparison against a constant (`predProv_eq_predProvWith`). -/
+def predProvWith [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (e : AggExpr T K) (P : T → Kleene) : K :=
+  ∑ W ∈ Finset.univ.filter (fun W => e.IsWorld W),
+    Having.worldAnn e.anns W * Having.chiOf P (e.valOn W)
+
+/-- A comparison is the test that compares against the constant. -/
+theorem predProv_eq_predProvWith [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (e : AggExpr T K) (op : CompOp) (c : T) :
+    e.predProv op c = e.predProvWith (fun v => op.eval3 v c) := rfl
+
+/-! ## The expression read as a column
+
+An aggregate column holds one of these, so an expression owes what a
+token owes: the convention it is read in, the family it carries, the
+value it takes under a valuation of the annotations, and the values it
+takes over its worlds. Each is the `AggValue` notion with `IsWorld` in
+place of "non-empty if grouped" and the shared family in place of the
+token's own. -/
+
+/-- **The convention the expression is read in**: scalar exactly where
+every leaf is, since the empty world is a world of the expression only
+when no leaf demands an occurrence. -/
+def isScalar (e : AggExpr T K) : Bool :=
+  (List.finRange e.arity).all e.scalar
+
+/-- The empty world is a world exactly in the scalar convention. -/
+theorem isWorld_empty_iff (e : AggExpr T K) :
+    e.IsWorld ∅ ↔ e.isScalar = true := by
+  unfold IsWorld isScalar
+  rw [List.all_eq_true]
+  constructor
+  · intro h j _
+    by_cases hs : e.scalar j = true
+    · exact hs
+    · exact absurd (h j (by simpa using hs)) (by simp)
+  · intro h j hj
+    exact absurd (h j (List.mem_finRange j)) (by rw [hj]; exact Bool.false_ne_true)
+
+/-- **The family the expression carries**: the annotations of the shared
+occurrences, which is what the supersede test compares and what makes two
+columns one family. -/
+def annList (e : AggExpr T K) : List K := e.occs.map Prod.snd
+
+/-- **The world a valuation of the annotations realizes**: the
+occurrences it keeps. -/
+def realizedWorld (e : AggExpr T K) (ν : K → Bool) :
+    Finset (Fin e.occs.length) :=
+  Finset.univ.filter (fun i => ν (e.anns i))
+
+/-- **The world-faithful reading**: the value in the realized world. -/
+def specialize (e : AggExpr T K) (ν : K → Bool) : T :=
+  e.valOn (e.realizedWorld ν)
+
+/-- A valuation that keeps every occurrence reads the collapse. -/
+theorem specialize_of_forall (e : AggExpr T K) (ν : K → Bool)
+    (h : ∀ x : K, ν x = true) : e.specialize ν = e.collapse := by
+  unfold specialize collapse realizedWorld
+  exact congrArg e.valOn (Finset.filter_true_of_mem (fun i _ => h _))
+
+/-- `Val(e)`: the values the expression takes over its worlds, for a key
+reading. -/
+def vals [DecidableEq T] (e : AggExpr T K) : Finset T :=
+  (Finset.univ.filter (fun W => e.IsWorld W)).image e.valOn
+
+/-- **Reading the expression through a function**: the term `gf(e)`,
+which is again an expression over the same family. -/
+def postcomp (gf : T → T) (e : AggExpr T K) : AggExpr T K :=
+  { e with g := fun v => gf (e.g v) }
+
+@[simp] theorem valOn_postcomp (gf : T → T) (e : AggExpr T K)
+    (W : Finset (Fin (postcomp gf e).occs.length)) :
+    (postcomp gf e).valOn W = gf (e.valOn W) := rfl
+
+/-- Mapping the annotations leaves the occurrence list's length, hence
+the index type of a world, where it was. -/
+theorem length_map_occs {K' : Type} (h : K → K') (e : AggExpr T K) :
+    e.occs.length = (e.occs.map (fun o => (o.fst, h o.snd))).length := by
+  rw [List.length_map]
+
+/-- **The annotation pushforward**: the occurrences keep their values and
+their readings, their annotations going through `h`. -/
+def mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) : AggExpr T K' where
+  arity := e.arity
+  occs := e.occs.map (fun o => (o.fst, h o.snd))
+  reads := fun j => (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding
+  aggs := e.aggs
+  scalar := e.scalar
+  g := e.g
+  covered := fun i => by
+    obtain ⟨j, hj⟩ := e.covered ((finCongr (length_map_occs h e)).symm i)
+    exact ⟨j, by
+      rw [Finset.mem_map]
+      exact ⟨_, hj, by simp⟩⟩
+
+/-- The pushforward's occurrence list, by definition. -/
+theorem occs_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+    (e.mapAnn h).occs = e.occs.map (fun o => (o.fst, h o.snd)) := rfl
+
+/-- **The pushforward moves no value**: each leaf reads the same sequence
+in the transported world, so the expression takes the same value. -/
+theorem leafSeq_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (j : Fin e.arity) (W : Finset (Fin e.occs.length)) :
+    (e.mapAnn h).leafSeq j (W.map (finCongr (length_map_occs h e)).toEmbedding)
+      = e.leafSeq j W := by
+  show (Having.seqOf (e.occs.map (fun o => (o.fst, h o.snd)))
+      ((W.map (finCongr (length_map_occs h e)).toEmbedding)
+        ∩ (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding)).map
+      (fun o => o.fst j)
+    = (Having.seqOf e.occs (W ∩ e.reads j)).map (fun o => o.fst j)
+  rw [← Finset.map_inter,
+    AggValue.seqOf_map (fun o : (Fin e.arity → T) × K => (o.fst, h o.snd))
+      e.occs (length_map_occs h e) (W ∩ e.reads j), List.map_map]
+  rfl
+
+/-- Hence the value in a world, and the deterministic reading with it. -/
+theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (W : Finset (Fin e.occs.length)) :
+    (e.mapAnn h).valOn (W.map (finCongr (length_map_occs h e)).toEmbedding)
+      = e.valOn W :=
+  congrArg (e.mapAnn h).g
+    (funext (fun j => congrArg ((e.mapAnn h).aggs j) (leafSeq_mapAnn h e j W)))
+
+@[simp] theorem collapse_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+    (e.mapAnn h).collapse = e.collapse := by
+  unfold collapse
+  rw [← valOn_mapAnn h e Finset.univ]
+  exact congrArg (e.mapAnn h).valOn (Finset.map_univ_equiv _).symm
+
 /-! ## A token is the expression of itself -/
 
 /-- The expression that reads one aggregate value and returns it. -/
@@ -125,6 +256,18 @@ def ofValue (a : AggValue T K) : AggExpr T K where
 
 @[simp] theorem scalar_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
     (ofValue a).scalar j = a.scalar := rfl
+
+/-- The scalar convention of a token survives the embedding. -/
+@[simp] theorem isScalar_ofValue (a : AggValue T K) :
+    (ofValue a).isScalar = a.scalar := by
+  unfold isScalar
+  simp [ofValue, List.finRange_succ]
+
+@[simp] theorem annList_ofValue (a : AggValue T K) :
+    (ofValue a).annList = a.occs.map Prod.snd := by
+  unfold annList ofValue
+  rw [List.map_map]
+  rfl
 
 theorem length_ofValue_occs (a : AggValue T K) :
     a.occs.length = (ofValue a).occs.length := (List.length_map _).symm

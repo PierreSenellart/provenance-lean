@@ -3,7 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Provenance.Occurrence
-import Provenance.AggValue
+import Provenance.AggExpr
 import Provenance.OrderSpec
 
 /-!
@@ -1030,5 +1030,123 @@ theorem rangeBefore_asc :
   simp [not_le]
 
 end
+
+
+/-! ## Several frames of one partition: the expression a window computes
+
+A distribution function reads **two** families: `percent_rank` and
+`ntile` the rows strictly before the current one and the whole
+partition, `cume_dist` the default `RANGE` frame and the whole
+partition. They are aggregate *expressions* and not aggregates, and the
+two families are nested, so reading the two aggregates separately would
+let a world of one disagree with a world of the other – a rank of three
+beside a count of one, which no world produces.
+
+The operator is what can avoid that, because it is what knows the
+occurrences: it reads the union of its frames as one family and records,
+per leaf, which of those occurrences that leaf reads. Everything here is
+at the level of occurrence *indices*, so an `EXCLUDE CURRENT ROW` frame
+is as exact as any other: two occurrences carrying the same row are
+different indices. -/
+
+section Expression
+
+variable {q : ℕ}
+
+/-- The frame that is the union of several: an occurrence is in it when
+it is in one of them. Membership of the union is membership of one
+(`mem_unionFrame`). -/
+def unionFrame (ws : Fin q → ValueFrame T p) : ValueFrame T p where
+  ρ := fun a b => (List.finRange q).any (fun j => (ws j).ρ a b)
+  s := fun a => (List.finRange q).any (fun j => (ws j).s a)
+
+/-- An occurrence is in the union of the frames exactly when it is in one
+of them. -/
+theorem mem_unionFrame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam α) (i j : Fin r.size) :
+    mem val P O (unionFrame ws) r i j = true
+      ↔ ∃ l, mem val P O (ws l) r i j = true := by
+  unfold mem unionFrame
+  by_cases hj : j = i <;>
+    simp [hj, Bool.and_eq_true, List.any_eq_true, exists_and_left]
+
+/-- **The occurrences a window's leaves read, in the clause's order**:
+the union of the frames, as indices into the occurrence family. -/
+def exprIdx {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    List (Fin r.size) :=
+  frameSeqOn (α := Fin r.size) (fun j => val (r.row j)) P O o (unionFrame ws)
+    (OccFam.mk r.size id) (Fin.cast (by simp) i)
+
+/-- Every index the leaves read is in the union of the frames. -/
+theorem mem_exprIdx {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size)
+    {j : Fin r.size} (hj : j ∈ exprIdx val P O o ws r i) :
+    mem val P O (unionFrame ws) r i j = true := by
+  have hperm := frameSeqOn_perm (α := Fin r.size) (fun j => val (r.row j))
+    P O o (unionFrame ws) (OccFam.mk r.size id) (Fin.cast (by simp) i)
+  have hmem : j ∈ frameSeq (α := Fin r.size) (fun j => val (r.row j)) P O
+      (unionFrame ws) (OccFam.mk r.size id) (Fin.cast (by simp) i) :=
+    (hperm.mem_iff).mp hj
+  have := Multiset.mem_coe.mpr hmem
+  rw [frameSeq_coe] at this
+  obtain ⟨j', hj', rfl⟩ := Multiset.mem_map.mp this
+  exact (Finset.mem_filter.mp (Finset.mem_val.mp hj')).2
+
+/-- **The aggregate expression a multi-frame window computes for one
+occurrence.** The shared family is the union of the frames, read in the
+clause's order; leaf `l` reads the occurrences of its own frame `ws l`,
+aggregates them with `fs l` over the term `ts l`, and the expression's
+own function `g` combines the leaves' values world by world. Leaf `l` is
+read in the scalar convention exactly where the occurrence is not in its
+own frame `ws l`, which is the convention `ValueFrame.token` gives a
+single-frame window. -/
+def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (vals : Fin q → Fin r.size → T) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) : AggExpr T K where
+  arity := q
+  occs := (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+    (fun j => ((fun l => vals l j), (r.row j).snd))
+  reads := fun l => Finset.univ.filter (fun x =>
+    mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
+      ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
+        (Fin.cast (by rw [List.length_map]) x)) = true)
+  aggs := fs
+  scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
+  g := g
+  covered := fun x => by
+    obtain ⟨l, hl⟩ := (mem_unionFrame (α := AnnotatedTuple T K n) Prod.fst
+      P O ws r i _).mp
+      (mem_exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i
+        (List.get_mem _ _))
+    exact ⟨l, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hl⟩⟩
+
+/-- The same, reading each leaf's value off its term: what the operator
+builds. Separating the values from the terms is what lets a lemma vary
+them, since the expression's later fields depend on the occurrence list
+and so on the values (`exprOfVals_congr`). -/
+def exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
+  exprOfVals P O o ws r i (fun l j => (ts l).eval (r.row j).fst γ) fs g
+
+/-- Equal leaf values give the same expression. -/
+theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    {vals vals' : Fin q → Fin r.size → T} (h : vals = vals')
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T) :
+    exprOfVals P O o ws r i vals fs g = exprOfVals P O o ws r i vals' fs g :=
+  congrArg (fun V => exprOfVals P O o ws r i V fs g) h
+
+end Expression
 
 end ValueFrame

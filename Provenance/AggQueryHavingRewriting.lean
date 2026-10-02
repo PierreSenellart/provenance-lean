@@ -199,6 +199,15 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
             (if dist then f.distinct else f) r u γ)
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
+  | _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na P O o ws ts fs g q, D, γ =>
+    let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
+      (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
+    r.map (fun u : Tuple (T ⊕ K) n' =>
+      ((fun k => Sum.inl ((Fin.snoc u
+            (g (fun l =>
+              ValueFrame.windowValue P O o (ws l) (ts l) (fs l) r u γ))
+          : Tuple (T ⊕ K) (n' + 1)) k))
+        : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
   | _, _, _, .Retag _ q, D, γ => q.evaluateRew D γ
   | _, _, _, @AggQueryIn.ProvSum _ _ _m n₁ _κ is _his t q, D, γ =>
     let r := q.evaluateRew D γ
@@ -252,6 +261,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .Retag _ q => q.noGammaTok
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.noGammaTok
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
 def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
@@ -273,6 +283,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Retag _ q => q.chiFree
   | _, _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.chiFree
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.chiFree
 
 /-- On `inl`-embedded rows a gate-free term evaluates in the rewritten
 world as its plain evaluation – including the `cmpAgg` gate, whose junk
@@ -536,6 +547,12 @@ theorem AggQueryIn.evaluateRew_plain :
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq]
     rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
+  | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
+    -- and so does a multi-frame one, leaf by leaf
+    intro hq hc D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_WinExpr_eq]
+    rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
+    exact Multiset.map_congr rfl (fun _ _ => rfl)
 
 /-! ## The fused predicate provenance under the composite embedding
 
@@ -598,6 +615,7 @@ theorem AggQueryIn.rewriting_noGammaTok :
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
 omit [DecidableEq K] in
@@ -658,6 +676,7 @@ theorem AggQueryIn.rewriting_chiFree :
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
 /-! ## The group sequence under the composite embedding -/

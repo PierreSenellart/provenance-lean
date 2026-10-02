@@ -58,6 +58,8 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag h q => .Retag h q.normalize
   | _, _, _, .GammaTok is his ts fs a q => .GammaTok is his ts fs a q.normalize
   | _, _, _, .Win P O o w t f q dist => .Win P O o w t f q.normalize dist
+  | _, _, _, .WinExpr P O o ws ts fs g q =>
+      .WinExpr P O o ws ts fs g q.normalize
 
 /-- **No selection directly above a selection**: the shape a normalized
 query has, and the shape on which a chain and its merge cannot differ
@@ -82,6 +84,7 @@ def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag _ q => q.chainFree
   | _, _, _, .GammaTok _ _ _ _ _ q => q.chainFree
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.chainFree
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.chainFree
 
 omit [ValueType T] in
 /-- **Normalizing leaves no chain.** -/
@@ -115,6 +118,7 @@ theorem AggQueryIn.normalize_chainFree :
   | Retag h q ih => exact ih
   | GammaTok is his ts fs a q ih => exact ih
   | Win P O o w t f q dist ih => exact ih
+  | WinExpr P O o ws ts fs g q ih => exact ih
 
 omit [ValueType T] in
 /-- **Normalizing changes nothing where there was no chain**, so it is
@@ -154,6 +158,8 @@ theorem AggQueryIn.normalize_id_of_chainFree :
   | Retag hk q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | GammaTok is his ts fs a q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Win P O o w t f q dist ih => intro h; rw [AggQueryIn.normalize, ih h]
+  | WinExpr P O o ws ts fs g q ih =>
+      intro h; rw [AggQueryIn.normalize, ih h]
 
 omit [ValueType T] in
 /-- **Normalization is idempotent.** -/

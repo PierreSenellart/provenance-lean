@@ -85,12 +85,97 @@ theorem AggValue.collapse_toComposite (a : AggValue T K) :
     ← List.map_map]
   exact SeqAggFunc.liftComposite_map_inl a.agg (a.occs.map Prod.fst)
 
-/-- Transport a token, ordinary or nested, to the composite value
-domain. A nested token transports its inner values the same way. -/
+/-- Lift the function of an aggregate expression to the composite domain,
+as `SeqAggFunc.liftComposite` lifts an aggregate: junk on the annotation
+arm, faithful on `inl`-embedded values. -/
+def AggExprFun.liftComposite {p : ℕ} (g : (Fin p → T) → T) :
+    (Fin p → T ⊕ K) → T ⊕ K :=
+  fun v => Sum.inl (g (fun j => Sum.elim id (fun _ => 0) (v j)))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The lifted function on `inl`-embedded arguments. -/
+theorem AggExprFun.liftComposite_inl {p : ℕ} (g : (Fin p → T) → T)
+    (v : Fin p → T) :
+    AggExprFun.liftComposite (K := K) g (fun j => Sum.inl (v j))
+      = Sum.inl (g v) := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- Embedding the occurrence values leaves the family's length, hence the
+index type of a world, where it was. -/
+theorem AggExpr.length_inl_occs (a : AggExpr T K) :
+    a.occs.length
+      = (a.occs.map (fun o => (((fun j => Sum.inl (o.fst j))
+          : Fin a.arity → T ⊕ K), o.snd))).length := by
+  rw [List.length_map]
+
+/-- **Transport an aggregate expression to the composite domain**: the
+occurrence values are embedded by `Sum.inl`, the leaf aggregates and the
+expression's own function are lifted, and the occurrence annotations and
+the leaf readings are unchanged. -/
+def AggExpr.toComposite (a : AggExpr T K) : AggExpr (T ⊕ K) K where
+  arity := a.arity
+  occs := a.occs.map (fun o => ((fun j => Sum.inl (o.fst j)), o.snd))
+  reads := fun j => (a.reads j).map (finCongr a.length_inl_occs).toEmbedding
+  aggs := fun j => (a.aggs j).liftComposite
+  scalar := a.scalar
+  g := AggExprFun.liftComposite a.g
+  covered := fun i => by
+    obtain ⟨j, hj⟩ := a.covered ((finCongr a.length_inl_occs).symm i)
+    exact ⟨j, by rw [Finset.mem_map]; exact ⟨_, hj, by simp⟩⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Each leaf reads the embedding of the sequence it read. -/
+theorem AggExpr.leafSeq_toComposite (a : AggExpr T K) (j : Fin a.arity)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.leafSeq j (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = (a.leafSeq j W).map Sum.inl := by
+  show (Having.seqOf (a.occs.map (fun o => (((fun j => Sum.inl (o.fst j))
+        : Fin a.arity → T ⊕ K), o.snd)))
+      ((W.map (finCongr a.length_inl_occs).toEmbedding)
+        ∩ (a.reads j).map (finCongr a.length_inl_occs).toEmbedding)).map
+      (fun o => o.fst j)
+    = ((Having.seqOf a.occs (W ∩ a.reads j)).map (fun o => o.fst j)).map Sum.inl
+  rw [← Finset.map_inter,
+    AggValue.seqOf_map (fun o : (Fin a.arity → T) × K =>
+        (((fun j => Sum.inl (o.fst j)) : Fin a.arity → T ⊕ K), o.snd))
+      a.occs a.length_inl_occs (W ∩ a.reads j),
+    List.map_map, List.map_map]
+  rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Hence the value in a world is the embedding of the value there. -/
+theorem AggExpr.valOn_toComposite (a : AggExpr T K)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.valOn (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = Sum.inl (a.valOn W) := by
+  have hleaf : ∀ j, a.toComposite.leafVal j
+      (W.map (finCongr a.length_inl_occs).toEmbedding)
+      = Sum.inl (a.leafVal j W) := by
+    intro j
+    show (a.aggs j).liftComposite _ = _
+    rw [a.leafSeq_toComposite j W]
+    exact SeqAggFunc.liftComposite_map_inl (a.aggs j) (a.leafSeq j W)
+  show AggExprFun.liftComposite a.g _ = _
+  rw [funext hleaf]
+  exact AggExprFun.liftComposite_inl a.g _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- And the deterministic reading with it. -/
+@[simp] theorem AggExpr.collapse_toComposite (a : AggExpr T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  unfold AggExpr.collapse
+  rw [← a.valOn_toComposite Finset.univ]
+  exact congrArg a.toComposite.valOn (Finset.map_univ_equiv _).symm
+
+/-- Transport a token to the composite value domain. A nested token
+transports its inner values the same way, and an expression its shared
+occurrences, its leaf aggregates and its own function. -/
 def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
   | .tok a => .tok a.toComposite
   | .nest a => .nest ⟨a.agg.liftComposite,
       a.occs.map (fun o => (o.1.toComposite, o.2)), a.scalar⟩
+  | .expr a => .expr a.toComposite
 
 /-- Transport a lifted column value to the composite domain. -/
 def GenValue.toComposite : GenValue T K → GenValue (T ⊕ K) K
@@ -155,6 +240,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
   | inr x =>
     cases x with
     | tok a => exact AggValue.collapse_toComposite a
+    | expr a => exact AggExpr.collapse_toComposite a
     | nest a =>
       show (SeqAggFunc.liftComposite a.agg) _ = Sum.inl (a.agg _)
       rw [List.map_map,
