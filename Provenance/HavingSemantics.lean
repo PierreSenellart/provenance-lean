@@ -171,12 +171,12 @@ theorem seqOf_eq_filter_map {β : Type} :
       from List.finRange_succ]
     rw [List.filter_cons, List.filter_map]
     by_cases h0 : (0 : Fin (U.length + 1)) ∈ S
-    · rw [ite_eq_left h0, if_pos (by simpa using h0), List.map_cons,
+    · rw [ite_eq_left h0, ite_eq_left (by simpa using h0), List.map_cons,
         List.map_map]
       refine congrArg₂ (· :: ·) rfl ?_
       exact congrArg₂ List.map (funext (fun i => rfl))
         (List.filter_congr (fun i _ => by simp))
-    · rw [ite_eq_right h0, if_neg (by simpa using h0), List.nil_append,
+    · rw [ite_eq_right h0, ite_eq_right (by simpa using h0), List.nil_append,
         List.map_map]
       exact congrArg₂ List.map (funext (fun i => rfl))
         (List.filter_congr (fun i _ => by simp))
