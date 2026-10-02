@@ -361,6 +361,41 @@ theorem predProv_ofValue (a : AggValue T K) (op : CompOp) (c : T) :
     · rw [ite_eq_right hW, ite_eq_right (fun hc =>
         hW (((isWorld_ofValue a W).mp hc).resolve_left (by simp [hs])))]
 
+/-- **A token's expression reads as the token does, for every test.**
+`predProv_ofValue` is the case of a comparison against a constant. -/
+theorem predProvWith_ofValue (a : AggValue T K) (P : T → Kleene) :
+    (ofValue a).predProvWith P = a.predProvOfWith P := by
+  unfold predProvWith
+  rw [Finset.sum_filter]
+  cases hs : a.scalar with
+  | true =>
+    rw [AggValue.predProvOfWith, hs]
+    simp only [ite_true]
+    unfold AggValue.predProvScalarWith
+    refine (Fintype.sum_equiv
+      (finCongr (length_ofValue_occs a)).finsetCongr
+      (fun W => Having.worldAnn a.anns W * Having.chiOf P (a.valOn W))
+      _ (fun W => ?_)).symm
+    rw [Equiv.finsetCongr_apply,
+      ite_eq_left ((isWorld_ofValue a W).mpr (Or.inl hs)),
+      worldAnn_ofValue, valOn_ofValue]
+  | false =>
+    rw [AggValue.predProvOfWith, hs]
+    simp only [Bool.false_eq_true, ite_false]
+    unfold AggValue.predProvWith
+    rw [Finset.sum_filter]
+    refine (Fintype.sum_equiv
+      (finCongr (length_ofValue_occs a)).finsetCongr
+      (fun W => if W.Nonempty then
+        Having.worldAnn a.anns W * Having.chiOf P (a.valOn W) else 0)
+      _ (fun W => ?_)).symm
+    rw [Equiv.finsetCongr_apply]
+    by_cases hW : W.Nonempty
+    · rw [ite_eq_left hW, ite_eq_left ((isWorld_ofValue a W).mpr (Or.inr hW)),
+        worldAnn_ofValue, valOn_ofValue]
+    · rw [ite_eq_right hW, ite_eq_right (fun hc =>
+        hW (((isWorld_ofValue a W).mp hc).resolve_left (by simp [hs])))]
+
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The embedded token collapses to the token's collapse. -/
 theorem collapse_ofValue (a : AggValue T K) :
@@ -405,9 +440,11 @@ end PredProv
 /-- **A function of one aggregate value is an aggregate value**: the same
 occurrences, read in the same convention, with the aggregate read through
 `gf`. This is what a term mentioning one aggregate column produces –
-`count(*) + 1`, the ranks – and it is not a shortcut: `valOn_postcomp`
+`count(*) + 1`, the ranks – and it is not a shortcut: `valOn_ofUnary`
 says it reads in each world what the aggregate expression `gf(a)` reads
-there, and `IsWorld_ofUnary` that it has the same worlds. -/
+there, `isWorld_ofUnary` that it has the same worlds, and
+`predProvWith_ofUnary` that a comparison against either has the same
+predicate provenance. -/
 def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
   ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
 
@@ -451,5 +488,26 @@ both. -/
 theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
     (W : Finset (Fin (ofValue (a.postcomp gf)).occs.length)) :
     (ofValue (a.postcomp gf)).IsWorld W ↔ (ofUnary gf a).IsWorld W := Iff.rfl
+
+/-- **The unary expression and the post-composed token are one reading.**
+`ofUnary` is the aggregate expression `gf(a)` of the document and
+`AggValue.postcomp` is what a term over one aggregate column builds; they
+have the same worlds and the same value in each, so a comparison against
+either has the same predicate provenance. This is the sense in which
+`ProjColIn.aggTerm` is not a shortcut. -/
+theorem predProv_ofUnary [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+    (gf : T → T) (a : AggValue T K) (op : CompOp) (c : T) :
+    (ofUnary gf a).predProv op c = (a.postcomp gf).predProvOf op c := by
+  rw [← predProv_ofValue (a.postcomp gf) op c]
+  rfl
+
+/-- The same for an arbitrary three-valued test, which is what a range
+atom and a null test read with. -/
+theorem predProvWith_ofUnary [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (gf : T → T) (a : AggValue T K) (P : T → Kleene) :
+    (ofUnary gf a).predProvWith P = (a.postcomp gf).predProvOfWith P := by
+  rw [← predProvWith_ofValue (a.postcomp gf) P]
+  rfl
+
 
 end AggExpr
