@@ -669,8 +669,7 @@ Boolean function the joint reading evaluates: `𝟙` where the disjunction
 holds, `𝟘` where it does not. -/
 def natOrExpr : AggExpr ℕ ℕ where
   arity := 2
-  occs := [(![1, 1], 1), (![1, 1], 1)]
-  reads := ![{0}, {1}]
+  occs := [(![1, 1], 1, ![true, false]), (![1, 1], 1, ![false, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false]
   g := fun v => if 1 ≤ v 0 ∨ 1 ≤ v 1 then 1 else 0
@@ -690,8 +689,9 @@ and `e` – which no world in which the guard holds reads – annotated
 `2`. -/
 def natCaseExpr : AggExpr ℕ ℕ where
   arity := 3
-  occs := [(![1, 1, 1], 1), (![1, 1, 1], 1), (![1, 1, 1], 2)]
-  reads := ![{0}, {1}, {2}]
+  occs := [(![1, 1, 1], 1, ![true, false, false]),
+    (![1, 1, 1], 1, ![false, true, false]),
+    (![1, 1, 1], 2, ![false, false, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false, false]
   g := fun v => if 1 ≤ v 0 then v 1 else v 2

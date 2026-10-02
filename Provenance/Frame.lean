@@ -1151,11 +1151,8 @@ def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (g : (Fin q → T) → T) : AggExpr T K where
   arity := q
   occs := (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
-    (fun j => ((fun l => vals l j), (r.row j).snd))
-  reads := fun l => Finset.univ.filter (fun x =>
-    mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
-      ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-        (Fin.cast (by rw [List.length_map]) x)) = true)
+    (fun j => ((fun l => vals l j), (r.row j).snd,
+      fun l => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j))
   aggs := fs
   scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
   g := g
@@ -1164,7 +1161,9 @@ def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       P O ws r i _).mp
       (mem_exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i
         (List.get_mem _ _))
-    exact ⟨l, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hl⟩⟩
+    refine ⟨l, ?_⟩
+    simp only [List.get_eq_getElem, List.getElem_map]
+    exact hl
 
 /-- The same, reading each leaf's value off its term: what the operator
 builds. Separating the values from the terms is what lets a lemma vary
@@ -1178,8 +1177,40 @@ def exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
   exprOfVals P O o ws r i (fun l j => (ts l).eval (r.row j).fst γ) fs g
 
-/-- **What one leaf of the expression reads**: the values of its own
-frame's occurrences, selected out of the shared family. -/
+/-- **What one leaf of the expression reads in a world the annotations
+cut out**: the values of its own frame's occurrences that `keep` keeps.
+With the leaf flags in the occurrences this is a `List.filter` of the
+index sequence and nothing is transported. -/
+theorem leafSeq_exprOf_keep {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q) (keep : K → Bool) :
+    (exprOf P O o ws ts fs g r i γ).leafSeq l
+        (Finset.univ.filter (fun x =>
+          keep ((exprOf P O o ws ts fs g r i γ).anns x) = true))
+      = List.map (fun j => (ts l).eval (r.row j).fst γ)
+          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+              && keep (r.row j).snd)) := by
+  rw [AggExpr.leafSeq_eq_filter]
+  rw [show Having.seqOf (exprOf P O o ws ts fs g r i γ).occs
+          (Finset.univ.filter (fun x =>
+            keep ((exprOf P O o ws ts fs g r i γ).anns x) = true))
+        = (exprOf P O o ws ts fs g r i γ).occs.filter
+          (fun z => keep z.snd.fst) from
+      Having.seqOf_filter_positions (fun z => keep z.snd.fst)
+        (exprOf P O o ws ts fs g r i γ).occs,
+    show (exprOf P O o ws ts fs g r i γ).occs
+        = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+          (fun j => ((fun l => (ts l).eval (r.row j).fst γ), (r.row j).snd,
+            fun l => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j))
+      from rfl,
+    List.filter_map, List.filter_map, List.map_map]
+  rw [List.filter_filter]
+  exact congrArg₂ List.map rfl (List.filter_congr (fun j _ => rfl))
+
+/-- The full world is the case that keeps every occurrence. -/
 theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
@@ -1190,91 +1221,13 @@ theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
           ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
             (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j))
           := by
-  have hlen : (exprOf P O o ws ts fs g r i γ).occs.length
-      = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length := by
-    show (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-        (r.row j).snd)) (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).length = _
-    rw [List.length_map]
-  unfold AggExpr.leafSeq
-  rw [Finset.univ_inter]
-  show List.map (fun z : (Fin q → T) × K => z.fst l) (Having.seqOf
-      (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-          (r.row j).snd))
-        (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i))
-      (Finset.univ.filter
-        (fun x => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
-          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-            (Fin.cast hlen x)) = true))) = _
-  rw [Having.seqOf_map_filter _ _
-    (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i) hlen, List.map_map]
-  rfl
-
-/-- **What one leaf reads in a world given by a predicate on
-occurrences**: the values of its own frame's occurrences that the
-predicate keeps. `leafSeq_exprOf` is the case where it keeps
-everything. -/
-theorem leafSeq_exprOf_keep {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
-    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
-    (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
-    (i : Fin r.size) (γ : Fin c → T) (l : Fin q)
-    (keep : Fin r.size → Bool) :
-    (exprOf P O o ws ts fs g r i γ).leafSeq l
-        (Finset.univ.filter (fun x =>
-          keep ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-            (Fin.cast (by
-              show (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ)
-                  : Fin q → T), (r.row j).snd))
-                (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).length
-                = _
-              rw [List.length_map]) x)) = true))
-      = List.map (fun j => (ts l).eval (r.row j).fst γ)
-          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
-            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
-              && keep j)) := by
-  have hlen : (exprOf P O o ws ts fs g r i γ).occs.length
-      = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length := by
-    show (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-        (r.row j).snd)) (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).length = _
-    rw [List.length_map]
-  have hset : (Finset.univ.filter (fun x =>
-          keep ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-            (Fin.cast hlen x)) = true))
-        ∩ (exprOf P O o ws ts fs g r i γ).reads l
-      = Finset.univ.filter (fun x =>
-        (mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
-            ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-              (Fin.cast hlen x))
-          && keep ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-              (Fin.cast hlen x))) = true) := by
-    ext x
-    simp only [Finset.mem_inter, Finset.mem_filter, Finset.mem_univ, true_and,
-      Bool.and_eq_true]
-    show _ ↔ _
-    constructor
-    · intro h
-      exact ⟨(Finset.mem_filter.mp h.2).2, h.1⟩
-    · intro h
-      exact ⟨h.2, Finset.mem_filter.mpr ⟨Finset.mem_univ _, h.1⟩⟩
-  unfold AggExpr.leafSeq
-  rw [hset]
-  show List.map (fun z : (Fin q → T) × K => z.fst l) (Having.seqOf
-      (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-          (r.row j).snd))
-        (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i))
-      (Finset.univ.filter
-        (fun x => (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
-            && keep j)
-          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-            (Fin.cast hlen x)) = true))) = _
-  rw [Having.seqOf_map_filter
-      (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-        (r.row j).snd))
-      (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
-        && keep j)
-      (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i) hlen,
-    List.map_map]
-  rfl
+  rw [show (Finset.univ
+        : Finset (Fin (exprOf P O o ws ts fs g r i γ).occs.length))
+      = Finset.univ.filter (fun x => (fun _ : K => true)
+          ((exprOf P O o ws ts fs g r i γ).anns x) = true)
+    from (Finset.filter_true_of_mem (fun _ _ => rfl)).symm,
+    leafSeq_exprOf_keep P O o ws ts fs g r i γ l (fun _ => true)]
+  exact congrArg₂ List.map rfl (List.filter_congr (fun j _ => by simp))
 
 /-- The indices one leaf reads out of the shared family are exactly its
 own frame's. -/
@@ -1384,10 +1337,8 @@ theorem exprIdx_filter_keep_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **The displayed value of the expression a multi-frame window
 computes**: each leaf's aggregate over the occurrences of its own frame
 that the database as it is keeps, `hTop` saying which annotations hold
-there. `collapse_exprOf` is the case where every annotation does. The
-leaf aggregates are symmetric for the same reason as there, the shared
-family being indexed by occurrence where a frame is a sequence of
-rows. -/
+there. `collapse_exprOf` is the case where every annotation does, and
+the symmetry hypothesis is the same one for the same reason. -/
 theorem disp_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
@@ -1399,32 +1350,10 @@ theorem disp_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
           ((frameSeqOnIn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r
               (Finset.univ.filter (fun j => hTop (r.row j).snd = true)) i).map
             (fun x => (ts l).eval x.fst γ))) := by
-  have hlen : (exprOf P O o ws ts fs g r i γ).occs.length
-      = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length := by
-    show (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-        (r.row j).snd))
-      (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).length = _
-    rw [List.length_map]
-  have hset : (Finset.univ.filter
-        (fun x => hTop ((exprOf P O o ws ts fs g r i γ).anns x) = true))
-      = Finset.univ.filter (fun x => (fun j : Fin r.size => hTop (r.row j).snd)
-          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-            (Fin.cast hlen x)) = true) := by
-    refine Finset.filter_congr (fun x _ => ?_)
-    refine Iff.of_eq (congrArg (fun a => hTop a = true) ?_)
-    show ((exprOf P O o ws ts fs g r i γ).occs.get x).snd = _
-    show ((List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
-        (r.row j).snd))
-      (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).get x).snd = _
-    simp [List.get_eq_getElem, List.getElem_map]
   unfold AggExpr.disp AggExpr.valOn AggExpr.leafVal
-  rw [hset]
   refine congrArg g (funext (fun l => ?_))
-  show (fs l) ((exprOf P O o ws ts fs g r i γ).leafSeq l
-      (Finset.univ.filter (fun x => (fun j : Fin r.size => hTop (r.row j).snd)
-        ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
-          (Fin.cast hlen x)) = true))) = _
-  rw [leafSeq_exprOf_keep (keep := fun j => hTop (r.row j).snd),
+  show (fs l) ((exprOf P O o ws ts fs g r i γ).leafSeq l _) = _
+  rw [leafSeq_exprOf_keep P O o ws ts fs g r i γ l hTop,
     show (fun j : Fin r.size => (ts l).eval (r.row j).fst γ)
       = (fun x : AnnotatedTuple T K n => (ts l).eval x.fst γ) ∘ r.row from rfl,
     ← List.map_map]

@@ -1558,31 +1558,6 @@ lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool)
       · exact Or.inl h
       · exact Or.inr ⟨f, hfs, h⟩
 
-/-- Selecting the positions whose element satisfies a Boolean predicate
-yields the filtered list. -/
-theorem seqOf_filter_positions {β : Type} (P : β → Bool) :
-    ∀ U : List β,
-      seqOf U (Finset.univ.filter (fun i => P (U.get i) = true)) = U.filter P
-  | [] => rfl
-  | a :: U => by
-    rw [seqOf]
-    have h0 : ((0 : Fin (U.length + 1)) ∈ Finset.univ.filter
-        (fun i => P ((a :: U).get i) = true)) ↔ P a = true := by
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, List.get_cons_zero]
-    have hsucc : Finset.univ.filter
-          (fun i : Fin U.length => i.succ ∈ Finset.univ.filter
-            (fun j => P ((a :: U).get j) = true))
-        = Finset.univ.filter (fun i => P (U.get i) = true) := by
-      ext i
-      simp only [Finset.mem_filter, Finset.mem_univ, true_and, Fin.succ,
-        List.get_cons_succ]
-    rw [hsucc, seqOf_filter_positions P U]
-    by_cases hPa : P a = true
-    · rw [ite_eq_left (h0.mpr hPa), List.filter_cons_of_pos hPa]
-      rfl
-    · rw [ite_eq_right (fun h => hPa (h0.mp h)),
-        List.filter_cons_of_neg (by simpa using hPa), List.nil_append]
-
 /-- The subsequence selected by the realized world is the sublist of
 occurrences whose annotation is true under the valuation. -/
 theorem seqOf_realizedWorld {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m))

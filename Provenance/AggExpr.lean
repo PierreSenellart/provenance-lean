@@ -44,30 +44,63 @@ structure AggExpr (T K : Type) where
   /-- How many aggregate values the expression combines. -/
   arity : ℕ
   /-- The occurrence family `V`: per occurrence, the value each leaf reads
-  there and the occurrence's annotation. -/
-  occs : List ((Fin arity → T) × K)
-  /-- The occurrences `U_j` each leaf reads. -/
-  reads : Fin arity → Finset (Fin occs.length)
+  there, the occurrence's annotation, and which leaves read it.
+
+  The leaf membership sits in the occurrence rather than beside the list
+  as a `Finset` of positions. Both say the same thing, and this way a
+  recursion over the family carries it along (`AggExpr.exprProvAux`) and
+  a reading of one leaf is a `List.filter` of the selected sequence
+  rather than an intersection of position sets – so nothing has to be
+  transported when the family is rebuilt at the same length. -/
+  occs : List ((Fin arity → T) × K × (Fin arity → Bool))
   /-- The aggregate each leaf reads its sequence with. -/
   aggs : Fin arity → SeqAggFunc T
   /-- Whether each leaf is read in the scalar convention. -/
   scalar : Fin arity → Bool
   /-- The function the term computes. -/
   g : (Fin arity → T) → T
-  /-- `occs` is the union of the `U_j` and no larger. -/
-  covered : ∀ i, ∃ j, i ∈ reads j
+  /-- `occs` is the union of the `U_j` and no larger: every occurrence is
+  read by some leaf. -/
+  covered : ∀ i, ∃ j, (occs.get i).snd.snd j = true
 
 namespace AggExpr
 
 /-- The occurrence annotations, as a function on positions. -/
 def anns (e : AggExpr T K) : Fin e.occs.length → K :=
-  fun i => (e.occs.get i).snd
+  fun i => (e.occs.get i).snd.fst
+
+/-- **The occurrences `U_j` the `j`-th leaf reads**, read off the family. -/
+def reads (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
+  Finset.univ.filter (fun i => (e.occs.get i).snd.snd j = true)
+
+/-- Membership of `U_j` is the occurrence's own flag. -/
+@[simp] theorem mem_reads (e : AggExpr T K) (j : Fin e.arity)
+    (i : Fin e.occs.length) :
+    i ∈ e.reads j ↔ (e.occs.get i).snd.snd j = true := by
+  rw [reads, Finset.mem_filter]
+  exact and_iff_right (Finset.mem_univ _)
 
 /-- The sequence the `j`-th leaf reads in the world `W`: the values it
 reads at the occurrences of `W` it reads, in order. -/
 def leafSeq (e : AggExpr T K) (j : Fin e.arity)
     (W : Finset (Fin e.occs.length)) : List T :=
   (Having.seqOf e.occs (W ∩ e.reads j)).map (fun o => o.fst j)
+
+/-- **A leaf reads a filter of the selected sequence.** With the leaf
+flags in the occurrences, intersecting the world with `U_j` and then
+selecting is selecting and then filtering – which is what lets a
+recursion over the family read every leaf as it goes. -/
+theorem leafSeq_eq_filter (e : AggExpr T K) (j : Fin e.arity)
+    (W : Finset (Fin e.occs.length)) :
+    e.leafSeq j W
+      = ((Having.seqOf e.occs W).filter (fun z => z.snd.snd j)).map
+        (fun z => z.fst j) := by
+  unfold leafSeq
+  rw [show W ∩ e.reads j
+      = W.filter (fun i => (e.occs.get i).snd.snd j = true) from by
+    ext i
+    rw [Finset.mem_inter, mem_reads, Finset.mem_filter]]
+  rw [Having.seqOf_filter_inter (fun z => z.snd.snd j) e.occs W]
 
 /-- The value the `j`-th leaf takes in the world `W`. -/
 def leafVal (e : AggExpr T K) (j : Fin e.arity)
@@ -153,7 +186,7 @@ theorem isWorld_empty_iff (e : AggExpr T K) :
 /-- **The family the expression carries**: the annotations of the shared
 occurrences, which is what the supersede test compares and what makes two
 columns one family. -/
-def annList (e : AggExpr T K) : List K := e.occs.map Prod.snd
+def annList (e : AggExpr T K) : List K := e.occs.map (fun o => o.snd.fst)
 
 /-- **The world a valuation of the annotations realizes**: the
 occurrences it keeps. -/
@@ -185,45 +218,50 @@ def postcomp (gf : T → T) (e : AggExpr T K) : AggExpr T K :=
     (W : Finset (Fin (postcomp gf e).occs.length)) :
     (postcomp gf e).valOn W = gf (e.valOn W) := rfl
 
-/-- Mapping the annotations leaves the occurrence list's length, hence
-the index type of a world, where it was. -/
-theorem length_map_occs {K' : Type} (h : K → K') (e : AggExpr T K) :
-    e.occs.length = (e.occs.map (fun o => (o.fst, h o.snd))).length := by
-  rw [List.length_map]
-
-/-- **The annotation pushforward**: the occurrences keep their values and
-their readings, their annotations going through `h`. -/
+/-- **The annotation pushforward**: the occurrences keep their values,
+their readings and which leaves read them, their annotations going
+through `h`. -/
 def mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) : AggExpr T K' where
   arity := e.arity
-  occs := e.occs.map (fun o => (o.fst, h o.snd))
-  reads := fun j => (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding
+  occs := e.occs.map (fun o => (o.fst, h o.snd.fst, o.snd.snd))
   aggs := e.aggs
   scalar := e.scalar
   g := e.g
   covered := fun i => by
-    obtain ⟨j, hj⟩ := e.covered ((finCongr (length_map_occs h e)).symm i)
-    exact ⟨j, by
-      rw [Finset.mem_map]
-      exact ⟨_, hj, by simp⟩⟩
+    obtain ⟨j, hj⟩ := e.covered (Fin.cast (by rw [List.length_map]) i)
+    refine ⟨j, ?_⟩
+    show ((e.occs.map (fun o => (o.fst, h o.snd.fst, o.snd.snd))).get i).snd.snd j
+      = true
+    simp only [List.get_eq_getElem, List.getElem_map]
+    exact hj
+
+/-- Mapping the annotations leaves the occurrence list's length, hence
+the index type of a world, where it was. -/
+theorem length_map_occs {K' : Type} (h : K → K') (e : AggExpr T K) :
+    e.occs.length = (e.mapAnn h).occs.length := by
+  show _ = (e.occs.map _).length
+  rw [List.length_map]
 
 /-- The pushforward's occurrence list, by definition. -/
 theorem occs_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
-    (e.mapAnn h).occs = e.occs.map (fun o => (o.fst, h o.snd)) := rfl
+    (e.mapAnn h).occs
+      = e.occs.map (fun o => (o.fst, h o.snd.fst, o.snd.snd)) := rfl
 
 /-- **The pushforward moves no value**: each leaf reads the same sequence
-in the transported world, so the expression takes the same value. -/
+in the transported world, so the expression takes the same value. The
+leaf flags travel in the occurrences, so nothing has to be transported
+but the world. -/
 theorem leafSeq_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
     (j : Fin e.arity) (W : Finset (Fin e.occs.length)) :
     (e.mapAnn h).leafSeq j (W.map (finCongr (length_map_occs h e)).toEmbedding)
       = e.leafSeq j W := by
-  show (Having.seqOf (e.occs.map (fun o => (o.fst, h o.snd)))
-      ((W.map (finCongr (length_map_occs h e)).toEmbedding)
-        ∩ (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding)).map
-      (fun o => o.fst j)
-    = (Having.seqOf e.occs (W ∩ e.reads j)).map (fun o => o.fst j)
-  rw [← Finset.map_inter,
-    AggValue.seqOf_map (fun o : (Fin e.arity → T) × K => (o.fst, h o.snd))
-      e.occs (length_map_occs h e) (W ∩ e.reads j), List.map_map]
+  rw [leafSeq_eq_filter, leafSeq_eq_filter,
+    show Having.seqOf (e.mapAnn h).occs
+          (W.map (finCongr (length_map_occs h e)).toEmbedding)
+        = (Having.seqOf e.occs W).map
+          (fun o => (o.fst, h o.snd.fst, o.snd.snd)) from
+      AggValue.seqOf_map _ e.occs (length_map_occs h e) W,
+    List.filter_map, List.map_map]
   rfl
 
 /-- Hence the value in a world, and the deterministic reading with it. -/
@@ -245,12 +283,15 @@ theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
 /-- The expression that reads one aggregate value and returns it. -/
 def ofValue (a : AggValue T K) : AggExpr T K where
   arity := 1
-  occs := a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd))
-  reads := fun _ => Finset.univ
+  occs := a.occs.map
+    (fun o => ((fun _ : Fin 1 => o.fst), o.snd, (fun _ : Fin 1 => true)))
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => v 0
-  covered := fun _ => ⟨0, Finset.mem_univ _⟩
+  covered := fun i => ⟨0, by
+    show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
+      (fun _ : Fin 1 => true)))).get i).snd.snd 0 = true
+    simp only [List.get_eq_getElem, List.getElem_map]⟩
 
 @[simp] theorem arity_ofValue (a : AggValue T K) : (ofValue a).arity = 1 := rfl
 
@@ -269,13 +310,21 @@ def ofValue (a : AggValue T K) : AggExpr T K where
   rw [List.map_map]
   rfl
 
+/-- Every leaf of a token's expression reads every occurrence. -/
+@[simp] theorem reads_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
+    (ofValue a).reads j = Finset.univ := by
+  refine Finset.eq_univ_of_forall (fun i => ?_)
+  rw [mem_reads]
+  simp only [ofValue, List.get_eq_getElem, List.getElem_map]
+
 theorem length_ofValue_occs (a : AggValue T K) :
     a.occs.length = (ofValue a).occs.length := (List.length_map _).symm
 
 @[simp] theorem anns_ofValue (a : AggValue T K) (i : Fin a.occs.length) :
     (ofValue a).anns (finCongr (length_ofValue_occs a) i) = a.anns i := by
-  show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd))).get
-    (finCongr (length_ofValue_occs a) i)).snd = _
+  show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
+      (fun _ : Fin 1 => true)))).get
+    (finCongr (length_ofValue_occs a) i)).snd.fst = _
   simp [AggValue.anns]
 
 /-- The embedded token reads, in each world, what the token reads. -/
@@ -286,9 +335,9 @@ theorem valOn_ofValue (a : AggValue T K)
       = a.valOn W := by
   show a.agg ((Having.seqOf (a.occs.map _)
       ((W.map (finCongr (length_ofValue_occs a)).toEmbedding)
-        ∩ Finset.univ)).map (fun o => o.fst (0 : Fin 1))) = _
-  rw [Finset.inter_univ, AggValue.seqOf_map _ a.occs
-    (length_ofValue_occs a) W, List.map_map]
+        ∩ (ofValue a).reads (0 : Fin 1))).map (fun o => o.fst (0 : Fin 1))) = _
+  rw [reads_ofValue, Finset.inter_univ,
+    AggValue.seqOf_map _ a.occs (length_ofValue_occs a) W, List.map_map]
   rfl
 
 /-- A world of the embedded token is a world of the token: every world
@@ -308,8 +357,10 @@ theorem isWorld_ofValue (a : AggValue T K)
       exact ⟨i₀, hi₀⟩
   · rintro (hs | ⟨i, hi⟩) j hj
     · exact absurd hs (by simpa using hj)
-    · exact ⟨finCongr (length_ofValue_occs a) i, Finset.mem_inter.mpr
-        ⟨Finset.mem_map_of_mem _ hi, Finset.mem_univ _⟩⟩
+    · refine ⟨finCongr (length_ofValue_occs a) i, Finset.mem_inter.mpr
+        ⟨Finset.mem_map_of_mem _ hi, ?_⟩⟩
+      rw [reads_ofValue]
+      exact Finset.mem_univ _
 
 section PredProv
 
@@ -470,12 +521,13 @@ def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
 puts it. -/
 def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   arity := 1
-  occs := a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd))
-  reads := fun _ => Finset.univ
+  occs := a.occs.map
+    (fun o => ((fun _ : Fin 1 => o.fst), o.snd, (fun _ : Fin 1 => true)))
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => gf (v (0 : Fin 1))
-  covered := fun _ => ⟨0, Finset.mem_univ _⟩
+  covered := fun i => ⟨0, by
+    simp only [List.get_eq_getElem, List.getElem_map]⟩
 
 /-- **Post-composing the aggregate is the unary expression**: the two
 read the same value in each world. -/

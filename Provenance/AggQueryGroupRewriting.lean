@@ -115,14 +115,16 @@ expression's own function are lifted, and the occurrence annotations and
 the leaf readings are unchanged. -/
 def AggExpr.toComposite (a : AggExpr T K) : AggExpr (T ⊕ K) K where
   arity := a.arity
-  occs := a.occs.map (fun o => ((fun j => Sum.inl (o.fst j)), o.snd))
-  reads := fun j => (a.reads j).map (finCongr a.length_inl_occs).toEmbedding
+  occs := a.occs.map
+    (fun o => ((fun j => Sum.inl (o.fst j)), o.snd.fst, o.snd.snd))
   aggs := fun j => (a.aggs j).liftComposite
   scalar := a.scalar
   g := AggExprFun.liftComposite a.g
   covered := fun i => by
     obtain ⟨j, hj⟩ := a.covered ((finCongr a.length_inl_occs).symm i)
-    exact ⟨j, by rw [Finset.mem_map]; exact ⟨_, hj, by simp⟩⟩
+    refine ⟨j, ?_⟩
+    simp only [List.get_eq_getElem, List.getElem_map]
+    exact hj
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Each leaf reads the embedding of the sequence it read. -/
@@ -130,17 +132,13 @@ theorem AggExpr.leafSeq_toComposite (a : AggExpr T K) (j : Fin a.arity)
     (W : Finset (Fin a.occs.length)) :
     a.toComposite.leafSeq j (W.map (finCongr a.length_inl_occs).toEmbedding)
       = (a.leafSeq j W).map Sum.inl := by
-  show (Having.seqOf (a.occs.map (fun o => (((fun j => Sum.inl (o.fst j))
-        : Fin a.arity → T ⊕ K), o.snd)))
-      ((W.map (finCongr a.length_inl_occs).toEmbedding)
-        ∩ (a.reads j).map (finCongr a.length_inl_occs).toEmbedding)).map
-      (fun o => o.fst j)
-    = ((Having.seqOf a.occs (W ∩ a.reads j)).map (fun o => o.fst j)).map Sum.inl
-  rw [← Finset.map_inter,
-    AggValue.seqOf_map (fun o : (Fin a.arity → T) × K =>
-        (((fun j => Sum.inl (o.fst j)) : Fin a.arity → T ⊕ K), o.snd))
-      a.occs a.length_inl_occs (W ∩ a.reads j),
-    List.map_map, List.map_map]
+  rw [AggExpr.leafSeq_eq_filter, AggExpr.leafSeq_eq_filter,
+    show Having.seqOf a.toComposite.occs
+          (W.map (finCongr a.length_inl_occs).toEmbedding)
+        = (Having.seqOf a.occs W).map
+          (fun o => ((fun j => Sum.inl (o.fst j)), o.snd.fst, o.snd.snd)) from
+      AggValue.seqOf_map _ a.occs a.length_inl_occs W,
+    List.filter_map, List.map_map, List.map_map]
   rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
