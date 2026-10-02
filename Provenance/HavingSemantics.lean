@@ -80,6 +80,42 @@ def seqOf : (U : List β) → Finset (Fin U.length) → List β
       (if (0 : Fin (U.length + 1)) ∈ W then [a] else [])
         ++ seqOf U (Finset.univ.filter (fun i => i.succ ∈ W))
 
+/-- Selecting, out of a mapped list, the positions whose *source* element
+satisfies a predicate: the mapped filtered list. `seqOf_filter_positions`
+is the case where the map is the identity. -/
+theorem seqOf_map_filter {β γ : Type} (F : β → γ) (Q : β → Bool) :
+    ∀ (U : List β) (h : (U.map F).length = U.length),
+      Having.seqOf (U.map F)
+          (Finset.univ.filter (fun x => Q (U.get (Fin.cast h x)) = true))
+        = (U.filter Q).map F
+  | [], _ => rfl
+  | a :: U, h => by
+    have h' : (U.map F).length = U.length := by rw [List.length_map]
+    show (if (0 : Fin ((U.map F).length + 1)) ∈ Finset.univ.filter
+            (fun x => Q ((a :: U).get (Fin.cast h x)) = true)
+          then [F a] else [])
+        ++ Having.seqOf (U.map F) (Finset.univ.filter
+          (fun x : Fin (U.map F).length => x.succ ∈ Finset.univ.filter
+            (fun y => Q ((a :: U).get (Fin.cast h y)) = true)))
+      = (((a :: U).filter Q).map F)
+    have h0 : ((0 : Fin ((U.map F).length + 1)) ∈ Finset.univ.filter
+        (fun x => Q ((a :: U).get (Fin.cast h x)) = true)) ↔ Q a = true := by
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      rfl
+    have hsucc : Finset.univ.filter
+          (fun x : Fin (U.map F).length => x.succ ∈ Finset.univ.filter
+            (fun y => Q ((a :: U).get (Fin.cast h y)) = true))
+        = Finset.univ.filter (fun x => Q (U.get (Fin.cast h' x)) = true) := by
+      ext x
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      rfl
+    rw [hsucc, seqOf_map_filter F Q U h']
+    by_cases hQa : Q a = true
+    · rw [ite_eq_left (h0.mpr hQa), List.filter_cons_of_pos hQa]
+      rfl
+    · rw [ite_eq_right (fun hx => hQa (h0.mp hx)),
+        List.filter_cons_of_neg (by simpa using hQa), List.nil_append]
+
 /-- A set of positions selects a sublist. -/
 theorem seqOf_sublist : ∀ (U : List β) (W : Finset (Fin U.length)),
     (seqOf U W).Sublist U

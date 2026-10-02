@@ -1145,6 +1145,104 @@ def exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
   exprOfVals P O o ws r i (fun l j => (ts l).eval (r.row j).fst γ) fs g
 
+/-- **What one leaf of the expression reads**: the values of its own
+frame's occurrences, selected out of the shared family. -/
+theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q) :
+    (exprOf P O o ws ts fs g r i γ).leafSeq l Finset.univ
+      = List.map (fun j => (ts l).eval (r.row j).fst γ)
+          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j))
+          := by
+  have hlen : (exprOf P O o ws ts fs g r i γ).occs.length
+      = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length := by
+    show (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
+        (r.row j).snd)) (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)).length = _
+    rw [List.length_map]
+  unfold AggExpr.leafSeq
+  rw [Finset.univ_inter]
+  show List.map (fun z : (Fin q → T) × K => z.fst l) (Having.seqOf
+      (List.map (fun j => (((fun l => (ts l).eval (r.row j).fst γ) : Fin q → T),
+          (r.row j).snd))
+        (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i))
+      (Finset.univ.filter
+        (fun x => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
+          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).get
+            (Fin.cast hlen x)) = true))) = _
+  rw [Having.seqOf_map_filter _ _
+    (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i) hlen, List.map_map]
+  rfl
+
+/-- The indices one leaf reads out of the shared family are exactly its
+own frame's. -/
+theorem exprIdx_filter_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (l : Fin q) :
+    (↑((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+        (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j))
+      : Multiset (Fin r.size))
+      = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val := by
+  rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+      (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j)
+    = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+      (fun j => decide (mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+        = true)) from List.filter_congr (fun j _ => by simp),
+    ← Multiset.filter_coe]
+  have hidx : (↑(exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)
+      : Multiset (Fin r.size))
+      = (frame (α := AnnotatedTuple T K n) Prod.fst P O (unionFrame ws) r i).val := by
+    have hp := frameSeqOn_perm (α := Fin r.size) (fun j => (r.row j).fst) P O o
+      (unionFrame ws) (OccFam.mk r.size id) (Fin.cast (by simp) i)
+    rw [exprIdx, Multiset.coe_eq_coe.mpr hp, frameSeq_coe, Multiset.map_id]
+    rfl
+  rw [hidx]
+  show Multiset.filter _ (Finset.filter _ Finset.univ).val = _
+  rw [← Finset.filter_val, Finset.filter_filter]
+  refine congrArg Finset.val (Finset.filter_congr (fun j _ => ?_))
+  constructor
+  · exact fun h => h.2
+  · exact fun h => ⟨(mem_unionFrame (α := AnnotatedTuple T K n) Prod.fst P O ws
+      r i j).mpr ⟨l, h⟩, h⟩
+
+/-- **The deterministic reading of the expression a multi-frame window
+computes**: each leaf's own plain aggregate over its own frame, combined
+by `g`. The leaf aggregates have to be symmetric: the shared family is
+listed by occurrence index, the plain frame by row, and the two orders
+agree only up to a permutation of the frame – the same condition
+`ValueFrame.windowValue_of_perm` asks of a single-frame window. -/
+theorem collapse_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (hsym : ∀ l, (fs l).Symmetric) (g : (Fin q → T) → T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T) :
+    (exprOf P O o ws ts fs g r i γ).collapse
+      = g (fun l => (fs l)
+          ((frameSeqOn (α := Tuple T n) id P O o (ws l) r.plain i).map
+            (fun v => (ts l).eval v γ))) := by
+  unfold AggExpr.collapse AggExpr.valOn
+  refine congrArg g (funext (fun l => ?_))
+  show (fs l) ((exprOf P O o ws ts fs g r i γ).leafSeq l Finset.univ) = _
+  rw [leafSeq_exprOf, ← frameSeqOn_plain, List.map_map,
+    show (fun j => (ts l).eval (r.row j).fst γ)
+      = (fun x : AnnotatedTuple T K n => (ts l).eval x.fst γ) ∘ r.row from rfl,
+    ← List.map_map]
+  refine hsym l (List.Perm.map _ ?_)
+  -- both row lists list the leaf's own frame
+  have h1 : (↑((((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+        (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j)).map
+      r.row)) : Multiset (AnnotatedTuple T K n))
+      = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val.map r.row := by
+    rw [← Multiset.map_coe, exprIdx_filter_coe]
+  have h2 : (↑(frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r i)
+      : Multiset (AnnotatedTuple T K n))
+      = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val.map r.row := by
+    rw [Multiset.coe_eq_coe.mpr (frameSeqOn_perm (α := AnnotatedTuple T K n)
+      Prod.fst P O o (ws l) r i), frameSeq_coe]
+  exact Multiset.coe_eq_coe.mp (h1.trans h2.symm)
+
 /-- Equal leaf values give the same expression. -/
 theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
