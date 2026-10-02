@@ -116,6 +116,71 @@ theorem seqOf_map_filter {β γ : Type} (F : β → γ) (Q : β → Bool) :
     · rw [ite_eq_right (fun hx => hQa (h0.mp hx)),
         List.filter_cons_of_neg (by simpa using hQa), List.nil_append]
 
+/-- **Selecting a world and then filtering is selecting the positions
+the filter keeps**: the predicate reads the element, so it does not
+matter whether it is applied before or after the selection.
+`seqOf_filter_positions` is the case of the full world. -/
+theorem seqOf_filter_inter {β : Type} (Q : β → Bool) :
+    ∀ (U : List β) (W : Finset (Fin U.length)),
+      seqOf U (W.filter (fun i => Q (U.get i) = true))
+        = (seqOf U W).filter Q
+  | [], _ => rfl
+  | a :: U, W => by
+    have h0 : ((0 : Fin (U.length + 1))
+        ∈ W.filter (fun i => Q ((a :: U).get i) = true))
+        ↔ ((0 : Fin (U.length + 1)) ∈ W ∧ Q a = true) := by
+      simp only [Finset.mem_filter]
+      rfl
+    have hsucc : Finset.univ.filter
+          (fun i : Fin U.length => i.succ
+            ∈ W.filter (fun j => Q ((a :: U).get j) = true))
+        = (Finset.univ.filter (fun i : Fin U.length => i.succ ∈ W)).filter
+          (fun i => Q (U.get i) = true) := by
+      ext i
+      simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+      rfl
+    rw [seqOf, hsucc, seqOf_filter_inter Q U, seqOf, List.filter_append]
+    refine congrArg₂ (· ++ ·) ?_ rfl
+    by_cases hQa : Q a = true
+    · by_cases hW : (0 : Fin (U.length + 1)) ∈ W
+      · rw [ite_eq_left (h0.mpr ⟨hW, hQa⟩), ite_eq_left hW,
+          List.filter_cons_of_pos hQa]
+        rfl
+      · rw [ite_eq_right (fun hc => hW (h0.mp hc).1), ite_eq_right hW]
+        rfl
+    · rw [ite_eq_right (fun hc => hQa (h0.mp hc).2)]
+      by_cases hW : (0 : Fin (U.length + 1)) ∈ W
+      · rw [ite_eq_left hW, List.filter_cons_of_neg (by simpa using hQa)]
+        rfl
+      · rw [ite_eq_right hW]
+        rfl
+
+/-- **The normal form of a selection**: the positions a world keeps, in
+order, read off the list. Everything about `seqOf` can be settled in this
+form, where the index bookkeeping is a `List.filter` on the index list
+and no transport between lists of equal length is needed. -/
+theorem seqOf_eq_filter_map {β : Type} :
+    ∀ (U : List β) (S : Finset (Fin U.length)),
+      seqOf U S
+        = ((List.finRange U.length).filter (fun i => decide (i ∈ S))).map U.get
+  | [], _ => rfl
+  | a :: U, S => by
+    rw [seqOf, seqOf_eq_filter_map U _]
+    rw [show (List.finRange (a :: U).length)
+        = (0 : Fin (U.length + 1)) :: (List.finRange U.length).map Fin.succ
+      from List.finRange_succ]
+    rw [List.filter_cons, List.filter_map]
+    by_cases h0 : (0 : Fin (U.length + 1)) ∈ S
+    · rw [ite_eq_left h0, if_pos (by simpa using h0), List.map_cons,
+        List.map_map]
+      refine congrArg₂ (· :: ·) rfl ?_
+      exact congrArg₂ List.map (funext (fun i => rfl))
+        (List.filter_congr (fun i _ => by simp))
+    · rw [ite_eq_right h0, if_neg (by simpa using h0), List.nil_append,
+        List.map_map]
+      exact congrArg₂ List.map (funext (fun i => rfl))
+        (List.filter_congr (fun i _ => by simp))
+
 /-- A set of positions selects a sublist. -/
 theorem seqOf_sublist : ∀ (U : List β) (W : Finset (Fin U.length)),
     (seqOf U W).Sublist U

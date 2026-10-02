@@ -603,7 +603,19 @@ meet the part of the family each *grouped* leaf reads.
 The occurrence list carries, per occurrence, the value each leaf reads
 there, the annotation, and which leaves read it – which is `AggExpr`'s
 `occs` together with `reads`, in the form a recursion over the list can
-use. -/
+use.
+
+What is **not** here yet is the specialization to `AggExpr.predProvWith`
+itself, and the obstacle is worth recording. Converting an `AggExpr`
+into the list this walk takes puts the leaf flags in the elements, so
+the walked list is no longer `e.occs` but a list of the same length, and
+every step then needs a transport between `Fin e.occs.length` and
+`Fin (walked list).length`. The cleaner shape is to index the flags by
+*position* instead – walk `e.occs` itself, carrying `rd : ℕ → Fin q →
+Bool` and shifting it in the tail call – so that `Having.seqOf e.occs W`
+appears directly and no transport arises. `Having.seqOf_eq_filter_map`
+and `Having.seqOf_filter_inter` are the two tools that route was
+missing. -/
 
 namespace AggExpr
 
