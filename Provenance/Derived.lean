@@ -724,6 +724,117 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
   refine Fin.lastCases ?_ (fun i => ?_) j <;>
     simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
 
+/-! ### The distribution functions
+
+`percent_rank`, `cume_dist` and `ntile` are **aggregate expressions**
+over two frames of one partition, not aggregates: each reads the whole
+partition for its denominator and one other frame for its numerator, and
+the two families are nested. `WinExpr` is what reads them as one family,
+so the pair of values a world gives is a pair that some world of the
+partition actually produces – where reading the two aggregates
+separately would allow a rank of three beside a count of one.
+
+The arithmetic is a parameter, as the counting aggregate is for `rank`:
+a `ValueType` has `+`, `-`, `*` and an order, and SQL's division and
+integer bucket arithmetic are not among them. Only the value of the
+combining function in each world is used, so any deterministic function
+of the domain can be one. -/
+
+/-- **`percent_rank()`**: `(r-1)/(N-1)`, and `0` where `N = 1`, with `r`
+the rank and `N` the count over the whole partition. The numerator is
+read off the frame of the rows strictly before the current row's peers,
+which is `r - 1` without needing a subtraction. -/
+def percentRank [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  AggQueryIn.WinExpr P O o
+    ![ValueFrame.rangeBefore o, ValueFrame.whole]
+    ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
+    (fun v => if v 1 = 1 then 0 else divide (v 0) (v 1 - 1)) q
+
+/-- **`cume_dist()`**: `c/N`, with `c` the count over the default
+`RANGE` frame – the rows up to the current one and its peers – and `N`
+the count over the whole partition. -/
+def cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  AggQueryIn.WinExpr P O o
+    ![ValueFrame.rangeUpTo o, ValueFrame.whole]
+    ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
+    (fun v => divide (v 0) (v 1)) q
+
+/-- **`ntile(k)`**: the bucket SQL gives to the position the rank names,
+among `N` rows. `bucket N r` is SQL's integer arithmetic, left to the
+domain; the reading is the one of the ties-as-ranks principle, so a
+class of peers stays together where SQL's row numbering would split it
+between two buckets. -/
+def ntile [One T] (cnt : SeqAggFunc T) (bucket : T → T → T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  AggQueryIn.WinExpr P O o
+    ![ValueFrame.rangeBefore o, ValueFrame.whole]
+    ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
+    (fun v => bucket (v 1) (1 + v 0)) q
+
+/-- **What a `percent_rank` computes over plain relations**: each row of
+the input, extended by `(r-1)/(N-1)` read off the two frames. -/
+theorem evaluatePlain_percentRank [One T] (cnt : SeqAggFunc T)
+    (divide : T → T → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (percentRank cnt divide P O o q).evaluatePlain D
+      = (q.evaluatePlain D).map (fun u =>
+          (Fin.snoc u
+            (if ValueFrame.windowValue P O o ValueFrame.whole
+                (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u = 1
+              then 0
+              else divide
+                (ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
+                  (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u)
+                (ValueFrame.windowValue P O o ValueFrame.whole
+                  (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u - 1))
+            : Tuple T (n + 1))) := by
+  rw [percentRank, AggQueryIn.evaluatePlain_WinExpr_eq]
+  refine Multiset.map_congr rfl (fun u _ => ?_)
+  rfl
+
+/-- **What a `cume_dist` computes over plain relations.** -/
+theorem evaluatePlain_cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (cumeDist cnt divide P O o q).evaluatePlain D
+      = (q.evaluatePlain D).map (fun u =>
+          (Fin.snoc u
+            (divide
+              (ValueFrame.windowValue P O o (ValueFrame.rangeUpTo o)
+                (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u)
+              (ValueFrame.windowValue P O o ValueFrame.whole
+                (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u))
+            : Tuple T (n + 1))) := by
+  rw [cumeDist, AggQueryIn.evaluatePlain_WinExpr_eq]
+  refine Multiset.map_congr rfl (fun u _ => ?_)
+  rfl
+
+/-- **What an `ntile` computes over plain relations**: the bucket of the
+rank among the partition's rows. -/
+theorem evaluatePlain_ntile [One T] (cnt : SeqAggFunc T)
+    (bucket : T → T → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
+    (ntile cnt bucket P O o q).evaluatePlain D
+      = (q.evaluatePlain D).map (fun u =>
+          (Fin.snoc u
+            (bucket
+              (ValueFrame.windowValue P O o ValueFrame.whole
+                (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u)
+              (1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
+                (TermIn.const (c := 0) 1) cnt (q.evaluatePlain D) u))
+            : Tuple T (n + 1))) := by
+  rw [ntile, AggQueryIn.evaluatePlain_WinExpr_eq]
+  refine Multiset.map_congr rfl (fun u _ => ?_)
+  rfl
+
 end Ranks
 
 /-! ## Truncation

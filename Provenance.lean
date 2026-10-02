@@ -137,6 +137,7 @@ import Provenance.Semirings.Why
 import Provenance.Papers.Icde2026
 
 /- Example -/
+import Provenance.DistributionExample
 import Provenance.Example
 
 /-!
@@ -1105,6 +1106,10 @@ proven engine several general results reuse internally.
   `sumMass_insert_of_le` / `sumMass_insert_of_lt`), and the CDF assembly
   around them (`funcProb_count_filter`, empty-world mass `countMass_zero`,
   and the shorter-tail identity `funcProb_count_ge_eq_absent_le`).
+- `Provenance.DistributionExample` – `percent_rank`, `cume_dist` and
+  `ntile` evaluated on a three-row partition, including a partition of one
+  row and one with peers: the values SQL gives, and the pair of counts the
+  two nested frames supply.
 - `Provenance.HavingExample` – worked examples on a three-occurrence group:
   the `SUM ≥ 5` possible-world provenance in `𝔹[X]` and its collapse to
   minimal worlds (both computed by kernel evaluation), and the

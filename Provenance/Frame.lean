@@ -221,6 +221,13 @@ present, so no relation on order values decides it. -/
 `RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`. -/
 def whole : ValueFrame T p := ⟨fun _ _ => true, fun _ => true⟩
 
+omit [ValueType T] in
+/-- The whole partition contains its current row, so a window over it is
+read in the grouped convention – which is what makes the denominator of
+a distribution function a count over a non-empty family. -/
+theorem containsSelf_whole : (whole (T := T) (p := p)).ContainsSelf :=
+  fun _ => rfl
+
 /-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` read against the
 domain's *own* order on the order values: the current row, its peers, and
 everything that order puts before them.
