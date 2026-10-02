@@ -626,6 +626,7 @@ def exprProvAux (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
           (fun l => started l || rd l) t
         + exprProvAux aggs sc g P acc (ex + a) started t
 
+omit [ValueType T] [DecidableEq K] in
 /-- **The world sum is the recursion**, several leaves at a time. The
 world condition asks each grouped leaf to have kept an occurrence of the
 part it reads, which is what `AggExpr.IsWorld` asks of `W ∩ reads l`. -/
@@ -849,5 +850,42 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
       (fun W => (0 : Fin (t.length + 1)) ∈ W) _)) ?_
     rw [hA, hB]
     rfl
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The recursion is blind to a tie-block permutation** of the shared
+family: two occurrences that carry the same value vector *and* are read
+by the same leaves may be swapped. Both halves are needed – swapping
+occurrences that different leaves read would hand a leaf a value it does
+not read. -/
+theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
+    (g : (Fin q → T) → T) (P : T → Kleene)
+    {L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd) L₁ L₂) :
+    ∀ (acc : Fin q → List T) (ex : K) (started : Fin q → Bool),
+      exprProvAux aggs sc g P acc ex started L₁
+        = exprProvAux aggs sc g P acc ex started L₂ := by
+  induction h with
+  | nil => intro acc ex started; rfl
+  | @cons z L₁ L₂ _ ih =>
+      intro acc ex started
+      obtain ⟨v, a, rd⟩ := z
+      simp only [exprProvAux]
+      rw [ih, ih]
+  | @swap z z' hzz' L₁ L₂ _ ih =>
+      intro acc ex started
+      obtain ⟨v, a, rd⟩ := z
+      obtain ⟨w, b, rd'⟩ := z'
+      obtain ⟨hv, hrd⟩ := hzz'
+      dsimp only at hv hrd
+      subst hv
+      subst hrd
+      simp only [exprProvAux]
+      simp only [ih]
+      simp only [mul_add]
+      rw [mul_left_comm a b, add_right_comm ex a b]
+      exact add_add_add_comm _ _ _ _
+  | trans _ _ ih₁ ih₂ =>
+      intro acc ex started
+      rw [ih₁, ih₂]
 
 end AggExpr
