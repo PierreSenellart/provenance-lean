@@ -1,4 +1,4 @@
-import Provenance.AggValue
+import Provenance.AggExpr
 
 /-!
 # Congruence of predicate provenance under tie-block permutations
@@ -590,3 +590,264 @@ theorem predProvOf_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
   predProvOfWith_congr hagg hsc h (fun v => op.eval3 v c)
 
 end AggValue
+
+/-! ## The several-leaf recursion
+
+`predProvAux` walks the occurrence family of one token, carrying the
+values kept so far. An aggregate expression reads *several* leaves over
+one shared family, each on its own part of a world, so the walk carries
+one accumulator per leaf and keeps an occurrence only for the leaves
+that read it. The world condition becomes per leaf as well: a world must
+meet the part of the family each *grouped* leaf reads.
+
+The occurrence list carries, per occurrence, the value each leaf reads
+there, the annotation, and which leaves read it – which is `AggExpr`'s
+`occs` together with `reads`, in the form a recursion over the list can
+use. -/
+
+namespace AggExpr
+
+variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+variable {q : ℕ}
+
+/-- The several-leaf counterpart of `AggValue.predProvAux`: `acc l` the
+values leaf `l` has kept, `ex` the annotations discarded so far, and
+`started l` whether leaf `l` has kept an occurrence. -/
+def exprProvAux (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
+    (g : (Fin q → T) → T) (P : T → Kleene) :
+    (Fin q → List T) → K → (Fin q → Bool) →
+    List ((Fin q → T) × K × (Fin q → Bool)) → K
+  | acc, ex, started, [] =>
+      if (List.finRange q).all (fun l => sc l || started l)
+      then (1 - ex) * Having.chiOf P (g (fun l => aggs l (acc l))) else 0
+  | acc, ex, started, (v, a, rd) :: t =>
+      a * exprProvAux aggs sc g P
+          (fun l => if rd l then acc l ++ [v l] else acc l) ex
+          (fun l => started l || rd l) t
+        + exprProvAux aggs sc g P acc (ex + a) started t
+
+/-- **The world sum is the recursion**, several leaves at a time. The
+world condition asks each grouped leaf to have kept an occurrence of the
+part it reads, which is what `AggExpr.IsWorld` asks of `W ∩ reads l`. -/
+theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
+    (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool))) (acc : Fin q → List T)
+      (ex : K) (started : Fin q → Bool),
+      ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin L.length) =>
+          ∀ l, sc l = true ∨ started l = true
+            ∨ (W.filter (fun i => (L.get i).snd.snd l = true)).Nonempty),
+        (∏ i ∈ W, (L.get i).snd.fst)
+          * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (L.get i).snd.fst))
+            * Having.chiOf P (g (fun l => aggs l (acc l ++
+                ((Having.seqOf L W).filter
+                  (fun z => z.snd.snd l)).map (fun z => z.fst l)))))
+        = exprProvAux aggs sc g P acc ex started L
+  | [], acc, ex, started => by
+    have hW : ∀ W : Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool))).length),
+        W = ∅ := fun W =>
+      Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (Nat.not_lt_zero _))
+    by_cases hall : (List.finRange q).all (fun l => sc l || started l) = true
+    · rw [Finset.filter_true_of_mem (fun W _ l =>
+        (Bool.or_eq_true _ _ |>.mp (List.all_eq_true.mp hall l
+          (List.mem_finRange l))).imp id Or.inl)]
+      rw [show (Finset.univ
+            : Finset (Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool))).length)))
+          = {∅} from Finset.eq_singleton_iff_unique_mem.mpr
+            ⟨Finset.mem_univ _, fun W _ => hW W⟩,
+        Finset.sum_singleton, Finset.prod_empty, one_mul,
+        Finset.sum_eq_zero (fun i _ => absurd i.isLt (Nat.not_lt_zero _)),
+        add_zero]
+      show ((1 : K) - ex) * Having.chiOf P (g (fun l => aggs l (acc l ++ []))) = _
+      rw [show (fun l => aggs l (acc l ++ [])) = (fun l => aggs l (acc l)) from
+        funext (fun l => congrArg (aggs l) (List.append_nil _))]
+      unfold exprProvAux
+      rw [hall]
+      rfl
+    · rw [Finset.filter_false_of_mem, Finset.sum_empty]
+      · unfold exprProvAux
+        rw [ite_eq_right (by simpa using hall)]
+      · intro W _ hcon
+        refine hall (List.all_eq_true.mpr (fun l _ => ?_))
+        rcases hcon l with h | h | ⟨i, -⟩
+        · rw [h]; rfl
+        · rw [h]; exact Bool.or_true _
+        · exact absurd i.isLt (Nat.not_lt_zero _)
+  | (v, ann, rd) :: t, acc, ex, started => by
+    have ih := sum_worlds_eq_exprProvAux aggs sc g P t
+    dsimp only [List.length_cons]
+    -- Branch A: worlds keeping the head occurrence.
+    have hA : (∑ W ∈ (Finset.univ.filter
+          (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
+            ∨ started l = true
+            ∨ (W.filter (fun i => (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)).filter
+            (fun W => (0 : Fin (t.length + 1)) ∈ W),
+          (∏ i ∈ W, (((v, ann, rd) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, rd) :: t).get i).snd.fst))
+              * Having.chiOf P (g (fun l => aggs l (acc l ++
+                  ((Having.seqOf ((v, ann, rd) :: t) W).filter
+                    (fun z => z.snd.snd l)).map (fun z => z.fst l))))))
+        = ann * exprProvAux aggs sc g P
+            (fun l => if rd l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || rd l) t := by
+      rw [Finset.filter_filter]
+      rw [show Finset.univ.filter
+            (fun W : Finset (Fin (t.length + 1)) =>
+              (∀ l, sc l = true ∨ started l = true
+                ∨ (W.filter (fun i =>
+                    (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)
+              ∧ (0 : Fin (t.length + 1)) ∈ W)
+          = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
+              ∀ l, sc l = true ∨ (started l || rd l) = true
+                ∨ (W'.filter (fun i => (t.get i).snd.snd l = true)).Nonempty)).map
+              (insertEmb t.length)
+          from ?_, Finset.sum_map, ← ih
+            (fun l => if rd l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || rd l), Finset.mul_sum]
+      · refine Finset.sum_congr rfl fun W' _ => ?_
+        have hprod : ∏ i ∈ insertEmb t.length W',
+              (((v, ann, rd) :: t).get i).snd.fst
+            = ann * ∏ i ∈ W', (t.get i).snd.fst := by
+          show ∏ i ∈ insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length)),
+              (((v, ann, rd) :: t).get i).snd.fst = _
+          rw [Finset.prod_insert (notMem_map_succ _), Finset.prod_map]
+          exact congrArg₂ (· * ·) rfl (Finset.prod_congr rfl fun i _ => rfl)
+        have hsum : ∑ i ∈ (insertEmb t.length W')ᶜ,
+              (((v, ann, rd) :: t).get i).snd.fst
+            = ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
+          show ∑ i ∈ (insert (0 : Fin (t.length + 1))
+              (W'.map (succEmb t.length)))ᶜ,
+              (((v, ann, rd) :: t).get i).snd.fst = _
+          rw [compl_insert_map, Finset.sum_map]
+          exact Finset.sum_congr rfl fun i _ => rfl
+        have hseq : Having.seqOf ((v, ann, rd) :: t) (insertEmb t.length W')
+            = (v, ann, rd) :: Having.seqOf t W' := by
+          show Having.seqOf ((v, ann, rd) :: t)
+              (insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length))) = _
+          simp only [Having.seqOf]
+          rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
+          rfl
+        rw [hprod, hsum, hseq, mul_assoc]
+        refine congrArg (fun x => ann * ((∏ i ∈ W', (t.get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ W'ᶜ, (t.get i).snd.fst))
+              * Having.chiOf P (g x)))) (funext (fun l => ?_))
+        refine congrArg (aggs l) ?_
+        by_cases hrd : rd l = true
+        · rw [ite_eq_left (by simpa using hrd),
+            List.filter_cons_of_pos (by simpa using hrd),
+            List.map_cons, List.append_assoc, List.singleton_append]
+        · rw [ite_eq_right (by simpa using hrd),
+            List.filter_cons_of_neg (by simpa using hrd)]
+      · ext W
+        constructor
+        · intro hW
+          obtain ⟨-, hP, h0⟩ := Finset.mem_filter.mp hW
+          refine Finset.mem_map.mpr ⟨Finset.univ.filter (fun i => i.succ ∈ W),
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_⟩,
+            insert_filter h0⟩
+          rcases hP l with hs | hst | ⟨i, hi⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl (by rw [hst]; rfl))
+          · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+            cases i using Fin.cases with
+            | zero =>
+                exact Or.inr (Or.inl (by
+                  rw [show rd l = true from hird]; exact Bool.or_true _))
+            | succ j =>
+                refine Or.inr (Or.inr ⟨j, Finset.mem_filter.mpr
+                  ⟨Finset.mem_filter.mpr ⟨Finset.mem_univ _, hiW⟩, hird⟩⟩)
+        · intro hW
+          obtain ⟨W', hW', rfl⟩ := Finset.mem_map.mp hW
+          refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_,
+            Finset.mem_insert_self _ _⟩
+          rcases (Finset.mem_filter.mp hW').2 l with hs | hst | ⟨j, hj⟩
+          · exact Or.inl hs
+          · rcases Bool.or_eq_true _ _ |>.mp hst with h | h
+            · exact Or.inr (Or.inl h)
+            · exact Or.inr (Or.inr ⟨0, Finset.mem_filter.mpr
+                ⟨Finset.mem_insert_self _ _, h⟩⟩)
+          · obtain ⟨hjW, hjrd⟩ := Finset.mem_filter.mp hj
+            exact Or.inr (Or.inr ⟨succEmb t.length j, Finset.mem_filter.mpr
+              ⟨Finset.mem_insert_of_mem (Finset.mem_map_of_mem _ hjW), hjrd⟩⟩)
+    -- Branch B: worlds discarding the head occurrence.
+    have hB : (∑ W ∈ (Finset.univ.filter
+          (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
+            ∨ started l = true
+            ∨ (W.filter (fun i =>
+                (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)).filter
+            (fun W => ¬ (0 : Fin (t.length + 1)) ∈ W),
+          (∏ i ∈ W, (((v, ann, rd) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, rd) :: t).get i).snd.fst))
+              * Having.chiOf P (g (fun l => aggs l (acc l ++
+                  ((Having.seqOf ((v, ann, rd) :: t) W).filter
+                    (fun z => z.snd.snd l)).map (fun z => z.fst l))))))
+        = exprProvAux aggs sc g P acc (ex + ann) started t := by
+      rw [Finset.filter_filter]
+      rw [show Finset.univ.filter
+            (fun W : Finset (Fin (t.length + 1)) =>
+              (∀ l, sc l = true ∨ started l = true
+                ∨ (W.filter (fun i =>
+                    (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)
+              ∧ ¬ (0 : Fin (t.length + 1)) ∈ W)
+          = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
+              ∀ l, sc l = true ∨ started l = true
+                ∨ (W'.filter (fun i => (t.get i).snd.snd l = true)).Nonempty)).map
+              (mapEmb t.length)
+          from ?_, Finset.sum_map, ← ih acc (ex + ann) started]
+      · refine Finset.sum_congr rfl fun W' _ => ?_
+        have hprod : ∏ i ∈ mapEmb t.length W',
+              (((v, ann, rd) :: t).get i).snd.fst
+            = ∏ i ∈ W', (t.get i).snd.fst := by
+          show ∏ i ∈ W'.map (succEmb t.length),
+              (((v, ann, rd) :: t).get i).snd.fst = _
+          rw [Finset.prod_map]
+          exact Finset.prod_congr rfl fun i _ => rfl
+        have hsum : ∑ i ∈ (mapEmb t.length W')ᶜ,
+              (((v, ann, rd) :: t).get i).snd.fst
+            = ann + ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
+          show ∑ i ∈ (W'.map (succEmb t.length))ᶜ,
+              (((v, ann, rd) :: t).get i).snd.fst = _
+          rw [compl_map, Finset.sum_insert (notMem_map_succ _), Finset.sum_map]
+          exact congrArg₂ (· + ·) rfl (Finset.sum_congr rfl fun i _ => rfl)
+        have hseq : Having.seqOf ((v, ann, rd) :: t) (mapEmb t.length W')
+            = Having.seqOf t W' := by
+          show Having.seqOf ((v, ann, rd) :: t)
+              (W'.map (succEmb t.length)) = _
+          simp only [Having.seqOf]
+          rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
+          rfl
+        rw [hprod, hsum, hseq, ← add_assoc]
+      · ext W
+        constructor
+        · intro hW
+          obtain ⟨-, hP, h0⟩ := Finset.mem_filter.mp hW
+          refine Finset.mem_map.mpr ⟨Finset.univ.filter (fun i => i.succ ∈ W),
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_⟩, map_filter h0⟩
+          rcases hP l with hs | hst | ⟨i, hi⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl hst)
+          · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+            cases i using Fin.cases with
+            | zero => exact absurd hiW h0
+            | succ j =>
+                exact Or.inr (Or.inr ⟨j, Finset.mem_filter.mpr
+                  ⟨Finset.mem_filter.mpr ⟨Finset.mem_univ _, hiW⟩, hird⟩⟩)
+        · intro hW
+          obtain ⟨W', hW', rfl⟩ := Finset.mem_map.mp hW
+          refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, fun l => ?_,
+            notMem_map_succ W'⟩
+          rcases (Finset.mem_filter.mp hW').2 l with hs | hst | ⟨j, hj⟩
+          · exact Or.inl hs
+          · exact Or.inr (Or.inl hst)
+          · obtain ⟨hjW, hjrd⟩ := Finset.mem_filter.mp hj
+            exact Or.inr (Or.inr ⟨succEmb t.length j, Finset.mem_filter.mpr
+              ⟨Finset.mem_map_of_mem _ hjW, hjrd⟩⟩)
+    refine Eq.trans (Eq.symm (Finset.sum_filter_add_sum_filter_not
+      (Finset.univ.filter (fun W : Finset (Fin (t.length + 1)) =>
+        ∀ l, sc l = true ∨ started l = true
+          ∨ (W.filter (fun i =>
+              (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty))
+      (fun W => (0 : Fin (t.length + 1)) ∈ W) _)) ?_
+    rw [hA, hB]
+    rfl
+
+end AggExpr
