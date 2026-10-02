@@ -432,7 +432,7 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) (u : Tuple (GenValue T K) n)
     (ℓ₀ : List K)
     (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-      u k = Sum.inr a → a.isTok = true ∧ a.scalar = false
+      u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
         ∧ a.annList = ℓ₀)
     (hent : φ.entailsExistence neg = true) :
     φ.predsem neg u γ * SemiringWithMonus.delta ℓ₀.sum
@@ -444,30 +444,44 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
     | inr x =>
       obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok hnn
-      simp only [AggTok.scalar_tok] at hsc
-      simp only [AggTok.annList_tok] at heq
-      simp only [GenPredIn.predsem, hu, AggTok.predProvOf_tok]
-      rw [AggValue.predProvOf_of_grouped hsc, ← heq]
-      exact AggValue.predProv_delta_absorb a _ _
+      rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
+      · simp only [AggTok.scalar_tok] at hsc
+        simp only [AggTok.annList_tok] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOf_tok]
+        rw [AggValue.predProvOf_of_grouped hsc, ← heq]
+        exact AggValue.predProv_delta_absorb a _ _
+      · simp only [AggTok.scalar_expr] at hsc
+        simp only [AggTok.annList_expr] at heq
+        simp only [GenPredIn.predsem, AggTok.predProvOf, hu,
+          AggTok.predProvOfWith_expr]
+        rw [← heq]
+        exact AggExpr.predProvWith_delta_absorb e
+          (AggExpr.exists_grouped_of_not_isScalar hsc) _
   | aggRange k h op₁ t₁ op₂ t₂ =>
     cases hu : u k with
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
     | inr x =>
       obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok hnn
-      simp only [AggTok.scalar_tok] at hsc
-      simp only [AggTok.annList_tok] at heq
-      simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_tok]
-      rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true, ← heq]
-      exact AggValue.predProvWith_delta_absorb a _
+      rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
+      · simp only [AggTok.scalar_tok] at hsc
+        simp only [AggTok.annList_tok] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_tok]
+        rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true,
+          ← heq]
+        exact AggValue.predProvWith_delta_absorb a _
+      · simp only [AggTok.scalar_expr] at hsc
+        simp only [AggTok.annList_expr] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_expr]
+        rw [← heq]
+        exact AggExpr.predProvWith_delta_absorb e
+          (AggExpr.exists_grouped_of_not_isScalar hsc) _
   | and φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isTok = true ∧ a.scalar = false
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
           ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isTok = true ∧ a.scalar = false
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
           ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
@@ -502,11 +516,11 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
       rw [he, add_mul, ihφ true huφ hent'.1, ihψ true huψ hent'.2]
   | or φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isTok = true ∧ a.scalar = false
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
           ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isTok = true ∧ a.scalar = false
+        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
           ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
@@ -1019,7 +1033,7 @@ any collection of pending factors, each of which is the occurrence list of
 *every* compared token. -/
 theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (hent : φ.entailsExistence false = true)
-    (D : Multiset (List K)) (hnn : GenRow.OrdinaryTokens u)
+    (D : Multiset (List K)) (hnn : GenRow.NoNested u)
     (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
       u k = Sum.inr a → a.scalar = false ∧ a.annList = l) :
     φ.predsem false u γ
@@ -1043,7 +1057,7 @@ license. The compared-lists multiset `C` is abstract; the only fact used
 is that every compared token's occurrence list belongs to it. -/
 theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (b : K) (P : Multiset (List K))
-    (C Cs : Multiset (List K)) (hnn : GenRow.OrdinaryTokens u)
+    (C Cs : Multiset (List K)) (hnn : GenRow.NoNested u)
     (hC : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
       u k = Sum.inr a → a.annList ∈ C)
     (hCs : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
@@ -1510,13 +1524,13 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       refine rel_map_of_rel (ih d γ hw) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
-          (hs.noNested' h)
+          (GenRow.NoNested.of_ordinary (hs.noNested' h))
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩),
         GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
-          (hs.noNested h)
+          (GenRow.NoNested.of_ordinary (hs.noNested h))
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr

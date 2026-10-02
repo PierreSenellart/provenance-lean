@@ -1792,6 +1792,24 @@ it. -/
 def GenRow.OrdinaryTokens {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
   ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isTok = true
 
+/-- **No column of a tuple holds a *nested* token.** The weaker of the
+two fences: the readings of an aggregate *expression* are proved
+(`AggExpr.predProvWith_congr`, `_mapAnn`, `_delta_absorb`,
+`vals_congr`), so a result need only exclude `nest`, whose readings are
+not. `GenRow.OrdinaryTokens` is the stronger fence, for results that
+have not yet been extended to an expression. -/
+def GenRow.NoNested {n : ℕ} (u : Tuple (GenValue T K) n) : Prop :=
+  ∀ (k : Fin n) (a : AggTok T K), u k = Sum.inr a → a.isNested = false
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- An ordinary token is not nested. -/
+theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
+    (h : GenRow.OrdinaryTokens u) : GenRow.NoNested u := by
+  intro k a ha
+  obtain ⟨a', rfl⟩ := AggTok.eq_tok_of_isTok (h k a ha)
+  rfl
+
 /-- **No multi-frame window.** `WinExpr` is the one operator of the
 syntax that builds an aggregate column holding an expression rather than
 an ordinary token, so the results proved only for ordinary tokens

@@ -183,6 +183,21 @@ theorem isWorld_empty_iff (e : AggExpr T K) :
   · intro h j hj
     exact absurd (h j (List.mem_finRange j)) (by rw [hj]; exact Bool.false_ne_true)
 
+/-- Where the expression is not read in the scalar convention, some leaf
+is grouped – which is what the guard absorption needs. -/
+theorem exists_grouped_of_not_isScalar {e : AggExpr T K}
+    (h : e.isScalar = false) : ∃ l, e.scalar l = false := by
+  by_contra hcon
+  have hall : e.isScalar = true := by
+    unfold isScalar
+    rw [List.all_eq_true]
+    intro l _
+    by_cases hl : e.scalar l = true
+    · exact hl
+    · exact absurd ⟨l, by simpa using hl⟩ hcon
+  rw [hall] at h
+  exact absurd h Bool.noConfusion
+
 /-- **The family the expression carries**: the annotations of the shared
 occurrences, which is what the supersede test compares and what makes two
 columns one family. -/

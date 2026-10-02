@@ -471,6 +471,16 @@ def isTok : AggTok T K → Bool
 @[simp] theorem isTok_expr (a : AggExpr T K) :
     (AggTok.expr a).isTok = false := rfl
 
+/-- A token that is not nested is an ordinary one or an expression –
+the two kinds whose readings the metatheory covers. -/
+theorem eq_tok_or_expr_of_not_nested {x : AggTok T K} (h : x.isNested = false) :
+    (∃ a : AggValue T K, x = AggTok.tok a)
+      ∨ (∃ e : AggExpr T K, x = AggTok.expr e) := by
+  cases x with
+  | tok a => exact Or.inl ⟨a, rfl⟩
+  | nest a => exact absurd h (by simp)
+  | expr e => exact Or.inr ⟨e, rfl⟩
+
 /-- An ordinary token is an aggregate value. -/
 theorem eq_tok_of_isTok {x : AggTok T K} (h : x.isTok = true) :
     ∃ a : AggValue T K, x = AggTok.tok a := by
@@ -564,6 +574,9 @@ def altProv (x : AggTok T K) (v : T) : K :=
 
 @[simp] theorem predProvOfWith_tok (a : AggValue T K) (P : T → Kleene) :
     (AggTok.tok a).predProvOfWith P = a.predProvOfWith P := rfl
+
+@[simp] theorem predProvOfWith_expr (a : AggExpr T K) (P : T → Kleene) :
+    (AggTok.expr a).predProvOfWith P = a.predProvWith P := rfl
 
 @[simp] theorem predProvOf_tok (a : AggValue T K) (op : CompOp) (c : T) :
     (AggTok.tok a).predProvOf op c = a.predProvOf op c := rfl
