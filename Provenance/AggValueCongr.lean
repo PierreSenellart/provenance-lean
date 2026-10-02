@@ -900,4 +900,61 @@ theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
       intro acc ex started
       rw [ih₁, ih₂]
 
+/-- **Predicate provenance as the recursion**, at the empty
+accumulators: the world sum over the shared family is the walk over it.
+This is `AggValue.predProvWith_eq_predProvAux` for several leaves, and
+it is immediate now that the leaf flags travel in the occurrences –
+`AggExpr.leafSeq_eq_filter` is exactly the shape the walk reads. -/
+theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
+    e.predProvWith P
+      = exprProvAux e.aggs e.scalar e.g P (fun _ => []) 0 (fun _ => false)
+          e.occs := by
+  rw [← sum_worlds_eq_exprProvAux e.aggs e.scalar e.g P e.occs
+    (fun _ => []) 0 (fun _ => false)]
+  unfold predProvWith
+  refine Finset.sum_congr (Finset.filter_congr (fun W _ => ?_)) (fun W _ => ?_)
+  · constructor
+    · intro h l
+      by_cases hsc : e.scalar l = true
+      · exact Or.inl hsc
+      · obtain ⟨i, hi⟩ := h l (by simpa using hsc)
+        obtain ⟨hiW, hir⟩ := Finset.mem_inter.mp hi
+        exact Or.inr (Or.inr ⟨i, Finset.mem_filter.mpr
+          ⟨hiW, (mem_reads e l i).mp hir⟩⟩)
+    · intro h l hsc
+      rcases h l with hs | hf | ⟨i, hi⟩
+      · exact absurd hs (by rw [hsc]; exact Bool.false_ne_true)
+      · exact absurd hf Bool.false_ne_true
+      · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
+        exact ⟨i, Finset.mem_inter.mpr ⟨hiW, (mem_reads e l i).mpr hird⟩⟩
+  · rw [Having.worldAnn, zero_add, mul_assoc]
+    refine congrArg _ (congrArg _ (congrArg (Having.chiOf P) ?_))
+    unfold valOn
+    refine congrArg e.g (funext (fun l => ?_))
+    refine congrArg (e.aggs l) ?_
+    rw [List.nil_append, leafSeq_eq_filter]
+
+/-- **Congruence of predicate provenance for an aggregate expression**:
+two expressions that differ only in their shared family, by a tie-block
+permutation of it – occurrences carrying the same value vector and read
+by the same leaves – have the same predicate provenance, for every
+three-valued test.
+
+This is what makes the order a window's clause imposes on its family
+semantically invisible, as `AggValue.predProvWith_congr` does for one
+token. The two halves of the equivalence are both needed: swapping
+occurrences that different leaves read would hand a leaf a value it does
+not read. -/
+theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂)
+    (P : T → Kleene) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).predProvWith P
+      = (AggExpr.mk q occs₂ aggs sc g cov₂).predProvWith P := by
+  rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
+  exact exprProvAux_congr aggs sc g P h _ 0 _
+
 end AggExpr
