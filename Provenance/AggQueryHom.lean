@@ -341,10 +341,10 @@ theorem innerProd_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
       = h.toRingHom (∏ j ∈ d.sub, d.occ.1.anns j) := by
   rw [map_prod]
   show (∏ j ∈ d.sub.map (finCongr
-      (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding,
+      (AggExpr.length_map_occs ⇑h.toRingHom d.occ.1)).toEmbedding,
       (d.occ.1.mapAnn ⇑h.toRingHom).anns j) = _
   rw [Finset.prod_map]
-  exact Finset.prod_congr rfl (fun j _ => AggValue.anns_mapAnn h d.occ.1 j)
+  exact Finset.prod_congr rfl (fun j _ => AggExpr.anns_mapAnn ⇑h.toRingHom d.occ.1 j)
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- And so does its sum over the inner occurrences it leaves out. -/
@@ -354,18 +354,18 @@ theorem innerSum_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
       = h.toRingHom (∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j) := by
   rw [map_sum]
   show (∑ j ∈ (d.sub.map (finCongr
-      (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding)ᶜ,
+      (AggExpr.length_map_occs ⇑h.toRingHom d.occ.1)).toEmbedding)ᶜ,
       (d.occ.1.mapAnn ⇑h.toRingHom).anns j) = _
   rw [show (d.sub.map (finCongr
-        (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding)ᶜ
+        (AggExpr.length_map_occs ⇑h.toRingHom d.occ.1)).toEmbedding)ᶜ
       = (d.sub)ᶜ.map (finCongr
-        (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding
+        (AggExpr.length_map_occs ⇑h.toRingHom d.occ.1)).toEmbedding
       from by
     ext j
     rw [Finset.mem_compl, Finset.mem_map_equiv, Finset.mem_map_equiv,
       Finset.mem_compl],
     Finset.sum_map]
-  exact Finset.sum_congr rfl (fun j _ => AggValue.anns_mapAnn h d.occ.1 j)
+  exact Finset.sum_congr rfl (fun j _ => AggExpr.anns_mapAnn ⇑h.toRingHom d.occ.1 j)
 
 omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
 /-- **A transported world carries the pushed annotation**: the world

@@ -1342,28 +1342,60 @@ theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
       exact hrow k x hu
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
-/-- **A realized column has a realized inner family where its inner
-value is grouped**: the inner value of a lifted value is the token
-itself where it holds an ordinary one, and reads no occurrence
-otherwise, so a grouped inner value can only be that token. -/
+/-- **The world a valuation cuts out of an embedded token is the one it
+cuts out of the token.** -/
+theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
+    (v : X → Bool) :
+    (AggExpr.ofValue a).realizedWorld (fun α => α v)
+      = (a.realized v).map
+        (finCongr (AggExpr.length_ofValue_occs a)).toEmbedding := by
+  ext j
+  rw [Finset.mem_map_equiv, AggExpr.realizedWorld, Finset.mem_filter,
+    and_iff_right (Finset.mem_univ j), AggValue.realized, Finset.mem_filter,
+    and_iff_right (Finset.mem_univ _)]
+  show (AggExpr.ofValue a).anns j v = true
+    ↔ a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) v = true
+  rw [show (AggExpr.ofValue a).anns j
+      = a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) from by
+    rw [← AggExpr.anns_ofValue a (finCongr
+      (AggExpr.length_ofValue_occs a).symm j)]
+    rfl]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **A realized column's inner reading has the world the valuation cuts
+out among its own.** On an expression that is what `AggTok.Realized`
+says of it; on an ordinary token it is the token's realized occurrence,
+through the embedding (`AggExpr.isWorld_ofValue`); and a reading that
+reads nothing is scalar, so the empty world is one of its worlds. This
+is the condition a world of the nested value owes each inner reading it
+keeps. -/
 theorem GenValue.realized_innerValue (x : GenValue T (BoolFunc X))
     (v : X → Bool)
-    (hx : ∀ a : AggTok T (BoolFunc X), x = Sum.inr a → a.Realized v)
-    (hsc : (GenValue.innerValue x).scalar = false) :
-    ((GenValue.innerValue x).realized v).Nonempty := by
+    (hx : ∀ a : AggTok T (BoolFunc X), x = Sum.inr a → a.Realized v) :
+    (GenValue.innerValue x).IsWorld
+      ((GenValue.innerValue x).realizedWorld (fun α => α v)) := by
+  have hconst : ∀ w : T,
+      (NestedValue.constInner w : AggExpr T (BoolFunc X)).IsWorld
+        ((NestedValue.constInner w : AggExpr T (BoolFunc X)).realizedWorld
+          (fun α => α v)) := by
+    intro w
+    rw [show (NestedValue.constInner w
+          : AggExpr T (BoolFunc X)).realizedWorld (fun α => α v) = ∅ from
+      Finset.eq_empty_of_forall_notMem (fun j _ => absurd j.isLt (by
+        simp [NestedValue.constInner, AggExpr.ofValue]))]
+    exact (AggExpr.isWorld_empty_iff _).mpr (by
+      rw [NestedValue.constInner, AggExpr.isScalar_ofValue])
   cases x with
-  | inl w => exact absurd hsc (by simp [GenValue.innerValue,
-      NestedValue.constInner])
+  | inl w => exact hconst w
   | inr y =>
     cases y with
     | tok a =>
-      have hsc' : a.scalar = false := hsc
-      exact (hx (AggTok.tok a) rfl).resolve_left
-        (by rw [hsc']; exact Bool.false_ne_true)
-    | nest b => exact absurd hsc (by simp [GenValue.innerValue,
-        NestedValue.constInner])
-    | expr e => exact absurd hsc (by simp [GenValue.innerValue,
-        NestedValue.constInner])
+      show (AggExpr.ofValue a).IsWorld
+        ((AggExpr.ofValue a).realizedWorld (fun α => α v))
+      rw [AggExpr.realizedWorld_ofValue, AggExpr.isWorld_ofValue]
+      exact hx (AggTok.tok a) rfl
+    | nest b => exact hconst b.collapse
+    | expr e => exact hx (AggTok.expr e) rfl
 
 /-! ## The guardedness invariant -/
 

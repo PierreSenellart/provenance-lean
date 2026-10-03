@@ -489,6 +489,44 @@ theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
   congrArg (e.mapAnn h).g
     (funext (fun j => congrArg ((e.mapAnn h).aggs j) (leafSeq_mapAnn h e j W)))
 
+/-- The leaf flags travel with the occurrences, so each leaf reads the
+transported occurrences of the ones it read. -/
+theorem reads_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (j : Fin e.arity) :
+    (e.mapAnn h).reads j
+      = (e.reads j).map (finCongr (length_map_occs h e)).toEmbedding := by
+  ext i
+  rw [mem_reads, Finset.mem_map_equiv, mem_reads]
+  have h1 : ((e.mapAnn h).occs.get i).snd.snd
+      = (e.occs.get (finCongr (length_map_occs h e).symm i)).snd.snd := by
+    simp only [occs_mapAnn, List.get_eq_getElem, List.getElem_map]
+    rfl
+  rw [h1]
+  rfl
+
+/-- **A transported world is a world of the pushforward exactly when the
+world it came from is one**: the conventions and the leaves' occurrences
+are the ones they were. -/
+theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (W : Finset (Fin e.occs.length)) :
+    (e.mapAnn h).IsWorld (W.map (finCongr (length_map_occs h e)).toEmbedding)
+      ↔ e.IsWorld W := by
+  unfold IsWorld
+  refine forall_congr' (fun j => imp_congr Iff.rfl ?_)
+  rw [reads_mapAnn, ← Finset.map_inter, Finset.map_nonempty]
+
+/-- The annotation of a transported occurrence is the pushed one. -/
+@[simp] theorem anns_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (i : Fin e.occs.length) :
+    (e.mapAnn h).anns (finCongr (length_map_occs h e) i) = h (e.anns i) := by
+  show ((e.mapAnn h).occs.get (finCongr (length_map_occs h e) i)).snd.fst
+    = h ((e.occs.get i).snd.fst)
+  have h1 : ((e.mapAnn h).occs.get (finCongr (length_map_occs h e) i)).snd.fst
+      = h ((e.occs.get i).snd.fst) := by
+    simp only [occs_mapAnn, List.get_eq_getElem, List.getElem_map]
+    rfl
+  exact h1
+
 @[simp] theorem collapse_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
     (e.mapAnn h).collapse = e.collapse := by
   unfold collapse

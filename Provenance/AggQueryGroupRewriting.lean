@@ -242,10 +242,10 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
     | nest a =>
       show (NestedValue.liftComposite a.agg) _ = Sum.inl (a.agg _)
       rw [Multiset.map_map,
-        show ((fun o : AggValue (T ⊕ K) K × K => o.1.collapse)
-            ∘ fun o : AggValue T K × K => (o.1.toComposite, o.2))
-          = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggValue T K × K => o.1.collapse)
-          from funext (fun o => AggValue.collapse_toComposite o.1),
+        show ((fun o : AggExpr (T ⊕ K) K × K => o.1.collapse)
+            ∘ fun o : AggExpr T K × K => (o.1.toComposite, o.2))
+          = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggExpr T K × K => o.1.collapse)
+          from funext (fun o => AggExpr.collapse_toComposite o.1),
         ← Multiset.map_map]
       exact NestedValue.liftComposite_map_inl a.agg
         (a.occs.map (fun o => o.1.collapse))

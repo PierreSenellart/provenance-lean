@@ -358,7 +358,8 @@ proven engine several general results reuse internally.
   column. Its occurrences are those of its own family together with
   those of the inner values, which an `AggValue` cannot hold – its
   reading consults its own list alone – so `NestedValue` carries the
-  inner aggregate value per outer occurrence and a `World` chooses both
+  inner reading per outer occurrence, an aggregate *expression* since a
+  term over several aggregate columns is one, and a `World` chooses both
   which outer occurrences are present and which occurrences of each
   inner value are. Both are **bags**: `≼` orders plain tuples, and an
   occurrence of a nested value carries a tuple with an aggregate column,
@@ -451,9 +452,9 @@ proven engine several general results reuse internally.
   read in the scalar convention), **second-level aggregation**
   (`GammaNest`: the term aggregated reads an aggregate column, so the
   column built is a *nested* token whose occurrences are the group's rows
-  as a bag – `Provenance.NestedExample` writes it and `noGammaNest` is
-  what the results still proved only for an ordinary or an expression
-  column exclude it with), the
+  as a bag, each carrying the aggregate *expression* read there –
+  `Provenance.NestedExample` writes it, and `noGammaNest` is what the
+  results it still owes exclude it with), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by

@@ -114,18 +114,20 @@ abbrev GenValue (T K : Type) := T ⊕ AggTok T K
 def GenValue.collapse : GenValue T K → T :=
   Sum.elim id AggTok.collapse
 
-/-- **How a lifted value is read as the inner value of a nested
-aggregation**: an ordinary token is that inner value itself, and a
-regular value is an inner value that reads no occurrence and returns it
+/-- **How a lifted value is read as the inner reading of a nested
+aggregation**: an aggregate expression is itself – a term over several
+aggregate columns is one, and `sec:aggcols` reads it as such – an
+ordinary token is the expression of itself (`AggExpr.ofValue`), and a
+regular value reads no occurrence and returns itself
 (`NestedValue.constInner`), so that aggregating a regular column nests
-nothing. A nested token or an expression is read through its collapse –
-the total modeling semantics `GammaTok` is given too, the faithful case
-being the one `sec:aggcols` describes. -/
-def GenValue.innerValue : GenValue T K → AggValue T K
+nothing. A *nested* column is read through its collapse: a second level
+of nesting is what resolution takes innermost first, and this is the
+total modeling semantics `GammaTok` is given too. -/
+def GenValue.innerValue : GenValue T K → AggExpr T K
   | Sum.inl v => NestedValue.constInner v
-  | Sum.inr (AggTok.tok a) => a
+  | Sum.inr (AggTok.tok a) => AggExpr.ofValue a
   | Sum.inr (AggTok.nest a) => NestedValue.constInner a.collapse
-  | Sum.inr (AggTok.expr e) => NestedValue.constInner e.collapse
+  | Sum.inr (AggTok.expr e) => e
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -134,8 +136,18 @@ deterministic reading does not see the nesting. -/
 @[simp] theorem NestedValue.collapse_innerValue (x : GenValue T K) :
     (GenValue.innerValue x).collapse = AggValue.collapseSum x := by
   cases x with
-  | inl v => rfl
-  | inr x => cases x <;> rfl
+  | inl v =>
+    show (NestedValue.constInner v).collapse = v
+    rw [NestedValue.constInner, AggExpr.collapse_ofValue]
+    rfl
+  | inr x =>
+    cases x with
+    | tok a => exact AggExpr.collapse_ofValue a
+    | nest b =>
+      show (NestedValue.constInner b.collapse).collapse = b.collapse
+      rw [NestedValue.constInner, AggExpr.collapse_ofValue]
+      rfl
+    | expr e => rfl
 
 /-- The factored annotation of a row of the general evaluator: the
 concrete part `base`, and one pending group-existence factor per
@@ -1152,7 +1164,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     ((rows.map key).dedup).map (fun g =>
       -- the group's rows, as a bag: they carry tokens, which nothing
       -- orders, and the outer aggregate asks for no order
-      let U : Multiset (AggValue T K × K) :=
+      let U : Multiset (AggExpr T K × K) :=
         (rows.filter (fun row => key row = g)).map
           (fun row => (GenValue.innerValue (p.eval row.fst γ),
             row.snd.finalize))

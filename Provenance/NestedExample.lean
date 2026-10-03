@@ -154,7 +154,7 @@ annotation)` – the counts `2` and `1`, each annotated `1`. -/
 #eval (outerNest.evaluate dN).map (fun r =>
   match r.fst 0 with
   | Sum.inr (AggTok.nest a) =>
-    a.occs.map (fun o : AggValue ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
+    a.occs.map (fun o : AggExpr ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
   | _ => 0)
 
 /-! **Its deterministic reading is `3`** – and not the `4` the
