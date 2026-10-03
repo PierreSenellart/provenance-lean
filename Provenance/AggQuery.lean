@@ -2114,18 +2114,36 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q keeps => (∀ l, keeps l = none) ∧ q.noFilter
 
 /-- **No second-level aggregation.** `GammaNest` is the one operator of
-the syntax that builds a *nested* token. What a nested token owes is
-proved – the congruence-free readings, the pushforward
-(`NestedValue.predProvWith_mapAnn`), the guard absorption and the
-random-world reading (`NestedValue.predProvWith_eval_iff`) – but what the
-*operator* owes is not: the hom commutation needs a congruence relating
-two nested values whose occurrences only *read* the same (the two sides'
-groups are equal as bags of occurrences, not of annotations), and the
-random-world commutation needs its token's realized reading to agree
-with the plain aggregate over the realized rows. Until those are proved
-the results that induct over the syntax exclude it with this, as they
-exclude `GammaTok` with `AggQueryIn.noGammaTok`. The evaluators and the
-kind conformance cover it and ask nothing. -/
+the syntax that builds a *nested* token, and this is what the hom
+commutation (`AggQueryIn.evaluate_hom_rel`,
+`AggQueryIn.evaluateAnnotated_hom`) excludes. Everything else covers it:
+the evaluators and the kind conformance ask nothing, the data-part
+adequacy, the guardedness and the rewritten world's plain reading are
+proved, and the random world and the PQE results ask only
+`AggQueryIn.nestOnce`.
+
+**What the hom would need, and why `GenValue.Equiv` cannot give it.** A
+nested world's weight is not a function of the four readings its
+occurrences' inner values carry. `NestedValue.World.ann` is
+`presentProd ⊗ (𝟙 ⊖ absentSum)` with the monus taken *once, globally*:
+`absentSum` adds the absent outer annotations and, for every occurrence,
+`Σ_{j ∉ sub} anns j` of its inner family. `AggExpr.predProvWith` instead
+bundles a monus *per inner world*, `∏_{j∈S} anns ⊗ (𝟙 ⊖ Σ_{j∉S} anns)`,
+and the bundle does not recover the pair. So what the nested reading asks
+of an occurrence is, per subfamily `S` of its inner family, the triple
+`(∏_{j∈S} anns j, Σ_{j∉S} anns j, valOn S)` – data about positions, which
+the four readings do not determine. The coherent answer to the open
+question changes nothing here: an absent occurrence then contributes
+`Σ_j anns j`, which is no more one of the four readings.
+
+What the hom has at hand is stronger and would suffice: the two sides'
+inner families differ by a tie-block permutation with the annotations
+pushed forward – what every operator's aggregate column gives
+(`GenValue.Equiv.of_expr_tiePerm`) – and a tie-block permutation
+preserves that triple, being a bijection of positions carrying equal
+values. Closing the fence means carrying the statistic, or the
+permutation, in `GenRow.Sim`, which is a change to what the whole hom
+layer reads. -/
 def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
