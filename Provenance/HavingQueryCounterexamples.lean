@@ -673,7 +673,6 @@ def natOrExpr : AggExpr ℕ ℕ where
   aggs := ![SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false]
   g := fun v => if 1 ≤ v 0 ∨ 1 ≤ v 1 then 1 else 0
-  covered := by decide
 
 /-- **The joint reading of the disjunction is `𝟙`**: its one world meets
 both families and carries `𝟙 ⊗ 𝟙`. -/
@@ -695,7 +694,6 @@ def natCaseExpr : AggExpr ℕ ℕ where
   aggs := ![SeqAggFunc.count, SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false, false]
   g := fun v => if 1 ≤ v 0 then v 1 else v 2
-  covered := by decide
 
 /-- **The joint reading of the conditional is `2`**: its one world meets
 all three families, `e` among them, though the branch that fires never

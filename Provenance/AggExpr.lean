@@ -27,7 +27,16 @@ not a function of their values separately.
 An occurrence family is shared, so it is stored once: `occs` lists, per
 occurrence, the value *every* leaf reads there and the occurrence's
 annotation, and `reads` says which occurrences each leaf reads. That is
-`V` with its `U_j`, and `covered` says `occs` is no larger than `V`.
+`V` with its `U_j`.
+
+Nothing asks that every occurrence be read by some leaf, and nothing may:
+a `FILTER` clause cuts what a leaf *reads* and never the family, because
+a filtered-out occurrence still witnesses its group – it belongs to `V`
+and counts in `β`, so that `δ(β)` is the group's existence and not the
+filtered subgroup's. An occurrence every leaf filters out is therefore a
+legitimate member of `V`, and `count(*) FILTER (WHERE false)` over a
+non-empty group returning a row with `0` is what asking otherwise would
+break.
 
 `AggExpr.ofValue` embeds a token as the expression of itself, and
 `AggExpr.predProv_ofValue` says the embedding changes no reading: the
@@ -59,9 +68,6 @@ structure AggExpr (T K : Type) where
   scalar : Fin arity → Bool
   /-- The function the term computes. -/
   g : (Fin arity → T) → T
-  /-- `occs` is the union of the `U_j` and no larger: every occurrence is
-  read by some leaf. -/
-  covered : ∀ i, ∃ j, (occs.get i).snd.snd j = true
 
 namespace AggExpr
 
@@ -234,12 +240,10 @@ theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (hlen : occs₁.length = occs₂.length) (l : Fin q)
     (W : Finset (Fin occs₁.length)) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).leafSeq l W
-      = (AggExpr.mk q occs₂ aggs sc g cov₂).leafSeq l
+    (AggExpr.mk q occs₁ aggs sc g).leafSeq l W
+      = (AggExpr.mk q occs₂ aggs sc g).leafSeq l
         (W.map (finCongr hlen).toEmbedding) := by
   have h₁ : occs₁.length
       = (occs₁.map (fun z => (z.fst, z.snd.snd))).length :=
@@ -287,12 +291,10 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (hlen : occs₁.length = occs₂.length)
     (W : Finset (Fin occs₁.length)) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).IsWorld W
-      ↔ (AggExpr.mk q occs₂ aggs sc g cov₂).IsWorld
+    (AggExpr.mk q occs₁ aggs sc g).IsWorld W
+      ↔ (AggExpr.mk q occs₂ aggs sc g).IsWorld
         (W.map (finCongr hlen).toEmbedding) := by
   have hflag : ∀ (i : Fin occs₁.length) (l : Fin q),
       (occs₁.get i).snd.snd l = (occs₂.get (Fin.cast hlen i)).snd.snd l := by
@@ -329,22 +331,20 @@ theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd))) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).collapse
-      = (AggExpr.mk q occs₂ aggs sc g cov₂).collapse := by
+    (AggExpr.mk q occs₁ aggs sc g).collapse
+      = (AggExpr.mk q occs₂ aggs sc g).collapse := by
   have hlen : occs₁.length = occs₂.length := by
     have hc := congrArg List.length hstrip
     simpa only [List.length_map] using hc
-  show (AggExpr.mk q occs₁ aggs sc g cov₁).valOn Finset.univ
-    = (AggExpr.mk q occs₂ aggs sc g cov₂).valOn Finset.univ
+  show (AggExpr.mk q occs₁ aggs sc g).valOn Finset.univ
+    = (AggExpr.mk q occs₂ aggs sc g).valOn Finset.univ
   rw [show (Finset.univ : Finset (Fin occs₂.length))
       = (Finset.univ : Finset (Fin occs₁.length)).map
         (finCongr hlen).toEmbedding from (Finset.map_univ_equiv _).symm]
   exact congrArg g (funext (fun l => congrArg (aggs l)
-    (leafSeq_of_strip hstrip aggs sc g cov₁ cov₂ hlen l Finset.univ)))
+    (leafSeq_of_strip hstrip aggs sc g hlen l Finset.univ)))
 
 /-- **`Val(e)` depends only on the values and the leaf flags**, so two
 families that differ by a tie-block permutation – occurrences carrying
@@ -354,21 +354,19 @@ theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
     {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
     {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd))) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).vals
-      = (AggExpr.mk q occs₂ aggs sc g cov₂).vals := by
+    (AggExpr.mk q occs₁ aggs sc g).vals
+      = (AggExpr.mk q occs₂ aggs sc g).vals := by
   have hlen : occs₁.length = occs₂.length := by
     have hc := congrArg List.length hstrip
     simpa only [List.length_map] using hc
   have hval : ∀ W : Finset (Fin occs₁.length),
-      (AggExpr.mk q occs₁ aggs sc g cov₁).valOn W
-        = (AggExpr.mk q occs₂ aggs sc g cov₂).valOn
+      (AggExpr.mk q occs₁ aggs sc g).valOn W
+        = (AggExpr.mk q occs₂ aggs sc g).valOn
           (W.map (finCongr hlen).toEmbedding) :=
     fun W => congrArg g (funext (fun l => congrArg (aggs l)
-      (leafSeq_of_strip hstrip aggs sc g cov₁ cov₂ hlen l W)))
+      (leafSeq_of_strip hstrip aggs sc g hlen l W)))
   have hback : ∀ W' : Finset (Fin occs₂.length),
       (W'.map (finCongr hlen.symm).toEmbedding).map
           (finCongr hlen).toEmbedding = W' := by
@@ -382,24 +380,23 @@ theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
   constructor
   · rintro ⟨W, hW, rfl⟩
     exact ⟨W.map (finCongr hlen).toEmbedding,
-      (isWorld_of_strip hstrip aggs sc g cov₁ cov₂ hlen W).mp hW,
+      (isWorld_of_strip hstrip aggs sc g hlen W).mp hW,
       (hval W).symm⟩
   · rintro ⟨W', hW', rfl⟩
     refine ⟨W'.map (finCongr hlen.symm).toEmbedding, ?_, ?_⟩
-    · refine (isWorld_of_strip hstrip aggs sc g cov₁ cov₂ hlen _).mpr ?_
+    · refine (isWorld_of_strip hstrip aggs sc g hlen _).mpr ?_
       rw [hback]
       exact hW'
     · rw [hval, hback]
 
 /-- **An expression is its own fields**, so rewriting its family rewrites
-the expression: the `covered` field is a proof and travels with it. -/
+the expression. -/
 theorem eq_mk_of_occs {e : AggExpr T K}
     {occs' : List ((Fin e.arity → T) × K × (Fin e.arity → Bool))}
     (h : e.occs = occs') :
-    ∃ cov' : ∀ i, ∃ l, (occs'.get i).snd.snd l = true,
-      e = AggExpr.mk e.arity occs' e.aggs e.scalar e.g cov' := by
+    e = AggExpr.mk e.arity occs' e.aggs e.scalar e.g := by
   subst h
-  exact ⟨e.covered, rfl⟩
+  rfl
 
 /-- **Reading the expression through a function**: the term `gf(e)`,
 which is again an expression over the same family. -/
@@ -444,13 +441,6 @@ def mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) : AggExpr T K' where
   aggs := e.aggs
   scalar := e.scalar
   g := e.g
-  covered := fun i => by
-    obtain ⟨j, hj⟩ := e.covered (Fin.cast (by rw [List.length_map]) i)
-    refine ⟨j, ?_⟩
-    show ((e.occs.map (fun o => (o.fst, h o.snd.fst, o.snd.snd))).get i).snd.snd j
-      = true
-    simp only [List.get_eq_getElem, List.getElem_map]
-    exact hj
 
 /-- Mapping the annotations leaves the occurrence list's length, hence
 the index type of a world, where it was. -/
@@ -544,8 +534,7 @@ types. -/
 @[simp] theorem vals_mapAnn [DecidableEq T] {K' : Type} (h : K → K')
     (e : AggExpr T K) : (e.mapAnn h).vals = e.vals :=
   vals_congr (q := e.arity) (occs₁ := (e.mapAnn h).occs) (occs₂ := e.occs)
-    e.aggs e.scalar e.g (e.mapAnn h).covered e.covered
-    (by rw [occs_mapAnn, List.map_map]; rfl)
+    e.aggs e.scalar e.g (by rw [occs_mapAnn, List.map_map]; rfl)
 
 /-- Reading through a function and pushing the annotations forward
 commute: the one moves `g`, the other the occurrences. -/
@@ -563,10 +552,6 @@ def ofValue (a : AggValue T K) : AggExpr T K where
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => v 0
-  covered := fun i => ⟨0, by
-    show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
-      (fun _ : Fin 1 => true)))).get i).snd.snd 0 = true
-    simp only [List.get_eq_getElem, List.getElem_map]⟩
 
 @[simp] theorem arity_ofValue (a : AggValue T K) : (ofValue a).arity = 1 := rfl
 
@@ -801,8 +786,6 @@ def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => gf (v (0 : Fin 1))
-  covered := fun i => ⟨0, by
-    simp only [List.get_eq_getElem, List.getElem_map]⟩
 
 /-- **Post-composing the aggregate is the unary expression**: the two
 read the same value in each world. -/

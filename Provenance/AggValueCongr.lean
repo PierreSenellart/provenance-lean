@@ -984,13 +984,11 @@ occurrences that different leaves read would hand a leaf a value it does
 not read. -/
 theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂)
     (P : T → Kleene) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).predProvWith P
-      = (AggExpr.mk q occs₂ aggs sc g cov₂).predProvWith P := by
+    (AggExpr.mk q occs₁ aggs sc g).predProvWith P
+      = (AggExpr.mk q occs₂ aggs sc g).predProvWith P := by
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
 
@@ -1002,25 +1000,23 @@ an aggregate column owes, so this is the bundle a simulation of two
 expression columns asks for. -/
 theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
-    (AggExpr.mk q occs₁ aggs sc g cov₁).collapse
-        = (AggExpr.mk q occs₂ aggs sc g cov₂).collapse
-      ∧ (AggExpr.mk q occs₁ aggs sc g cov₁).isScalar
-        = (AggExpr.mk q occs₂ aggs sc g cov₂).isScalar
-      ∧ (AggExpr.mk q occs₁ aggs sc g cov₁).vals
-        = (AggExpr.mk q occs₂ aggs sc g cov₂).vals
+    (AggExpr.mk q occs₁ aggs sc g).collapse
+        = (AggExpr.mk q occs₂ aggs sc g).collapse
+      ∧ (AggExpr.mk q occs₁ aggs sc g).isScalar
+        = (AggExpr.mk q occs₂ aggs sc g).isScalar
+      ∧ (AggExpr.mk q occs₁ aggs sc g).vals
+        = (AggExpr.mk q occs₂ aggs sc g).vals
       ∧ ∀ P : T → Kleene,
-        (AggExpr.mk q occs₁ aggs sc g cov₁).predProvWith P
-          = (AggExpr.mk q occs₂ aggs sc g cov₂).predProvWith P := by
+        (AggExpr.mk q occs₁ aggs sc g).predProvWith P
+          = (AggExpr.mk q occs₂ aggs sc g).predProvWith P := by
   have hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)) :=
     TiePerm.map_eq_of_eqv (fun hz => Prod.ext_iff.mpr ⟨hz.1, hz.2⟩) h
-  exact ⟨collapse_of_strip aggs sc g cov₁ cov₂ hstrip, rfl,
-    vals_congr aggs sc g cov₁ cov₂ hstrip,
-    fun P => predProvWith_congr aggs sc g cov₁ cov₂ h P⟩
+  exact ⟨collapse_of_strip aggs sc g hstrip, rfl,
+    vals_congr aggs sc g hstrip,
+    fun P => predProvWith_congr aggs sc g h P⟩
 
 omit [ValueType T] [DecidableEq K] in
 /-- **The walk commutes with a homomorphism.** Every step is a sum, a

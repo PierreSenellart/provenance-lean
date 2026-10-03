@@ -1228,15 +1228,13 @@ theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
     (g : (Fin q → T) → T)
-    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
-    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
     GenValue.Equiv
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g cov₁)) : GenValue T K)
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g cov₂))) := by
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g)) : GenValue T K)
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g))) := by
   subst hsc
-  exact AggExpr.readings_congr aggs sc₁ g cov₁ cov₂ h
+  exact AggExpr.readings_congr aggs sc₁ g h
 
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
@@ -1968,10 +1966,8 @@ theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
     rw [ValueFrame.occs_exprOf P O o hcs ts fs g r i γ, hLb]
     simp only [List.map_map]
     rfl
-  obtain ⟨cov₁, hE'⟩ := AggExpr.eq_mk_of_occs hocc'
-  obtain ⟨cov₂, hEb⟩ := AggExpr.eq_mk_of_occs hoccb
-  rw [hE', hEb]
-  refine GenValue.Equiv.of_expr_tiePerm (q := qq) fs ?_ g cov₁ cov₂
+  rw [AggExpr.eq_mk_of_occs hocc', AggExpr.eq_mk_of_occs hoccb]
+  refine GenValue.Equiv.of_expr_tiePerm (q := qq) fs ?_ g
     (htp.map _ (fun hab => ⟨by rw [hab], by rw [hab]⟩))
   funext l
   show (!(ws l).s (Tuple.key O (r'.row i').fst))

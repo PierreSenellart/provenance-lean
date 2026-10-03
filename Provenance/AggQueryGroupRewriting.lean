@@ -120,11 +120,6 @@ def AggExpr.toComposite (a : AggExpr T K) : AggExpr (T ⊕ K) K where
   aggs := fun j => (a.aggs j).liftComposite
   scalar := a.scalar
   g := AggExprFun.liftComposite a.g
-  covered := fun i => by
-    obtain ⟨j, hj⟩ := a.covered ((finCongr a.length_inl_occs).symm i)
-    refine ⟨j, ?_⟩
-    simp only [List.get_eq_getElem, List.getElem_map]
-    exact hj
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Each leaf reads the embedding of the sequence it read. -/

@@ -1342,14 +1342,6 @@ def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   aggs := fs
   scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
   g := g
-  covered := fun x => by
-    obtain ⟨l, hl⟩ := (mem_unionFrame (α := AnnotatedTuple T K n) Prod.fst
-      P O ws r i _).mp
-      (mem_exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i
-        (List.get_mem _ _))
-    refine ⟨l, ?_⟩
-    simp only [List.get_eq_getElem, List.getElem_map]
-    exact hl
 
 /-- The same, reading each leaf's value off its term: what the operator
 builds. Separating the values from the terms is what lets a lemma vary
