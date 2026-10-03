@@ -152,18 +152,22 @@ theorem classSum_map [ValueType T] [AddCommMonoid K] {K'' : Type}
   refine congrArg List.sum (List.map_congr_left (fun p _ => ?_))
   by_cases hp : p.1 = v <;> simp [hp, hg0]
 
-/-- **A token read over its distinct values**: one occurrence per class
-of equal values, carrying the `⊕` of the class's annotations, the
-classes read in the order the domain gives their values. This is what a
-`DISTINCT` window aggregate reads, and the order being a function of the
-values is what makes it a reading rather than a choice – so nothing is
-asked of the aggregate, and in particular not symmetry. -/
+/-- **An occurrence payload read over its distinct values**: one
+occurrence per class of equal values, carrying the `⊕` of the class's
+annotations, the classes read in the order the domain gives their values.
+This is what a `DISTINCT` window aggregate reads, and the order being a
+function of the values is what makes it a reading rather than a choice –
+so nothing is asked of the aggregate, and in particular not symmetry. -/
+def mergeOccs [ValueType T] [AddCommMonoid K] (l : List (T × K)) :
+    List (T × K) :=
+  (Multiset.sort ((l.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
+    (fun v => (v, classSum l v))
+
+/-- The same on a token: the payload merged, the aggregate and the
+convention its own. -/
 def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
     AggValue T K :=
-  ⟨a.agg,
-    (Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
-      (fun v => (v, classSum a.occs v)),
-    a.scalar⟩
+  ⟨a.agg, mergeOccs a.occs, a.scalar⟩
 
 @[simp] theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) : (mergeByValue a).agg = a.agg := rfl
@@ -175,7 +179,7 @@ def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
     (a : AggValue T K) :
     (mergeByValue a).occs.map Prod.fst
       = Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·) := by
-  unfold mergeByValue
+  unfold mergeByValue mergeOccs
   rw [List.map_map]
   exact List.map_id' _
 

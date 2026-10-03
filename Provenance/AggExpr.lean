@@ -888,6 +888,139 @@ def ofSeqWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
   scalar := fun _ => sc
   g := fun v => v 0
 
+/-- **A filtered `DISTINCT` aggregate of an occurrence sequence.** The
+occurrences the clause keeps are merged by value – one occurrence per
+class, carrying the `⊕` of its members, the classes in the domain's
+order, which is what `AggValue.mergeOccs` does and what a `DISTINCT`
+aggregate *is* (a deduplication annotating each distinct value by the
+`⊕` of its occurrences) – and read. Each rejected occurrence stays as its
+own occurrence, unmerged and unread.
+
+Both halves are forced. A rejected occurrence must not join a kept class
+even where the values agree, since joining it would make it read; and it
+must stay in the family, because the family is what holds the worlds. -/
+def ofSeqDistWhen [ValueType T] [AddCommMonoid K] {c m : ℕ}
+    (f : SeqAggFunc T) (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (U : List (AnnotatedTuple T K m)) (sc : Bool)
+    (γ : Fin c → T := fun _ => 0) : AggExpr T K where
+  arity := 1
+  occs :=
+    (AggValue.mergeOccs ((U.filter (fun p => keep p.fst)).map
+        (fun p => (t.eval p.fst γ, p.snd)))).map
+      (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
+    ++ (U.filter (fun p => !keep p.fst)).map
+      (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => false)))
+  aggs := fun _ => f
+  scalar := fun _ => sc
+  g := fun v => v 0
+
+section OfSeqDistWhen
+
+variable [ValueType T] [AddCommMonoid K] {c m : ℕ} (f : SeqAggFunc T)
+  (t : TermIn T c m) (keep : Tuple T m → Bool)
+  (U : List (AnnotatedTuple T K m)) (sc : Bool) (γ : Fin c → T)
+
+@[simp] theorem arity_ofSeqDistWhen :
+    (ofSeqDistWhen f t keep U sc γ).arity = 1 := rfl
+
+@[simp] theorem scalar_ofSeqDistWhen
+    (j : Fin (ofSeqDistWhen f t keep U sc γ).arity) :
+    (ofSeqDistWhen f t keep U sc γ).scalar j = sc := rfl
+
+/-- The payload the leaf reads: the kept occurrences merged by value. -/
+def distPayload : List (T × K) :=
+  AggValue.mergeOccs ((U.filter (fun p => keep p.fst)).map
+    (fun p => (t.eval p.fst γ, p.snd)))
+
+@[simp] theorem occs_ofSeqDistWhen :
+    (ofSeqDistWhen f t keep U sc γ).occs
+      = (distPayload t keep U γ).map
+          (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
+            (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
+        ++ (U.filter (fun p => !keep p.fst)).map
+          (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+            (fun _ : Fin 1 => true), (fun _ : Fin 1 => false))) := rfl
+
+/-- **What the leaf reads in a world**: the merged classes the world
+holds, and nothing of the rejected occurrences – they are in the family,
+which is what holds the worlds, and out of the reading. -/
+theorem leafSeq_ofSeqDistWhen_eq
+    {W : Finset (Fin (ofSeqDistWhen f t keep U sc γ).occs.length)}
+    {M R : List ((Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool))}
+    (hM : ∀ z ∈ M, z.snd.snd = ((fun _ => true), (fun _ => true)))
+    (hR : ∀ z ∈ R, z.snd.snd = ((fun _ => true), (fun _ => false)))
+    (hW : Having.seqOf (ofSeqDistWhen f t keep U sc γ).occs W = M ++ R) :
+    (ofSeqDistWhen f t keep U sc γ).leafSeq ⟨0, by simp⟩ W
+      = M.map (fun z => z.fst ⟨0, by simp⟩) := by
+  rw [leafSeq_eq_filter, hW, List.filter_append,
+    List.filter_eq_self.mpr (fun z hz => by rw [hM z hz]; rfl),
+    List.filter_eq_nil_iff.mpr (fun z hz => by rw [hR z hz]; simp),
+    List.append_nil]
+  rfl
+
+/-- **The deterministic reading of a filtered `DISTINCT` aggregate**: the
+aggregate over the distinct values of the rows the clause keeps, which is
+`SeqAggFunc.distinct` of them. -/
+theorem collapse_ofSeqDistWhen :
+    (ofSeqDistWhen f t keep U sc γ).collapse
+      = f.distinct (((U.map Prod.fst).filter keep).map
+          (fun u => t.eval u γ)) := by
+  have hleaf := leafSeq_ofSeqDistWhen_eq f t keep U sc γ
+    (W := Finset.univ)
+    (M := (distPayload t keep U γ).map
+      (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => true))))
+    (R := (U.filter (fun p => !keep p.fst)).map
+      (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => false))))
+    (fun z hz => by obtain ⟨y, -, rfl⟩ := List.mem_map.mp hz; rfl)
+    (fun z hz => by obtain ⟨y, -, rfl⟩ := List.mem_map.mp hz; rfl)
+    (by rw [Having.seqOf_univ, occs_ofSeqDistWhen])
+  show f ((ofSeqDistWhen f t keep U sc γ).leafSeq ⟨0, by simp⟩ Finset.univ) = _
+  rw [hleaf, List.map_map]
+  show f ((distPayload t keep U γ).map Prod.fst) = _
+  unfold distPayload SeqAggFunc.distinct AggValue.mergeOccs
+  simp only [List.map_map, List.filter_map, Function.comp_def, List.map_id_fun']
+  rfl
+
+/-- **What the leaf reads in the world a valuation realizes**: the merged
+classes whose annotation it keeps. The rejected occurrences it keeps are
+in the world and out of the reading. -/
+theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
+    (ofSeqDistWhen f t keep U sc γ).leafSeq ⟨0, by simp⟩
+        ((ofSeqDistWhen f t keep U sc γ).realizedWorld ν)
+      = ((distPayload t keep U γ).filter
+          (fun z : T × K => ν z.snd)).map Prod.fst := by
+  have hseq : Having.seqOf (ofSeqDistWhen f t keep U sc γ).occs
+        ((ofSeqDistWhen f t keep U sc γ).realizedWorld ν)
+      = (ofSeqDistWhen f t keep U sc γ).occs.filter (fun z => ν z.snd.fst) := by
+    unfold realizedWorld
+    exact Having.seqOf_filter_positions
+      (fun z : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => ν z.snd.fst) _
+  have hleaf := leafSeq_ofSeqDistWhen_eq f t keep U sc γ
+    (W := (ofSeqDistWhen f t keep U sc γ).realizedWorld ν)
+    (M := ((distPayload t keep U γ).map
+      (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))).filter
+      (fun z : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => ν z.snd.fst))
+    (R := ((U.filter (fun p => !keep p.fst)).map
+      (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => false)))).filter
+      (fun z : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => ν z.snd.fst))
+    (fun z hz => by
+      obtain ⟨y, -, rfl⟩ := List.mem_map.mp (List.mem_of_mem_filter hz)
+      rfl)
+    (fun z hz => by
+      obtain ⟨y, -, rfl⟩ := List.mem_map.mp (List.mem_of_mem_filter hz)
+      rfl)
+    (by rw [hseq, occs_ofSeqDistWhen, List.filter_append]; rfl)
+  rw [hleaf, List.filter_map, List.map_map]
+  rfl
+
+end OfSeqDistWhen
+
 /-- A filtered aggregate of a *group* is the grouped convention of it:
 the worlds are the group's non-empty subfamilies. A frame that may
 exclude the row it is computed for takes the scalar one, as it does with

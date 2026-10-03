@@ -533,15 +533,22 @@ omit [DecidableEq K] in
 reads the classes and their sums, and exchanging two adjacent
 occurrences of equal value changes neither. This is what lets the merged
 token inherit every congruence the unmerged one has. -/
+theorem mergeOccs_congr {l l' : List (T × K)}
+    (h : TiePerm (fun p q : T × K => p.1 = q.1) l l') :
+    mergeOccs l = mergeOccs l' := by
+  unfold mergeOccs
+  rw [h.map_fst_eq]
+  exact List.map_congr_left (fun v _ => Prod.ext rfl (classSum_perm h.perm v))
+
+omit [DecidableEq K] in
+/-- The same on a token, whose aggregate and convention are its own. -/
 theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
     (hsc : a.scalar = b.scalar)
     (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
     mergeByValue a = mergeByValue b := by
   unfold mergeByValue
   simp only [AggValue.mk.injEq]
-  refine ⟨hagg, ?_, hsc⟩
-  rw [h.map_fst_eq]
-  exact List.map_congr_left (fun v _ => Prod.ext rfl (classSum_perm h.perm v))
+  exact ⟨hagg, mergeOccs_congr h, hsc⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
