@@ -650,6 +650,74 @@ def subStats [CommSemiringWithMonus K] :
         + ((subStats L).map (fun z => (z.fst, o.snd.fst + z.snd.fst,
             z.snd.snd))) := rfl
 
+/-- **The value an expression takes on a selected subfamily, read off the
+selection alone**: each leaf aggregates what it reads among the selected
+occurrences. -/
+def valOfSel (e : AggExpr T K) (sel : List ((Fin e.arity → T) × (Fin e.arity → Bool) × (Fin e.arity → Bool))) : T :=
+  e.g (fun j => e.aggs j
+    ((sel.filter (fun z => z.snd.fst j && z.snd.snd j)).map (fun z => z.fst j)))
+
+/-- **Whether a selected subfamily is a world, read off the selection
+alone**: every grouped leaf has an occurrence of its group among the
+selected. -/
+def isWorldOfSel (e : AggExpr T K) (sel : List ((Fin e.arity → T) × (Fin e.arity → Bool) × (Fin e.arity → Bool))) : Bool :=
+  decide (∀ j, e.scalar j = false → ∃ z ∈ sel, z.snd.fst j = true)
+
+/-- The value in a world is read off what the world selects. -/
+theorem valOn_eq_valOfSel (e : AggExpr T K)
+    (W : Finset (Fin e.occs.length)) :
+    e.valOn W = e.valOfSel ((Having.seqOf e.occs W).map strip) := by
+  unfold valOn valOfSel leafVal
+  refine congrArg e.g (funext (fun j => congrArg (e.aggs j) ?_))
+  rw [leafSeq_eq_filter, List.filter_map, List.map_map]
+  rfl
+
+/-- And so is whether it is a world. -/
+theorem isWorld_eq_isWorldOfSel (e : AggExpr T K)
+    (W : Finset (Fin e.occs.length)) :
+    decide (e.IsWorld W) = e.isWorldOfSel ((Having.seqOf e.occs W).map strip) := by
+  unfold isWorldOfSel
+  refine decide_eq_decide.mpr (forall_congr' (fun j => imp_congr Iff.rfl ?_))
+  constructor
+  · rintro ⟨i, hi⟩
+    obtain ⟨hiW, hif⟩ := Finset.mem_inter.mp hi
+    exact ⟨strip (e.occs.get i),
+      List.mem_map.mpr ⟨e.occs.get i,
+        (Having.mem_seqOf e.occs W _).mpr ⟨i, hiW, rfl⟩, rfl⟩,
+      (mem_inFrame e j i).mp hif⟩
+  · rintro ⟨z, hz, hzf⟩
+    obtain ⟨o, ho, rfl⟩ := List.mem_map.mp hz
+    obtain ⟨i, hiW, rfl⟩ := (Having.mem_seqOf e.occs W o).mp ho
+    exact ⟨i, Finset.mem_inter.mpr ⟨hiW, (mem_inFrame e j i).mpr hzf⟩⟩
+
+/-- **What a nested value reads of an occurrence**: over every subfamily,
+the product of the annotations kept, the sum of those left out, the value
+the expression takes there and whether it is a world. The arity does not
+appear in the type, so two aggregate columns can be compared by it – which
+is what `GenValue.Equiv` needs for a column a nested value reads, since a
+nested world's weight is this and not the four readings
+(`NestedValue.World.ann_split`). -/
+def worldStats [CommSemiringWithMonus K] (e : AggExpr T K) :
+    Multiset (K × K × T × Bool) :=
+  (Finset.univ : Finset (Finset (Fin e.occs.length))).val.map
+    (fun S => (∏ j ∈ S, e.anns j, ∑ j ∈ Sᶜ, e.anns j, e.valOn S,
+      decide (e.IsWorld S)))
+
+/-- **Reading the expression through a function moves the value and
+nothing else**: the family, the annotations and the worlds are the ones it
+had, so a term over an aggregate column carries the statistics. -/
+@[simp] theorem worldStats_postcomp [CommSemiringWithMonus K] (gf : T → T)
+    (e : AggExpr T K) :
+    (e.postcomp gf).worldStats
+      = e.worldStats.map (fun z =>
+        (z.fst, z.snd.fst, gf z.snd.snd.fst, z.snd.snd.snd)) := by
+  unfold worldStats
+  rw [Multiset.map_map]
+  refine Multiset.map_congr rfl (fun S _ => ?_)
+  show (_, _, (e.postcomp gf).valOn S, decide ((e.postcomp gf).IsWorld S)) = _
+  rw [valOn_postcomp]
+  rfl
+
 end SubStats
 
 /-! ## A token is the expression of itself -/

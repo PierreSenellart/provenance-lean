@@ -1043,7 +1043,8 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
   | Sum.inr (AggTok.expr e'), Sum.inr (AggTok.expr e) =>
       e'.collapse = e.collapse ∧ e'.isScalar = e.isScalar
         ∧ e'.vals = e.vals
-        ∧ ∀ P : T → Kleene, e'.predProvWith P = e.predProvWith P
+        ∧ (∀ P : T → Kleene, e'.predProvWith P = e.predProvWith P)
+        ∧ e'.worldStats = e.worldStats
   | _, _ => False
 
 /-- A regular value is equivalent to no token. -/
@@ -1162,7 +1163,7 @@ theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
     | expr e => exact absurd h not_false
   | expr e' =>
     cases x with
-    | expr e => exact h.2.2.2 P
+    | expr e => exact h.2.2.2.1 P
     | tok a => exact absurd h not_false
     | nest a => exact absurd h not_false
 
@@ -1191,7 +1192,8 @@ theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
       (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g)) : GenValue T K)
       (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g))) := by
   subst hsc
-  exact AggExpr.readings_congr aggs sc₁ g h
+  obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr aggs sc₁ g h
+  exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr aggs sc₁ g h⟩
 
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
@@ -1219,10 +1221,12 @@ theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
   | expr e' =>
     cases x with
     | expr e =>
-      refine ⟨congrArg gf h.1, h.2.1, ?_, fun P => ?_⟩
+      refine ⟨congrArg gf h.1, h.2.1, ?_, (fun P => ?_), ?_⟩
       · rw [AggExpr.vals_postcomp, AggExpr.vals_postcomp, h.2.2.1]
       · rw [AggExpr.predProvWith_postcomp, AggExpr.predProvWith_postcomp,
-          h.2.2.2]
+          h.2.2.2.1]
+      · rw [AggExpr.worldStats_postcomp, AggExpr.worldStats_postcomp,
+          h.2.2.2.2]
     | tok a => exact absurd h not_false
     | nest a => exact absurd h not_false
 

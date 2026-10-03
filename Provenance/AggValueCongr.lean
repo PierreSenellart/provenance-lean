@@ -1217,6 +1217,37 @@ theorem subStats_congr {q : ℕ}
       exact add_add_add_comm _ _ _ _
   | trans _ _ ih₁ ih₂ => rw [ih₁, ih₂]
 
+omit [ValueType T] [DecidableEq K] in
+/-- **The statistics, read through the recursion over the family.** This
+is what carries them across a tie-block permutation
+(`AggExpr.worldStats_congr`). -/
+theorem worldStats_eq_subStats (e : AggExpr T K) :
+    e.worldStats = (subStats e.occs).map (fun z =>
+      (z.fst, z.snd.fst, e.valOfSel z.snd.snd, e.isWorldOfSel z.snd.snd)) := by
+  rw [AggExpr.subStats_eq_univ e.occs, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun S _ => ?_)
+  show (_, _, e.valOn S, decide (e.IsWorld S)) = _
+  rw [AggExpr.valOn_eq_valOfSel, AggExpr.isWorld_eq_isWorldOfSel]
+  rfl
+
+omit [ValueType T] [DecidableEq K] in
+/-- **The statistics a nested value reads are blind to a tie-block
+permutation of the family**: they are the recursion's
+(`AggExpr.worldStats_eq_subStats`), and the recursion is
+(`AggExpr.subStats_congr`). This is what an aggregate column owes a
+nested value that reads it, beside the four readings. -/
+theorem worldStats_congr {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    (AggExpr.mk q occs₁ aggs sc g).worldStats
+      = (AggExpr.mk q occs₂ aggs sc g).worldStats := by
+  rw [AggExpr.worldStats_eq_subStats, AggExpr.worldStats_eq_subStats,
+    subStats_congr h]
+  rfl
+
+
 omit [DecidableEq K] [CommSemiringWithMonus K] in
 /-- **The family of an unmerged filtered aggregate is permuted with its
 sequence**: each occurrence carries its own value, annotation and flags,
