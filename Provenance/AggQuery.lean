@@ -1865,8 +1865,7 @@ theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKin
     (q.castKind h).evaluatePlain d γ = q.evaluatePlain d γ := by
   subst h; rfl
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The token lists of a row with a single token, in its last column: the
 one token's occurrence annotations. -/
 theorem tokenLists_snoc {n : ℕ} (u : Tuple T n) (a : AggTok T K) :

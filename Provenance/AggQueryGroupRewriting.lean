@@ -171,7 +171,7 @@ transports its inner values the same way, and an expression its shared
 occurrences, its leaf aggregates and its own function. -/
 def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
   | .tok a => .tok a.toComposite
-  | .nest a => .nest ⟨a.agg.liftComposite,
+  | .nest a => .nest ⟨NestedValue.liftComposite a.agg,
       a.occs.map (fun o => (o.1.toComposite, o.2)), a.scalar⟩
   | .expr a => .expr a.toComposite
 
@@ -240,14 +240,14 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
     | tok a => exact AggValue.collapse_toComposite a
     | expr a => exact AggExpr.collapse_toComposite a
     | nest a =>
-      show (SeqAggFunc.liftComposite a.agg) _ = Sum.inl (a.agg _)
-      rw [List.map_map,
+      show (NestedValue.liftComposite a.agg) _ = Sum.inl (a.agg _)
+      rw [Multiset.map_map,
         show ((fun o : AggValue (T ⊕ K) K × K => o.1.collapse)
             ∘ fun o : AggValue T K × K => (o.1.toComposite, o.2))
           = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggValue T K × K => o.1.collapse)
           from funext (fun o => AggValue.collapse_toComposite o.1),
-        ← List.map_map]
-      exact SeqAggFunc.liftComposite_map_inl a.agg
+        ← Multiset.map_map]
+      exact NestedValue.liftComposite_map_inl a.agg
         (a.occs.map (fun o => o.1.collapse))
 
 omit [DecidableEq K] [HasAltLinearOrder K] in

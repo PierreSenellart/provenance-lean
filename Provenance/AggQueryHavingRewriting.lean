@@ -585,6 +585,23 @@ theorem SeqAggFunc.liftComposite_map_inl (f : SeqAggFunc T)
     from funext (fun x => rfl)]
   rw [List.map_id]
 
+/-- The same lift for an aggregate of a *bag* – a nested value's outer
+aggregate, which reads no sequence. -/
+def NestedValue.liftComposite (f : Multiset T → T) :
+    Multiset (T ⊕ K) → T ⊕ K :=
+  fun s => Sum.inl (f (s.map (Sum.elim id (fun _ => 0))))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The lifted bag aggregate on `inl`-embedded values. -/
+theorem NestedValue.liftComposite_map_inl (f : Multiset T → T)
+    (s : Multiset T) :
+    (NestedValue.liftComposite (K := K) f) (s.map Sum.inl) = Sum.inl (f s) := by
+  unfold NestedValue.liftComposite
+  rw [Multiset.map_map,
+    show (Sum.elim id (fun _ => (0 : T)) ∘ (Sum.inl : T → T ⊕ K)) = id
+      from funext (fun _ => rfl),
+    Multiset.map_id]
+
 omit [DecidableEq K] in
 /-- The comparison indicator restricts along the `inl` embedding. -/
 theorem Having.chi_inl (op : CompOp) (x y : T) :

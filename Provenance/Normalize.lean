@@ -203,8 +203,7 @@ def GenPredIn.ReadsOne {c n : ℕ} {κ : Fin n → ColKind}
     ∀ k ∈ χ.comparedCols, ∃ a : AggTok T K, u k = Sum.inr a ∧
       a.scalar = false ∧ a.annList = ℓ
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, every compared list is that family's. -/
 theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
@@ -214,8 +213,7 @@ theorem GenPredIn.mem_comparedLists {c n : ℕ} {κ : Fin n → ColKind}
   rw [hu] at hfk
   exact (Option.some.inj hfk).symm.trans hocc
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, some column does hold a token. -/
 theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
@@ -226,8 +224,7 @@ theorem GenPredIn.comparedLists_ne_zero {c n : ℕ} {κ : Fin n → ColKind}
   exact Multiset.notMem_zero ℓ (hcon ▸ (Multiset.mem_filterMap _ _).mpr
     ⟨k, Finset.mem_val.mpr hk, by rw [hu]; exact congrArg some hocc⟩)
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Reading one family, no compared token is scalar. -/
 theorem GenPredIn.comparedScalarLists_eq_zero {c n : ℕ} {κ : Fin n → ColKind}
     {χ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}
@@ -253,8 +250,7 @@ theorem Having.supersede_test_iff {S L : Multiset (List K)} {ℓ : List K}
     obtain ⟨x, hx⟩ := Multiset.exists_mem_of_ne_zero hnz
     exact hne ((hforall x hx).symm.trans (hall x hx))
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A conjunction of two predicates reading one family reads it too. -/
 theorem GenPredIn.ReadsOne.and {c n : ℕ} {κ : Fin n → ColKind}
     {φ ψ : GenPredIn T c κ} {u : Tuple (GenValue T K) n} {ℓ : List K}

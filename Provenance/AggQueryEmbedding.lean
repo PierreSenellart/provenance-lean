@@ -32,8 +32,7 @@ section GenRewrite
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
-  [HasAltLinearOrder K] in
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A tuple with no token column has no token annotation lists. -/
 theorem tokenLists_eq_zero {n : ℕ} {u : Tuple (GenValue T K) n}
     (h : ∀ k, ∃ v, u k = Sum.inl v) : tokenLists u = 0 := by

@@ -598,7 +598,8 @@ theorem GenPredIn.holds_iff_specialize {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- The annotation lists of the tokens compared by a predicate on a row
 (the evaluator's `compared`). -/
-def GenPredIn.selCompared {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.selCompared {K' : Type} [AddCommMonoid K'] {c n : ℕ}
+    {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
@@ -609,7 +610,8 @@ def GenPredIn.selCompared {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
 /-- The compared tokens read in the scalar convention. A comparison against
 one of these entails no group's existence – it holds in the empty world – so
 its presence blocks the supersede whatever occurrences it carries. -/
-def GenPredIn.selComparedScalar {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
+def GenPredIn.selComparedScalar {K' : Type} [AddCommMonoid K'] {c n : ℕ}
+    {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) (u : Tuple (GenValue T K') n) :
     Multiset (List K') :=
   φ.comparedCols.val.filterMap (fun k =>
@@ -619,8 +621,8 @@ def GenPredIn.selComparedScalar {K' : Type} {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- The pending factors after a σ with aggregate atoms (the evaluator's
 update, definitionally). -/
-def GenPredIn.selPending {K' : Type} [DecidableEq K'] {c n : ℕ}
-    {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+def GenPredIn.selPending {K' : Type} [AddCommMonoid K'] [DecidableEq K']
+    {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
     (u : Tuple (GenValue T K') n) (p : Multiset (List K')) :
     Multiset (List K') :=
   if φ.entailsExistence false then

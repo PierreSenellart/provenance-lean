@@ -360,7 +360,17 @@ proven engine several general results reuse internally.
   reading consults its own list alone – so `NestedValue` carries the
   inner aggregate value per outer occurrence and a `World` chooses both
   which outer occurrences are present and which occurrences of each
-  inner value are. A world meets the family of each grouped inner value
+  inner value are. Both are **bags**: `≼` orders plain tuples, and an
+  occurrence of a nested value carries a tuple with an aggregate column,
+  so the family a nested value aggregates has no sequence to be listed
+  in. Its aggregate is accordingly a function of a bag (`SeqAggFunc.onBag`
+  makes one of a symmetric aggregate), a world is a bag of decided
+  occurrences (`WorldOcc`: present or not, and which occurrences of the
+  inner value, with `World.IsWorldOf` saying whose world it is), and
+  `worlds` enumerates them off the bag – which is exactly what `addOcc`
+  being left-commutative licenses, so nothing has to list the
+  occurrences and nothing has to be proved invariant under relisting
+  them. A world meets the family of each grouped inner value
   **that it reads**, which is to say at an outer occurrence it keeps
   (`World.IsWorld`): an absent outer occurrence contributes nothing, and
   asking its inner family to be met would ask a group to be non-empty
@@ -387,11 +397,12 @@ proven engine several general results reuse internally.
   every occurrence is realized, and `predProvWith_of_never` that a test
   no value satisfies annotates `𝟘`. The structure degenerates as it
   should:
-  `ofAggValue` nests an ordinary token by giving each occurrence an
-  inner value that reads nothing (`constInner`), and `ann_worldOf` says
-  a world of it carries exactly `Having.worldAnn` of the token's own
-  family – so nesting adds weight only where something is actually
-  nested
+  `ofAggValue` nests an ordinary token – a symmetric one, its aggregate
+  becoming the outer one on the bag – by giving each occurrence an inner
+  value that reads nothing (`constInner`), and `ann_worldOf` says a world
+  of it (`worldOf`, from a subfamily of the token's own occurrences)
+  carries exactly `Having.worldAnn` of the token's own family – so
+  nesting adds weight only where something is actually nested
 - `Provenance.JointFamily` – **two occurrence families as one**, which
   is what a predicate reading two aggregate values reads. The two
   families are indexed separately, so the union is built:

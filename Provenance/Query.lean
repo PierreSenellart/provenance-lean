@@ -580,6 +580,18 @@ permuting the sequence does not change the answer. -/
 def Symmetric (f : SeqAggFunc T) : Prop :=
   ∀ {L L' : List T}, L.Perm L' → f L = f L'
 
+/-- **A symmetric aggregate as a function of a bag.** It does not read the
+order of its sequence, so it is a function of the bag of values. This is
+what a nested aggregate value needs: the order `≼` is an order on plain
+tuples, and an occurrence of a nested value carries a tuple with an
+aggregate column, so there is no sequence for an order-dependent
+aggregate to read and the bag is the input. -/
+def onBag (f : SeqAggFunc T) (hf : f.Symmetric) : Multiset T → T :=
+  fun s => Quot.liftOn s f (fun _ _ hp => hf hp)
+
+@[simp] theorem onBag_coe (f : SeqAggFunc T) (hf : f.Symmetric) (L : List T) :
+    f.onBag hf (↑L : Multiset T) = f L := rfl
+
 theorem sum_symmetric : (SeqAggFunc.sum : SeqAggFunc T).Symmetric := by
   intro L L' hp
   have hlc : LeftCommutative (fun a b : T => a + b) := ⟨fun a b c => add_left_comm a b c⟩

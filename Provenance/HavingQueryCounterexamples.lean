@@ -907,16 +907,48 @@ road – an exclusive `⊕` nor a `δ` saturating to `𝟙` – is open. -/
 family. -/
 abbrev nestOf {K : Type} [CommSemiringWithMonus K] (α₀ α₁ β₀ β₁ : K) :
     NestedValue ℕ K :=
-  ⟨SeqAggFunc.count,
-    [(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀),
-     (⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁)],
+  ⟨SeqAggFunc.count.onBag SeqAggFunc.count_symmetric,
+    {(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀),
+     (⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁)},
     false⟩
 
 /-- **The invented world**: it keeps the first outer occurrence and an
 inner occurrence of the second, which it drops. -/
 abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K]
-    (α₀ α₁ β₀ β₁ : K) : (nestOf α₀ α₁ β₀ β₁).World :=
-  ⟨{(0 : Fin 2)}, fun _ => Finset.univ⟩
+    (α₀ α₁ β₀ β₁ : K) : NestedValue.World ℕ K :=
+  ⟨{⟨(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀), true, Finset.univ⟩,
+    ⟨(⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁), false, Finset.univ⟩}⟩
+
+/-- It decides on exactly the occurrences of `nestOf`. -/
+theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K]
+    (α₀ α₁ β₀ β₁ : K) :
+    (incoherentWorld α₀ α₁ β₀ β₁).IsWorldOf (nestOf α₀ α₁ β₀ β₁) := rfl
+
+/-- **It is one of the worlds the document admits** – the first
+occurrence is kept with its inner family met – and it is barred by the
+coherent reading, which is what makes it the world at issue. -/
+theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
+    (α₀ α₁ β₀ β₁ : K) :
+    (incoherentWorld α₀ α₁ β₀ β₁).IsWorld (nestOf α₀ α₁ β₀ β₁)
+      ∧ ¬ (incoherentWorld α₀ α₁ β₀ β₁).IsWorldCoherent
+        (nestOf α₀ α₁ β₀ β₁) := by
+  have hcard : 0 < (incoherentWorld α₀ α₁ β₀ β₁).kept.card := by
+    show 0 < Multiset.card (Multiset.filter _ _)
+    rw [show Multiset.filter
+        (fun d : NestedValue.WorldOcc ℕ K => d.present = true)
+        (incoherentWorld α₀ α₁ β₀ β₁).occs
+      = {⟨(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀), true, Finset.univ⟩}
+      from rfl]
+    simp
+  refine ⟨⟨Or.inr hcard, fun d hd _ hsc => ?_, trivial⟩, fun hco => ?_⟩
+  · have : d = ⟨(⟨SeqAggFunc.count, [(1, β₀)], false⟩, α₀), true, Finset.univ⟩
+        ∨ d = ⟨(⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁), false,
+          Finset.univ⟩ := by
+      simpa using hd
+    rcases this with rfl | rfl <;> exact Finset.univ_nonempty
+  · have := hco.2.2 ⟨(⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁), false,
+      Finset.univ⟩ (by simp) rfl
+    exact absurd this (by simp)
 
 /-- **Over `ℕ` the invented world is annotated `𝟘`.** -/
 theorem nat_incoherentWorld_eq_zero :
