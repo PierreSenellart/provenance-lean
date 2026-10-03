@@ -53,6 +53,16 @@ comparison is on the multisets of annotations.
   (`MinTropicalZ.not_absorptive_witness`) – with two occurrences annotated
   `trop (-1)` in one group, `COUNT(*) ≥ 1` yields annotation `trop (-2)`
   on the fused side but `trop (-1)` on the join side.
+
+* **A `FILTER` clause that keeps everything is not the unfiltered
+  reading** (`HavingQueryCounterexamples.chain_count_zero_when_ne`): in
+  `ChainFive`, one row annotated `mid` grouped and tested by
+  `HAVING count(*) ≐ 0` gives `𝟘`, while the same under
+  `FILTER (WHERE true)` – `AggValue.ofGroupWhen`, the occurrences the
+  clause keeps read in the scalar convention – gives `𝟙`. The empty world
+  weighs `𝟙 ⊖ ⊕α` and the group's existence factor does not absorb it
+  (`chain_delta_not_absorb_empty`), which `ℕ` hides
+  (`nat_delta_absorb_empty`).
 -/
 
 namespace HavingQueryCounterexamples
@@ -767,6 +777,94 @@ theorem bool_row_agree :
         * (boolTokenT.predProvWith testNe + boolTokenF.predProvWith testEq)
       = Having.jointPair boolTokenT boolTokenF
           (fun x y => (testNe x).or (testEq y)) := by decide
+
+/-! ### A `FILTER` clause that keeps everything is observable
+
+`AggValue.ofGroupWhen` reads a filtered aggregate over the occurrences the
+clause keeps, in the *scalar* convention, and the convention is forced by
+the clause that keeps nothing: the family is then empty, so only the empty
+world can carry the row SQL still emits for a group that exists.
+
+Where the clause keeps *everything*, the same recipe is not the unfiltered
+reading. The empty world of the uncut family weighs `𝟙 ⊖ ⊕α`, and the
+group's existence factor `δ(⊕α)` does not absorb it: `delta_absorb` needs
+an occurrence to be present, which is exactly what the empty world denies.
+So `HAVING count(*) FILTER (WHERE true) ≐ 0` reports a row that
+`HAVING count(*) ≐ 0` rejects, in a semiring where `δ(a) ⊗ (𝟙 ⊖ a) ≠ 𝟘`.
+
+`ChainFive` is such a semiring and `ℕ`, `𝔹` and `𝔹[X]` are not – there
+`𝟙 ⊖ a` is `𝟘` wherever `δ(a)` is `𝟙` – which is why the instances above
+did not show it. What the pair of readings would have to be to make a
+trivially true clause a no-op is an occurrence that stays in the *family*
+while the clause takes it out of what the aggregate *reads*: the worlds
+and their annotations would then be the group's, as they are with no
+clause, and the kept part of a non-empty world could still be empty.
+`AggValue` cannot express that – its occurrence carries a value and an
+annotation, and nothing else – while `AggExpr` can, which is what
+`AggExpr`'s per-leaf `reads` flags are and why an occurrence no leaf reads
+is allowed. -/
+
+/-- `count = 0`, false on every non-empty world and true on the empty
+one. -/
+def testEq0 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 0
+
+/-- One row, annotated `mid`, aggregated by `count(*)`. -/
+def chainCount : AggValue ℕ ChainFive :=
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false⟩
+
+/-- The same group under `FILTER (WHERE true)`: the same occurrences, read
+in the scalar convention. The two tokens differ in nothing else, the
+clause keeping every occurrence. -/
+def chainCountWhen : AggValue ℕ ChainFive :=
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true⟩
+
+/-- They are the tokens the grouping builds, with no clause and with one
+that keeps everything. -/
+theorem chainCount_eq_ofGroup :
+    chainCount = AggValue.ofGroup (c := 0) SeqAggFunc.count
+      (TermIn.index 0) [(![1], ChainFive.mid)] := rfl
+
+theorem chainCountWhen_eq_ofGroupWhen :
+    chainCountWhen = AggValue.ofGroupWhen (c := 0) SeqAggFunc.count
+      (TermIn.index 0) (fun _ => true) [(![1], ChainFive.mid)] := rfl
+
+/-- **`HAVING count(*) ≐ 0` rejects the row** of a group the data leaves
+non-empty: no world of a grouped token is empty. -/
+theorem chain_count_zero :
+    SemiringWithMonus.delta ChainFive.mid * chainCount.predProvOfWith testEq0
+      = 0 := by decide
+
+/-- **Under `FILTER (WHERE true)` the same test reports it**, and with
+`𝟙`: the empty world is a world of the filtered token, and the group's
+existence factor does not absorb its weight. -/
+theorem chain_count_zero_when :
+    SemiringWithMonus.delta ChainFive.mid
+        * chainCountWhen.predProvOfWith testEq0
+      = 1 := by decide
+
+/-- So a clause that keeps everything is not the unfiltered reading. -/
+theorem chain_count_zero_when_ne :
+    SemiringWithMonus.delta ChainFive.mid
+        * chainCountWhen.predProvOfWith testEq0
+      ≠ SemiringWithMonus.delta ChainFive.mid
+        * chainCount.predProvOfWith testEq0 := by decide
+
+/-- The root of it, as an identity about the semiring: the existence
+factor does not absorb the empty world's weight. -/
+theorem chain_delta_not_absorb_empty :
+    SemiringWithMonus.delta ChainFive.mid * (1 - ChainFive.mid) = 1 := by
+  decide
+
+/-- Over `ℕ` it does, for every annotation a non-empty group can carry,
+which is why a numeric instance shows nothing here. -/
+theorem nat_delta_absorb_empty (a : ℕ) :
+    SemiringWithMonus.delta a * (1 - a) = 0 := by
+  rcases Nat.eq_zero_or_pos a with h | h
+  · subst h; rfl
+  · show (if a = 0 then 0 else 1) * (1 - a) = 0
+    rw [show (if a = 0 then (0 : ℕ) else 1) = 1 from by
+      simp [Nat.pos_iff_ne_zero.mp h], one_mul]
+    exact Nat.sub_eq_zero_of_le h
 
 /-! ### Inclusion–exclusion is not the joint reading of a disjunction
 
