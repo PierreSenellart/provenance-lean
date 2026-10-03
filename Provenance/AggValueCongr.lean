@@ -1051,7 +1051,136 @@ theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q →
     vals_congr aggs sc g hstrip,
     fun P => predProvWith_congr aggs sc g h P⟩
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
+/-- **The recursion enumerates the subfamilies.** What the statistics read
+off the family step by step is one entry per subfamily – the product of
+the annotations it keeps, the sum of those it leaves out, and the
+occurrences it selects, stripped – because a subfamily either keeps the
+first occurrence or leaves it out, which is the recursion's two halves. -/
+theorem subStats_eq_univ {q : ℕ} :
+    ∀ L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)),
+      AggExpr.subStats L
+        = (Finset.univ : Finset (Finset (Fin L.length))).val.map
+          (fun S => ((∏ j ∈ S, (L.get j).snd.fst),
+            (∑ j ∈ Sᶜ, (L.get j).snd.fst),
+            (Having.seqOf L S).map AggExpr.strip))
+  | [] => by
+    rw [AggExpr.subStats_nil,
+      show (Finset.univ : Finset (Finset (Fin 0))) = {∅} from
+        Finset.eq_singleton_iff_unique_mem.mpr ⟨Finset.mem_univ _,
+          fun W _ => Finset.eq_empty_of_forall_notMem
+            (fun i => absurd i.isLt (Nat.not_lt_zero _))⟩]
+    rfl
+  | o :: L => by
+    have h0 : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+          (fun W => (0 : Fin (L.length + 1)) ∈ W)
+        = (Finset.univ : Finset (Finset (Fin L.length))).map
+          (insertEmb L.length) := by
+      ext W
+      constructor
+      · intro hW
+        obtain ⟨-, h0W⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_map.mpr
+          ⟨Finset.univ.filter (fun i => i.succ ∈ W), Finset.mem_univ _,
+            insert_filter h0W⟩
+      · intro hW
+        obtain ⟨W', -, rfl⟩ := Finset.mem_map.mp hW
+        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _,
+          Finset.mem_insert_self _ _⟩
+    have h1 : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+          (fun W => ¬ (0 : Fin (L.length + 1)) ∈ W)
+        = (Finset.univ : Finset (Finset (Fin L.length))).map
+          (mapEmb L.length) := by
+      ext W
+      constructor
+      · intro hW
+        obtain ⟨-, h0W⟩ := Finset.mem_filter.mp hW
+        exact Finset.mem_map.mpr
+          ⟨Finset.univ.filter (fun i => i.succ ∈ W), Finset.mem_univ _,
+            map_filter h0W⟩
+      · intro hW
+        obtain ⟨W', -, rfl⟩ := Finset.mem_map.mp hW
+        exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, notMem_map_succ _⟩
+    have hval : (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+        = ((Finset.univ : Finset (Finset (Fin L.length))).val.map
+            (insertEmb L.length))
+          + ((Finset.univ : Finset (Finset (Fin L.length))).val.map
+            (mapEmb L.length)) := by
+      conv_lhs => rw [← Multiset.filter_add_not
+        (fun W : Finset (Fin (L.length + 1)) => (0 : Fin (L.length + 1)) ∈ W)
+        (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val]
+      rw [show Multiset.filter
+            (fun W : Finset (Fin (L.length + 1)) => (0 : Fin (L.length + 1)) ∈ W)
+            (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+          = ((Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+              (fun W => (0 : Fin (L.length + 1)) ∈ W)).val from rfl,
+        show Multiset.filter
+            (fun W : Finset (Fin (L.length + 1)) =>
+              ¬ (0 : Fin (L.length + 1)) ∈ W)
+            (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+          = ((Finset.univ : Finset (Finset (Fin (L.length + 1)))).filter
+              (fun W => ¬ (0 : Fin (L.length + 1)) ∈ W)).val from rfl,
+        h0, h1]
+      rfl
+    rw [AggExpr.subStats_cons, subStats_eq_univ L]
+    show _ = Multiset.map _ (Finset.univ : Finset (Finset (Fin (L.length + 1)))).val
+    rw [hval, Multiset.map_add]
+    simp only [Multiset.map_map]
+    refine congrArg₂ (fun x y : Multiset (K × K × List _) => x + y) ?_ ?_
+    · refine Multiset.map_congr (Eq.refl
+        (Finset.univ : Finset (Finset (Fin L.length))).val) (fun W' _ => ?_)
+      show (o.snd.fst * _, _, AggExpr.strip o :: _) = _
+      have hprod : ∏ j ∈ insert (0 : Fin (L.length + 1))
+            (W'.map (succEmb L.length)), ((o :: L).get j).snd.fst
+          = o.snd.fst * ∏ j ∈ W', (L.get j).snd.fst := by
+        rw [Finset.prod_insert (notMem_map_succ _), Finset.prod_map]
+        exact congrArg₂ (fun x y : K => x * y) rfl
+          (Finset.prod_congr rfl fun i _ => rfl)
+      have hsum : ∑ j ∈ (insert (0 : Fin (L.length + 1))
+            (W'.map (succEmb L.length)))ᶜ, ((o :: L).get j).snd.fst
+          = ∑ j ∈ W'ᶜ, (L.get j).snd.fst := by
+        rw [compl_insert_map, Finset.sum_map]
+        exact Finset.sum_congr rfl fun i _ => rfl
+      have hseq : Having.seqOf (o :: L) (insertEmb L.length W')
+          = o :: Having.seqOf L W' := by
+        show Having.seqOf (o :: L)
+            (insert (0 : Fin (L.length + 1)) (W'.map (succEmb L.length))) = _
+        simp only [Having.seqOf]
+        rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
+        rfl
+      show (o.snd.fst * _, _, AggExpr.strip o :: _)
+        = ((∏ j ∈ insert (0 : Fin (L.length + 1)) (W'.map (succEmb L.length)),
+              ((o :: L).get j).snd.fst),
+            (∑ j ∈ (insert (0 : Fin (L.length + 1))
+                (W'.map (succEmb L.length)))ᶜ, ((o :: L).get j).snd.fst),
+            (Having.seqOf (o :: L) (insertEmb L.length W')).map AggExpr.strip)
+      rw [hprod, hsum, hseq, List.map_cons]
+    · refine Multiset.map_congr (Eq.refl
+        (Finset.univ : Finset (Finset (Fin L.length))).val) (fun W' _ => ?_)
+      have hprod : ∏ j ∈ (W'.map (succEmb L.length)),
+            ((o :: L).get j).snd.fst
+          = ∏ j ∈ W', (L.get j).snd.fst := by
+        rw [Finset.prod_map]
+        exact Finset.prod_congr rfl fun i _ => rfl
+      have hsum : ∑ j ∈ (W'.map (succEmb L.length))ᶜ,
+            ((o :: L).get j).snd.fst
+          = o.snd.fst + ∑ j ∈ W'ᶜ, (L.get j).snd.fst := by
+        rw [compl_map, Finset.sum_insert (notMem_map_succ _), Finset.sum_map]
+        exact congrArg₂ (fun x y : K => x + y) rfl
+          (Finset.sum_congr rfl fun i _ => rfl)
+      have hseq : Having.seqOf (o :: L) (mapEmb L.length W')
+          = Having.seqOf L W' := by
+        show Having.seqOf (o :: L) (W'.map (succEmb L.length)) = _
+        simp only [Having.seqOf]
+        rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
+        rfl
+      show (_, o.snd.fst + _, _)
+        = ((∏ j ∈ (W'.map (succEmb L.length)), ((o :: L).get j).snd.fst),
+            (∑ j ∈ (W'.map (succEmb L.length))ᶜ, ((o :: L).get j).snd.fst),
+            (Having.seqOf (o :: L) (mapEmb L.length W')).map AggExpr.strip)
+      rw [hprod, hsum, hseq]
+
+omit [ValueType T] [DecidableEq K] in
 /-- **The world statistics are blind to a tie-block permutation of the
 family.** Exchanging two occurrences that carry the same values and the
 same leaf flags exchanges the two subfamilies that keep one of them and
