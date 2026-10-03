@@ -494,8 +494,10 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       rw [List.map_map, hview] at hg
       exact congrArg (fs j) hg
     | some φ =>
-      show (AggValue.ofGroupWhen (fs j) (ts j) φ.keeps _ γ).collapse = _
-      rw [AggValue.collapse_ofGroupWhen_eq]
+      -- a filtered aggregate reads its group as an expression, whose
+      -- deterministic reading is the aggregate over the kept rows
+      show (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps _ γ).collapse = _
+      rw [AggExpr.collapse_ofGroupWhen]
       have hg := congrArg
         (fun L => (L.filter φ.keeps).map (fun v => (ts j).eval v γ))
         (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)

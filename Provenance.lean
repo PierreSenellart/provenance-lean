@@ -528,12 +528,15 @@ proven engine several general results reuse internally.
   (`ValueFrame.occs_exprOfWhen` – a clause tests the occurrence's own
   tuple, which a tie-block permutation does not move) and the random
   world (`exprOfWhen_specialize`, a restriction to a world not moving a
-  row). `Gamma`'s and `Win`'s clauses still cut the family and read the
-  cut scalar, which is not the same semantics – an `AggValue` occurrence
-  carries a value and an annotation and cannot say that a clause left it
-  unread – and `HavingQueryCounterexamples.chain_count_zero_when_ne`
-  measures the difference, against `chainExprNone_zero` and
-  `chainExprMixed_zero` for what the expression reading gives. Only the
+  row). A grouping reads it the same way, through
+  `AggExpr.ofGroupWhen`: one leaf over the whole group, whose clause cuts
+  what it reads, so `Gamma`'s filtered column is an expression and not an
+  ordinary token – which is why `AggQuery.evaluate_ordinaryTokens` asks
+  for `noFilter`. `Win`'s own clause is the one that still cuts the
+  family, pending the merge on expressions its `DISTINCT` flag needs, and
+  `HavingQueryCounterexamples.chain_count_zero_when_ne` measures what a
+  cut family costs, against `chainExprNone_zero` and `chainExprMixed_zero`
+  for what the expression reading gives. Only the
   rewriting excludes a clause outright, with `AggQuery.noFilter`: a
   clause is a predicate on the base domain where the rewritten world's
   rows carry composite values

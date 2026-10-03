@@ -525,15 +525,14 @@ theorem AggValue.ofGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
-/-- The clause reads the group's own row, so a substitution of the outer
-context moves neither it nor the occurrences it keeps. -/
-theorem AggValue.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
+/-- The same for the expression a filtered aggregate builds. -/
+theorem AggExpr.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     (f : SeqAggFunc T) (t : TermIn T c m) (keep : Tuple T m → Bool)
     (U : List (AnnotatedTuple T K m)) (γ : Fin d → T) :
-    AggValue.ofGroupWhen f (t.substMap θ) keep U γ
-      = AggValue.ofGroupWhen f t keep U (substVal θ γ) := by
-  unfold AggValue.ofGroupWhen
-  simp only [AggValue.ofScalarGroup, AggValue.ofGroup, TermIn.eval_substMap]
+    AggExpr.ofGroupWhen f (t.substMap θ) keep U γ
+      = AggExpr.ofGroupWhen f t keep U (substVal θ γ) := by
+  unfold AggExpr.ofGroupWhen
+  simp only [TermIn.eval_substMap]
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
@@ -675,7 +674,7 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
-      AggValue.ofGroupWhen_substMap]
+      AggExpr.ofGroupWhen_substMap]
     rw [ih θ dB γ]
   | @GammaScalar cI m n₂ ts fs q ih =>
     intro d θ dB γ

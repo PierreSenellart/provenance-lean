@@ -865,6 +865,98 @@ def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   scalar := fun _ => a.scalar
   g := fun v => gf (v (0 : Fin 1))
 
+/-- **A filtered aggregate of a group, as a one-leaf expression.** The
+family is the *whole* group, every occurrence in the leaf's group – so
+the worlds are the group's non-empty subfamilies, as they are with no
+clause – and what the clause cuts is what the leaf *reads*. The world in
+which only rejected rows are present is therefore a world, annotated as
+the group's worlds are, and the leaf reads `f []` in it: the row SQL
+emits for a group all of whose rows the clause rejects.
+
+This is what an `AggValue` cannot be. Its occurrence carries a value and
+an annotation, so a clause can only be applied when the token is built,
+cutting the family – and then that world is gone and no convention
+recovers it
+(`HavingQueryCounterexamples.chain_count_zero_when_ne`). -/
+def ofGroupWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m))
+    (γ : Fin c → T := fun _ => 0) : AggExpr T K where
+  arity := 1
+  occs := U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+    (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)))
+  aggs := fun _ => f
+  scalar := fun _ => false
+  g := fun v => v 0
+
+section OfGroupWhen
+
+variable [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+  (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (γ : Fin c → T)
+
+@[simp] theorem arity_ofGroupWhen : (ofGroupWhen f t keep U γ).arity = 1 := rfl
+
+@[simp] theorem scalar_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
+    (ofGroupWhen f t keep U γ).scalar j = false := rfl
+
+/-- **A filtered aggregate of a group is grouped**, as the unfiltered one
+is: the clause does not change which worlds there are. -/
+@[simp] theorem isScalar_ofGroupWhen :
+    (ofGroupWhen f t keep U γ).isScalar = false := by
+  unfold isScalar
+  simp [ofGroupWhen, List.finRange_succ]
+
+@[simp] theorem occs_ofGroupWhen :
+    (ofGroupWhen f t keep U γ).occs
+      = U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst))) := rfl
+
+/-- **The occurrence annotations are the group's**, clause or no clause:
+what the group's existence guard reads. -/
+@[simp] theorem annList_ofGroupWhen :
+    (ofGroupWhen f t keep U γ).annList = U.map Prod.snd := by
+  unfold annList
+  rw [occs_ofGroupWhen, List.map_map]
+  rfl
+
+theorem length_ofGroupWhen_occs :
+    U.length = (ofGroupWhen f t keep U γ).occs.length := (List.length_map _).symm
+
+/-- The leaf's group is the whole family. -/
+@[simp] theorem inFrame_ofGroupWhen (j : Fin (ofGroupWhen f t keep U γ).arity) :
+    (ofGroupWhen f t keep U γ).inFrame j = Finset.univ := by
+  refine Finset.eq_univ_of_forall (fun i => ?_)
+  rw [mem_inFrame]
+  simp only [occs_ofGroupWhen, List.get_eq_getElem, List.getElem_map]
+
+/-- **A world of a filtered aggregate of a group is a non-empty
+subfamily of the group**, as with no clause. -/
+theorem isWorld_ofGroupWhen (W : Finset (Fin (ofGroupWhen f t keep U γ).occs.length)) :
+    (ofGroupWhen f t keep U γ).IsWorld W ↔ W.Nonempty := by
+  unfold IsWorld
+  constructor
+  · intro h
+    obtain ⟨i, hi⟩ := h ⟨0, by simp⟩ rfl
+    exact ⟨i, (Finset.mem_inter.mp hi).1⟩
+  · rintro ⟨i, hi⟩ j -
+    exact ⟨i, Finset.mem_inter.mpr ⟨hi, by
+      rw [inFrame_ofGroupWhen]; exact Finset.mem_univ _⟩⟩
+
+/-- **The deterministic reading**: the aggregate over the kept rows of
+the group, which a cut family gives as well – the two readings part on
+the *worlds*, not on the full one. -/
+theorem collapse_ofGroupWhen :
+    (ofGroupWhen f t keep U γ).collapse
+      = f (((U.map Prod.fst).filter keep).map (fun u => t.eval u γ)) := by
+  show f ((ofGroupWhen f t keep U γ).leafSeq ⟨0, by simp⟩ Finset.univ) = _
+  refine congrArg f ?_
+  rw [leafSeq_eq_filter, Having.seqOf_univ, occs_ofGroupWhen,
+    List.filter_map, List.map_map]
+  show (U.filter (fun p => keep p.fst)).map (fun p => t.eval p.fst γ) = _
+  rw [List.filter_map, List.map_map]
+  rfl
+
+end OfGroupWhen
+
 /-- **Post-composing the aggregate is the unary expression**: the two
 read the same value in each world. -/
 theorem valOn_ofUnary (gf : T → T) (a : AggValue T K)

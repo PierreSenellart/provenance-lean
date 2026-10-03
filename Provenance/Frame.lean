@@ -829,11 +829,18 @@ theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-! ### A window aggregate under a `FILTER` clause
 
-The clause cuts the frame down to the occurrences it keeps, as it cuts a
-group's (`AggValue.ofGroupWhen`), and for the same reason: that is what a
-null-keeping aggregate needs. The token is read in the scalar convention
-whatever the frame says about the current row, because the kept part of a
-frame may be empty where the frame is not. -/
+**This is the reading still to be fixed.** The clause cuts the frame down
+to the occurrences it keeps and the token is then read in the scalar
+convention, because the kept part of a frame may be empty where the frame
+is not – and that pair is what
+`HavingQueryCounterexamples.chain_count_zero_when_ne` refutes: with the
+family cut, the world holding only rejected rows is gone, so a clause
+that keeps everything no longer reads as no clause. A grouping and a
+multi-frame window read a clause through `AggExpr`'s two flag families
+instead (`AggExpr.ofGroupWhen`, `exprOfWhen`), which keeps the family
+whole; `AggQueryIn.Win`'s own clause is to follow, once merging a frame
+by value – its `DISTINCT` flag – is defined on expressions, where a kept
+occurrence must not merge with a rejected one. -/
 
 /-- **An occurrence's token under a `FILTER` clause**: the aggregate over
 the occurrences of its frame the clause keeps. -/

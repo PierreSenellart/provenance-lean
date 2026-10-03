@@ -663,6 +663,28 @@ instance (l : List (BoolFunc X)) (v : X → Bool) :
     Decidable (annGuard l v) :=
   inferInstanceAs (Decidable (∃ κ ∈ l, κ v = true))
 
+/-- **A realized occurrence of the family is a non-empty realized
+world.** This is what makes a filtered aggregate of a group guarded: its
+family is the whole group, so the group's existence guard gives it an
+occurrence the valuation keeps. -/
+theorem AggExpr.realizedWorld_nonempty_of_annGuard
+    (e : AggExpr T (BoolFunc X)) (v : X → Bool)
+    (hG : annGuard e.annList v) :
+    (e.realizedWorld (fun α => α v)).Nonempty := by
+  obtain ⟨α, hmem, hα⟩ := hG
+  have hlen : e.annList.length = e.occs.length := List.length_map _
+  obtain ⟨i, hi⟩ := List.mem_iff_get.mp hmem
+  refine ⟨Fin.cast hlen i, ?_⟩
+  rw [AggExpr.realizedWorld, Finset.mem_filter]
+  refine ⟨Finset.mem_univ _, ?_⟩
+  have hann : e.anns (Fin.cast hlen i) = α := by
+    rw [← hi]
+    show (e.occs.get (Fin.cast hlen i)).snd.fst = e.annList.get i
+    simp only [AggExpr.annList, List.get_eq_getElem, List.getElem_map,
+      Fin.val_cast]
+  rw [hann]
+  exact hα
+
 /-- **An expression whose test is realized has a realized occurrence.**
 Not read in the scalar convention, some leaf of it is grouped, and a
 world of the expression meets that leaf's occurrences – so the family
@@ -1675,7 +1697,13 @@ theorem AggQueryIn.evaluate_guarded :
         refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
         rw [AggValue.annList_ofGroup]
         exact hG
-      | some φ => exact Or.inl rfl
+      | some φ =>
+        -- the expression's family is the whole group, so the group's own
+        -- guard gives it a realized occurrence – and that is a world of it
+        rw [AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
+        refine AggExpr.realizedWorld_nonempty_of_annGuard _ v ?_
+        rw [AggExpr.annList_ofGroupWhen]
+        exact hG
   | @GammaNest cI m n₁ κ' is his p f q ih =>
     -- the group's existence guard is the one annotation its bag of
     -- occurrences sums to, which gives the outer family a realized
@@ -2183,27 +2211,36 @@ private lemma specialize_ofGroup {c m n₁ : ℕ}
     List.map_map, List.map_map]
   rfl
 
-/-- **A filtered group token is world-faithful too**: it specializes to
-the plain filtered aggregate of the group in the realized world. The
-clause reads the tuple and the valuation reads the annotation, so the two
-cuts commute. -/
-private lemma specialize_ofGroupWhen {c m n₁ : ℕ}
+omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
+/-- The occurrences an expression's realized world selects are those its
+valuation annotates true. -/
+private lemma seqOf_realizedWorld_expr (e : AggExpr T (BoolFunc X))
+    (v : X → Bool) :
+    Having.seqOf e.occs (e.realizedWorld (fun α => α v))
+      = e.occs.filter (fun z => z.snd.fst v) := by
+  unfold AggExpr.realizedWorld
+  exact Having.seqOf_filter_positions (fun z => z.snd.fst v) e.occs
+
+/-- **And so is the expression it now builds**: its leaf reads the
+occurrences the clause keeps among those the valuation realizes, which is
+the plain filtered aggregate of the group in the realized world. -/
+private lemma specialize_exprOfGroupWhen {c m n₁ : ℕ}
     (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
     (g : Tuple T n₁) (f : SeqAggFunc T) (t : TermIn T c m)
     (keep : Tuple T m → Bool) (v : X → Bool) {γ : Fin c → T} :
-    (AggValue.ofGroupWhen f t keep (Having.havingGroup is r g) γ).specialize
+    (AggExpr.ofGroupWhen f t keep (Having.havingGroup is r g) γ).specialize
         (fun α => α v)
       = f (((Relation.groupSeq is (randomWorld v r) g).filter keep).map
           (fun x => t.eval x γ)) := by
-  unfold AggValue.specialize AggValue.ofGroupWhen AggValue.ofScalarGroup
-    AggValue.ofGroup
-  rw [groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
-    List.filter_map, List.map_map, List.map_map, List.filter_filter,
-    List.filter_filter]
-  refine congrArg
-    (fun L : List (AnnotatedTuple T (BoolFunc X) m) =>
-      f (L.map (fun p => t.eval p.fst γ))) ?_
-  exact List.filter_congr (fun p _ => Bool.and_comm _ _)
+  show f ((AggExpr.ofGroupWhen f t keep (Having.havingGroup is r g) γ).leafSeq
+    ⟨0, by simp⟩ _) = _
+  rw [AggExpr.leafSeq_eq_filter, seqOf_realizedWorld_expr,
+    AggExpr.occs_ofGroupWhen, groupSeq_randomWorld]
+  simp only [seqOf_realizedWorld, List.filter_map, List.map_map,
+    List.filter_filter, Function.comp_def, Bool.true_and]
+  refine congrArg f (congrArg₂ List.map rfl
+    (List.filter_congr (fun p _ => ?_)))
+  simp [Bool.and_comm]
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 private lemma list_filter_map_comm {α β : Type} (g : α → β) (p : β → Bool)
@@ -3222,7 +3259,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       exact specialize_ofGroup is ((q.evaluate d γ).map GenRow.toAnnotated)
         kv.fst (fs j) (ts j) v
     | some φ =>
-      exact specialize_ofGroupWhen is ((q.evaluate d γ).map GenRow.toAnnotated)
+      exact specialize_exprOfGroupWhen is ((q.evaluate d γ).map GenRow.toAnnotated)
         kv.fst (fs j) (ts j) φ.keeps v
   | ProvSum is his t q ih =>
     intro hq

@@ -616,14 +616,16 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   input by the key columns `is`; one output row per group, carrying the
   key followed by one aggregate token per `(term, aggregate)` pair.
 
-  Each pair may carry a **`FILTER` clause**, `keep j`, which cuts the
-  occurrence sequence that aggregate reads down to the rows of the group
-  the clause keeps. `none` is the aggregate with no clause, and it is not
-  the clause that keeps everything: a filtered aggregate is read in the
-  scalar convention, the empty filtered sequence being a world of a group
-  that exists, and an unfiltered one is read as a group's
-  (`AggValue.ofGroupWhen`). The clause reads the group's input row and no
-  outer column, as SQL's does. -/
+  Each pair may carry a **`FILTER` clause**, `keep j`, which cuts what
+  that aggregate *reads* of its group – and nothing else. A filtered
+  aggregate's column is therefore an aggregate *expression* over the
+  whole group (`AggExpr.ofGroupWhen`): the worlds are the group's
+  non-empty subfamilies, as with no clause, every occurrence carrying its
+  annotation to them, and the leaf reads `f []` in a world holding only
+  rejected rows – the row SQL emits for a group all of whose rows the
+  clause rejects. `none` is the aggregate with no clause, and the clause
+  that keeps everything reads exactly as `none` does. The clause reads
+  the group's input row and no outer column, as SQL's does. -/
   | Gamma : {c m n₁ n₂ : ℕ} →
       (is : Tuple (Fin m) n₁) → (ts : Tuple (TermIn T c m) n₂) →
       (fs : Tuple (SeqAggFunc T) n₂) → AggQueryIn T c m (ColKind.allReg m) →
@@ -1143,12 +1145,15 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
       let g : Tuple T n₁ := kv.fst
       let U := Having.havingGroup is r g
-      -- the clause cuts the occurrences that aggregate reads, and nothing
-      -- else: the group's existence guard below runs over all of them
+      -- a filtered aggregate reads its group as an expression: the family
+      -- is the whole group, so the worlds are the group's, and the clause
+      -- cuts only what the aggregate reads of them. The existence guard
+      -- below runs over every occurrence either way
       ⟨Fin.append (fun k => Sum.inl (g k))
-        (fun j => Sum.inr (AggTok.tok (match keep j with
-          | none => AggValue.ofGroup (fs j) (ts j) U γ
-          | some φ => AggValue.ofGroupWhen (fs j) (ts j) φ.keeps U γ))),
+        (fun j => Sum.inr (match keep j with
+          | none => AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ)
+          | some φ =>
+              AggTok.expr (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps U γ))),
        ⟨1, {U.map Prod.snd}⟩⟩)
   | _, _, _, @GammaScalar _ _ m n₂ ts fs q, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
@@ -2311,14 +2316,14 @@ statement about rows: it gets "every token here is ordinary" from this
 lemma, with the two operators excluded on the query. -/
 theorem AggQueryIn.evaluate_ordinaryTokens :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.noWinExpr → q.noGammaNest →
+      q.noWinExpr → q.noGammaNest → q.noFilter →
       ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T}
         (r : GenRow T K n),
       r ∈ q.evaluate d γ → GenRow.OrdinaryTokens r.fst := by
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
     | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
@@ -2327,14 +2332,14 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
   | Proj ps q ih =>
-    intro hq hn d γ r hr j a ha
+    intro hq hn hfl d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     cases hp : ps j with
     | term t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | provTerm t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | token k hk =>
-      refine ih hq hn d r₀ hr₀ k a ?_
+      refine ih hq hn hfl d r₀ hr₀ k a ?_
       show r₀.fst k = Sum.inr a
       rw [← ha]
       simp [ProjColIn.eval, hp]
@@ -2347,87 +2352,87 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isTok_postcomp]
-        exact ih hq hn d r₀ hr₀ k x hu
+        exact ih hq hn hfl d r₀ hr₀ k x hu
   | Sel φ q ih =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
-      exact ih hq hn d r₀ hr₀ k a ha
+      exact ih hq hn hfl d r₀ hr₀ k a ha
     · rw [ite_eq_right hφ] at hr
-      exact ih hq hn d r (Multiset.mem_of_mem_filter hr) k a ha
+      exact ih hq hn hfl d r (Multiset.mem_of_mem_filter hr) k a ha
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d γ r hr k
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hr
     obtain ⟨h₁, h₂⟩ := Multiset.mem_product.mp hp
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ hq.1 hn.1 d p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ hq.2 hn.2 d p.2 h₂ j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hq.1 hn.1 hfl.1 d p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · exact ih₂ hq.2 hn.2 hfl.2 d p.2 h₂ j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d γ r hr k
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hx, hy⟩ := Multiset.mem_bind.mp hr
     obtain ⟨y, hy', rfl⟩ := Multiset.mem_map.mp hy
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ hq.1 hn.1 d x hx i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ hq.2 hn.2 d y hy' j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hq.1 hn.1 hfl.1 d x hx i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · exact ih₂ hq.2 hn.2 hfl.2 d y hy' j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.mp hr with h | h
-    · exact ih₁ hq.1 hn.1 d r h k a ha
-    · exact ih₂ hq.2 hn.2 d r h k a ha
+    · exact ih₁ hq.1 hn.1 hfl.1 d r h k a ha
+    · exact ih₂ hq.2 hn.2 hfl.2 d r h k a ha
   | Dedup q ih =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Alt k hk q ih =>
-    intro hq hn d γ r hr j a ha
+    intro hq hn hfl d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
     cases hfk : r₀.fst k with
     | inl w =>
       rw [GenRow.alternativesAt, hfk, Multiset.mem_singleton] at hs
       subst hs
-      exact ih hq hn d _ hr₀ j a ha
+      exact ih hq hn hfl d _ hr₀ j a ha
     | inr x =>
       rw [GenRow.alternativesAt, hfk] at hs
       obtain ⟨v, -, rfl⟩ := Multiset.mem_map.mp hs
       by_cases hj : j = k
       · subst hj
         exact absurd ha (by simp)
-      · exact ih hq hn d r₀ hr₀ j a
+      · exact ih hq hn hfl d r₀ hr₀ j a
           ((Function.update_of_ne hj (Sum.inl v) r₀.fst).symm.trans ha)
   | Mu b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | MuSet b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Gamma is ts fs q ih =>
-    intro hq hn d γ r hr k
+  | Gamma is ts fs q keep ih =>
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
     · exact absurd ha (by simp [Fin.append_left])
-    · cases a with
-      | tok _ => rfl
-      | nest _ => exact absurd ha (by simp [Fin.append_right])
-      | expr _ => exact absurd ha (by simp [Fin.append_right])
+    · -- no aggregate carries a clause, so every column is an ordinary token
+      simp only [Fin.append_right, hfl.1 j] at ha
+      rw [← Sum.inr.inj ha]
+      rfl
   | GammaScalar ts fs q ih =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
     subst hr
@@ -2436,18 +2441,18 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     | nest _ => exact absurd ha (by simp)
     | expr _ => exact absurd ha (by simp)
   | ProvSum is his t q ih =>
-    intro hq hn d γ r hr k
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
     · exact absurd ha (by simp [Fin.append_left])
     · exact absurd ha (by simp [Fin.append_right])
   | Retag hk q ih =>
-    intro hq hn d γ r hr k a ha
+    intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
-    exact ih hq hn d r hr k a ha
+    exact ih hq hn hfl d r hr k a ha
   | GammaTok is his ts fs ann q ih =>
-    intro hq hn d γ r hr k
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -2462,7 +2467,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
   | Win P O o w t f q dist keep ih =>
-    intro hq hn d γ r hr k
+    intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
@@ -2600,16 +2605,17 @@ theorem AggQueryIn.evaluate_noNested :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Gamma is ts fs q ih =>
+  | Gamma is ts fs q keep ih =>
     intro hn d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
     · exact absurd ha (by simp [Fin.append_left])
-    · cases a with
-      | tok _ => rfl
-      | nest _ => exact absurd ha (by simp [Fin.append_right])
-      | expr _ => exact absurd ha (by simp [Fin.append_right])
+    · -- an ordinary token where the aggregate carries no clause, an
+      -- expression where it does, and nested in neither case
+      simp only [Fin.append_right] at ha
+      rw [← Sum.inr.inj ha]
+      cases keep j <;> rfl
   | GammaScalar ts fs q ih =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr

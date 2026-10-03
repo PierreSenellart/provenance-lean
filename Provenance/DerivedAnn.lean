@@ -807,12 +807,13 @@ section Where
 
 variable [ValueType T] {c m n₁ : ℕ}
 
-/-- **The token a filtered aggregation builds**: the occurrences of the
-group the clause keeps, read in the scalar convention
-(`AggValue.ofGroupWhen`). The group's existence guard is unchanged – it
-is the pending factor over every occurrence – so a group all of whose
-rows the clause rejects is still emitted, with the aggregate over
-nothing. -/
+/-- **The column a filtered aggregation builds**: the aggregate
+expression over the *whole* group whose leaf reads the occurrences the
+clause keeps (`AggExpr.ofGroupWhen`). The worlds are the group's, so a
+group all of whose rows the clause rejects is still emitted – with the
+aggregate over nothing, and with the group's own existence as its
+annotation – and the existence guard is unchanged, being the pending
+factor over every occurrence. -/
 theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
     (t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) (d : AnnotatedDatabase T K)
@@ -823,7 +824,7 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
             (fun p => ((fun k => p.fst (is k), p.snd)
               : AnnotatedTuple T K n₁)))).val).map (fun kv =>
         (⟨Fin.append (fun k => Sum.inl (kv.fst k))
-            (fun _ : Fin 1 => Sum.inr (AggTok.tok (AggValue.ofGroupWhen f t
+            (fun _ : Fin 1 => Sum.inr (AggTok.expr (AggExpr.ofGroupWhen f t
               φ.keeps (Having.havingGroup is
                 ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ))),
           ⟨1, {(Having.havingGroup is

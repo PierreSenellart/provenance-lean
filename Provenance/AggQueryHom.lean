@@ -816,36 +816,6 @@ theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
     (fun hpq => congrArg (fun z => t.eval z γ) hpq)
 
-omit [DecidableEq K] in
-/-- The same for a token under a `FILTER` clause: the clause reads the
-tuple part, which a tie-block permutation does not move, so it keeps
-corresponding occurrences on the two sides (`TiePerm.filter`). -/
-theorem ofGroupWhen_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
-    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
-    (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
-    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
-    TiePerm (fun p q : T × K' => p.1 = q.1)
-      ((AggValue.ofGroupWhen f t keep (Having.havingGroup is r g) γ).mapAnn
-        ⇑h.toRingHom).occs
-      (AggValue.ofGroupWhen f t keep
-        (Having.havingGroup is
-          (r.map (fun p =>
-            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) γ).occs := by
-  have hocc₁ : ((AggValue.ofGroupWhen f t keep
-        (Having.havingGroup is r g) γ).mapAnn ⇑h.toRingHom).occs
-      = (((Having.havingGroup is r g).map
-            (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).filter
-          (fun p => keep p.fst)).map (fun p => (t.eval p.fst γ, p.snd)) := by
-    simp only [AggValue.ofGroupWhen, AggValue.ofScalarGroup, AggValue.ofGroup,
-      AggValue.mapAnn, List.map_map, List.filter_map]
-    rfl
-  rw [hocc₁]
-  exact ((havingGroup_tiePerm h is r g).filter
-      (fun hpq => congrArg keep hpq)).map
-    (eqv' := fun p q : T × K' => p.1 = q.1)
-    (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
-    (fun hpq => congrArg (fun z => t.eval z γ) hpq)
-
 /-- **Group-token hom commutation.** The predicate provenance of a
 comparison against the token of a group of the pushed-forward relation is
 the image under the hom of the base-side predicate provenance: the two
@@ -2077,6 +2047,54 @@ theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
     = (!(ws l).s (Tuple.key O (r.row i).fst))
   rw [hi]
 
+omit [DecidableEq K] in
+/-- **The same at the level of the expression a filtered aggregate
+builds.** There the family is the whole group on both sides, the clause
+living in the occurrence's own flags, so the tie-block permutation of
+the groups carries straight over – and the two columns are equivalent,
+since the clause and the value both read the tuple part a tie-block
+permutation does not move. -/
+theorem exprGroupWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
+    (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
+    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (AggExpr.ofGroupWhen f t keep
+        (Having.havingGroup is
+          (r.map (fun p =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) γ))
+        : GenValue T K')
+      (Sum.inr (AggTok.expr ((AggExpr.ofGroupWhen f t keep
+        (Having.havingGroup is r g) γ).mapAnn ⇑h.toRingHom))) := by
+  set U : List (AnnotatedTuple T K m) := Having.havingGroup is r g with hU
+  set U' : List (AnnotatedTuple T K' m) :=
+    Having.havingGroup is
+      (r.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g
+    with hU'
+  set occOf : AnnotatedTuple T K' m →
+      (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) :=
+    fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)) with hoccOf
+  -- both families are the same reading of their rows
+  have hocc' : (AggExpr.ofGroupWhen f t keep U' γ).occs = U'.map occOf := rfl
+  have hoccb : ((AggExpr.ofGroupWhen f t keep U γ).mapAnn ⇑h.toRingHom).occs
+      = (U.map (fun p =>
+          ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).map occOf := by
+    show ((AggExpr.ofGroupWhen f t keep U γ).occs.map
+        (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
+    rw [AggExpr.occs_ofGroupWhen]
+    simp only [List.map_map]
+    rfl
+  rw [AggExpr.eq_mk_of_occs hocc', AggExpr.eq_mk_of_occs hoccb]
+  refine GenValue.Equiv.of_expr_tiePerm (q := 1) _ rfl _ ?_
+  refine TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩) ?_
+  exact (havingGroup_tiePerm h is r g).map
+    (eqv' := fun z z' : (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) =>
+      z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    occOf
+    (fun hpq => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hpq),
+      by rw [hoccOf]; dsimp only; rw [hpq]⟩)
+
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
 base-side rows: same regular values, equivalent aggregate columns, and
@@ -2665,8 +2683,9 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
             (ofGroup_mapAnn_tiePerm h (fs j) (ts j) is X kv.fst)⟩
         | some φ =>
-          exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
-            (ofGroupWhen_mapAnn_tiePerm h (fs j) (ts j) φ.keeps is X kv.fst)⟩
+          -- a filtered aggregate's column is an expression over the whole
+          -- group, and the two groups are tie-permuted
+          exact exprGroupWhen_mapAnn_equiv h (fs j) (ts j) φ.keeps is X kv.fst
     · dsimp only [Function.comp]
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroup_annSum_hom h is X kv.fst,

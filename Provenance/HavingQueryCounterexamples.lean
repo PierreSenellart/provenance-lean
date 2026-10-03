@@ -55,11 +55,14 @@ comparison is on the multisets of annotations.
   on the fused side but `trop (-1)` on the join side.
 
 * **A `FILTER` clause that keeps everything is not the unfiltered
-  reading** (`HavingQueryCounterexamples.chain_count_zero_when_ne`): in
+  reading, over a *cut* family** (`chain_count_zero_when_ne`): in
   `ChainFive`, one row annotated `mid` grouped and tested by
-  `HAVING count(*) ≐ 0` gives `𝟘`, while the same under
-  `FILTER (WHERE true)` – `AggValue.ofGroupWhen`, the occurrences the
-  clause keeps read in the scalar convention – gives `𝟙`. The empty world
+  `HAVING count(*) ≐ 0` gives `𝟘`, while the same read over the
+  occurrences the clause keeps, in the scalar convention, gives `𝟙`.
+  This is why no clause cuts a family any more: a grouping and a
+  multi-frame window read one through `AggExpr`'s two flag families
+  instead (`AggExpr.ofGroupWhen`, `ValueFrame.exprOfWhen`), and
+  `AggQueryIn.Win`'s clause is the last one left to move. The empty world
   weighs `𝟙 ⊖ ⊕α` and the group's existence factor does not absorb it
   (`chain_delta_not_absorb_empty`), which `ℕ` hides
   (`nat_delta_absorb_empty`). What the two flag families of `AggExpr`
@@ -783,10 +786,12 @@ theorem bool_row_agree :
 
 /-! ### A `FILTER` clause that keeps everything is observable
 
-`AggValue.ofGroupWhen` reads a filtered aggregate over the occurrences the
-clause keeps, in the *scalar* convention, and the convention is forced by
-the clause that keeps nothing: the family is then empty, so only the empty
-world can carry the row SQL still emits for a group that exists.
+A filtered aggregate read over the occurrences the clause keeps – a *cut*
+family – has to be read in the scalar convention, and the convention is
+forced by the clause that keeps nothing: the family is then empty, so only
+the empty world can carry the row SQL still emits for a group that exists.
+(`AggValue.ofGroupWhen` was that reading; the library now reads a filtered
+aggregate as an expression over the whole group.)
 
 Where the clause keeps *everything*, the same recipe is not the unfiltered
 reading. The empty world of the uncut family weighs `𝟙 ⊖ ⊕α`, and the
@@ -821,15 +826,14 @@ clause keeping every occurrence. -/
 def chainCountWhen : AggValue ℕ ChainFive :=
   ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true⟩
 
-/-- They are the tokens the grouping builds, with no clause and with one
-that keeps everything. -/
+/-- The first is the token the grouping builds with no clause, and the
+second is what reading the cut family in the scalar convention gave. -/
 theorem chainCount_eq_ofGroup :
     chainCount = AggValue.ofGroup (c := 0) SeqAggFunc.count
       (TermIn.index 0) [(![1], ChainFive.mid)] := rfl
 
-theorem chainCountWhen_eq_ofGroupWhen :
-    chainCountWhen = AggValue.ofGroupWhen (c := 0) SeqAggFunc.count
-      (TermIn.index 0) (fun _ => true) [(![1], ChainFive.mid)] := rfl
+theorem chainCountWhen_eq_scalar :
+    chainCountWhen = { chainCount with scalar := true } := rfl
 
 /-- **`HAVING count(*) ≐ 0` rejects the row** of a group the data leaves
 non-empty: no world of a grouped token is empty. -/
