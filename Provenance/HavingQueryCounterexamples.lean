@@ -62,7 +62,9 @@ comparison is on the multisets of annotations.
   clause keeps read in the scalar convention – gives `𝟙`. The empty world
   weighs `𝟙 ⊖ ⊕α` and the group's existence factor does not absorb it
   (`chain_delta_not_absorb_empty`), which `ℕ` hides
-  (`nat_delta_absorb_empty`).
+  (`nat_delta_absorb_empty`). What the two flag families of `AggExpr`
+  give instead – the group fixing the worlds and the clause fixing what
+  the leaf reads – is `chainExprNone_zero` and `chainExprMixed_zero`.
 -/
 
 namespace HavingQueryCounterexamples
@@ -679,7 +681,8 @@ Boolean function the joint reading evaluates: `𝟙` where the disjunction
 holds, `𝟘` where it does not. -/
 def natOrExpr : AggExpr ℕ ℕ where
   arity := 2
-  occs := [(![1, 1], 1, ![true, false]), (![1, 1], 1, ![false, true])]
+  occs := [(![1, 1], 1, ![true, false], ![true, true]),
+    (![1, 1], 1, ![false, true], ![true, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false]
   g := fun v => if 1 ≤ v 0 ∨ 1 ≤ v 1 then 1 else 0
@@ -698,9 +701,9 @@ and `e` – which no world in which the guard holds reads – annotated
 `2`. -/
 def natCaseExpr : AggExpr ℕ ℕ where
   arity := 3
-  occs := [(![1, 1, 1], 1, ![true, false, false]),
-    (![1, 1, 1], 1, ![false, true, false]),
-    (![1, 1, 1], 2, ![false, false, true])]
+  occs := [(![1, 1, 1], 1, ![true, false, false], ![true, true, true]),
+    (![1, 1, 1], 1, ![false, true, false], ![true, true, true]),
+    (![1, 1, 1], 2, ![false, false, true], ![true, true, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false, false]
   g := fun v => if 1 ≤ v 0 then v 1 else v 2
@@ -865,6 +868,68 @@ theorem nat_delta_absorb_empty (a : ℕ) :
     rw [show (if a = 0 then (0 : ℕ) else 1) = 1 from by
       simp [Nat.pos_iff_ne_zero.mp h], one_mul]
     exact Nat.sub_eq_zero_of_le h
+
+/-! ### What the two flag families give instead
+
+`AggExpr` carries the group and the clause apart (`AggExpr.inFrame`,
+`AggExpr.reads`), which is what a filtered aggregate needs: the worlds
+are the group's, every occurrence carrying its annotation to them, and
+the clause says what the leaf aggregates there. The three readings below
+are the ones the cut family gets wrong, in the semiring that shows it.
+
+A clause that keeps everything needs no test: its flags are the ones no
+clause gives, so the expression *is* the unfiltered one. -/
+
+/-- The group of `chainCount` read as a one-leaf aggregate expression:
+one occurrence annotated `mid`, in the leaf's group and read by it. -/
+def chainExpr : AggExpr ℕ ChainFive where
+  arity := 1
+  occs := [(![1], ChainFive.mid, ![true], ![true])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- The same under `FILTER (WHERE false)`: the occurrence stays in the
+group and leaves what the leaf reads. -/
+def chainExprNone : AggExpr ℕ ChainFive where
+  arity := 1
+  occs := [(![1], ChainFive.mid, ![true], ![false])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- Two occurrences, annotated `mid` and `hi`, the clause keeping the
+first: `count(*) FILTER (WHERE φ)` where `φ` holds of one row of two. -/
+def chainExprMixed : AggExpr ℕ ChainFive where
+  arity := 1
+  occs := [(![1], ChainFive.mid, ![true], ![true]),
+    (![1], ChainFive.hi, ![true], ![false])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- **`HAVING count(*) ≐ 0` still rejects the row**, as it does for the
+token: no world of a grouped leaf is empty. -/
+theorem chainExpr_zero : chainExpr.predProvWith testEq0 = 0 := by decide
+
+/-- **Under `FILTER (WHERE false)` the row is reported with the group's
+own weight** – `mid`, the annotation of the occurrence that makes the
+group exist – and not with `𝟙`, which is what the cut family gives
+(`chain_count_zero_when`). SQL emits that row, with `0`. -/
+theorem chainExprNone_zero :
+    chainExprNone.predProvWith testEq0 = ChainFive.mid := by decide
+
+/-- **And a clause that keeps some of the group reports exactly the
+worlds in which it keeps none of the present rows**: `hi ⊗ (𝟙 ⊖ mid)`,
+the world holding the rejected occurrence alone. The cut family cannot
+express that world at all. -/
+theorem chainExprMixed_zero :
+    chainExprMixed.predProvWith testEq0
+      = ChainFive.hi * (1 - ChainFive.mid) := by decide
+
+/-- Which is `hi` here, so the reading is not `𝟘` either. -/
+theorem chainExprMixed_zero_eq : chainExprMixed.predProvWith testEq0
+    = ChainFive.hi := by decide
 
 /-! ### Inclusion–exclusion is not the joint reading of a disjunction
 
@@ -1049,7 +1114,7 @@ theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
     -- world keeps that occurrence
     rcases hdd with rfl | rfl <;>
       exact fun j _ => ⟨⟨0, by simp [AggExpr.ofValue]⟩, by
-        simp [AggExpr.reads, AggExpr.ofValue]⟩
+        simp [AggExpr.inFrame, AggExpr.ofValue]⟩
   · have := hco.2.2 ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false⟩, α₁),
       false, Finset.univ⟩ (by simp) rfl
     -- the dropped occurrence keeps its one inner occurrence, so its

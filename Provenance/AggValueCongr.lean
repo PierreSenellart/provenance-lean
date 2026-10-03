@@ -665,14 +665,14 @@ values leaf `l` has kept, `ex` the annotations discarded so far, and
 def exprProvAux (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
     (g : (Fin q → T) → T) (P : T → Kleene) :
     (Fin q → List T) → K → (Fin q → Bool) →
-    List ((Fin q → T) × K × (Fin q → Bool)) → K
+    List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)) → K
   | acc, ex, started, [] =>
       if (List.finRange q).all (fun l => sc l || started l)
       then (1 - ex) * Having.chiOf P (g (fun l => aggs l (acc l))) else 0
-  | acc, ex, started, (v, a, rd) :: t =>
+  | acc, ex, started, (v, a, fr, kp) :: t =>
       a * exprProvAux aggs sc g P
-          (fun l => if rd l then acc l ++ [v l] else acc l) ex
-          (fun l => started l || rd l) t
+          (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+          (fun l => started l || fr l) t
         + exprProvAux aggs sc g P acc (ex + a) started t
 
 omit [ValueType T] [DecidableEq K] in
@@ -681,19 +681,19 @@ world condition asks each grouped leaf to have kept an occurrence of the
 part it reads, which is what `AggExpr.IsWorld` asks of `W ∩ reads l`. -/
 theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
     (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
-    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool))) (acc : Fin q → List T)
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
       (ex : K) (started : Fin q → Bool),
       ∑ W ∈ Finset.univ.filter (fun W : Finset (Fin L.length) =>
           ∀ l, sc l = true ∨ started l = true
-            ∨ (W.filter (fun i => (L.get i).snd.snd l = true)).Nonempty),
+            ∨ (W.filter (fun i => (L.get i).snd.snd.fst l = true)).Nonempty),
         (∏ i ∈ W, (L.get i).snd.fst)
           * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (L.get i).snd.fst))
             * Having.chiOf P (g (fun l => aggs l (acc l ++
                 ((Having.seqOf L W).filter
-                  (fun z => z.snd.snd l)).map (fun z => z.fst l)))))
+                  (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l)))))
         = exprProvAux aggs sc g P acc ex started L
   | [], acc, ex, started => by
-    have hW : ∀ W : Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool))).length),
+    have hW : ∀ W : Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))).length),
         W = ∅ := fun W =>
       Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (Nat.not_lt_zero _))
     by_cases hall : (List.finRange q).all (fun l => sc l || started l) = true
@@ -701,7 +701,7 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
         (Bool.or_eq_true _ _ |>.mp (List.all_eq_true.mp hall l
           (List.mem_finRange l))).imp id Or.inl)]
       rw [show (Finset.univ
-            : Finset (Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool))).length)))
+            : Finset (Finset (Fin ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))).length)))
           = {∅} from Finset.eq_singleton_iff_unique_mem.mpr
             ⟨Finset.mem_univ _, fun W _ => hW W⟩,
         Finset.sum_singleton, Finset.prod_empty, one_mul,
@@ -722,56 +722,56 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
         · rw [h]; rfl
         · rw [h]; exact Bool.or_true _
         · exact absurd i.isLt (Nat.not_lt_zero _)
-  | (v, ann, rd) :: t, acc, ex, started => by
+  | (v, ann, fr, kp) :: t, acc, ex, started => by
     have ih := sum_worlds_eq_exprProvAux aggs sc g P t
     dsimp only [List.length_cons]
     -- Branch A: worlds keeping the head occurrence.
     have hA : (∑ W ∈ (Finset.univ.filter
           (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
             ∨ started l = true
-            ∨ (W.filter (fun i => (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)).filter
+            ∨ (W.filter (fun i => (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)).filter
             (fun W => (0 : Fin (t.length + 1)) ∈ W),
-          (∏ i ∈ W, (((v, ann, rd) :: t).get i).snd.fst)
-            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, rd) :: t).get i).snd.fst))
+          (∏ i ∈ W, (((v, ann, fr, kp) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, fr, kp) :: t).get i).snd.fst))
               * Having.chiOf P (g (fun l => aggs l (acc l ++
-                  ((Having.seqOf ((v, ann, rd) :: t) W).filter
-                    (fun z => z.snd.snd l)).map (fun z => z.fst l))))))
+                  ((Having.seqOf ((v, ann, fr, kp) :: t) W).filter
+                    (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l))))))
         = ann * exprProvAux aggs sc g P
-            (fun l => if rd l then acc l ++ [v l] else acc l) ex
-            (fun l => started l || rd l) t := by
+            (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || fr l) t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
               (∀ l, sc l = true ∨ started l = true
                 ∨ (W.filter (fun i =>
-                    (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)
+                    (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)
               ∧ (0 : Fin (t.length + 1)) ∈ W)
           = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
-              ∀ l, sc l = true ∨ (started l || rd l) = true
-                ∨ (W'.filter (fun i => (t.get i).snd.snd l = true)).Nonempty)).map
+              ∀ l, sc l = true ∨ (started l || fr l) = true
+                ∨ (W'.filter (fun i => (t.get i).snd.snd.fst l = true)).Nonempty)).map
               (insertEmb t.length)
           from ?_, Finset.sum_map, ← ih
-            (fun l => if rd l then acc l ++ [v l] else acc l) ex
-            (fun l => started l || rd l), Finset.mul_sum]
+            (fun l => if fr l && kp l then acc l ++ [v l] else acc l) ex
+            (fun l => started l || fr l), Finset.mul_sum]
       · refine Finset.sum_congr rfl fun W' _ => ?_
         have hprod : ∏ i ∈ insertEmb t.length W',
-              (((v, ann, rd) :: t).get i).snd.fst
+              (((v, ann, fr, kp) :: t).get i).snd.fst
             = ann * ∏ i ∈ W', (t.get i).snd.fst := by
           show ∏ i ∈ insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length)),
-              (((v, ann, rd) :: t).get i).snd.fst = _
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
           rw [Finset.prod_insert (notMem_map_succ _), Finset.prod_map]
           exact congrArg₂ (· * ·) rfl (Finset.prod_congr rfl fun i _ => rfl)
         have hsum : ∑ i ∈ (insertEmb t.length W')ᶜ,
-              (((v, ann, rd) :: t).get i).snd.fst
+              (((v, ann, fr, kp) :: t).get i).snd.fst
             = ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
           show ∑ i ∈ (insert (0 : Fin (t.length + 1))
               (W'.map (succEmb t.length)))ᶜ,
-              (((v, ann, rd) :: t).get i).snd.fst = _
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
           rw [compl_insert_map, Finset.sum_map]
           exact Finset.sum_congr rfl fun i _ => rfl
-        have hseq : Having.seqOf ((v, ann, rd) :: t) (insertEmb t.length W')
-            = (v, ann, rd) :: Having.seqOf t W' := by
-          show Having.seqOf ((v, ann, rd) :: t)
+        have hseq : Having.seqOf ((v, ann, fr, kp) :: t) (insertEmb t.length W')
+            = (v, ann, fr, kp) :: Having.seqOf t W' := by
+          show Having.seqOf ((v, ann, fr, kp) :: t)
               (insert (0 : Fin (t.length + 1)) (W'.map (succEmb t.length))) = _
           simp only [Having.seqOf]
           rw [ite_eq_left (Finset.mem_insert_self _ _), filter_succ_insert]
@@ -781,7 +781,7 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
             * (((1 : K) - (ex + ∑ i ∈ W'ᶜ, (t.get i).snd.fst))
               * Having.chiOf P (g x)))) (funext (fun l => ?_))
         refine congrArg (aggs l) ?_
-        by_cases hrd : rd l = true
+        by_cases hrd : (fr l && kp l) = true
         · rw [ite_eq_left (by simpa using hrd),
             List.filter_cons_of_pos (by simpa using hrd),
             List.map_cons, List.append_assoc, List.singleton_append]
@@ -801,7 +801,7 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
             cases i using Fin.cases with
             | zero =>
                 exact Or.inr (Or.inl (by
-                  rw [show rd l = true from hird]; exact Bool.or_true _))
+                  rw [show fr l = true from hird]; exact Bool.or_true _))
             | succ j =>
                 refine Or.inr (Or.inr ⟨j, Finset.mem_filter.mpr
                   ⟨Finset.mem_filter.mpr ⟨Finset.mem_univ _, hiW⟩, hird⟩⟩)
@@ -823,44 +823,44 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
           (fun W : Finset (Fin (t.length + 1)) => ∀ l, sc l = true
             ∨ started l = true
             ∨ (W.filter (fun i =>
-                (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)).filter
+                (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)).filter
             (fun W => ¬ (0 : Fin (t.length + 1)) ∈ W),
-          (∏ i ∈ W, (((v, ann, rd) :: t).get i).snd.fst)
-            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, rd) :: t).get i).snd.fst))
+          (∏ i ∈ W, (((v, ann, fr, kp) :: t).get i).snd.fst)
+            * (((1 : K) - (ex + ∑ i ∈ Wᶜ, (((v, ann, fr, kp) :: t).get i).snd.fst))
               * Having.chiOf P (g (fun l => aggs l (acc l ++
-                  ((Having.seqOf ((v, ann, rd) :: t) W).filter
-                    (fun z => z.snd.snd l)).map (fun z => z.fst l))))))
+                  ((Having.seqOf ((v, ann, fr, kp) :: t) W).filter
+                    (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l))))))
         = exprProvAux aggs sc g P acc (ex + ann) started t := by
       rw [Finset.filter_filter]
       rw [show Finset.univ.filter
             (fun W : Finset (Fin (t.length + 1)) =>
               (∀ l, sc l = true ∨ started l = true
                 ∨ (W.filter (fun i =>
-                    (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty)
+                    (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty)
               ∧ ¬ (0 : Fin (t.length + 1)) ∈ W)
           = (Finset.univ.filter (fun W' : Finset (Fin t.length) =>
               ∀ l, sc l = true ∨ started l = true
-                ∨ (W'.filter (fun i => (t.get i).snd.snd l = true)).Nonempty)).map
+                ∨ (W'.filter (fun i => (t.get i).snd.snd.fst l = true)).Nonempty)).map
               (mapEmb t.length)
           from ?_, Finset.sum_map, ← ih acc (ex + ann) started]
       · refine Finset.sum_congr rfl fun W' _ => ?_
         have hprod : ∏ i ∈ mapEmb t.length W',
-              (((v, ann, rd) :: t).get i).snd.fst
+              (((v, ann, fr, kp) :: t).get i).snd.fst
             = ∏ i ∈ W', (t.get i).snd.fst := by
           show ∏ i ∈ W'.map (succEmb t.length),
-              (((v, ann, rd) :: t).get i).snd.fst = _
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
           rw [Finset.prod_map]
           exact Finset.prod_congr rfl fun i _ => rfl
         have hsum : ∑ i ∈ (mapEmb t.length W')ᶜ,
-              (((v, ann, rd) :: t).get i).snd.fst
+              (((v, ann, fr, kp) :: t).get i).snd.fst
             = ann + ∑ i ∈ W'ᶜ, (t.get i).snd.fst := by
           show ∑ i ∈ (W'.map (succEmb t.length))ᶜ,
-              (((v, ann, rd) :: t).get i).snd.fst = _
+              (((v, ann, fr, kp) :: t).get i).snd.fst = _
           rw [compl_map, Finset.sum_insert (notMem_map_succ _), Finset.sum_map]
           exact congrArg₂ (· + ·) rfl (Finset.sum_congr rfl fun i _ => rfl)
-        have hseq : Having.seqOf ((v, ann, rd) :: t) (mapEmb t.length W')
+        have hseq : Having.seqOf ((v, ann, fr, kp) :: t) (mapEmb t.length W')
             = Having.seqOf t W' := by
-          show Having.seqOf ((v, ann, rd) :: t)
+          show Having.seqOf ((v, ann, fr, kp) :: t)
               (W'.map (succEmb t.length)) = _
           simp only [Having.seqOf]
           rw [ite_eq_right (notMem_map_succ _), filter_succ_map]
@@ -895,7 +895,7 @@ theorem sum_worlds_eq_exprProvAux (aggs : Fin q → SeqAggFunc T)
       (Finset.univ.filter (fun W : Finset (Fin (t.length + 1)) =>
         ∀ l, sc l = true ∨ started l = true
           ∨ (W.filter (fun i =>
-              (((v, ann, rd) :: t).get i).snd.snd l = true)).Nonempty))
+              (((v, ann, fr, kp) :: t).get i).snd.snd.fst l = true)).Nonempty))
       (fun W => (0 : Fin (t.length + 1)) ∈ W) _)) ?_
     rw [hA, hB]
     rfl
@@ -908,7 +908,7 @@ occurrences that different leaves read would hand a leaf a value it does
 not read. -/
 theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
     (g : (Fin q → T) → T) (P : T → Kleene)
-    {L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    {L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd) L₁ L₂) :
     ∀ (acc : Fin q → List T) (ex : K) (started : Fin q → Bool),
       exprProvAux aggs sc g P acc ex started L₁
@@ -917,17 +917,20 @@ theorem exprProvAux_congr (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool)
   | nil => intro acc ex started; rfl
   | @cons z L₁ L₂ _ ih =>
       intro acc ex started
-      obtain ⟨v, a, rd⟩ := z
+      obtain ⟨v, a, fr, kp⟩ := z
       simp only [exprProvAux]
       rw [ih, ih]
   | @swap z z' hzz' L₁ L₂ _ ih =>
       intro acc ex started
-      obtain ⟨v, a, rd⟩ := z
-      obtain ⟨w, b, rd'⟩ := z'
+      obtain ⟨v, a, fr, kp⟩ := z
+      obtain ⟨w, b, fr', kp'⟩ := z'
       obtain ⟨hv, hrd⟩ := hzz'
       dsimp only at hv hrd
+      have hfr : fr = fr' := congrArg Prod.fst hrd
+      have hkp : kp = kp' := congrArg Prod.snd hrd
       subst hv
-      subst hrd
+      subst hfr
+      subst hkp
       simp only [exprProvAux]
       simp only [ih]
       simp only [mul_add]
@@ -957,13 +960,13 @@ theorem predProvWith_eq_exprProvAux (e : AggExpr T K) (P : T → Kleene) :
       · obtain ⟨i, hi⟩ := h l (by simpa using hsc)
         obtain ⟨hiW, hir⟩ := Finset.mem_inter.mp hi
         exact Or.inr (Or.inr ⟨i, Finset.mem_filter.mpr
-          ⟨hiW, (mem_reads e l i).mp hir⟩⟩)
+          ⟨hiW, (mem_inFrame e l i).mp hir⟩⟩)
     · intro h l hsc
       rcases h l with hs | hf | ⟨i, hi⟩
       · exact absurd hs (by rw [hsc]; exact Bool.false_ne_true)
       · exact absurd hf Bool.false_ne_true
       · obtain ⟨hiW, hird⟩ := Finset.mem_filter.mp hi
-        exact ⟨i, Finset.mem_inter.mpr ⟨hiW, (mem_reads e l i).mpr hird⟩⟩
+        exact ⟨i, Finset.mem_inter.mpr ⟨hiW, (mem_inFrame e l i).mpr hird⟩⟩
   · rw [Having.worldAnn, zero_add, mul_assoc]
     refine congrArg _ (congrArg _ (congrArg (Having.chiOf P) ?_))
     unfold valOn
@@ -982,7 +985,7 @@ semantically invisible, as `AggValue.predProvWith_congr` does for one
 token. The two halves of the equivalence are both needed: swapping
 occurrences that different leaves read would hand a leaf a value it does
 not read. -/
-theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂)
@@ -998,7 +1001,7 @@ expression alone.** The collapse and the values read the stripped family
 and the predicate provenance is `predProvWith_congr`. These four are what
 an aggregate column owes, so this is the bundle a simulation of two
 expression columns asks for. -/
-theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
@@ -1028,7 +1031,7 @@ the induction is one line per constructor. -/
 theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
     (h : SemiringWithMonusHom K K') (aggs : Fin q → SeqAggFunc T)
     (sc : Fin q → Bool) (g : (Fin q → T) → T) (P : T → Kleene) :
-    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool))) (acc : Fin q → List T)
+    ∀ (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) (acc : Fin q → List T)
       (ex : K) (started : Fin q → Bool),
       h.toRingHom (exprProvAux aggs sc g P acc ex started L)
         = exprProvAux aggs sc g P acc (h.toRingHom ex) started
@@ -1047,7 +1050,7 @@ theorem exprProvAux_mapAnn {K' : Type} [CommSemiringWithMonus K']
     · rw [show (List.finRange q).all (fun l => sc l || started l) = false from
         by simpa using hall]
       exact map_zero _
-  | (v, a, rd) :: t, acc, ex, started => by
+  | (v, a, fr, kp) :: t, acc, ex, started => by
     show h.toRingHom (a * _ + _) = _
     rw [map_add, map_mul, exprProvAux_mapAnn h aggs sc g P t _ ex _,
       exprProvAux_mapAnn h aggs sc g P t acc (ex + a) started, map_add]

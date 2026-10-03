@@ -1830,25 +1830,20 @@ theorem AggQueryIn.evaluate_guarded :
         rwa [GenAnn.finalize_of_pending_zero] at this
       show (ValueFrame.exprOfWhen P O o ws ts fs g keeps _ i γ).IsWorld _
       intro l hl
-      -- a leaf read in the grouped convention carries no clause and has the
-      -- current row in its frame, so it reads the current occurrence
-      have hscal : ((keeps l).isSome
-          || !(ws l).s (Tuple.key O ((OccFam.ofSorted
-            (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst))
-        = false := hl
-      rw [Bool.or_eq_false_iff] at hscal
+      -- a leaf read in the grouped convention has the current row in its
+      -- frame, so the current occurrence is in its group – whatever its
+      -- clause does with it
       have hs : (ws l).s (Tuple.key O ((OccFam.ofSorted
           (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst)
-        = true := by simpa using hscal.2
-      have hkn : keeps l = none := by
-        cases hkl : keeps l with
-        | none => rfl
-        | some φ =>
-          rw [hkl] at hscal
-          exact absurd hscal.1 (by simp)
-      obtain ⟨j, hann, hreads⟩ := ValueFrame.self_mem_exprOfWhen P O o ts fs g
-        keeps _ i γ (l := l) hs
-      refine ⟨j, Finset.mem_inter.mpr ⟨?_, hreads l hs (by simp only [hkn])⟩⟩
+        = true := by
+        have hx : (!(ws l).s (Tuple.key O ((OccFam.ofSorted
+            (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst))
+          = false := hl
+        simpa using hx
+      obtain ⟨j, hann, hframe⟩ :=
+        ValueFrame.self_mem_inFrame_exprOfWhen P O o ts fs g keeps _ i γ
+          (l := l) hs
+      refine ⟨j, Finset.mem_inter.mpr ⟨?_, hframe l hs⟩⟩
       refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩
       show ((ValueFrame.exprOfWhen P O o ws ts fs g keeps _ i γ).anns j) v = true
       rw [hann]

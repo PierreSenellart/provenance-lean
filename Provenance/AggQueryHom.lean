@@ -1225,7 +1225,7 @@ theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
 equivalent**: the four readings `GenValue.Equiv` asks of them are
 exactly `AggExpr.readings_congr`'s bundle. -/
 theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
-    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
     (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
@@ -1950,17 +1950,19 @@ theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
   have hocc' : (ValueFrame.exprOf P O o ws ts fs g r' i' γ).occs
       = L'.map (fun y : AnnotatedTuple T K' n' =>
         ((fun l => (ts l).eval y.fst γ), y.snd,
-          fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
             && (ws l).ρ (Tuple.key O y.fst)
-              (Tuple.key O (r.row i).fst))) := by
+              (Tuple.key O (r.row i).fst)),
+          fun _ => true)) := by
     rw [ValueFrame.occs_exprOf P O o hcs ts fs g r' i' γ, hi]
   have hoccb : ((ValueFrame.exprOf P O o ws ts fs g r i γ).mapAnn
         ⇑h.toRingHom).occs
       = (Lb.map gh).map (fun y : AnnotatedTuple T K' n' =>
         ((fun l => (ts l).eval y.fst γ), y.snd,
-          fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
             && (ws l).ρ (Tuple.key O y.fst)
-              (Tuple.key O (r.row i).fst))) := by
+              (Tuple.key O (r.row i).fst)),
+          fun _ => true)) := by
     show ((ValueFrame.exprOf P O o ws ts fs g r i γ).occs.map
         (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
     rw [ValueFrame.occs_exprOf P O o hcs ts fs g r i γ, hLb]
@@ -2044,24 +2046,24 @@ theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
   have hocc' : (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).occs
       = L'.map (fun y : AnnotatedTuple T K' n' =>
         ((fun l => (ts l).eval y.fst γ), y.snd,
-          fun l => (decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
-              && (ws l).ρ (Tuple.key O y.fst)
-                (Tuple.key O (r.row i).fst))
-            && (match keeps l with
-                | none => true
-                | some φ => φ.keeps y.fst))) := by
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst)),
+          fun l => match keeps l with
+            | none => true
+            | some φ => φ.keeps y.fst)) := by
     rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r' i' γ, hi, hL']
     rfl
   have hoccb : ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).mapAnn
         ⇑h.toRingHom).occs
       = (Lb.map gh).map (fun y : AnnotatedTuple T K' n' =>
         ((fun l => (ts l).eval y.fst γ), y.snd,
-          fun l => (decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
-              && (ws l).ρ (Tuple.key O y.fst)
-                (Tuple.key O (r.row i).fst))
-            && (match keeps l with
-                | none => true
-                | some φ => φ.keeps y.fst))) := by
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst)),
+          fun l => match keeps l with
+            | none => true
+            | some φ => φ.keeps y.fst)) := by
     show ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).occs.map
         (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
     rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r i γ, hLb]
@@ -2071,8 +2073,8 @@ theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
   refine GenValue.Equiv.of_expr_tiePerm (q := qq) fs ?_ g
     (htp.map _ (fun hab => ⟨by rw [hab], by rw [hab]⟩))
   funext l
-  show ((keeps l).isSome || !(ws l).s (Tuple.key O (r'.row i').fst))
-    = ((keeps l).isSome || !(ws l).s (Tuple.key O (r.row i).fst))
+  show (!(ws l).s (Tuple.key O (r'.row i').fst))
+    = (!(ws l).s (Tuple.key O (r.row i).fst))
   rw [hi]
 
 /-- **Row-wise simulation.** Evaluating the transported query on the

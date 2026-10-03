@@ -53,15 +53,29 @@ structure AggExpr (T K : Type) where
   /-- How many aggregate values the expression combines. -/
   arity : ℕ
   /-- The occurrence family `V`: per occurrence, the value each leaf reads
-  there, the occurrence's annotation, and which leaves read it.
+  there, the occurrence's annotation, which leaves have it in their
+  *group* (or frame), and which of those leaves' `FILTER` clauses keep
+  it.
 
-  The leaf membership sits in the occurrence rather than beside the list
-  as a `Finset` of positions. Both say the same thing, and this way a
-  recursion over the family carries it along (`AggExpr.exprProvAux`) and
-  a reading of one leaf is a `List.filter` of the selected sequence
-  rather than an intersection of position sets – so nothing has to be
-  transported when the family is rebuilt at the same length. -/
-  occs : List ((Fin arity → T) × K × (Fin arity → Bool))
+  The two flag families do two different jobs, and a `FILTER` clause is
+  what tells them apart. The first fixes the **worlds**: a grouped leaf
+  asks the world to meet its group (`IsWorld`), because that is what
+  records the group's existence, and a clause does not change which rows
+  exist. The second fixes what the leaf **reads** (`reads`, `leafSeq`): a
+  clause takes an occurrence out of the aggregate's sequence while
+  leaving it in the family, so the world in which only rejected rows are
+  present is still a world, annotated as it should be, and the leaf
+  reads `f []` there. Cutting the family instead loses exactly that
+  world, and no convention over the cut family recovers it
+  (`HavingQueryCounterexamples.chain_count_zero_when_ne`).
+
+  Both sit in the occurrence rather than beside the list as `Finset`s of
+  positions. That way a recursion over the family carries them along
+  (`AggExpr.exprProvAux`) and a reading of one leaf is a `List.filter` of
+  the selected sequence rather than an intersection of position sets – so
+  nothing has to be transported when the family is rebuilt at the same
+  length. -/
+  occs : List ((Fin arity → T) × K × (Fin arity → Bool) × (Fin arity → Bool))
   /-- The aggregate each leaf reads its sequence with. -/
   aggs : Fin arity → SeqAggFunc T
   /-- Whether each leaf is read in the scalar convention. -/
@@ -75,16 +89,40 @@ namespace AggExpr
 def anns (e : AggExpr T K) : Fin e.occs.length → K :=
   fun i => (e.occs.get i).snd.fst
 
-/-- **The occurrences `U_j` the `j`-th leaf reads**, read off the family. -/
-def reads (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
-  Finset.univ.filter (fun i => (e.occs.get i).snd.snd j = true)
+/-- **The occurrences in the `j`-th leaf's group**, read off the family:
+what a world has to meet for the leaf to have a value, and what the
+leaf's `FILTER` clause then cuts down to `reads`. -/
+def inFrame (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
+  Finset.univ.filter (fun i => (e.occs.get i).snd.snd.fst j = true)
 
-/-- Membership of `U_j` is the occurrence's own flag. -/
+/-- **The occurrences `U_j` the `j`-th leaf reads**: those of its group
+its own clause keeps. With no clause this is the group itself. -/
+def reads (e : AggExpr T K) (j : Fin e.arity) : Finset (Fin e.occs.length) :=
+  Finset.univ.filter (fun i =>
+    ((e.occs.get i).snd.snd.fst j && (e.occs.get i).snd.snd.snd j) = true)
+
+/-- Membership of the group is the occurrence's own flag. -/
+@[simp] theorem mem_inFrame (e : AggExpr T K) (j : Fin e.arity)
+    (i : Fin e.occs.length) :
+    i ∈ e.inFrame j ↔ (e.occs.get i).snd.snd.fst j = true := by
+  rw [inFrame, Finset.mem_filter]
+  exact and_iff_right (Finset.mem_univ _)
+
+/-- Membership of `U_j` is the occurrence's own two flags. -/
 @[simp] theorem mem_reads (e : AggExpr T K) (j : Fin e.arity)
     (i : Fin e.occs.length) :
-    i ∈ e.reads j ↔ (e.occs.get i).snd.snd j = true := by
+    i ∈ e.reads j
+      ↔ ((e.occs.get i).snd.snd.fst j && (e.occs.get i).snd.snd.snd j)
+        = true := by
   rw [reads, Finset.mem_filter]
   exact and_iff_right (Finset.mem_univ _)
+
+/-- What a leaf reads is part of its group. -/
+theorem reads_subset_inFrame (e : AggExpr T K) (j : Fin e.arity) :
+    e.reads j ⊆ e.inFrame j := by
+  intro i hi
+  exact mem_inFrame e j i |>.mpr (Bool.and_eq_true _ _ |>.mp
+    ((mem_reads e j i).mp hi) |>.1)
 
 /-- The sequence the `j`-th leaf reads in the world `W`: the values it
 reads at the occurrences of `W` it reads, in order. -/
@@ -99,26 +137,34 @@ recursion over the family read every leaf as it goes. -/
 theorem leafSeq_eq_filter (e : AggExpr T K) (j : Fin e.arity)
     (W : Finset (Fin e.occs.length)) :
     e.leafSeq j W
-      = ((Having.seqOf e.occs W).filter (fun z => z.snd.snd j)).map
+      = ((Having.seqOf e.occs W).filter
+          (fun z => z.snd.snd.fst j && z.snd.snd.snd j)).map
         (fun z => z.fst j) := by
   unfold leafSeq
   rw [show W ∩ e.reads j
-      = W.filter (fun i => (e.occs.get i).snd.snd j = true) from by
+      = W.filter (fun i => ((e.occs.get i).snd.snd.fst j
+          && (e.occs.get i).snd.snd.snd j) = true) from by
     ext i
     rw [Finset.mem_inter, mem_reads, Finset.mem_filter]]
-  rw [Having.seqOf_filter_inter (fun z => z.snd.snd j) e.occs W]
+  rw [Having.seqOf_filter_inter
+    (fun z => z.snd.snd.fst j && z.snd.snd.snd j) e.occs W]
 
 /-- The value the `j`-th leaf takes in the world `W`. -/
 def leafVal (e : AggExpr T K) (j : Fin e.arity)
     (W : Finset (Fin e.occs.length)) : T :=
   e.aggs j (e.leafSeq j W)
 
-/-- **`W` is a world of the expression**: it meets the occurrences of
-every *grouped* leaf. A scalar leaf is exempt – the empty world is one of
-its worlds – which is the same case split `AggValue.predProv` and
-`predProvScalar` make. -/
+/-- **`W` is a world of the expression**: it meets the *group* of every
+*grouped* leaf. A scalar leaf is exempt – the empty world is one of its
+worlds – which is the same case split `AggValue.predProv` and
+`predProvScalar` make.
+
+It is the group and not what the leaf reads: a `FILTER` clause changes
+what the aggregate reads of a world, not which worlds there are, so a
+leaf whose clause rejects everything still has the worlds of its group
+and reads `f []` in each. -/
 def IsWorld (e : AggExpr T K) (W : Finset (Fin e.occs.length)) : Prop :=
-  ∀ j, e.scalar j = false → (W ∩ e.reads j).Nonempty
+  ∀ j, e.scalar j = false → (W ∩ e.inFrame j).Nonempty
 
 instance (e : AggExpr T K) : DecidablePred e.IsWorld :=
   fun _ => inferInstanceAs (Decidable (∀ _, _ → _))
@@ -235,8 +281,8 @@ Stripping the annotations off the family and selecting there is
 selecting and then stripping, so two families with the same stripped
 list give every leaf the same sequence in corresponding worlds. -/
 theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
-    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
-    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -252,10 +298,11 @@ theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
       = (occs₂.map (fun z => (z.fst, z.snd.snd))).length :=
     (List.length_map _).symm
   rw [leafSeq_eq_filter, leafSeq_eq_filter]
-  show (((Having.seqOf occs₁ W).filter (fun z => z.snd.snd l)).map
+  show (((Having.seqOf occs₁ W).filter
+      (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map
       (fun z => z.fst l))
     = (((Having.seqOf occs₂ (W.map (finCongr hlen).toEmbedding)).filter
-      (fun z => z.snd.snd l)).map (fun z => z.fst l))
+      (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map (fun z => z.fst l))
   have key : (Having.seqOf occs₁ W).map (fun z => (z.fst, z.snd.snd))
       = (Having.seqOf occs₂ (W.map (finCongr hlen).toEmbedding)).map
         (fun z => (z.fst, z.snd.snd)) := by
@@ -272,10 +319,12 @@ theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
     · rintro ⟨i, hi, rfl⟩
       obtain ⟨i', hi', rfl⟩ := hi
       exact ⟨Fin.cast h₁ i', ⟨i', hi', rfl⟩, by simp⟩
-  have hf : ∀ {Kx : Type} (L : List ((Fin q → T) × Kx × (Fin q → Bool))),
-      (L.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
+  have hf : ∀ {Kx : Type}
+      (L : List ((Fin q → T) × Kx × (Fin q → Bool) × (Fin q → Bool))),
+      (L.filter (fun z => z.snd.snd.fst l && z.snd.snd.snd l)).map
+          (fun z => z.fst l)
         = ((L.map (fun z => (z.fst, z.snd.snd))).filter
-          (fun w => w.snd l)).map (fun w => w.fst l) := by
+          (fun w => w.snd.fst l && w.snd.snd l)).map (fun w => w.fst l) := by
     intro Kx L
     rw [List.filter_map, List.map_map]
     rfl
@@ -286,8 +335,8 @@ theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
 condition reads the leaf flags and the conventions, not the
 annotations. -/
 theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
-    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
-    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -297,14 +346,17 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
       ↔ (AggExpr.mk q occs₂ aggs sc g).IsWorld
         (W.map (finCongr hlen).toEmbedding) := by
   have hflag : ∀ (i : Fin occs₁.length) (l : Fin q),
-      (occs₁.get i).snd.snd l = (occs₂.get (Fin.cast hlen i)).snd.snd l := by
+      (occs₁.get i).snd.snd.fst l
+        = (occs₂.get (Fin.cast hlen i)).snd.snd.fst l := by
     intro i l
     have hi₂ : (i : ℕ) < occs₂.length := by rw [← hlen]; exact i.isLt
     have h' := congrArg (fun L => L[(i : ℕ)]?) hstrip
     simp only [List.getElem?_map, List.getElem?_eq_getElem i.isLt,
       List.getElem?_eq_getElem hi₂, Option.map_some] at h'
     have heq := Option.some.inj h'
-    have hres := congrArg (fun z : (Fin q → T) × (Fin q → Bool) => z.snd l) heq
+    have hres := congrArg
+      (fun z : (Fin q → T) × ((Fin q → Bool) × (Fin q → Bool)) =>
+        z.snd.fst l) heq
     simpa only [List.get_eq_getElem, Fin.val_cast] using hres
   constructor
   · intro h l hsc
@@ -312,7 +364,7 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
     obtain ⟨hiW, hir⟩ := Finset.mem_inter.mp hi
     refine ⟨Fin.cast hlen i, Finset.mem_inter.mpr
       ⟨Finset.mem_map.mpr ⟨i, hiW, rfl⟩, ?_⟩⟩
-    rw [mem_reads] at hir ⊢
+    rw [mem_inFrame] at hir ⊢
     rw [← hflag i l]
     exact hir
   · intro h l hsc
@@ -320,7 +372,7 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
     obtain ⟨hjW, hjr⟩ := Finset.mem_inter.mp hj
     obtain ⟨i, hiW, rfl⟩ := Finset.mem_map.mp hjW
     refine ⟨i, Finset.mem_inter.mpr ⟨hiW, ?_⟩⟩
-    rw [mem_reads] at hjr ⊢
+    rw [mem_inFrame] at hjr ⊢
     rw [hflag i l]
     exact hjr
 
@@ -328,8 +380,8 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
 flags**: every occurrence is present, so each leaf reads the same
 sequence. -/
 theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type}
-    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
-    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd))) :
@@ -351,8 +403,8 @@ families that differ by a tie-block permutation – occurrences carrying
 the same value vector and read by the same leaves – give the same set of
 values. This is what lets an aggregate expression be read as a key. -/
 theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
-    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
-    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool) × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd))) :
@@ -392,7 +444,7 @@ theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
 /-- **An expression is its own fields**, so rewriting its family rewrites
 the expression. -/
 theorem eq_mk_of_occs {e : AggExpr T K}
-    {occs' : List ((Fin e.arity → T) × K × (Fin e.arity → Bool))}
+    {occs' : List ((Fin e.arity → T) × K × (Fin e.arity → Bool) × (Fin e.arity → Bool))}
     (h : e.occs = occs') :
     e = AggExpr.mk e.arity occs' e.aggs e.scalar e.g := by
   subst h
@@ -479,6 +531,20 @@ theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
   congrArg (e.mapAnn h).g
     (funext (fun j => congrArg ((e.mapAnn h).aggs j) (leafSeq_mapAnn h e j W)))
 
+/-- The group flags travel with the occurrences. -/
+theorem inFrame_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
+    (j : Fin e.arity) :
+    (e.mapAnn h).inFrame j
+      = (e.inFrame j).map (finCongr (length_map_occs h e)).toEmbedding := by
+  ext i
+  rw [mem_inFrame, Finset.mem_map_equiv, mem_inFrame]
+  have h1 : ((e.mapAnn h).occs.get i).snd.snd
+      = (e.occs.get (finCongr (length_map_occs h e).symm i)).snd.snd := by
+    simp only [occs_mapAnn, List.get_eq_getElem, List.getElem_map]
+    rfl
+  rw [h1]
+  rfl
+
 /-- The leaf flags travel with the occurrences, so each leaf reads the
 transported occurrences of the ones it read. -/
 theorem reads_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
@@ -503,7 +569,7 @@ theorem isWorld_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
       ↔ e.IsWorld W := by
   unfold IsWorld
   refine forall_congr' (fun j => imp_congr Iff.rfl ?_)
-  rw [reads_mapAnn, ← Finset.map_inter, Finset.map_nonempty]
+  rw [inFrame_mapAnn, ← Finset.map_inter, Finset.map_nonempty]
 
 /-- The annotation of a transported occurrence is the pushed one. -/
 @[simp] theorem anns_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
@@ -548,7 +614,8 @@ theorem mapAnn_postcomp {K' : Type} (h : K → K') (gf : T → T)
 def ofValue (a : AggValue T K) : AggExpr T K where
   arity := 1
   occs := a.occs.map
-    (fun o => ((fun _ : Fin 1 => o.fst), o.snd, (fun _ : Fin 1 => true)))
+    (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => v 0
@@ -570,12 +637,22 @@ def ofValue (a : AggValue T K) : AggExpr T K where
   rw [List.map_map]
   rfl
 
-/-- Every leaf of a token's expression reads every occurrence. -/
+/-- Every leaf of a token's expression has every occurrence in its group:
+a token carries no clause. -/
+@[simp] theorem inFrame_ofValue (a : AggValue T K)
+    (j : Fin (ofValue a).arity) :
+    (ofValue a).inFrame j = Finset.univ := by
+  refine Finset.eq_univ_of_forall (fun i => ?_)
+  rw [mem_inFrame]
+  simp only [ofValue, List.get_eq_getElem, List.getElem_map]
+
+/-- And reads every one of them. -/
 @[simp] theorem reads_ofValue (a : AggValue T K) (j : Fin (ofValue a).arity) :
     (ofValue a).reads j = Finset.univ := by
   refine Finset.eq_univ_of_forall (fun i => ?_)
   rw [mem_reads]
   simp only [ofValue, List.get_eq_getElem, List.getElem_map]
+  rfl
 
 theorem length_ofValue_occs (a : AggValue T K) :
     a.occs.length = (ofValue a).occs.length := (List.length_map _).symm
@@ -583,7 +660,7 @@ theorem length_ofValue_occs (a : AggValue T K) :
 @[simp] theorem anns_ofValue (a : AggValue T K) (i : Fin a.occs.length) :
     (ofValue a).anns (finCongr (length_ofValue_occs a) i) = a.anns i := by
   show ((a.occs.map (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
-      (fun _ : Fin 1 => true)))).get
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))).get
     (finCongr (length_ofValue_occs a) i)).snd.fst = _
   simp [AggValue.anns]
 
@@ -619,7 +696,7 @@ theorem isWorld_ofValue (a : AggValue T K)
     · exact absurd hs (by simpa using hj)
     · refine ⟨finCongr (length_ofValue_occs a) i, Finset.mem_inter.mpr
         ⟨Finset.mem_map_of_mem _ hi, ?_⟩⟩
-      rw [reads_ofValue]
+      rw [inFrame_ofValue]
       exact Finset.mem_univ _
 
 section PredProv
@@ -782,7 +859,8 @@ puts it. -/
 def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   arity := 1
   occs := a.occs.map
-    (fun o => ((fun _ : Fin 1 => o.fst), o.snd, (fun _ : Fin 1 => true)))
+    (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
   aggs := fun _ => a.agg
   scalar := fun _ => a.scalar
   g := fun v => gf (v (0 : Fin 1))

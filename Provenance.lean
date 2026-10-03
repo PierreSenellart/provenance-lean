@@ -513,21 +513,30 @@ proven engine several general results reuse internally.
   every theorem about the operator uses.
   Every aggregating operator carries SQL's `FILTER` clause: `Gamma`'s
   `keep`, one per aggregate, `Win`'s `keep`, and `WinExpr`'s `keeps`, one
-  per leaf of the expression. A clause cuts the occurrences its own
-  aggregate reads and nothing else – the group or the frame, its key and
-  its annotation stay those of every occurrence, so a group's existence
-  factor is untouched – and a filtered aggregate is read in the scalar
-  convention, the kept part of a group or a frame being possibly empty
-  where the group or the frame is not. For a multi-frame window the
-  clause cuts what its leaf reads of the shared family and never the
-  family itself (`ValueFrame.exprOfWhen`), which is why an occurrence no
-  leaf reads is allowed at all. Every reading covers a clause: the
-  deterministic one (`ValueFrame.collapse_exprOfWhen`), the pushforward
+  per leaf of the expression. What a clause may change is what its own
+  aggregate **reads**, and nothing else: the worlds stay the group's or
+  the frame's, every occurrence carrying its annotation to them, so the
+  world in which only rejected rows are present is still a world and the
+  aggregate reads `f []` there – which is the row SQL emits for a group
+  whose rows the clause all rejects. A multi-frame window reads it that
+  way: `AggExpr` keeps the group and the clause apart
+  (`AggExpr.inFrame`, which `IsWorld` asks about, and `AggExpr.reads`,
+  which the value reads), and `ValueFrame.exprOfWhen` cuts only the
+  second, so a clause that keeps everything *is* no clause. Every
+  reading covers it with no new hypothesis: the deterministic one
+  (`ValueFrame.collapse_exprOfWhen`), the pushforward
   (`ValueFrame.occs_exprOfWhen` – a clause tests the occurrence's own
   tuple, which a tie-block permutation does not move) and the random
-  world (`exprOfWhen_specialize`). Only the rewriting excludes it, with
-  `AggQuery.noFilter`: a clause is a predicate on the base domain where
-  the rewritten world's rows carry composite values
+  world (`exprOfWhen_specialize`, a restriction to a world not moving a
+  row). `Gamma`'s and `Win`'s clauses still cut the family and read the
+  cut scalar, which is not the same semantics – an `AggValue` occurrence
+  carries a value and an annotation and cannot say that a clause left it
+  unread – and `HavingQueryCounterexamples.chain_count_zero_when_ne`
+  measures the difference, against `chainExprNone_zero` and
+  `chainExprMixed_zero` for what the expression reading gives. Only the
+  rewriting excludes a clause outright, with `AggQuery.noFilter`: a
+  clause is a predicate on the base domain where the rewritten world's
+  rows carry composite values
 - `Provenance.AggQuerySubst` – **substituting the outer columns**: the
   apply is defined by substitution – its right side is read, for each
   row `u` of the left, as the closed query `q₂[u]` – while the
