@@ -224,6 +224,209 @@ instance : LeftCommutative (addOcc (T := T) (K := K)) where
       (fun d₁ _ => Multiset.map_congr rfl
         (fun W _ => Multiset.cons_swap _ _ _)))
 
+/-! ### What a world weighs, read off the occurrences' statistics
+
+A nested world's annotation is a product over its occurrences
+(`World.ann_split`, where `K` is complemented), its value the outer
+aggregate of what its present occurrences read, and its admissibility the
+conjunction of their own. So each of the three is a function of one datum
+per occurrence – the factor its decision carries, the value it
+contributes if present, and whether that decision is a world of it – and
+the whole reading is a function of the *bag* of those data. That is what
+makes a nested value's reading depend on its occurrences' columns only
+through `AggExpr.worldStats`, which is what `GenValue.Equiv` carries. -/
+
+/-- The datum a decision carries: its factor, the value it contributes
+where it is present, and whether it is a world of its own expression. -/
+def statOfDec [CommSemiringWithMonus K] (d : WorldOcc T K) :
+    K × Option T × Bool :=
+  ((if d.present = true then d.occ.2 else (1 - d.occ.2))
+      * ((∏ j ∈ d.sub, d.occ.1.anns j)
+        * (1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)),
+    (if d.present = true then some (d.occ.1.valOn d.sub) else none),
+    (if d.present = true then decide (d.occ.1.IsWorld d.sub) else true))
+
+/-- The data available at one occurrence. -/
+def occStats [CommSemiringWithMonus K] (o : AggExpr T K × K) :
+    Multiset (K × Option T × Bool) :=
+  (decisions o).map statOfDec
+
+/-- One more occurrence, on the data: every choice so far gains every
+datum available at it, accumulating the values it reads, the factor it
+carries and whether every decision is a world of its own. -/
+def addChoice [CommSemiringWithMonus K] (st : Multiset (K × Option T × Bool))
+    (cs : Multiset (Multiset T × K × Bool)) : Multiset (Multiset T × K × Bool) :=
+  st.bind (fun z => cs.map (fun c =>
+    ((match z.snd.fst with | none => c.fst | some v => v ::ₘ c.fst),
+      z.fst * c.snd.fst, z.snd.snd && c.snd.snd)))
+
+omit [ValueType T] in
+/-- **The order the occurrences are taken in does not matter here
+either.** -/
+instance [CommSemiringWithMonus K] :
+    LeftCommutative (addChoice (T := T) (K := K)) where
+  left_comm st₁ st₂ cs := by
+    unfold addChoice
+    simp only [Multiset.map_bind, Multiset.map_map, Function.comp_def]
+    rw [Multiset.bind_bind]
+    refine Multiset.bind_congr (fun z₂ _ => Multiset.bind_congr
+      (fun z₁ _ => Multiset.map_congr rfl (fun c _ => ?_)))
+    refine Prod.ext_iff.mpr ⟨?_, Prod.ext_iff.mpr ⟨?_, ?_⟩⟩
+    · cases z₁.snd.fst <;> cases z₂.snd.fst <;>
+        simp [Multiset.cons_swap]
+    · exact mul_left_comm _ _ _
+    · cases z₁.snd.snd <;> cases z₂.snd.snd <;> simp
+
+/-- **The choices a bag of data allows**: one datum per occurrence, with
+the values, the factor and the admissibility accumulated. -/
+def choicesOf [CommSemiringWithMonus K]
+    (ss : Multiset (Multiset (K × Option T × Bool))) :
+    Multiset (Multiset T × K × Bool) :=
+  Multiset.foldr addChoice {(0, 1, true)} ss
+
+/-- **What a world amounts to**: the values its present occurrences read,
+the factor it carries, and whether every present occurrence's decision is
+a world of its own expression. -/
+def summaryOfOccs [CommSemiringWithMonus K] (W : Multiset (WorldOcc T K)) :
+    Multiset T × K × Bool :=
+  ((W.filter (fun d => d.present = true)).map (fun d => d.occ.1.valOn d.sub),
+    (W.map (fun d => (statOfDec d).fst)).prod,
+    decide (∀ d ∈ W, d.present = true → d.occ.1.IsWorld d.sub))
+
+omit [ValueType T] in
+/-- One more occurrence accumulates its datum. -/
+theorem summaryOfOccs_cons [CommSemiringWithMonus K] (d : WorldOcc T K)
+    (W : Multiset (WorldOcc T K)) :
+    summaryOfOccs (d ::ₘ W)
+      = ((match (statOfDec d).snd.fst with
+            | none => (summaryOfOccs W).fst
+            | some v => v ::ₘ (summaryOfOccs W).fst),
+          (statOfDec d).fst * (summaryOfOccs W).snd.fst,
+          (statOfDec d).snd.snd && (summaryOfOccs W).snd.snd) := by
+  have hall : (∀ x ∈ d ::ₘ W, x.present = true → x.occ.1.IsWorld x.sub)
+      ↔ ((d.present = true → d.occ.1.IsWorld d.sub)
+        ∧ ∀ x ∈ W, x.present = true → x.occ.1.IsWorld x.sub) := by
+    constructor
+    · intro h
+      exact ⟨h d (Multiset.mem_cons_self _ _),
+        fun x hx => h x (Multiset.mem_cons_of_mem hx)⟩
+    · rintro ⟨hd, hW⟩ x hx
+      rcases Multiset.mem_cons.mp hx with rfl | hx'
+      · exact hd
+      · exact hW x hx'
+  by_cases hp : d.present = true
+  · have hopt : (statOfDec d).snd.fst = some (d.occ.1.valOn d.sub) := by
+      simp [statOfDec, hp]
+    have hok : (statOfDec d).snd.snd = decide (d.occ.1.IsWorld d.sub) := by
+      simp [statOfDec, hp]
+    rw [hopt, hok]
+    unfold summaryOfOccs
+    dsimp only
+    refine Prod.ext_iff.mpr ⟨?_, Prod.ext_iff.mpr ⟨?_, ?_⟩⟩
+    · show ((d ::ₘ W).filter (fun x => x.present = true)).map _ = _
+      rw [Multiset.filter_cons_of_pos
+        (p := fun x : WorldOcc T K => x.present = true) W hp, Multiset.map_cons]
+    · show ((d ::ₘ W).map (fun x => (statOfDec x).fst)).prod = _
+      rw [Multiset.map_cons, Multiset.prod_cons]
+    · show decide (∀ x ∈ d ::ₘ W, x.present = true → x.occ.1.IsWorld x.sub) = _
+      dsimp only
+      rw [decide_eq_decide.mpr hall, Bool.decide_and]
+      refine congrArg₂ (fun x y : Bool => x && y) ?_ rfl
+      simp [hp]
+  · have hopt : (statOfDec d).snd.fst = none := by
+      simp [statOfDec, hp]
+    have hok : (statOfDec d).snd.snd = true := by
+      simp [statOfDec, hp]
+    rw [hopt, hok]
+    unfold summaryOfOccs
+    dsimp only
+    refine Prod.ext_iff.mpr ⟨?_, Prod.ext_iff.mpr ⟨?_, ?_⟩⟩
+    · show ((d ::ₘ W).filter (fun x => x.present = true)).map _ = _
+      rw [Multiset.filter_cons_of_neg
+        (p := fun x : WorldOcc T K => x.present = true) W (by simpa using hp)]
+    · show ((d ::ₘ W).map (fun x => (statOfDec x).fst)).prod = _
+      rw [Multiset.map_cons, Multiset.prod_cons]
+    · show decide (∀ x ∈ d ::ₘ W, x.present = true → x.occ.1.IsWorld x.sub) = _
+      dsimp only
+      rw [decide_eq_decide.mpr hall, Bool.decide_and]
+      refine congrArg₂ (fun x y : Bool => x && y) ?_ rfl
+      simp [hp]
+
+omit [ValueType T] in
+/-- Summing a filtered map is summing the map with the rejected entries
+read as `𝟘`. -/
+theorem sum_map_filter {α β : Type} [AddCommMonoid β] (p : α → Prop)
+    [DecidablePred p] (f : α → β) :
+    ∀ s : Multiset α,
+      ((s.filter p).map f).sum = (s.map (fun x => if p x then f x else 0)).sum := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty => rfl
+  | cons x t ih =>
+    by_cases hx : p x
+    · rw [Multiset.filter_cons_of_pos _ hx, Multiset.map_cons, Multiset.sum_cons,
+        Multiset.map_cons, Multiset.sum_cons, ih]
+      simp [hx]
+    · rw [Multiset.filter_cons_of_neg _ hx, ih, Multiset.map_cons,
+        Multiset.sum_cons]
+      simp [hx]
+
+omit [ValueType T] in
+/-- **The data at an occurrence are its column's statistics**, taken once
+with the occurrence present and once with it absent: its annotation or the
+complement of it times the factor the subfamily carries, the value where
+it is read, and its own admissibility. So a nested value reads its
+occurrences' columns through `AggExpr.worldStats` and nothing else. -/
+theorem occStats_eq [CommSemiringWithMonus K] (o : AggExpr T K × K) :
+    occStats o
+      = ((o.1.worldStats.map (fun z =>
+            (o.2 * (z.fst * (1 - z.snd.fst)), some z.snd.snd.fst,
+              z.snd.snd.snd)))
+        + (o.1.worldStats.map (fun z =>
+            ((1 - o.2) * (z.fst * (1 - z.snd.fst)), none, true)))) := by
+  have huniv : (Finset.univ
+        : Finset (Bool × Finset (Fin o.1.occs.length))).val
+      = ((Finset.univ : Finset (Finset (Fin o.1.occs.length))).val.map
+          (fun S => ((true : Bool), S)))
+        + ((Finset.univ : Finset (Finset (Fin o.1.occs.length))).val.map
+          (fun S => ((false : Bool), S))) := by
+    rw [show (Finset.univ : Finset (Bool × Finset (Fin o.1.occs.length)))
+        = (Finset.univ : Finset Bool) ×ˢ
+          (Finset.univ : Finset (Finset (Fin o.1.occs.length))) from
+      (Finset.univ_product_univ).symm, Finset.product_val]
+    show (Finset.univ : Finset Bool).val.bind _ = _
+    rw [show (Finset.univ : Finset Bool).val = {true, false} from rfl]
+    simp [Multiset.cons_bind]
+  unfold occStats decisions AggExpr.worldStats
+  rw [Multiset.map_map, huniv, Multiset.map_add, Multiset.map_map,
+    Multiset.map_map, Multiset.map_map, Multiset.map_map]
+  refine congrArg₂ (fun x y : Multiset (K × Option T × Bool) => x + y) ?_ ?_
+  · exact Multiset.map_congr rfl (fun S _ => by simp [statOfDec])
+  · exact Multiset.map_congr rfl (fun S _ => by simp [statOfDec])
+
+omit [ValueType T] in
+/-- **The enumeration of worlds is the enumeration of the data.** Every
+world decides once at each occurrence, and what the reading makes of a
+world is what its decisions' data amount to – so the reading runs over the
+occurrences' statistics and not over their families. -/
+theorem foldr_addOcc_map_summary [CommSemiringWithMonus K] :
+    ∀ s : Multiset (AggExpr T K × K),
+      (Multiset.foldr addOcc {0} s).map summaryOfOccs
+        = choicesOf (s.map occStats) := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty =>
+    rw [Multiset.foldr_zero, Multiset.map_zero, Multiset.map_singleton]
+    show {summaryOfOccs 0} = choicesOf 0
+    unfold summaryOfOccs choicesOf
+    simp
+  | cons o s ih =>
+    rw [Multiset.foldr_cons, Multiset.map_cons, choicesOf, Multiset.foldr_cons,
+      addOcc, addChoice, occStats, Multiset.map_bind, Multiset.bind_map]
+    refine Multiset.bind_congr (fun d _ => ?_)
+    rw [Multiset.map_map, ← choicesOf, ← ih, Multiset.map_map]
+    exact Multiset.map_congr rfl (fun W _ => summaryOfOccs_cons d W)
+
 /-- **The worlds of a nested value.** -/
 def worlds (a : NestedValue T K) : Multiset (World T K) :=
   (Multiset.foldr addOcc {0} a.occs).map World.mk
@@ -325,6 +528,7 @@ def World.absentSum (W : World T K) : K :=
 def World.ann (W : World T K) : K :=
   W.presentProd * (1 - W.absentSum)
 
+omit [ValueType T] in
 /-- **The annotation of a nested world splits over its occurrences**,
 where `K` is complemented: each occurrence contributes its own outer
 annotation, or the complement of it where the world drops it, times its
@@ -644,6 +848,73 @@ def predProvWith (a : NestedValue T K) (P : T → Kleene) : K :=
   ((a.worlds.filter (fun W => W.IsWorld a)).map
     (fun W => W.ann * Having.chiOf P (a.valOn W))).sum
 
+/-- What the reading makes of one choice: the factor it carries times the
+truth of the test on the value it reads, where the choice is admissible,
+and `𝟘` where it is not. -/
+def readOfChoice (agg : Multiset T → T) (sc : Bool) (P : T → Kleene)
+    (c : Multiset T × K × Bool) : K :=
+  if (sc = true ∨ 0 < Multiset.card c.fst) ∧ c.snd.snd = true
+  then c.snd.fst * Having.chiOf P (agg c.fst) else 0
+
+/-- **The predicate provenance of a nested value runs over the data its
+occurrences' columns give**, where `K` is complemented: the weight of a
+world is the product of its decisions' factors (`World.ann_split`), the
+value is the outer aggregate of what the present ones read, and the
+admissibility is their own. So two nested values whose occurrences' data
+agree read alike – which is what the hom commutation needs, the data
+being `AggExpr.worldStats` and the annotation. -/
+theorem predProvWith_eq_choicesOf (hc : complemented K) (a : NestedValue T K)
+    (P : T → Kleene) :
+    a.predProvWith P
+      = ((choicesOf (a.occs.map occStats)).map
+          (readOfChoice a.agg a.scalar P)).sum := by
+  unfold predProvWith
+  rw [sum_map_filter]
+  unfold worlds
+  rw [Multiset.map_map, ← foldr_addOcc_map_summary a.occs, Multiset.map_map]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun Wo _ => ?_))
+  have hkept : (World.mk Wo).kept = Wo.filter (fun d => d.present = true) := rfl
+  have hval : a.valOn (World.mk Wo) = a.agg (summaryOfOccs Wo).fst := rfl
+  have hann : (World.mk Wo).ann = (summaryOfOccs Wo).snd.fst := by
+    rw [World.ann_split hc]
+    rfl
+  have hok : ((summaryOfOccs Wo).snd.snd = true)
+      ↔ (∀ d ∈ Wo, d.present = true → d.occ.1.IsWorld d.sub) := by
+    show (decide _ = true) ↔ _
+    exact decide_eq_true_iff
+  have hcard : Multiset.card (summaryOfOccs Wo).fst
+      = Multiset.card (Wo.filter (fun d => d.present = true)) := by
+    show Multiset.card ((Wo.filter (fun d => d.present = true)).map _) = _
+    exact Multiset.card_map _ _
+  have hw : (World.mk Wo).IsWorld a
+      ↔ ((a.scalar = true ∨ 0 < Multiset.card (summaryOfOccs Wo).fst)
+        ∧ (summaryOfOccs Wo).snd.snd = true) := by
+    unfold World.IsWorld World.IsWorldWith
+    rw [hok, hcard, hkept]
+    constructor
+    · rintro ⟨h1, h2, -⟩
+      exact ⟨h1, h2⟩
+    · rintro ⟨h1, h2⟩
+      exact ⟨h1, h2, trivial⟩
+  unfold readOfChoice
+  by_cases h : (World.mk Wo).IsWorld a
+  · have h' := hw.mp h
+    simp [h, h', hann, hval]
+  · have h' : ¬ ((a.scalar = true
+        ∨ 0 < Multiset.card (summaryOfOccs Wo).fst)
+        ∧ (summaryOfOccs Wo).snd.snd = true) := fun hc' => h (hw.mpr hc')
+    simp [h, h']
+
+omit [DecidableEq K] in
+/-- **Two nested values whose occurrences' data agree read alike.** -/
+theorem predProvWith_congr_of_occStats (hc : complemented K)
+    {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
+    (hst : a.occs.map occStats = b.occs.map occStats) (P : T → Kleene) :
+    a.predProvWith P = b.predProvWith P := by
+  classical
+  rw [predProvWith_eq_choicesOf hc, predProvWith_eq_choicesOf hc, hst, hagg,
+    hsc]
+
 /-- The comparison case. -/
 def predProvOf (a : NestedValue T K) (op : CompOp) (c : T) : K :=
   a.predProvWith (fun v => op.eval3 v c)
@@ -677,6 +948,46 @@ def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
 reading. -/
 def vals (a : NestedValue T K) : Finset T :=
   (((a.worlds.filter (fun W => W.IsWorld a)).map a.valOn)).toFinset
+
+/-- **The values a nested value takes run over the data too.** -/
+theorem vals_eq_choicesOf (hc : complemented K) (a : NestedValue T K) :
+    a.vals
+      = ((((choicesOf (a.occs.map occStats)).filter
+          (fun c => (a.scalar = true ∨ 0 < Multiset.card c.fst)
+            ∧ c.snd.snd = true)).map (fun c => a.agg c.fst))).toFinset := by
+  unfold vals worlds
+  refine congrArg Multiset.toFinset ?_
+  rw [Multiset.filter_map, Multiset.map_map,
+    ← foldr_addOcc_map_summary a.occs, Multiset.filter_map, Multiset.map_map]
+  refine Multiset.map_congr ?_ (fun Wo _ => rfl)
+  refine Multiset.filter_congr (fun Wo _ => ?_)
+  have hcard : Multiset.card (summaryOfOccs Wo).fst
+      = Multiset.card (Wo.filter (fun d => d.present = true)) := by
+    show Multiset.card ((Wo.filter (fun d => d.present = true)).map _) = _
+    exact Multiset.card_map _ _
+  have hok : ((summaryOfOccs Wo).snd.snd = true)
+      ↔ (∀ d ∈ Wo, d.present = true → d.occ.1.IsWorld d.sub) :=
+    decide_eq_true_iff
+  show (World.mk Wo).IsWorld a ↔ _
+  unfold World.IsWorld World.IsWorldWith
+  show _ ↔ ((a.scalar = true ∨ 0 < Multiset.card (summaryOfOccs Wo).fst)
+    ∧ (summaryOfOccs Wo).snd.snd = true)
+  rw [hok, hcard]
+  constructor
+  · rintro ⟨h1, h2, -⟩
+    exact ⟨h1, h2⟩
+  · rintro ⟨h1, h2⟩
+    exact ⟨h1, h2, trivial⟩
+
+omit [DecidableEq K] in
+/-- **Two nested values whose occurrences' data agree take the same
+values.** -/
+theorem vals_congr_of_occStats (hc : complemented K)
+    {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
+    (hst : a.occs.map occStats = b.occs.map occStats) :
+    a.vals = b.vals := by
+  classical
+  rw [vals_eq_choicesOf hc, vals_eq_choicesOf hc, hst, hagg, hsc]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A valuation that keeps every occurrence realizes the full world. -/
