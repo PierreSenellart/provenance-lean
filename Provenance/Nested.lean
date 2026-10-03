@@ -202,6 +202,99 @@ theorem World.isWorld_of_isWorldCoherent {a : NestedValue T K}
 
 
 
+/-! ## The pushforward of the annotations
+
+Changing the annotation semiring moves no value and no occurrence: the
+outer family keeps its length, each inner value keeps its own, and a
+world of the pushforward is a world of the original. Only the
+annotations travel, and the readings follow them. -/
+
+section MapAnn
+
+variable {K' : Type}
+
+/-- **The pushforward of a nested value**: both the inner values and the
+outer annotations go through `h`. -/
+def mapAnn (h : K → K') (a : NestedValue T K) : NestedValue T K' where
+  agg := a.agg
+  occs := a.occs.map (fun o => (o.1.mapAnn h, h o.2))
+  scalar := a.scalar
+
+omit [ValueType T] in
+@[simp] theorem agg_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).agg = a.agg := rfl
+
+omit [ValueType T] in
+@[simp] theorem scalar_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).scalar = a.scalar := rfl
+
+omit [ValueType T] in
+@[simp] theorem occs_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).occs = a.occs.map (fun o => (o.1.mapAnn h, h o.2)) := rfl
+
+omit [ValueType T] in
+/-- The outer family keeps its length. -/
+theorem length_mapAnn_occs (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).occs.length = a.occs.length := by
+  show (a.occs.map _).length = _
+  rw [List.length_map]
+
+omit [ValueType T] in
+/-- The inner value at an outer occurrence is the pushforward of the one
+that was there. -/
+theorem innerAt_mapAnn (h : K → K') (a : NestedValue T K)
+    (i : Fin (a.mapAnn h).occs.length) :
+    (a.mapAnn h).innerAt i
+      = (a.innerAt (Fin.cast (length_mapAnn_occs h a) i)).mapAnn h := by
+  simp only [NestedValue.innerAt, NestedValue.mapAnn, List.get_eq_getElem,
+    List.getElem_map, Fin.val_cast]
+
+omit [ValueType T] in
+/-- And the outer annotation is the pushforward of the one that was
+there. -/
+theorem outerAnn_mapAnn (h : K → K') (a : NestedValue T K)
+    (i : Fin (a.mapAnn h).occs.length) :
+    (a.mapAnn h).outerAnn i
+      = h (a.outerAnn (Fin.cast (length_mapAnn_occs h a) i)) := by
+  simp only [NestedValue.outerAnn, NestedValue.mapAnn, List.get_eq_getElem,
+    List.getElem_map, Fin.val_cast]
+
+omit [ValueType T] in
+/-- Each inner family keeps its length, so a world transports. -/
+theorem length_innerAt_mapAnn (h : K → K') (a : NestedValue T K)
+    (i : Fin (a.mapAnn h).occs.length) :
+    ((a.mapAnn h).innerAt i).occs.length
+      = (a.innerAt (Fin.cast (length_mapAnn_occs h a) i)).occs.length := by
+  rw [innerAt_mapAnn]
+  show ((a.innerAt _).occs.map _).length = _
+  rw [List.length_map]
+
+/-- **A world of the pushforward is a world of the original**, the
+occurrences being the same ones. -/
+def World.mapAnn (h : K → K') {a : NestedValue T K} (W : a.World) :
+    (a.mapAnn h).World where
+  outer := W.outer.map (finCongr (length_mapAnn_occs h a)).symm.toEmbedding
+  inner := fun i =>
+    (W.inner (Fin.cast (length_mapAnn_occs h a) i)).map
+      (finCongr (length_innerAt_mapAnn h a i)).symm.toEmbedding
+
+omit [ValueType T] in
+/-- The outer occurrences a transported world keeps are the ones it
+kept. -/
+@[simp] theorem World.mem_outer_mapAnn (h : K → K') {a : NestedValue T K}
+    (W : a.World) (i : Fin (a.mapAnn h).occs.length) :
+    i ∈ (W.mapAnn h).outer
+      ↔ Fin.cast (length_mapAnn_occs h a) i ∈ W.outer := by
+  show i ∈ W.outer.map (finCongr (length_mapAnn_occs h a)).symm.toEmbedding ↔ _
+  rw [Finset.mem_map]
+  constructor
+  · rintro ⟨j, hj, rfl⟩
+    simpa using hj
+  · intro hi
+    exact ⟨Fin.cast (length_mapAnn_occs h a) i, hi, by simp⟩
+
+end MapAnn
+
 /-! ## The readings over the nested worlds
 
 With the world set fixed – the coherence clause not imposed – the two
