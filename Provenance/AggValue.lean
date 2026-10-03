@@ -942,6 +942,44 @@ end OfGroup
 
 section MapAnn
 
+/-- **Selecting by a cast is transporting along it.** The two ways of
+carrying a subfamily across an equality of lengths agree, which is what
+lets a reading stated with `Finset.map` be used where the occurrences are
+picked out by a test. -/
+theorem filter_cast_eq_map {N N' : ℕ} (hN : N' = N) (W : Finset (Fin N)) :
+    Finset.univ.filter (fun j : Fin N' => Fin.cast hN j ∈ W)
+      = W.map (finCongr hN).symm.toEmbedding := by
+  subst hN
+  ext j
+  simp
+
+/-- The pushforward keeps the occurrence list's length. -/
+theorem occs_length_mapAnn (h : K → K') (a : AggValue T K) :
+    (a.mapAnn h).occs.length = a.occs.length := by
+  show (a.occs.map _).length = _
+  rw [List.length_map]
+
+/-- **The pushforward moves no value**: the reading in the transported
+world is the reading in the world it came from. This is
+`AggValue.valOn_mapAnn` for a bare function, with the world picked out by
+a test rather than transported. -/
+theorem valOn_mapAnn_cast (h : K → K') (a : AggValue T K)
+    (W : Finset (Fin a.occs.length)) :
+    (a.mapAnn h).valOn
+        (Finset.univ.filter (fun j => Fin.cast (occs_length_mapAnn h a) j ∈ W))
+      = a.valOn W := by
+  rw [filter_cast_eq_map]
+  show (a.mapAnn h).agg ((Having.seqOf (a.occs.map (fun o => (o.fst, h o.snd)))
+      (W.map (finCongr (occs_length_mapAnn h a)).symm.toEmbedding)).map
+      Prod.fst) = _
+  rw [show (finCongr (occs_length_mapAnn h a)).symm
+      = finCongr (occs_length_mapAnn h a).symm from by
+    ext j; simp,
+    seqOf_map (fun o : T × K => (o.fst, h o.snd)) a.occs
+      (occs_length_mapAnn h a).symm W,
+    List.map_map]
+  rfl
+
 /-- The deterministic reading is unchanged by the pushforward. -/
 @[simp] theorem collapse_mapAnn (h : K → K') (a : AggValue T K) :
     (a.mapAnn h).collapse = a.collapse := by

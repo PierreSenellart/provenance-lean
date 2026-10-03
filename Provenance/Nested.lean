@@ -270,13 +270,16 @@ theorem length_innerAt_mapAnn (h : K → K') (a : NestedValue T K)
   rw [List.length_map]
 
 /-- **A world of the pushforward is a world of the original**, the
-occurrences being the same ones. -/
+occurrences being the same ones: an occurrence of the pushforward is kept
+exactly when the one it came from is. Selecting by the cast rather than
+transporting along it keeps the membership tests free of round-trips. -/
 def World.mapAnn (h : K → K') {a : NestedValue T K} (W : a.World) :
     (a.mapAnn h).World where
-  outer := W.outer.map (finCongr (length_mapAnn_occs h a)).symm.toEmbedding
-  inner := fun i =>
-    (W.inner (Fin.cast (length_mapAnn_occs h a) i)).map
-      (finCongr (length_innerAt_mapAnn h a i)).symm.toEmbedding
+  outer := Finset.univ.filter
+    (fun i => Fin.cast (length_mapAnn_occs h a) i ∈ W.outer)
+  inner := fun i => Finset.univ.filter
+    (fun j => Fin.cast (length_innerAt_mapAnn h a i) j
+      ∈ W.inner (Fin.cast (length_mapAnn_occs h a) i))
 
 omit [ValueType T] in
 /-- The outer occurrences a transported world keeps are the ones it
@@ -285,13 +288,61 @@ kept. -/
     (W : a.World) (i : Fin (a.mapAnn h).occs.length) :
     i ∈ (W.mapAnn h).outer
       ↔ Fin.cast (length_mapAnn_occs h a) i ∈ W.outer := by
-  show i ∈ W.outer.map (finCongr (length_mapAnn_occs h a)).symm.toEmbedding ↔ _
-  rw [Finset.mem_map]
+  show i ∈ Finset.univ.filter _ ↔ _
+  rw [Finset.mem_filter]
+  exact and_iff_right (Finset.mem_univ i)
+
+omit [ValueType T] in
+/-- And so are the inner ones, at each outer occurrence. -/
+@[simp] theorem World.mem_inner_mapAnn (h : K → K') {a : NestedValue T K}
+    (W : a.World) (i : Fin (a.mapAnn h).occs.length)
+    (j : Fin ((a.mapAnn h).innerAt i).occs.length) :
+    j ∈ (W.mapAnn h).inner i
+      ↔ Fin.cast (length_innerAt_mapAnn h a i) j
+        ∈ W.inner (Fin.cast (length_mapAnn_occs h a) i) := by
+  show j ∈ Finset.univ.filter _ ↔ _
+  rw [Finset.mem_filter]
+  exact and_iff_right (Finset.mem_univ j)
+
+omit [ValueType T] in
+/-- **A transported world is admissible exactly when the world it came
+from is.** The condition reads the conventions and the non-emptiness of
+the families, and the pushforward moves neither. -/
+theorem World.isWorld_mapAnn (h : K → K') {a : NestedValue T K}
+    (W : a.World) : (W.mapAnn h).IsWorld ↔ W.IsWorld := by
+  have hout : (W.mapAnn h).outer.Nonempty ↔ W.outer.Nonempty := by
+    constructor
+    · rintro ⟨i, hi⟩
+      exact ⟨_, (World.mem_outer_mapAnn h W i).mp hi⟩
+    · rintro ⟨j, hj⟩
+      refine ⟨Fin.cast (length_mapAnn_occs h a).symm j, ?_⟩
+      rw [World.mem_outer_mapAnn]
+      simpa using hj
+  unfold World.IsWorld World.IsWorldWith
+  refine and_congr (or_congr Iff.rfl hout) (and_congr ?_ Iff.rfl)
   constructor
-  · rintro ⟨j, hj, rfl⟩
+  · intro hall i hi hsc
+    have hi' : Fin.cast (length_mapAnn_occs h a).symm i ∈ (W.mapAnn h).outer := by
+      rw [World.mem_outer_mapAnn]
+      simpa using hi
+    have hsc' : ((a.mapAnn h).innerAt
+        (Fin.cast (length_mapAnn_occs h a).symm i)).scalar = false := by
+      rw [innerAt_mapAnn]
+      show (a.innerAt _).scalar = false
+      simpa using hsc
+    obtain ⟨j, hj⟩ := hall _ hi' hsc'
+    refine ⟨Fin.cast (length_innerAt_mapAnn h a _) j, ?_⟩
+    have := (World.mem_inner_mapAnn h W _ j).mp hj
+    simpa using this
+  · intro hall i hi hsc
+    have hsc' : (a.innerAt (Fin.cast (length_mapAnn_occs h a) i)).scalar
+        = false := by
+      rw [innerAt_mapAnn] at hsc
+      exact hsc
+    obtain ⟨j, hj⟩ := hall _ ((World.mem_outer_mapAnn h W i).mp hi) hsc'
+    refine ⟨Fin.cast (length_innerAt_mapAnn h a i).symm j, ?_⟩
+    rw [World.mem_inner_mapAnn]
     simpa using hj
-  · intro hi
-    exact ⟨Fin.cast (length_mapAnn_occs h a) i, hi, by simp⟩
 
 end MapAnn
 
