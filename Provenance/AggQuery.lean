@@ -1903,41 +1903,6 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Win a b cc dd e ff q dist ih => exact ih
   | WinExpr a b cc dd e ff gg q ih => exact fun hw => absurd hw not_false
 
-/-- **Every multi-frame window aggregates symmetrically.** No result of
-the library needs this, and it is kept only to name the condition: a
-window expression lists its shared family by occurrence index and the
-plain reading lists each frame by row, which looks like it should ask
-symmetry of the leaves – but *both* lists are sorted by the clause, so
-they differ only inside blocks of occurrences carrying equal rows, where
-a leaf reads equal values anyway (`ValueFrame.collapse_exprOf`,
-`ValueFrame.disp_exprOf`, `exprOf_specialize`, all stated with no
-hypothesis on the aggregates).
-
-Symmetry *is* what an arbitrary listing of a frame asks – that is
-`ValueFrame.windowValue_of_perm` – and it is `count`, `sum`, `min` and
-`max` that have it where `first_value` does not. -/
-def AggQueryIn.symmetricWindows : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Proj _ q => q.symmetricWindows
-  | _, _, _, .Sel _ q => q.symmetricWindows
-  | _, _, _, .Prod q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
-  | _, _, _, .Apply q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
-  | _, _, _, .Sum q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
-  | _, _, _, .Dedup q => q.symmetricWindows
-  | _, _, _, .Diff q₁ q₂ => q₁.symmetricWindows ∧ q₂.symmetricWindows
-  | _, _, _, .Alt _ _ q => q.symmetricWindows
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.symmetricWindows ∧ q₁.symmetricWindows
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.symmetricWindows ∧ q₁.symmetricWindows
-  | _, _, _, .Gamma _ _ _ q => q.symmetricWindows
-  | _, _, _, .GammaScalar _ _ q => q.symmetricWindows
-  | _, _, _, .ProvSum _ _ _ q => q.symmetricWindows
-  | _, _, _, .Retag _ q => q.symmetricWindows
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.symmetricWindows
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.symmetricWindows
-  | _, _, _, .WinExpr _ _ _ _ _ fs _ q =>
-      (∀ l, (fs l).Symmetric) ∧ q.symmetricWindows
-
 /-- **No evaluator builds a nested token or an expression.** Every
 aggregate column of every row a query produces holds an ordinary token,
 because no operator constructs either of the other two: the grouping and
