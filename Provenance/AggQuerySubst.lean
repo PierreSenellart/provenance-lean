@@ -531,7 +531,7 @@ theorem AggExpr.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     (U : List (AnnotatedTuple T K m)) (γ : Fin d → T) :
     AggExpr.ofGroupWhen f (t.substMap θ) keep U γ
       = AggExpr.ofGroupWhen f t keep U (substVal θ γ) := by
-  unfold AggExpr.ofGroupWhen
+  unfold AggExpr.ofGroupWhen AggExpr.ofSeqWhen
   simp only [TermIn.eval_substMap]
 
 omit [DecidableEq K] in

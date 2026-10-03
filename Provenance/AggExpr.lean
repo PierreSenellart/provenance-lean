@@ -865,10 +865,10 @@ def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   scalar := fun _ => a.scalar
   g := fun v => gf (v (0 : Fin 1))
 
-/-- **A filtered aggregate of a group, as a one-leaf expression.** The
-family is the *whole* group, every occurrence in the leaf's group – so
-the worlds are the group's non-empty subfamilies, as they are with no
-clause – and what the clause cuts is what the leaf *reads*. The world in
+/-- **A filtered aggregate of an occurrence sequence, as a one-leaf
+expression.** The family is the *whole* sequence – a group, or the frame
+of a window – every occurrence in the leaf's group, so the worlds are
+the sequence's own, and what the clause cuts is what the leaf *reads*. The world in
 which only rejected rows are present is therefore a world, annotated as
 the group's worlds are, and the leaf reads `f []` in it: the row SQL
 emits for a group all of whose rows the clause rejects.
@@ -878,15 +878,24 @@ an annotation, so a clause can only be applied when the token is built,
 cutting the family – and then that world is gone and no convention
 recovers it
 (`HavingQueryCounterexamples.chain_count_zero_when_ne`). -/
-def ofGroupWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
-    (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m))
+def ofSeqWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m)) (sc : Bool)
     (γ : Fin c → T := fun _ => 0) : AggExpr T K where
   arity := 1
   occs := U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
     (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)))
   aggs := fun _ => f
-  scalar := fun _ => false
+  scalar := fun _ => sc
   g := fun v => v 0
+
+/-- A filtered aggregate of a *group* is the grouped convention of it:
+the worlds are the group's non-empty subfamilies. A frame that may
+exclude the row it is computed for takes the scalar one, as it does with
+no clause. -/
+def ofGroupWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (keep : Tuple T m → Bool) (U : List (AnnotatedTuple T K m))
+    (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
+  ofSeqWhen f t keep U false γ
 
 section OfGroupWhen
 
@@ -903,7 +912,7 @@ is: the clause does not change which worlds there are. -/
 @[simp] theorem isScalar_ofGroupWhen :
     (ofGroupWhen f t keep U γ).isScalar = false := by
   unfold isScalar
-  simp [ofGroupWhen, List.finRange_succ]
+  simp [ofGroupWhen, ofSeqWhen, List.finRange_succ]
 
 @[simp] theorem occs_ofGroupWhen :
     (ofGroupWhen f t keep U γ).occs
