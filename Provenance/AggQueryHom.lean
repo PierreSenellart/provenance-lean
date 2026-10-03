@@ -651,6 +651,36 @@ theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
     (fun hpq => congrArg (fun z => t.eval z γ) hpq)
 
+omit [DecidableEq K] in
+/-- The same for a token under a `FILTER` clause: the clause reads the
+tuple part, which a tie-block permutation does not move, so it keeps
+corresponding occurrences on the two sides (`TiePerm.filter`). -/
+theorem ofGroupWhen_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
+    (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
+    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    TiePerm (fun p q : T × K' => p.1 = q.1)
+      ((AggValue.ofGroupWhen f t keep (Having.havingGroup is r g) γ).mapAnn
+        ⇑h.toRingHom).occs
+      (AggValue.ofGroupWhen f t keep
+        (Having.havingGroup is
+          (r.map (fun p =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) γ).occs := by
+  have hocc₁ : ((AggValue.ofGroupWhen f t keep
+        (Having.havingGroup is r g) γ).mapAnn ⇑h.toRingHom).occs
+      = (((Having.havingGroup is r g).map
+            (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).filter
+          (fun p => keep p.fst)).map (fun p => (t.eval p.fst γ, p.snd)) := by
+    simp only [AggValue.ofGroupWhen, AggValue.ofScalarGroup, AggValue.ofGroup,
+      AggValue.mapAnn, List.map_map, List.filter_map]
+    rfl
+  rw [hocc₁]
+  exact ((havingGroup_tiePerm h is r g).filter
+      (fun hpq => congrArg keep hpq)).map
+    (eqv' := fun p q : T × K' => p.1 = q.1)
+    (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
+    (fun hpq => congrArg (fun z => t.eval z γ) hpq)
+
 /-- **Group-token hom commutation.** The predicate provenance of a
 comparison against the token of a group of the pushed-forward relation is
 the image under the hom of the base-side predicate provenance: the two
@@ -2169,7 +2199,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
       (ofGroup_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0) X
         (fun i : Fin 0 => i.elim0))⟩
-  | @Gamma cI mI nI₁ nI₂ is ts fs q ih =>
+  | @Gamma cI mI nI₁ nI₂ is ts fs q keep ih =>
     intro d γ hw
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2226,8 +2256,13 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       · rw [Fin.append_left, Fin.append_left]
         rfl
       · rw [Fin.append_right, Fin.append_right]
-        exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
-          (ofGroup_mapAnn_tiePerm h (fs j) (ts j) is X kv.fst)⟩
+        cases hkj : keep j with
+        | none =>
+          exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
+            (ofGroup_mapAnn_tiePerm h (fs j) (ts j) is X kv.fst)⟩
+        | some φ =>
+          exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
+            (ofGroupWhen_mapAnn_tiePerm h (fs j) (ts j) φ.keeps is X kv.fst)⟩
     · dsimp only [Function.comp]
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroup_annSum_hom h is X kv.fst,

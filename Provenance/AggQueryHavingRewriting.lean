@@ -177,7 +177,7 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
     ((((q₁.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).filter
       (fun t => t ∉ r₂)).map (fun t => (fun k => Sum.inl (t k))))
-  | _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q, D, γ =>
+  | _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q _keep, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     let keys := (r.map
@@ -255,7 +255,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .Alt _ _ q => q.noGammaTok
   | _, _, _, .Mu _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
-  | _, _, _, .Gamma _ _ _ q => q.noGammaTok
+  | _, _, _, .Gamma _ _ _ q _ => q.noGammaTok
   | _, _, _, .GammaScalar _ _ q => q.noGammaTok
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
@@ -277,7 +277,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Alt _ _ q => q.chiFree
   | _, _, _, .Mu _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
-  | _, _, _, .Gamma _ _ _ q => q.chiFree
+  | _, _, _, .Gamma _ _ _ q _ => q.chiFree
   | _, _, _, .GammaScalar _ _ q => q.chiFree
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
@@ -393,7 +393,8 @@ theorem map_plainTuple_map_inl {m : ℕ} (X : Multiset (Tuple (T ⊕ K) m)) :
 world's evaluator is the plain semantics through the `inl` embedding. -/
 theorem AggQueryIn.evaluateRew_plain :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn (T ⊕ K) c n κ)
-      (_hq : q.noGammaTok) (_hc : q.chiFree) (D : Database (T ⊕ K))
+      (_hq : q.noGammaTok) (_hc : q.chiFree) (_hf : q.noFilter)
+      (D : Database (T ⊕ K))
       (γ : Fin c → (T ⊕ K)),
       q.evaluateRew D γ
         = (q.evaluatePlain D γ).map (fun t =>
@@ -401,30 +402,30 @@ theorem AggQueryIn.evaluateRew_plain :
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     cases hf : D.find n s
     · rfl
     · rfl
   | Proj ps q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc.2 D γ, Multiset.map_map, Multiset.map_map]
+    rw [ih hq hc.2 hf D γ, Multiset.map_map, Multiset.map_map]
     refine Multiset.map_congr rfl (fun t _ => ?_)
     simp only [Function.comp_apply]
     funext j
     exact (ps j).evalRew_inl (hc.1 j) t
   | Sel φ q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc.2 D γ]
+    rw [ih hq hc.2 hf D γ]
     simp only [Multiset.filter_map]
     exact congrArg _
       (Multiset.filter_congr (fun t _ => φ.holdsRew_inl hc.1 t))
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih₁ hq.1 hc.1 D γ, ih₂ hq.2 hc.2 D γ, Multiset.map_product_map,
+    rw [ih₁ hq.1 hc.1 hf.1 D γ, ih₂ hq.2 hc.2 hf.2 D γ, Multiset.map_product_map,
       Multiset.map_map]
     rw [show (q₁.evaluatePlain D γ * q₂.evaluatePlain D γ)
         = Multiset.map (fun p : Tuple (T ⊕ K) _ × Tuple (T ⊕ K) _ =>
@@ -439,13 +440,13 @@ theorem AggQueryIn.evaluateRew_plain :
     · rw [Fin.append_left, Fin.append_left]
     · rw [Fin.append_right, Fin.append_right]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih₁ hq.1 hc.1 D γ, Multiset.bind_map, Multiset.map_bind]
+    rw [ih₁ hq.1 hc.1 hf.1 D γ, Multiset.bind_map, Multiset.map_bind]
     refine Multiset.bind_congr (fun u _ => ?_)
     rw [show (fun k => AggValue.collapseSum
           ((fun k' => (Sum.inl (u k') : GenValue (T ⊕ K) K)) k)) = u from rfl,
-      ih₂ hq.2 hc.2 D _, Multiset.map_map, Multiset.map_map]
+      ih₂ hq.2 hc.2 hf.2 D _, Multiset.map_map, Multiset.map_map]
     refine Multiset.map_congr rfl (fun v _ => ?_)
     simp only [Function.comp_apply]
     funext k
@@ -453,39 +454,39 @@ theorem AggQueryIn.evaluateRew_plain :
     · rw [Fin.append_left, Fin.append_left]
     · rw [Fin.append_right, Fin.append_right]
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih₁ hq.1 hc.1 D γ, ih₂ hq.2 hc.2 D γ, Multiset.map_add]
+    rw [ih₁ hq.1 hc.1 hf.1 D γ, ih₂ hq.2 hc.2 hf.2 D γ, Multiset.map_add]
   | Dedup q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc D γ, map_plainTuple_map_inl]
+    rw [ih hq hc hf D γ, map_plainTuple_map_inl]
     congr 1
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
       @Multiset.dedup _ i (q.evaluatePlain D γ)) (Subsingleton.elim _ _)
   | Alt k hk q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    exact ih hq hc D γ
+    exact ih hq hc hf D γ
   | Mu b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     refine congrArg _ (muSum_congr (fun X => ?_) b ?_)
-    · rw [ih₁ hq.2 hc.2 (D.assign s X) γ, map_plainTuple_map_inl]
-    · rw [ih₀ hq.1 hc.1 D γ, map_plainTuple_map_inl]
+    · rw [ih₁ hq.2 hc.2 hf.2 (D.assign s X) γ, map_plainTuple_map_inl]
+    · rw [ih₀ hq.1 hc.1 hf.1 D γ, map_plainTuple_map_inl]
   | MuSet b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     refine congrArg _ (muIter_congr (fun X => ?_) b)
-    rw [ih₀ hq.1 hc.1 (D.assign s X) γ, ih₁ hq.2 hc.2 (D.assign s X) γ,
+    rw [ih₀ hq.1 hc.1 hf.1 (D.assign s X) γ, ih₁ hq.2 hc.2 hf.2 (D.assign s X) γ,
       map_plainTuple_map_inl, map_plainTuple_map_inl]
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
       @Multiset.dedup _ i (q₀.evaluatePlain (D.assign s X) γ
         + q₁.evaluatePlain (D.assign s X) γ)) (Subsingleton.elim _ _)
   | @Diff cI nD q₁ q₂ ih₁ ih₂ =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih₁ hq.1 hc.1 D γ, ih₂ hq.2 hc.2 D γ, map_plainTuple_map_inl,
+    rw [ih₁ hq.1 hc.1 hf.1 D γ, ih₂ hq.2 hc.2 hf.2 D γ, map_plainTuple_map_inl,
       map_plainTuple_map_inl]
     exact congrArg (Multiset.map _)
       (congrArg (fun i : DecidablePred (fun t : Tuple (T ⊕ K) nD =>
@@ -493,27 +494,28 @@ theorem AggQueryIn.evaluateRew_plain :
             Multiset.instMembership (q₂.evaluatePlain D γ) t) =>
         @Multiset.filter _ _ i (q₁.evaluatePlain D γ))
         (Subsingleton.elim _ _))
-  | @Gamma cI m n₁ n₂ is ts fs q ih =>
-    intro hq hc D γ
-    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
+  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+    intro hq hc hf D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain,
+      show keep = fun _ => none from funext hf.1]
+    rw [ih hq hc hf.2 D γ, map_plainTuple_map_inl, Multiset.map_map]
     refine Multiset.map_congr ?_ (fun g _ => rfl)
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) n₁) =>
       @Multiset.dedup _ i (Multiset.map
         (fun u (k : Fin n₁) => u (is k)) (q.evaluatePlain D γ)))
       (Subsingleton.elim _ _)
   | @GammaScalar cI m n₂ ts fs q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc D γ, map_plainTuple_map_inl]
+    rw [ih hq hc hf D γ, map_plainTuple_map_inl]
     rfl
   | Retag h q ih =>
-    intro hq hc D γ
-    exact ih hq hc D γ
+    intro hq hc hf D γ
+    exact ih hq hc hf D γ
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    rw [ih hq hc.2 D γ, Multiset.map_map]
+    rw [ih hq hc.2 hf D γ, Multiset.map_map]
     rw [show ((fun u : Tuple (GenValue (T ⊕ K) K) m =>
           ((fun k => GenRow.plainTuple u (is k)) : Tuple (T ⊕ K) n₁))
         ∘ (fun t : Tuple (T ⊕ K) m =>
@@ -539,19 +541,19 @@ theorem AggQueryIn.evaluateRew_plain :
         refine congrArg₂ Multiset.map rfl ?_
         congr 1
   | GammaTok is his ts fs a q ih =>
-    intro hq hc D γ
+    intro hq hc hf D γ
     exact hq.elim
   | @Win cI n' m' p' P O o w t f q dist ih =>
     -- a window reads the collapsed rows, which the embedding leaves alone
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq]
-    rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
+    rw [ih hq hc hf D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
   | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
     -- and so does a multi-frame one, leaf by leaf
-    intro hq hc D γ
+    intro hq hc hf D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_WinExpr_eq]
-    rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
+    rw [ih hq hc hf D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
 
 /-! ## The fused predicate provenance under the composite embedding
@@ -609,7 +611,37 @@ theorem AggQueryIn.rewriting_noGammaTok :
     ⟨⟨rewriting_noGammaTok q₁ hq.1,
       ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩,
      ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩
-  | _, _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
+termination_by structural _ _ _ q _ => q
+
+omit [DecidableEq K] in
+/-- The classical rewriting emits no `FILTER` clause: it emits no
+grouping at all, a classical query having none. -/
+theorem AggQueryIn.rewriting_noFilter :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+      (hq : q.classical),
+      ((q.rewriting hq
+        : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noFilter
+  | _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+    rewriting_noFilter q hq.2
+  | _, _, _, .Sel _ q, hq => rewriting_noFilter q hq.2
+  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+    ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩
+  | _, _, _, .Sum q₁ q₂, hq =>
+    ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩
+  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noFilter q hq
+  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+    ⟨⟨rewriting_noFilter q₁ hq.1,
+      ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩,
+     ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩
+  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
@@ -670,7 +702,7 @@ theorem AggQueryIn.rewriting_chiFree :
       ⟨keyJoinCond_chiFree _ _ _ _,
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨trivial, rewriting_chiFree q₂ hq.2⟩⟩⟩⟩⟩
-  | _, _, _, .Gamma _ _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
@@ -842,7 +874,8 @@ theorem AggQueryIn.rewriting_provRel {n : ℕ} {κ : Fin n → ColKind}
           d).toComposite) := by
     rw [AggQueryIn.evaluateRew_plain _
         (AggQueryIn.rewriting_noGammaTok q hq)
-        (AggQueryIn.rewriting_chiFree q hq) _,
+        (AggQueryIn.rewriting_chiFree q hq)
+        (AggQueryIn.rewriting_noFilter q hq) _,
       AggQueryIn.rewriting_plain q hq d.toComposite,
       ← Query.rewriting_valid (q.strip hq) (q.strip_source hq) d]
   rw [hR]

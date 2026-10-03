@@ -1473,5 +1473,48 @@ theorem windowValue_filterTerm_counting {n mp p : ℕ} (P : Tuple (Fin n) mp)
 
 end Filter
 
+/-! ## The `FILTER` clause, for any input policy
+
+`AggQueryIn.Gamma` carries a clause per aggregate, and the clause cuts
+the occurrence sequence rather than nulling a value out. That serves all
+three of SQL's input policies, the null-keeping one included, and it asks
+nothing of the value domain – there is no null in sight here, where
+`gammaFilter` needed one. -/
+
+section Where
+
+variable [ValueType T] {c m n₁ : ℕ}
+
+/-- **An aggregation with a `FILTER` clause.** One group key, one
+aggregate, and the clause the aggregate reads its group through. -/
+def gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
+    (t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) :
+    AggQueryIn T c (n₁ + 1)
+      (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
+  Gamma is ![t] ![f] q (fun _ => some φ)
+
+/-- **What a filtered aggregation computes over plain relations**: each
+group's aggregate reads the rows of the group the clause keeps. No
+hypothesis on the aggregate: the rejected rows leave the sequence, so a
+null-keeping aggregate never sees them. -/
+theorem evaluatePlain_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
+    (t : TermIn T c m) (f : SeqAggFunc T)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
+    {γ : Fin c → T} :
+    (gammaWhere is φ t f q).evaluatePlain D γ
+      = ((q.evaluatePlain D γ).map
+          (fun u => (fun k => u (is k) : Tuple T n₁))).dedup.map
+        (fun g => Fin.append g (fun _ : Fin 1 =>
+          f (((Relation.groupSeq is (q.evaluatePlain D γ) g).filter φ.keeps).map
+            (fun v => t.eval v γ)))) := by
+  rw [gammaWhere, AggQueryIn.evaluatePlain]
+  refine Multiset.map_congr rfl (fun g _ => ?_)
+  refine congrArg (Fin.append g) (funext fun j => ?_)
+  obtain rfl : j = 0 := Fin.fin_one_eq_zero j
+  rfl
+
+end Where
+
 
 end AggQueryIn

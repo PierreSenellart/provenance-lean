@@ -1783,7 +1783,8 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     rw [AggQueryIn.map_toCompositeRow_of_reg q (AggQueryIn.classical_kinds q hq) d,
       AggQueryIn.rewriting_valid q hq d,
       AggQueryIn.evaluateRew_plain _ (AggQueryIn.rewriting_noGammaTok q hq)
-        (AggQueryIn.rewriting_chiFree q hq)]
+        (AggQueryIn.rewriting_chiFree q hq)
+        (AggQueryIn.rewriting_noFilter q hq)]
   | gamma is ts fs qg hq =>
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
   | havingPred is ts fs φ hφ hrf qg hq =>

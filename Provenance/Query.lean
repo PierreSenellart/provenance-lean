@@ -323,6 +323,21 @@ theorem Selection.castToAnnotatedTuple_eval [HasAltLinearOrder K]
   unfold Selection.eval
   rw [Selection.castToAnnotatedTuple_eval3]
 
+/-- **The rows a selection keeps, as a test.** SQL keeps a row when the
+condition is *true*, an unknown counting as a rejection, so the
+three-valued reading becomes two-valued here. This is the form a
+`FILTER` clause is read in, where a sequence has to be cut. -/
+def Selection.keeps (φ : Selection T n) (u : Tuple T n) : Bool :=
+  decide (φ.eval3 u = Kleene.true)
+
+@[simp] theorem Selection.keeps_true (u : Tuple T n) :
+    (Selection.True : Selection T n).keeps u = true := rfl
+
+theorem Selection.keeps_iff (φ : Selection T n) (u : Tuple T n) :
+    φ.keeps u = true ↔ φ.eval u := by
+  rw [Selection.keeps, decide_eq_true_eq]
+  rfl
+
 @[reducible] def Selection.evalDecidable (φ : Selection T n) : DecidablePred φ.eval :=
   fun _ => inferInstanceAs (Decidable (_ = _))
 

@@ -444,7 +444,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     -- projecting the group and then evaluating is evaluating the projection
     rw [show (Prod.fst ∘ fun p : AnnotatedTuple T K m => ((ts j).eval p.fst γ, p.snd))
           = ((fun v => (ts j).eval v γ) ∘ Prod.fst) from rfl, ← List.map_map, hg]
-  | @Gamma cI m n₁ n₂ is ts fs q ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
     intro hq d γ
     rw [hplain]
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
@@ -480,13 +480,25 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     rw [GenRow.plainTuple_append]
     congr 1
     funext j
-    show (AggValue.ofGroup (fs j) (ts j) _ γ).collapse = _
-    rw [AggValue.collapse_ofGroup]
-    have hg := congrArg (List.map (fun v => (ts j).eval v γ))
-      (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
-        kv.fst)
-    rw [List.map_map, hview] at hg
-    exact congrArg (fs j) hg
+    -- a clause cuts the occurrences on both sides alike
+    cases hkj : keep j with
+    | none =>
+      show (AggValue.ofGroup (fs j) (ts j) _ γ).collapse = _
+      rw [AggValue.collapse_ofGroup]
+      have hg := congrArg (List.map (fun v => (ts j).eval v γ))
+        (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
+          kv.fst)
+      rw [List.map_map, hview] at hg
+      exact congrArg (fs j) hg
+    | some φ =>
+      show (AggValue.ofGroupWhen (fs j) (ts j) φ.keeps _ γ).collapse = _
+      rw [AggValue.collapse_ofGroupWhen_eq]
+      have hg := congrArg
+        (fun L => (L.filter φ.keeps).map (fun v => (ts j).eval v γ))
+        (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
+          kv.fst)
+      rw [hview] at hg
+      exact congrArg (fs j) hg
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro hq d γ
     rw [hplain]

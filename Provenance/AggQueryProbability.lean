@@ -1197,7 +1197,11 @@ theorem AggQueryIn.evaluate_guarded :
     subst hr
     rw [← Sum.inr.inj ha]
     exact Or.inl rfl
-  | Gamma is ts fs q ih =>
+  | Gamma is ts fs q keep ih =>
+    -- the group's existence guard is the occurrence-annotation list the
+    -- operator puts pending, over every occurrence of the group. An
+    -- unfiltered token is grouped and takes its realized occurrence from
+    -- that guard; a filtered one is scalar, and asks nothing
     intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -1206,28 +1210,18 @@ theorem AggQueryIn.evaluate_guarded :
       ((GenAnn.finalize_eval_iff _ v).mp hfin).2 _ (Multiset.mem_singleton_self _)
     revert ha
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro ha
-    · have ha' : (Sum.inl (kv.fst i) : GenValue T (BoolFunc X)) = Sum.inr a :=
-        (Fin.append_left
-          (fun k => (Sum.inl (kv.fst k) : GenValue T (BoolFunc X)))
-          (fun j' => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j') (ts j')
-            (Having.havingGroup is
-              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ))) i).symm.trans
-          ha
-      exact absurd ha' (by simp)
-    · have haj : (Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-          (Having.havingGroup is
-            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ))
-          : GenValue T (BoolFunc X)) = Sum.inr a :=
-        (Fin.append_right
-          (fun k => (Sum.inl (kv.fst k) : GenValue T (BoolFunc X)))
-          (fun j' => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j') (ts j')
-            (Having.havingGroup is
-              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ))) j).symm.trans
-          ha
-      rw [← Sum.inr.inj haj]
-      refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
-      rw [AggValue.annList_ofGroup]
-      exact hG
+    · dsimp only at ha
+      rw [Fin.append_left] at ha
+      exact absurd ha (by simp)
+    · dsimp only at ha
+      rw [Fin.append_right] at ha
+      rw [← Sum.inr.inj ha]
+      cases hkj : keep j with
+      | none =>
+        refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
+        rw [AggValue.annList_ofGroup]
+        exact hG
+      | some φ => exact Or.inl rfl
   | @Win cI n' m' p' P O o w t f q dist ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
@@ -1666,6 +1660,28 @@ private lemma specialize_ofGroup {c m n₁ : ℕ}
   rw [groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
     List.map_map, List.map_map]
   rfl
+
+/-- **A filtered group token is world-faithful too**: it specializes to
+the plain filtered aggregate of the group in the realized world. The
+clause reads the tuple and the valuation reads the annotation, so the two
+cuts commute. -/
+private lemma specialize_ofGroupWhen {c m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (f : SeqAggFunc T) (t : TermIn T c m)
+    (keep : Tuple T m → Bool) (v : X → Bool) {γ : Fin c → T} :
+    (AggValue.ofGroupWhen f t keep (Having.havingGroup is r g) γ).specialize
+        (fun α => α v)
+      = f (((Relation.groupSeq is (randomWorld v r) g).filter keep).map
+          (fun x => t.eval x γ)) := by
+  unfold AggValue.specialize AggValue.ofGroupWhen AggValue.ofScalarGroup
+    AggValue.ofGroup
+  rw [groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
+    List.filter_map, List.map_map, List.map_map, List.filter_filter,
+    List.filter_filter]
+  refine congrArg
+    (fun L : List (AnnotatedTuple T (BoolFunc X) m) =>
+      f (L.map (fun p => t.eval p.fst γ))) ?_
+  exact List.filter_congr (fun p _ => Bool.and_comm _ _)
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 private lemma list_filter_map_comm {α β : Type} (g : α → β) (p : β → Bool)
@@ -2263,7 +2279,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     exact congrArg (fun u => (Multiset.ofList [u] : Multiset (Tuple T n₂)))
       (funext fun j => specialize_ofGroup _
         ((q.evaluate d γ).map GenRow.toAnnotated) _ (fs j) (ts j) v)
-  | @Gamma cI m n₁ n₂ is ts fs q ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
     intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [← ih hq d v, ← genRandomWorld_allReg q d v]
@@ -2344,8 +2360,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     rw [specializeTuple_append]
     congr 1
     funext j
-    exact specialize_ofGroup is ((q.evaluate d γ).map GenRow.toAnnotated)
-      kv.fst (fs j) (ts j) v
+    cases hkj : keep j with
+    | none =>
+      exact specialize_ofGroup is ((q.evaluate d γ).map GenRow.toAnnotated)
+        kv.fst (fs j) (ts j) v
+    | some φ =>
+      exact specialize_ofGroupWhen is ((q.evaluate d γ).map GenRow.toAnnotated)
+        kv.fst (fs j) (ts j) φ.keeps v
   | ProvSum is his t q ih =>
     intro hq
     exact hq.elim

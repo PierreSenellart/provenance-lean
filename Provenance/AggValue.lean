@@ -332,6 +332,18 @@ theorem collapse_ofGroupWhen [ValueType T] (f : SeqAggFunc T) (t : Term T m)
   rw [Having.seqOf_univ, List.map_map, List.filter_map, List.map_map]
   rfl
 
+/-- The deterministic reading of a filtered token, as a list identity and
+with an outer context: the aggregate over the kept rows of the group. -/
+theorem collapse_ofGroupWhen_eq [ValueType T] {c : ℕ} (f : SeqAggFunc T)
+    (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (U : List (AnnotatedTuple T K m)) (γ : Fin c → T) :
+    (ofGroupWhen f t keep U γ).collapse
+      = f (((U.map Prod.fst).filter keep).map (fun u => t.eval u γ)) := by
+  show f (((U.filter (fun p => keep p.fst)).map
+      (fun p => (t.eval p.fst γ, p.snd))).map Prod.fst) = _
+  rw [List.map_map, List.filter_map, List.map_map]
+  rfl
+
 /-- **The clause survives the pushforward**: it reads the tuple part,
 which the pushforward leaves alone, so the occurrences it keeps are the
 same ones. -/

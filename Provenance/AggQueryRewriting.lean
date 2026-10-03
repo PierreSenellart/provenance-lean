@@ -84,7 +84,7 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- different schema than the one the source query iterates
   | _, _, _, .Mu _ _ _ _ => False
   | _, _, _, .MuSet _ _ _ _ => False
-  | _, _, _, .Gamma _ _ _ _ => False
+  | _, _, _, .Gamma _ _ _ _ _ => False
   | _, _, _, .GammaScalar _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ _ => False

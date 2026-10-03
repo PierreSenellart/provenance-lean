@@ -348,7 +348,7 @@ theorem AggQueryIn.rewriting_plain :
             (congrArg t (Fin.ext (by
               simp only [Fin.val_natAdd, Fin.val_last, Fin.val_zero]
               omega)))
-  | _, _, _, .Gamma _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .Retag _ _, hq, _ => False.elim hq

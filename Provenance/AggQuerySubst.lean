@@ -328,8 +328,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .Mu b s q₀ q₁ => .Mu b s (q₀.substMap θ) (q₁.substMap θ)
   | _, _, _, _, θ, .MuSet b s q₀ q₁ =>
       .MuSet b s (q₀.substMap θ) (q₁.substMap θ)
-  | _, _, _, _, θ, .Gamma is ts fs q =>
-      .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ)
+  | _, _, _, _, θ, .Gamma is ts fs q keep =>
+      .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep
   | _, _, _, _, θ, .GammaScalar ts fs q =>
       .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ)
   | _, _, _, _, θ, .ProvSum is his t q =>
@@ -442,7 +442,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain, ih₀, ih₁]
-  | @Gamma cI m n₁ n₂ is ts fs q ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -511,6 +511,18 @@ theorem AggValue.ofGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
     AggValue.ofGroup f (t.substMap θ) U γ
       = AggValue.ofGroup f t U (substVal θ γ) := by
   simp only [AggValue.ofGroup, TermIn.eval_substMap]
+
+omit [DecidableEq K] in
+omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
+/-- The clause reads the group's own row, so a substitution of the outer
+context moves neither it nor the occurrences it keeps. -/
+theorem AggValue.ofGroupWhen_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (f : SeqAggFunc T) (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (U : List (AnnotatedTuple T K m)) (γ : Fin d → T) :
+    AggValue.ofGroupWhen f (t.substMap θ) keep U γ
+      = AggValue.ofGroupWhen f t keep U (substVal θ γ) := by
+  unfold AggValue.ofGroupWhen
+  simp only [AggValue.ofScalarGroup, AggValue.ofGroup, TermIn.eval_substMap]
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
@@ -616,10 +628,11 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ih₀, ih₁]
-  | @Gamma cI m n₁ n₂ is ts fs q ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap]
+    simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
+      AggValue.ofGroupWhen_substMap]
     rw [ih θ dB γ]
   | @GammaScalar cI m n₂ ts fs q ih =>
     intro d θ dB γ
