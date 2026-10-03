@@ -22,9 +22,15 @@ with every `SemiringWithMonusHom`:
   against a token commutes: the world annotations are `⊗`/`⊖`-polynomials
   and the characteristic values `χ` are `{𝟘,𝟙}`-valued, with the
   aggregate values themselves untouched by the pushforward;
+* `NestedValue.predProvWith_mapAnn` – the same for a nested column: its
+  occurrences are a bag and its worlds are read off that bag, so the
+  worlds of the pushforward *are* the pushforwards of the worlds
+  (`worlds_mapAnn`), each carrying the pushed annotation
+  (`World.ann_mapAnn`) and reading the same value;
 * `GenPredIn.predsem_mapAnn` – the predicate provenance of a whole
   generalized predicate commutes (`∧ ↦ ⊗`, `∨ ↦ ⊕` through `map_mul`
-  and `map_add`, `¬` by polarity).
+  and `map_add`, `¬` by polarity), whichever kind of token its aggregate
+  atoms read.
 
 These are unconditional, but they do not by themselves give the
 *evaluator-level* commutation `AggQueryIn.evaluateAnnotated_hom` at the
@@ -257,33 +263,179 @@ theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
 
 end AggValue
 
+/-! ## The nested token pushforward
+
+A nested value's occurrences are a bag and its worlds are read off that
+bag, so the pushforward needs no reindexing: the worlds of the
+pushforward are the pushforwards of the worlds (`worlds_mapAnn`), each
+carrying the pushed annotation and reading the same value. That is what
+lets the predicate provenance of a nested column commute like an ordinary
+token's, with no exclusion. -/
+
+namespace NestedValue
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- **A product over a transported world, factor by factor**: what the
+four factors of a world annotation have in common. -/
+theorem prod_map_mapAnn (h : SemiringWithMonusHom K K') (W : World T K)
+    {g : WorldOcc T K → K} {g' : WorldOcc T K' → K'}
+    (hg : ∀ d : WorldOcc T K,
+      g' (d.mapAnn ⇑h.toRingHom) = h.toRingHom (g d)) :
+    ((W.mapAnn ⇑h.toRingHom).occs.map g').prod
+      = h.toRingHom ((W.occs.map g).prod) := by
+  rw [map_multiset_prod]
+  show (Multiset.map g' (W.occs.map (WorldOcc.mapAnn ⇑h.toRingHom))).prod
+    = (Multiset.map _ (W.occs.map g)).prod
+  rw [Multiset.map_map, Multiset.map_map]
+  exact congrArg Multiset.prod (Multiset.map_congr rfl (fun d _ => hg d))
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- The additive counterpart. -/
+theorem sum_map_mapAnn (h : SemiringWithMonusHom K K') (W : World T K)
+    {g : WorldOcc T K → K} {g' : WorldOcc T K' → K'}
+    (hg : ∀ d : WorldOcc T K,
+      g' (d.mapAnn ⇑h.toRingHom) = h.toRingHom (g d)) :
+    ((W.mapAnn ⇑h.toRingHom).occs.map g').sum
+      = h.toRingHom ((W.occs.map g).sum) := by
+  rw [map_multiset_sum]
+  show (Multiset.map g' (W.occs.map (WorldOcc.mapAnn ⇑h.toRingHom))).sum
+    = (Multiset.map _ (W.occs.map g)).sum
+  rw [Multiset.map_map, Multiset.map_map]
+  exact congrArg Multiset.sum (Multiset.map_congr rfl (fun d _ => hg d))
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- The annotation of an occurrence the world keeps, pushed forward (and
+`𝟙` where it keeps it not). -/
+theorem keptAnn_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
+    (if (d.mapAnn ⇑h.toRingHom).present = true
+        then (d.mapAnn ⇑h.toRingHom).occ.2 else 1)
+      = h.toRingHom (if d.present = true then d.occ.2 else 1) := by
+  by_cases hd : d.present = true
+  · rw [ite_eq_left hd,
+      ite_eq_left (show (d.mapAnn ⇑h.toRingHom).present = true from hd)]
+    rfl
+  · rw [ite_eq_right hd,
+      ite_eq_right (show ¬ (d.mapAnn ⇑h.toRingHom).present = true from hd),
+      map_one]
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- And the one it leaves out (and `𝟘` where it keeps it). -/
+theorem dropAnn_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
+    (if (d.mapAnn ⇑h.toRingHom).present = true
+        then 0 else (d.mapAnn ⇑h.toRingHom).occ.2)
+      = h.toRingHom (if d.present = true then 0 else d.occ.2) := by
+  by_cases hd : d.present = true
+  · rw [ite_eq_left hd,
+      ite_eq_left (show (d.mapAnn ⇑h.toRingHom).present = true from hd),
+      map_zero]
+  · rw [ite_eq_right hd,
+      ite_eq_right (show ¬ (d.mapAnn ⇑h.toRingHom).present = true from hd)]
+    rfl
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- The subfamily an occurrence keeps is the same one, so its product of
+inner annotations pushes forward. -/
+theorem innerProd_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
+    (∏ j ∈ (d.mapAnn ⇑h.toRingHom).sub,
+        (d.mapAnn ⇑h.toRingHom).occ.1.anns j)
+      = h.toRingHom (∏ j ∈ d.sub, d.occ.1.anns j) := by
+  rw [map_prod]
+  show (∏ j ∈ d.sub.map (finCongr
+      (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding,
+      (d.occ.1.mapAnn ⇑h.toRingHom).anns j) = _
+  rw [Finset.prod_map]
+  exact Finset.prod_congr rfl (fun j _ => AggValue.anns_mapAnn h d.occ.1 j)
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- And so does its sum over the inner occurrences it leaves out. -/
+theorem innerSum_mapAnn (h : SemiringWithMonusHom K K') (d : WorldOcc T K) :
+    (∑ j ∈ ((d.mapAnn ⇑h.toRingHom).sub)ᶜ,
+        (d.mapAnn ⇑h.toRingHom).occ.1.anns j)
+      = h.toRingHom (∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j) := by
+  rw [map_sum]
+  show (∑ j ∈ (d.sub.map (finCongr
+      (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding)ᶜ,
+      (d.occ.1.mapAnn ⇑h.toRingHom).anns j) = _
+  rw [show (d.sub.map (finCongr
+        (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding)ᶜ
+      = (d.sub)ᶜ.map (finCongr
+        (AggValue.occs_length_mapAnn ⇑h.toRingHom d.occ.1).symm).toEmbedding
+      from by
+    ext j
+    rw [Finset.mem_compl, Finset.mem_map_equiv, Finset.mem_map_equiv,
+      Finset.mem_compl],
+    Finset.sum_map]
+  exact Finset.sum_congr rfl (fun j _ => AggValue.anns_mapAnn h d.occ.1 j)
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- **A transported world carries the pushed annotation**: the world
+annotation is an `⊗`/`⊖`-polynomial in the occurrence annotations, over
+the bag of occurrences rather than over an indexing of it. -/
+theorem World.ann_mapAnn (h : SemiringWithMonusHom K K') (W : World T K) :
+    (W.mapAnn ⇑h.toRingHom).ann = h.toRingHom W.ann := by
+  rw [World.ann, World.ann, World.presentProd, World.presentProd,
+    World.absentSum, World.absentSum,
+    prod_map_mapAnn h W (keptAnn_mapAnn h),
+    prod_map_mapAnn h W (innerProd_mapAnn h),
+    sum_map_mapAnn h W (dropAnn_mapAnn h),
+    sum_map_mapAnn h W (innerSum_mapAnn h),
+    map_mul, map_mul, SemiringWithMonusHom.map_sub, map_one, map_add]
+
+omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+/-- **Predicate provenance commutes with a homomorphism** for a nested
+value as for an ordinary token: the worlds correspond, each carries the
+pushed annotation and reads the same value, and `χ` is `{𝟘,𝟙}`-valued. -/
+theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
+    (a : NestedValue T K) (P : T → Kleene) :
+    (a.mapAnn ⇑h.toRingHom).predProvWith P
+      = h.toRingHom (a.predProvWith P) := by
+  have hfil : Multiset.filter
+      ((fun W : World T K' => W.IsWorld (a.mapAnn ⇑h.toRingHom))
+        ∘ World.mapAnn ⇑h.toRingHom) a.worlds
+      = Multiset.filter (fun W => W.IsWorld a) a.worlds :=
+    Multiset.filter_congr
+      (fun W _ => World.isWorld_mapAnn (a := a) ⇑h.toRingHom W)
+  rw [predProvWith, predProvWith, map_multiset_sum, Multiset.map_map,
+    worlds_mapAnn, Multiset.filter_map, hfil, Multiset.map_map]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun W _ => ?_))
+  show (World.mapAnn ⇑h.toRingHom W).ann
+      * Having.chiOf P ((a.mapAnn ⇑h.toRingHom).valOn
+        (World.mapAnn ⇑h.toRingHom W))
+    = h.toRingHom (W.ann * Having.chiOf P (a.valOn W))
+  rw [map_mul, World.ann_mapAnn, valOn_mapAnn, AggValue.chiOf_hom]
+
+end NestedValue
+
 namespace AggTok
 
 /-- **The predicate provenance of an aggregate column commutes with the
-pushforward**: on an ordinary token through
-`AggValue.predProvOfWith_mapAnn`, on an expression through
-`AggExpr.predProvWith_mapAnn`. A nested column is excluded, its reading
-being the one still unproved. -/
+pushforward**, whichever kind of token the column holds: on an ordinary
+token through `AggValue.predProvOfWith_mapAnn`, on a nested one through
+`NestedValue.predProvWith_mapAnn`, on an expression through
+`AggExpr.predProvWith_mapAnn`. -/
 theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
-    {x : AggTok T K} (hx : x.isNested = false) (P : T → Kleene) :
+    (x : AggTok T K) (P : T → Kleene) :
     (x.mapAnn ⇑h.toRingHom).predProvOfWith P
       = h.toRingHom (x.predProvOfWith P) := by
-  rcases AggTok.eq_tok_or_expr_of_not_nested hx with ⟨a, rfl⟩ | ⟨e, rfl⟩
-  · exact AggValue.predProvOfWith_mapAnn h a P
-  · exact (AggExpr.predProvWith_mapAnn h e P).symm
+  cases x with
+  | tok a => exact AggValue.predProvOfWith_mapAnn h a P
+  | nest a =>
+    show (NestedValue.mapAnn ⇑h.toRingHom a).predProvWith P = _
+    exact NestedValue.predProvWith_mapAnn h a P
+  | expr e => exact (AggExpr.predProvWith_mapAnn h e P).symm
 
 /-- A comparison is one such test. -/
 theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
-    {x : AggTok T K} (hx : x.isNested = false) (op : CompOp) (c : T) :
+    (x : AggTok T K) (op : CompOp) (c : T) :
     (x.mapAnn ⇑h.toRingHom).predProvOf op c
       = h.toRingHom (x.predProvOf op c) :=
-  predProvOfWith_mapAnn h hx _
+  predProvOfWith_mapAnn h x _
 
 /-- So is the alternative test. -/
 theorem altProv_mapAnn (h : SemiringWithMonusHom K K')
-    {x : AggTok T K} (hx : x.isNested = false) (v : T) :
+    (x : AggTok T K) (v : T) :
     (x.mapAnn ⇑h.toRingHom).altProv v = h.toRingHom (x.altProv v) :=
-  predProvOfWith_mapAnn h hx _
+  predProvOfWith_mapAnn h x _
 
 end AggTok
 
@@ -319,11 +471,12 @@ theorem TermGIn.eval_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
 /-- **Predicate-level hom commutation.** The predicate provenance of a
 generalized predicate commutes with every `SemiringWithMonusHom`:
 regular atoms through `χ`, aggregate atoms through the token-level
-commutation, `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, and
+commutation – whichever kind of token the column holds, a nested one
+included – `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, and
 `¬` by polarity. -/
 theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
-    (u : Tuple (GenValue T K) n) (hnn : GenRow.NoNested u) :
+    (u : Tuple (GenValue T K) n) :
     φ.predsem neg (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ
       = h.toRingHom (φ.predsem neg u γ) := by
   induction φ generalizing neg with
@@ -344,7 +497,7 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
       simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t u,
-        AggTok.predProvOf_mapAnn h (hnn k x hu)]
+        AggTok.predProvOf_mapAnn h x]
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     cases hu : u k with
     | inl w =>
@@ -356,7 +509,7 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
       simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u,
-        AggTok.predProvOfWith_mapAnn h (hnn k x hu)]
+        AggTok.predProvOfWith_mapAnn h x]
   | and φ ψ ihφ ihψ =>
     cases neg with
     | false =>
@@ -1694,15 +1847,12 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
     | inl w' => rw [hr'k] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
     | inr x' =>
       rw [hr'k] at hk
-      have hnn : x.isNested = false := by
-        rw [← AggTok.isNested_mapAnn ⇑h.toRingHom x]
-        exact hk.isNested_eq_false_right
       have hvals : x'.vals = x.vals := by
         rw [hk.vals_eq]
-        exact AggTok.vals_mapAnn _ hnn
+        exact AggTok.vals_mapAnn _ x
       have hprov : ∀ v : T, x'.altProv v = h.toRingHom (x.altProv v) := by
         intro v
-        rw [hk.altProv_eq, AggTok.altProv_mapAnn h hnn]
+        rw [hk.altProv_eq, AggTok.altProv_mapAnn h x]
       simp only [GenRow.alternativesAt, hrk, hr'k, hvals]
       refine rel_map_of_forall (fun v _ => ⟨fun j => ?_, ?_⟩)
       · by_cases hj : j = k
@@ -1913,7 +2063,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)]
       rw [GenPredIn.predsem_equiv φ false hs.1,
-        GenPredIn.predsem_mapAnn h φ false r.fst (hs.noNested h), hs.2,
+        GenPredIn.predsem_mapAnn h φ false r.fst, hs.2,
         ← map_mul]
     · rw [ite_eq_right hagg, ite_eq_right hagg]
       refine rel_filter_of_iff (ih d γ hw) (fun r' r hs => ?_)

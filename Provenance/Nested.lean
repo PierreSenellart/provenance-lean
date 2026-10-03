@@ -428,6 +428,93 @@ theorem World.isWorld_mapAnn (h : K → K') {a : NestedValue T K}
       rw [hsc] at hs
       exact (hne d).mpr (hall d hd hp hs)
 
+/-! ### The worlds travel with the occurrences
+
+The occurrences are a bag and the worlds are read off that bag, so the
+pushforward needs no reindexing of anything: the worlds of the
+pushforward are the pushforwards of the worlds, each reading the value its
+own world reads. Only the annotations move, which is what
+`NestedValue.World.ann_mapAnn` says of the weight and
+`AggQueryHom`'s `predProvWith_mapAnn` of the reading. -/
+
+omit [ValueType T] in
+/-- **The decisions available at an occurrence travel with it**: a
+decision about the pushed occurrence is a decision about the occurrence,
+the inner family keeping its length. -/
+theorem decisions_mapAnn (h : K → K') (o : AggValue T K × K) :
+    decisions (o.1.mapAnn h, h o.2)
+      = (decisions o).map (WorldOcc.mapAnn h) := by
+  classical
+  let eqv : (Bool × Finset (Fin o.1.occs.length))
+      ≃ (Bool × Finset (Fin (o.1.mapAnn h).occs.length)) :=
+    (Equiv.refl Bool).prodCongr
+      ((finCongr (AggValue.occs_length_mapAnn h o.1).symm).finsetCongr)
+  unfold decisions
+  rw [Multiset.map_map]
+  conv_lhs => rw [← Finset.map_univ_equiv eqv]
+  rw [Finset.map_val, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun c _ => ?_)
+  show (⟨(o.1.mapAnn h, h o.2), (eqv c).1, (eqv c).2⟩ : WorldOcc T K')
+    = (⟨o, c.1, c.2⟩ : WorldOcc T K).mapAnn h
+  show (⟨(o.1.mapAnn h, h o.2), c.1,
+      (finCongr (AggValue.occs_length_mapAnn h o.1).symm).finsetCongr c.2⟩
+      : WorldOcc T K') = _
+  rw [Equiv.finsetCongr_apply]
+  rfl
+
+omit [ValueType T] in
+/-- The enumeration travels with them. -/
+theorem foldr_addOcc_mapAnn (h : K → K')
+    (s : Multiset (AggValue T K × K)) :
+    Multiset.foldr addOcc {0} (s.map (fun o => (o.1.mapAnn h, h o.2)))
+      = (Multiset.foldr addOcc {0} s).map
+          (fun W => W.map (WorldOcc.mapAnn h)) := by
+  induction s using Multiset.induction_on with
+  | empty =>
+    rw [Multiset.map_zero, Multiset.foldr_zero, Multiset.foldr_zero]
+    rfl
+  | cons o s ih =>
+    rw [Multiset.map_cons, Multiset.foldr_cons, Multiset.foldr_cons, addOcc,
+      addOcc, ih, decisions_mapAnn, Multiset.bind_map, Multiset.map_bind]
+    refine Multiset.bind_congr (fun d _ => ?_)
+    rw [Multiset.map_map, Multiset.map_map]
+    refine Multiset.map_congr rfl (fun W _ => ?_)
+    show WorldOcc.mapAnn h d ::ₘ W.map (WorldOcc.mapAnn h)
+      = (d ::ₘ W).map (WorldOcc.mapAnn h)
+    rw [Multiset.map_cons]
+
+omit [ValueType T] in
+/-- **The worlds of the pushforward are the pushforwards of the
+worlds**, with their multiplicities – no reindexing, the occurrences
+being a bag on both sides. -/
+theorem worlds_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).worlds = a.worlds.map (World.mapAnn h) := by
+  show (Multiset.foldr addOcc {0} (a.occs.map _)).map World.mk
+    = (((Multiset.foldr addOcc {0} a.occs).map World.mk).map (World.mapAnn h))
+  rw [foldr_addOcc_mapAnn, Multiset.map_map, Multiset.map_map]
+  rfl
+
+omit [ValueType T] in
+/-- **The pushforward moves no value**: a transported world reads what
+the world it came from reads. -/
+theorem valOn_mapAnn (h : K → K') (a : NestedValue T K) (W : World T K) :
+    (a.mapAnn h).valOn (W.mapAnn h) = a.valOn W := by
+  show a.agg ((W.mapAnn h).kept.map (fun d => d.occ.1.valOn d.sub)) = a.agg _
+  rw [World.kept_mapAnn, Multiset.map_map]
+  refine congrArg a.agg (Multiset.map_congr rfl (fun d _ => ?_))
+  show (d.occ.1.mapAnn h).valOn (d.sub.map
+      (finCongr (AggValue.occs_length_mapAnn h d.occ.1).symm).toEmbedding)
+    = d.occ.1.valOn d.sub
+  rw [show (d.sub.map
+        (finCongr (AggValue.occs_length_mapAnn h d.occ.1).symm).toEmbedding)
+      = Finset.univ.filter (fun j =>
+          Fin.cast (AggValue.occs_length_mapAnn h d.occ.1) j ∈ d.sub) from by
+    rw [AggValue.filter_cast_eq_map]
+    exact congrArg (fun e : Fin d.occ.1.occs.length
+        ≃ Fin (d.occ.1.mapAnn h).occs.length => d.sub.map e.toEmbedding)
+      (by ext j; simp)]
+  exact AggValue.valOn_mapAnn_cast h d.occ.1 d.sub
+
 end MapAnn
 
 /-! ## The readings over the nested worlds
@@ -485,6 +572,21 @@ agree on the database as it is. -/
 theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.specialize ν = a.collapse := by
   rw [specialize, realizedWorld_of_forall a ν h, valOn_full]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **The values a nested value takes survive the pushforward**: the
+worlds correspond, and each reads what the world it came from reads. -/
+theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
+    (h : K → K') (a : NestedValue T K) : (a.mapAnn h).vals = a.vals := by
+  have hfil : Multiset.filter
+      ((fun W : World T K' => W.IsWorld (a.mapAnn h)) ∘ World.mapAnn h)
+        a.worlds
+      = Multiset.filter (fun W => W.IsWorld a) a.worlds :=
+    Multiset.filter_congr (fun W _ => World.isWorld_mapAnn (a := a) h W)
+  unfold vals
+  rw [worlds_mapAnn, Multiset.filter_map, hfil, Multiset.map_map]
+  exact congrArg Multiset.toFinset
+    (Multiset.map_congr rfl (fun W _ => valOn_mapAnn h a W))
 
 omit [ValueType T] [DecidableEq K] in
 /-- **A test no value satisfies annotates `𝟘`.** -/
@@ -616,12 +718,19 @@ end NestedValue
 
 /-! ## The aggregate side of a lifted value
 
-A column of aggregate kind holds either an ordinary token or a nested
-one. `AggTok` is that choice, and `GenValue` is built on it, so an
-ordinary token keeps its type and everything already proved about
-`AggValue` applies to the `tok` case unchanged; only the `nest` case
-needs new readings, and the theorems that do not yet have them carry a
-`noNested` hypothesis rather than pretending to cover it. -/
+A column of aggregate kind holds an ordinary token, a nested one or an
+aggregate expression. `AggTok` is that choice, and `GenValue` is built on
+it, so an ordinary token keeps its type and everything already proved
+about `AggValue` applies to the `tok` case unchanged. The `nest` case has
+its own readings, and what is proved of them travels: the pushforward
+moves no value (`NestedValue.valOn_mapAnn`), keeps the values the column
+takes (`vals_mapAnn`) and commutes with the predicate provenance
+(`AggQueryHom`'s `NestedValue.predProvWith_mapAnn`), so the hom
+commutation of a column and of a predicate asks nothing about the kind of
+token. What a nested column is still excluded from is the `δ`-absorption
+of its own family's guard and the random-world reading, and those
+theorems carry a `GenRow.NoNested` hypothesis rather than pretending to
+cover it. -/
 
 /-- An aggregate column's value: an ordinary token, or a **nested** one
 whose occurrences include those of the aggregate values its term
@@ -866,12 +975,14 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
     (x.mapAnn f).scalar = x.scalar := by cases x <;> rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
-/-- The values a column takes survive the pushforward. -/
-theorem vals_mapAnn {K' : Type} (f : K → K') {x : AggTok T K}
-    (hx : x.isNested = false) : (x.mapAnn f).vals = x.vals := by
-  rcases eq_tok_or_expr_of_not_nested hx with ⟨a, rfl⟩ | ⟨e, rfl⟩
-  · exact AggValue.vals_mapAnn f a
-  · exact AggExpr.vals_mapAnn f e
+/-- The values a column takes survive the pushforward, whichever kind of
+token it holds. -/
+theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
+    (f : K → K') (x : AggTok T K) : (x.mapAnn f).vals = x.vals := by
+  cases x with
+  | tok a => exact AggValue.vals_mapAnn f a
+  | nest a => exact NestedValue.vals_mapAnn f a
+  | expr e => exact AggExpr.vals_mapAnn f e
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Reading a column through a function and pushing its annotations
