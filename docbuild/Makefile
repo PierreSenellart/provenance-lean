@@ -21,6 +21,22 @@ RG_OUT            := .lake/build/result-graph
 LEAN_SOURCES      := $(shell find .. -name '*.lean' -not -path '../.lake/*' \
                        -not -path '../docbuild/*')
 
+# `make docs` tolerates a missing result-graph, which is right for a local
+# preview and wrong for the published site: a tree built without the figures
+# looks complete, and was deployed as such once. So both deploy targets run
+# this on the tree they are about to publish, $(1), and refuse it unless the
+# figures' stylesheet and at least one injected figure are there.
+define CHECK_FIGURES
+grep -q 'details\.result-graph' "$(1)/style.css" 2>/dev/null \
+  && grep -rq 'result-graph:begin' "$(1)/Provenance" 2>/dev/null || { \
+  echo "error: no dependency figures in $(1); not deploying."; \
+  echo "       The tree was built without result-graph: a missing checkout or"; \
+  echo "       binary makes \`make docs\` skip the figures with a note. Build it"; \
+  echo "       (see RESULT_GRAPH_REPO) under this library's toolchain, or"; \
+  echo "       deploy the CI build with \`make deploy-ci\`."; \
+  exit 1; }
+endef
+
 docs: graphs
 	# Force a fresh HTML stitching step: `lake build Provenance:docs` can
 	# otherwise reuse a stale "library built" marker that pre-dates a newly
@@ -122,6 +138,7 @@ ungraph:
 # Full local build, then publish. The fallback: it needs the whole Mathlib
 # closure documented locally, which is some thirty minutes cold.
 deploy: docs
+	@$(call CHECK_FIGURES,$(DOCOUT))
 	rsync -avzP --delete-after $(DOCOUT)/ $(DEPLOY_HOST)
 
 # The normal path. `provsql.org` is rsync-writable from Pierre's machine only,
@@ -145,6 +162,7 @@ deploy-ci:
 	[ -f "$$tmp/site/Provenance.html" ] || { echo "no Provenance.html in the artefact"; exit 1; }; \
 	[ -r "$$tmp/site/BUILD-INFO" ] || { echo "no BUILD-INFO in the artefact"; exit 1; }; \
 	bash ../scripts/check-anchors.sh --tree "$$tmp/site"; \
+	$(call CHECK_FIGURES,$$tmp/site); \
 	echo; echo "About to deploy:"; cat "$$tmp/site/BUILD-INFO"; echo; \
 	rsync -avz --delete-after "$$tmp/site/" $(DEPLOY_HOST); \
 	echo; echo "Deployed $$(cat "$$tmp/site/BUILD-INFO")"

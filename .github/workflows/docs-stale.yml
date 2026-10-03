@@ -154,6 +154,20 @@ jobs:
         continue-on-error: true
         run: bash ./scripts/check-anchors.sh --site "$SITE"
 
+      # The figures result-graph draws under each declaration are optional in
+      # `make docs`, so a tree built without them is a complete-looking site,
+      # and one was deployed. Both deploy targets now refuse such a tree; this
+      # is the same test from the outside, for a deploy by any other route.
+      - name: Check the dependency figures
+        id: figures
+        if: steps.live.outputs.status == 'ok'
+        continue-on-error: true
+        run: |
+          curl -fsSL --max-time 60 "$SITE/style.css" \
+            | grep -q 'details\.result-graph'
+          curl -fsSL --max-time 60 "$SITE/Provenance/QueryRewriting.html" \
+            | grep -q 'result-graph:begin'
+
       # One issue, reused: the next daily run edits it rather than filing a
       # second copy, and closes nothing – a human deploys and closes.
       - name: Open or update the issue
@@ -161,7 +175,8 @@ jobs:
           steps.grace.outputs.active != 'yes' && (
             steps.live.outputs.status != 'ok' ||
             steps.diff.outputs.behind != 'no' ||
-            steps.anchors.outcome != 'success' )
+            steps.anchors.outcome != 'success' ||
+            steps.figures.outcome != 'success' )
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -171,6 +186,7 @@ jobs:
           BEHIND: ${{ steps.diff.outputs.behind }}
           FILES: ${{ steps.diff.outputs.files }}
           ANCHORS: ${{ steps.anchors.outcome }}
+          FIGURES: ${{ steps.figures.outcome }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           title="The deployed documentation needs attention"
@@ -190,6 +206,10 @@ jobs:
               printf -- '- **Anchors published papers link to do not resolve on the live site.** '
               printf 'See [the run](%s). If they resolve against a freshly built tree, this is\n' "$RUN"
               printf '  only the missing deploy; if they do not, a declaration was renamed.\n'
+            fi
+            if [ "$STATUS" = "ok" ] && [ "$FIGURES" != "success" ]; then
+              printf -- '- **The live pages carry no dependency figures**: the deployed tree was\n'
+              printf '  built without result-graph. Deploying the CI build restores them.\n'
             fi
             if [ -n "$FILES" ]; then
               printf '\nChanged since the live build:\n\n```\n%s\n```\n' "$FILES"
