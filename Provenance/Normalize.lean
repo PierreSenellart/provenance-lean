@@ -57,7 +57,8 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum is his t q => .ProvSum is his t q.normalize
   | _, _, _, .Retag h q => .Retag h q.normalize
   | _, _, _, .GammaTok is his ts fs a q => .GammaTok is his ts fs a q.normalize
-  | _, _, _, .Win P O o w t f q dist => .Win P O o w t f q.normalize dist
+  | _, _, _, .Win P O o w t f q dist keep =>
+      .Win P O o w t f q.normalize dist keep
   | _, _, _, .WinExpr P O o ws ts fs g q =>
       .WinExpr P O o ws ts fs g q.normalize
 
@@ -83,7 +84,7 @@ def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.chainFree
   | _, _, _, .Retag _ q => q.chainFree
   | _, _, _, .GammaTok _ _ _ _ _ q => q.chainFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.chainFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.chainFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.chainFree
 
 omit [ValueType T] in
@@ -117,7 +118,7 @@ theorem AggQueryIn.normalize_chainFree :
   | ProvSum is his t q ih => exact ih
   | Retag h q ih => exact ih
   | GammaTok is his ts fs a q ih => exact ih
-  | Win P O o w t f q dist ih => exact ih
+  | Win P O o w t f q dist keep ih => exact ih
   | WinExpr P O o ws ts fs g q ih => exact ih
 
 omit [ValueType T] in
@@ -157,7 +158,7 @@ theorem AggQueryIn.normalize_id_of_chainFree :
   | ProvSum is his t q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Retag hk q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | GammaTok is his ts fs a q ih => intro h; rw [AggQueryIn.normalize, ih h]
-  | Win P O o w t f q dist ih => intro h; rw [AggQueryIn.normalize, ih h]
+  | Win P O o w t f q dist keep ih => intro h; rw [AggQueryIn.normalize, ih h]
   | WinExpr P O o ws ts fs g q ih =>
       intro h; rw [AggQueryIn.normalize, ih h]
 

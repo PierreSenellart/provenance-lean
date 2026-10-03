@@ -191,7 +191,7 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
       ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ)))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
-  | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' P O o w t f q dist, D, γ =>
+  | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' P O o w t f q dist _keep, D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
     r.map (fun u : Tuple (T ⊕ K) n' =>
@@ -260,7 +260,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.noGammaTok
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaTok
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
@@ -282,7 +282,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
   | _, _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.chiFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.chiFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.chiFree
 
 /-- On `inl`-embedded rows a gate-free term evaluates in the rewritten
@@ -543,11 +543,15 @@ theorem AggQueryIn.evaluateRew_plain :
   | GammaTok is his ts fs a q ih =>
     intro hq hc hf D γ
     exact hq.elim
-  | @Win cI n' m' p' P O o w t f q dist ih =>
-    -- a window reads the collapsed rows, which the embedding leaves alone
+  | @Win cI n' m' p' P O o w t f q dist keep ih =>
+    -- a window reads the collapsed rows, which the embedding leaves alone;
+    -- a `FILTER` clause is what the rewriting does not carry, and `hf`
+    -- excludes it
     intro hq hc hf D γ
+    obtain ⟨hk, hf'⟩ := hf
+    subst hk
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq]
-    rw [ih hq hc hf D γ, map_plainTuple_map_inl, Multiset.map_map]
+    rw [ih hq hc hf' D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
   | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
     -- and so does a multi-frame one, leaf by leaf
@@ -616,7 +620,7 @@ theorem AggQueryIn.rewriting_noGammaTok :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
@@ -646,7 +650,7 @@ theorem AggQueryIn.rewriting_noFilter :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
@@ -707,7 +711,7 @@ theorem AggQueryIn.rewriting_chiFree :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 

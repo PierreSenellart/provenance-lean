@@ -1222,7 +1222,7 @@ theorem AggQueryIn.evaluate_guarded :
         rw [AggValue.annList_ofGroup]
         exact hG
       | some φ => exact Or.inl rfl
-  | @Win cI n' m' p' P O o w t f q dist ih =>
+  | @Win cI n' m' p' P O o w t f q dist keep ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
@@ -1234,6 +1234,13 @@ theorem AggQueryIn.evaluate_guarded :
     · dsimp only at ha
       rw [Fin.snoc_last] at ha
       rw [← Sum.inr.inj ha]
+      cases hk : keep with
+      | some φ =>
+        -- a filtered token is scalar: the kept part of a frame may be
+        -- empty where the frame is not, so the empty world is a world
+        exact Or.inl
+          (ValueFrame.scalar_tokenDistWhen P O o w t f dist φ.keeps _ i)
+      | none =>
       by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
           ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true
       · refine Or.inr ?_
@@ -1745,6 +1752,80 @@ theorem tokenOf_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     hproj, sortList_filter, ValueFrame.sortList_map_fst, hframe]
 
 
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
+/-- A `Bool`-valued `List.filter`, read as a `Multiset.filter`. -/
+private lemma filter_coe_bool {α : Type} (pB : α → Bool) (l : List α) :
+    (↑(l.filter pB) : Multiset α) = Multiset.filter (fun a => pB a = true) ↑l := by
+  rw [Multiset.filter_coe]
+  simp
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A filtered window token is world-faithful.** Under a valuation it
+reads as the plain filtered aggregate the realized world gives its row:
+the clause cuts the frame by the rows and the valuation cuts it by the
+annotations, the two cuts commute, and both readings are sorted by the
+clause so only the values matter (`OrderSpec.map_eq_of_sorted`). -/
+theorem tokenOfWhen_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f g : SeqAggFunc T) (keep : Tuple T n' → Bool)
+    (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    g ((((ValueFrame.tokenOfWhen P O o w t f keep R x γ).occs.filter
+        (fun q => q.snd v)).map Prod.fst))
+      = ValueFrame.windowValueWhen P O o w t g keep (randomWorld v R) x.fst γ := by
+  refine congrArg g ?_
+  -- the occurrences the two cuts leave, read off the annotated frame
+  have hL : (((ValueFrame.tokenOfWhen P O o w t f keep R x γ).occs.filter
+        (fun q => q.snd v)).map Prod.fst)
+      = (((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O o w R x).filter
+          (fun q => q.snd v && keep q.fst)).map Prod.fst).map
+        (fun u => t.eval u γ) := by
+    show ((((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst P O o w R x).filter (fun q => keep q.fst)).map
+        (fun q => (t.eval q.fst γ, q.snd))).filter
+        (fun z => z.snd v)).map Prod.fst = _
+    rw [list_filter_map_comm, List.map_map, List.filter_filter, List.map_map]
+    rfl
+  rw [hL]
+  refine OrderSpec.map_eq_of_sorted (α := Tuple T n') (key := Tuple.key O)
+    (val := id) (o := o) (fun u => t.eval u γ) ?_ ?_ ?_
+  · -- the same rows, by the restriction property of frames
+    refine Multiset.coe_eq_coe.mp ?_
+    have hframe : ValueFrame.frameOf (α := Tuple T n') id P O w
+        (randomWorld v R) x.fst
+        = Multiset.map (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          ((ValueFrame.frameOf (α := AnnotatedTuple T (BoolFunc X) n')
+            Prod.fst P O w R x).filter
+            (fun y : AnnotatedTuple T (BoolFunc X) n' => y.snd v = true)) := by
+      unfold randomWorld
+      rw [ValueFrame.frameOf_map (α := AnnotatedTuple T (BoolFunc X) n')
+          (valα := Prod.fst) (valβ := id) Prod.fst (fun _ => rfl) P O w _
+          (Multiset.mem_filter.mpr ⟨hx, hc⟩),
+        ValueFrame.frameOf_filter (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst _ P O w R hc]
+    rw [← Multiset.map_coe, filter_coe_bool, filter_coe_bool,
+      ValueFrame.frameListOf_coe (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst P O o w R x,
+      ValueFrame.frameListOf_coe (α := Tuple T n') id P O o w
+        (randomWorld v R) x.fst,
+      hframe, Multiset.filter_map, Multiset.filter_filter]
+    refine congrArg (Multiset.map Prod.fst) (Multiset.filter_congr ?_)
+    intro y _
+    show (y.snd v && keep y.fst) = true ↔ _
+    rw [Bool.and_eq_true]
+    exact ⟨fun h => ⟨h.2, h.1⟩, fun h => ⟨h.2, h.1⟩⟩
+  · -- the annotated reading, sorted by the clause and projected
+    rw [List.pairwise_map]
+    exact List.Pairwise.filter _ (OrderSpec.sortSeq_sorted
+      (α := AnnotatedTuple T (BoolFunc X) n') (key := Tuple.key O)
+      (val := Prod.fst) (o := o) _)
+  · exact List.Pairwise.filter _ (OrderSpec.sortSeq_sorted
+      (α := Tuple T n') (key := Tuple.key O)
+      (val := (id : Tuple T n' → Tuple T n')) (o := o) _)
+
 omit [Fintype X] [DecidableEq X] in
 /-- **A token specializes to the aggregate of the realized frame**: the
 case of `tokenOf_filter_agg` where the aggregate applied is the token's
@@ -1859,6 +1940,40 @@ theorem exprOf_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
   rw [← hform]
   exact tokenOf_filter_agg P O o (ws l) (ts l) (fs l) (fs l) r.toMultiset
     (OccFam.row_mem_toMultiset r i) v hc
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A filtered token specializes to the filtered aggregate of the
+realized frame**: the case of `tokenOfWhen_filter_agg` where the
+aggregate applied is the token's own. -/
+theorem tokenOfWhen_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T) (keep : Tuple T n' → Bool)
+    (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.tokenOfWhen P O o w t f keep R x γ).specialize (fun α => α v)
+      = ValueFrame.windowValueWhen P O o w t f keep (randomWorld v R) x.fst γ := by
+  unfold AggValue.specialize
+  exact tokenOfWhen_filter_agg P O o w t f f keep R hx v hc
+
+omit [Fintype X] [DecidableEq X] in
+/-- The same for the `DISTINCT` reading. -/
+theorem tokenOfDistWhen_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n' → Bool) (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.tokenOfDistWhen P O o w t f dist keep R x γ).specialize
+        (fun α => α v)
+      = ValueFrame.windowValueWhen P O o w t (if dist then f.distinct else f)
+        keep (randomWorld v R) x.fst γ := by
+  unfold ValueFrame.tokenOfDistWhen
+  cases dist
+  · simpa using tokenOfWhen_specialize P O o w t f keep R hx v hc
+  · simp only [ite_true]
+    rw [AggValue.specialize_mergeByValue]
+    exact tokenOfWhen_filter_agg P O o w t f f.distinct keep R hx v hc
 
 /-! ## The random-world commutation -/
 
@@ -2373,31 +2488,55 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q ih =>
     intro hq
     exact hq.elim
-  | @Win cI nI mI pI P O o w t f q dist ih =>
+  | @Win cI nI mI pI P O o w t f q dist keep ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
-    -- relation restricts every frame
+    -- relation restricts every frame – and a clause cuts the frame by the
+    -- rows, which the restriction does not move
     intro hq d v γ
-    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq, ← ih hq d v,
-      ← genRandomWorld_allReg q d v]
-    unfold genRandomWorld randomWorld
-    rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
-      Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
-        show (ValueFrame.windowRow P O o w t f
-              (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
-          ↔ x.snd v = true from by
-          simp [ValueFrame.windowRow])]
-    refine Multiset.map_congr rfl (fun x hx => ?_)
-    obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
-    simp only [Function.comp_apply, ValueFrame.windowRow]
-    funext k
-    unfold GenRow.specializeTuple
-    refine Fin.lastCases ?_ (fun k' => ?_) k
-    · rw [Fin.snoc_last, Fin.snoc_last]
-      exact tokenOfDist_specialize P O o w t f dist
-        (q.evaluateAnnotated d γ) hxR v hxc
-    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-      rfl
+    cases hk : keep with
+    | none =>
+      rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq,
+        ← ih hq d v, ← genRandomWorld_allReg q d v]
+      unfold genRandomWorld randomWorld
+      rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
+        Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
+          show (ValueFrame.windowRow P O o w t f
+                (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
+            ↔ x.snd v = true from by
+            simp [ValueFrame.windowRow])]
+      refine Multiset.map_congr rfl (fun x hx => ?_)
+      obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
+      simp only [Function.comp_apply, ValueFrame.windowRow]
+      funext k
+      unfold GenRow.specializeTuple
+      refine Fin.lastCases ?_ (fun k' => ?_) k
+      · rw [Fin.snoc_last, Fin.snoc_last]
+        exact tokenOfDist_specialize P O o w t f dist
+          (q.evaluateAnnotated d γ) hxR v hxc
+      · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+        rfl
+    | some φ =>
+      rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluatePlain_Win_eq_when,
+        ← ih hq d v, ← genRandomWorld_allReg q d v]
+      unfold genRandomWorld randomWorld
+      rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
+        Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
+          show (ValueFrame.windowRowWhen P O o w t f φ.keeps
+                (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
+            ↔ x.snd v = true from by
+            simp [ValueFrame.windowRowWhen])]
+      refine Multiset.map_congr rfl (fun x hx => ?_)
+      obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
+      simp only [Function.comp_apply, ValueFrame.windowRowWhen]
+      funext k
+      unfold GenRow.specializeTuple
+      refine Fin.lastCases ?_ (fun k' => ?_) k
+      · rw [Fin.snoc_last, Fin.snoc_last]
+        exact tokenOfDistWhen_specialize P O o w t f dist φ.keeps
+          (q.evaluateAnnotated d γ) hxR v hxc
+      · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+        rfl
   | Retag h q ih =>
     intro hq d v γ
     exact ih hq d v

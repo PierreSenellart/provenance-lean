@@ -392,7 +392,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     apply Multiset.map_congr rfl
     intro r _
     rfl
-  | @Win cI n' m' p' P O o w t f q dist ih =>
+  | @Win cI n' m' p' P O o w t f q dist keep ih =>
     -- one output row per input occurrence; the data part of the added column
     -- is the token's deterministic reading, which is the plain aggregate
     -- over the frame
@@ -414,7 +414,10 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     dsimp only [GenRow.plainTuple, OccFam.plain]
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact ValueFrame.collapse_tokenDist P O o w t f dist _ i
+      cases hk : keep with
+      | none => exact ValueFrame.collapse_tokenDist P O o w t f dist _ i
+      | some φ =>
+        exact ValueFrame.collapse_tokenDistWhen P O o w t f dist φ.keeps _ i
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | @GammaScalar cI m n₂ ts fs q ih =>

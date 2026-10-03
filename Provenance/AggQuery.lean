@@ -670,6 +670,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
       (w : ValueFrame T p) →
       (t : TermIn T c n) → (f : SeqAggFunc T) →
       AggQueryIn T c n (ColKind.allReg n) → (dist : Bool := false) →
+      (keep : Option (Selection T n) := none) →
       AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
   /-- **A window over several frames of one partition**, whose column is
   an aggregate *expression* and not an aggregate: leaf `l` aggregates
@@ -1114,7 +1115,7 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, @Win _ _ n _m _p P O o w t f q dist, d, γ =>
+  | _, _, _, @Win _ _ n _m _p P O o w t f q dist keep, d, γ =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
     -- the canonical indexing: an occurrence is what a frame is computed for,
     -- and two occurrences carrying the same row may have different frames
@@ -1123,7 +1124,10 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     -- no row is removed and no group is created, so nothing goes pending
     (OccFam.mk occ.size (fun i =>
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
-          (Sum.inr (AggTok.tok (ValueFrame.tokenDist P O o w t f dist occ i γ))),
+          (Sum.inr (AggTok.tok (match keep with
+            | none => ValueFrame.tokenDist P O o w t f dist occ i γ
+            | some φ =>
+                ValueFrame.tokenDistWhen P O o w t f dist φ.keeps occ i γ))),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
   | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q, d, γ =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
@@ -1441,13 +1445,17 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u γ)).fold addFn 0))
-  | _, _, _, @Win _ _ n _m _p P O o w t f q dist, d, γ =>
+  | _, _, _, @Win _ _ n _m _p P O o w t f q dist keep, d, γ =>
     -- the canonical indexing again; a frame is computed for an occurrence
     let occ := OccFam.ofSorted (q.evaluatePlain d γ)
     (OccFam.mk occ.size (fun i =>
       (Fin.snoc (occ.row i)
         ((if dist then f.distinct else f)
-          ((ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).map
+          ((match keep with
+            | none => ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i
+            | some φ =>
+                (ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).filter
+                  φ.keeps).map
             (fun v => t.eval v γ)))
         : Tuple T (n + 1)))).toMultiset
   | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q, d, γ =>
@@ -1477,6 +1485,15 @@ def ValueFrame.windowValue {c n m p : ℕ} (P : Tuple (Fin n) m)
     (t : TermIn T c n) (f : SeqAggFunc T) (R : Relation T n) (u : Tuple T n)
     (γ : Fin c → T := fun _ => 0) : T :=
   f ((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).map
+    (fun v => t.eval v γ))
+
+/-- **The value a window's added column takes under a `FILTER`
+clause**: the aggregate over the rows of the frame the clause keeps. -/
+def ValueFrame.windowValueWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
+  f (((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).filter keep).map
     (fun v => t.eval v γ))
 
 /-- **Where the aggregate is symmetric the sequence a frame is read in does
@@ -1536,6 +1553,62 @@ theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
   dsimp only [Fin.cast_eq_self]
   rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
 
+/-- The row a window gives a row of its input relation under a `FILTER`
+clause: as `ValueFrame.windowRow`, with the clause's token. -/
+def ValueFrame.windowRowWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    (γ : Fin c → T := fun _ => 0) (dist : Bool := false) :
+    GenRow T K (n + 1) :=
+  ⟨Fin.snoc (fun k => (Sum.inl (x.fst k) : GenValue T K))
+      (Sum.inr (AggTok.tok
+        (ValueFrame.tokenOfDistWhen P O o w t f dist keep X x γ))),
+    ⟨x.snd, 0⟩⟩
+
+/-- **The `Win` case of the evaluator under a `FILTER` clause**, read off
+the relation, as `AggQueryIn.evaluate_Win_eq` is without one. -/
+theorem AggQueryIn.evaluate_Win_eq_when {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool) (φ : Selection T n)
+    (q : AggQueryIn T c n (ColKind.allReg n))
+    (d : AnnotatedDatabase T K) {γ : Fin c → T} :
+    (AggQueryIn.Win P O o w t f q dist (some φ)).evaluate d γ
+      = (q.evaluateAnnotated d γ).map
+          (fun x => ValueFrame.windowRowWhen P O o w t f φ.keeps
+            (q.evaluateAnnotated d γ) x γ dist) := by
+  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluateAnnotated d γ)]
+  rw [OccFam.toMultiset_map]
+  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
+  show (_ : GenRow T K (n + 1))
+    = ValueFrame.windowRowWhen P O o w t f φ.keeps _ _ _ dist
+  unfold ValueFrame.windowRowWhen AggQueryIn.evaluateAnnotated
+  dsimp only [Fin.cast_eq_self]
+  rw [ValueFrame.tokenDistWhen_eq_tokenOfDistWhen, OccFam.toMultiset_ofSorted]
+
+/-- **The `Win` case of the plain evaluator under a `FILTER` clause.** -/
+theorem AggQueryIn.evaluatePlain_Win_eq_when {c n m p : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (φ : Selection T n) (q : AggQueryIn T c n (ColKind.allReg n))
+    (d : Database T) {γ : Fin c → T} :
+    (AggQueryIn.Win P O o w t f q dist (some φ)).evaluatePlain d γ
+      = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
+          (Fin.snoc u
+            (ValueFrame.windowValueWhen P O o w t
+              (if dist then f.distinct else f) φ.keeps
+              (q.evaluatePlain d γ) u γ)
+            : Tuple T (n + 1))) := by
+  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluatePlain d γ)]
+  rw [OccFam.toMultiset_map]
+  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
+  show (_ : Tuple T (n + 1))
+    = Fin.snoc _ (ValueFrame.windowValueWhen P O o w t
+        (if dist then f.distinct else f) φ.keeps _ _ _)
+  unfold ValueFrame.windowValueWhen
+  dsimp only [Fin.cast_eq_self]
+  rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
+
 /-- **The `WinExpr` case of the plain evaluator, read off the
 relation**: each leaf aggregates over its own frame, and `g` combines
 the values. -/
@@ -1588,7 +1661,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
   | _, _, _, Retag h q => Retag h q.stripAgg
   | _, _, _, GammaTok is his ts fs a q => GammaTok is his ts fs a q.stripAgg
-  | _, _, _, Win P O o w t f q dist => Win P O o w t f q.stripAgg dist
+  | _, _, _, Win P O o w t f q dist keep =>
+      Win P O o w t f q.stripAgg dist keep
   | _, _, _, WinExpr P O o ws ts fs g q =>
       WinExpr P O o ws ts fs g q.stripAgg
 
@@ -1615,7 +1689,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ q => q.noProvSum
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.noProvSum
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noProvSum
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noProvSum
 
 /-- **No aggregate column read as a key.** Reading one produces a row
@@ -1642,7 +1716,7 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .ProvSum _ _ _ q => q.altFree
   | _, _, _, .Retag _ q => q.altFree
   | _, _, _, .GammaTok _ _ _ _ _ q => q.altFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.altFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.altFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.altFree
 
 /-! ## Join conditions on key columns -/
@@ -1870,7 +1944,7 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.noFilter
   | _, _, _, .Retag _ q => q.noFilter
   | _, _, _, .GammaTok _ _ _ _ _ q => q.noFilter
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.noFilter
+  | _, _, _, .Win _ _ _ _ _ _ q _ keep => keep = none ∧ q.noFilter
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noFilter
 
 /-- **No multi-frame window.** `WinExpr` is the one operator of the
@@ -1901,7 +1975,7 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
   | _, _, _, .Retag _ q => q.noWinExpr
   | _, _, _, .GammaTok _ _ _ _ _ q => q.noWinExpr
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.noWinExpr
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noWinExpr
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ => False
 
 /-- **Every multi-frame window frames by the tuple.** A window
@@ -1936,7 +2010,7 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
   | _, _, _, .Retag _ q => q.framesContainSelf
   | _, _, _, .GammaTok _ _ _ _ _ q => q.framesContainSelf
-  | _, _, _, .Win _ _ _ _ _ _ q _ => q.framesContainSelf
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.framesContainSelf
   | _, _, _, .WinExpr _ _ _ ws _ _ _ q =>
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
 
@@ -1963,7 +2037,7 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
   | GammaTok a b cc dd e q ih => exact ih
-  | Win a b cc dd e ff q dist ih => exact ih
+  | Win a b cc dd e ff q dist kp ih => exact ih
   | WinExpr a b cc dd e ff gg q ih => exact fun hw => absurd hw not_false
 
 /-- **No evaluator builds a nested token or an expression.** Every
@@ -2131,7 +2205,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           exact absurd ha (by simp [Fin.append_left, Fin.append_right])
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
-  | Win P O o w t f q dist ih =>
+  | Win P O o w t f q dist keep ih =>
     intro hq d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -2309,7 +2383,7 @@ theorem AggQueryIn.evaluate_noNested :
           exact absurd ha (by simp [Fin.append_left, Fin.append_right])
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
-  | Win P O o w t f q dist ih =>
+  | Win P O o w t f q dist keep ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -2506,7 +2580,7 @@ theorem AggQueryIn.evaluate_conform :
     · dsimp only
       rw [Fin.append_right, Fin.append_right]
       rfl
-  | Win P O o w t f q ih =>
+  | Win P O o w t f q dist keep ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr

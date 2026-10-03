@@ -827,6 +827,87 @@ theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   unfold token tokenOf
   rw [frameSeqOn_eq_frameListOf]
 
+/-! ### A window aggregate under a `FILTER` clause
+
+The clause cuts the frame down to the occurrences it keeps, as it cuts a
+group's (`AggValue.ofGroupWhen`), and for the same reason: that is what a
+null-keeping aggregate needs. The token is read in the scalar convention
+whatever the frame says about the current row, because the kept part of a
+frame may be empty where the frame is not. -/
+
+/-- **An occurrence's token under a `FILTER` clause**: the aggregate over
+the occurrences of its frame the clause keeps. -/
+def tokenWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  AggValue.ofScalarGroup f t
+    ((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i).filter
+      (fun q => keep q.fst)) γ
+
+/-- The relation-level counterpart, as `tokenOf` is for `token`. -/
+def tokenOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  AggValue.ofScalarGroup f t
+    ((frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x).filter
+      (fun q => keep q.fst)) γ
+
+/-- **A filtered token is determined by the relation**, as an unfiltered
+one is (`token_eq_tokenOf`): the clause reads the rows, which the
+indexing does not move. -/
+theorem tokenWhen_eq_tokenOfWhen {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    tokenWhen P O o w t f keep r i γ
+      = tokenOfWhen P O o w t f keep r.toMultiset (r.row i) γ := by
+  unfold tokenWhen tokenOfWhen
+  rw [frameSeqOn_eq_frameListOf]
+
+/-- The `DISTINCT` reading of a filtered token, as `tokenDist` is of
+`token`. -/
+def tokenDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  if dist then (tokenWhen P O o w t f keep r i γ).mergeByValue
+  else tokenWhen P O o w t f keep r i γ
+
+/-- The relation-level counterpart of `tokenDistWhen`. -/
+def tokenOfDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
+    (x : AnnotatedTuple T K n) (γ : Fin c → T := fun _ => 0) : AggValue T K :=
+  if dist then (tokenOfWhen P O o w t f keep X x γ).mergeByValue
+  else tokenOfWhen P O o w t f keep X x γ
+
+theorem tokenDistWhen_eq_tokenOfDistWhen [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T} :
+    tokenDistWhen P O o w t f dist keep r i γ
+      = tokenOfDistWhen P O o w t f dist keep r.toMultiset (r.row i) γ := by
+  unfold tokenDistWhen tokenOfDistWhen
+  rw [tokenWhen_eq_tokenOfWhen]
+
+@[simp] theorem scalar_tokenOfDistWhen [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
+    (x : AnnotatedTuple T K n) {γ : Fin c → T} :
+    (tokenOfDistWhen P O o w t f dist keep X x γ).scalar = true := by
+  unfold tokenOfDistWhen
+  cases dist
+  · rfl
+  · exact AggValue.scalar_mergeByValue _
+
 /-- Whichever convention it is read in, the token aggregates its frame. -/
 theorem tokenOf_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
@@ -973,6 +1054,63 @@ theorem collapse_tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
   · simp only [ite_true]
     rw [AggValue.collapse_mergeByValue, token_agg, token_occs, List.map_map,
       ← frameSeqOn_plain, List.map_map]
+    rfl
+
+
+/-- **A filtered token is read in the scalar convention**, whatever the
+frame says about the current row: the kept part of a frame may be empty
+where the frame is not. -/
+@[simp] theorem scalar_tokenWhen {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    (tokenWhen P O o w t f keep r i γ).scalar = true := rfl
+
+@[simp] theorem scalar_tokenDistWhen [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T} :
+    (tokenDistWhen P O o w t f dist keep r i γ).scalar = true := by
+  unfold tokenDistWhen
+  cases dist
+  · rfl
+  · exact AggValue.scalar_mergeByValue _
+
+/-- **The deterministic reading of a filtered token** is the plain
+aggregate over the rows of the frame the clause keeps. -/
+theorem collapse_tokenWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    (tokenWhen P O o w t f keep r i γ).collapse
+      = f (((frameSeqOn (α := Tuple T n) id P O o w r.plain i).filter keep).map
+        (fun v => t.eval v γ)) := by
+  show f ((((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i).filter
+      (fun q => keep q.fst)).map (fun q => (t.eval q.fst γ, q.snd))).map
+      Prod.fst) = _
+  rw [List.map_map, ← frameSeqOn_plain, List.filter_map, List.map_map]
+  rfl
+
+/-- The same for the `DISTINCT` reading. -/
+theorem collapse_tokenDistWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T} :
+    (tokenDistWhen P O o w t f dist keep r i γ).collapse
+      = (if dist then f.distinct else f)
+        (((frameSeqOn (α := Tuple T n) id P O o w r.plain i).filter keep).map
+          (fun v => t.eval v γ)) := by
+  unfold tokenDistWhen
+  cases dist
+  · simpa using collapse_tokenWhen P O o w t f keep r i (γ := γ)
+  · simp only [ite_true]
+    rw [AggValue.collapse_mergeByValue]
+    show f.distinct ((((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst
+        P O o w r i).filter (fun q => keep q.fst)).map
+        (fun q => (t.eval q.fst γ, q.snd))).map Prod.fst) = _
+    rw [List.map_map, ← frameSeqOn_plain, List.filter_map, List.map_map]
     rfl
 
 

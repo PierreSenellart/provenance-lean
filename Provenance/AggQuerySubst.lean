@@ -338,8 +338,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .GammaTok is his ts fs a q =>
       .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
         (q.substMap θ)
-  | _, _, _, _, θ, .Win P O o w t f q dist =>
-      .Win P O o w (t.substMap θ) f (q.substMap θ) dist
+  | _, _, _, _, θ, .Win P O o w t f q dist keep =>
+      .Win P O o w (t.substMap θ) f (q.substMap θ) dist keep
   | _, _, _, _, θ, .WinExpr P O o ws ts fs g q =>
       .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ)
 termination_by structural q
@@ -483,7 +483,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
       exact congrArg (Multiset.fold addFn 0)
         (Multiset.map_congr rfl
           (fun u _ => TermGIn.evalPlain_substMap θ a u γ))
-  | @Win cI n' m' p' P O o w t f q dist ih =>
+  | @Win cI n' m' p' P O o w t f q dist keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -532,6 +532,20 @@ theorem AggValue.ofScalarGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin 
     AggValue.ofScalarGroup f (t.substMap θ) U γ
       = AggValue.ofScalarGroup f t U (substVal θ γ) := by
   simp only [AggValue.ofScalarGroup, AggValue.ofGroup_substMap]
+
+omit [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
+/-- The clause reads the row, so a substitution of the outer context
+moves neither it nor the occurrences of the frame it keeps. -/
+theorem ValueFrame.tokenWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin d → T) :
+    ValueFrame.tokenWhen P O o w (t.substMap θ) f keep r i γ
+      = ValueFrame.tokenWhen P O o w t f keep r i (substVal θ γ) := by
+  unfold ValueFrame.tokenWhen
+  exact AggValue.ofScalarGroup_substMap θ f t _ γ
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
@@ -651,11 +665,12 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       TermGIn.evalPlain_substMap]
     rw [ih θ dB γ]
-  | @Win cI n' m' p' P O o w t f q dist ih =>
+  | @Win cI n' m' p' P O o w t f q dist keep ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.tokenDist,
-      ValueFrame.token_substMap]
+      ValueFrame.tokenDistWhen, ValueFrame.token_substMap,
+      ValueFrame.tokenWhen_substMap]
     rw [ih θ dB γ]
   | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
     intro d θ dB γ

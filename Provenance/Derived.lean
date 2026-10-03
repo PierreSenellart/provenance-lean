@@ -1514,6 +1514,35 @@ theorem evaluatePlain_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
   obtain rfl : j = 0 := Fin.fin_one_eq_zero j
   rfl
 
+/-- **A window aggregate with a `FILTER` clause**, for any input policy:
+PostgreSQL's `agg(x) FILTER (WHERE φ) OVER (…)`. The clause cuts the
+frame down to the rows it keeps, so a null-keeping aggregate is served
+here too, and the token is read in the scalar convention – the kept part
+of a frame may be empty where the frame is not. -/
+def winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (φ : Selection T n)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool := false) :
+    AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  Win P O o w t f q dist (some φ)
+
+/-- **What a filtered window aggregate computes over plain relations**:
+each row's aggregate reads the rows of its frame the clause keeps. No
+hypothesis on the aggregate. -/
+theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (φ : Selection T n) (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (D : Database T)
+    {γ : Fin c → T} :
+    (winWhere P O o w φ t f q dist).evaluatePlain D γ
+      = (q.evaluatePlain D γ).map (fun u : Tuple T n =>
+          (Fin.snoc u
+            (ValueFrame.windowValueWhen P O o w t
+              (if dist then f.distinct else f) φ.keeps
+              (q.evaluatePlain D γ) u γ)
+            : Tuple T (n + 1))) :=
+  AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q D
+
 end Where
 
 
