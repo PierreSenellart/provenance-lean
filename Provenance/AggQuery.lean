@@ -1903,13 +1903,19 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Win a b cc dd e ff q dist ih => exact ih
   | WinExpr a b cc dd e ff gg q ih => exact fun hw => absurd hw not_false
 
-/-- **Every multi-frame window aggregates symmetrically.** A window
-expression lists its shared family by occurrence index and the plain
-reading lists each frame by row, so the two agree up to a permutation of
-the frame: the readings that compare them ask this of the leaves, which
-`count`, `sum`, `min` and `max` satisfy and `first_value` does not.
-Nothing is asked of a single-frame window, whose family *is* the frame.
--/
+/-- **Every multi-frame window aggregates symmetrically.** No result of
+the library needs this, and it is kept only to name the condition: a
+window expression lists its shared family by occurrence index and the
+plain reading lists each frame by row, which looks like it should ask
+symmetry of the leaves – but *both* lists are sorted by the clause, so
+they differ only inside blocks of occurrences carrying equal rows, where
+a leaf reads equal values anyway (`ValueFrame.collapse_exprOf`,
+`ValueFrame.disp_exprOf`, `exprOf_specialize`, all stated with no
+hypothesis on the aggregates).
+
+Symmetry *is* what an arbitrary listing of a frame asks – that is
+`ValueFrame.windowValue_of_perm` – and it is `count`, `sum`, `min` and
+`max` that have it where `first_value` does not. -/
 def AggQueryIn.symmetricWindows : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
