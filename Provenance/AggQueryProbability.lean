@@ -1383,6 +1383,33 @@ private lemma genRandomWorld_ofAnnotated {n : ℕ}
   intro p _
   rfl
 
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
+/-- The realized world of an indexed family of rows, read occurrence by
+occurrence. -/
+private lemma genRandomWorld_occFam {n N : ℕ}
+    (f : Fin N → GenRow T (BoolFunc X) n) (v : X → Bool) :
+    genRandomWorld v (OccFam.mk N f).toMultiset
+      = Multiset.map (fun i => GenRow.specializeTuple v (f i).fst)
+          (Multiset.filter (fun i => (f i).snd.finalize v = true)
+            (Finset.univ : Finset (Fin N)).val) := by
+  unfold genRandomWorld OccFam.toMultiset
+  rw [filter_map_comm, Multiset.map_map]
+  rfl
+
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
+/-- And the realized world of a family of annotated occurrences. -/
+private lemma randomWorld_occFam {n : ℕ}
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n)) (v : X → Bool) :
+    randomWorld v r.toMultiset
+      = Multiset.map (fun i => (r.row i).fst)
+          (Multiset.filter (fun i => (r.row i).snd v = true)
+            (Finset.univ : Finset (Fin r.size)).val) := by
+  unfold randomWorld OccFam.toMultiset
+  rw [filter_map_comm, Multiset.map_map]
+  rfl
+
 omit [Fintype X] [DecidableEq X] in
 /-- On an all-regular subquery, the plain and general realized worlds
 coincide (every column is a regular value, on which the specialized and
@@ -1738,6 +1765,85 @@ theorem tokenOfDist_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     rw [AggValue.specialize_mergeByValue, ValueFrame.tokenOf_agg]
     exact tokenOf_filter_agg P O o w t f f.distinct R hx v hc
 
+omit [Fintype X] [DecidableEq X] in
+/-- **The column a multi-frame window builds is world-faithful.** Under a
+valuation each leaf reads its own frame cut down to the realized rows, in
+the clause's order, and that is the plain window value the realized world
+gives the row. The leaf aggregates need not be symmetric: both readings
+are sorted by the clause, so they differ only inside blocks of equal rows
+(`OrderSpec.map_eq_of_sorted`). -/
+theorem exprOf_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (ws : Fin q' → ValueFrame T p')
+    (ts : Fin q' → TermIn T c n') (fs : Fin q' → SeqAggFunc T)
+    (g : (Fin q' → T) → T)
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
+    (v : X → Bool) {γ : Fin c → T} (hc : (r.row i).snd v = true) :
+    (ValueFrame.exprOf P O o ws ts fs g r i γ).specialize (fun α => α v)
+      = g (fun l => ValueFrame.windowValue P O o (ws l) (ts l) (fs l)
+          (randomWorld v r.toMultiset) (r.row i).fst γ) := by
+  show g (fun l => (fs l) ((ValueFrame.exprOf P O o ws ts fs g r i γ).leafSeq l
+      (Finset.univ.filter (fun x =>
+        ((ValueFrame.exprOf P O o ws ts fs g r i γ).anns x) v = true)))) = _
+  refine congrArg g (funext (fun l => ?_))
+  rw [ValueFrame.leafSeq_exprOf_keep P O o ws ts fs g r i γ l (fun α => α v),
+    show (fun j : Fin r.size => (ts l).eval (r.row j).fst γ)
+      = (fun y : AnnotatedTuple T (BoolFunc X) n' => (ts l).eval y.fst γ)
+        ∘ r.row from rfl,
+    ← List.map_map]
+  -- the leaf's rows and the frame list hold the same occurrences
+  have hpred : (fun y : AnnotatedTuple T (BoolFunc X) n' => y.snd v)
+      = (fun y : AnnotatedTuple T (BoolFunc X) n' => decide (y.snd v = true)) := by
+    funext y; simp
+  have h1 : (↑((((ValueFrame.exprIdx (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst P O o ws r i).filter
+        (fun j => ValueFrame.mem (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O (ws l) r i j && (r.row j).snd v)).map r.row))
+      : Multiset (AnnotatedTuple T (BoolFunc X) n'))
+      = (ValueFrame.frameOf (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O (ws l) r.toMultiset (r.row i)).filter
+        (fun y => y.snd v = true) :=
+    ValueFrame.exprIdx_filter_keep_rows_coe P O o ws r i l (fun α => α v)
+  have h2 : (↑((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst P O o (ws l) r.toMultiset (r.row i)).filter
+        (fun y => y.snd v)) : Multiset (AnnotatedTuple T (BoolFunc X) n'))
+      = (ValueFrame.frameOf (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O (ws l) r.toMultiset (r.row i)).filter
+        (fun y => y.snd v = true) := by
+    rw [hpred, ← Multiset.filter_coe, ValueFrame.frameListOf_coe]
+  have hmapeq : (List.map r.row
+        ((ValueFrame.exprIdx (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+            P O o ws r i).filter
+          (fun j => ValueFrame.mem (α := AnnotatedTuple T (BoolFunc X) n')
+            Prod.fst P O (ws l) r i j && (r.row j).snd v))).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => (ts l).eval y.fst γ)
+      = ((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O o (ws l) r.toMultiset (r.row i)).filter
+          (fun y => y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => (ts l).eval y.fst γ) :=
+    OrderSpec.map_eq_of_sorted (key := Tuple.key O)
+      (val := (Prod.fst : AnnotatedTuple T (BoolFunc X) n' → Tuple T n'))
+      (o := o) (fun u => (ts l).eval u γ)
+      (Multiset.coe_eq_coe.mp (h1.trans h2.symm))
+      (ValueFrame.exprIdx_filter_rows_pairwise
+        (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst P O o ws r i _)
+      (List.Pairwise.filter _ (OrderSpec.sortSeq_sorted
+        (key := Tuple.key O)
+        (val := (Prod.fst : AnnotatedTuple T (BoolFunc X) n' → Tuple T n'))
+        (o := o) _))
+  rw [hmapeq]
+  -- and the frame list is what the single-frame case already settles
+  have hform : (((ValueFrame.tokenOf P O o (ws l) (ts l) (fs l) r.toMultiset
+        (r.row i) γ).occs.filter (fun z => z.snd v)).map Prod.fst)
+      = ((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O o (ws l) r.toMultiset (r.row i)).filter
+          (fun y => y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => (ts l).eval y.fst γ) := by
+    rw [ValueFrame.tokenOf_occs, list_filter_map_comm, List.map_map]
+    rfl
+  rw [← hform]
+  exact tokenOf_filter_agg P O o (ws l) (ts l) (fs l) (fs l) r.toMultiset
+    (OccFam.row_mem_toMultiset r i) v hc
+
 /-! ## The random-world commutation -/
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
@@ -1796,6 +1902,49 @@ private lemma specialize_mem_vals (a : AggValue T (BoolFunc X)) (v : X → Bool)
   exact Finset.mem_image.mpr ⟨a.realized v,
     Finset.mem_filter.mpr ⟨Finset.mem_univ _, hr⟩, rfl⟩
 
+omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
+/-- The value an expression takes in the world a valuation cuts out is
+one of its values, as soon as that world is a world of it. -/
+theorem AggExpr.specialize_mem_vals (e : AggExpr T (BoolFunc X)) (v : X → Bool)
+    (hr : e.IsWorld (e.realizedWorld (fun α => α v))) :
+    e.specialize (fun α => α v) ∈ e.vals :=
+  Finset.mem_image.mpr ⟨e.realizedWorld (fun α => α v),
+    Finset.mem_filter.mpr ⟨Finset.mem_univ _, hr⟩, rfl⟩
+
+omit [Fintype X] [DecidableEq X] in
+omit [HasAltLinearOrder (BoolFunc X)] in
+/-- **The reading a column takes under a valuation is one of its
+values**, on an ordinary token and on an expression alike. -/
+theorem AggTok.specialize_mem_vals {x : AggTok T (BoolFunc X)}
+    (hnn : x.isNested = false) (v : X → Bool) (hr : x.Realized v) :
+    x.specialize (fun α => α v) ∈ x.vals := by
+  rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
+  · exact _root_.specialize_mem_vals a v hr
+  · exact AggExpr.specialize_mem_vals e v hr
+
+omit [HasAltLinearOrder (BoolFunc X)] in
+/-- **Exactly one value of a column is realized**: the alternative test
+`[a ≐ v']` holds under a valuation precisely of the reading the valuation
+gives the column. -/
+theorem AggTok.altProv_eval_iff {x : AggTok T (BoolFunc X)}
+    (hnn : x.isNested = false) (v : X → Bool) (hr : x.Realized v) (v' : T) :
+    (x.altProv v') v = true ↔ v' = x.specialize (fun α => α v) := by
+  rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
+  · rw [AggTok.altProv_tok, AggValue.altProv,
+      AggValue.predProvOfWith_eval_iff]
+    constructor
+    · rintro ⟨-, h2⟩
+      exact ((CompOp.syneq_eval3_eq_true_iff _ _).mp h2).symm
+    · intro h
+      exact ⟨hr, (CompOp.syneq_eval3_eq_true_iff _ _).mpr h.symm⟩
+  · show (e.predProvWith (fun y => CompOp.syneq.eval3 y v')) v = true ↔ _
+    rw [AggExpr.predProvWith_eval_iff]
+    constructor
+    · rintro ⟨-, h2⟩
+      exact ((CompOp.syneq_eval3_eq_true_iff _ _).mp h2).symm
+    · intro h
+      exact ⟨hr, (CompOp.syneq_eval3_eq_true_iff _ _).mpr h.symm⟩
+
 omit [HasAltLinearOrder (BoolFunc X)] in
 /-- **Exactly one alternative of an occurrence survives a valuation**:
 the one whose value is the column's value in that world – and it
@@ -1804,44 +1953,37 @@ aggregate column as a key changes no realized world. -/
 private lemma genRandomWorld_alternativesAt {n : ℕ}
     (r : GenRow T (BoolFunc X) n) (k : Fin n) (v : X → Bool)
     (hnn : ∀ a : AggTok T (BoolFunc X), r.fst k = Sum.inr a →
-      a.isTok = true)
+      a.isNested = false)
     (hg : ∀ a : AggTok T (BoolFunc X), r.fst k = Sum.inr a →
       r.snd.finalize v = true → a.Realized v) :
     genRandomWorld v (r.alternativesAt k) = genRandomWorld v {r} := by
   cases hfk : r.fst k with
   | inl w => rw [GenRow.alternativesAt, hfk]
   | inr x =>
-    obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok (hnn x hfk)
+    have hnx := hnn x hfk
     rw [GenRow.alternativesAt, hfk]
-    simp only [AggTok.vals_tok, AggTok.altProv_tok]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map, Multiset.filter_singleton]
     by_cases hfin : r.snd.finalize v = true
-    · have hr : a.scalar = true ∨ (a.realized v).Nonempty :=
-        hg (AggTok.tok a) hfk hfin
+    · have hr : x.Realized v := hg x hfk hfin
       have hp : ∀ v' : T,
-          ((⟨r.snd.base * a.altProv v', r.snd.pending⟩ : GenAnn (BoolFunc X)).finalize) v
-            = true ↔ v' = a.specialize (fun α => α v) := by
+          ((⟨r.snd.base * x.altProv v', r.snd.pending⟩ : GenAnn (BoolFunc X)).finalize) v
+            = true ↔ v' = x.specialize (fun α => α v) := by
         intro v'
-        rw [show ((⟨r.snd.base * a.altProv v', r.snd.pending⟩
+        rw [show ((⟨r.snd.base * x.altProv v', r.snd.pending⟩
               : GenAnn (BoolFunc X)).finalize)
-            = (r.snd.base * a.altProv v')
+            = (r.snd.base * x.altProv v')
               * (r.snd.pending.map (fun l => SemiringWithMonus.delta l.sum)).prod
             from rfl,
-          mul_mul_eval_iff _ _ _ v hfin, AggValue.altProv,
-          AggValue.predProvOfWith_eval_iff]
-        constructor
-        · rintro ⟨-, h2⟩
-          exact ((CompOp.syneq_eval3_eq_true_iff _ _).mp h2).symm
-        · intro h
-          exact ⟨hr, (CompOp.syneq_eval3_eq_true_iff _ _).mpr h.symm⟩
+          mul_mul_eval_iff _ _ _ v hfin]
+        exact AggTok.altProv_eval_iff hnx v hr v'
       have hfil : Multiset.filter
-            (fun v' => ((⟨r.snd.base * a.altProv v', r.snd.pending⟩
-              : GenAnn (BoolFunc X)).finalize) v = true) a.vals.val
-          = {a.specialize (fun α => α v)} := by
+            (fun v' => ((⟨r.snd.base * x.altProv v', r.snd.pending⟩
+              : GenAnn (BoolFunc X)).finalize) v = true) x.vals.val
+          = {x.specialize (fun α => α v)} := by
         rw [← Finset.filter_val,
           Finset.filter_congr (fun v' _ => hp v'), Finset.filter_eq',
-          ite_eq_left (specialize_mem_vals a v hr)]
+          ite_eq_left (AggTok.specialize_mem_vals hnx v hr)]
         rfl
       rw [ite_eq_left hfin, hfil, Multiset.map_singleton, Multiset.map_singleton]
       refine congrArg _ (funext (fun j => ?_))
@@ -1852,12 +1994,12 @@ private lemma genRandomWorld_alternativesAt {n : ℕ}
         rw [Function.update_self, hfk]
         rfl
       · exact congrArg (GenValue.specializeAt v)
-          (Function.update_of_ne hj (Sum.inl (a.specialize fun α => α v)) r.fst)
+          (Function.update_of_ne hj (Sum.inl (x.specialize fun α => α v)) r.fst)
     · rw [ite_eq_right hfin]
       refine Multiset.eq_zero_of_forall_notMem (fun t ht => ?_)
       obtain ⟨v', hv', -⟩ := Multiset.mem_map.mp ht
       obtain ⟨-, hp⟩ := Multiset.mem_filter.mp hv'
-      have hmem : ((r.snd.base * a.altProv v')
+      have hmem : ((r.snd.base * x.altProv v')
           * ((r.snd.pending.map (fun l => SemiringWithMonus.delta l.sum)).prod)) v
             = true := hp
       exact hfin (mul_mul_eval_drop _ _ _ v hmem)
@@ -1868,7 +2010,7 @@ private lemma genRandomWorld_bind_alternativesAt {n : ℕ} (k : Fin n)
     (v : X → Bool) :
     ∀ R : Multiset (GenRow T (BoolFunc X) n),
       (∀ r ∈ R, ∀ a : AggTok T (BoolFunc X), r.fst k = Sum.inr a →
-        a.isTok = true) →
+        a.isNested = false) →
       (∀ r ∈ R, ∀ a : AggTok T (BoolFunc X), r.fst k = Sum.inr a →
         r.snd.finalize v = true → a.Realized v) →
       genRandomWorld v (R.bind (fun r => r.alternativesAt k))
@@ -1891,10 +2033,13 @@ specializing the realized rows of the general annotated evaluation is the
 plain evaluation of the realized world. The σ-aggregate case is the row
 lemma `GenPredIn.sel_finalize_eval_iff` under the conformance and
 guardedness invariants; the `Gamma` case rests on
-`groupSeq_randomWorld`. -/
+`groupSeq_randomWorld`; the multi-frame window on `exprOf_specialize`,
+which says its column reads in a world what the plain window reads of
+that world – so the operator asks nothing of its frames or of its
+aggregates here. -/
 theorem AggQueryIn.genRandomWorld_evaluate :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-      (_hq : q.noProvSum) (_hw : q.noWinExpr)
+      (_hq : q.noProvSum)
       (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
       {γ : Fin c → T},
     genRandomWorld v (q.evaluate d γ)
@@ -1902,14 +2047,14 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [AnnotatedDatabase.find_randomWorld]
     cases hf : d.find n s with
     | none => rfl
     | some rn => exact genRandomWorld_ofAnnotated rn v
   | Proj ps q ih =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
@@ -1918,7 +2063,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         (GenAnn.finalize_cash r.snd.base r.snd.pending
           (r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst γ))
           Multiset.inter_le_left)))]
-    rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map, ← ih hq hw d v]
+    rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map, ← ih hq d v]
     · rfl
     · -- pointwise: the specialized projected tuple is the plain projection
       -- of the specialized tuple
@@ -1929,7 +2074,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       funext j
       exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
   | Sel φ q ih =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ]
@@ -1945,7 +2090,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
           r.snd.pending v (AggQueryIn.evaluate_conform q d r hr)
           (AggQueryIn.evaluate_noNested q d r hr)
           (fun hfin => AggQueryIn.evaluate_guarded q d r hr v hfin)
-      · rw [← ih hq hw d v]
+      · rw [← ih hq d v]
         unfold genRandomWorld
         rw [filter_map_comm, Multiset.filter_filter]
         exact Multiset.map_congr
@@ -1962,13 +2107,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       · exact and_congr_right fun _ => GenPredIn.holds_iff_specialize φ
           (by simpa using hφ) r.fst
           (AggQueryIn.evaluate_conform q d r hr) v
-      · rw [← ih hq hw d v]
+      · rw [← ih hq d v]
         unfold genRandomWorld
         rw [filter_map_comm, Multiset.filter_filter]
         exact Multiset.map_congr
           (Multiset.filter_congr fun r _ => and_comm) (fun r _ => rfl)
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
@@ -1984,7 +2129,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     · rw [product_filter
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
-        (q₁.evaluate d γ) (q₂.evaluate d γ), ← ih₁ hq.1 hw.1 d v, ← ih₂ hq.2 hw.2 d v]
+        (q₁.evaluate d γ) (q₂.evaluate d γ), ← ih₁ hq.1 d v, ← ih₂ hq.2 d v]
       show _ = Multiset.map
         (fun uv : Tuple T _ × Tuple T _ => Fin.append uv.fst uv.snd)
         (Multiset.product (genRandomWorld v (q₁.evaluate d γ))
@@ -1995,14 +2140,14 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       intro xy _
       exact specializeTuple_append' xy.fst.fst xy.snd.fst v
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     -- the left side is all-regular, so its rows specialize as they collapse
     have hspec : ∀ x ∈ q₁.evaluate d γ,
         GenRow.specializeTuple v x.fst = GenRow.plainTuple x.fst :=
       fun x hx => specializeTuple_eq_plainTuple x.fst
         (fun k => AggQueryIn.evaluate_conform q₁ d x hx k) v
-    conv_rhs => rw [← ih₁ hq.1 hw.1 d v]
+    conv_rhs => rw [← ih₁ hq.1 d v]
     unfold genRandomWorld
     rw [filter_bind, Multiset.map_bind, Multiset.bind_map, bind_filter]
     refine Multiset.bind_congr (fun x hx => ?_)
@@ -2019,7 +2164,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
                   ⟨x.snd.base * y.snd.base,
                     x.snd.pending + y.snd.pending⟩)
                     : GenRow T (BoolFunc X) _)) from fun M => ?_]
-      · rw [Multiset.map_map, ← ih₂ hq.2 hw.2 d v]
+      · rw [Multiset.map_map, ← ih₂ hq.2 d v]
         unfold genRandomWorld
         rw [Multiset.map_map]
         refine Multiset.map_congr rfl (fun y _ => ?_)
@@ -2045,24 +2190,24 @@ theorem AggQueryIn.genRandomWorld_evaluate :
           (GenAnn.finalize_mul x.snd y.snd)) ▸ hfin)
       exact this.1
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [genRandomWorld_add, ih₁ hq.1 hw.1 d v, ih₂ hq.2 hw.2 d v]
+    rw [genRandomWorld_add, ih₁ hq.1 d v, ih₂ hq.2 d v]
   | Dedup q ih =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
-      genRandomWorld_allReg, ih hq hw d v]
+      genRandomWorld_allReg, ih hq d v]
   | Alt k hk q ih =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_bind_alternativesAt k v (q.evaluate d γ)
-      (fun r hr a ha => AggQueryIn.evaluate_ordinaryTokens q hw d r hr k a ha)
+      (fun r hr a ha => AggQueryIn.evaluate_noNested q d r hr k a ha)
       (fun r hr a ha hfin =>
         AggQueryIn.evaluate_guarded q d r hr v hfin k a ha)]
-    exact ih hq hw d v
+    exact ih hq d v
   | Mu b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated]
     refine Eq.trans (muSum_map (h := _root_.randomWorld v)
@@ -2070,10 +2215,10 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       (stepP := fun Y => q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ)
       (fun Y => by
         rw [genRandomWorld_allReg]
-        exact ih₁ hq.2 hw.2 (d.assign s Y) v) b _) ?_
-    rw [genRandomWorld_allReg, ih₀ hq.1 hw.1 d v]
+        exact ih₁ hq.2 (d.assign s Y) v) b _) ?_
+    rw [genRandomWorld_allReg, ih₀ hq.1 d v]
   | MuSet b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated]
     refine muIter_map (h := _root_.randomWorld v) rfl
@@ -2082,23 +2227,23 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       (fun Y => ?_) b
     show _root_.randomWorld v (AnnotatedRelation.dedupAnn (_ + _)) = _
     rw [AnnotatedRelation.dedupAnn, randomWorld_groupByKey, randomWorld_add,
-      genRandomWorld_allReg, genRandomWorld_allReg, ih₀ hq.1 hw.1 (d.assign s Y) v,
-      ih₁ hq.2 hw.2 (d.assign s Y) v]
+      genRandomWorld_allReg, genRandomWorld_allReg, ih₀ hq.1 (d.assign s Y) v,
+      ih₁ hq.2 (d.assign s Y) v]
     rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     refine Eq.trans (genRandomWorld_ofAnnotated _ v)
       (Eq.trans (randomWorld_monus
         ((q₁.evaluate d γ).map GenRow.toAnnotated)
         ((q₂.evaluate d γ).map GenRow.toAnnotated) v) ?_)
-    rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 hw.1 d v, ih₂ hq.2 hw.2 d v]
+    rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 d v, ih₂ hq.2 d v]
   | @GammaScalar cI m n₂ ts fs q ih =>
     -- one row on each side, kept in every world, its tokens specializing to
     -- the aggregates over the realized rows
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [← ih hq hw d v, ← genRandomWorld_allReg q d v]
+    rw [← ih hq d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [show Multiset.filter
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
@@ -2119,9 +2264,9 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       (funext fun j => specialize_ofGroup _
         ((q.evaluate d γ).map GenRow.toAnnotated) _ (fs j) (ts j) v)
   | @Gamma cI m n₁ n₂ is ts fs q ih =>
-    intro hq hw d v γ
+    intro hq d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [← ih hq hw d v, ← genRandomWorld_allReg q d v]
+    rw [← ih hq d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
     rw [Multiset.filter_congr (fun kv (_ : kv ∈ Multiset.ofList
@@ -2211,8 +2356,8 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame
-    intro hq hw d v γ
-    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq, ← ih hq hw d v,
+    intro hq d v γ
+    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq, ← ih hq d v,
       ← genRandomWorld_allReg q d v]
     unfold genRandomWorld randomWorld
     rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
@@ -2233,11 +2378,48 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | Retag h q ih =>
-    intro hq hw d v γ
-    exact ih hq hw d v
-  | WinExpr P O o ws ts fs g q ih =>
-    intro _ hw
-    exact absurd hw not_false
+    intro hq d v γ
+    exact ih hq d v
+  | @WinExpr cI nI mI pI qI P O o ws ts fs g q ih =>
+    -- one output row per realized occurrence. The column specializes to
+    -- the plain window value the realized world gives the row
+    -- (`exprOf_specialize`), so nothing depends on the indexing – which
+    -- is what lets the family be compared with a relation at all.
+    intro hq d v γ
+    rw [AggQueryIn.evaluatePlain_WinExpr_eq, ← ih hq d v,
+      ← genRandomWorld_allReg q d v]
+    simp only [AggQueryIn.evaluate]
+    set R : Multiset (AnnotatedTuple T (BoolFunc X) nI) :=
+      Multiset.map GenRow.toAnnotated (q.evaluate d γ) with hRdef
+    clear_value R
+    have hRW : randomWorld v R
+        = Multiset.map (fun i : Fin (OccFam.ofSorted R).size =>
+            ((OccFam.ofSorted R).row i).fst)
+          (Multiset.filter (fun i : Fin (OccFam.ofSorted R).size =>
+            ((OccFam.ofSorted R).row i).snd v = true)
+            (Finset.univ : Finset (Fin (OccFam.ofSorted R).size)).val) := by
+      have hw := randomWorld_occFam (OccFam.ofSorted R) v
+      rwa [OccFam.toMultiset_ofSorted] at hw
+    rw [genRandomWorld_occFam]
+    refine Eq.trans ?_ (congrArg (Multiset.map (fun u : Tuple T nI =>
+        (Fin.snoc u (g (fun l => ValueFrame.windowValue P O o (ws l) (ts l)
+          (fs l) (randomWorld v R) u γ)) : Tuple T (nI + 1)))) hRW).symm
+    rw [Multiset.map_map]
+    refine Multiset.map_congr (Multiset.filter_congr (fun i _ => ?_))
+      (fun i hi => ?_)
+    · dsimp only
+      rw [GenAnn.finalize_of_pending_zero]
+    have hc : ((OccFam.ofSorted R).row i).snd v = true :=
+      (Multiset.mem_filter.mp hi).2
+    dsimp only [Function.comp]
+    unfold GenRow.specializeTuple
+    funext k
+    refine Fin.lastCases ?_ (fun k' => ?_) k
+    · rw [Fin.snoc_last, Fin.snoc_last]
+      exact (exprOf_specialize P O o ws ts fs g (OccFam.ofSorted R) i v hc).trans
+        (by rw [OccFam.toMultiset_ofSorted])
+    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      rfl
 
 /-! ## Unrestricted probabilistic query evaluation (PQE) -/
 
@@ -2253,12 +2435,12 @@ noncomputable def AggQueryIn.booleanProv {n : ℕ} {κ : Fin n → ColKind}
 general query is true in a world iff the plain evaluation of that world
 is non-empty. Immediate from the random-world commutation. -/
 theorem AggQueryIn.booleanProv_eval_iff {n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQuery T n κ) (hq : q.noProvSum) (hwe : q.noWinExpr)
+    (q : AggQuery T n κ) (hq : q.noProvSum)
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
     (q.booleanProv d) v = true
       ↔ q.evaluatePlain (d.randomWorld v) ≠ 0 := by
   unfold AggQueryIn.booleanProv
-  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hwe d v]
+  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq d v]
   unfold genRandomWorld
   rw [Ne, Multiset.map_eq_zero]
   constructor
@@ -2289,16 +2471,15 @@ query equals the probability of its Boolean provenance. This removes the
 top-level restriction of the fused `booleanHaving_pqe`. -/
 theorem AggQueryIn.boolean_pqe {n : ℕ} {κ : Fin n → ColKind}
     (P : ProbAssignment X) (q : AggQuery T n κ) (hq : q.noProvSum)
-    (hwe : q.noWinExpr)
     (d : AnnotatedDatabase T (BoolFunc X)) :
     AggQueryIn.booleanProb P q d = P.funcProb (q.booleanProv d) := by
   unfold AggQueryIn.booleanProb ProbAssignment.funcProb
   refine Finset.sum_congr rfl fun v _ => ?_
   by_cases h : q.evaluatePlain (d.randomWorld v) = 0
   · rw [ite_eq_left (Multiset.card_eq_zero.mpr h),
-      ite_eq_right (fun hf => (AggQueryIn.booleanProv_eval_iff q hq hwe d v).mp hf h)]
+      ite_eq_right (fun hf => (AggQueryIn.booleanProv_eval_iff q hq d v).mp hf h)]
   · rw [ite_eq_right (fun hc => h (Multiset.card_eq_zero.mp hc)),
-      ite_eq_left ((AggQueryIn.booleanProv_eval_iff q hq hwe d v).mpr h)]
+      ite_eq_left ((AggQueryIn.booleanProv_eval_iff q hq d v).mpr h)]
 
 /-- The provenance of a tuple `t` in a general query with all-regular
 output: the `⊕`-sum of the finalized annotations of the rows whose data
@@ -2314,12 +2495,11 @@ noncomputable def AggQueryIn.tupleProv {n : ℕ}
 a world iff `t` belongs to the plain evaluation of that world. -/
 theorem AggQueryIn.tupleProv_eval_iff {n : ℕ}
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hwe : q.noWinExpr)
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) (v : X → Bool) :
     (q.tupleProv d t) v = true
       ↔ t ∈ q.evaluatePlain (d.randomWorld v) := by
   unfold AggQueryIn.tupleProv
-  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hwe d v]
+  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq d v]
   unfold genRandomWorld
   rw [Multiset.mem_map]
   constructor
@@ -2362,12 +2542,11 @@ intensional-PQE theorem `ProbAssignment.theorem_12`, with aggregate
 comparisons allowed anywhere in the query. -/
 theorem AggQueryIn.tuple_pqe {n : ℕ} (P : ProbAssignment X)
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hwe : q.noWinExpr)
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     AggQueryIn.tupleProb P q d t = P.funcProb (q.tupleProv d t) := by
   unfold AggQueryIn.tupleProb ProbAssignment.funcProb
   refine Finset.sum_congr rfl fun v _ => ?_
   by_cases h : t ∈ q.evaluatePlain (d.randomWorld v)
-  · rw [ite_eq_left h, ite_eq_left ((AggQueryIn.tupleProv_eval_iff q hq hwe d t v).mpr h)]
+  · rw [ite_eq_left h, ite_eq_left ((AggQueryIn.tupleProv_eval_iff q hq d t v).mpr h)]
   · rw [ite_eq_right h,
-      ite_eq_right (fun hf => h ((AggQueryIn.tupleProv_eval_iff q hq hwe d t v).mp hf))]
+      ite_eq_right (fun hf => h ((AggQueryIn.tupleProv_eval_iff q hq d t v).mp hf))]

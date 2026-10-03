@@ -1476,6 +1476,18 @@ theorem exprIdx_rows_pairwise {α : Type} [LinearOrder α] (val : α → Tuple T
   exact OrderSpec.sortSeq_sorted (key := Tuple.key O)
     (val := fun j => val (r.row j)) (o := o) _
 
+/-- Selecting occurrences from the family leaves the rows sorted by the
+clause. -/
+theorem exprIdx_filter_rows_pairwise {α : Type} [LinearOrder α]
+    (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p) (r : OccFam α)
+    (i : Fin r.size) (pp : Fin r.size → Bool) :
+    (((exprIdx val P O o ws r i).filter pp).map r.row).Pairwise
+      (fun x y => OrderSpec.readLe (Tuple.key O) val o x y = true) := by
+  rw [List.pairwise_map]
+  exact List.Pairwise.filter _ (OrderSpec.sortSeq_sorted (key := Tuple.key O)
+    (val := fun j => val (r.row j)) (o := o) _)
+
 /-- **The shared family, written as a reading of its rows.** Under
 `ContainsSelf` a leaf's flag is its frame's test on the tuple, so every
 occurrence of the family is a function of the row it carries and of the
@@ -1496,6 +1508,42 @@ theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   refine List.map_congr_left (fun j _ => ?_)
   refine Prod.ext_iff.mpr ⟨rfl, Prod.ext_iff.mpr ⟨rfl, funext (fun l => ?_)⟩⟩
   exact mem_of_containsSelf (hcs l) r i j
+
+/-- The clause's reading of a frame lists exactly the frame. -/
+theorem frameListOf_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (X : Multiset α) (x : α) :
+    (↑(frameListOf val P O o w X x) : Multiset α) = frameOf val P O w X x := by
+  unfold frameListOf
+  rw [Multiset.coe_eq_coe.mpr (OrderSpec.sortSeq_perm _), sortList_coe]
+
+/-- **The rows one leaf reads among the occurrences a predicate keeps are
+the kept part of its own frame.** This is `exprIdx_filter_keep_coe` read
+at the level of rows, which is where a frame is read off the relation. -/
+theorem exprIdx_filter_keep_rows_coe (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (l : Fin q)
+    (keep : K → Bool) :
+    (↑((((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+        (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+          && keep (r.row j).snd)).map r.row))
+      : Multiset (AnnotatedTuple T K n))
+      = (frameOf (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r.toMultiset
+          (r.row i)).filter (fun y => keep y.snd = true) := by
+  rw [← Multiset.map_coe, exprIdx_filter_keep_coe, frame_inter,
+    show (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i
+          ∩ Finset.univ.filter (fun j => keep (r.row j).snd = true)).val
+        = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val.filter
+          (fun j => keep (r.row j).snd = true) from by
+      rw [← Finset.filter_val]
+      refine congrArg Finset.val (Finset.ext (fun j => ⟨fun hj => ?_, fun hj => ?_⟩))
+      · exact Finset.mem_filter.mpr ⟨(Finset.mem_inter.mp hj).1,
+          (Finset.mem_filter.mp (Finset.mem_inter.mp hj).2).2⟩
+      · exact Finset.mem_inter.mpr ⟨(Finset.mem_filter.mp hj).1,
+          Finset.mem_filter.mpr ⟨Finset.mem_univ j,
+            (Finset.mem_filter.mp hj).2⟩⟩,
+    ← frameSeq_coe_frameOf, frameSeq_coe, Multiset.filter_map]
+  rfl
 
 /-- **The current occurrence is in the shared family whenever some leaf's
 frame contains the current row**, and it is then read by every such leaf
