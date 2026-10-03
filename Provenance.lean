@@ -448,7 +448,12 @@ proven engine several general results reuse internally.
   over token columns, normal-form projections and selections),
   aggregation without grouping (`GammaScalar`, whose single row survives an
   empty input: annotated `𝟙` with no group-existence factor, its tokens
-  read in the scalar convention), the
+  read in the scalar convention), **second-level aggregation**
+  (`GammaNest`: the term aggregated reads an aggregate column, so the
+  column built is a *nested* token whose occurrences are the group's rows
+  as a bag – `Provenance.NestedExample` writes it and `noGammaNest` is
+  what the results still proved only for an ordinary or an expression
+  column exclude it with), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by

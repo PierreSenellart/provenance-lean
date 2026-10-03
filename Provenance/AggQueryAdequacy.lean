@@ -502,6 +502,33 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
           kv.fst)
       rw [hview] at hg
       exact congrArg (fs j) hg
+  | @GammaNest cI m n₁ κ' is his p f q ih =>
+    intro hq d γ
+    rw [hplain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
+      AggQueryIn.evaluatePlain]
+    rw [← ih hq d, hplain]
+    conv_lhs => rw [Multiset.map_map]
+    conv_rhs => rw [Multiset.map_map]
+    refine Multiset.map_congr
+      (congrArg Multiset.dedup (Multiset.map_congr rfl (fun r₀ _ => rfl)))
+      (fun g hg => ?_)
+    simp only [Function.comp_apply]
+    funext k
+    refine Fin.addCases (fun i => ?_) (fun j => ?_) k
+    · show AggValue.collapseSum _ = _
+      rw [Fin.append_left, Fin.append_left]
+      rfl
+    · show AggValue.collapseSum _ = _
+      rw [Fin.append_right, Fin.append_right]
+      show f _ = f _
+      refine congrArg f ?_
+      rw [Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+      refine Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
+        (fun r₀ _ => ?_)
+      show (GenValue.innerValue (p.eval r₀.fst γ)).collapse = _
+      rw [NestedValue.collapse_innerValue]
+      exact ProjColIn.collapseSum_eval p r₀.fst
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro hq d γ
     rw [hplain]

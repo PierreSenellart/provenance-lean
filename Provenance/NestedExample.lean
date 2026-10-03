@@ -7,28 +7,32 @@ import Provenance.QueryAdequacy
 import Provenance.Semirings.Nat
 
 /-!
-# Second-level aggregation, through the alternatives
+# Second-level aggregation, both ways
 
-`sum(count(*))` over a `GROUP BY` aggregates an aggregate column. No
-operator of the syntax aggregates a term that *reads* one – that is the
-nested aggregate value of `Provenance.Nested`, whose outer aggregate has
-to be symmetric because the order `≼` is an order on plain tuples and an
-occurrence of a nested value carries a tuple with an aggregate column.
+`sum(count(*))` over a `GROUP BY` aggregates an aggregate column, and the
+syntax reads it in two ways. This file writes the query both ways, on a
+relation whose two groups have different counts.
 
-But the query is expressible all the same, and this file writes it. The
-route is the one `AggQueryIn.Alt` documents: read the aggregate column as
-a **key**, replacing each occurrence by its alternatives, one per value
-the column takes and each carrying `[a ≐ v]`. The column becomes regular,
-and every operator applies to a regular column – a grouping included. So
-the outer aggregate is an *ordinary* one over an ordinary relation, and
-nothing nested is involved.
+**Through the alternatives** (`AggQueryIn.Alt`): read the aggregate
+column as a **key**, replacing each occurrence by its alternatives, one
+per value the column takes and each carrying `[a ≐ v]`. The column
+becomes regular, and every operator applies to a regular column – a
+grouping included – so the outer aggregate is an *ordinary* one over an
+ordinary relation and nothing nested is involved.
+
+**Directly** (`AggQueryIn.GammaNest`): aggregate a term that *reads* the
+aggregate column. The column this builds is a nested aggregate value
+(`Provenance.Nested`), whose occurrences are the inner grouping's rows
+and whose outer aggregate is a function of the bag of them – it has to
+be, the order `≼` being an order on plain tuples while an occurrence
+here carries a tuple with an aggregate column.
 
 The two readings are not the same object. The alternatives explode a row
 into one per value its column takes, each annotated so that it is present
 exactly in the worlds where the column has that value; the nested reading
-keeps one row and reads it world by world. This file checks the first,
-which the library has, on a relation where the two groups have different
-counts.
+keeps one row and reads it world by world. The `#eval`s below show where
+they part: the alternatives' token collapses to `4`, which is no world's
+answer, where the nested token collapses to `3`, which is SQL's.
 
 The checks are `#eval`s, as `Provenance.Example`'s are: the evaluator
 sorts, and the kernel does not reduce through that.
@@ -124,5 +128,54 @@ of any one world. -/
   match r.fst 0 with
   | Sum.inr (AggTok.tok a) => a.occs
   | _ => [])
+
+/-! ## The direct nested reading
+
+`AggQueryIn.GammaNest` aggregates a term that *reads* the aggregate
+column, so it keeps one row per group of its own and the column it builds
+is a nested token: its occurrences are the inner grouping's rows, each
+carrying the aggregate value read there. Here there is one group – no key
+columns – so the token's occurrences are the two rows of `inner`, and its
+outer aggregate is `sum` read off the bag of them (`SeqAggFunc.onBag`,
+the aggregate being symmetric). -/
+abbrev outerNest : AggQuery ℕ (0 + 1)
+    (Fin.append (fun k : Fin 0 => k.elim0) (fun _ : Fin 1 => ColKind.agg)) :=
+  AggQueryIn.GammaNest (fun k : Fin 0 => k.elim0) (fun k => k.elim0)
+    (ProjColIn.token 1 inner_kind)
+    (SeqAggFunc.sum.onBag SeqAggFunc.sum_symmetric) inner
+
+/-! **Plainly it is SQL's answer**: `2 + 1 = 3`, the same as through the
+alternatives, an aggregate value being a value over a plain relation. -/
+#eval (outerNest.evaluatePlain D).map (fun u => u 0)
+
+/-! **The occurrences of its token, annotated**: the inner grouping's two
+rows, each as `(the collapse of the inner value, the row's
+annotation)` – the counts `2` and `1`, each annotated `1`. -/
+#eval (outerNest.evaluate dN).map (fun r =>
+  match r.fst 0 with
+  | Sum.inr (AggTok.nest a) =>
+    a.occs.map (fun o : AggValue ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
+  | _ => 0)
+
+/-! **Its deterministic reading is `3`** – and not the `4` the
+alternatives' token collapses to. Nothing is read twice here: the nested
+token keeps one row and reads it world by world, where `Alt` explodes the
+row into one per value its column takes. -/
+#eval (outerNest.evaluate dN).map (fun r =>
+  match r.fst 0 with
+  | Sum.inr x => x.collapse
+  | Sum.inl v => v)
+
+/-! **And the values it takes over its worlds**: `{1, 2, 3}`. A world
+keeps some of the two outer occurrences – at least one, the reading being
+grouped – and, of each it keeps, some of that group's rows, at least one
+(`World.IsWorld`): so the sums available are `1` (either group alone, one
+row of it), `2` (both groups with one row each, or the first group's two
+rows) and `3` (everything). `0` is not among them: that would be the
+empty world, which a grouped reading does not have. -/
+#eval (outerNest.evaluate dN).map (fun r =>
+  match r.fst 0 with
+  | Sum.inr (AggTok.nest a) => a.vals
+  | _ => ∅)
 
 end NestedExample

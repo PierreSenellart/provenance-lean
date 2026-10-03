@@ -191,6 +191,17 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
       ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ)))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
+  | _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ is _his p f q, D, γ =>
+    -- second-level aggregation is not rewritten: as for a grouping, the
+    -- rewritten world reads it through the plain semantics of the
+    -- composite domain
+    let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
+      (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
+    let key : Tuple (T ⊕ K) m → Tuple (T ⊕ K) n₁ := fun u => fun k => u (is k)
+    ((r.map key).dedup).map (fun g =>
+      (fun k => Sum.inl (Fin.append g (fun _ : Fin 1 =>
+        f ((r.filter (fun u => key u = g)).map
+          (fun u => p.evalPlain u γ))) k)))
   | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' P O o w t f q dist _keep, D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
@@ -257,6 +268,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, .Gamma _ _ _ q _ => q.noGammaTok
   | _, _, _, .GammaScalar _ _ q => q.noGammaTok
+  | _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
   | _, _, _, .GammaTok _ _ _ _ _ _ => False
@@ -279,6 +291,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .MuSet _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, .Gamma _ _ _ q _ => q.chiFree
   | _, _, _, .GammaScalar _ _ q => q.chiFree
+  | _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
   | _, _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
@@ -509,6 +522,15 @@ theorem AggQueryIn.evaluateRew_plain :
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc hf D γ, map_plainTuple_map_inl]
     rfl
+  | @GammaNest cI m n₁ κ' is his p f q ih =>
+    intro hq hc hf D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
+    rw [ih hq hc.2 hf D γ, map_plainTuple_map_inl, Multiset.map_map]
+    refine Multiset.map_congr ?_ (fun g _ => rfl)
+    exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) n₁) =>
+      @Multiset.dedup _ i (Multiset.map
+        (fun u (k : Fin n₁) => u (is k)) (q.evaluatePlain D γ)))
+      (Subsingleton.elim _ _)
   | Retag h q ih =>
     intro hq hc hf D γ
     exact ih hq hc hf D γ

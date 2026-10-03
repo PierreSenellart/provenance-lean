@@ -882,10 +882,12 @@ token. It also absorbs the `δ`-guard of its own family
 supersede bookkeeping needs, and over `𝔹[X]` only the world a valuation
 cuts out is annotated true (`NestedValue.World.ann_eval_iff`), which is
 what the random-world reading needs. So no result of the metatheory asks
-which kind of token a column holds any more. What is still missing is an
-*operator* that builds a nested value: `AggQueryIn.evaluate_noNested`
-says no operator of the current syntax does, and `GenRow.NoNested` is
-there for the results that will want to say so. -/
+which kind of token a column holds any more. What a result may still
+exclude is the *operator* that builds one – second-level aggregation,
+`AggQueryIn.GammaNest` – and it does that with
+`AggQueryIn.noGammaNest`, not with a condition on the column;
+`GenRow.NoNested` is what `AggQueryIn.evaluate_noNested` gives a query
+that has no such operator. -/
 
 /-- An aggregate column's value: an ordinary token, or a **nested** one
 whose occurrences include those of the aggregate values its term
@@ -945,7 +947,8 @@ def isNested : AggTok T K → Bool
 readings that cover neither a nested value nor an expression over several
 of them require this; it is a statement about the proofs and not about
 the definitions, and `AggQueryIn.evaluate_ordinaryTokens` discharges it
-for every row an operator of the current syntax produces. -/
+for every row of a query with no multi-frame window and no second-level
+aggregation. -/
 def isTok : AggTok T K → Bool
   | .tok _ => true
   | .nest _ => false

@@ -86,6 +86,7 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .MuSet _ _ _ _ => False
   | _, _, _, .Gamma _ _ _ _ _ => False
   | _, _, _, .GammaScalar _ _ _ => False
+  | _, _, _, .GammaNest _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ _ => False
   | _, _, _, .GammaTok _ _ _ _ _ _ => False

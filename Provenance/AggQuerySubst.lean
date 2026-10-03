@@ -332,6 +332,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
       .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep
   | _, _, _, _, θ, .GammaScalar ts fs q =>
       .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ)
+  | _, _, _, _, θ, .GammaNest is his p f q =>
+      .GammaNest is his (p.substMap θ) f (q.substMap θ)
   | _, _, _, _, θ, .ProvSum is his t q =>
       .ProvSum is his (t.substMap θ) (q.substMap θ)
   | _, _, _, _, θ, .Retag h q => .Retag h (q.substMap θ)
@@ -459,6 +461,15 @@ theorem AggQueryIn.evaluatePlain_substMap :
     funext j
     exact congrArg (fs j)
       (List.map_congr_left (fun v _ => TermIn.eval_substMap θ (ts j) v γ))
+  | @GammaNest cI m n₁ κ' is his p f q ih =>
+    intro d θ D γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.evaluatePlain]
+    rw [ih θ D γ]
+    refine Multiset.map_congr rfl (fun g _ => ?_)
+    refine congrArg (Fin.append g) (funext fun _ => congrArg f ?_)
+    exact Multiset.map_congr rfl
+      (fun v _ => ProjColIn.evalPlain_substMap θ p v γ)
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
@@ -652,6 +663,11 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofScalarGroup_substMap]
+    rw [ih θ dB γ]
+  | @GammaNest cI m n₁ κ' is his p f q ih =>
+    intro d θ dB γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.evaluate, ProjColIn.eval_substMap]
     rw [ih θ dB γ]
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro d θ dB γ

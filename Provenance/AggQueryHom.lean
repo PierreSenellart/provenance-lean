@@ -1984,14 +1984,15 @@ base-side rows: same regular values, equivalent aggregate columns, and
 the pushed-forward finalized annotation. -/
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-      (d : AnnotatedDatabase T K) (γ : Fin c → T), q.framesContainSelf →
+      (d : AnnotatedDatabase T K) (γ : Fin c → T),
+      q.framesContainSelf → q.noGammaNest →
       Multiset.Rel (GenRow.Sim h)
         (q.evaluate (h.mapAnnotatedDatabase d) γ)
         (q.evaluate d γ) := by
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate,
       SemiringWithMonusHom.find_mapAnnotatedDatabase]
     cases hf : d.find n s with
@@ -2002,9 +2003,9 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       simp only [Option.map_some]
       exact rel_ofAnnotated_map h rn
   | Proj ps q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (ih d γ hw) (fun r' r hs => ⟨?_, ?_⟩)
+    refine rel_map_of_rel (ih d γ hw hn) (fun r' r hs => ⟨?_, ?_⟩)
     · intro j
       cases hp : ps j with
       | term t =>
@@ -2054,11 +2055,11 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2
   | Sel φ q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     by_cases hagg : φ.hasAggAtom
     · rw [ite_eq_left hagg, ite_eq_left hagg]
-      refine rel_map_of_rel (ih d γ hw) (fun r' r hs => ⟨hs.1, ?_⟩)
+      refine rel_map_of_rel (ih d γ hw hn) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
@@ -2074,15 +2075,15 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         GenPredIn.predsem_mapAnn h φ false r.fst, hs.2,
         ← map_mul]
     · rw [ite_eq_right hagg, ite_eq_right hagg]
-      refine rel_filter_of_iff (ih d γ hw) (fun r' r hs => ?_)
+      refine rel_filter_of_iff (ih d γ hw hn) (fun r' r hs => ?_)
       calc φ.holds r'.fst γ
           ↔ φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
             GenPredIn.holds_equiv _ hs.1
         _ ↔ φ.holds r.fst γ := GenPredIn.holds_mapAnnSum h φ r.fst
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (rel_product (ih₁ d γ hw.1) (ih₂ d γ hw.2)) ?_
+    refine rel_map_of_rel (rel_product (ih₁ d γ hw.1 hn.1) (ih₂ d γ hw.2 hn.2)) ?_
     rintro ⟨x', y'⟩ ⟨x, y⟩ ⟨hx, hy⟩
     refine ⟨?_, ?_⟩
     · intro k
@@ -2101,15 +2102,16 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           x'.snd.pending + y'.snd.pending⟩ = _
       rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hx.2, hy.2, ← map_mul]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
-    refine rel_bind (ih₁ d γ hw.1) (fun x' x hxx => ?_)
+    refine rel_bind (ih₁ d γ hw.1 hn.1) (fun x' x hxx => ?_)
     have hplain : GenRow.plainTuple x'.fst = GenRow.plainTuple x.fst := by
       funext k
       exact (hxx.1 k).collapseSum_eq.trans
         (AggValue.collapseSum_mapAnnSum ⇑h.toRingHom (x.fst k))
     rw [hplain]
-    refine rel_map_of_rel (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) hw.2)
+    refine rel_map_of_rel
+      (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) hw.2 hn.2)
       (fun y' y hy => ?_)
     refine ⟨?_, ?_⟩
     · intro k
@@ -2128,11 +2130,11 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           x'.snd.pending + y'.snd.pending⟩ = _
       rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hxx.2, hy.2, ← map_mul]
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
-    exact Multiset.Rel.add (ih₁ d γ hw.1) (ih₂ d γ hw.2)
+    exact Multiset.Rel.add (ih₁ d γ hw.1 hn.1) (ih₂ d γ hw.2 hn.2)
   | Dedup q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2140,16 +2142,16 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             ((q.evaluate d γ).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ hw)
+      exact map_eq_of_rel (ih d γ hw hn)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     rw [groupByKey_mapAnnotatedRelation]
     exact rel_ofAnnotated_map h _
   | Alt k hk q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
-    exact rel_bind_of_rel (ih d γ hw) (fun r' r hs => sim_alternativesAt h hs k)
+    exact rel_bind_of_rel (ih d γ hw hn) (fun r' r hs => sim_alternativesAt h hs k)
   | @Mu cI n' b s q₀ q₁ ih₀ ih₁ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     have hstep : ∀ X : AnnotatedRelation T K n',
         SemiringWithMonusHom.mapAnnotatedRelation h
@@ -2160,14 +2162,14 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       intro X
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact (map_eq_of_rel (ih₁ (d.assign s X) γ hw.2)
+      exact (map_eq_of_rel (ih₁ (d.assign s X) γ hw.2 hn.2)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).symm
     have h₀ : SemiringWithMonusHom.mapAnnotatedRelation h
           ((q₀.evaluate d γ).map GenRow.toAnnotated)
         = (q₀.evaluate (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated := by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact (map_eq_of_rel (ih₀ d γ hw.1)
+      exact (map_eq_of_rel (ih₀ d γ hw.1 hn.1)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).symm
     rw [← h₀, ← muSum_map (mapAnnotatedRelation_add h)
       (step := fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
@@ -2175,7 +2177,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         γ).map GenRow.toAnnotated) hstep]
     exact rel_ofAnnotated_map h _
   | @MuSet cI n' b s q₀ q₁ ih₀ ih₁ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     have hstep : ∀ X : AnnotatedRelation T K n',
         SemiringWithMonusHom.mapAnnotatedRelation h
@@ -2197,7 +2199,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
               GenRow.toAnnotated := by
         unfold SemiringWithMonusHom.mapAnnotatedRelation
         rw [Multiset.map_map]
-        exact (map_eq_of_rel (ih₀ (d.assign s X) γ hw.1)
+        exact (map_eq_of_rel (ih₀ (d.assign s X) γ hw.1 hn.1)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).symm
       have e₁ : SemiringWithMonusHom.mapAnnotatedRelation h
             ((q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
@@ -2206,7 +2208,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
               GenRow.toAnnotated := by
         unfold SemiringWithMonusHom.mapAnnotatedRelation
         rw [Multiset.map_map]
-        exact (map_eq_of_rel (ih₁ (d.assign s X) γ hw.2)
+        exact (map_eq_of_rel (ih₁ (d.assign s X) γ hw.2 hn.2)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).symm
       rw [dedupAnn_mapAnnotatedRelation, mapAnnotatedRelation_add, e₀, e₁]
     rw [← muIter_map (h := SemiringWithMonusHom.mapAnnotatedRelation h) rfl
@@ -2220,14 +2222,14 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
               GenRow.toAnnotated)) hstep]
     exact rel_ofAnnotated_map h _
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
         = SemiringWithMonusHom.mapAnnotatedRelation h
             ((q.evaluate d γ).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ hw)
+      exact map_eq_of_rel (ih d γ hw hn)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     set X : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     clear_value X
@@ -2287,13 +2289,13 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       rw [← Multiset.map_map]
       exact Multiset.sum_hom _ h.toRingHom
   | Retag hκ q ih =>
-    intro d γ hw
-    exact ih d γ hw
+    intro d γ hw hn
+    exact ih d γ hw hn
   | @Win cI nI mI pI P O o w t f q dist keep ih =>
     -- one output row per input row; the tuple and the annotation are carried
     -- across unchanged, and the token differs only by a tie-block
     -- permutation – which a `FILTER` clause keeps, reading the tuple
-    intro d γ hw
+    intro d γ hw hn
     cases hk : keep with
     | some φ =>
       rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluate_Win_eq_when]
@@ -2306,7 +2308,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             = ((q.evaluate d γ).map GenRow.toAnnotated).map
                 (SemiringWithMonusHom.mapAnnotatedTuple h) := by
           rw [Multiset.map_map]
-          exact map_eq_of_rel (ih d γ hw)
+          exact map_eq_of_rel (ih d γ hw hn)
             (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
         exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
       rw [hY, Multiset.map_map]
@@ -2332,7 +2334,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw)
+        exact map_eq_of_rel (ih d γ hw hn)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
     rw [hY, Multiset.map_map]
@@ -2349,7 +2351,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         = h.toRingHom ((GenAnn.mk x.snd 0).finalize)
       rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
   | @GammaTok cI mI nI₁ nI₂ κ' is his ts fs a q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2361,7 +2363,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw)
+        exact map_eq_of_rel (ih d γ hw hn)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ).map GenRow.toAnnotated
@@ -2437,7 +2439,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q₁.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2445,7 +2447,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             ((q₁.evaluate d γ).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₁ d γ hw.1)
+      exact map_eq_of_rel (ih₁ d γ hw.1 hn.1)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     rw [show (q₂.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2453,7 +2455,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             ((q₂.evaluate d γ).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₂ d γ hw.2)
+      exact map_eq_of_rel (ih₂ d γ hw.2 hn.2)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     set X₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ).map GenRow.toAnnotated
     set X₂ : AnnotatedRelation T K _ := (q₂.evaluate d γ).map GenRow.toAnnotated
@@ -2472,7 +2474,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
   | @GammaScalar cI mI nI₂ ts fs q ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2484,7 +2486,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw)
+        exact map_eq_of_rel (ih d γ hw hn)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ).map GenRow.toAnnotated
@@ -2495,8 +2497,15 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
       (ofGroup_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0) X
         (fun i : Fin 0 => i.elim0))⟩
+  | @GammaNest cI mI nI₁ κ' is his p f q ih =>
+    -- the one operator this does not cover: the two sides' groups are
+    -- equal as bags of occurrences whose inner values *read* the same,
+    -- and `GenValue.Equiv` at that level is what `noGammaNest` records
+    -- as unproved
+    intro d γ _ hn
+    exact absurd hn not_false
   | @Gamma cI mI nI₁ nI₂ is ts fs q keep ih =>
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
@@ -2508,7 +2517,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw)
+        exact map_eq_of_rel (ih d γ hw hn)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ).map GenRow.toAnnotated
@@ -2569,7 +2578,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     -- through a bijection of indices rather than index by index; the
     -- frames read the tuple (`hw.1`), which is what makes each pair of
     -- corresponding expression columns equivalent.
-    intro d γ hw
+    intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     have hY : Multiset.map GenRow.toAnnotated
           (q.evaluate (h.mapAnnotatedDatabase d) γ)
@@ -2581,7 +2590,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
           = Multiset.map (SemiringWithMonusHom.mapAnnotatedTuple h)
             (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw.2)
+        exact map_eq_of_rel (ih d γ hw.2 hn)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
     rw [hY]
@@ -2630,14 +2639,14 @@ the library derives satisfies it, and
 with no multi-frame window at all. -/
 theorem AggQueryIn.evaluateAnnotated_hom (h : SemiringWithMonusHom K K')
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-    (hw : q.framesContainSelf)
+    (hw : q.framesContainSelf) (hn : q.noGammaNest)
     (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated (h.mapAnnotatedDatabase d)
       = SemiringWithMonusHom.mapAnnotatedRelation h
           (q.evaluateAnnotated d) := by
   unfold AggQueryIn.evaluateAnnotated SemiringWithMonusHom.mapAnnotatedRelation
   rw [Multiset.map_map]
-  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw)
+  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw hn)
     (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
 
 end EvaluatorHom
