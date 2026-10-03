@@ -588,6 +588,42 @@ omit [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem altProv_tok (a : AggValue T K) (v : T) :
     (AggTok.tok a).altProv v = a.altProv v := rfl
 
+/-! ### The pushforward, token by token
+
+Pushing the annotations forward leaves everything the metatheory reads
+off a column but the annotations themselves: which kind of token it is,
+the convention it is read in and the values it takes. The last is stated
+away from a nested token, whose values are the one reading still
+unproved. -/
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isNested_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+    (x.mapAnn f).isNested = x.isNested := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isTok_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+    (x.mapAnn f).isTok = x.isTok := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem scalar_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
+    (x.mapAnn f).scalar = x.scalar := by cases x <;> rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The values a column takes survive the pushforward. -/
+theorem vals_mapAnn {K' : Type} (f : K → K') {x : AggTok T K}
+    (hx : x.isNested = false) : (x.mapAnn f).vals = x.vals := by
+  rcases eq_tok_or_expr_of_not_nested hx with ⟨a, rfl⟩ | ⟨e, rfl⟩
+  · exact AggValue.vals_mapAnn f a
+  · exact AggExpr.vals_mapAnn f e
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- Reading a column through a function and pushing its annotations
+forward commute. -/
+theorem mapAnn_postcomp {K' : Type} (f : K → K') (gf : T → T)
+    (x : AggTok T K) :
+    (x.postcomp gf).mapAnn f = (x.mapAnn f).postcomp gf := by
+  cases x <;> rfl
+
 end AggTok
 
 namespace AggValue

@@ -228,8 +228,9 @@ def vals [DecidableEq T] (e : AggExpr T K) : Finset T :=
 Stripping the annotations off the family and selecting there is
 selecting and then stripping, so two families with the same stripped
 list give every leaf the same sequence in corresponding worlds. -/
-theorem leafSeq_of_strip {q : ℕ}
-    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+theorem leafSeq_of_strip {q : ℕ} {K₁ K₂ : Type}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -267,30 +268,22 @@ theorem leafSeq_of_strip {q : ℕ}
     · rintro ⟨i, hi, rfl⟩
       obtain ⟨i', hi', rfl⟩ := hi
       exact ⟨Fin.cast h₁ i', ⟨i', hi', rfl⟩, by simp⟩
-  have hf : ∀ (L₁ L₂ : List ((Fin q → T) × K × (Fin q → Bool))),
-      L₁.map (fun z => (z.fst, z.snd.snd))
-          = L₂.map (fun z => (z.fst, z.snd.snd)) →
-        (L₁.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
-          = (L₂.filter (fun z => z.snd.snd l)).map (fun z => z.fst l) := by
-    intro L₁ L₂ hL
-    have e₁ : (L₁.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
-        = ((L₁.map (fun z => (z.fst, z.snd.snd))).filter
+  have hf : ∀ {Kx : Type} (L : List ((Fin q → T) × Kx × (Fin q → Bool))),
+      (L.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
+        = ((L.map (fun z => (z.fst, z.snd.snd))).filter
           (fun w => w.snd l)).map (fun w => w.fst l) := by
-      rw [List.filter_map, List.map_map]
-      rfl
-    have e₂ : (L₂.filter (fun z => z.snd.snd l)).map (fun z => z.fst l)
-        = ((L₂.map (fun z => (z.fst, z.snd.snd))).filter
-          (fun w => w.snd l)).map (fun w => w.fst l) := by
-      rw [List.filter_map, List.map_map]
-      rfl
-    rw [e₁, e₂, hL]
-  exact hf _ _ key
+    intro Kx L
+    rw [List.filter_map, List.map_map]
+    rfl
+  rw [hf (Having.seqOf occs₁ W),
+    hf (Having.seqOf occs₂ (W.map (finCongr hlen).toEmbedding)), key]
 
 /-- Two families with the same stripped list have the same worlds: the
 condition reads the leaf flags and the conventions, not the
 annotations. -/
-theorem isWorld_of_strip {q : ℕ}
-    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
     (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)))
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
@@ -333,8 +326,9 @@ theorem isWorld_of_strip {q : ℕ}
 families that differ by a tie-block permutation – occurrences carrying
 the same value vector and read by the same leaves – give the same set of
 values. This is what lets an aggregate expression be read as a key. -/
-theorem vals_congr [DecidableEq T] {q : ℕ}
-    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
     (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
@@ -381,6 +375,31 @@ def postcomp (gf : T → T) (e : AggExpr T K) : AggExpr T K :=
 @[simp] theorem valOn_postcomp (gf : T → T) (e : AggExpr T K)
     (W : Finset (Fin (postcomp gf e).occs.length)) :
     (postcomp gf e).valOn W = gf (e.valOn W) := rfl
+
+/-- Reading through a function touches neither the family nor the
+conventions, so it moves none of the worlds; it moves only the value in
+each. -/
+@[simp] theorem collapse_postcomp (gf : T → T) (e : AggExpr T K) :
+    (e.postcomp gf).collapse = gf e.collapse := rfl
+
+@[simp] theorem isScalar_postcomp (gf : T → T) (e : AggExpr T K) :
+    (e.postcomp gf).isScalar = e.isScalar := rfl
+
+@[simp] theorem annList_postcomp (gf : T → T) (e : AggExpr T K) :
+    (e.postcomp gf).annList = e.annList := rfl
+
+/-- The values it takes are the values of the expression, read through
+the function. -/
+theorem vals_postcomp [DecidableEq T] (gf : T → T) (e : AggExpr T K) :
+    (e.postcomp gf).vals = e.vals.image gf := by
+  unfold vals
+  rw [Finset.image_image]
+  rfl
+
+/-- And a test of `gf(e)` is the composed test of `e`. -/
+theorem predProvWith_postcomp [ValueType T] [CommSemiringWithMonus K]
+    [DecidableEq K] (gf : T → T) (e : AggExpr T K) (P : T → Kleene) :
+    (e.postcomp gf).predProvWith P = e.predProvWith (fun v => P (gf v)) := rfl
 
 /-- **The annotation pushforward**: the occurrences keep their values,
 their readings and which leaves read them, their annotations going
@@ -441,6 +460,26 @@ theorem valOn_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K)
   unfold collapse
   rw [← valOn_mapAnn h e Finset.univ]
   exact congrArg (e.mapAnn h).valOn (Finset.map_univ_equiv _).symm
+
+/-- The conventions and the family travel unchanged, so the pushforward
+is read in the same convention. -/
+@[simp] theorem isScalar_mapAnn {K' : Type} (h : K → K') (e : AggExpr T K) :
+    (e.mapAnn h).isScalar = e.isScalar := rfl
+
+/-- **The pushforward takes the same values**: it is a family with the
+same stripped list, so `vals_congr` applies across the two annotation
+types. -/
+@[simp] theorem vals_mapAnn [DecidableEq T] {K' : Type} (h : K → K')
+    (e : AggExpr T K) : (e.mapAnn h).vals = e.vals :=
+  vals_congr (q := e.arity) (occs₁ := (e.mapAnn h).occs) (occs₂ := e.occs)
+    e.aggs e.scalar e.g (e.mapAnn h).covered e.covered
+    (by rw [occs_mapAnn, List.map_map]; rfl)
+
+/-- Reading through a function and pushing the annotations forward
+commute: the one moves `g`, the other the occurrences. -/
+theorem mapAnn_postcomp {K' : Type} (h : K → K') (gf : T → T)
+    (e : AggExpr T K) :
+    (e.postcomp gf).mapAnn h = (e.mapAnn h).postcomp gf := rfl
 
 /-! ## A token is the expression of itself -/
 

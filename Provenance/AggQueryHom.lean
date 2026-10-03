@@ -257,6 +257,36 @@ theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
 
 end AggValue
 
+namespace AggTok
+
+/-- **The predicate provenance of an aggregate column commutes with the
+pushforward**: on an ordinary token through
+`AggValue.predProvOfWith_mapAnn`, on an expression through
+`AggExpr.predProvWith_mapAnn`. A nested column is excluded, its reading
+being the one still unproved. -/
+theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
+    {x : AggTok T K} (hx : x.isNested = false) (P : T → Kleene) :
+    (x.mapAnn ⇑h.toRingHom).predProvOfWith P
+      = h.toRingHom (x.predProvOfWith P) := by
+  rcases AggTok.eq_tok_or_expr_of_not_nested hx with ⟨a, rfl⟩ | ⟨e, rfl⟩
+  · exact AggValue.predProvOfWith_mapAnn h a P
+  · exact (AggExpr.predProvWith_mapAnn h e P).symm
+
+/-- A comparison is one such test. -/
+theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
+    {x : AggTok T K} (hx : x.isNested = false) (op : CompOp) (c : T) :
+    (x.mapAnn ⇑h.toRingHom).predProvOf op c
+      = h.toRingHom (x.predProvOf op c) :=
+  predProvOfWith_mapAnn h hx _
+
+/-- So is the alternative test. -/
+theorem altProv_mapAnn (h : SemiringWithMonusHom K K')
+    {x : AggTok T K} (hx : x.isNested = false) (v : T) :
+    (x.mapAnn ⇑h.toRingHom).altProv v = h.toRingHom (x.altProv v) :=
+  predProvOfWith_mapAnn h hx _
+
+end AggTok
+
 /-! ## The predicate pushforward -/
 
 omit [DecidableEq K] [DecidableEq K'] in
@@ -293,7 +323,7 @@ commutation, `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, an
 `¬` by polarity. -/
 theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
-    (u : Tuple (GenValue T K) n) (hnn : GenRow.OrdinaryTokens u) :
+    (u : Tuple (GenValue T K) n) (hnn : GenRow.NoNested u) :
     φ.predsem neg (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ
       = h.toRingHom (φ.predsem neg u γ) := by
   induction φ generalizing neg with
@@ -310,12 +340,11 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = (Sum.inl w : GenValue T K') := rfl
       simp only [GenPredIn.predsem, hu, hred, map_zero]
     | inr x =>
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok (hnn k x hu)
-      have hred : AggValue.mapAnnSum (⇑h.toRingHom)
-            (Sum.inr (AggTok.tok a) : GenValue T K)
-          = Sum.inr (AggTok.tok (AggValue.mapAnn ⇑h.toRingHom a)) := rfl
-      simp only [GenPredIn.predsem, hu, hred, AggTok.predProvOf_tok]
-      rw [TermGIn.eval_mapAnnSum h t u, AggValue.predProvOf_mapAnn]
+      have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inr x : GenValue T K)
+          = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
+      simp only [GenPredIn.predsem, hu, hred]
+      rw [TermGIn.eval_mapAnnSum h t u,
+        AggTok.predProvOf_mapAnn h (hnn k x hu)]
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     cases hu : u k with
     | inl w =>
@@ -323,13 +352,11 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = (Sum.inl w : GenValue T K') := rfl
       simp only [GenPredIn.predsem, hu, hred, map_zero]
     | inr x =>
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok (hnn k x hu)
-      have hred : AggValue.mapAnnSum (⇑h.toRingHom)
-            (Sum.inr (AggTok.tok a) : GenValue T K)
-          = Sum.inr (AggTok.tok (AggValue.mapAnn ⇑h.toRingHom a)) := rfl
-      simp only [GenPredIn.predsem, hu, hred, AggTok.predProvOfWith_tok]
+      have hred : AggValue.mapAnnSum (⇑h.toRingHom) (Sum.inr x : GenValue T K)
+          = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
+      simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u,
-        AggValue.predProvOfWith_mapAnn]
+        AggTok.predProvOfWith_mapAnn h (hnn k x hu)]
   | and φ ψ ihφ ihψ =>
     cases neg with
     | false =>
@@ -763,54 +790,178 @@ The evaluator-level commutation cannot be a per-row equality: the hom side
 may supersede more pending factors (a non-injective hom conflates the
 annotation-list equality tests) and its group sequences are only tie-block
 permutations of the mapped base-side ones. The right invariant is a
-row-wise simulation: regular values equal, tokens tie-block-equivalent to
-the pushed-forward tokens, and the *finalized* annotation equal to the
+row-wise simulation: regular values equal, aggregate columns reading as
+the pushed-forward ones do, and the *finalized* annotation equal to the
 image of the base-side finalized annotation. Both discrepancies are value-
 neutral at that level: extra supersedes by guard absorption
 (`delta_absorb`), tie-breaks by the congruence layer. -/
 
 section Simulation
 
-/-- Equivalence of lifted values: equal regular values, or tokens with the
-same aggregate and tie-block-permuted payloads. -/
+/-- **Equivalence of lifted values**: equal regular values, or aggregate
+columns that read the same. On an ordinary token that is the same
+aggregate over tie-block-permuted payloads; on an expression it is the
+four readings the metatheory takes – the collapse, the convention, the
+values over the worlds and the predicate provenance of every test –
+since an expression's family is listed by occurrence index and a
+tie-block permutation of it is not an equality of families. A nested
+column is equivalent to nothing, which is how the simulation keeps the
+one unproved reading out.
+
+The occurrence *annotations* are deliberately not compared: on either
+kind the two sides' families agree only up to a tie-block permutation,
+and the evaluator's own group bookkeeping travels in `GenRow.Sim`'s
+second component rather than here. -/
 def GenValue.Equiv : GenValue T K → GenValue T K → Prop
   | Sum.inl v', Sum.inl v => v' = v
   | Sum.inr (AggTok.tok a'), Sum.inr (AggTok.tok a) =>
       a'.agg = a.agg ∧ a'.scalar = a.scalar ∧
         TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs
+  | Sum.inr (AggTok.expr e'), Sum.inr (AggTok.expr e) =>
+      e'.collapse = e.collapse ∧ e'.isScalar = e.isScalar
+        ∧ e'.vals = e.vals
+        ∧ ∀ P : T → Kleene, e'.predProvWith P = e.predProvWith P
   | _, _ => False
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A regular value is equivalent to no token. -/
 theorem GenValue.Equiv.not_inl_inr {w : T} {x : AggTok T K} :
     ¬ GenValue.Equiv (Sum.inl w) (Sum.inr x) := by
   cases x <;> exact not_false
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- And a token to no regular value. -/
 theorem GenValue.Equiv.not_inr_inl {w : T} {x : AggTok T K} :
     ¬ GenValue.Equiv (Sum.inr x) (Sum.inl w) := by
   cases x <;> exact not_false
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- Two equivalent tokens are ordinary ones with the same aggregate and
-tie-block-permuted payloads: the simulation never meets a nested token,
-which `GenRow.OrdinaryTokens` is what keeps out. -/
-theorem GenValue.Equiv.inr_inr {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
-    ∃ a' a : AggValue T K, x' = AggTok.tok a' ∧ x = AggTok.tok a
-      ∧ a'.agg = a.agg ∧ a'.scalar = a.scalar
-      ∧ TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs := by
+/-! ### What the equivalence gives
+
+Downstream never cases on the kind of token: it reads an aggregate
+column through its collapse, its convention, its values and its
+predicate provenance, and each of those is equal on the two sides. -/
+
+/-- Neither side of an equivalence is a nested column. -/
+theorem GenValue.Equiv.isNested_eq_false_right {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x.isNested = false := by
+  cases x with
+  | tok a => rfl
+  | expr e => rfl
+  | nest a => cases x' <;> exact absurd h not_false
+
+/-- And the same on the left. -/
+theorem GenValue.Equiv.isNested_eq_false_left {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.isNested = false := by
   cases x' with
-  | nest a' => exact absurd h not_false
-  | expr a' => exact absurd h not_false
+  | tok a => rfl
+  | expr e => rfl
+  | nest a => cases x <;> exact absurd h not_false
+
+/-- Equivalent columns are read in the same convention. -/
+theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.scalar = x.scalar := by
+  cases x' with
+  | nest a' => cases x <;> exact absurd h not_false
   | tok a' =>
     cases x with
+    | tok a => exact h.2.1
     | nest a => exact absurd h not_false
-    | expr a => exact absurd h not_false
-    | tok a => exact ⟨a', a, rfl, rfl, h.1, h.2.1, h.2.2⟩
+    | expr e => exact absurd h not_false
+  | expr e' =>
+    cases x with
+    | expr e => exact h.2.1
+    | tok a => exact absurd h not_false
+    | nest a => exact absurd h not_false
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- They collapse to the same regular value. -/
+theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
+    x'.collapse = x.collapse := by
+  cases x' with
+  | nest a' => cases x <;> exact absurd h not_false
+  | tok a' =>
+    cases x with
+    | tok a => exact AggValue.collapse_congr h.1 h.2.2
+    | nest a => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | expr e' =>
+    cases x with
+    | expr e => exact h.1
+    | tok a => exact absurd h not_false
+    | nest a => exact absurd h not_false
+
+/-- They take the same values over their worlds, so they read as the same
+key. -/
+theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.vals = x.vals := by
+  cases x' with
+  | nest a' => cases x <;> exact absurd h not_false
+  | tok a' =>
+    cases x with
+    | tok a => exact AggValue.vals_congr h.1 h.2.1 h.2.2
+    | nest a => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | expr e' =>
+    cases x with
+    | expr e => exact h.2.2.1
+    | tok a => exact absurd h not_false
+    | nest a => exact absurd h not_false
+
+/-- **And every three-valued test of them has the same provenance** –
+the congruence layer on an ordinary token, the expression's own
+conjunct on an expression. This is what carries the simulation through
+`GenPredIn.predsem`. -/
+theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (P : T → Kleene) :
+    x'.predProvOfWith P = x.predProvOfWith P := by
+  cases x' with
+  | nest a' => cases x <;> exact absurd h not_false
+  | tok a' =>
+    cases x with
+    | tok a => exact AggValue.predProvOfWith_congr h.1 h.2.1 h.2.2 P
+    | nest a => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | expr e' =>
+    cases x with
+    | expr e => exact h.2.2.2 P
+    | tok a => exact absurd h not_false
+    | nest a => exact absurd h not_false
+
+/-- A comparison is one such test. -/
+theorem GenValue.Equiv.predProvOf_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (op : CompOp) (c : T) :
+    x'.predProvOf op c = x.predProvOf op c :=
+  h.predProvOfWith_eq _
+
+/-- So is the alternative test `[a ≐ v]`. -/
+theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (v : T) :
+    x'.altProv v = x.altProv v :=
+  h.predProvOfWith_eq _
+
+/-- **Reading an aggregate column through a function preserves the
+equivalence**: a term over one aggregate column moves `g` and leaves
+the family, the convention and the worlds alone. -/
+theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
+    GenValue.Equiv (Sum.inr (x'.postcomp gf) : GenValue T K)
+      (Sum.inr (x.postcomp gf)) := by
+  cases x' with
+  | nest a' => cases x <;> exact absurd h not_false
+  | tok a' =>
+    cases x with
+    | tok a =>
+      exact ⟨congrArg (fun f => fun L => gf (f L)) h.1, h.2.1, h.2.2⟩
+    | nest a => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | expr e' =>
+    cases x with
+    | expr e =>
+      refine ⟨congrArg gf h.1, h.2.1, ?_, fun P => ?_⟩
+      · rw [AggExpr.vals_postcomp, AggExpr.vals_postcomp, h.2.2.1]
+      · rw [AggExpr.predProvWith_postcomp, AggExpr.predProvWith_postcomp,
+          h.2.2.2]
+    | tok a => exact absurd h not_false
+    | nest a => exact absurd h not_false
+
 /-- Equivalent lifted values collapse to the same regular value. -/
 theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
     (h : GenValue.Equiv v' v) :
@@ -823,12 +974,8 @@ theorem GenValue.Equiv.collapseSum_eq {v' v : GenValue T K}
   | inr x' =>
     cases v with
     | inl w => exact absurd h GenValue.Equiv.not_inr_inl
-    | inr x =>
-      obtain ⟨a', a, rfl, rfl, h1, -, h3⟩ := h.inr_inr
-      show a'.collapse = a.collapse
-      exact AggValue.collapse_congr h1 h3
+    | inr x => exact h.collapse_eq
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Terms evaluate equally on pointwise-equivalent tuples. -/
 theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ) {γ : Fin c → T}
     {u' u : Tuple (GenValue T K) n}
@@ -848,7 +995,6 @@ theorem TermGIn.eval_equiv {c n : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c
     simp only [TermGIn.eval]; rw [ih₁, ih₂, ih₃, ih₄]
   | coalesce t₁ t₂ ih₁ ih₂ => simp only [TermGIn.eval]; rw [ih₁, ih₂]
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The three-valued reading of a predicate is invariant on
 pointwise-equivalent tuples. -/
 theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
@@ -870,7 +1016,6 @@ theorem GenPredIn.eval3_equiv {c n : ℕ} {κ : Fin n → ColKind}
   | or φ ψ ihφ ihψ => simp only [GenPredIn.eval3, ihφ, ihψ]
   | not φ ih => simp only [GenPredIn.eval3, ih]
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- Truth of a predicate is invariant on pointwise-equivalent tuples. -/
 theorem GenPredIn.holds_equiv {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} {u' u : Tuple (GenValue T K) n}
@@ -907,9 +1052,8 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
         exact absurd hk' GenValue.Equiv.not_inr_inl
       | inr x =>
         rw [hu'k, huk] at hk'
-        obtain ⟨a', a, rfl, rfl, h1, h2, h3⟩ := hk'.inr_inr
         rw [TermGIn.eval_equiv t hu]
-        exact AggValue.predProvOf_congr h1 h2 h3 _ _
+        exact hk'.predProvOf_eq _ _
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     have hk' := hu k
     simp only [GenPredIn.predsem]
@@ -927,9 +1071,8 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
         exact absurd hk' GenValue.Equiv.not_inr_inl
       | inr x =>
         rw [hu'k, huk] at hk'
-        obtain ⟨a', a, rfl, rfl, h1, h2, h3⟩ := hk'.inr_inr
         rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
-        exact AggValue.predProvOfWith_congr h1 h2 h3 _
+        exact hk'.predProvOfWith_eq _
   | and φ ψ ihφ ihψ =>
     simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
@@ -939,60 +1082,47 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => exact ih (!neg)
 
 /-- The row-wise simulation relation underlying the evaluator-level hom
-commutation: regular columns equal, token columns tie-block-equivalent to
-the pushed-forward base-side tokens, and the finalized annotation the
-image of the base-side finalized annotation. -/
+commutation: regular columns equal, aggregate columns reading as the
+pushed-forward base-side ones do, and the finalized annotation the image
+of the base-side finalized annotation. -/
 def GenRow.Sim (h : SemiringWithMonusHom K K') {n : ℕ}
     (r' : GenRow T K' n) (r : GenRow T K n) : Prop :=
   (∀ k, GenValue.Equiv (r'.fst k)
       (AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)))
     ∧ r'.snd.finalize = h.toRingHom r.snd.finalize
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
-/-- **A simulated row holds no nested token**, on either side: a token
-column is equivalent to the pushforward of a token column, and only
-ordinary tokens are equivalent to anything. -/
+omit [DecidableEq K] in
+/-- **A simulated row holds no nested column**, on either side: an
+aggregate column is equivalent to the pushforward of one, and a nested
+column is equivalent to nothing. An *expression* column is allowed on
+both sides – its readings are proved – so this is `GenRow.NoNested` and
+not the stronger fence. -/
 theorem GenRow.Sim.noNested (h : SemiringWithMonusHom K K') {n : ℕ}
     {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
-    GenRow.OrdinaryTokens r.fst := by
+    GenRow.NoNested r.fst := by
   intro k x hx
-  cases x with
-  | tok a => rfl
-  | nest a =>
-    have hk := hs.1 k
-    rw [hx] at hk
-    cases hr' : r'.fst k with
-    | inl w => rw [hr'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
-    | inr x' => rw [hr'] at hk; cases x' <;> exact absurd hk (fun hc => hc)
-  | expr a =>
-    have hk := hs.1 k
-    rw [hx] at hk
-    cases hr' : r'.fst k with
-    | inl w => rw [hr'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
-    | inr x' => rw [hr'] at hk; cases x' <;> exact absurd hk (fun hc => hc)
+  have hk := hs.1 k
+  rw [hx] at hk
+  cases hr' : r'.fst k with
+  | inl w => rw [hr'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
+  | inr x' =>
+    rw [hr'] at hk
+    rw [← AggTok.isNested_mapAnn ⇑h.toRingHom x]
+    exact hk.isNested_eq_false_right
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+omit [DecidableEq K] in
 /-- The same on the hom side. -/
 theorem GenRow.Sim.noNested' (h : SemiringWithMonusHom K K') {n : ℕ}
     {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
-    GenRow.OrdinaryTokens r'.fst := by
+    GenRow.NoNested r'.fst := by
   intro k x' hx'
-  cases x' with
-  | tok a => rfl
-  | nest a =>
-    have hk := hs.1 k
-    rw [hx'] at hk
-    cases hr : r.fst k with
-    | inl w => rw [hr] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
-    | inr x => rw [hr] at hk; cases x <;> exact absurd hk (fun hc => hc)
-  | expr a =>
-    have hk := hs.1 k
-    rw [hx'] at hk
-    cases hr : r.fst k with
-    | inl w => rw [hr] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
-    | inr x => rw [hr] at hk; cases x <;> exact absurd hk (fun hc => hc)
+  have hk := hs.1 k
+  rw [hx'] at hk
+  cases hr : r.fst k with
+  | inl w => rw [hr] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
+  | inr x => rw [hr] at hk; exact hk.isNested_eq_false_left
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
+omit [DecidableEq K] in
 /-- Simulated rows finalize to pushed-forward annotated tuples. -/
 theorem GenRow.Sim.toAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
     {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
@@ -1308,8 +1438,7 @@ theorem GenPredIn.holds_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
   unfold GenPredIn.holds
   rw [GenPredIn.eval3_mapAnnSum h φ u]
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
-  [HasAltLinearOrder K'] in
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Embedded pushed-forward annotated tuples simulate the embedded
 base-side tuples. -/
 theorem GenRow.sim_ofAnnotated (h : SemiringWithMonusHom K K') {n : ℕ}
@@ -1323,8 +1452,7 @@ theorem GenRow.sim_ofAnnotated (h : SemiringWithMonusHom K K') {n : ℕ}
   rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
   rfl
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
-  [HasAltLinearOrder K'] in
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- Embedding a pushed-forward annotated relation yields rows simulating
 the embedded base-side rows. -/
 theorem rel_ofAnnotated_map (h : SemiringWithMonusHom K K') {n : ℕ}
@@ -1398,26 +1526,17 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
     cases hr'k : r'.fst k with
     | inl w' => rw [hr'k] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
     | inr x' =>
-    rw [hr'k] at hk
-    cases x with
-    | nest a => cases x' <;> exact absurd hk (fun hc => hc)
-    | expr a => cases x' <;> exact absurd hk (fun hc => hc)
-    | tok a =>
-    cases x' with
-    | nest a' => exact absurd hk (fun hc => hc)
-    | expr a' => exact absurd hk (fun hc => hc)
-    | tok a' =>
-      obtain ⟨hagg, hsc, hperm⟩ := hk
-      have hvals : a'.vals = a.vals := by
-        rw [AggValue.vals_congr hagg hsc hperm]
-        exact AggValue.vals_mapAnn _ a
-      have hprov : ∀ v : T, a'.altProv v = h.toRingHom (a.altProv v) := by
+      rw [hr'k] at hk
+      have hnn : x.isNested = false := by
+        rw [← AggTok.isNested_mapAnn ⇑h.toRingHom x]
+        exact hk.isNested_eq_false_right
+      have hvals : x'.vals = x.vals := by
+        rw [hk.vals_eq]
+        exact AggTok.vals_mapAnn _ hnn
+      have hprov : ∀ v : T, x'.altProv v = h.toRingHom (x.altProv v) := by
         intro v
-        rw [AggValue.altProv, AggValue.altProv,
-          AggValue.predProvOfWith_congr hagg hsc hperm,
-          AggValue.predProvOfWith_mapAnn]
-      simp only [GenRow.alternativesAt, hrk, hr'k, hvals, AggTok.vals_tok,
-        AggTok.altProv_tok]
+        rw [hk.altProv_eq, AggTok.altProv_mapAnn h hnn]
+      simp only [GenRow.alternativesAt, hrk, hr'k, hvals]
       refine rel_map_of_forall (fun v _ => ⟨fun j => ?_, ?_⟩)
       · by_cases hj : j = k
         · subst hj
@@ -1429,17 +1548,17 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
             (AggValue.mapAnnSum _ (Function.update r.fst k (Sum.inl v) j))
           rw [Function.update_of_ne hj, Function.update_of_ne hj]
           exact hs.1 j
-      · show GenAnn.finalize ⟨r'.snd.base * a'.altProv v, r'.snd.pending⟩
-          = h.toRingHom (GenAnn.finalize ⟨r.snd.base * a.altProv v, r.snd.pending⟩)
-        show (r'.snd.base * a'.altProv v) * _
-          = h.toRingHom ((r.snd.base * a.altProv v) * _)
+      · show GenAnn.finalize ⟨r'.snd.base * x'.altProv v, r'.snd.pending⟩
+          = h.toRingHom (GenAnn.finalize ⟨r.snd.base * x.altProv v, r.snd.pending⟩)
+        show (r'.snd.base * x'.altProv v) * _
+          = h.toRingHom ((r.snd.base * x.altProv v) * _)
         rw [mul_right_comm, mul_right_comm (r.snd.base), map_mul, hprov v]
-        exact congrArg (fun x => x * h.toRingHom (a.altProv v)) hs.2
+        exact congrArg (fun y => y * h.toRingHom (x.altProv v)) hs.2
 
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
-base-side rows: same regular values, tie-block-equivalent tokens, and the
-pushed-forward finalized annotation. -/
+base-side rows: same regular values, equivalent aggregate columns, and
+the pushed-forward finalized annotation. -/
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (d : AnnotatedDatabase T K) (γ : Fin c → T), q.noWinExpr →
@@ -1483,8 +1602,9 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         simp only [hp, ProjColIn.eval]
         exact hs.1 k
       | aggTerm k hk gf =>
-        -- reading a token through a function leaves its occurrences and
-        -- its convention alone, so the simulation carries over
+        -- reading an aggregate column through a function leaves its
+        -- family and its convention alone, so the simulation carries
+        -- over (`GenValue.Equiv.postcomp`)
         simp only [hp, ProjColIn.eval]
         have hk' := hs.1 k
         cases hx' : r'.fst k with
@@ -1503,16 +1623,10 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
             exact absurd hk' GenValue.Equiv.not_inr_inl
           | inr x =>
             rw [hx', hx] at hk'
-            cases x' with
-            | nest a' => cases x <;> exact hk'.elim
-            | expr a' => cases x <;> exact hk'.elim
-            | tok a' =>
-              cases x with
-              | nest a => exact hk'.elim
-              | expr a => exact hk'.elim
-              | tok a =>
-                exact ⟨congrArg (fun f => fun L => gf (f L)) hk'.1,
-                  hk'.2.1, hk'.2.2⟩
+            show GenValue.Equiv (Sum.inr (x'.postcomp gf))
+              (Sum.inr ((x.postcomp gf).mapAnn ⇑h.toRingHom))
+            rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf x]
+            exact hk'.postcomp gf
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2
@@ -1524,13 +1638,13 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       refine rel_map_of_rel (ih d γ hw) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
-          (GenRow.NoNested.of_ordinary (hs.noNested' h))
+          (hs.noNested' h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩),
         GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
-          (GenRow.NoNested.of_ordinary (hs.noNested h))
+          (hs.noNested h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
@@ -1994,8 +2108,12 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
   | WinExpr P O o ws ts fs g q ih =>
-    -- the simulation relates ordinary tokens only, so the expression
-    -- column is outside it; `noWinExpr` excludes the operator
+    -- the simulation now relates expression columns too
+    -- (`GenValue.Equiv`), but the two sides build their shared family
+    -- over *their own* occurrence indexing, and the tie-block
+    -- permutation between the two indexings moves an annotation between
+    -- occurrences that a frame need not treat alike. `noWinExpr`
+    -- excludes the operator until that is settled.
     intro d γ hw
     exact absurd hw not_false
 
