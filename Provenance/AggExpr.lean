@@ -322,6 +322,30 @@ theorem isWorld_of_strip {q : ℕ} {K₁ K₂ : Type}
     rw [hflag i l]
     exact hjr
 
+/-- **The deterministic reading depends only on the values and the leaf
+flags**: every occurrence is present, so each leaf reads the same
+sequence. -/
+theorem collapse_of_strip {q : ℕ} {K₁ K₂ : Type}
+    {occs₁ : List ((Fin q → T) × K₁ × (Fin q → Bool))}
+    {occs₂ : List ((Fin q → T) × K₂ × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd))) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).collapse
+      = (AggExpr.mk q occs₂ aggs sc g cov₂).collapse := by
+  have hlen : occs₁.length = occs₂.length := by
+    have hc := congrArg List.length hstrip
+    simpa only [List.length_map] using hc
+  show (AggExpr.mk q occs₁ aggs sc g cov₁).valOn Finset.univ
+    = (AggExpr.mk q occs₂ aggs sc g cov₂).valOn Finset.univ
+  rw [show (Finset.univ : Finset (Fin occs₂.length))
+      = (Finset.univ : Finset (Fin occs₁.length)).map
+        (finCongr hlen).toEmbedding from (Finset.map_univ_equiv _).symm]
+  exact congrArg g (funext (fun l => congrArg (aggs l)
+    (leafSeq_of_strip hstrip aggs sc g cov₁ cov₂ hlen l Finset.univ)))
+
 /-- **`Val(e)` depends only on the values and the leaf flags**, so two
 families that differ by a tie-block permutation – occurrences carrying
 the same value vector and read by the same leaves – give the same set of
@@ -366,6 +390,16 @@ theorem vals_congr [DecidableEq T] {q : ℕ} {K₁ K₂ : Type}
       rw [hback]
       exact hW'
     · rw [hval, hback]
+
+/-- **An expression is its own fields**, so rewriting its family rewrites
+the expression: the `covered` field is a proof and travels with it. -/
+theorem eq_mk_of_occs {e : AggExpr T K}
+    {occs' : List ((Fin e.arity → T) × K × (Fin e.arity → Bool))}
+    (h : e.occs = occs') :
+    ∃ cov' : ∀ i, ∃ l, (occs'.get i).snd.snd l = true,
+      e = AggExpr.mk e.arity occs' e.aggs e.scalar e.g cov' := by
+  subst h
+  exact ⟨e.covered, rfl⟩
 
 /-- **Reading the expression through a function**: the term `gf(e)`,
 which is again an expression over the same family. -/

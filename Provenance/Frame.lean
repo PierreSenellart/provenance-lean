@@ -553,6 +553,44 @@ theorem frameOf_whole {α : Type} [LinearOrder α] (val : α → Tuple T n)
   rw [ite_eq_left hs, Multiset.cons_erase hmem]
   exact Multiset.filter_congr (fun y _ => and_iff_left rfl)
 
+/-- **A frame that contains its current row is a plain selection of the
+relation.** The occurrence's own row passes the frame's own test – that
+is what `ContainsSelf` says – so taking one copy out and putting it back
+leaves the selection as it was. Nothing then depends on the occurrence
+beyond its tuple, which is what lets two indexings of one relation, or
+two annotations of one tuple, be compared. -/
+theorem frameOf_of_containsSelf {α : Type} [LinearOrder α]
+    (val : α → Tuple T n) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    {w : ValueFrame T p} (hc : w.ContainsSelf) (X : Multiset α) {x : α}
+    (hx : x ∈ X) :
+    frameOf val P O w X x
+      = X.filter (fun y => Tuple.key P (val y) = Tuple.key P (val x)
+          ∧ w.ρ (Tuple.key O (val y)) (Tuple.key O (val x)) = true) := by
+  unfold frameOf
+  by_cases hs : w.s (Tuple.key O (val x)) = true
+  · have hmem : x ∈ X.filter (fun y =>
+        Tuple.key P (val y) = Tuple.key P (val x)
+          ∧ w.ρ (Tuple.key O (val y)) (Tuple.key O (val x)) = true) :=
+      Multiset.mem_filter.mpr ⟨hx, rfl, by rw [← hc]; exact hs⟩
+    rw [ite_eq_left hs, Multiset.cons_erase hmem]
+  · have hnot : x ∉ X.filter (fun y =>
+        Tuple.key P (val y) = Tuple.key P (val x)
+          ∧ w.ρ (Tuple.key O (val y)) (Tuple.key O (val x)) = true) := by
+      intro hm
+      exact absurd ((hc _).trans (Multiset.mem_filter.mp hm).2.2) hs
+    rw [ite_eq_right hs, Multiset.erase_of_notMem hnot]
+
+/-- **Such a frame depends on the occurrence only through its tuple.**
+Two rows of the relation carrying the same tuple – two annotations of
+one tuple, say – have the same frame. -/
+theorem frameOf_congr_val {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) {w : ValueFrame T p}
+    (hc : w.ContainsSelf) (X : Multiset α) {x y : α} (hx : x ∈ X) (hy : y ∈ X)
+    (hval : val x = val y) :
+    frameOf val P O w X x = frameOf val P O w X y := by
+  rw [frameOf_of_containsSelf val P O hc X hx,
+    frameOf_of_containsSelf val P O hc X hy, hval]
+
 /-- **A frame is carried along a map that keeps the values.** Changing the
 semiring, or forgetting the annotations, leaves every frame the image of the
 frame it came from: a frame reads the values and nothing else. -/
@@ -1100,6 +1138,16 @@ def unionFrame (ws : Fin q → ValueFrame T p) : ValueFrame T p where
   ρ := fun a b => (List.finRange q).any (fun j => (ws j).ρ a b)
   s := fun a => (List.finRange q).any (fun j => (ws j).s a)
 
+omit [ValueType T] [HasAltLinearOrder K] in
+/-- **The union of frames that contain their current row does too**: both
+sides of `ContainsSelf` are the disjunction over the leaves. -/
+theorem containsSelf_unionFrame {ws : Fin q → ValueFrame T p}
+    (h : ∀ l, (ws l).ContainsSelf) : (unionFrame ws).ContainsSelf := by
+  intro a
+  show (List.finRange q).any (fun j => (ws j).s a)
+    = (List.finRange q).any (fun j => (ws j).ρ a a)
+  exact congrArg (List.finRange q).any (funext (fun j => h j a))
+
 /-- An occurrence is in the union of the frames exactly when it is in one
 of them. -/
 theorem mem_unionFrame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m)
@@ -1384,6 +1432,70 @@ theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T) :
     exprOfVals P O o ws r i vals fs g = exprOfVals P O o ws r i vals' fs g :=
   congrArg (fun V => exprOfVals P O o ws r i V fs g) h
+
+/-! ### The shared family read off the relation
+
+The family is listed by occurrence index, but under `ContainsSelf` the
+indices drop out of every reading: membership is the frame's own test on
+the tuples (`mem_of_containsSelf`), so the family is the rows the union
+frame selects, in the clause's order. That is what lets two indexings of
+one relation – or one relation over two annotation semirings – be
+compared. -/
+
+/-- The occurrences the leaves read are the union frame's, as a
+multiset. -/
+theorem exprIdx_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    (↑(exprIdx val P O o ws r i) : Multiset (Fin r.size))
+      = (frame val P O (unionFrame ws) r i).val := by
+  unfold exprIdx frameSeqOn
+  rw [Multiset.coe_eq_coe.mpr (OrderSpec.sortSeq_perm _), frameSeq_coe]
+  show Multiset.map id _ = _
+  rw [Multiset.map_id]
+  rfl
+
+/-- **And the rows at those occurrences are the frame the relation
+names.** No `ContainsSelf` is needed here: the union frame of an
+occurrence is read off the relation whatever it contains. -/
+theorem exprIdx_rows_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    Multiset.map r.row (↑(exprIdx val P O o ws r i) : Multiset (Fin r.size))
+      = frameOf val P O (unionFrame ws) r.toMultiset (r.row i) := by
+  rw [exprIdx_coe, ← frameSeq_coe, frameSeq_coe_frameOf]
+
+/-- The family is read in the clause's order, so the rows at its
+occurrences are sorted by it. -/
+theorem exprIdx_rows_pairwise {α : Type} [LinearOrder α] (val : α → Tuple T n)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p) (r : OccFam α) (i : Fin r.size) :
+    ((exprIdx val P O o ws r i).map r.row).Pairwise
+      (fun x y => OrderSpec.readLe (Tuple.key O) val o x y = true) := by
+  rw [List.pairwise_map]
+  exact OrderSpec.sortSeq_sorted (key := Tuple.key O)
+    (val := fun j => val (r.row j)) (o := o) _
+
+/-- **The shared family, written as a reading of its rows.** Under
+`ContainsSelf` a leaf's flag is its frame's test on the tuple, so every
+occurrence of the family is a function of the row it carries and of the
+tuple the column is computed for. -/
+theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p}
+    (hcs : ∀ l, (ws l).ContainsSelf) (ts : Fin q → TermIn T c n)
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T) :
+    (exprOf P O o ws ts fs g r i γ).occs
+      = ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+          r.row).map
+        (fun y : AnnotatedTuple T K n => ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst) (Tuple.key O (r.row i).fst))) := by
+  show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map _ = _
+  rw [List.map_map]
+  refine List.map_congr_left (fun j _ => ?_)
+  refine Prod.ext_iff.mpr ⟨rfl, Prod.ext_iff.mpr ⟨rfl, funext (fun l => ?_)⟩⟩
+  exact mem_of_containsSelf (hcs l) r i j
 
 end Expression
 

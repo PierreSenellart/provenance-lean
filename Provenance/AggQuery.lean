@@ -1814,7 +1814,12 @@ theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
 syntax that builds an aggregate column holding an expression rather than
 an ordinary token, so the results proved only for ordinary tokens
 exclude it with this – as the possible-world results exclude `ProvSum`
-with `noProvSum`. -/
+with `noProvSum`.
+
+A result that reads an expression column through the four readings
+`AggExpr` provides needs no such fence; the hom commutation asks instead
+that the frames be read off the tuples
+(`AggQueryIn.framesContainSelf`). -/
 def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -1835,6 +1840,68 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaTok _ _ _ _ _ q => q.noWinExpr
   | _, _, _, .Win _ _ _ _ _ _ q _ => q.noWinExpr
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ => False
+
+/-- **Every multi-frame window frames by the tuple.** A window
+expression lists its shared family by occurrence index, and a change of
+annotation semiring re-sorts that index inside blocks of equal rows, so
+a reading of the family that told two equal rows apart would not survive
+the change. `ValueFrame.ContainsSelf` is what stops it telling them
+apart: the frame contains its current row exactly when it contains its
+peers, so membership is a test on the tuples
+(`ValueFrame.mem_of_containsSelf`).
+
+`RANGE`, the whole partition and the rows strictly before all satisfy
+it; `EXCLUDE CURRENT ROW` and `EXCLUDE TIES` are exactly the frames that
+do not (`ValueFrame.not_containsSelf_excludeCurrent`), and they are the
+ones a multi-frame window needs the occurrences for. Nothing is asked of
+a single-frame `Win`, whose token is read off the relation. -/
+def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.framesContainSelf
+  | _, _, _, .Sel _ q => q.framesContainSelf
+  | _, _, _, .Prod q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, .Apply q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, .Sum q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, .Dedup q => q.framesContainSelf
+  | _, _, _, .Diff q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, .Alt _ _ q => q.framesContainSelf
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, .Gamma _ _ _ q => q.framesContainSelf
+  | _, _, _, .GammaScalar _ _ q => q.framesContainSelf
+  | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
+  | _, _, _, .Retag _ q => q.framesContainSelf
+  | _, _, _, .GammaTok _ _ _ _ _ q => q.framesContainSelf
+  | _, _, _, .Win _ _ _ _ _ _ q _ => q.framesContainSelf
+  | _, _, _, .WinExpr _ _ _ ws _ _ _ q =>
+      (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
+
+omit [ValueType T] in
+/-- A query with no multi-frame window asks nothing of its frames. -/
+theorem AggQueryIn.framesContainSelf_of_noWinExpr :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.noWinExpr → q.framesContainSelf := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ => trivial
+  | Proj ps q ih => exact ih
+  | Sel φ q ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
+  | Alt a b q ih => exact ih
+  | Mu a b q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
+  | MuSet a b q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
+  | Gamma a b cc q ih => exact ih
+  | GammaScalar a b q ih => exact ih
+  | ProvSum a b cc q ih => exact ih
+  | Retag a q ih => exact ih
+  | GammaTok a b cc dd e q ih => exact ih
+  | Win a b cc dd e ff q dist ih => exact ih
+  | WinExpr a b cc dd e ff gg q ih => exact fun hw => absurd hw not_false
 
 /-- **Every multi-frame window aggregates symmetrically.** A window
 expression lists its shared family by occurrence index and the plain

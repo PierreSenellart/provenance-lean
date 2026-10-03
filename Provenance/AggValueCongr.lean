@@ -62,6 +62,43 @@ theorem symm (hsymm : ∀ {a b : α}, eqv a b → eqv b a) :
   | swap h _ ih => exact .swap (hsymm h) ih
   | trans _ _ ih₁ ih₂ => exact .trans ih₂ ih₁
 
+/-- **A reading that cannot tell two tied entries apart is unchanged by a
+tie-block permutation.** `map_fst_eq` is the case of the first
+component. -/
+theorem map_eq_of_eqv {γ : Type} {φ : α → γ}
+    (hφ : ∀ {a b : α}, eqv a b → φ a = φ b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ → l₁.map φ = l₂.map φ := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => rfl
+  | cons a _ ih => rw [List.map_cons, List.map_cons, ih]
+  | swap hab _ ih =>
+      rw [List.map_cons, List.map_cons, List.map_cons, List.map_cons, ih,
+        hφ hab]
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
+/-- **Selecting by a test that cannot tell two tied entries apart** leaves
+a tie-block permutation one: a swap either keeps both entries or drops
+both. -/
+theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
+    ∀ {l₁ l₂ : List α}, TiePerm eqv l₁ l₂ →
+      TiePerm eqv (l₁.filter p) (l₂.filter p) := by
+  intro l₁ l₂ h
+  induction h with
+  | nil => exact .nil
+  | cons a _ ih =>
+      rw [List.filter_cons, List.filter_cons]
+      cases hpa : p a
+      · simpa using ih
+      · simpa using TiePerm.cons a ih
+  | @swap a b hab _ _ _ ih =>
+      rw [List.filter_cons, List.filter_cons, List.filter_cons,
+        List.filter_cons, hp hab]
+      cases hpb : p b
+      · simpa using ih
+      · simpa using TiePerm.swap hab ih
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
 /-- A tie-block permutation is in particular a permutation. -/
 theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ := by
   induction h with
@@ -956,6 +993,34 @@ theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q
       = (AggExpr.mk q occs₂ aggs sc g cov₂).predProvWith P := by
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
+
+/-- **A tie-block permutation of the family leaves every reading of the
+expression alone.** The collapse and the values read the stripped family
+(`collapse_of_strip`, `vals_congr`), the convention is the leaves' own,
+and the predicate provenance is `predProvWith_congr`. These four are what
+an aggregate column owes, so this is the bundle a simulation of two
+expression columns asks for. -/
+theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    (AggExpr.mk q occs₁ aggs sc g cov₁).collapse
+        = (AggExpr.mk q occs₂ aggs sc g cov₂).collapse
+      ∧ (AggExpr.mk q occs₁ aggs sc g cov₁).isScalar
+        = (AggExpr.mk q occs₂ aggs sc g cov₂).isScalar
+      ∧ (AggExpr.mk q occs₁ aggs sc g cov₁).vals
+        = (AggExpr.mk q occs₂ aggs sc g cov₂).vals
+      ∧ ∀ P : T → Kleene,
+        (AggExpr.mk q occs₁ aggs sc g cov₁).predProvWith P
+          = (AggExpr.mk q occs₂ aggs sc g cov₂).predProvWith P := by
+  have hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
+      = occs₂.map (fun z => (z.fst, z.snd.snd)) :=
+    TiePerm.map_eq_of_eqv (fun hz => Prod.ext_iff.mpr ⟨hz.1, hz.2⟩) h
+  exact ⟨collapse_of_strip aggs sc g cov₁ cov₂ hstrip, rfl,
+    vals_congr aggs sc g cov₁ cov₂ hstrip,
+    fun P => predProvWith_congr aggs sc g cov₁ cov₂ h P⟩
 
 omit [ValueType T] [DecidableEq K] in
 /-- **The walk commutes with a homomorphism.** Every step is a sum, a

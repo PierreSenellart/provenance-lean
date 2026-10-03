@@ -98,6 +98,11 @@ theorem ext_cast {r r' : OccFam α} (h : r.size = r'.size)
 def toMultiset (r : OccFam α) : Multiset α :=
   (Finset.univ : Finset (Fin r.size)).val.map r.row
 
+/-- Every occurrence's row is one of the relation's. -/
+theorem row_mem_toMultiset (r : OccFam α) (i : Fin r.size) :
+    r.row i ∈ r.toMultiset :=
+  Multiset.mem_map.mpr ⟨i, Finset.mem_val.mpr (Finset.mem_univ i), rfl⟩
+
 /-- The empty family. -/
 def nil : OccFam α := ⟨0, fun i => i.elim0⟩
 

@@ -937,6 +937,23 @@ theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
     x'.altProv v = x.altProv v :=
   h.predProvOfWith_eq _
 
+/-- **Two expression columns over tie-permuted families are
+equivalent**: the four readings `GenValue.Equiv` asks of them are
+exactly `AggExpr.readings_congr`'s bundle. -/
+theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
+    (g : (Fin q → T) → T)
+    (cov₁ : ∀ i, ∃ l, (occs₁.get i).snd.snd l = true)
+    (cov₂ : ∀ i, ∃ l, (occs₂.get i).snd.snd l = true)
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g cov₁)) : GenValue T K)
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g cov₂))) := by
+  subst hsc
+  exact AggExpr.readings_congr aggs sc₁ g cov₁ cov₂ h
+
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
 the family, the convention and the worlds alone. -/
@@ -1267,6 +1284,18 @@ theorem rel_map_of_forall {R : γ → δ' → Prop} {s : Multiset α}
     Multiset.Rel R (s.map f) (s.map g) :=
   Multiset.rel_map.mpr (Multiset.rel_refl_of_refl_on hfg)
 
+/-- **Two indexed families whose occurrences correspond under a
+bijection of indices are related occurrence by occurrence.** This is how
+an operator indexed by its occurrence family is compared across a change
+of annotation semiring, which re-sorts the indexing. -/
+theorem rel_occFam_of_equiv {R : α → β → Prop} {N N' : ℕ}
+    (f' : Fin N' → α) (f : Fin N → β) (e : Fin N ≃ Fin N')
+    (hR : ∀ i, R (f' (e i)) (f i)) :
+    Multiset.Rel R (OccFam.mk N' f').toMultiset (OccFam.mk N f).toMultiset := by
+  rw [← OccFam.toMultiset_congr (r := OccFam.mk N (fun i => f' (e i)))
+    (r' := OccFam.mk N' f') ⟨e, fun i => rfl⟩]
+  exact rel_map_of_forall (fun i _ => hR i)
+
 /-- Push a relation through maps of related multisets. -/
 theorem rel_map_of_rel {R : α → β → Prop} {S : γ → δ' → Prop}
     {s : Multiset α} {t : Multiset β} {f : α → γ} {g : β → δ'}
@@ -1555,13 +1584,109 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
         rw [mul_right_comm, mul_right_comm (r.snd.base), map_mul, hprov v]
         exact congrArg (fun y => y * h.toRingHom (x.altProv v)) hs.2
 
+omit [DecidableEq K] in
+/-- **The expression a multi-frame window builds is carried by the
+pushforward too.** Each side lists the shared family by its own sorted
+order, and the pushforward only permutes that order inside blocks of
+equal rows. Under `ContainsSelf` a leaf's flag is its frame's test on
+the tuple and not a test on the index (`ValueFrame.occs_exprOf`), so the
+two families differ by a tie-block permutation and every reading of the
+column survives it. -/
+theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
+    (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
+    (fs : Fin qq → SeqAggFunc T) (g : (Fin qq → T) → T) (γ : Fin c → T)
+    {r' : OccFam (AnnotatedTuple T K' n')} {r : OccFam (AnnotatedTuple T K n')}
+    {i' : Fin r'.size} {i : Fin r.size}
+    (hi : (r'.row i').fst = (r.row i).fst)
+    (hX : r'.toMultiset = Multiset.map (fun y : AnnotatedTuple T K n' =>
+        ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n')) r.toMultiset) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (ValueFrame.exprOf P O o ws ts fs g r' i' γ))
+        : GenValue T K')
+      (Sum.inr (AggTok.expr
+        ((ValueFrame.exprOf P O o ws ts fs g r i γ).mapAnn ⇑h.toRingHom))) := by
+  have hcu : (ValueFrame.unionFrame ws).ContainsSelf :=
+    ValueFrame.containsSelf_unionFrame hcs
+  set gh : AnnotatedTuple T K n' → AnnotatedTuple T K' n' :=
+    fun y => ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n') with hghdef
+  set Lb : List (AnnotatedTuple T K n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K n') Prod.fst P O o ws r i).map
+      r.row with hLb
+  set L' : List (AnnotatedTuple T K' n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K' n') Prod.fst P O o ws r' i').map
+      r'.row with hL'
+  -- the two orderings hold the same rows
+  have hperm : L'.Perm (Lb.map gh) := by
+    refine Multiset.coe_eq_coe.mp ?_
+    rw [← Multiset.map_coe gh Lb, hL', hLb, ← Multiset.map_coe r'.row,
+      ← Multiset.map_coe r.row,
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K' n')
+        Prod.fst P O o ws r' i',
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K n')
+        Prod.fst P O o ws r i,
+      ← ValueFrame.frameOf_map (α := AnnotatedTuple T K n')
+        (β := AnnotatedTuple T K' n') (valα := Prod.fst) (valβ := Prod.fst) gh
+        (fun _ => rfl) P O (ValueFrame.unionFrame ws) r.toMultiset
+        (OccFam.row_mem_toMultiset r i),
+      ← hX]
+    exact ValueFrame.frameOf_congr_val (α := AnnotatedTuple T K' n')
+      Prod.fst P O hcu r'.toMultiset
+      (OccFam.row_mem_toMultiset r' i')
+      (hX ▸ Multiset.mem_map_of_mem gh (OccFam.row_mem_toMultiset r i)) hi
+  -- and each is sorted by the clause's order
+  have hs' : L'.Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) :=
+    ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K' n')
+      Prod.fst P O o ws r' i'
+  have hs : (Lb.map gh).Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) := by
+    rw [List.pairwise_map]
+    exact (ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K n')
+      Prod.fst P O o ws r i).imp (fun hab => hab)
+  have htp : TiePerm (fun a b : AnnotatedTuple T K' n' => a.fst = b.fst)
+      L' (Lb.map gh) :=
+    tiePerm_of_perm_of_sorted_by _ Prod.fst
+      (fun hxy hyx => OrderSpec.val_eq_of_readLe hxy hyx)
+      (fun hv => OrderSpec.readLe_of_val_eq hv) hperm hs' hs
+  -- both families are the same reading of their rows
+  have hocc' : (ValueFrame.exprOf P O o ws ts fs g r' i' γ).occs
+      = L'.map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst))) := by
+    rw [ValueFrame.occs_exprOf P O o hcs ts fs g r' i' γ, hi]
+  have hoccb : ((ValueFrame.exprOf P O o ws ts fs g r i γ).mapAnn
+        ⇑h.toRingHom).occs
+      = (Lb.map gh).map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst))) := by
+    show ((ValueFrame.exprOf P O o ws ts fs g r i γ).occs.map
+        (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
+    rw [ValueFrame.occs_exprOf P O o hcs ts fs g r i γ, hLb]
+    simp only [List.map_map]
+    rfl
+  obtain ⟨cov₁, hE'⟩ := AggExpr.eq_mk_of_occs hocc'
+  obtain ⟨cov₂, hEb⟩ := AggExpr.eq_mk_of_occs hoccb
+  rw [hE', hEb]
+  refine GenValue.Equiv.of_expr_tiePerm (q := qq) fs ?_ g cov₁ cov₂
+    (htp.map _ (fun hab => ⟨by rw [hab], by rw [hab]⟩))
+  funext l
+  show (!(ws l).s (Tuple.key O (r'.row i').fst))
+    = (!(ws l).s (Tuple.key O (r.row i).fst))
+  rw [hi]
+
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
 base-side rows: same regular values, equivalent aggregate columns, and
 the pushed-forward finalized annotation. -/
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-      (d : AnnotatedDatabase T K) (γ : Fin c → T), q.noWinExpr →
+      (d : AnnotatedDatabase T K) (γ : Fin c → T), q.framesContainSelf →
       Multiset.Rel (GenRow.Sim h)
         (q.evaluate (h.mapAnnotatedDatabase d) γ)
         (q.evaluate d γ) := by
@@ -2107,24 +2232,74 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
-  | WinExpr P O o ws ts fs g q ih =>
-    -- the simulation now relates expression columns too
-    -- (`GenValue.Equiv`), but the two sides build their shared family
-    -- over *their own* occurrence indexing, and the tie-block
-    -- permutation between the two indexings moves an annotation between
-    -- occurrences that a frame need not treat alike. `noWinExpr`
-    -- excludes the operator until that is settled.
+  | @WinExpr cI nI mI pI qI P O o ws ts fs g q ih =>
+    -- one output row per occurrence of the shared family. The two sides
+    -- index that family by their own sorted order, so they are compared
+    -- through a bijection of indices rather than index by index; the
+    -- frames read the tuple (`hw.1`), which is what makes each pair of
+    -- corresponding expression columns equivalent.
     intro d γ hw
-    exact absurd hw not_false
+    simp only [AggQueryIn.evaluate]
+    have hY : Multiset.map GenRow.toAnnotated
+          (q.evaluate (h.mapAnnotatedDatabase d) γ)
+        = Multiset.map (fun y : AnnotatedTuple T K nI =>
+            ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' nI))
+          (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) := by
+      have h1 : Multiset.map GenRow.toAnnotated
+            (q.evaluate (h.mapAnnotatedDatabase d) γ)
+          = Multiset.map (SemiringWithMonusHom.mapAnnotatedTuple h)
+            (Multiset.map GenRow.toAnnotated (q.evaluate d γ)) := by
+        rw [Multiset.map_map]
+        exact map_eq_of_rel (ih d γ hw.2)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+      exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
+    rw [hY]
+    set gh : AnnotatedTuple T K nI → AnnotatedTuple T K' nI :=
+      fun y => ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' nI)
+      with hghdef
+    set X : Multiset (AnnotatedTuple T K nI) :=
+      Multiset.map GenRow.toAnnotated (q.evaluate d γ) with hXdef
+    clear_value X
+    -- the two indexings hold the same occurrences, pushed forward
+    have hmul : (OccFam.mk (OccFam.ofSorted X).size
+          (fun i => gh ((OccFam.ofSorted X).row i))).toMultiset
+        = (OccFam.ofSorted (Multiset.map gh X)).toMultiset :=
+      (OccFam.toMultiset_map gh (OccFam.ofSorted X)).symm.trans (by
+        rw [OccFam.toMultiset_ofSorted, OccFam.toMultiset_ofSorted])
+    obtain ⟨e, he⟩ := OccFam.Congr_of_toMultiset_eq hmul
+    have hmul' : (OccFam.ofSorted (Multiset.map gh X)).toMultiset
+        = Multiset.map gh (OccFam.ofSorted X).toMultiset := by
+      rw [OccFam.toMultiset_ofSorted, OccFam.toMultiset_ofSorted]
+    refine rel_occFam_of_equiv _ _ e (fun i => ⟨fun k => ?_, ?_⟩)
+    · dsimp only
+      refine Fin.lastCases ?_ (fun k' => ?_) k
+      · rw [Fin.snoc_last, Fin.snoc_last]
+        exact exprOf_mapAnn_equiv h P O o hw.1 ts fs g γ
+          (congrArg Prod.fst (he i)) hmul'
+      · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+        exact congrArg (fun y : AnnotatedTuple T K' nI => y.fst k') (he i)
+    · dsimp only
+      rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero,
+        he i]
 
-/-- **Evaluator-level hom commutation** (hypothesis-free): the final
-annotated relation computed by the general evaluator commutes with every
-`SemiringWithMonusHom`, over every m-semiring. The extra supersedes a
-non-injective hom can trigger are value-neutral by guard absorption
-(`delta_absorb`), and the annotation tie-breaks of the group sort are
-value-neutral by the tie-block congruence layer. -/
+/-- **Evaluator-level hom commutation**: the final annotated relation
+computed by the general evaluator commutes with every
+`SemiringWithMonusHom`, over every m-semiring. Nothing is asked of the
+hom: the extra supersedes a non-injective one can trigger are
+value-neutral by guard absorption (`delta_absorb`), and the annotation
+tie-breaks of the group sort are value-neutral by the tie-block
+congruence layer.
+
+The one thing asked of the *query* is that a multi-frame window frame by
+the tuple (`AggQueryIn.framesContainSelf`): such a window lists its
+shared family by occurrence index, and a change of annotation semiring
+re-sorts that index inside blocks of equal rows. Every window function
+the library derives satisfies it, and
+`AggQueryIn.framesContainSelf_of_noWinExpr` discharges it for a query
+with no multi-frame window at all. -/
 theorem AggQueryIn.evaluateAnnotated_hom (h : SemiringWithMonusHom K K')
-    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (hw : q.noWinExpr)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hw : q.framesContainSelf)
     (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated (h.mapAnnotatedDatabase d)
       = SemiringWithMonusHom.mapAnnotatedRelation h
