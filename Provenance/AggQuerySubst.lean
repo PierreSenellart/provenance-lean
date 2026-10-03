@@ -544,20 +544,6 @@ theorem AggValue.ofScalarGroup_substMap {c d m : ℕ} (θ : Fin c → T ⊕ Fin 
   simp only [AggValue.ofScalarGroup, AggValue.ofGroup_substMap]
 
 omit [DecidableEq K] in
-omit [CommSemiringWithMonus K] in
-/-- The clause reads the row, so a substitution of the outer context
-moves neither it nor the occurrences of the frame it keeps. -/
-theorem ValueFrame.tokenWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
-    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
-    (i : Fin r.size) (γ : Fin d → T) :
-    ValueFrame.tokenWhen P O o w (t.substMap θ) f keep r i γ
-      = ValueFrame.tokenWhen P O o w t f keep r i (substVal θ γ) := by
-  unfold ValueFrame.tokenWhen
-  exact AggValue.ofScalarGroup_substMap θ f t _ γ
-
-omit [DecidableEq K] in
 /-- The same for the expression a filtered window builds, merged or
 not. -/
 theorem ValueFrame.exprWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)

@@ -1001,73 +1001,6 @@ theorem tokenOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     (fun q : AnnotatedTuple T K' n' => (t.eval q.fst γ, q.snd))
     (fun hpq => congrArg (fun z => t.eval z γ) hpq)
 
-omit [DecidableEq K] in
-/-- The same for a token under a `FILTER` clause: the clause reads the
-tuple part, which a tie-block permutation does not move, so it keeps
-corresponding occurrences on the two sides. -/
-theorem tokenOfWhen_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
-    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
-    (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
-    {γ : Fin c → T} (f : SeqAggFunc T) (keep : Tuple T n' → Bool)
-    (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
-    (hx : x ∈ X) :
-    TiePerm (fun a b : T × K' => a.1 = b.1)
-      ((ValueFrame.tokenOfWhen P O o w t f keep X x γ).mapAnn
-        ⇑h.toRingHom).occs
-      (ValueFrame.tokenOfWhen P O o w t f keep
-        (Multiset.map (fun q : AnnotatedTuple T K n' =>
-          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).occs := by
-  have hframe : ValueFrame.frameOf (α := AnnotatedTuple T K' n') Prod.fst P O w
-      (Multiset.map (fun q : AnnotatedTuple T K n' =>
-        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')
-      = Multiset.map (fun q : AnnotatedTuple T K n' =>
-          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
-        (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x) :=
-    ValueFrame.frameOf_map _ (fun _ => rfl) P O w X hx
-  have hocc1 : ((ValueFrame.tokenOfWhen P O o w t f keep X x γ).mapAnn
-        ⇑h.toRingHom).occs
-      = ((OrderSpec.sortSeq (Tuple.key O) Prod.fst o
-          ((sortList (ValueFrame.frameOf (α := AnnotatedTuple T K n')
-              Prod.fst P O w X x)).map
-            (fun q : AnnotatedTuple T K n' =>
-              ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')))).filter
-          (fun q : AnnotatedTuple T K' n' => keep q.fst)).map
-          (fun q : AnnotatedTuple T K' n' => (t.eval q.fst γ, q.snd)) := by
-    show (((ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst
-        P O o w X x).filter (fun q => keep q.fst)).map
-        (fun q => (t.eval q.fst γ, q.snd))).map
-        (fun z => (z.fst, h.toRingHom z.snd)) = _
-    rw [List.map_map, ValueFrame.frameListOf,
-      ← ValueFrame.sortSeq_mapAnn O o ⇑h.toRingHom, List.filter_map,
-      List.map_map]
-    rfl
-  have hocc2 : (ValueFrame.tokenOfWhen P O o w t f keep
-      (Multiset.map (fun q : AnnotatedTuple T K n' =>
-        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).occs
-      = ((OrderSpec.sortSeq (Tuple.key O) Prod.fst o
-          (sortList (α := AnnotatedTuple T K' n')
-            (Multiset.map (fun q : AnnotatedTuple T K n' =>
-              ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
-              (ValueFrame.frameOf (α := AnnotatedTuple T K n')
-                Prod.fst P O w X x)))).filter
-          (fun q : AnnotatedTuple T K' n' => keep q.fst)).map
-          (fun q : AnnotatedTuple T K' n' => (t.eval q.fst γ, q.snd)) := by
-    rw [ValueFrame.tokenOfWhen]
-    show ((ValueFrame.frameListOf (α := AnnotatedTuple T K' n') Prod.fst
-        P O o w _ _).filter _).map _ = _
-    rw [ValueFrame.frameListOf, hframe]
-  rw [hocc1, hocc2]
-  exact ((OrderSpec.sortSeq_tiePerm (key := Tuple.key O)
-        (val := (Prod.fst : AnnotatedTuple T K' n' → Tuple T n')) (o := o)
-        (sortList_hom_tiePerm h _).perm).filter
-      (fun hpq => congrArg keep hpq)).map
-    (eqv' := fun a b : T × K' => a.1 = b.1)
-    (fun q : AnnotatedTuple T K' n' => (t.eval q.fst γ, q.snd))
-    (fun hpq => congrArg (fun z => t.eval z γ) hpq)
-
 end HavingGroupHom
 
 /-! ## The simulation relation
@@ -1714,47 +1647,6 @@ theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
         (fun x y => map_add h.toRingHom x y)]
     exact ⟨rfl, rfl, TiePerm.refl _ _⟩
 
-
-omit [DecidableEq K] in
-/-- **A filtered window token is carried by the pushforward too**: the
-clause keeps corresponding occurrences, and the merge is blind to the
-tie-block permutation the two unmerged tokens differ by. -/
-theorem tokenOfDistWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
-    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
-    (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
-    (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
-    (keep : Tuple T n' → Bool) (X : Multiset (AnnotatedTuple T K n'))
-    {x : AnnotatedTuple T K n'} (hx : x ∈ X) :
-    GenValue.Equiv
-      (Sum.inr (AggTok.tok (ValueFrame.tokenOfDistWhen P O o w t f dist keep
-        (Multiset.map (fun q : AnnotatedTuple T K n' =>
-          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ)))
-      (Sum.inr (AggTok.tok
-        ((ValueFrame.tokenOfDistWhen P O o w t f dist keep X x γ).mapAnn
-          ⇑h.toRingHom))) := by
-  have hagg : (ValueFrame.tokenOfWhen P O o w t f keep
-        (Multiset.map (fun q : AnnotatedTuple T K n' =>
-          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).agg
-      = ((ValueFrame.tokenOfWhen P O o w t f keep X x γ).mapAnn
-        ⇑h.toRingHom).agg := rfl
-  have hsc : (ValueFrame.tokenOfWhen P O o w t f keep
-        (Multiset.map (fun q : AnnotatedTuple T K n' =>
-          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
-        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ).scalar
-      = ((ValueFrame.tokenOfWhen P O o w t f keep X x γ).mapAnn
-        ⇑h.toRingHom).scalar := rfl
-  have htie := TiePerm.symm (fun e => e.symm)
-    (tokenOfWhen_mapAnn_tiePerm h P O o w t f keep X hx (γ := γ))
-  unfold ValueFrame.tokenOfDistWhen
-  cases dist
-  · exact ⟨hagg, hsc, htie⟩
-  · simp only [ite_true]
-    rw [AggValue.mergeByValue_congr hagg hsc htie,
-      AggValue.mergeByValue_map (map_zero h.toRingHom)
-        (fun x y => map_add h.toRingHom x y)]
-    exact ⟨rfl, rfl, TiePerm.refl _ _⟩
 
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K]
   [HasAltLinearOrder K'] in
