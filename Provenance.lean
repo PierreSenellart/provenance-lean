@@ -138,6 +138,7 @@ import Provenance.Papers.Icde2026
 
 /- Example -/
 import Provenance.DistributionExample
+import Provenance.NestedExample
 import Provenance.Example
 
 /-!
@@ -1111,6 +1112,13 @@ proven engine several general results reuse internally.
   row and one with peers: the values SQL gives, and the pair of counts the
   two nested frames supply. Also `rank` against `dense_rank`, which part
   exactly where the order has peers.
+- `Provenance.NestedExample` – second-level aggregation, `sum(count(*))`
+  over a `GROUP BY`, written through the alternatives: the inner count read
+  as a key becomes a regular column, so the outer aggregate is an ordinary
+  one and nothing nested is involved. The alternatives and their
+  annotations are printed, one of them impossible, and with them the gap
+  between a world's answer and the token's deterministic reading that
+  keeps `Alt` out of `AggQueryIn.evaluateAnnotated_toPlain`.
 - `Provenance.HavingExample` – worked examples on a three-occurrence group:
   the `SUM ≥ 5` possible-world provenance in `𝔹[X]` and its collapse to
   minimal worlds (both computed by kernel evaluation), and the
