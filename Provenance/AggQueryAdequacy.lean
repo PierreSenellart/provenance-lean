@@ -616,7 +616,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       = (q.stripAgg.evaluatePlain d.toPlain γ : Relation T _)
     rw [← hplain]
     exact ih hq d
-  | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
+  | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     -- one output row per input occurrence, as for a single-frame window;
     -- the data part of the added column is the expression's collapse,
     -- which is each leaf's plain aggregate over its own frame
@@ -636,6 +636,6 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     dsimp only [GenRow.plainTuple, OccFam.plain]
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact ValueFrame.collapse_exprOf P O o ws ts fs g _ i γ
+      exact ValueFrame.collapse_exprOfWhen P O o ws ts fs g keeps _ i γ
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl

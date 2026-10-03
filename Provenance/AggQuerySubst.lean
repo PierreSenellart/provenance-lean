@@ -342,8 +342,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
         (q.substMap θ)
   | _, _, _, _, θ, .Win P O o w t f q dist keep =>
       .Win P O o w (t.substMap θ) f (q.substMap θ) dist keep
-  | _, _, _, _, θ, .WinExpr P O o ws ts fs g q =>
-      .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ)
+  | _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
+      .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
 termination_by structural q
 
 /-- Close a query: give every outer column a value. This is the
@@ -502,7 +502,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     refine congrArg OccFam.toMultiset (congrArg (OccFam.mk _) (funext fun i =>
       congrArg (Fin.snoc _) (congrArg (if dist then f.distinct else f) ?_)))
     exact List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ)
-  | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
+  | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -584,6 +584,24 @@ theorem ValueFrame.exprOf_substMap {c d n m p na : ℕ} (θ : Fin c → T ⊕ Fi
       = ValueFrame.exprOf P O o ws ts fs g r i (substVal θ γ) := by
   unfold ValueFrame.exprOf
   exact ValueFrame.exprOfVals_congr P O o ws r i
+    (funext (fun l => funext (fun j =>
+      TermIn.eval_substMap θ (ts l) (r.row j).fst γ))) fs g
+
+omit [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
+/-- The same under `FILTER` clauses: a clause reads the occurrence's own
+row, which the substitution does not touch. -/
+theorem ValueFrame.exprOfWhen_substMap {c d n m p na : ℕ}
+    (θ : Fin c → T ⊕ Fin d)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
+    (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
+    (keeps : Fin na → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin d → T) :
+    ValueFrame.exprOfWhen P O o ws (fun l => (ts l).substMap θ) fs g keeps r i γ
+      = ValueFrame.exprOfWhen P O o ws ts fs g keeps r i (substVal θ γ) := by
+  unfold ValueFrame.exprOfWhen
+  exact ValueFrame.exprOfValsWhen_congr P O o ws keeps r i
     (funext (fun l => funext (fun j =>
       TermIn.eval_substMap θ (ts l) (r.row j).fst γ))) fs g
 
@@ -688,10 +706,10 @@ theorem AggQueryIn.evaluate_substMap :
       ValueFrame.tokenDistWhen, ValueFrame.token_substMap,
       ValueFrame.tokenWhen_substMap]
     rw [ih θ dB γ]
-  | @WinExpr cI n' m' p' na P O o ws ts fs g q ih =>
+  | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, ValueFrame.exprOf_substMap]
+    simp only [AggQueryIn.evaluate, ValueFrame.exprOfWhen_substMap]
     rw [ih θ dB γ]
 
 /-! ## Closing a query: the document's `q[u]` -/

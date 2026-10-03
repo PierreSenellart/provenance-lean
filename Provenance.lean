@@ -510,7 +510,24 @@ proven engine several general results reuse internally.
   read its output off the relation – the input mapped row by row, each row
   gaining the token (`ValueFrame.tokenOf`) or the value
   (`ValueFrame.windowValue`) that the relation gives it – which is the form
-  every theorem about the operator uses
+  every theorem about the operator uses.
+  Every aggregating operator carries SQL's `FILTER` clause: `Gamma`'s
+  `keep`, one per aggregate, `Win`'s `keep`, and `WinExpr`'s `keeps`, one
+  per leaf of the expression. A clause cuts the occurrences its own
+  aggregate reads and nothing else – the group or the frame, its key and
+  its annotation stay those of every occurrence, so a group's existence
+  factor is untouched – and a filtered aggregate is read in the scalar
+  convention, the kept part of a group or a frame being possibly empty
+  where the group or the frame is not. For a multi-frame window the
+  clause cuts what its leaf reads of the shared family and never the
+  family itself (`ValueFrame.exprOfWhen`), which is why an occurrence no
+  leaf reads is allowed at all. Every reading covers a clause: the
+  deterministic one (`ValueFrame.collapse_exprOfWhen`), the pushforward
+  (`ValueFrame.occs_exprOfWhen` – a clause tests the occurrence's own
+  tuple, which a tie-block permutation does not move) and the random
+  world (`exprOfWhen_specialize`). Only the rewriting excludes it, with
+  `AggQuery.noFilter`: a clause is a predicate on the base domain where
+  the rewritten world's rows carry composite values
 - `Provenance.AggQuerySubst` – **substituting the outer columns**: the
   apply is defined by substitution – its right side is read, for each
   row `u` of the left, as the closed query `q₂[u]` – while the

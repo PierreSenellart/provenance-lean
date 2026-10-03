@@ -1343,6 +1343,46 @@ def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
   g := g
 
+/-- **The same with a `FILTER` clause on each leaf**: the family is the
+one `exprOfVals` builds – the union of the frames, which a clause does
+not touch, a filtered-out occurrence still witnessing its group – and
+what a clause cuts is its own leaf's `reads`. That is why
+`Provenance.AggExpr` asks nothing of an occurrence no leaf reads: every
+leaf may filter one out.
+
+A leaf with a clause is read in the scalar convention, as a filtered
+grouping is: the kept part of a frame may be empty where the frame is
+not, so the empty world has to be one of its worlds. -/
+def exprOfValsWhen (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (vals : Fin q → Fin r.size → T) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) : AggExpr T K where
+  arity := q
+  occs := (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+    (fun j => ((fun l => vals l j), (r.row j).snd,
+      fun l => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+        && (match keeps l with
+            | none => true
+            | some φ => φ.keeps (r.row j).fst)))
+  aggs := fs
+  scalar := fun l =>
+    (keeps l).isSome || !(ws l).s (Tuple.key O (r.row i).fst)
+  g := g
+
+/-- **No clause is the unfiltered expression**, so everything proved of
+`exprOfVals` applies to a window whose leaves carry none. -/
+@[simp] theorem exprOfValsWhen_none (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (vals : Fin q → Fin r.size → T) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) :
+    exprOfValsWhen P O o ws (fun _ => none) r i vals fs g
+      = exprOfVals P O o ws r i vals fs g := by
+  simp only [exprOfValsWhen, exprOfVals, Option.isSome_none, Bool.false_or,
+    Bool.and_true]
+
 /-- The same, reading each leaf's value off its term: what the operator
 builds. Separating the values from the terms is what lets a lemma vary
 them, since the expression's later fields depend on the occurrence list
@@ -1354,6 +1394,30 @@ def exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
     (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
   exprOfVals P O o ws r i (fun l j => (ts l).eval (r.row j).fst γ) fs g
+
+/-- **The same with a `FILTER` clause on each leaf**, reading each
+clause against the occurrence's own tuple: what the operator builds.
+See `exprOfValsWhen` for what a clause cuts and what it leaves. -/
+def exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
+  exprOfValsWhen P O o ws keeps r i
+    (fun l j => (ts l).eval (r.row j).fst γ) fs g
+
+/-- **No clause is the unfiltered window**, so every result proved of
+`exprOf` – its collapse, its displacement, its specialization – applies
+unchanged to a window whose leaves carry none. -/
+@[simp] theorem exprOfWhen_none {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) :
+    exprOfWhen P O o ws ts fs g (fun _ => none) r i γ
+      = exprOf P O o ws ts fs g r i γ :=
+  exprOfValsWhen_none ..
 
 /-- **What one leaf of the expression reads in a world the annotations
 cut out**: the values of its own frame's occurrences that `keep` keeps.
@@ -1407,6 +1471,73 @@ theorem leafSeq_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     leafSeq_exprOf_keep P O o ws ts fs g r i γ l (fun _ => true)]
   exact congrArg₂ List.map rfl (List.filter_congr (fun j _ => by simp))
 
+/-- **What one leaf of a filtered window reads in a world the annotations
+cut out**: its own frame's occurrences that its clause keeps and the
+world holds. -/
+theorem leafSeq_exprOfWhen_keep {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q) (keep : K → Bool) :
+    (exprOfWhen P O o ws ts fs g keeps r i γ).leafSeq l
+        (Finset.univ.filter (fun x =>
+          keep ((exprOfWhen P O o ws ts fs g keeps r i γ).anns x) = true))
+      = List.map (fun j => (ts l).eval (r.row j).fst γ)
+          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+              && (match keeps l with
+                  | none => true
+                  | some φ => φ.keeps (r.row j).fst)
+              && keep (r.row j).snd)) := by
+  rw [AggExpr.leafSeq_eq_filter]
+  rw [show Having.seqOf (exprOfWhen P O o ws ts fs g keeps r i γ).occs
+          (Finset.univ.filter (fun x =>
+            keep ((exprOfWhen P O o ws ts fs g keeps r i γ).anns x) = true))
+        = (exprOfWhen P O o ws ts fs g keeps r i γ).occs.filter
+          (fun z => keep z.snd.fst) from
+      Having.seqOf_filter_positions (fun z => keep z.snd.fst)
+        (exprOfWhen P O o ws ts fs g keeps r i γ).occs,
+    show (exprOfWhen P O o ws ts fs g keeps r i γ).occs
+        = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+          (fun j => ((fun l => (ts l).eval (r.row j).fst γ), (r.row j).snd,
+            fun l => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+              && (match keeps l with
+                  | none => true
+                  | some φ => φ.keeps (r.row j).fst)))
+      from rfl,
+    List.filter_map, List.filter_map, List.map_map]
+  rw [List.filter_filter]
+  exact congrArg₂ List.map rfl (List.filter_congr (fun j _ => rfl))
+
+/-- **What one leaf of a filtered window reads**: its own frame's
+occurrences among the family, among those its own clause keeps. -/
+theorem leafSeq_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q) :
+    (exprOfWhen P O o ws ts fs g keeps r i γ).leafSeq l Finset.univ
+      = List.map (fun j => (ts l).eval (r.row j).fst γ)
+          ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+              && (match keeps l with
+                  | none => true
+                  | some φ => φ.keeps (r.row j).fst))) := by
+  rw [AggExpr.leafSeq_eq_filter,
+    Having.seqOf_univ,
+    show (exprOfWhen P O o ws ts fs g keeps r i γ).occs
+        = (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+          (fun j => ((fun l => (ts l).eval (r.row j).fst γ), (r.row j).snd,
+            fun l => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+              && (match keeps l with
+                  | none => true
+                  | some φ => φ.keeps (r.row j).fst)))
+      from rfl,
+    List.filter_map, List.map_map]
+  exact congrArg₂ List.map rfl (List.filter_congr (fun j _ => rfl))
+
 /-- The indices one leaf reads out of the shared family are exactly its
 own frame's. -/
 theorem exprIdx_filter_coe (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
@@ -1449,6 +1580,84 @@ theorem exprIdx_filter_rows_pairwise {α : Type} [LinearOrder α]
   rw [List.pairwise_map]
   exact List.Pairwise.filter _ (OrderSpec.sortSeq_sorted (key := Tuple.key O)
     (val := fun j => val (r.row j)) (o := o) _)
+
+/-- **What one leaf reads of the family, under a predicate on the rows**:
+its own frame's rows that the predicate keeps, in the clause's order.
+This is the step `collapse_exprOf` takes leaf by leaf, with the leaf's
+own `FILTER` clause as the predicate: the family is listed by occurrence
+index and the plain frame by row, but both are sorted by the clause, so
+they differ only inside blocks of occurrences carrying equal rows – and
+equal rows give the leaf equal values, and the predicate the same
+answer. -/
+theorem map_exprIdx_filter_occs {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q)
+    (pp : AnnotatedTuple T K n → Bool) :
+    List.map (fun j => (ts l).eval (r.row j).fst γ)
+        ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+          (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+            && pp (r.row j)))
+      = (((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r i).filter
+          pp).map (fun y => (ts l).eval y.fst γ)) := by
+  -- both sides list the leaf's own frame, cut by the predicate, in the
+  -- clause's order
+  have hperm : (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+        (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+          && pp (r.row j))).map r.row).Perm
+      ((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r i).filter
+        pp) := by
+    have hbase : ((((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+          (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j)).map
+        r.row)).Perm
+        (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r i) := by
+      have h1 : (↑((((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j)).map
+          r.row)) : Multiset (AnnotatedTuple T K n))
+          = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val.map r.row := by
+        rw [← Multiset.map_coe, exprIdx_filter_coe]
+      have h2 : (↑(frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o (ws l) r i)
+          : Multiset (AnnotatedTuple T K n))
+          = (frame (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i).val.map r.row := by
+        rw [Multiset.coe_eq_coe.mpr (frameSeqOn_perm (α := AnnotatedTuple T K n)
+          Prod.fst P O o (ws l) r i), frameSeq_coe]
+      exact Multiset.coe_eq_coe.mp (h1.trans h2.symm)
+    have hsplit : ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+          (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+            && pp (r.row j))).map r.row
+        = (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+            (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j)).map
+          r.row).filter pp := by
+      rw [List.filter_map, List.filter_filter]
+      exact congrArg₂ List.map rfl
+        (List.filter_congr (fun j _ => Bool.and_comm _ _))
+    rw [hsplit]
+    exact hbase.filter _
+  have hmap := OrderSpec.map_eq_of_sorted (α := AnnotatedTuple T K n)
+    (key := Tuple.key O) (val := Prod.fst) (o := o)
+    (fun u => (ts l).eval u γ) hperm
+    (exprIdx_filter_rows_pairwise (α := AnnotatedTuple T K n)
+      Prod.fst P O o ws r i _)
+    (List.Pairwise.filter _ (OrderSpec.sortSeq_sorted (α := AnnotatedTuple T K n)
+      (key := Tuple.key O) (val := Prod.fst) (o := o) _))
+  rw [List.map_map] at hmap
+  exact hmap
+
+/-- The same for a predicate on the rows, against the plain frame: what
+the deterministic reading of a filtered window needs. -/
+theorem map_exprIdx_filter_rows {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T) (l : Fin q) (pr : Tuple T n → Bool) :
+    List.map (fun j => (ts l).eval (r.row j).fst γ)
+        ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).filter
+          (fun j => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l) r i j
+            && pr (r.row j).fst))
+      = (((frameSeqOn (α := Tuple T n) id P O o (ws l) r.plain i).filter pr).map
+          (fun v => (ts l).eval v γ)) := by
+  refine (map_exprIdx_filter_occs P O o ws ts r i γ l (fun y => pr y.fst)).trans ?_
+  rw [← frameSeqOn_plain, List.filter_map, List.map_map]
+  rfl
 
 /-- **The deterministic reading of the expression a multi-frame window
 computes**: each leaf's own plain aggregate over its own frame, combined
@@ -1497,6 +1706,34 @@ theorem collapse_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       Prod.fst P O o ws r i _)
     (OrderSpec.sortSeq_sorted (α := AnnotatedTuple T K n)
       (key := Tuple.key O) (val := Prod.fst) (o := o) _)
+
+/-- **The deterministic reading of a filtered multi-frame window**: each
+leaf's plain aggregate over the part of its own frame its own clause
+keeps, combined by `g`. -/
+theorem collapse_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T)
+    (g : (Fin q → T) → T) (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T) :
+    (exprOfWhen P O o ws ts fs g keeps r i γ).collapse
+      = g (fun l => (fs l)
+          ((match keeps l with
+            | none => frameSeqOn (α := Tuple T n) id P O o (ws l) r.plain i
+            | some φ =>
+                (frameSeqOn (α := Tuple T n) id P O o (ws l) r.plain i).filter
+                  φ.keeps).map
+            (fun v => (ts l).eval v γ))) := by
+  unfold AggExpr.collapse AggExpr.valOn
+  refine congrArg g (funext (fun l => ?_))
+  show (fs l) ((exprOfWhen P O o ws ts fs g keeps r i γ).leafSeq l Finset.univ)
+    = _
+  rw [leafSeq_exprOfWhen]
+  refine congrArg (fs l) ?_
+  cases keeps l with
+  | none =>
+    refine (map_exprIdx_filter_rows P O o ws ts r i γ l (fun _ => true)).trans ?_
+    rw [List.filter_true]
+  | some φ => exact map_exprIdx_filter_rows P O o ws ts r i γ l φ.keeps
 
 /-- The indices one leaf reads out of the shared family, among the
 occurrences a predicate keeps, are its own frame's present ones. -/
@@ -1600,6 +1837,17 @@ theorem exprOfVals_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     exprOfVals P O o ws r i vals fs g = exprOfVals P O o ws r i vals' fs g :=
   congrArg (fun V => exprOfVals P O o ws r i V fs g) h
 
+/-- Equal leaf values give the same expression, clauses and all. -/
+theorem exprOfValsWhen_congr (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ws : Fin q → ValueFrame T p)
+    (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    {vals vals' : Fin q → Fin r.size → T} (h : vals = vals')
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T) :
+    exprOfValsWhen P O o ws keeps r i vals fs g
+      = exprOfValsWhen P O o ws keeps r i vals' fs g :=
+  congrArg (fun V => exprOfValsWhen P O o ws keeps r i V fs g) h
+
 /-! ### The shared family read off the relation
 
 The family is listed by occurrence index, but under `ContainsSelf` the
@@ -1663,6 +1911,33 @@ theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   refine List.map_congr_left (fun j _ => ?_)
   refine Prod.ext_iff.mpr ⟨rfl, Prod.ext_iff.mpr ⟨rfl, funext (fun l => ?_)⟩⟩
   exact mem_of_containsSelf (hcs l) r i j
+
+/-- **The same for a filtered window**: a clause tests the occurrence's
+own tuple, so the family is still a function of the rows and of the
+tuple the column is computed for. -/
+theorem occs_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p}
+    (hcs : ∀ l, (ws l).ContainsSelf) (ts : Fin q → TermIn T c n)
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
+    (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T) :
+    (exprOfWhen P O o ws ts fs g keeps r i γ).occs
+      = ((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+          r.row).map
+        (fun y : AnnotatedTuple T K n => ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => (decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+              && (ws l).ρ (Tuple.key O y.fst) (Tuple.key O (r.row i).fst))
+            && (match keeps l with
+                | none => true
+                | some φ => φ.keeps y.fst))) := by
+  show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map _ = _
+  rw [List.map_map]
+  refine List.map_congr_left (fun j _ => ?_)
+  refine Prod.ext_iff.mpr ⟨rfl, Prod.ext_iff.mpr ⟨rfl, funext (fun l => ?_)⟩⟩
+  exact congrArg (fun b => b && (match keeps l with
+      | none => true
+      | some φ => φ.keeps (r.row j).fst))
+    (mem_of_containsSelf (hcs l) r i j)
 
 /-- The clause's reading of a frame lists exactly the frame. -/
 theorem frameListOf_coe {α : Type} [LinearOrder α] (val : α → Tuple T n)
@@ -1744,6 +2019,65 @@ theorem self_mem_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     simp only [List.get_eq_getElem, List.getElem_map, Fin.val_cast]
     rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)[(jj : ℕ)]
         = i from hjj]
+    unfold mem
+    simp [hs']
+
+/-- **The same under `FILTER` clauses**: the current occurrence is read by
+every leaf whose frame contains the current row *and* whose clause keeps
+it. A leaf whose clause rejects it reads nothing of it – and asks
+nothing, being read in the scalar convention. -/
+theorem self_mem_exprOfWhen {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (ts : Fin q → TermIn T c n)
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
+    (keeps : Fin q → Option (Selection T n))
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T)
+    {l : Fin q} (hs : (ws l).s (Tuple.key O (r.row i).fst) = true) :
+    ∃ j : Fin (exprOfWhen P O o ws ts fs g keeps r i γ).occs.length,
+      (exprOfWhen P O o ws ts fs g keeps r i γ).anns j = (r.row i).snd
+        ∧ ∀ l' : Fin q, (ws l').s (Tuple.key O (r.row i).fst) = true →
+            (match keeps l' with
+              | none => true
+              | some φ => φ.keeps (r.row i).fst) = true →
+            j ∈ (exprOfWhen P O o ws ts fs g keeps r i γ).reads l' := by
+  have hmemIdx : i ∈ exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i := by
+    rw [← Multiset.mem_coe, exprIdx_coe, Finset.mem_val,
+      self_mem_frame (α := AnnotatedTuple T K n) Prod.fst P O
+        (unionFrame ws) r i]
+    show (List.finRange q).any (fun l' => (ws l').s (Tuple.key O (r.row i).fst))
+      = true
+    exact List.any_eq_true.mpr ⟨l, List.mem_finRange l, hs⟩
+  obtain ⟨jj, hjj⟩ := List.get_of_mem hmemIdx
+  have hlen : (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length
+      = (exprOfWhen P O o ws ts fs g keeps r i γ).occs.length :=
+    (List.length_map _).symm
+  refine ⟨Fin.cast hlen jj, ?_, fun l' hs' hk' => ?_⟩
+  · show ((exprOfWhen P O o ws ts fs g keeps r i γ).occs.get
+      (Fin.cast hlen jj)).snd.fst = (r.row i).snd
+    show (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+        (fun j => ((fun l'' => (ts l'').eval (r.row j).fst γ), (r.row j).snd,
+          fun l'' => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l'')
+              r i j
+            && (match keeps l'' with
+                | none => true
+                | some φ => φ.keeps (r.row j).fst)))).get
+        (Fin.cast hlen jj)).snd.fst = (r.row i).snd
+    simp only [List.get_eq_getElem, List.getElem_map, Fin.val_cast]
+    rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)[(jj : ℕ)]
+        = i from hjj]
+  · rw [AggExpr.mem_reads]
+    show (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+        (fun j => ((fun l'' => (ts l'').eval (r.row j).fst γ), (r.row j).snd,
+          fun l'' => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l'')
+              r i j
+            && (match keeps l'' with
+                | none => true
+                | some φ => φ.keeps (r.row j).fst)))).get
+        (Fin.cast hlen jj)).snd.snd l' = true
+    simp only [List.get_eq_getElem, List.getElem_map, Fin.val_cast]
+    rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)[(jj : ℕ)]
+        = i from hjj]
+    rw [Bool.and_eq_true]
+    refine ⟨?_, hk'⟩
     unfold mem
     simp [hs']
 

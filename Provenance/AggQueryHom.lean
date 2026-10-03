@@ -1974,6 +1974,107 @@ theorem exprOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
     = (!(ws l).s (Tuple.key O (r.row i).fst))
   rw [hi]
 
+omit [DecidableEq K] in
+/-- **The same under `FILTER` clauses.** Each side lists the shared family by its own sorted
+order, and the pushforward only permutes that order inside blocks of
+equal rows. Under `ContainsSelf` a leaf's flag is its frame's test on
+the tuple and not a test on the index (`ValueFrame.occs_exprOf`), so the
+two families differ by a tie-block permutation and every reading of the
+column survives it. -/
+theorem exprOfWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
+    (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
+    (fs : Fin qq → SeqAggFunc T) (g : (Fin qq → T) → T)
+    (keeps : Fin qq → Option (Selection T n')) (γ : Fin c → T)
+    {r' : OccFam (AnnotatedTuple T K' n')} {r : OccFam (AnnotatedTuple T K n')}
+    {i' : Fin r'.size} {i : Fin r.size}
+    (hi : (r'.row i').fst = (r.row i).fst)
+    (hX : r'.toMultiset = Multiset.map (fun y : AnnotatedTuple T K n' =>
+        ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n')) r.toMultiset) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ))
+        : GenValue T K')
+      (Sum.inr (AggTok.expr
+        ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).mapAnn ⇑h.toRingHom))) := by
+  have hcu : (ValueFrame.unionFrame ws).ContainsSelf :=
+    ValueFrame.containsSelf_unionFrame hcs
+  set gh : AnnotatedTuple T K n' → AnnotatedTuple T K' n' :=
+    fun y => ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n') with hghdef
+  set Lb : List (AnnotatedTuple T K n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K n') Prod.fst P O o ws r i).map
+      r.row with hLb
+  set L' : List (AnnotatedTuple T K' n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K' n') Prod.fst P O o ws r' i').map
+      r'.row with hL'
+  -- the two orderings hold the same rows
+  have hperm : L'.Perm (Lb.map gh) := by
+    refine Multiset.coe_eq_coe.mp ?_
+    rw [← Multiset.map_coe gh Lb, hL', hLb, ← Multiset.map_coe r'.row,
+      ← Multiset.map_coe r.row,
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K' n')
+        Prod.fst P O o ws r' i',
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K n')
+        Prod.fst P O o ws r i,
+      ← ValueFrame.frameOf_map (α := AnnotatedTuple T K n')
+        (β := AnnotatedTuple T K' n') (valα := Prod.fst) (valβ := Prod.fst) gh
+        (fun _ => rfl) P O (ValueFrame.unionFrame ws) r.toMultiset
+        (OccFam.row_mem_toMultiset r i),
+      ← hX]
+    exact ValueFrame.frameOf_congr_val (α := AnnotatedTuple T K' n')
+      Prod.fst P O hcu r'.toMultiset
+      (OccFam.row_mem_toMultiset r' i')
+      (hX ▸ Multiset.mem_map_of_mem gh (OccFam.row_mem_toMultiset r i)) hi
+  -- and each is sorted by the clause's order
+  have hs' : L'.Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) :=
+    ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K' n')
+      Prod.fst P O o ws r' i'
+  have hs : (Lb.map gh).Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) := by
+    rw [List.pairwise_map]
+    exact (ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K n')
+      Prod.fst P O o ws r i).imp (fun hab => hab)
+  have htp : TiePerm (fun a b : AnnotatedTuple T K' n' => a.fst = b.fst)
+      L' (Lb.map gh) :=
+    tiePerm_of_perm_of_sorted_by _ Prod.fst
+      (fun hxy hyx => OrderSpec.val_eq_of_readLe hxy hyx)
+      (fun hv => OrderSpec.readLe_of_val_eq hv) hperm hs' hs
+  -- both families are the same reading of their rows
+  have hocc' : (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).occs
+      = L'.map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => (decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+              && (ws l).ρ (Tuple.key O y.fst)
+                (Tuple.key O (r.row i).fst))
+            && (match keeps l with
+                | none => true
+                | some φ => φ.keeps y.fst))) := by
+    rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r' i' γ, hi, hL']
+    rfl
+  have hoccb : ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).mapAnn
+        ⇑h.toRingHom).occs
+      = (Lb.map gh).map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          fun l => (decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+              && (ws l).ρ (Tuple.key O y.fst)
+                (Tuple.key O (r.row i).fst))
+            && (match keeps l with
+                | none => true
+                | some φ => φ.keeps y.fst))) := by
+    show ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).occs.map
+        (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
+    rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r i γ, hLb]
+    simp only [List.map_map]
+    rfl
+  rw [AggExpr.eq_mk_of_occs hocc', AggExpr.eq_mk_of_occs hoccb]
+  refine GenValue.Equiv.of_expr_tiePerm (q := qq) fs ?_ g
+    (htp.map _ (fun hab => ⟨by rw [hab], by rw [hab]⟩))
+  funext l
+  show ((keeps l).isSome || !(ws l).s (Tuple.key O (r'.row i').fst))
+    = ((keeps l).isSome || !(ws l).s (Tuple.key O (r.row i).fst))
+  rw [hi]
+
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
 base-side rows: same regular values, equivalent aggregate columns, and
@@ -2568,7 +2669,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q ih =>
+  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
     -- index that family by their own sorted order, so they are compared
     -- through a bijection of indices rather than index by index; the
@@ -2610,7 +2711,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     · dsimp only
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        exact exprOf_mapAnn_equiv h P O o hw.1 ts fs g γ
+        exact exprOfWhen_mapAnn_equiv h P O o hw.1 ts fs g keeps γ
           (congrArg Prod.fst (he i)) hmul'
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         exact congrArg (fun y : AnnotatedTuple T K' nI => y.fst k') (he i)

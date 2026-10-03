@@ -93,7 +93,7 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- rewriting a window into the provenance-carrying form is not part of
   -- (R1)-(R5); a window is excluded from the fragment, as a grouping is
   | _, _, _, .Win _ _ _ _ _ _ _ _ _ => False
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ => False
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in

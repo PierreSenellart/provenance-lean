@@ -1809,7 +1809,7 @@ theorem AggQueryIn.evaluate_guarded :
   | Retag h q ih =>
     intro d γ r hr v hfin k a ha
     exact ih d r hr v hfin k a ha
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q ih =>
+  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
     -- the window creates no group, so the row's own annotation is the
     -- whole guard: a valuation that realizes it keeps the current
     -- occurrence, which every leaf whose frame contains the current row
@@ -1828,21 +1828,29 @@ theorem AggQueryIn.evaluate_guarded :
         have := hfin
         dsimp only at this
         rwa [GenAnn.finalize_of_pending_zero] at this
-      show (ValueFrame.exprOf P O o ws ts fs g _ i γ).IsWorld _
+      show (ValueFrame.exprOfWhen P O o ws ts fs g keeps _ i γ).IsWorld _
       intro l hl
-      obtain ⟨j, hann, hreads⟩ := ValueFrame.self_mem_exprOf P O o ts fs g
-        _ i γ (l := l) (by
-          have hx : (!(ws l).s (Tuple.key O ((OccFam.ofSorted
-              (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst))
-            = false := hl
-          simpa using hx)
-      refine ⟨j, Finset.mem_inter.mpr ⟨?_, hreads l (by
-        have hx : (!(ws l).s (Tuple.key O ((OccFam.ofSorted
+      -- a leaf read in the grouped convention carries no clause and has the
+      -- current row in its frame, so it reads the current occurrence
+      have hscal : ((keeps l).isSome
+          || !(ws l).s (Tuple.key O ((OccFam.ofSorted
             (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst))
-          = false := hl
-        simpa using hx)⟩⟩
+        = false := hl
+      rw [Bool.or_eq_false_iff] at hscal
+      have hs : (ws l).s (Tuple.key O ((OccFam.ofSorted
+          (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).row i).fst)
+        = true := by simpa using hscal.2
+      have hkn : keeps l = none := by
+        cases hkl : keeps l with
+        | none => rfl
+        | some φ =>
+          rw [hkl] at hscal
+          exact absurd hscal.1 (by simp)
+      obtain ⟨j, hann, hreads⟩ := ValueFrame.self_mem_exprOfWhen P O o ts fs g
+        keeps _ i γ (l := l) hs
+      refine ⟨j, Finset.mem_inter.mpr ⟨?_, hreads l hs (by simp only [hkn])⟩⟩
       refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩
-      show ((ValueFrame.exprOf P O o ws ts fs g _ i γ).anns j) v = true
+      show ((ValueFrame.exprOfWhen P O o ws ts fs g keeps _ i γ).anns j) v = true
       rw [hann]
       exact hrow
     · dsimp only at ha
@@ -2375,6 +2383,63 @@ theorem tokenOfDist_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     exact tokenOf_filter_agg P O o w t f f.distinct R hx v hc
 
 omit [Fintype X] [DecidableEq X] in
+/-- **One leaf's reading of its frame in a world**: the rows of its frame
+the world keeps give the plain window value the realized world gives the
+row. This is the single-frame statement in the form a leaf of an
+expression needs it, the family being listed by occurrence. -/
+theorem frameSeq_filter_agg {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
+    (v : X → Bool) {γ : Fin c → T} (hc : (r.row i).snd v = true) :
+    f ((((ValueFrame.frameSeqOn (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O o w r i).filter (fun y => y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => t.eval y.fst γ)))
+      = ValueFrame.windowValue P O o w t f (randomWorld v r.toMultiset)
+          (r.row i).fst γ := by
+  have hform : (((ValueFrame.tokenOf P O o w t f r.toMultiset (r.row i) γ).occs.filter
+        (fun z => z.snd v)).map Prod.fst)
+      = (((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O o w r.toMultiset (r.row i)).filter (fun y => y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => t.eval y.fst γ)) := by
+    rw [ValueFrame.tokenOf_occs, list_filter_map_comm, List.map_map]
+    rfl
+  rw [ValueFrame.frameSeqOn_eq_frameListOf, ← hform]
+  exact tokenOf_filter_agg P O o w t f f r.toMultiset
+    (OccFam.row_mem_toMultiset r i) v hc
+
+omit [Fintype X] [DecidableEq X] in
+/-- **The same under a `FILTER` clause**: the clause cuts the frame by the
+rows, which the restriction to a world does not move. -/
+theorem frameSeq_filter_agg_when {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T) (keep : Tuple T n' → Bool)
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
+    (v : X → Bool) {γ : Fin c → T} (hc : (r.row i).snd v = true) :
+    f ((((ValueFrame.frameSeqOn (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O o w r i).filter (fun y => keep y.fst && y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => t.eval y.fst γ)))
+      = ValueFrame.windowValueWhen P O o w t f keep (randomWorld v r.toMultiset)
+          (r.row i).fst γ := by
+  have hform : (((ValueFrame.tokenOfWhen P O o w t f keep r.toMultiset
+        (r.row i) γ).occs.filter (fun z => z.snd v)).map Prod.fst)
+      = (((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n') Prod.fst
+          P O o w r.toMultiset (r.row i)).filter
+          (fun y => keep y.fst && y.snd v)).map
+        (fun y : AnnotatedTuple T (BoolFunc X) n' => t.eval y.fst γ)) := by
+    show ((((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+        Prod.fst P O o w r.toMultiset (r.row i)).filter
+        (fun z => keep z.fst)).map
+        (fun z => (t.eval z.fst γ, z.snd))).filter
+        (fun z => z.snd v)).map Prod.fst = _
+    rw [list_filter_map_comm, List.map_map, List.filter_filter]
+    exact congrArg₂ List.map rfl
+      (List.filter_congr (fun y _ => Bool.and_comm _ _))
+  rw [ValueFrame.frameSeqOn_eq_frameListOf, ← hform]
+  exact tokenOfWhen_filter_agg P O o w t f f keep r.toMultiset
+    (OccFam.row_mem_toMultiset r i) v hc
+
+omit [Fintype X] [DecidableEq X] in
 /-- **The column a multi-frame window builds is world-faithful.** Under a
 valuation each leaf reads its own frame cut down to the realized rows, in
 the clause's order, and that is the plain window value the realized world
@@ -2452,6 +2517,42 @@ theorem exprOf_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
   rw [← hform]
   exact tokenOf_filter_agg P O o (ws l) (ts l) (fs l) (fs l) r.toMultiset
     (OccFam.row_mem_toMultiset r i) v hc
+
+omit [Fintype X] [DecidableEq X] in
+/-- **A filtered multi-frame window's column is world-faithful too.**
+Each leaf reads its own frame cut down by its own clause and to the
+realized rows, which is the plain window value the realized world gives
+the row: a clause tests the row, and restricting the relation to a world
+does not move a row. -/
+theorem exprOfWhen_specialize {c n' m' p' q' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (ws : Fin q' → ValueFrame T p')
+    (ts : Fin q' → TermIn T c n') (fs : Fin q' → SeqAggFunc T)
+    (g : (Fin q' → T) → T) (keeps : Fin q' → Option (Selection T n'))
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
+    (v : X → Bool) {γ : Fin c → T} (hc : (r.row i).snd v = true) :
+    (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).specialize (fun α => α v)
+      = g (fun l => ValueFrame.windowValueOpt P O o (ws l) (ts l) (fs l)
+          (keeps l) (randomWorld v r.toMultiset) (r.row i).fst γ) := by
+  show g (fun l => (fs l)
+      ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).leafSeq l
+        (Finset.univ.filter (fun x =>
+          ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).anns x) v
+            = true)))) = _
+  refine congrArg g (funext (fun l => ?_))
+  rw [ValueFrame.leafSeq_exprOfWhen_keep P O o ws ts fs g keeps r i γ l
+    (fun α => α v)]
+  cases keeps l with
+  | none =>
+    simp only [Bool.and_true, ValueFrame.windowValueOpt_none]
+    rw [ValueFrame.map_exprIdx_filter_occs P O o ws ts r i γ l
+      (fun y => y.snd v)]
+    exact frameSeq_filter_agg P O o (ws l) (ts l) (fs l) r i v hc
+  | some φ =>
+    simp only [Bool.and_assoc, ValueFrame.windowValueOpt_some]
+    rw [ValueFrame.map_exprIdx_filter_occs P O o ws ts r i γ l
+      (fun y => φ.keeps y.fst && y.snd v)]
+    exact frameSeq_filter_agg_when P O o (ws l) (ts l) (fs l) φ.keeps r i v hc
+
 
 omit [Fintype X] [DecidableEq X] in
 /-- **A filtered token specializes to the filtered aggregate of the
@@ -3186,13 +3287,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | Retag h q ih =>
     intro hq hn d v γ
     exact ih hq hn d v
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q ih =>
+  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
     -- one output row per realized occurrence. The column specializes to
     -- the plain window value the realized world gives the row
     -- (`exprOf_specialize`), so nothing depends on the indexing – which
     -- is what lets the family be compared with a relation at all.
     intro hq hn d v γ
-    rw [AggQueryIn.evaluatePlain_WinExpr_eq, ← ih hq hn d v,
+    rw [AggQueryIn.evaluatePlain_WinExpr_eq_when, ← ih hq hn d v,
       ← genRandomWorld_allReg q d v]
     simp only [AggQueryIn.evaluate]
     set R : Multiset (AnnotatedTuple T (BoolFunc X) nI) :=
@@ -3208,8 +3309,8 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       rwa [OccFam.toMultiset_ofSorted] at hw
     rw [genRandomWorld_occFam]
     refine Eq.trans ?_ (congrArg (Multiset.map (fun u : Tuple T nI =>
-        (Fin.snoc u (g (fun l => ValueFrame.windowValue P O o (ws l) (ts l)
-          (fs l) (randomWorld v R) u γ)) : Tuple T (nI + 1)))) hRW).symm
+        (Fin.snoc u (g (fun l => ValueFrame.windowValueOpt P O o (ws l) (ts l)
+          (fs l) (keeps l) (randomWorld v R) u γ)) : Tuple T (nI + 1)))) hRW).symm
     rw [Multiset.map_map]
     refine Multiset.map_congr (Multiset.filter_congr (fun i _ => ?_))
       (fun i hi => ?_)
@@ -3222,8 +3323,8 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     funext k
     refine Fin.lastCases ?_ (fun k' => ?_) k
     · rw [Fin.snoc_last, Fin.snoc_last]
-      exact (exprOf_specialize P O o ws ts fs g (OccFam.ofSorted R) i v hc).trans
-        (by rw [OccFam.toMultiset_ofSorted])
+      exact (exprOfWhen_specialize P O o ws ts fs g keeps (OccFam.ofSorted R) i v
+        hc).trans (by rw [OccFam.toMultiset_ofSorted])
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
 
