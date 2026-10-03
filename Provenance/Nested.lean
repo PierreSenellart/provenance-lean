@@ -633,6 +633,23 @@ theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.specialize ν = a.collapse := by
   rw [specialize, realizedWorld_of_forall a ν h, valOn_full]
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- **The world-faithful reading, occurrence by occurrence**: the
+valuation keeps the occurrences whose annotation it makes true, and reads
+each of them in the world it cuts out of that occurrence's own
+expression. -/
+theorem specialize_eq (a : NestedValue T K) (ν : K → Bool) :
+    a.specialize ν
+      = a.agg ((a.occs.filter (fun o => ν o.2 = true)).map
+          (fun o => o.1.specialize ν)) := by
+  show a.agg _ = _
+  refine congrArg a.agg ?_
+  show ((a.occs.map (realizedOcc ν)).filter
+      (fun d => d.present = true)).map (fun d => d.occ.1.valOn d.sub) = _
+  rw [Multiset.filter_map, Multiset.map_map]
+  exact Multiset.map_congr
+    (Multiset.filter_congr (fun o _ => Iff.rfl)) (fun o _ => rfl)
+
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **The values a nested value takes survive the pushforward**: the
 worlds correspond, and each reads what the world it came from reads. -/

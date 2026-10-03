@@ -1362,6 +1362,22 @@ theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
     rfl]
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **An embedded token specializes as the token does.** -/
+theorem AggExpr.specialize_ofValue (a : AggValue T (BoolFunc X))
+    (v : X → Bool) :
+    (AggExpr.ofValue a).specialize (fun α => α v)
+      = a.specialize (fun α => α v) := by
+  rw [AggExpr.specialize, AggExpr.realizedWorld_ofValue,
+    AggExpr.valOn_ofValue, AggValue.specialize_eval]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **A reading that reads nothing returns its value**, whatever the
+valuation. -/
+theorem NestedValue.specialize_constInner (w : T) (v : X → Bool) :
+    (NestedValue.constInner w : AggExpr T (BoolFunc X)).specialize
+      (fun α => α v) = w := rfl
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **A realized column's inner reading has the world the valuation cuts
 out among its own.** On an expression that is what `AggTok.Realized`
 says of it; on an ordinary token it is the token's realized occurrence,
@@ -1396,6 +1412,69 @@ theorem GenValue.realized_innerValue (x : GenValue T (BoolFunc X))
       exact hx (AggTok.tok a) rfl
     | nest b => exact hconst b.collapse
     | expr e => exact hx (AggTok.expr e) rfl
+
+omit [Fintype X] [DecidableEq X] in
+/-- **What a nested occurrence reads in the world a valuation cuts
+out**: the inner reading of a projection column, read over the
+occurrences the valuation keeps, is what the valuation makes of that
+column. So an occurrence of a nested token reads what the realized row
+reads there. A *nested* column is the one case this excludes – the
+second storey is read through its collapse, which is the deterministic
+reading and not the world one – and `GenRow.NoNested` rules it out. -/
+theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
+    (p : ProjColIn T c κ) (u : Tuple (GenValue T (BoolFunc X)) n)
+    {γ : Fin c → T} (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base)
+    (hnn : GenRow.NoNested u) (v : X → Bool) :
+    (GenValue.innerValue (p.eval u γ)).specialize (fun α => α v)
+      = p.evalPlain (GenRow.specializeTuple v u) γ := by
+  cases p with
+  | term t =>
+    show (NestedValue.constInner (t.eval u γ)).specialize _ = _
+    rw [NestedValue.specialize_constInner]
+    exact TermGIn.eval_specialize t u hconf v
+  | provTerm t =>
+    show (NestedValue.constInner (t.eval u γ)).specialize _ = _
+    rw [NestedValue.specialize_constInner]
+    exact TermGIn.eval_specialize t u hconf v
+  | token k hk =>
+    show (GenValue.innerValue (u k)).specialize _
+      = GenValue.specializeAt v (u k)
+    cases hu : u k with
+    | inl w => exact NestedValue.specialize_constInner w v
+    | inr x =>
+      cases x with
+      | tok a => exact AggExpr.specialize_ofValue a v
+      | nest b => exact absurd (hnn k (AggTok.nest b) hu) (by simp)
+      | expr e => rfl
+  | aggTerm k hk gf =>
+    show (GenValue.innerValue (Sum.map gf (AggTok.postcomp gf) (u k))).specialize
+        (fun α => α v)
+      = gf (GenValue.specializeAt v (u k))
+    cases hu : u k with
+    | inl w => exact NestedValue.specialize_constInner (gf w) v
+    | inr x =>
+      cases x with
+      | tok a =>
+        show (AggExpr.ofValue (AggValue.postcomp gf a)).specialize
+            (fun α => α v) = _
+        rw [AggExpr.specialize_ofValue]
+        rfl
+      | nest b => exact absurd (hnn k (AggTok.nest b) hu) (by simp)
+      | expr e =>
+        show (e.postcomp gf).specialize (fun α => α v) = _
+        rw [AggExpr.specialize, AggExpr.valOn_postcomp]
+        rfl
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **A value column specializes to its collapse**: a valuation moves
+only what a token reads, and a column that holds no token holds its
+value. -/
+theorem GenValue.specializeAt_of_ne_agg {x : GenValue T (BoolFunc X)}
+    (h : GenValue.kindOf x ≠ ColKind.agg) (v : X → Bool) :
+    GenValue.specializeAt v x = AggValue.collapseSum x := by
+  cases x with
+  | inl w => rfl
+  | inr a => exact absurd rfl h
 
 /-! ## The guardedness invariant -/
 
@@ -2603,10 +2682,18 @@ guardedness invariants; the `Gamma` case rests on
 `groupSeq_randomWorld`; the multi-frame window on `exprOf_specialize`,
 which says its column reads in a world what the plain window reads of
 that world – so the operator asks nothing of its frames or of its
-aggregates here. -/
+aggregates here.
+
+Second-level aggregation is covered too, for one storey: the group's
+pending factor is realized exactly when one of its rows is, so the keys
+that survive are the realized world's keys, and the token's realized
+world keeps those rows and reads each in the world the valuation cuts out
+of the row's own column (`ProjColIn.specialize_innerValue`). What
+`nestOnce` excludes is a second storey, whose inner reading is taken
+through its collapse – the deterministic reading, not the world one. -/
 theorem AggQueryIn.genRandomWorld_evaluate :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-      (_hq : q.noProvSum) (_hn : q.noGammaNest)
+      (_hq : q.noProvSum) (_hn : q.nestOnce)
       (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
       {γ : Fin c → T},
     genRandomWorld v (q.evaluate d γ)
@@ -2829,11 +2916,130 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       (funext fun j => specialize_ofGroup _
         ((q.evaluate d γ).map GenRow.toAnnotated) _ (fs j) (ts j) v)
   | @GammaNest cI m n₁ κ' is his p f q ih =>
-    -- the one operator this does not cover: its token's realized reading
-    -- is the outer aggregate over the realized rows of the group, which is
-    -- what `noGammaNest` records as unproved
-    intro _ hn
-    exact absurd hn not_false
+    -- one output row per group that the realized world keeps, and its
+    -- token specializes to the outer aggregate over the realized rows of
+    -- the group: the pending factor is realized exactly when one of the
+    -- group's rows is, and the realized world of the token keeps that
+    -- occurrence and reads it in the world it cuts out of the row's own
+    -- column (`ProjColIn.specialize_innerValue`)
+    intro hq hn d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rw [← ih hq (AggQueryIn.nestOnce_of_noGammaNest q hn) d v]
+    -- the rows, the key read off their values, and what a row contributes
+    set rows := q.evaluate d γ with hrows
+    set key : GenRow T (BoolFunc X) m → Tuple T n₁ :=
+      fun row => fun k => AggValue.collapseSum (row.fst (is k)) with hkey
+    -- every row has no nested column, so each occurrence of the token
+    -- reads what its row reads
+    have hnest : ∀ row ∈ rows, GenRow.NoNested row.fst :=
+      fun row hrow => AggQueryIn.evaluate_noNested q hn d row hrow
+    have hconf : ∀ row ∈ rows, ∀ k, GenValue.kindOf (row.fst k) = (κ' k).base :=
+      fun row hrow => AggQueryIn.evaluate_conform q d row hrow
+    -- the key a realized row carries in the realized world is its own
+    have hkeyspec : ∀ row ∈ rows,
+        (fun k => GenRow.specializeTuple v row.fst (is k) : Tuple T n₁)
+          = key row := by
+      intro row hrow
+      funext k
+      show GenValue.specializeAt v (row.fst (is k)) = _
+      refine GenValue.specializeAt_of_ne_agg ?_ v
+      rw [hconf row hrow (is k), ColKind.base_eq_reg_of_ne_agg (his k)]
+      exact fun hc => ColKind.noConfusion hc
+    -- a group's row survives exactly where its own annotation does
+    have hsurv : ∀ g : Tuple T n₁,
+        (⟨1, {[(((rows.filter (fun row => key row = g)).map
+            (fun row => (GenValue.innerValue (p.eval row.fst γ),
+              row.snd.finalize))).map Prod.snd).sum]}⟩
+          : GenAnn (BoolFunc X)).finalize v = true
+        ↔ 0 < Multiset.card ((rows.filter (fun row => key row = g)).filter
+            (fun row => row.snd.finalize v = true)) := by
+      intro g
+      rw [GenAnn.finalize_eval_iff, Multiset.card_pos_iff_exists_mem]
+      constructor
+      · rintro ⟨-, hpend⟩
+        obtain ⟨β, hβmem, hβv⟩ := hpend _ (Multiset.mem_singleton_self _)
+        rw [List.mem_singleton] at hβmem
+        subst hβmem
+        obtain ⟨β', hβ', hβ'v⟩ := multiset_sum_eval_eq_true_iff _ v |>.mp hβv
+        rw [Multiset.map_map, Multiset.mem_map] at hβ'
+        obtain ⟨row, hrow, rfl⟩ := hβ'
+        exact ⟨row, Multiset.mem_filter.mpr ⟨hrow, hβ'v⟩⟩
+      · rintro ⟨row, hrowm⟩
+        obtain ⟨hrow, hrowv⟩ := Multiset.mem_filter.mp hrowm
+        refine ⟨rfl, fun l hl => ?_⟩
+        rw [Multiset.mem_singleton] at hl
+        subst hl
+        refine ⟨_, List.mem_singleton_self _, ?_⟩
+        refine multiset_sum_eval_eq_true_iff _ v |>.mpr ⟨row.snd.finalize, ?_, hrowv⟩
+        rw [Multiset.map_map]
+        exact Multiset.mem_map_of_mem _ hrow
+    unfold genRandomWorld
+    rw [filter_map_comm, Multiset.map_map,
+      Multiset.filter_congr (fun g (_ : g ∈ (rows.map key).dedup) => hsurv g)]
+    -- the keys the realized world has are the keys with a realized row
+    have hkeys : ((rows.map key).dedup).filter
+          (fun g => 0 < Multiset.card
+            ((rows.filter (fun row => key row = g)).filter
+              (fun row => row.snd.finalize v = true)))
+        = ((((rows.filter (fun r => r.snd.finalize v = true)).map
+            (fun r => GenRow.specializeTuple v r.fst)).map
+              (fun u => (fun k => u (is k) : Tuple T n₁))).dedup) := by
+      refine (Multiset.Nodup.ext ?_ (Multiset.nodup_dedup _)).mpr (fun g => ?_)
+      · exact Multiset.Nodup.filter _ (Multiset.nodup_dedup _)
+      · constructor
+        · intro hg
+          obtain ⟨-, hgc⟩ := Multiset.mem_filter.mp hg
+          obtain ⟨row, hrowm⟩ := Multiset.card_pos_iff_exists_mem.mp hgc
+          obtain ⟨hrowf, hrowv⟩ := Multiset.mem_filter.mp hrowm
+          obtain ⟨hrow, hrowk⟩ := Multiset.mem_filter.mp hrowf
+          refine Multiset.mem_dedup.mpr (Multiset.mem_map.mpr
+            ⟨GenRow.specializeTuple v row.fst, Multiset.mem_map.mpr
+              ⟨row, Multiset.mem_filter.mpr ⟨hrow, hrowv⟩, rfl⟩, ?_⟩)
+          exact (hkeyspec row hrow).trans hrowk
+        · intro hg
+          obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp (Multiset.mem_dedup.mp hg)
+          obtain ⟨row, hrowf, rfl⟩ := Multiset.mem_map.mp hu
+          obtain ⟨hrow, hrowv⟩ := Multiset.mem_filter.mp hrowf
+          refine Multiset.mem_filter.mpr ⟨Multiset.mem_dedup.mpr
+            (Multiset.mem_map.mpr ⟨row, hrow, (hkeyspec row hrow).symm⟩), ?_⟩
+          exact Multiset.card_pos_iff_exists_mem.mpr ⟨row,
+            Multiset.mem_filter.mpr ⟨Multiset.mem_filter.mpr
+              ⟨hrow, (hkeyspec row hrow).symm⟩, hrowv⟩⟩
+    rw [hkeys]
+    refine Multiset.map_congr rfl (fun g hg => ?_)
+    -- and per key the two tuples agree, the token specializing to the
+    -- outer aggregate over the group's realized rows
+    simp only [Function.comp_apply]
+    funext k
+    refine Fin.addCases (fun i => ?_) (fun j => ?_) k
+    · show GenValue.specializeAt v (Fin.append _ _ (Fin.castAdd 1 i)) = _
+      rw [Fin.append_left, Fin.append_left]
+      rfl
+    · show GenValue.specializeAt v (Fin.append _ _ (Fin.natAdd n₁ j)) = _
+      rw [Fin.append_right, Fin.append_right]
+      show (NestedValue.mk f _ false).specialize
+        (fun α : BoolFunc X => α v) = f _
+      rw [NestedValue.specialize_eq]
+      refine congrArg f ?_
+      show (((rows.filter (fun row => key row = g)).map
+            (fun row => (GenValue.innerValue (p.eval row.fst γ),
+              row.snd.finalize))).filter (fun o => o.2 v = true)).map
+          (fun o => o.1.specialize (fun α : BoolFunc X => α v)) = _
+      rw [Multiset.filter_map, Multiset.map_map, Multiset.filter_filter]
+      conv_rhs => rw [Multiset.filter_map, Multiset.map_map,
+        Multiset.filter_filter]
+      refine Multiset.map_congr (Multiset.filter_congr (fun row hrow => ?_))
+        (fun row hrow => ?_)
+      · -- the key a realized row carries in the realized world is its own
+        constructor
+        · rintro ⟨hv, hk⟩
+          exact ⟨(hkeyspec row hrow).trans hk, hv⟩
+        · rintro ⟨hk, hv⟩
+          exact ⟨hv, (hkeyspec row hrow).symm.trans hk⟩
+      · -- and the occurrence reads what the realized row reads
+        have hrow' : row ∈ rows := (Multiset.mem_filter.mp hrow).1
+        exact ProjColIn.specialize_innerValue p row.fst (hconf row hrow')
+          (hnest row hrow') v
   | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
     intro hq hn d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
@@ -3035,7 +3241,7 @@ noncomputable def AggQueryIn.booleanProv {n : ℕ} {κ : Fin n → ColKind}
 general query is true in a world iff the plain evaluation of that world
 is non-empty. Immediate from the random-world commutation. -/
 theorem AggQueryIn.booleanProv_eval_iff {n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQuery T n κ) (hq : q.noProvSum) (hn : q.noGammaNest)
+    (q : AggQuery T n κ) (hq : q.noProvSum) (hn : q.nestOnce)
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
     (q.booleanProv d) v = true
       ↔ q.evaluatePlain (d.randomWorld v) ≠ 0 := by
@@ -3071,7 +3277,7 @@ query equals the probability of its Boolean provenance. This removes the
 top-level restriction of the fused `booleanHaving_pqe`. -/
 theorem AggQueryIn.boolean_pqe {n : ℕ} {κ : Fin n → ColKind}
     (P : ProbAssignment X) (q : AggQuery T n κ) (hq : q.noProvSum)
-    (hn : q.noGammaNest)
+    (hn : q.nestOnce)
     (d : AnnotatedDatabase T (BoolFunc X)) :
     AggQueryIn.booleanProb P q d = P.funcProb (q.booleanProv d) := by
   unfold AggQueryIn.booleanProb ProbAssignment.funcProb
@@ -3097,7 +3303,7 @@ noncomputable def AggQueryIn.tupleProv {n : ℕ}
 a world iff `t` belongs to the plain evaluation of that world. -/
 theorem AggQueryIn.tupleProv_eval_iff {n : ℕ}
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hn : q.noGammaNest)
+    (hn : q.nestOnce)
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) (v : X → Bool) :
     (q.tupleProv d t) v = true
       ↔ t ∈ q.evaluatePlain (d.randomWorld v) := by
@@ -3145,7 +3351,7 @@ intensional-PQE theorem `ProbAssignment.theorem_12`, with aggregate
 comparisons allowed anywhere in the query. -/
 theorem AggQueryIn.tuple_pqe {n : ℕ} (P : ProbAssignment X)
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hn : q.noGammaNest)
+    (hn : q.nestOnce)
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     AggQueryIn.tupleProb P q d t = P.funcProb (q.tupleProv d t) := by
   unfold AggQueryIn.tupleProb ProbAssignment.funcProb

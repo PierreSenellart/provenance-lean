@@ -2075,6 +2075,68 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaNest
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.noGammaNest
 
+/-- **No second-level aggregation reads a second-level aggregation.**
+One level of nesting is what `sec:aggcols` reads as values: an occurrence
+of a nested value carries the aggregate *expression* read there, and an
+expression's leaves are ordinary aggregate values. A column holding a
+*nested* value at such an occurrence is a second level, which
+`GenValue.innerValue` reads through its collapse – total, and the
+deterministic reading of it is right, but not the world reading. A third
+level is what resolution takes innermost first, so the possible-world
+results ask this of the query: no `GammaNest` inside a `GammaNest`.
+
+It is strictly weaker than `AggQueryIn.noGammaNest`, which excludes the
+operator outright. -/
+def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.nestOnce
+  | _, _, _, .Sel _ q => q.nestOnce
+  | _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, .Apply q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, .Dedup q => q.nestOnce
+  | _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, .Alt _ _ q => q.nestOnce
+  | _, _, _, .Mu _ _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, .Gamma _ _ _ q _ => q.nestOnce
+  | _, _, _, .GammaScalar _ _ q => q.nestOnce
+  | _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
+  | _, _, _, .ProvSum _ _ _ q => q.nestOnce
+  | _, _, _, .Retag _ q => q.nestOnce
+  | _, _, _, .GammaTok _ _ _ _ _ q => q.nestOnce
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.nestOnce
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q => q.nestOnce
+
+omit [ValueType T] in
+/-- A query with no second-level aggregation at all nests at most
+once. -/
+theorem AggQueryIn.nestOnce_of_noGammaNest :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.noGammaNest → q.nestOnce := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ => trivial
+  | Proj ps q ih => exact ih
+  | Sel φ q ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Alt a b q ih => exact ih
+  | Mu a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | MuSet a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | Gamma a b cc q kp ih => exact ih
+  | GammaScalar a b q ih => exact ih
+  | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
+  | ProvSum a b cc q ih => exact ih
+  | Retag a q ih => exact ih
+  | GammaTok a b cc dd e q ih => exact ih
+  | Win a b cc dd e ff q dist kp ih => exact ih
+  | WinExpr a b cc dd e ff gg q ih => exact ih
+
 /-- **No multi-frame window.** `WinExpr` is the one operator of the
 syntax that builds an aggregate column holding an expression rather than
 an ordinary token, so the results proved only for ordinary tokens
