@@ -688,17 +688,15 @@ section Filter
 variable [ValueTypeNull T] {m : ℕ}
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- **What a `FILTER` clause makes a group's token read in a world**: the
-occurrences of that world the clause keeps. The token carries all of the
-group's occurrences – a filtered-out occurrence still witnesses its
-group – and it is the input policy that drops the ones the clause nulls
-out, in every world alike. -/
+/-- **The term encoding computes the clause's reading, for a
+null-skipping aggregate**: nulling the rejected occurrences out and then
+skipping them is cutting them from the sequence. This is why a
+null-skipping `FILTER` needs nothing but a term. -/
 theorem aggValOn_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     Having.aggValOn U (filterTerm op t₁ t₂ t) f.sqlOf W
-      = f.sqlOf ((((Having.seqOf U W).map Prod.fst).filter
-          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+      = Having.aggValOnWhen U (filterHolds op t₁ t₂) t f.sqlOf W := by
   show f.sqlOf ((Having.seqOf U W).map
       (fun p => (filterTerm op t₁ t₂ t).eval p.fst)) = _
   rw [show (fun p : AnnotatedTuple T K m => (filterTerm op t₁ t₂ t).eval p.fst)
@@ -712,8 +710,7 @@ theorem aggValOn_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
     (t₁ t₂ t : Term T m) (U : List (AnnotatedTuple T K m))
     (W : Finset (Fin U.length)) :
     Having.aggValOn U (filterTerm op t₁ t₂ t) f.counting W
-      = f.counting ((((Having.seqOf U W).map Prod.fst).filter
-          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+      = Having.aggValOnWhen U (filterHolds op t₁ t₂) t f.counting W := by
   show f.counting ((Having.seqOf U W).map
       (fun p => (filterTerm op t₁ t₂ t).eval p.fst)) = _
   rw [show (fun p : AnnotatedTuple T K m => (filterTerm op t₁ t₂ t).eval p.fst)
@@ -732,8 +729,7 @@ theorem valOn_ofGroup_filterTerm_sqlOf (f : SeqAggFunc T) (op : CompOp)
         (W.map (finCongr
           (AggValue.length_ofGroup_occs f.sqlOf
             (filterTerm op t₁ t₂ t) U)).toEmbedding)
-      = f.sqlOf ((((Having.seqOf U W).map Prod.fst).filter
-          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+      = Having.aggValOnWhen U (filterHolds op t₁ t₂) t f.sqlOf W := by
   rw [AggValue.valOn_ofGroup, aggValOn_filterTerm_sqlOf]
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -745,9 +741,63 @@ theorem valOn_ofGroup_filterTerm_counting (f : SeqAggFunc T) (op : CompOp)
         (W.map (finCongr
           (AggValue.length_ofGroup_occs f.counting
             (filterTerm op t₁ t₂ t) U)).toEmbedding)
-      = f.counting ((((Having.seqOf U W).map Prod.fst).filter
-          (filterHolds op t₁ t₂)).map (fun u => t.eval u)) := by
+      = Having.aggValOnWhen U (filterHolds op t₁ t₂) t f.counting W := by
   rw [AggValue.valOn_ofGroup, aggValOn_filterTerm_counting]
+
+/-! ### Why a null-keeping aggregate has to be told about the clause
+
+On a null-skipping aggregate and on a count, `FILTER` is a term: nulling
+the rejected occurrences out and letting the input policy drop them is
+cutting them from the sequence (`aggValOn_filterTerm_sqlOf`,
+`aggValOn_filterTerm_counting`). On a null-keeping aggregate it is not a
+term, and here is why: such an aggregate reads the null as a value, so it
+reads the rejected occurrences too, and the clause has to cut the
+sequence itself (`Having.aggValOnWhen`). -/
+
+namespace FilterCounterexample
+
+/-- The value domain of the counterexample: `ℕ` with a null adjoined. -/
+abbrev V : Type := WithNull ℕ
+
+/-- **A null-keeping aggregate**: the length of the sequence, nulls
+included. This is `ARRAY_AGG`'s input policy – every value is read – in
+the one shape a `ValueType` affords, there being no array in the domain:
+what the aggregate returns is how many values it was given. -/
+def len : SeqAggFunc V := fun L => WithNull.val L.length
+
+/-- A group of two occurrences, carrying the values `1` and `2`. -/
+def U : List (AnnotatedTuple V ℕ 1) :=
+  [(fun _ => WithNull.val 1, 1), (fun _ => WithNull.val 2, 1)]
+
+/-- The clause `x = 1`, which keeps the first occurrence and rejects the
+second. -/
+abbrev cl₁ : Term V 1 := TermIn.index 0
+
+/-- Its right-hand side. -/
+abbrev cl₂ : Term V 1 := TermIn.const (WithNull.val 1)
+
+/-- **The term encoding over-counts.** With the clause's rejected
+occurrence nulled out rather than removed, the null-keeping aggregate
+reads two values where SQL's `FILTER` gives it one. -/
+theorem filterTerm_ne_aggValOnWhen :
+    Having.aggValOn U (filterTerm CompOp.eq cl₁ cl₂ (TermIn.index 0)) len
+        Finset.univ
+      ≠ Having.aggValOnWhen U (filterHolds CompOp.eq cl₁ cl₂)
+        (TermIn.index 0) len Finset.univ := by
+  decide
+
+/-- The two values it reads, for the record: two against one. -/
+theorem filterTerm_val :
+    Having.aggValOn U (filterTerm CompOp.eq cl₁ cl₂ (TermIn.index 0)) len
+      Finset.univ = WithNull.val 2 := by
+  decide
+
+theorem aggValOnWhen_val :
+    Having.aggValOnWhen U (filterHolds CompOp.eq cl₁ cl₂) (TermIn.index 0) len
+      Finset.univ = WithNull.val 1 := by
+  decide
+
+end FilterCounterexample
 
 end Filter
 

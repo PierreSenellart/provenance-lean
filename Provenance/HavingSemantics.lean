@@ -932,6 +932,44 @@ def aggValOn (U : List (AnnotatedTuple T K m)) (t : Term T m)
     (f : SeqAggFunc T) (W : Finset (Fin U.length)) : T :=
   f ((seqOf U W).map (fun p => t.eval p.fst))
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The full world selects the whole occurrence sequence. -/
+@[simp] theorem seqOf_univ {β : Type} (U : List β) :
+    seqOf U Finset.univ = U := by
+  have h := seqOf_filter_positions (fun _ : β => true) U
+  rw [List.filter_eq_self.mpr (fun _ _ => rfl)] at h
+  refine Eq.trans (congrArg (seqOf U) ?_) h
+  exact (Finset.filter_true_of_mem
+    (fun i (_ : i ∈ (Finset.univ : Finset (Fin U.length))) =>
+      (by rfl : (fun _ : β => true) (U.get i) = true))).symm
+
+/-- **The value a group's token takes in a world under a `FILTER`
+clause**: the aggregate of the term over the occurrences of that world
+the clause keeps. `aggValOn` is the case of a clause that keeps
+everything (`aggValOnWhen_of_all`).
+
+The clause cuts the *sequence*, and that is the only reading that works
+for all three of SQL's input policies. A null-skipping aggregate and a
+count can be made to drop the rejected occurrences by nulling their term
+out instead – that is `filterTerm`, and
+`aggValOn_filterTerm_sqlOf`/`_counting` say the two readings agree there
+– but a null-keeping aggregate reads the null as a value, so for it the
+rejected occurrence has to leave the sequence and no term can arrange
+that (`FilterCounterexample.filterTerm_ne_aggValOnWhen`). -/
+def aggValOnWhen (U : List (AnnotatedTuple T K m)) (keep : Tuple T m → Bool)
+    (t : Term T m) (f : SeqAggFunc T) (W : Finset (Fin U.length)) : T :=
+  f ((((seqOf U W).map Prod.fst).filter keep).map (fun u => t.eval u))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- A clause that keeps every row is no clause. -/
+theorem aggValOnWhen_of_all (U : List (AnnotatedTuple T K m))
+    {keep : Tuple T m → Bool} (h : ∀ u, keep u = true) (t : Term T m)
+    (f : SeqAggFunc T) (W : Finset (Fin U.length)) :
+    aggValOnWhen U keep t f W = aggValOn U t f W := by
+  unfold aggValOnWhen aggValOn
+  rw [List.filter_eq_self.mpr (fun u _ => h u), List.map_map]
+  rfl
+
 /-! ### Predicate provenance -/
 
 /-- `χ_op`: the characteristic value of a comparison, `𝟙` if it holds and
