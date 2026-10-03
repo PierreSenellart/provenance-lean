@@ -612,8 +612,7 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) (u : Tuple (GenValue T K) n)
     (ℓ₀ : List K)
     (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-      u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
-        ∧ a.annList = ℓ₀)
+      u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀)
     (hent : φ.entailsExistence neg = true) :
     φ.predsem neg u γ * SemiringWithMonus.delta ℓ₀.sum
       = φ.predsem neg u γ := by
@@ -623,14 +622,23 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     cases hu : u k with
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
     | inr x =>
-      obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
-      rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
-      · simp only [AggTok.scalar_tok] at hsc
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      cases x with
+      | tok a =>
+        simp only [AggTok.scalar_tok] at hsc
         simp only [AggTok.annList_tok] at heq
         simp only [GenPredIn.predsem, hu, AggTok.predProvOf_tok]
         rw [AggValue.predProvOf_of_grouped hsc, ← heq]
         exact AggValue.predProv_delta_absorb a _ _
-      · simp only [AggTok.scalar_expr] at hsc
+      | nest b =>
+        simp only [AggTok.scalar_nest] at hsc
+        simp only [AggTok.annList_nest] at heq
+        simp only [GenPredIn.predsem, AggTok.predProvOf, hu,
+          AggTok.predProvOfWith]
+        rw [← heq, List.sum_singleton]
+        exact NestedValue.predProvWith_delta_absorb b hsc _
+      | expr e =>
+        simp only [AggTok.scalar_expr] at hsc
         simp only [AggTok.annList_expr] at heq
         simp only [GenPredIn.predsem, AggTok.predProvOf, hu,
           AggTok.predProvOfWith_expr]
@@ -641,15 +649,23 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
     cases hu : u k with
     | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
     | inr x =>
-      obtain ⟨hnn, hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
-      rcases AggTok.eq_tok_or_expr_of_not_nested hnn with ⟨a, rfl⟩ | ⟨e, rfl⟩
-      · simp only [AggTok.scalar_tok] at hsc
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      cases x with
+      | tok a =>
+        simp only [AggTok.scalar_tok] at hsc
         simp only [AggTok.annList_tok] at heq
         simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_tok]
         rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true,
           ← heq]
         exact AggValue.predProvWith_delta_absorb a _
-      · simp only [AggTok.scalar_expr] at hsc
+      | nest b =>
+        simp only [AggTok.scalar_nest] at hsc
+        simp only [AggTok.annList_nest] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith]
+        rw [← heq, List.sum_singleton]
+        exact NestedValue.predProvWith_delta_absorb b hsc _
+      | expr e =>
+        simp only [AggTok.scalar_expr] at hsc
         simp only [AggTok.annList_expr] at heq
         simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_expr]
         rw [← heq]
@@ -657,12 +673,10 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
           (AggExpr.exists_grouped_of_not_isScalar hsc) _
   | and φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
-          ∧ a.annList = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
-          ∧ a.annList = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -696,12 +710,10 @@ theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
       rw [he, add_mul, ihφ true huφ hent'.1, ihψ true huψ hent'.2]
   | or φ ψ ihφ ihψ =>
     have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
-          ∧ a.annList = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_left _ hk)
     have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
-        u k = Sum.inr a → a.isNested = false ∧ a.scalar = false
-          ∧ a.annList = ℓ₀ :=
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
       fun k hk => huni k (Finset.mem_union_right _ hk)
     cases neg with
     | false =>
@@ -1050,13 +1062,13 @@ section Simulation
 
 /-- **Equivalence of lifted values**: equal regular values, or aggregate
 columns that read the same. On an ordinary token that is the same
-aggregate over tie-block-permuted payloads; on an expression it is the
-four readings the metatheory takes – the collapse, the convention, the
-values over the worlds and the predicate provenance of every test –
-since an expression's family is listed by occurrence index and a
-tie-block permutation of it is not an equality of families. A nested
-column is equivalent to nothing, which is how the simulation keeps the
-one unproved reading out.
+aggregate over tie-block-permuted payloads; on an expression and on a
+nested value it is the four readings the metatheory takes – the collapse,
+the convention, the values over the worlds and the predicate provenance
+of every test – since neither family is compared as a family: an
+expression's is listed by occurrence index, where a tie-block permutation
+of it is not an equality, and a nested value's is a bag, where the
+occurrences carry tokens that nothing orders.
 
 The occurrence *annotations* are deliberately not compared: on either
 kind the two sides' families agree only up to a tie-block permutation,
@@ -1067,6 +1079,10 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
   | Sum.inr (AggTok.tok a'), Sum.inr (AggTok.tok a) =>
       a'.agg = a.agg ∧ a'.scalar = a.scalar ∧
         TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs
+  | Sum.inr (AggTok.nest b'), Sum.inr (AggTok.nest b) =>
+      b'.collapse = b.collapse ∧ b'.scalar = b.scalar
+        ∧ b'.vals = b.vals
+        ∧ ∀ P : T → Kleene, b'.predProvWith P = b.predProvWith P
   | Sum.inr (AggTok.expr e'), Sum.inr (AggTok.expr e) =>
       e'.collapse = e.collapse ∧ e'.isScalar = e.isScalar
         ∧ e'.vals = e.vals
@@ -1089,27 +1105,33 @@ Downstream never cases on the kind of token: it reads an aggregate
 column through its collapse, its convention, its values and its
 predicate provenance, and each of those is equal on the two sides. -/
 
-/-- Neither side of an equivalence is a nested column. -/
-theorem GenValue.Equiv.isNested_eq_false_right {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x.isNested = false := by
-  cases x with
-  | tok a => rfl
-  | expr e => rfl
-  | nest a => cases x' <;> exact absurd h not_false
-
-/-- And the same on the left. -/
-theorem GenValue.Equiv.isNested_eq_false_left {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.isNested = false := by
+/-- **Equivalent columns hold the same kind of token.** -/
+theorem GenValue.Equiv.isNested_eq {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
+    x'.isNested = x.isNested := by
   cases x' with
-  | tok a => rfl
-  | expr e => rfl
-  | nest a => cases x <;> exact absurd h not_false
+  | tok a' => cases x with
+    | tok a => rfl
+    | nest b => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | nest b' => cases x with
+    | nest b => rfl
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
+  | expr e' => cases x with
+    | expr e => rfl
+    | tok a => exact absurd h not_false
+    | nest b => exact absurd h not_false
 
 /-- Equivalent columns are read in the same convention. -/
 theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.scalar = x.scalar := by
   cases x' with
-  | nest a' => cases x <;> exact absurd h not_false
+  | nest b' =>
+    cases x with
+    | nest b => exact h.2.1
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
   | tok a' =>
     cases x with
     | tok a => exact h.2.1
@@ -1126,7 +1148,11 @@ theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) :
     x'.collapse = x.collapse := by
   cases x' with
-  | nest a' => cases x <;> exact absurd h not_false
+  | nest b' =>
+    cases x with
+    | nest b => exact h.1
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
   | tok a' =>
     cases x with
     | tok a => exact AggValue.collapse_congr h.1 h.2.2
@@ -1143,7 +1169,11 @@ key. -/
 theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.vals = x.vals := by
   cases x' with
-  | nest a' => cases x <;> exact absurd h not_false
+  | nest b' =>
+    cases x with
+    | nest b => exact h.2.2.1
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
   | tok a' =>
     cases x with
     | tok a => exact AggValue.vals_congr h.1 h.2.1 h.2.2
@@ -1163,7 +1193,11 @@ theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
     (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (P : T → Kleene) :
     x'.predProvOfWith P = x.predProvOfWith P := by
   cases x' with
-  | nest a' => cases x <;> exact absurd h not_false
+  | nest b' =>
+    cases x with
+    | nest b => exact h.2.2.2 P
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
   | tok a' =>
     cases x with
     | tok a => exact AggValue.predProvOfWith_congr h.1 h.2.1 h.2.2 P
@@ -1212,7 +1246,15 @@ theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
     GenValue.Equiv (Sum.inr (x'.postcomp gf) : GenValue T K)
       (Sum.inr (x.postcomp gf)) := by
   cases x' with
-  | nest a' => cases x <;> exact absurd h not_false
+  | nest b' =>
+    cases x with
+    | nest b =>
+      refine ⟨congrArg gf h.1, h.2.1, ?_, fun P => ?_⟩
+      · rw [NestedValue.vals_postcomp, NestedValue.vals_postcomp, h.2.2.1]
+      · rw [NestedValue.predProvWith_postcomp,
+          NestedValue.predProvWith_postcomp, h.2.2.2]
+    | tok a => exact absurd h not_false
+    | expr e => exact absurd h not_false
   | tok a' =>
     cases x with
     | tok a =>
@@ -1359,37 +1401,6 @@ def GenRow.Sim (h : SemiringWithMonusHom K K') {n : ℕ}
     ∧ r'.snd.finalize = h.toRingHom r.snd.finalize
 
 omit [DecidableEq K] in
-/-- **A simulated row holds no nested column**, on either side: an
-aggregate column is equivalent to the pushforward of one, and a nested
-column is equivalent to nothing. An *expression* column is allowed on
-both sides – its readings are proved – so this is `GenRow.NoNested` and
-not the stronger fence. -/
-theorem GenRow.Sim.noNested (h : SemiringWithMonusHom K K') {n : ℕ}
-    {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
-    GenRow.NoNested r.fst := by
-  intro k x hx
-  have hk := hs.1 k
-  rw [hx] at hk
-  cases hr' : r'.fst k with
-  | inl w => rw [hr'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
-  | inr x' =>
-    rw [hr'] at hk
-    rw [← AggTok.isNested_mapAnn ⇑h.toRingHom x]
-    exact hk.isNested_eq_false_right
-
-omit [DecidableEq K] in
-/-- The same on the hom side. -/
-theorem GenRow.Sim.noNested' (h : SemiringWithMonusHom K K') {n : ℕ}
-    {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
-    GenRow.NoNested r'.fst := by
-  intro k x' hx'
-  have hk := hs.1 k
-  rw [hx'] at hk
-  cases hr : r.fst k with
-  | inl w => rw [hr] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
-  | inr x => rw [hr] at hk; exact hk.isNested_eq_false_left
-
-omit [DecidableEq K] in
 /-- Simulated rows finalize to pushed-forward annotated tuples. -/
 theorem GenRow.Sim.toAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
     {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r) :
@@ -1430,7 +1441,7 @@ any collection of pending factors, each of which is the occurrence list of
 *every* compared token. -/
 theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (hent : φ.entailsExistence false = true)
-    (D : Multiset (List K)) (hnn : GenRow.NoNested u)
+    (D : Multiset (List K))
     (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
       u k = Sum.inr a → a.scalar = false ∧ a.annList = l) :
     φ.predsem false u γ
@@ -1441,8 +1452,7 @@ theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
   | cons l D ih =>
     rw [Multiset.map_cons, Multiset.prod_cons, ← mul_assoc,
       GenPredIn.predsem_delta_absorb φ false u l
-        (fun k hk a hka => ⟨hnn k a hka,
-          hD l (Multiset.mem_cons_self l D) k hk a hka⟩) hent]
+        (fun k hk a hka => hD l (Multiset.mem_cons_self l D) k hk a hka) hent]
     exact ih (fun l' hl' => hD l' (Multiset.mem_cons_of_mem hl'))
 
 /-- **Selection finalize identity.** On each side separately, the
@@ -1454,7 +1464,7 @@ license. The compared-lists multiset `C` is abstract; the only fact used
 is that every compared token's occurrence list belongs to it. -/
 theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
     (u : Tuple (GenValue T K) n) (b : K) (P : Multiset (List K))
-    (C Cs : Multiset (List K)) (hnn : GenRow.NoNested u)
+    (C Cs : Multiset (List K))
     (hC : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
       u k = Sum.inr a → a.annList ∈ C)
     (hCs : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
@@ -1473,7 +1483,7 @@ theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
         * ((P.filter dropCond).map
             (fun l => SemiringWithMonus.delta l.sum)).prod
         = φ.predsem false u γ := by
-      refine GenPredIn.predsem_absorb_prod φ u hent _ hnn
+      refine GenPredIn.predsem_absorb_prod φ u hent _
         (fun l hl k hk a hka => ?_)
       have hcond := (Multiset.mem_filter.mp hl).2
       refine ⟨?_, hcond.2.2 a.annList (hC k hk a hka)⟩
@@ -2051,13 +2061,11 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       refine rel_map_of_rel (ih d γ hw) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
-          (hs.noNested' h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩),
         GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
-          (hs.noNested h)
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr

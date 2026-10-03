@@ -321,6 +321,24 @@ theorem World.presentProd_eq_of_coherent {W : World T K}
     (fun d : WorldOcc T K => d.present = true) W.occs]
   rw [Multiset.map_add, Multiset.prod_add, h1, mul_one]
 
+omit [ValueType T] in
+/-- **The annotation of an occurrence a world keeps is a factor of the
+world's annotation.** This is what lets a world swallow the `δ`-guard of
+the family it reads. -/
+theorem World.exists_ann_eq_mul {W : World T K} {d : WorldOcc T K}
+    (hd : d ∈ W.occs) (hp : d.present = true) :
+    ∃ x : K, W.ann = d.occ.2 * x := by
+  obtain ⟨t, ht⟩ := Multiset.exists_cons_of_mem hd
+  refine ⟨(t.map (fun e => if e.present = true then e.occ.2 else 1)).prod
+      * ((W.occs.map (fun e => ∏ j ∈ e.sub, e.occ.1.anns j)).prod
+        * (1 - W.absentSum)), ?_⟩
+  rw [World.ann, World.presentProd,
+    show (W.occs.map (fun e => if e.present = true then e.occ.2 else 1)).prod
+      = d.occ.2
+        * (t.map (fun e => if e.present = true then e.occ.2 else 1)).prod from by
+      rw [ht, Multiset.map_cons, Multiset.prod_cons, ite_eq_left hp],
+    mul_assoc, mul_assoc]
+
 end Annotation
 
 omit [ValueType T] in
@@ -589,6 +607,89 @@ theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
     (Multiset.map_congr rfl (fun W _ => valOn_mapAnn h a W))
 
 omit [ValueType T] [DecidableEq K] in
+/-- **A nested value's predicate provenance absorbs the `δ`-guard of its
+own outer family**, provided the reading is grouped – which is what makes
+every admissible world keep an occurrence, so that one occurrence
+annotation is there to swallow `δ` of the family's sum. Where the reading
+is scalar the empty world is a world and there is nothing to absorb
+with. -/
+theorem predProvWith_delta_absorb (a : NestedValue T K)
+    (hsc : a.scalar = false) (P : T → Kleene) :
+    a.predProvWith P * SemiringWithMonus.delta (a.occs.map Prod.snd).sum
+      = a.predProvWith P := by
+  unfold predProvWith
+  rw [← Multiset.sum_map_mul_right]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun W hW => ?_))
+  obtain ⟨hmem, hworld⟩ := Multiset.mem_filter.mp hW
+  have hkept : 0 < Multiset.card W.kept := by
+    rcases hworld.1 with hs | hs
+    · exact absurd (hsc.symm.trans hs) Bool.false_ne_true
+    · exact hs
+  obtain ⟨d₀, hd₀⟩ := Multiset.card_pos_iff_exists_mem.mp hkept
+  have hd₀occ : d₀ ∈ W.occs := Multiset.mem_of_mem_filter hd₀
+  have hp : d₀.present = true := (Multiset.mem_filter.mp hd₀).2
+  have hfam : d₀.occ.2 ∈ a.occs.map Prod.snd := by
+    rw [← isWorldOf_of_mem_worlds hmem, Multiset.map_map]
+    exact Multiset.mem_map_of_mem _ hd₀occ
+  obtain ⟨s, hs⟩ := Multiset.exists_cons_of_mem hfam
+  have key : d₀.occ.2 * SemiringWithMonus.delta (a.occs.map Prod.snd).sum
+      = d₀.occ.2 := by
+    rw [hs, Multiset.sum_cons]
+    exact SemiringWithMonus.delta_absorb _ _
+  obtain ⟨x, hx⟩ := World.exists_ann_eq_mul hd₀occ hp
+  rw [hx]
+  calc d₀.occ.2 * x * Having.chiOf P (a.valOn W)
+        * SemiringWithMonus.delta (a.occs.map Prod.snd).sum
+      = (x * Having.chiOf P (a.valOn W))
+        * (d₀.occ.2
+          * SemiringWithMonus.delta (a.occs.map Prod.snd).sum) := by
+        rw [mul_rotate d₀.occ.2, mul_assoc]
+    _ = (x * Having.chiOf P (a.valOn W)) * d₀.occ.2 := by rw [key]
+    _ = d₀.occ.2 * x * Having.chiOf P (a.valOn W) := (mul_rotate _ _ _).symm
+
+/-- **Reading a nested value's aggregate through a function** – what a
+term over the aggregate column it produces reads. The occurrences, the
+convention and so the worlds are untouched, so every reading is the
+reading of the value, read through `gf`. -/
+def postcomp (gf : T → T) (a : NestedValue T K) : NestedValue T K :=
+  ⟨fun s => gf (a.agg s), a.occs, a.scalar⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem occs_postcomp (gf : T → T) (a : NestedValue T K) :
+    (postcomp gf a).occs = a.occs := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem scalar_postcomp (gf : T → T) (a : NestedValue T K) :
+    (postcomp gf a).scalar = a.scalar := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem collapse_postcomp (gf : T → T) (a : NestedValue T K) :
+    (postcomp gf a).collapse = gf a.collapse := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The values it takes are the values of the nested value, read through
+the function. -/
+theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
+    (postcomp gf a).vals = a.vals.image gf := by
+  have h : (postcomp gf a).vals
+      = ((a.worlds.filter (fun W => W.IsWorld a)).map
+          (fun W => gf (a.valOn W))).toFinset := rfl
+  rw [h]
+  ext v
+  simp only [vals, Multiset.mem_toFinset, Multiset.mem_map, Finset.mem_image]
+  constructor
+  · rintro ⟨W, hW, rfl⟩
+    exact ⟨a.valOn W, ⟨W, hW, rfl⟩, rfl⟩
+  · rintro ⟨u, ⟨W, hW, rfl⟩, rfl⟩
+    exact ⟨W, hW, rfl⟩
+
+omit [ValueType T] [DecidableEq K] in
+/-- And a test of `gf(a)` is the composed test of `a`. -/
+theorem predProvWith_postcomp (gf : T → T) (a : NestedValue T K)
+    (P : T → Kleene) :
+    (postcomp gf a).predProvWith P = a.predProvWith (fun v => P (gf v)) := rfl
+
+omit [ValueType T] [DecidableEq K] in
 /-- **A test no value satisfies annotates `𝟘`.** -/
 theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
     (h : ∀ v : T, P v ≠ Kleene.true) : a.predProvWith P = 0 := by
@@ -727,10 +828,12 @@ moves no value (`NestedValue.valOn_mapAnn`), keeps the values the column
 takes (`vals_mapAnn`) and commutes with the predicate provenance
 (`AggQueryHom`'s `NestedValue.predProvWith_mapAnn`), so the hom
 commutation of a column and of a predicate asks nothing about the kind of
-token. What a nested column is still excluded from is the `δ`-absorption
-of its own family's guard and the random-world reading, and those
-theorems carry a `GenRow.NoNested` hypothesis rather than pretending to
-cover it. -/
+token. It also absorbs the `δ`-guard of its own family
+(`NestedValue.predProvWith_delta_absorb`), which is what the evaluator's
+supersede bookkeeping needs, so the hom layer asks nothing about the kind
+of token at all. What a nested column is still excluded from is the
+random-world reading, whose statements carry an `isNested = false`
+hypothesis rather than pretending to cover it. -/
 
 /-- An aggregate column's value: an ordinary token, or a **nested** one
 whose occurrences include those of the aggregate values its term
@@ -810,6 +913,12 @@ def isTok : AggTok T K → Bool
 
 @[simp] theorem isNested_nest (a : NestedValue T K) :
     (AggTok.nest a).isNested = true := rfl
+
+@[simp] theorem collapse_nest (a : NestedValue T K) :
+    (AggTok.nest a).collapse = a.collapse := rfl
+
+@[simp] theorem scalar_nest (a : NestedValue T K) :
+    (AggTok.nest a).scalar = a.scalar := rfl
 
 @[simp] theorem collapse_expr (a : AggExpr T K) :
     (AggTok.expr a).collapse = a.collapse := rfl
@@ -898,7 +1007,7 @@ def predProvOfWith (P : T → Kleene) : AggTok T K → K
 one aggregate column produces. -/
 def postcomp (gf : T → T) : AggTok T K → AggTok T K
   | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
-  | .nest a => .nest ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+  | .nest a => .nest (a.postcomp gf)
   | .expr a => .expr (a.postcomp gf)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in

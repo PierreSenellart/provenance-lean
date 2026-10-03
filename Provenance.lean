@@ -917,7 +917,13 @@ proven engine several general results reuse internally.
   the evaluator. A window's frame is carried unchanged, being read off the
   values; what the pushforward moves is only the order inside a block of
   equal tuples, which `sortList_hom_tiePerm` and `tokenOf_mapAnn_tiePerm`
-  render invisible exactly as for a group
+  render invisible exactly as for a group. The layer asks nothing about
+  which kind of token an aggregate column holds, a nested one included:
+  `NestedValue.predProvWith_mapAnn` commutes its reading (the worlds of
+  the pushforward are the pushforwards of the worlds, `worlds_mapAnn`,
+  each carrying the pushed annotation, `World.ann_mapAnn`) and
+  `NestedValue.predProvWith_delta_absorb` gives it the guard absorption,
+  so `GenValue.Equiv` relates nested columns like expression ones
 - `Provenance.QueryToAgg` – the embedding of the classical query
   syntax into the general evaluator: `Query.toAgg` translates the
   non-aggregating fragment one to one over all-regular kinds, faithfully
