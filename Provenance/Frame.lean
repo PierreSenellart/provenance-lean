@@ -1497,6 +1497,53 @@ theorem occs_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   refine Prod.ext_iff.mpr ⟨rfl, Prod.ext_iff.mpr ⟨rfl, funext (fun l => ?_)⟩⟩
   exact mem_of_containsSelf (hcs l) r i j
 
+/-- **The current occurrence is in the shared family whenever some leaf's
+frame contains the current row**, and it is then read by every such leaf
+and carries the row's own annotation. This is what makes the window's
+column guarded: a world that keeps the row keeps an occurrence of every
+grouped leaf. -/
+theorem self_mem_exprOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {ws : Fin q → ValueFrame T p} (ts : Fin q → TermIn T c n)
+    (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) (γ : Fin c → T)
+    {l : Fin q} (hs : (ws l).s (Tuple.key O (r.row i).fst) = true) :
+    ∃ j : Fin (exprOf P O o ws ts fs g r i γ).occs.length,
+      (exprOf P O o ws ts fs g r i γ).anns j = (r.row i).snd
+        ∧ ∀ l' : Fin q, (ws l').s (Tuple.key O (r.row i).fst) = true →
+            j ∈ (exprOf P O o ws ts fs g r i γ).reads l' := by
+  -- the current occurrence is in the union frame, hence in the family
+  have hmemIdx : i ∈ exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i := by
+    rw [← Multiset.mem_coe, exprIdx_coe, Finset.mem_val,
+      self_mem_frame (α := AnnotatedTuple T K n) Prod.fst P O
+        (unionFrame ws) r i]
+    show (List.finRange q).any (fun l' => (ws l').s (Tuple.key O (r.row i).fst))
+      = true
+    exact List.any_eq_true.mpr ⟨l, List.mem_finRange l, hs⟩
+  obtain ⟨jj, hjj⟩ := List.get_of_mem hmemIdx
+  have hlen : (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).length
+      = (exprOf P O o ws ts fs g r i γ).occs.length :=
+    (List.length_map _).symm
+  refine ⟨Fin.cast hlen jj, ?_, fun l' hs' => ?_⟩
+  · show ((exprOf P O o ws ts fs g r i γ).occs.get (Fin.cast hlen jj)).snd.fst
+      = (r.row i).snd
+    show (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+        (fun j => ((fun l'' => (ts l'').eval (r.row j).fst γ), (r.row j).snd,
+          fun l'' => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l'')
+            r i j))).get (Fin.cast hlen jj)).snd.fst = (r.row i).snd
+    simp only [List.get_eq_getElem, List.getElem_map, Fin.val_cast]
+    rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)[(jj : ℕ)]
+        = i from hjj]
+  · rw [AggExpr.mem_reads]
+    show (((exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i).map
+        (fun j => ((fun l'' => (ts l'').eval (r.row j).fst γ), (r.row j).snd,
+          fun l'' => mem (α := AnnotatedTuple T K n) Prod.fst P O (ws l'')
+            r i j))).get (Fin.cast hlen jj)).snd.snd l' = true
+    simp only [List.get_eq_getElem, List.getElem_map, Fin.val_cast]
+    rw [show (exprIdx (α := AnnotatedTuple T K n) Prod.fst P O o ws r i)[(jj : ℕ)]
+        = i from hjj]
+    unfold mem
+    simp [hs']
+
 end Expression
 
 end ValueFrame
