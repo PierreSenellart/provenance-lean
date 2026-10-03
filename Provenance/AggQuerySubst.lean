@@ -558,6 +558,25 @@ theorem ValueFrame.tokenWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fi
   exact AggValue.ofScalarGroup_substMap θ f t _ γ
 
 omit [DecidableEq K] in
+/-- The same for the expression a filtered window builds, merged or
+not. -/
+theorem ValueFrame.exprWhen_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin d → T) :
+    ValueFrame.exprWhen P O o w (t.substMap θ) f dist keep r i γ
+      = ValueFrame.exprWhen P O o w t f dist keep r i (substVal θ γ) := by
+  unfold ValueFrame.exprWhen
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    unfold AggExpr.ofSeqWhen
+    simp only [TermIn.eval_substMap]
+  · simp only [ite_true]
+    unfold AggExpr.ofSeqDistWhen
+    simp only [TermIn.eval_substMap]
+
+omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
 theorem ValueFrame.token_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
@@ -702,8 +721,7 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.tokenDist,
-      ValueFrame.tokenDistWhen, ValueFrame.token_substMap,
-      ValueFrame.tokenWhen_substMap]
+      ValueFrame.token_substMap, ValueFrame.exprWhen_substMap]
     rw [ih θ dB γ]
   | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     intro d θ dB γ

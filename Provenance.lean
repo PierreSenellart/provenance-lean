@@ -532,11 +532,16 @@ proven engine several general results reuse internally.
   `AggExpr.ofGroupWhen`: one leaf over the whole group, whose clause cuts
   what it reads, so `Gamma`'s filtered column is an expression and not an
   ordinary token – which is why `AggQuery.evaluate_ordinaryTokens` asks
-  for `noFilter`. `Win`'s own clause is the one that still cuts the
-  family, pending the merge on expressions its `DISTINCT` flag needs, and
+  for `noFilter`. A single-frame window reads it the same way
+  (`ValueFrame.exprWhen`), with the kept part merged by value under
+  `DISTINCT` and the rejected occurrences left unmerged and unread, so no
+  clause anywhere cuts a family now.
   `HavingQueryCounterexamples.chain_count_zero_when_ne` measures what a
-  cut family costs, against `chainExprNone_zero` and `chainExprMixed_zero`
-  for what the expression reading gives. Only the
+  cut family cost, against `chainExprNone_zero`, `chainExprMixed_zero`
+  and `chainWinMixed_zero` for what the expression reading gives, and
+  `natWinDistinct_ne_unmerged` records that a `DISTINCT` aggregate's
+  classes carry the `⊕` of their occurrences rather than deduplicating
+  inside each world. Only the
   rewriting excludes a clause outright, with `AggQuery.noFilter`: a
   clause is a predicate on the base domain where the rewritten world's
   rows carry composite values

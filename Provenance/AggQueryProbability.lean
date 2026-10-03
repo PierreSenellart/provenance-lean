@@ -1502,6 +1502,47 @@ theorem GenValue.specializeAt_of_ne_agg {x : GenValue T (BoolFunc X)}
 
 variable [HasAltLinearOrder (BoolFunc X)]
 
+omit [Fintype X] [DecidableEq X] in
+/-- **A filtered window's column is guarded by the row it is computed
+for.** Where that row is in its own frame it contributes an occurrence to
+the family – its own where the clause rejects it, its value's class where
+the clause keeps it – and a valuation that realizes the row realizes that
+occurrence's annotation. -/
+theorem annGuard_annList_exprWhen {n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    {c : ℕ} (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n' → Bool)
+    (r : OccFam (AnnotatedTuple T (BoolFunc X) n')) (i : Fin r.size)
+    (v : X → Bool) {γ : Fin c → T}
+    (hs : w.s (Tuple.key O (r.row i).fst) = true)
+    (hc : (r.row i).snd v = true) :
+    annGuard (ValueFrame.exprWhen P O o w t f dist keep r i γ).annList v := by
+  have hmem := ValueFrame.self_mem_frameSeqOn P O o w r i hs
+  unfold ValueFrame.exprWhen
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false, AggExpr.annList_ofSeqWhen]
+    exact ⟨(r.row i).snd, List.mem_map.mpr ⟨r.row i, hmem, rfl⟩, hc⟩
+  · simp only [ite_true, AggExpr.annList_ofSeqDistWhen]
+    by_cases hk : keep (r.row i).fst = true
+    · -- the clause keeps the row, so its value's class is in the merged part
+      set pay : List (T × BoolFunc X) :=
+        (((ValueFrame.frameSeqOn (α := AnnotatedTuple T (BoolFunc X) n')
+            Prod.fst P O o w r i).filter (fun p => keep p.fst)).map
+          (fun p => (t.eval p.fst γ, p.snd))) with hpay
+      have hin : (t.eval (r.row i).fst γ, (r.row i).snd) ∈ pay :=
+        List.mem_map.mpr
+          ⟨r.row i, List.mem_filter.mpr ⟨hmem, by simpa using hk⟩, rfl⟩
+      refine ⟨AggValue.classSum pay (t.eval (r.row i).fst γ),
+        List.mem_append_left _ (List.mem_map.mpr
+          ⟨(t.eval (r.row i).fst γ, AggValue.classSum pay
+              (t.eval (r.row i).fst γ)),
+            AggValue.mem_mergeOccs hin, rfl⟩), ?_⟩
+      exact (AggValue.classSum_eval_iff v _ pay).mpr
+        ⟨(t.eval (r.row i).fst γ, (r.row i).snd), hin, rfl, hc⟩
+    · -- the clause rejects it, so it is its own occurrence of the family
+      refine ⟨(r.row i).snd, List.mem_append_right _ ?_, hc⟩
+      exact List.mem_map.mpr ⟨r.row i,
+        List.mem_filter.mpr ⟨hmem, by simpa using hk⟩, rfl⟩
 /-- **Guardedness of the general evaluator**: on any row it produces,
 whenever the finalized annotation is realized, every *grouped* token's group
 is realized non-empty – the group-existence guard of each such token is
@@ -1776,10 +1817,27 @@ theorem AggQueryIn.evaluate_guarded :
       rw [← Sum.inr.inj ha]
       cases hk : keep with
       | some φ =>
-        -- a filtered token is scalar: the kept part of a frame may be
-        -- empty where the frame is not, so the empty world is a world
-        exact Or.inl
-          (ValueFrame.scalar_tokenDistWhen P O o w t f dist φ.keeps _ i)
+        -- the column is an expression over the whole frame: where the row is
+        -- in its own frame the leaf is grouped, and the row's own occurrence
+        -- is in the family, realized with it
+        rw [AggTok.Realized_expr]
+        intro l hl
+        have hs : w.s (Tuple.key O ((OccFam.ofSorted
+            ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true := by
+          have hx : (!w.s (Tuple.key O ((OccFam.ofSorted
+              ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst)) = false := by
+            rw [← ValueFrame.scalar_exprWhen P O o w t f dist φ.keeps _ i l]
+            exact hl
+          simpa using hx
+        have hrow : (((OccFam.ofSorted
+            ((q.evaluate d γ).map GenRow.toAnnotated)).row i).snd) v = true := by
+          have := hfin
+          dsimp only at this
+          rwa [GenAnn.finalize_of_pending_zero] at this
+        obtain ⟨j, hj⟩ := AggExpr.realizedWorld_nonempty_of_annGuard _ v
+          (annGuard_annList_exprWhen P O o w t f dist φ.keeps _ i v hs hrow)
+        exact ⟨j, Finset.mem_inter.mpr ⟨hj, by
+          rw [ValueFrame.inFrame_exprWhen]; exact Finset.mem_univ _⟩⟩
       | none =>
       by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
           ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true
@@ -2620,6 +2678,44 @@ theorem tokenOfDistWhen_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
     rw [AggValue.specialize_mergeByValue]
     exact tokenOfWhen_filter_agg P O o w t f f.distinct keep R hx v hc
 
+omit [Fintype X] [DecidableEq X] in
+/-- **A filtered window's column is world-faithful.** Its leaf reads the
+occurrences the clause keeps among those the valuation realizes – merged
+by value under `DISTINCT` – which is the plain filtered window value the
+realized world gives the row: a clause tests the row and the valuation
+reads the annotation, so the two cuts commute. -/
+theorem exprWhenOf_specialize {c n' m' p' : ℕ} (P : Tuple (Fin n') m')
+    (O : Tuple (Fin n') p') (o : OrderSpec p') (w : ValueFrame T p')
+    (t : TermIn T c n') (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n' → Bool) (R : AnnotatedRelation T (BoolFunc X) n')
+    {x : AnnotatedTuple T (BoolFunc X) n'} (hx : x ∈ R) (v : X → Bool)
+    {γ : Fin c → T} (hc : x.snd v = true) :
+    (ValueFrame.exprWhenOf P O o w t f dist keep R x γ).specialize
+        (fun α => α v)
+      = ValueFrame.windowValueWhen P O o w t
+          (if dist then f.distinct else f) keep (randomWorld v R) x.fst γ := by
+  unfold ValueFrame.exprWhenOf
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    show f ((AggExpr.ofSeqWhen f t keep _ (!w.s (Tuple.key O x.fst)) γ).leafSeq
+      ⟨0, Nat.zero_lt_one⟩ _) = _
+    rw [AggExpr.leafSeq_realizedWorld_ofSeqWhen]
+    refine Eq.trans ?_ (tokenOfWhen_filter_agg P O o w t f f keep R hx v hc)
+    refine congrArg f ?_
+    show _ = List.map Prod.fst (List.filter
+      (fun q : T × BoolFunc X => q.snd v)
+      (((ValueFrame.frameListOf (α := AnnotatedTuple T (BoolFunc X) n')
+          Prod.fst P O o w R x).filter (fun q => keep q.fst)).map
+        (fun q => (t.eval q.fst γ, q.snd))))
+    rw [List.filter_map, List.map_map, List.filter_filter]
+    exact congrArg₂ List.map rfl
+      (List.filter_congr (fun p _ => (Bool.and_comm _ _)))
+  · simp only [ite_true]
+    show f ((AggExpr.ofSeqDistWhen f t keep _ (!w.s (Tuple.key O x.fst))
+      γ).leafSeq ⟨0, Nat.zero_lt_one⟩ _) = _
+    rw [AggExpr.leafSeq_realizedWorld_ofSeqDistWhen]
+    exact tokenOfDistWhen_specialize P O o w t f true keep R hx v hc
+
 /-! ## The random-world commutation -/
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
@@ -3312,7 +3408,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       unfold GenRow.specializeTuple
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        exact tokenOfDistWhen_specialize P O o w t f dist φ.keeps
+        exact exprWhenOf_specialize P O o w t f dist φ.keeps
           (q.evaluateAnnotated d γ) hxR v hxc
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         rfl

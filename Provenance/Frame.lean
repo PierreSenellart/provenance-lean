@@ -829,18 +829,16 @@ theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 
 /-! ### A window aggregate under a `FILTER` clause
 
-**This is the reading still to be fixed.** The clause cuts the frame down
-to the occurrences it keeps and the token is then read in the scalar
-convention, because the kept part of a frame may be empty where the frame
-is not – and that pair is what
-`HavingQueryCounterexamples.chain_count_zero_when_ne` refutes: with the
-family cut, the world holding only rejected rows is gone, so a clause
-that keeps everything no longer reads as no clause. A grouping and a
-multi-frame window read a clause through `AggExpr`'s two flag families
-instead (`AggExpr.ofGroupWhen`, `exprOfWhen`), which keeps the family
-whole; `AggQueryIn.Win`'s own clause is to follow, once merging a frame
-by value – its `DISTINCT` flag – is defined on expressions, where a kept
-occurrence must not merge with a rejected one. -/
+The operator's clause is read by `exprWhen` below, which keeps the frame
+whole and cuts what the leaf reads of it. The *tokens* here – the frame
+cut down to the occurrences the clause keeps, read in the scalar
+convention – are what that reading was before
+`HavingQueryCounterexamples.chain_count_zero_when_ne`: with the family
+cut, the world holding only rejected rows is gone, and then a clause that
+keeps everything no longer reads as no clause. They remain as the
+machinery the expression's readings run on – the frame restriction
+(`tokenOfWhen_filter_agg`) and the merge (`tokenOfDistWhen_specialize`)
+are proved of them – and no operator builds one. -/
 
 /-- **An occurrence's token under a `FILTER` clause**: the aggregate over
 the occurrences of its frame the clause keeps. -/
@@ -874,6 +872,99 @@ theorem tokenWhen_eq_tokenOfWhen {c : ℕ} (P : Tuple (Fin n) m)
       = tokenOfWhen P O o w t f keep r.toMultiset (r.row i) γ := by
   unfold tokenWhen tokenOfWhen
   rw [frameSeqOn_eq_frameListOf]
+
+/-- **The column an occurrence's filtered window builds**: one leaf over
+its frame – the *whole* frame, so the worlds are the frame's and a world
+holding only rejected rows is one of them – reading the occurrences the
+clause keeps, in the convention the row's membership of its own frame
+decides. Under `DISTINCT` the kept part is merged by value and the
+rejected occurrences stay unmerged and unread
+(`AggExpr.ofSeqDistWhen`). -/
+def exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
+  if dist then
+    AggExpr.ofSeqDistWhen f t keep
+      (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
+      (!w.s (Tuple.key O (r.row i).fst)) γ
+  else
+    AggExpr.ofSeqWhen f t keep
+      (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
+      (!w.s (Tuple.key O (r.row i).fst)) γ
+
+/-- The relation-level counterpart, as `tokenOf` is for `token`. -/
+def exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (X : AnnotatedRelation T K n)
+    (x : AnnotatedTuple T K n) (γ : Fin c → T := fun _ => 0) : AggExpr T K :=
+  if dist then
+    AggExpr.ofSeqDistWhen f t keep
+      (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x)
+      (!w.s (Tuple.key O x.fst)) γ
+  else
+    AggExpr.ofSeqWhen f t keep
+      (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x)
+      (!w.s (Tuple.key O x.fst)) γ
+
+@[simp] theorem scalar_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T}
+    (j : Fin (exprWhen P O o w t f dist keep r i γ).arity) :
+    (exprWhen P O o w t f dist keep r i γ).scalar j
+      = !w.s (Tuple.key O (r.row i).fst) := by
+  unfold exprWhen
+  cases dist <;> rfl
+
+/-- **The leaf's group is the whole frame**, which is what makes the
+worlds the frame's and the clause a cut of the reading alone. -/
+@[simp] theorem inFrame_exprWhen [AddCommMonoid K] {c : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T}
+    (j : Fin (exprWhen P O o w t f dist keep r i γ).arity) :
+    (exprWhen P O o w t f dist keep r i γ).inFrame j = Finset.univ := by
+  unfold exprWhen at j ⊢
+  cases dist
+  · exact AggExpr.inFrame_ofSeqWhen _ _ _ _ _ _ _
+  · exact AggExpr.inFrame_ofSeqDistWhen _ _ _ _ _ _ _
+
+/-- **A filtered window's column is determined by the relation**: the
+frame is read off it and the clause reads the rows, neither of which the
+indexing moves. -/
+theorem exprWhen_eq_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T} :
+    exprWhen P O o w t f dist keep r i γ
+      = exprWhenOf P O o w t f dist keep r.toMultiset (r.row i) γ := by
+  unfold exprWhen exprWhenOf
+  rw [frameSeqOn_eq_frameListOf]
+
+/-- **The deterministic reading of a filtered window's column**: the
+aggregate over the rows of the frame the clause keeps, distinct where the
+`DISTINCT` flag says so – which is the plain filtered window value. -/
+theorem collapse_exprWhen [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (r : OccFam (AnnotatedTuple T K n))
+    (i : Fin r.size) {γ : Fin c → T} :
+    (exprWhen P O o w t f dist keep r i γ).collapse
+      = (if dist then f.distinct else f)
+        ((((frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i).map
+            Prod.fst).filter keep).map (fun v => t.eval v γ)) := by
+  unfold exprWhen
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    rw [AggExpr.collapse_ofSeqWhen]
+  · simp only [ite_true]
+    rw [AggExpr.collapse_ofSeqDistWhen]
 
 /-- The `DISTINCT` reading of a filtered token, as `tokenDist` is of
 `token`. -/
@@ -951,6 +1042,15 @@ theorem tokenOf_scalar {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 /-- **A row in its own frame is one of its own token's occurrences**, and
 with its own annotation. That is what makes such a token guarded: in a world
 where the row exists, its aggregate ranges over at least that row. -/
+theorem self_mem_frameSeqOn (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size)
+    (h : w.s (Tuple.key O (r.row i).fst) = true) :
+    r.row i ∈ frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i := by
+  refine (frameSeqOn_perm (α := AnnotatedTuple T K n) Prod.fst P O o w r i).mem_iff.mpr ?_
+  rw [← Multiset.mem_coe, frameSeq_coe]
+  exact Multiset.mem_map.mpr ⟨i, (self_mem_frame _ P O w r i).mpr h, rfl⟩
+
 theorem mem_token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T)
@@ -959,10 +1059,7 @@ theorem mem_token_occs {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t.eval (r.row i).fst γ, (r.row i).snd)
       ∈ (token P O o w t f r i γ).occs := by
   rw [token_occs]
-  refine List.mem_map.mpr ⟨r.row i, ?_, rfl⟩
-  refine (frameSeqOn_perm (α := AnnotatedTuple T K n) Prod.fst P O o w r i).mem_iff.mpr ?_
-  rw [← Multiset.mem_coe, frameSeq_coe]
-  exact Multiset.mem_map.mpr ⟨i, (self_mem_frame _ P O w r i).mpr h, rfl⟩
+  exact List.mem_map.mpr ⟨r.row i, self_mem_frameSeqOn P O o w r i h, rfl⟩
 
 omit [HasAltLinearOrder K] in
 /-- A frame does not read the annotations: an occurrence's frame in the
@@ -1389,8 +1486,7 @@ def exprOfValsWhen (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (g : (Fin q → T) → T) :
     exprOfValsWhen P O o ws (fun _ => none) r i vals fs g
       = exprOfVals P O o ws r i vals fs g := by
-  simp only [exprOfValsWhen, exprOfVals, Option.isSome_none, Bool.false_or,
-    Bool.and_true]
+  simp only [exprOfValsWhen, exprOfVals]
 
 /-- The same, reading each leaf's value off its term: what the operator
 builds. Separating the values from the terms is what lets a lemma vary

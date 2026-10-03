@@ -59,10 +59,11 @@ comparison is on the multisets of annotations.
   `ChainFive`, one row annotated `mid` grouped and tested by
   `HAVING count(*) ≐ 0` gives `𝟘`, while the same read over the
   occurrences the clause keeps, in the scalar convention, gives `𝟙`.
-  This is why no clause cuts a family any more: a grouping and a
-  multi-frame window read one through `AggExpr`'s two flag families
-  instead (`AggExpr.ofGroupWhen`, `ValueFrame.exprOfWhen`), and
-  `AggQueryIn.Win`'s clause is the last one left to move. The empty world
+  This is why no clause cuts a family any more: a grouping, a window and
+  a multi-frame window all read one through `AggExpr`'s two flag families
+  (`AggExpr.ofGroupWhen`, `ValueFrame.exprWhen`, `ValueFrame.exprOfWhen`),
+  and what the expression reading gives instead is `chainExprNone_zero`,
+  `chainExprMixed_zero` and `chainWinMixed_zero`. The empty world
   weighs `𝟙 ⊖ ⊕α` and the group's existence factor does not absorb it
   (`chain_delta_not_absorb_empty`), which `ℕ` hides
   (`nat_delta_absorb_empty`). What the two flag families of `AggExpr`
@@ -934,6 +935,76 @@ theorem chainExprMixed_zero :
 /-- Which is `hi` here, so the reading is not `𝟘` either. -/
 theorem chainExprMixed_zero_eq : chainExprMixed.predProvWith testEq0
     = ChainFive.hi := by decide
+
+/-! ### What a filtered window reads, and what `DISTINCT` decides
+
+A window's clause cuts what its leaf reads of the frame, exactly as a
+grouping's does, so the readings below are the window's counterpart of
+the three above. The last pair records the choice `DISTINCT` forces: the
+classes of the kept part carry the `⊕` of their occurrences, which is
+what a `DISTINCT` aggregate *is* (the document defines it through `ε`),
+and not a deduplication inside each world. The two differ, and `ℕ` shows
+it. -/
+
+/-- The family a filtered window builds over a frame of two rows, the
+clause keeping the first: `AggExpr.ofSeqWhen`'s, with the frame flag on
+both and the clause flag on the first alone. -/
+def chainWinMixed : AggExpr ℕ ChainFive where
+  arity := 1
+  occs := [(![1], ChainFive.mid, ![true], ![true]),
+    (![2], ChainFive.hi, ![true], ![false])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- **The clause keeping one row of the frame reports the worlds holding
+none of the kept ones**: `hi ⊗ (𝟙 ⊖ mid)`, the world with the rejected
+row alone – which is a world of the frame that a cut family loses. -/
+theorem chainWinMixed_zero :
+    chainWinMixed.predProvWith testEq0
+      = ChainFive.hi * (1 - ChainFive.mid) := by decide
+
+/-- **The merge of two kept occurrences of equal value is one class
+carrying their `⊕`.** This is what `AggExpr.ofSeqDistWhen` puts in the
+family, and what makes the two readings below differ. -/
+theorem mergeOccs_two :
+    AggValue.mergeOccs [((5 : ℕ), (1 : ℕ)), (5, 1)] = [(5, 2)] := by
+  simp [AggValue.mergeOccs, AggValue.classSum, List.dedup_cons_of_mem]
+
+/-- `count(DISTINCT x) FILTER (WHERE true) OVER (w)` over two occurrences
+of equal value annotated `𝟙`: by `mergeOccs_two` the family is the one
+class annotated `2`. -/
+def natWinDistinct : AggExpr ℕ ℕ where
+  arity := 1
+  occs := [(![5], 2, ![true], ![true])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- The same data read without the merge – one occurrence per row – which
+is what deduplicating inside each world would give. -/
+def natWinUnmerged : AggExpr ℕ ℕ where
+  arity := 1
+  occs := [(![5], 1, ![true], ![true]), (![5], 1, ![true], ![true])]
+  aggs := ![SeqAggFunc.count]
+  scalar := ![false]
+  g := fun v => v 0
+
+/-- **The merge counts the class once, with the `⊕` of its
+occurrences**: `𝟙 ⊕ 𝟙 = 2` over `ℕ`. -/
+theorem natWinDistinct_one : natWinDistinct.predProvWith testEq1 = 2 := by
+  decide
+
+/-- **Without the merge the reading is `𝟘`**: each one-occurrence world
+weighs `𝟙 ⊗ (𝟙 ⊖ 𝟙) = 𝟘` and the full world counts two. -/
+theorem natWinUnmerged_one : natWinUnmerged.predProvWith testEq1 = 0 := by
+  decide
+
+/-- So the two readings of a `DISTINCT` aggregate are different
+provenances, and the merge is the one the document's `ε` defines. -/
+theorem natWinDistinct_ne_unmerged :
+    natWinDistinct.predProvWith testEq1
+      ≠ natWinUnmerged.predProvWith testEq1 := by decide
 
 /-! ### Inclusion–exclusion is not the joint reading of a disjunction
 

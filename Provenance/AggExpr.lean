@@ -1019,6 +1019,37 @@ theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
   rw [hleaf, List.filter_map, List.map_map]
   rfl
 
+/-- The leaf's group is the whole family: both the merged classes and the
+occurrences the clause rejected. -/
+@[simp] theorem inFrame_ofSeqDistWhen
+    (j : Fin (ofSeqDistWhen f t keep U sc γ).arity) :
+    (ofSeqDistWhen f t keep U sc γ).inFrame j = Finset.univ := by
+  refine Finset.eq_univ_of_forall (fun i => ?_)
+  rw [mem_inFrame]
+  have hmem : (ofSeqDistWhen f t keep U sc γ).occs.get i
+      ∈ (distPayload t keep U γ).map
+          (fun z => ((fun _ : Fin 1 => z.fst), z.snd,
+            (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
+        ++ (U.filter (fun p => !keep p.fst)).map
+          (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+            (fun _ : Fin 1 => true), (fun _ : Fin 1 => false))) :=
+    occs_ofSeqDistWhen f t keep U sc γ ▸ List.get_mem _ _
+  rcases List.mem_append.mp hmem with hi | hi
+  · obtain ⟨y, -, hy⟩ := List.mem_map.mp hi
+    rw [← hy]
+  · obtain ⟨y, -, hy⟩ := List.mem_map.mp hi
+    rw [← hy]
+
+/-- The occurrence annotations: the kept classes' sums and the rejected
+occurrences' own. -/
+@[simp] theorem annList_ofSeqDistWhen :
+    (ofSeqDistWhen f t keep U sc γ).annList
+      = (distPayload t keep U γ).map Prod.snd
+        ++ (U.filter (fun p => !keep p.fst)).map Prod.snd := by
+  unfold annList
+  rw [occs_ofSeqDistWhen, List.map_append, List.map_map, List.map_map]
+  rfl
+
 /-- **The family is carried by a pushforward of the annotations**: the
 clause and the classes read the values, which the pushforward leaves
 alone, so pushing the annotations of the sequence and building the family

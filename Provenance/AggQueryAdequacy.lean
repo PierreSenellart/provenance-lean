@@ -417,7 +417,13 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       cases hk : keep with
       | none => exact ValueFrame.collapse_tokenDist P O o w t f dist _ i
       | some φ =>
-        exact ValueFrame.collapse_tokenDistWhen P O o w t f dist φ.keeps _ i
+        -- the data part of a filtered window's column is its collapse,
+        -- which is the plain filtered window value
+        refine (ValueFrame.collapse_exprWhen P O o w t f dist φ.keeps _ i).trans
+          (congrArg (fun L => (if dist then f.distinct else f)
+            (L.map (fun v => t.eval v γ)))
+            (congrArg (fun L => L.filter φ.keeps)
+              (ValueFrame.frameSeqOn_plain P O o w _ i)))
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | @GammaScalar cI m n₂ ts fs q ih =>

@@ -2149,6 +2149,45 @@ theorem exprGroupWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
     (fun hpq => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hpq),
       by rw [hoccOf]; dsimp only; rw [hpq]⟩)
 
+omit [DecidableEq K] in
+/-- **The column a filtered window builds is carried by the
+pushforward.** The frame is the same rows up to a tie-block permutation
+(`frameListOf_mapAnn_tiePerm`), the clause and the classes read the
+values, and the family is built from the rows – so the two columns differ
+by a tie-block permutation of their families, which every reading of an
+expression is blind to. -/
+theorem exprWhenOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
+    (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n' → Bool) (X : Multiset (AnnotatedTuple T K n'))
+    {x : AnnotatedTuple T K n'} (hx : x ∈ X) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist keep
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ))
+        : GenValue T K')
+      (Sum.inr (AggTok.expr
+        ((ValueFrame.exprWhenOf P O o w t f dist keep X x γ).mapAnn
+          ⇑h.toRingHom))) := by
+  have htie := frameListOf_mapAnn_tiePerm h P O o w X hx
+  unfold ValueFrame.exprWhenOf
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    rw [AggExpr.ofSeqWhen_mapAnn]
+    refine GenValue.Equiv.of_expr_tiePerm (q := 1) _ rfl _ ?_
+    exact TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩)
+      (AggExpr.ofSeqWhen_tiePerm_occs f t keep
+        (!w.s (Tuple.key O x.fst)) γ htie)
+  · simp only [ite_true]
+    rw [AggExpr.ofSeqDistWhen_mapAnn _ _ _ _ _ _ (map_zero h.toRingHom)
+      (fun a b => map_add h.toRingHom a b)]
+    refine GenValue.Equiv.of_expr_tiePerm (q := 1) _ rfl _ ?_
+    exact TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩)
+      (AggExpr.ofSeqDistWhen_tiePerm_occs f t keep
+        (!w.s (Tuple.key O x.fst)) γ htie)
+
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
 base-side rows: same regular values, equivalent aggregate columns, and
@@ -2488,7 +2527,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       · simp only [Function.comp_apply, ValueFrame.windowRowWhen]
         refine Fin.lastCases ?_ (fun k' => ?_) k
         · rw [Fin.snoc_last, Fin.snoc_last]
-          exact tokenOfDistWhen_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hx
+          exact exprWhenOf_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hx
         · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
           rfl
       · simp only [Function.comp_apply, ValueFrame.windowRowWhen]

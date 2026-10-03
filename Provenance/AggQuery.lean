@@ -1213,10 +1213,12 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     -- no row is removed and no group is created, so nothing goes pending
     (OccFam.mk occ.size (fun i =>
       (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
-          (Sum.inr (AggTok.tok (match keep with
-            | none => ValueFrame.tokenDist P O o w t f dist occ i γ
+          (Sum.inr (match keep with
+            | none =>
+                AggTok.tok (ValueFrame.tokenDist P O o w t f dist occ i γ)
             | some φ =>
-                ValueFrame.tokenDistWhen P O o w t f dist φ.keeps occ i γ))),
+                AggTok.expr
+                  (ValueFrame.exprWhen P O o w t f dist φ.keeps occ i γ))),
         ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
   | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
@@ -1681,7 +1683,9 @@ theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
   rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
 
 /-- The row a window gives a row of its input relation under a `FILTER`
-clause: as `ValueFrame.windowRow`, with the clause's token. -/
+clause: as `ValueFrame.windowRow`, with the clause's column – an
+aggregate *expression* over the whole frame, the clause cutting what its
+leaf reads (`ValueFrame.exprWhenOf`). -/
 def ValueFrame.windowRowWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
@@ -1689,8 +1693,8 @@ def ValueFrame.windowRowWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
     (γ : Fin c → T := fun _ => 0) (dist : Bool := false) :
     GenRow T K (n + 1) :=
   ⟨Fin.snoc (fun k => (Sum.inl (x.fst k) : GenValue T K))
-      (Sum.inr (AggTok.tok
-        (ValueFrame.tokenOfDistWhen P O o w t f dist keep X x γ))),
+      (Sum.inr (AggTok.expr
+        (ValueFrame.exprWhenOf P O o w t f dist keep X x γ))),
     ⟨x.snd, 0⟩⟩
 
 /-- **The `Win` case of the evaluator under a `FILTER` clause**, read off
@@ -1711,7 +1715,7 @@ theorem AggQueryIn.evaluate_Win_eq_when {c n m p : ℕ} (P : Tuple (Fin n) m)
     = ValueFrame.windowRowWhen P O o w t f φ.keeps _ _ _ dist
   unfold ValueFrame.windowRowWhen AggQueryIn.evaluateAnnotated
   dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.tokenDistWhen_eq_tokenOfDistWhen, OccFam.toMultiset_ofSorted]
+  rw [ValueFrame.exprWhen_eq_exprWhenOf, OccFam.toMultiset_ofSorted]
 
 /-- **The `Win` case of the plain evaluator under a `FILTER` clause.** -/
 theorem AggQueryIn.evaluatePlain_Win_eq_when {c n m p : ℕ}
@@ -2471,12 +2475,11 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
-    · cases a with
-      | tok _ => rfl
-      | nest _ =>
-        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
-      | expr _ =>
-        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
+    · -- the window carries no clause, so its column is an ordinary token
+      dsimp only at ha
+      rw [Fin.snoc_last, hfl.1] at ha
+      rw [← Sum.inr.inj ha]
+      rfl
     · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
   | GammaNest is his p f q ih =>
     -- the one operator that builds a nested token, which `noGammaNest`
@@ -2656,12 +2659,12 @@ theorem AggQueryIn.evaluate_noNested :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
-    · cases a with
-      | tok _ => rfl
-      | nest _ =>
-        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
-      | expr _ =>
-        exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp)
+    · -- an ordinary token with no clause, an expression with one, and
+      -- nested in neither case
+      dsimp only at ha
+      rw [Fin.snoc_last] at ha
+      rw [← Sum.inr.inj ha]
+      cases keep <;> rfl
     · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
   | GammaNest is his p f q ih =>
     -- the one operator that builds a nested token, which `noGammaNest`
