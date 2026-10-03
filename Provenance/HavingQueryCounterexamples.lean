@@ -981,12 +981,25 @@ def natWinDistinct : AggExpr ℕ ℕ where
   scalar := ![false]
   g := fun v => v 0
 
-/-- The same data read without the merge – one occurrence per row – which
-is what deduplicating inside each world would give. -/
+/-- **A distinct count is the length of the deduplicated sequence.**
+`SeqAggFunc.distinct` sorts the distinct values, and the sort does not
+reduce in the kernel, so the reading below is stated with the form that
+does – this is what makes the two the same aggregate. -/
+theorem count_distinct_eq_dedup_length :
+    SeqAggFunc.count.distinct = fun l : List ℕ => (List.dedup l).length := by
+  funext l
+  show (Multiset.sort ((l.dedup : Multiset ℕ)) (· ≤ ·)).length = _
+  rw [Multiset.length_sort]
+  rfl
+
+/-- The same data read **without the merge**, the leaf deduplicating
+inside each world instead: the family is one occurrence per row and the
+aggregate is `count^distinct` (`count_distinct_eq_dedup_length`). This is
+the reading the merge was chosen against. -/
 def natWinUnmerged : AggExpr ℕ ℕ where
   arity := 1
   occs := [(![5], 1, ![true], ![true]), (![5], 1, ![true], ![true])]
-  aggs := ![SeqAggFunc.count]
+  aggs := ![fun l => (List.dedup l).length]
   scalar := ![false]
   g := fun v => v 0
 
@@ -995,13 +1008,16 @@ occurrences**: `𝟙 ⊕ 𝟙 = 2` over `ℕ`. -/
 theorem natWinDistinct_one : natWinDistinct.predProvWith testEq1 = 2 := by
   decide
 
-/-- **Without the merge the reading is `𝟘`**: each one-occurrence world
-weighs `𝟙 ⊗ (𝟙 ⊖ 𝟙) = 𝟘` and the full world counts two. -/
-theorem natWinUnmerged_one : natWinUnmerged.predProvWith testEq1 = 0 := by
+/-- **Deduplicating in the reading gives `𝟙` instead**: the two
+one-occurrence worlds weigh `𝟙 ⊗ (𝟙 ⊖ 𝟙) = 𝟘`, and only the full world
+weighs anything – where the two equal values are one distinct value, so
+the test holds there too. -/
+theorem natWinUnmerged_one : natWinUnmerged.predProvWith testEq1 = 1 := by
   decide
 
 /-- So the two readings of a `DISTINCT` aggregate are different
-provenances, and the merge is the one the document's `ε` defines. -/
+provenances – `2` against `𝟙` – and the merge is the one the document's
+`ε` defines. -/
 theorem natWinDistinct_ne_unmerged :
     natWinDistinct.predProvWith testEq1
       ≠ natWinUnmerged.predProvWith testEq1 := by decide
