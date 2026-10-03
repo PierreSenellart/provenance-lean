@@ -1536,6 +1536,27 @@ theorem havingProv_eval_iff {m : ℕ} (U : List (AnnotatedTuple T (BoolFunc X) m
     exact hgoal
 
 
+/-- Pointwise evaluation of a `Multiset.prod` of `BoolFunc`s: the product
+(AND) evaluates to true iff every factor does. -/
+lemma multiset_prod_eval_eq_true_iff (s : Multiset (BoolFunc X))
+    (v : X → Bool) : s.prod v = true ↔ ∀ f ∈ s, f v = true := by
+  induction s using Multiset.induction with
+  | empty =>
+    rw [Multiset.prod_zero]
+    exact iff_of_true rfl (fun f hf => absurd hf (Multiset.notMem_zero f))
+  | cons a s ih =>
+    rw [Multiset.prod_cons]
+    show (a v && s.prod v) = true ↔ _
+    rw [Bool.and_eq_true, ih]
+    constructor
+    · rintro ⟨ha, hall⟩ f hf
+      rcases Multiset.mem_cons.mp hf with rfl | hfs
+      · exact ha
+      · exact hall f hfs
+    · intro hall
+      exact ⟨hall a (Multiset.mem_cons_self a s),
+        fun f hf => hall f (Multiset.mem_cons_of_mem hf)⟩
+
 /-- Pointwise evaluation of a `Multiset.sum` of `BoolFunc`s: the sum (OR)
 evaluates to true iff some summand does. -/
 lemma multiset_sum_eval_eq_true_iff (s : Multiset (BoolFunc X)) (v : X → Bool) :

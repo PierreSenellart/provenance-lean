@@ -254,6 +254,41 @@ theorem isWorldOf_of_mem_worlds {a : NestedValue T K} {W : World T K}
   obtain ⟨W', hW', rfl⟩ := h
   exact map_occ_of_mem_foldr hW'
 
+omit [ValueType T] in
+/-- A decided occurrence is one of the decisions available at the
+occurrence it decides about. -/
+theorem mem_decisions_self (d : WorldOcc T K) : d ∈ decisions d.occ := by
+  unfold decisions
+  rw [Multiset.mem_map]
+  exact ⟨(d.present, d.sub), Finset.mem_val.mpr (Finset.mem_univ _), rfl⟩
+
+omit [ValueType T] in
+/-- **And conversely**: a decision per occurrence of the bag is one of
+the worlds the enumeration produces. -/
+theorem mem_foldr_of_map_occ : ∀ {W : Multiset (WorldOcc T K)}
+    {s : Multiset (AggValue T K × K)}, W.map WorldOcc.occ = s →
+    W ∈ Multiset.foldr addOcc {0} s := by
+  intro W
+  induction W using Multiset.induction_on with
+  | empty =>
+    intro s hs
+    rw [← hs, Multiset.map_zero, Multiset.foldr_zero]
+    exact Multiset.mem_singleton_self 0
+  | cons d W ih =>
+    intro s hs
+    rw [← hs, Multiset.map_cons, Multiset.foldr_cons, addOcc, Multiset.mem_bind]
+    exact ⟨d, mem_decisions_self d,
+      Multiset.mem_map_of_mem _ (ih rfl)⟩
+
+omit [ValueType T] in
+/-- **The worlds of a value are exactly the decisions on its
+occurrences.** -/
+theorem mem_worlds_iff {a : NestedValue T K} {W : World T K} :
+    W ∈ a.worlds ↔ W.IsWorldOf a := by
+  refine ⟨isWorldOf_of_mem_worlds, fun h => ?_⟩
+  rw [worlds, Multiset.mem_map]
+  exact ⟨W.occs, mem_foldr_of_map_occ h, rfl⟩
+
 end Enumeration
 
 /-! ## What a world of a nested value is annotated
@@ -559,12 +594,26 @@ def predProvWith (a : NestedValue T K) (P : T → Kleene) : K :=
 def predProvOf (a : NestedValue T K) (op : CompOp) (c : T) : K :=
   a.predProvWith (fun v => op.eval3 v c)
 
+/-- **What a valuation of the annotations decides about an
+occurrence**: it is present when the valuation makes its annotation
+true, and it keeps the inner occurrences whose annotations the valuation
+makes true. -/
+def realizedOcc (ν : K → Bool) (o : AggValue T K × K) : WorldOcc T K :=
+  ⟨o, ν o.2, Finset.univ.filter (fun j => ν (o.1.anns j))⟩
+
 /-- **The world a valuation of the annotations realizes**: every
 occurrence, outer or inner, whose annotation the valuation makes
 true. -/
 def realizedWorld (a : NestedValue T K) (ν : K → Bool) : World T K :=
-  ⟨a.occs.map
-    (fun o => ⟨o, ν o.2, Finset.univ.filter (fun j => ν (o.1.anns j))⟩)⟩
+  ⟨a.occs.map (realizedOcc ν)⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The realized world is a world of the value it is read off. -/
+@[simp] theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
+    (a.realizedWorld ν).IsWorldOf a := by
+  show (a.occs.map (realizedOcc ν)).map WorldOcc.occ = a.occs
+  rw [Multiset.map_map]
+  exact Multiset.map_id' a.occs
 
 /-- **The world-faithful reading**: the value in the realized world. -/
 def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
@@ -581,7 +630,7 @@ theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.realizedWorld ν = World.full a := by
   unfold realizedWorld World.full
   refine congrArg World.mk (Multiset.map_congr rfl (fun o _ => ?_))
-  simp [h]
+  simp [realizedOcc, h]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **Where every occurrence is realized the reading is the
@@ -830,10 +879,13 @@ takes (`vals_mapAnn`) and commutes with the predicate provenance
 commutation of a column and of a predicate asks nothing about the kind of
 token. It also absorbs the `δ`-guard of its own family
 (`NestedValue.predProvWith_delta_absorb`), which is what the evaluator's
-supersede bookkeeping needs, so the hom layer asks nothing about the kind
-of token at all. What a nested column is still excluded from is the
-random-world reading, whose statements carry an `isNested = false`
-hypothesis rather than pretending to cover it. -/
+supersede bookkeeping needs, and over `𝔹[X]` only the world a valuation
+cuts out is annotated true (`NestedValue.World.ann_eval_iff`), which is
+what the random-world reading needs. So no result of the metatheory asks
+which kind of token a column holds any more. What is still missing is an
+*operator* that builds a nested value: `AggQueryIn.evaluate_noNested`
+says no operator of the current syntax does, and `GenRow.NoNested` is
+there for the results that will want to say so. -/
 
 /-- An aggregate column's value: an ordinary token, or a **nested** one
 whose occurrences include those of the aggregate values its term
