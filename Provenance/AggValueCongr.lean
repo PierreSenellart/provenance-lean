@@ -1051,6 +1051,43 @@ theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q →
     vals_congr aggs sc g hstrip,
     fun P => predProvWith_congr aggs sc g h P⟩
 
+omit [DecidableEq K] in
+/-- **The world statistics are blind to a tie-block permutation of the
+family.** Exchanging two occurrences that carry the same values and the
+same leaf flags exchanges the two subfamilies that keep one of them and
+not the other, and those carry the same product, the same sum and – the
+occurrences being stripped of their annotations – the same selection. So
+everything a *nested* value reads of an occurrence survives the
+permutation its column may differ by. -/
+theorem subStats_congr {q : ℕ}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      occs₁ occs₂) :
+    AggExpr.subStats occs₁ = AggExpr.subStats occs₂ := by
+  induction h with
+  | nil => rfl
+  | cons o _ ih => rw [AggExpr.subStats_cons, AggExpr.subStats_cons, ih]
+  | @swap o o' hoo' L₁ L₂ _ ih =>
+      have hstrip : AggExpr.strip o = AggExpr.strip o' :=
+        Prod.ext_iff.mpr ⟨hoo'.1, hoo'.2⟩
+      rw [AggExpr.subStats_cons, AggExpr.subStats_cons, AggExpr.subStats_cons,
+        AggExpr.subStats_cons, ih]
+      simp only [Multiset.map_add, Multiset.map_map, Function.comp_def, hstrip]
+      rw [show (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (o'.snd.fst * (o.snd.fst * x.fst), x.snd.fst,
+                AggExpr.strip o' :: AggExpr.strip o' :: x.snd.snd))
+            = (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (o.snd.fst * (o'.snd.fst * x.fst), x.snd.fst,
+                AggExpr.strip o' :: AggExpr.strip o' :: x.snd.snd))
+          from funext (fun x => by rw [mul_left_comm]),
+        show (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (x.fst, o'.snd.fst + (o.snd.fst + x.snd.fst), x.snd.snd))
+            = (fun x : K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) =>
+              (x.fst, o.snd.fst + (o'.snd.fst + x.snd.fst), x.snd.snd))
+          from funext (fun x => by rw [add_left_comm])]
+      exact add_add_add_comm _ _ _ _
+  | trans _ _ ih₁ ih₂ => rw [ih₁, ih₂]
+
 omit [DecidableEq K] [CommSemiringWithMonus K] in
 /-- **The family of an unmerged filtered aggregate is permuted with its
 sequence**: each occurrence carries its own value, annotation and flags,

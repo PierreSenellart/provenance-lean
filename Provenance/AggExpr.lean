@@ -608,6 +608,50 @@ theorem mapAnn_postcomp {K' : Type} (h : K → K') (gf : T → T)
     (e : AggExpr T K) :
     (e.postcomp gf).mapAnn h = (e.mapAnn h).postcomp gf := rfl
 
+/-! ## The world statistics of a family
+
+What a *nested* value makes of one of its occurrences is a function of
+this: over every subfamily, the product of the annotations it keeps, the
+sum of those it leaves out, and the occurrences it selects read as values
+and leaf flags. The factor the nested world carries is the first two
+(`NestedValue.World.ann_split`), the value its leaf reads is a filter of
+the third (`leafSeq_eq_filter`), and whether the subfamily is a world is
+read off the third as well. Written as a recursion over the family rather
+than as a sum over subfamilies, so that a tie-block permutation of the
+family can be followed step by step. -/
+
+section SubStats
+
+variable {q : ℕ}
+
+/-- An occurrence read without its annotation: what a leaf sees of it. -/
+def strip (o : (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)) : (Fin q → T) × (Fin q → Bool) × (Fin q → Bool) := (o.fst, o.snd.snd)
+
+/-- **The world statistics of a family**: one entry per subfamily, giving
+the product of the annotations kept, the sum of those left out, and the
+selected occurrences stripped of their annotations. -/
+def subStats [CommSemiringWithMonus K] :
+    List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool)) → Multiset (K × K × List ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)))
+  | [] => {(1, 0, [])}
+  | o :: L =>
+      ((subStats L).map (fun z => (o.snd.fst * z.fst, z.snd.fst,
+          strip o :: z.snd.snd)))
+        + ((subStats L).map (fun z => (z.fst, o.snd.fst + z.snd.fst,
+            z.snd.snd)))
+
+@[simp] theorem subStats_nil [CommSemiringWithMonus K] :
+    subStats ([] : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) = {(1, 0, [])} := rfl
+
+@[simp] theorem subStats_cons [CommSemiringWithMonus K] (o : (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))
+    (L : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))) :
+    subStats (o :: L)
+      = ((subStats L).map (fun z => (o.snd.fst * z.fst, z.snd.fst,
+          strip o :: z.snd.snd)))
+        + ((subStats L).map (fun z => (z.fst, o.snd.fst + z.snd.fst,
+            z.snd.snd))) := rfl
+
+end SubStats
+
 /-! ## A token is the expression of itself -/
 
 /-- The expression that reads one aggregate value and returns it. -/
