@@ -809,6 +809,21 @@ that would cause a `Mul` diamond. -/
 instance (priority := 100) {K : Type} [h : CommSemiringWithMonus K] : CommMonoid K where
   mul_comm := h.mul_comm
 
+/-- **The complement of a sum is the product of the complements**, over a
+whole family at once: what one monus over everything a world leaves out
+becomes when the family is split into as many parts as there are
+occurrences. This is the form a *nested* world's annotation needs, where
+the absences come from two levels at once. -/
+theorem monus_multiset_sum {α : Type} [CommSemiringWithMonus α]
+    (hc : complemented α) :
+    ∀ s : Multiset α, 1 - s.sum = (s.map (fun a => 1 - a)).prod := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty =>
+    rw [Multiset.sum_zero, monus_zero, Multiset.map_zero, Multiset.prod_zero]
+  | cons a t ih =>
+    rw [Multiset.sum_cons, hc, ih, Multiset.map_cons, Multiset.prod_cons]
+
 /-! ## Homomorphisms of `SemiringWithMonus`s
 -/
 

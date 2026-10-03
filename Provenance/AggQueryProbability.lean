@@ -663,6 +663,7 @@ instance (l : List (BoolFunc X)) (v : X → Bool) :
     Decidable (annGuard l v) :=
   inferInstanceAs (Decidable (∃ κ ∈ l, κ v = true))
 
+omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **A realized occurrence of the family is a non-empty realized
 world.** This is what makes a filtered aggregate of a group guarded: its
 family is the whole group, so the group's existence guard gives it an
@@ -2269,7 +2270,8 @@ private lemma specialize_ofGroup {c m n₁ : ℕ}
     List.map_map, List.map_map]
   rfl
 
-omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
+omit [ValueType T] [Fintype X] [DecidableEq X]
+  [HasAltLinearOrder (BoolFunc X)] in
 /-- The occurrences an expression's realized world selects are those its
 valuation annotates true. -/
 private lemma seqOf_realizedWorld_expr (e : AggExpr T (BoolFunc X))
@@ -2298,7 +2300,7 @@ private lemma specialize_exprOfGroupWhen {c m n₁ : ℕ}
     List.filter_filter, Function.comp_def, Bool.true_and]
   refine congrArg f (congrArg₂ List.map rfl
     (List.filter_congr (fun p _ => ?_)))
-  simp [Bool.and_comm]
+  simp
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 private lemma list_filter_map_comm {α β : Type} (g : α → β) (p : β → Bool)

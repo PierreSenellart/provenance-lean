@@ -325,6 +325,67 @@ def World.absentSum (W : World T K) : K :=
 def World.ann (W : World T K) : K :=
   W.presentProd * (1 - W.absentSum)
 
+/-- **The annotation of a nested world splits over its occurrences**,
+where `K` is complemented: each occurrence contributes its own outer
+annotation, or the complement of it where the world drops it, times its
+inner family's own world annotation. The document's one global monus over
+both levels and this per-occurrence form agree exactly there – it is
+`sec:prelim`'s law, the form a family split into parts uses – and the
+split is what makes a nested reading a function of what its occurrences
+read, rather than of their families position by position. -/
+theorem World.ann_split (hc : complemented K) (W : World T K) :
+    W.ann = (W.occs.map (fun d =>
+      (if d.present = true then d.occ.2 else (1 - d.occ.2))
+        * ((∏ j ∈ d.sub, d.occ.1.anns j)
+          * (1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)))).prod := by
+  unfold World.ann World.presentProd World.absentSum
+  rw [← Multiset.sum_map_add, monus_multiset_sum hc, Multiset.map_map]
+  have hout : ∀ d : WorldOcc T K,
+      (1 - ((if d.present = true then 0 else d.occ.2)
+        + ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j))
+      = (if d.present = true then 1 else (1 - d.occ.2))
+        * (1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j) := by
+    intro d
+    rw [hc]
+    by_cases hp : d.present = true
+    · rw [hp]
+      simp [monus_zero]
+    · rw [show d.present = false from by simpa using hp]
+      simp
+  rw [show ((fun a => 1 - a) ∘ fun d : WorldOcc T K =>
+        (if d.present = true then 0 else d.occ.2)
+          + ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)
+      = (fun d : WorldOcc T K =>
+        (if d.present = true then 1 else (1 - d.occ.2))
+          * (1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)) from funext hout,
+    Multiset.prod_map_mul, Multiset.prod_map_mul, Multiset.prod_map_mul]
+  rw [show (W.occs.map (fun d : WorldOcc T K =>
+        if d.present = true then d.occ.2 else 1)).prod
+      * (W.occs.map (fun d : WorldOcc T K =>
+          ∏ j ∈ d.sub, d.occ.1.anns j)).prod
+      * ((W.occs.map (fun d : WorldOcc T K =>
+            if d.present = true then 1 else (1 - d.occ.2))).prod
+        * (W.occs.map (fun d : WorldOcc T K =>
+            1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)).prod)
+      = ((W.occs.map (fun d : WorldOcc T K =>
+              if d.present = true then d.occ.2 else 1)).prod
+          * (W.occs.map (fun d : WorldOcc T K =>
+              if d.present = true then 1 else (1 - d.occ.2))).prod)
+        * ((W.occs.map (fun d : WorldOcc T K =>
+              ∏ j ∈ d.sub, d.occ.1.anns j)).prod
+          * (W.occs.map (fun d : WorldOcc T K =>
+              1 - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)).prod)
+      from mul_mul_mul_comm _ _ _ _,
+    ← Multiset.prod_map_mul, ← Multiset.prod_map_mul, ← Multiset.prod_map_mul]
+  rw [← Multiset.prod_map_mul]
+  refine congrArg Multiset.prod (Multiset.map_congr rfl (fun d _ => ?_))
+  refine congrArg₂ (fun x y : K => x * y) ?_ rfl
+  by_cases hp : d.present = true
+  · rw [hp]
+    simp
+  · rw [show d.present = false from by simpa using hp]
+    simp
+
 omit [ValueType T] in
 /-- Nothing is absent from the full world. -/
 @[simp] theorem World.absentSum_full (a : NestedValue T K) :
