@@ -1019,6 +1019,30 @@ theorem leafSeq_realizedWorld_ofSeqDistWhen (ν : K → Bool) :
   rw [hleaf, List.filter_map, List.map_map]
   rfl
 
+/-- **The family is carried by a pushforward of the annotations**: the
+clause and the classes read the values, which the pushforward leaves
+alone, so pushing the annotations of the sequence and building the family
+are the same thing (`AggValue.mergeOccs_map`). -/
+theorem ofSeqDistWhen_mapAnn {K' : Type} [AddCommMonoid K'] {hm : K → K'}
+    (hg0 : hm 0 = 0) (hg : ∀ x y, hm (x + y) = hm x + hm y) :
+    (ofSeqDistWhen f t keep U sc γ).mapAnn hm
+      = ofSeqDistWhen f t keep
+        (U.map (fun p => ((p.fst, hm p.snd) : AnnotatedTuple T K' m))) sc γ := by
+  unfold ofSeqDistWhen mapAnn
+  simp only [AggExpr.mk.injEq, heq_eq_eq, true_and, and_true]
+  rw [List.map_append, List.map_map, List.map_map]
+  rw [show List.map (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
+          (List.filter (fun p : AnnotatedTuple T K' m => keep p.fst)
+            (U.map (fun p => ((p.fst, hm p.snd) : AnnotatedTuple T K' m))))
+        = (List.map (fun p : AnnotatedTuple T K m => (t.eval p.fst γ, p.snd))
+            (List.filter (fun p : AnnotatedTuple T K m => keep p.fst) U)).map
+          (fun z : T × K => ((z.fst, hm z.snd) : T × K')) from by
+      rw [List.filter_map, List.map_map, List.map_map]
+      rfl,
+    AggValue.mergeOccs_map hg0 hg, List.map_map, List.filter_map,
+    List.map_map]
+  rfl
+
 end OfSeqDistWhen
 
 /-- A filtered aggregate of a *group* is the grouped convention of it:
@@ -1095,6 +1119,68 @@ theorem collapse_ofGroupWhen :
     List.filter_map, List.map_map]
   show (U.filter (fun p => keep p.fst)).map (fun p => t.eval p.fst γ) = _
   rw [List.filter_map, List.map_map]
+  rfl
+
+/-- The leaf's group is the whole family, whatever the convention. -/
+@[simp] theorem inFrame_ofSeqWhen (sc : Bool)
+    (j : Fin (ofSeqWhen f t keep U sc γ).arity) :
+    (ofSeqWhen f t keep U sc γ).inFrame j = Finset.univ := by
+  refine Finset.eq_univ_of_forall (fun i => ?_)
+  rw [mem_inFrame]
+  simp only [ofSeqWhen, List.get_eq_getElem, List.getElem_map]
+
+@[simp] theorem occs_ofSeqWhen (sc : Bool) :
+    (ofSeqWhen f t keep U sc γ).occs
+      = U.map (fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+        (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst))) := rfl
+
+@[simp] theorem annList_ofSeqWhen (sc : Bool) :
+    (ofSeqWhen f t keep U sc γ).annList = U.map Prod.snd := by
+  unfold annList
+  rw [occs_ofSeqWhen, List.map_map]
+  rfl
+
+/-- **The deterministic reading**: the aggregate over the rows the clause
+keeps, whatever the convention. -/
+theorem collapse_ofSeqWhen (sc : Bool) :
+    (ofSeqWhen f t keep U sc γ).collapse
+      = f (((U.map Prod.fst).filter keep).map (fun u => t.eval u γ)) := by
+  show f ((ofSeqWhen f t keep U sc γ).leafSeq ⟨0, Nat.zero_lt_one⟩
+    Finset.univ) = _
+  refine congrArg f ?_
+  rw [leafSeq_eq_filter, Having.seqOf_univ, occs_ofSeqWhen,
+    List.filter_map, List.map_map]
+  show (U.filter (fun p => keep p.fst)).map (fun p => t.eval p.fst γ) = _
+  rw [List.filter_map, List.map_map]
+  rfl
+
+/-- **What the leaf reads in the world a valuation realizes**: the kept
+occurrences the valuation keeps. -/
+theorem leafSeq_realizedWorld_ofSeqWhen (sc : Bool) (ν : K → Bool) :
+    (ofSeqWhen f t keep U sc γ).leafSeq ⟨0, Nat.zero_lt_one⟩
+        ((ofSeqWhen f t keep U sc γ).realizedWorld ν)
+      = ((U.filter (fun p => keep p.fst && ν p.snd)).map
+          (fun p => t.eval p.fst γ)) := by
+  have hseq : Having.seqOf (ofSeqWhen f t keep U sc γ).occs
+        ((ofSeqWhen f t keep U sc γ).realizedWorld ν)
+      = (ofSeqWhen f t keep U sc γ).occs.filter (fun z => ν z.snd.fst) := by
+    unfold realizedWorld
+    exact Having.seqOf_filter_positions
+      (fun z : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => ν z.snd.fst) _
+  rw [leafSeq_eq_filter, hseq, occs_ofSeqWhen, List.filter_map, List.filter_map,
+    List.filter_filter, List.map_map]
+  exact congrArg₂ List.map rfl (List.filter_congr
+    (fun p _ => congrArg₂ (· && ·) (Bool.true_and _) rfl))
+
+/-- **The family is carried by a pushforward of the annotations**: the
+clause reads the values, which the pushforward leaves alone. -/
+theorem ofSeqWhen_mapAnn (sc : Bool) {K' : Type} (hm : K → K') :
+    (ofSeqWhen f t keep U sc γ).mapAnn hm
+      = ofSeqWhen f t keep
+        (U.map (fun p => ((p.fst, hm p.snd) : AnnotatedTuple T K' m))) sc γ := by
+  unfold ofSeqWhen mapAnn
+  simp only [AggExpr.mk.injEq, heq_eq_eq, true_and, and_true]
+  rw [List.map_map, List.map_map]
   rfl
 
 end OfGroupWhen

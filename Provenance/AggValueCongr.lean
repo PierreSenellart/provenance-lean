@@ -99,6 +99,29 @@ theorem filter {p : α → Bool} (hp : ∀ {a b : α}, eqv a b → p a = p b) :
       · simpa using TiePerm.swap hab ih
   | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
 
+/-- Appending a fixed tail. -/
+theorem append_right {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) (r : List α) :
+    TiePerm eqv (l₁ ++ r) (l₂ ++ r) := by
+  induction h with
+  | nil => exact refl eqv r
+  | cons a _ ih => exact .cons a ih
+  | swap hab _ ih => exact .swap hab ih
+  | trans _ _ ih₁ ih₂ => exact .trans ih₁ ih₂
+
+/-- Prefixing a fixed head. -/
+theorem append_left (l : List α) {r₁ r₂ : List α} (h : TiePerm eqv r₁ r₂) :
+    TiePerm eqv (l ++ r₁) (l ++ r₂) := by
+  induction l with
+  | nil => exact h
+  | cons a t ih => exact .cons a ih
+
+/-- **Two tie-block permutations append**: a family built in two segments
+– the merged occurrences a clause keeps and the rejected ones it leaves –
+is carried segment by segment. -/
+theorem append {l₁ l₂ r₁ r₂ : List α} (h : TiePerm eqv l₁ l₂)
+    (hr : TiePerm eqv r₁ r₂) : TiePerm eqv (l₁ ++ r₁) (l₂ ++ r₂) :=
+  .trans (append_right h r₁) (append_left l₂ hr)
+
 /-- A tie-block permutation is in particular a permutation. -/
 theorem perm {l₁ l₂ : List α} (h : TiePerm eqv l₁ l₂) : l₁.Perm l₂ := by
   induction h with
@@ -1027,6 +1050,52 @@ theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q →
   exact ⟨collapse_of_strip aggs sc g hstrip, rfl,
     vals_congr aggs sc g hstrip,
     fun P => predProvWith_congr aggs sc g h P⟩
+
+omit [DecidableEq K] [CommSemiringWithMonus K] in
+/-- **The family of an unmerged filtered aggregate is permuted with its
+sequence**: each occurrence carries its own value, annotation and flags,
+all three read off its row. -/
+theorem ofSeqWhen_tiePerm_occs {m : ℕ} (f : SeqAggFunc T) {c : ℕ}
+    (t : TermIn T c m) (keep : Tuple T m → Bool) (sc : Bool) (γ : Fin c → T)
+    {U U' : List (AnnotatedTuple T K m)}
+    (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
+    TiePerm (fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      (AggExpr.ofSeqWhen f t keep U sc γ).occs
+      (AggExpr.ofSeqWhen f t keep U' sc γ).occs := by
+  rw [AggExpr.occs_ofSeqWhen, AggExpr.occs_ofSeqWhen]
+  exact hU.map
+    (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    (fun p : AnnotatedTuple T K m => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)))
+    (fun hab => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hab),
+      by rw [hab]⟩)
+
+omit [DecidableEq K] in
+/-- **The family is blind to a tie-block permutation of the sequence.**
+The merged part does not see the order at all – it reads the classes and
+their sums (`AggValue.mergeOccs_congr`) – and the rejected part is
+permuted with the sequence. -/
+theorem ofSeqDistWhen_tiePerm_occs {m : ℕ}
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (sc : Bool) (γ : Fin c → T) {U U' : List (AnnotatedTuple T K m)}
+    (hU : TiePerm (fun a b : AnnotatedTuple T K m => a.fst = b.fst) U U') :
+    TiePerm (fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+      (AggExpr.ofSeqDistWhen f t keep U sc γ).occs
+      (AggExpr.ofSeqDistWhen f t keep U' sc γ).occs := by
+  have hpay : AggExpr.distPayload t keep U γ = AggExpr.distPayload t keep U' γ := by
+    unfold AggExpr.distPayload
+    exact AggValue.mergeOccs_congr
+      ((hU.filter (fun hab => congrArg keep hab)).map
+        (eqv' := fun p q : T × K => p.fst = q.fst)
+        (fun p : AnnotatedTuple T K m => (t.eval p.fst γ, p.snd))
+        (fun hab => congrArg (fun z => t.eval z γ) hab))
+  rw [AggExpr.occs_ofSeqDistWhen, AggExpr.occs_ofSeqDistWhen, hpay]
+  refine TiePerm.append (TiePerm.refl _ _) ?_
+  exact (hU.filter (fun hab => congrArg (fun u => !keep u) hab)).map
+    (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    (fun p : AnnotatedTuple T K m => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => false)))
+    (fun hab => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hab), rfl⟩)
 
 omit [ValueType T] [DecidableEq K] in
 /-- **The walk commutes with a homomorphism.** Every step is a sum, a

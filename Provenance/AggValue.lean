@@ -222,21 +222,32 @@ values are untouched. -/
 def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
   ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar⟩
 
-/-- **The merge commutes with a pushforward of the annotations.** -/
+/-- **The merge commutes with a pushforward of the annotations**: the
+classes are the same, since the values are untouched, and each class's
+`⊕` is pushed. -/
+theorem mergeOccs_map [ValueType T] [AddCommMonoid K] {K'' : Type}
+    [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
+    (hg : ∀ x y, h (x + y) = h x + h y) (l : List (T × K)) :
+    mergeOccs (l.map (fun o => (o.fst, h o.snd)))
+      = (mergeOccs l).map (fun o => (o.fst, h o.snd)) := by
+  unfold mergeOccs
+  show List.map _ (Multiset.sort ((List.map Prod.fst
+      (List.map (fun o => (o.fst, h o.snd)) l)).dedup : Multiset T) _) = _
+  rw [List.map_map]
+  show List.map _ (Multiset.sort ((List.map Prod.fst l).dedup : Multiset T) _)
+    = List.map _ (List.map _ _)
+  rw [List.map_map]
+  exact List.map_congr_left (fun v _ =>
+    Prod.ext rfl (classSum_map hg0 hg l v))
+
+/-- The same on a token. -/
 theorem mergeByValue_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     [AddCommMonoid K''] {h : K → K''} (hg0 : h 0 = 0)
     (hg : ∀ x y, h (x + y) = h x + h y) (a : AggValue T K) :
     mergeByValue (a.mapAnn h) = (mergeByValue a).mapAnn h := by
   unfold mergeByValue mapAnn
   simp only [AggValue.mk.injEq, true_and, and_true]
-  show List.map _ (Multiset.sort ((List.map Prod.fst
-      (List.map (fun o => (o.fst, h o.snd)) a.occs)).dedup : Multiset T) _) = _
-  rw [List.map_map]
-  show List.map _ (Multiset.sort ((List.map Prod.fst a.occs).dedup : Multiset T) _)
-    = List.map _ (List.map _ _)
-  rw [List.map_map]
-  exact List.map_congr_left (fun v _ =>
-    Prod.ext rfl (classSum_map hg0 hg a.occs v))
+  exact mergeOccs_map hg0 hg a.occs
 
 /-- **Predicate provenance of an atomic comparison against a token**: the
 `⊕`-sum, over the non-empty possible worlds of the token's group, of the

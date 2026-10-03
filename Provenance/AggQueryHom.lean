@@ -891,6 +891,60 @@ theorem sortList_hom_tiePerm (h : SemiringWithMonusHom K K') {n' : ℕ}
       (fun hab => ValueFrame.le_fst_of_le hab)
 
 omit [DecidableEq K] in
+/-- **The frame itself is carried by the pushforward up to a tie-block
+permutation**: the frame is the same rows – `ValueFrame.frameOf_map` – and
+each side sorts them by its own clause, so only the order inside a block
+of equal tuples can differ. This is the step every reading of a window's
+column rests on, whether the column is a token or an expression. -/
+theorem frameListOf_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') (w : ValueFrame T p')
+    (X : Multiset (AnnotatedTuple T K n')) {x : AnnotatedTuple T K n'}
+    (hx : x ∈ X) :
+    TiePerm (fun a b : AnnotatedTuple T K' n' => a.fst = b.fst)
+      ((ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w
+          X x).map
+        (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')))
+      (ValueFrame.frameListOf (α := AnnotatedTuple T K' n') Prod.fst P O o w
+        (Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+        ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')) := by
+  have hframe : ValueFrame.frameOf (α := AnnotatedTuple T K' n') Prod.fst P O w
+      (Multiset.map (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')
+      = Multiset.map (fun q : AnnotatedTuple T K n' =>
+          ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
+        (ValueFrame.frameOf (α := AnnotatedTuple T K n') Prod.fst P O w X x) :=
+    ValueFrame.frameOf_map _ (fun _ => rfl) P O w X hx
+  have h1 : ((ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w
+        X x).map
+      (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')))
+      = OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+        ((sortList (ValueFrame.frameOf (α := AnnotatedTuple T K n')
+            Prod.fst P O w X x)).map
+          (fun q : AnnotatedTuple T K n' =>
+            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))) := by
+    rw [ValueFrame.frameListOf, ← ValueFrame.sortSeq_mapAnn O o ⇑h.toRingHom]
+  have h2 : ValueFrame.frameListOf (α := AnnotatedTuple T K' n') Prod.fst P O o w
+      (Multiset.map (fun q : AnnotatedTuple T K n' =>
+        ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+      ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n')
+      = OrderSpec.sortSeq (Tuple.key O) Prod.fst o
+        (sortList (α := AnnotatedTuple T K' n')
+          (Multiset.map (fun q : AnnotatedTuple T K n' =>
+            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n'))
+            (ValueFrame.frameOf (α := AnnotatedTuple T K n')
+              Prod.fst P O w X x))) := by
+    rw [ValueFrame.frameListOf, hframe]
+  rw [h1, h2]
+  exact OrderSpec.sortSeq_tiePerm (key := Tuple.key O)
+    (val := (Prod.fst : AnnotatedTuple T K' n' → Tuple T n')) (o := o)
+    (sortList_hom_tiePerm h _).perm
+
+omit [DecidableEq K] in
 /-- The occurrence payloads of a window's token – base-side pushed forward,
 and hom-side – differ by a tie-block permutation on equal values: the frame
 itself is carried unchanged, only the order inside a block of equal tuples
