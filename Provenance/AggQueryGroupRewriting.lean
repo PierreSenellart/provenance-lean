@@ -298,12 +298,16 @@ abbrev ColKind.gammaRewKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂ + 1) → ColKi
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- The kind vector produced by the token-building grouping over a
-rewritten subquery is the rewritten `Gamma` kind vector: the key columns
-of a rewritten schema are regular. -/
-theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
+rewritten subquery is the rewritten `Gamma` kind vector, whatever
+rewritten schema the subquery carries: all that is asked of it is that
+the key columns be regular, which they are in a rewriting of an
+all-regular query. -/
+theorem ColKind.gammaTok_rew_kinds_of {m n₁ n₂ : ℕ}
+    {κ' : Fin (m + 1) → ColKind} (is : Tuple (Fin m) n₁)
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg) :
     Fin.append
         (Fin.append
-          (fun k => ColKind.rewKinds m ((is k).castLE (Nat.le_succ m)))
+          (fun k => κ' ((is k).castLE (Nat.le_succ m)))
           (fun _ : Fin n₂ => ColKind.agg))
         (fun _ : Fin 1 => ColKind.prov)
       = ColKind.gammaRewKinds n₁ n₂ := by
@@ -316,7 +320,7 @@ theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     · rw [Fin.append_left]
       show _ = ColKind.gammaKinds n₁ n₂ (Fin.castAdd n₂ i')
       rw [ColKind.gammaKinds, Fin.append_left]
-      exact ColKind.rewKinds_lt (is i').isLt
+      exact hkey i'
     · rw [Fin.append_right]
       show _ = ColKind.gammaKinds n₁ n₂ (Fin.natAdd n₁ j')
       rw [ColKind.gammaKinds, Fin.append_right]
@@ -324,52 +328,95 @@ theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     show _ = Fin.append (ColKind.gammaKinds n₁ n₂) _ (Fin.natAdd (n₁ + n₂) i)
     rw [Fin.append_right]
 
+/-- The classical rewriting's own schema is one such. -/
+theorem ColKind.gammaTok_rew_kinds {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) :
+    Fin.append
+        (Fin.append
+          (fun k => ColKind.rewKinds m ((is k).castLE (Nat.le_succ m)))
+          (fun _ : Fin n₂ => ColKind.agg))
+        (fun _ : Fin 1 => ColKind.prov)
+      = ColKind.gammaRewKinds n₁ n₂ :=
+  ColKind.gammaTok_rew_kinds_of (n₂ := n₂) is
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+
+/-- **The rewritten grouping over an arbitrary rewritten subquery**: the
+same `provsql_agg` grouping as `AggQueryIn.gammaRew`, reading the
+occurrence annotations off the subquery's provenance column, but over
+*any* query of the rewritten world that computes the subquery's rows –
+not only the classical rewriting of a classical one. This is what makes
+the rule compositional: a `GROUP BY` whose input is itself a grouping
+(its aggregate column cashed by a projection, which is what the kind
+discipline asks) is rewritten by composing the two. -/
+def AggQueryIn.gammaRewOf {m n₁ n₂ : ℕ} {κ' : Fin (m + 1) → ColKind}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂)
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
+    (hprov : κ' (Fin.last m) = ColKind.prov)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ') :
+    AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
+  AggQueryIn.Retag
+    (fun k => congrArg ColKind.base
+      (congrFun (ColKind.gammaTok_rew_kinds_of (n₂ := n₂) is hkey) k))
+    (AggQueryIn.GammaTok
+      (fun k => (is k).castLE (Nat.le_succ m))
+      (fun k => by
+        rw [hkey k]
+        exact fun hc => ColKind.noConfusion hc)
+      (fun j => (ts j).castToAnnotatedTuple)
+      (fun j => (fs j).liftComposite)
+      (TermGIn.provIndex (Fin.last m) hprov)
+      q')
+
 /-- **The rewritten bare grouping**: ProvSQL's `provsql_agg` grouping over
 the classically rewritten subquery, reading the occurrence annotations
 off the subquery's provenance column. The output carries the group keys,
 one aggregate token per `(term, aggregate)` pair, and the group-existence
-guard `δ(⊕ U)` in the provenance column. -/
+guard `δ(⊕ U)` in the provenance column.
+
+It is `AggQueryIn.gammaRewOf` over the classical rewriting of the
+subquery; the general form takes any query of the rewritten world that
+computes the subquery's rows. -/
 def AggQueryIn.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
-  AggQueryIn.Retag
-    (fun k => congrArg ColKind.base
-      (congrFun (ColKind.gammaTok_rew_kinds (n₂ := n₂) is) k))
-    (AggQueryIn.GammaTok
-      (fun k => (is k).castLE (Nat.le_succ m))
-      (fun k => by
-        rw [ColKind.rewKinds_lt (is k).isLt]
-        exact fun hc => ColKind.noConfusion hc)
-      (fun j => (ts j).castToAnnotatedTuple)
-      (fun j => (fs j).liftComposite)
-      (TermGIn.provIndex (Fin.last m)
-        (ColKind.rewKinds_of_not_lt (lt_irrefl m)))
-      (qg.rewriting hq))
+  AggQueryIn.gammaRewOf is ts fs
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+    (ColKind.rewKinds_of_not_lt (lt_irrefl m))
+    (qg.rewriting hq)
 
 /-! ## Correctness -/
 
-/-- **Correctness of the bare-grouping rewriting** – the general
-framework's rule (R5): for a classical subquery, the general evaluator's
-grouping, embedded row-wise into the composite domain (tokens included,
-finalized annotation appended), is computed by the rewritten world's
-token-building grouping over the classically rewritten subquery. -/
-theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
+/-- **Correctness of the bare-grouping rewriting, compositionally** –
+the general framework's rule (R5) over any rewritten subquery: what is
+asked of the subquery is only that the rewritten world's query compute
+its rows, as the pairs of a plain tuple and the annotation its
+provenance column carries. The grouping itself is the same. -/
+theorem AggQueryIn.gammaRewOf_valid {m n₁ n₂ : ℕ}
+    {κ' : Fin (m + 1) → ColKind}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
-    (hq : qg.classical) (d : AnnotatedDatabase T K) :
+    (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
+    (hprov : κ' (Fin.last m) = ColKind.prov)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ') (d : AnnotatedDatabase T K)
+    (R : AnnotatedRelation T K m)
+    (hR : Multiset.map GenRow.toAnnotated (qg.evaluate d) = R)
+    (har : Multiset.map (fun u => ((GenRow.plainTuple u,
+          ((TermGIn.provIndex (c := 0) (Fin.last m) hprov).evalRew u).annPart)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))
+        (q'.evaluateRew d.toComposite)
+      = R.map (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))) :
     ((AggQueryIn.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
-      = (AggQueryIn.gammaRew is ts fs qg hq).evaluateRew d.toComposite := by
-  have hA : Multiset.map GenRow.toAnnotated (qg.evaluate d)
-      = (qg.strip hq).evaluateAnnotated (qg.strip_source hq) d :=
-    AggQueryIn.strip_bridge qg hq d
+      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q').evaluateRew
+          d.toComposite := by
   simp only [AggQueryIn.evaluate]
-  rw [hA]
+  rw [hR]
   conv_lhs => rw [Multiset.map_map]
-  unfold AggQueryIn.gammaRew
+  unfold AggQueryIn.gammaRewOf
   show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) d.toComposite
   simp only [AggQueryIn.evaluateRew]
-  rw [AggQueryIn.rewriting_provRel qg hq d, map_comp_fst_groupByKey]
+  rw [har, map_comp_fst_groupByKey]
   -- the rewritten side's key multiset is the `inl`-embedding of the
   -- annotated side's, so both sides map over the same groups
   simp only [Multiset.map_map]
@@ -405,19 +452,18 @@ theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
   -- and back from the deduplicated keys to the grouping
   rw [show (Multiset.map (fun p : AnnotatedTuple T K m =>
         ((fun k => p.fst (is k)) : Tuple T n₁))
-        ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)).dedup
+        R).dedup
       = (Multiset.map Prod.fst (Multiset.map
           (fun p : AnnotatedTuple T K m =>
             ((fun k => p.fst (is k), p.snd) : AnnotatedTuple T K n₁))
-          ((qg.strip hq).evaluateAnnotated (qg.strip_source hq)
-            d))).dedup from by
+          R)).dedup from by
     rw [Multiset.map_map]
     rfl,
     ← map_fst_groupByKey, Multiset.map_map]
   refine Multiset.map_congr rfl (fun kv _ => ?_)
   simp only [Function.comp_apply]
   rw [Having.havingGroup_toComposite is
-    ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d) kv.fst]
+    R kv.fst]
   unfold GenRow.toCompositeRow
   funext j
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
@@ -433,6 +479,25 @@ theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
     dsimp only
     rw [GenAnn.finalize_gamma, List.map_map]
     rfl
+
+/-- **Correctness of the bare-grouping rewriting** – the general
+framework's rule (R5): for a classical subquery, the general evaluator's
+grouping, embedded row-wise into the composite domain (tokens included,
+finalized annotation appended), is computed by the rewritten world's
+token-building grouping over the classically rewritten subquery. -/
+theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
+    (hq : qg.classical) (d : AnnotatedDatabase T K) :
+    ((AggQueryIn.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRew is ts fs qg hq).evaluateRew d.toComposite :=
+  AggQueryIn.gammaRewOf_valid is ts fs qg
+    (fun k => ColKind.rewKinds_lt (is k).isLt)
+    (ColKind.rewKinds_of_not_lt (lt_irrefl m)) (qg.rewriting hq) d
+    ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)
+    (AggQueryIn.strip_bridge qg hq d)
+    (AggQueryIn.rewriting_provRel qg hq d)
+
 
 /-! ## The gate reads a transported token unchanged -/
 

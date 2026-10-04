@@ -52,9 +52,27 @@ needs the operands' rows to conform; that comes for free from the
 subderivations, since their rows are embeddings of rows of the general
 evaluator, which conforms by `AggQueryIn.evaluate_conform`.
 
-Difference closes as well (`AggQueryIn.diffRew`). The closure is therefore
-complete for the operators the kind discipline admits above a grouping:
-there is no remaining structural gap.
+Difference closes as well (`AggQueryIn.diffRew`).
+
+The *grouping itself* closes over an arbitrary rewritten subquery
+(`AggQueryIn.RewritesTo.gammaOf`, off `AggQueryIn.gammaRewOf_valid`): what
+the rule asks of its input is only that some query of the rewritten world
+compute its rows, not that it be classical. This is what covers a
+`GROUP BY` whose input is itself a grouping -- the kind discipline asking
+the inner aggregate column to be read out first, as SQL does with a
+`SELECT key, count(*) AS c` subquery -- which
+`AggQueryIn.rewritesTo_gamma_gamma` exhibits and the classical `gamma`
+rule cannot reach. The `HAVING` site stays fused and classical, because
+its rewriting supersedes the group guard its own `Gamma` created: the
+rewritten row carries the *finalized* annotation and not the pending
+factor, so the supersede decision has to be taken where the factor is
+known.
+
+So the closure is complete for the operators the kind discipline admits
+above a grouping, and for a grouping above anything the closure reaches.
+What is outside it is the operators with no rewriting at all -- the
+windows, the apply, the two recursions and the alternatives -- and a
+difference above a grouping, which the kinds already forbid.
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
@@ -1685,6 +1703,57 @@ def AggQueryIn.rewritingOf {n : ℕ} {κ : Fin n → ColKind}
       (ColKind.rewKindsOf_base_of_reg (AggQueryIn.classical_kinds q hq) k).symm)
     (q.rewriting hq)
 
+/-- **What a token-building grouping reads off an embedded row**: the
+composite encoding of the row's finalized annotated tuple, and the
+annotation its provenance column carries. Nothing is asked of the row's
+kinds – an aggregate column's deterministic reading is embedded by
+`AggValue.collapseSum_toComposite` exactly as a regular value is. -/
+theorem GenRow.provPair_toCompositeRow {n : ℕ} {κ' : Fin (n + 1) → ColKind}
+    (r : GenRow T K n) (hprov : κ' (Fin.last n) = ColKind.prov) :
+    ((GenRow.plainTuple r.toCompositeRow,
+        ((TermGIn.provIndex (c := 0) (Fin.last n) hprov).evalRew
+          r.toCompositeRow).annPart) : AnnotatedTuple (T ⊕ K) K (n + 1))
+      = ((GenRow.toAnnotated r).toComposite, (GenRow.toAnnotated r).snd) := by
+  refine Prod.ext ?_ ?_
+  · show GenRow.plainTuple r.toCompositeRow
+      = (GenRow.toAnnotated r).toComposite
+    funext j
+    show AggValue.collapseSum (r.toCompositeRow j) = _
+    refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+    · rw [GenRow.toCompositeRow_castAdd, AggValue.collapseSum_toComposite,
+        AnnotatedTuple.toComposite, Fin.append_left]
+      rfl
+    · rw [show Fin.natAdd n i = Fin.last n from
+        Fin.ext (by simp [Subsingleton.elim i (0 : Fin 1)]),
+        GenRow.toCompositeRow_last, AnnotatedTuple.toComposite,
+        show (Fin.last n) = Fin.natAdd n (0 : Fin 1) from Fin.ext (by simp),
+        Fin.append_right]
+      rfl
+  · show (AggValue.collapseSum (r.toCompositeRow (Fin.last n))).annPart
+      = (GenRow.toAnnotated r).snd
+    rw [GenRow.toCompositeRow_last]
+    rfl
+
+/-- **The grouping's hypothesis, off a rewriting of its input**: a
+rewritten query that computes the subquery's rows computes, in
+particular, the pairs the token-building grouping reads. -/
+theorem AggQueryIn.provRel_of_toCompositeRow {m : ℕ}
+    {κ' : Fin (m + 1) → ColKind} {κ : Fin m → ColKind}
+    (hprov : κ' (Fin.last m) = ColKind.prov) (qg : AggQuery T m κ)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ') (d : AnnotatedDatabase T K)
+    (hrel : (qg.evaluate d).map GenRow.toCompositeRow
+      = q'.evaluateRew d.toComposite) :
+    Multiset.map (fun u => ((GenRow.plainTuple u,
+          ((TermGIn.provIndex (c := 0) (Fin.last m) hprov).evalRew u).annPart)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))
+        (q'.evaluateRew d.toComposite)
+      = (Multiset.map GenRow.toAnnotated (qg.evaluate d)).map
+          (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (m + 1))) := by
+  rw [← hrel, Multiset.map_map, Multiset.map_map]
+  exact Multiset.map_congr rfl
+    (fun r _ => GenRow.provPair_toCompositeRow r hprov)
+
 /-! ## The closure -/
 
 /-- **The compositional closure of the rewriting rules**: the three base
@@ -1705,6 +1774,16 @@ inductive AggQueryIn.RewritesTo :
       (hq : qg.classical) :
       RewritesTo (AggQueryIn.Gamma is ts fs qg)
         (AggQueryIn.gammaRew is ts fs qg hq)
+  | gammaOf {m n₁ n₂ : ℕ} {qg : AggQuery T m (ColKind.allReg m)}
+      {q' : AggQuery (T ⊕ K) (m + 1)
+        (ColKind.rewKindsOf (ColKind.allReg m))}
+      (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+      (fs : Tuple (SeqAggFunc T) n₂) :
+      RewritesTo qg q' →
+      RewritesTo (AggQueryIn.Gamma is ts fs qg)
+        (AggQueryIn.gammaRewOf is ts fs
+          (fun k => ColKind.rewKindsOf_of_lt (ColKind.allReg m) (is k).isLt)
+          (ColKind.rewKindsOf_last (ColKind.allReg m)) q')
   | havingPred {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
       (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
@@ -1772,6 +1851,29 @@ inductive AggQueryIn.RewritesTo :
       RewritesTo q₁ q₁' → RewritesTo q₂ q₂' →
       RewritesTo (AggQueryIn.Prod q₁ q₂) (AggQueryIn.prodRew q₁' q₂')
 
+omit [DecidableEq K] in
+/-- **A grouping over a grouping is in the closure.** The kind
+discipline asks the inner aggregate column to be read out first – here by
+a projection of terms, which is what `SELECT key, count(*) AS c` followed
+by a grouping of `c` does in SQL – and the two grouping rules then
+compose through `AggQueryIn.RewritesTo.gammaOf`, which the classical
+`gamma` rule alone cannot do: its subquery has to be classical, and a
+grouping is not. -/
+theorem AggQueryIn.rewritesTo_gamma_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂)
+    (os : Tuple (TermG T (ColKind.gammaKinds n₁ n₂)) m₂)
+    (is' : Tuple (Fin m₂) p₁) (ts' : Tuple (Term T m₂) p₂)
+    (fs' : Tuple (SeqAggFunc T) p₂)
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    ∃ q' : AggQuery (T ⊕ K) (p₁ + p₂ + 1) (ColKind.gammaRewKinds p₁ p₂),
+      AggQueryIn.RewritesTo
+        (AggQueryIn.Gamma is' ts' fs'
+          (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
+            (AggQueryIn.Gamma is ts fs qg))) q' :=
+  ⟨_, .gammaOf is' ts' fs'
+    (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq))⟩
+
 /-- **Whole-query correctness of the compositional rewriting**: along the
 closure, the general evaluator's rows, embedded token-aware into the
 composite domain, are exactly the rewritten world's evaluation. -/
@@ -1792,6 +1894,9 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
         (AggQueryIn.rewriting_noFilter q hq)]
   | gamma is ts fs qg hq =>
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
+  | gammaOf is ts fs h₀ ih =>
+    exact AggQueryIn.gammaRewOf_valid is ts fs _ _ _ _ d _ rfl
+      (AggQueryIn.provRel_of_toCompositeRow _ _ _ d ih)
   | havingPred is ts fs φ hφ hrf qg hq =>
     exact AggQueryIn.havingPredRew_valid is ts fs φ hφ hrf qg hq d
   | retag h₀ _ ih => exact ih

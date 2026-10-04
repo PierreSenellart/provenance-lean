@@ -1091,8 +1091,24 @@ proven engine several general results reuse internally.
   (`AggQuery.prodRew`/`AggQuery.prodRew_valid`), whose join reassembly
   uses the kind-dispatched column copy `ProjCol.copy`, faithful because
   the operands' rows conform (`GenRow.toCompositeRow_conform` over
-  `AggQuery.evaluate_conform`). Only difference above a grouping is
-  left out
+  `AggQuery.evaluate_conform`). The **grouping itself** closes over an
+  arbitrary rewritten subquery (`AggQuery.RewritesTo.gammaOf`, off
+  `AggQuery.gammaRewOf_valid`): the rule asks only that some query of the
+  rewritten world compute its input's rows – the pairs of a plain tuple
+  and the annotation its provenance column carries, which
+  `AggQuery.provRel_of_toCompositeRow` reads off any such rewriting – so
+  a `GROUP BY` over a `GROUP BY` is covered, the inner aggregate column
+  read out first as the kinds ask
+  (`AggQuery.rewritesTo_gamma_gamma`). The `HAVING` site is still fused
+  and classical, which is not known to be necessary: the rewritten row
+  carries the finalized annotation rather than the pending factor, and a
+  semiring cannot divide the guard out – but a predicate entailing the
+  group's existence absorbs it (`GenPred.predsem_absorb_prod`), so what a
+  general selection rule lacks is that absorption plus a supersede test
+  taken on the rewritten row, not an impossibility. Difference above a grouping the kinds
+  already forbid; what is left outside is the operators with no
+  rewriting at all – the windows, the apply, the two recursions and the
+  alternatives
 
 **The classical rewriting layer**
 
