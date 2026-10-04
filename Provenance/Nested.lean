@@ -237,7 +237,15 @@ makes a nested value's reading depend on its occurrences' columns only
 through `AggExpr.worldStats`, which is what `GenValue.Equiv` carries. -/
 
 /-- The datum a decision carries: its factor, the value it contributes
-where it is present, and whether it is a world of its own expression. -/
+where it is present, and whether it is a world of its own expression.
+
+Nothing is asked of an *absent* occurrence – the third component is
+`true` there – because that is `World.IsWorld`, the reading the document
+commits to. This is where the two answers to `q:nestedcoherent` part: the
+coherent one asks such an occurrence for `sub = ∅`, and a statistic for
+it would need the family's total annotation, which `AggExpr.worldStats`
+does not single out among its entries (though a tie-block permutation
+preserves it too, so the route would be the same). -/
 def statOfDec [CommSemiringWithMonus K] (d : WorldOcc T K) :
     K × Option T × Bool :=
   ((if d.present = true then d.occ.2 else (1 - d.occ.2))
@@ -856,6 +864,7 @@ def readOfChoice (agg : Multiset T → T) (sc : Bool) (P : T → Kleene)
   if (sc = true ∨ 0 < Multiset.card c.fst) ∧ c.snd.snd = true
   then c.snd.fst * Having.chiOf P (agg c.fst) else 0
 
+omit [ValueType T] [DecidableEq K] in
 /-- **The predicate provenance of a nested value runs over the data its
 occurrences' columns give**, where `K` is complemented: the weight of a
 world is the product of its decisions' factors (`World.ann_split`), the
@@ -905,7 +914,7 @@ theorem predProvWith_eq_choicesOf (hc : complemented K) (a : NestedValue T K)
         ∧ (summaryOfOccs Wo).snd.snd = true) := fun hc' => h (hw.mpr hc')
     simp [h, h']
 
-omit [DecidableEq K] in
+omit [ValueType T] [DecidableEq K] in
 /-- **Two nested values whose occurrences' data agree read alike.** -/
 theorem predProvWith_congr_of_occStats (hc : complemented K)
     {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
@@ -949,8 +958,11 @@ reading. -/
 def vals (a : NestedValue T K) : Finset T :=
   (((a.worlds.filter (fun W => W.IsWorld a)).map a.valOn)).toFinset
 
-/-- **The values a nested value takes run over the data too.** -/
-theorem vals_eq_choicesOf (hc : complemented K) (a : NestedValue T K) :
+omit [DecidableEq K] in
+/-- **The values a nested value takes run over the data too.** Only the
+annotation of a world needs `K` complemented; which values the readings
+take does not, so this asks nothing. -/
+theorem vals_eq_choicesOf (a : NestedValue T K) :
     a.vals
       = ((((choicesOf (a.occs.map occStats)).filter
           (fun c => (a.scalar = true ∨ 0 < Multiset.card c.fst)
@@ -982,12 +994,12 @@ theorem vals_eq_choicesOf (hc : complemented K) (a : NestedValue T K) :
 omit [DecidableEq K] in
 /-- **Two nested values whose occurrences' data agree take the same
 values.** -/
-theorem vals_congr_of_occStats (hc : complemented K)
+theorem vals_congr_of_occStats
     {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
     (hst : a.occs.map occStats = b.occs.map occStats) :
     a.vals = b.vals := by
   classical
-  rw [vals_eq_choicesOf hc, vals_eq_choicesOf hc, hst, hagg, hsc]
+  rw [vals_eq_choicesOf, vals_eq_choicesOf, hst, hagg, hsc]
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- A valuation that keeps every occurrence realizes the full world. -/

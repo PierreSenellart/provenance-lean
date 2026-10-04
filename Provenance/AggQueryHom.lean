@@ -1639,7 +1639,7 @@ theorem GenValue.Equiv.of_nest_rel (hc : complemented K)
     rw [hagg]
     exact congrArg a.agg (map_eq_of_rel h (fun o' o ho => ho.2.2))
   exact ⟨hcol, hsc,
-    NestedValue.vals_congr_of_occStats hc hagg hsc hst,
+    NestedValue.vals_congr_of_occStats hagg hsc hst,
     fun P => NestedValue.predProvWith_congr_of_occStats hc hagg hsc hst P⟩
 
 /-- Products of related multisets are related pairwise. -/

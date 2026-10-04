@@ -698,6 +698,13 @@ is what `GenValue.Equiv` needs for a column a nested value reads, since a
 nested world's weight is this and not the four readings
 (`NestedValue.World.ann_split`).
 
+The fourth component is the *expression's own* world condition
+(`AggExpr.IsWorld`: each grouped leaf's family met by the subfamily),
+which is the second conjunct of `NestedValue.World.IsWorldWith` and so
+common to both answers to `q:nestedcoherent`. It is not that question's
+parameter, which is `extra`, a clause on the subfamily an *absent*
+occurrence may take – nothing an inner expression alone decides.
+
 These four are what a world of the outer family needs of this occurrence
 and no more – what it holds, what it leaves out, what it reads there and
 whether that is a reading at all – so the bag of them is the nested
