@@ -1195,6 +1195,58 @@ theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
   obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr aggs sc₁ g h
   exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr aggs sc₁ g h⟩
 
+/-- **Equivalent columns give a nested value the same statistics.** The
+inner reading of a column is its own expression where it holds one, the
+token's own where it holds a token, and its collapse where it holds a
+nested value – and in each case what a nested value reads of it is fixed
+by the equivalence: by the statistics it now carries for an expression,
+by the tie-block permutation for a token, and by the collapse for a
+nested value or a regular one. -/
+theorem GenValue.Equiv.innerValue_worldStats {v' v : GenValue T K}
+    (h : GenValue.Equiv v' v) :
+    (GenValue.innerValue v').worldStats = (GenValue.innerValue v).worldStats := by
+  cases v' with
+  | inl w' =>
+    cases v with
+    | inl w => rw [show w' = w from h]
+    | inr x => exact absurd h GenValue.Equiv.not_inl_inr
+  | inr x' =>
+    cases v with
+    | inl w => exact absurd h GenValue.Equiv.not_inr_inl
+    | inr x =>
+      cases x' with
+      | tok a' =>
+        cases x with
+        | tok a =>
+          have hagg : a'.agg = a.agg := h.1
+          have hsc : a'.scalar = a.scalar := h.2.1
+          show (AggExpr.ofValue a').worldStats = (AggExpr.ofValue a).worldStats
+          unfold AggExpr.ofValue
+          rw [hagg, hsc]
+          refine AggExpr.worldStats_congr (fun _ => a.agg) (fun _ => a.scalar)
+            (fun v => v 0) ?_
+          exact h.2.2.map
+            (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) =>
+              z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+            (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
+              (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
+            (fun hpq => ⟨funext (fun _ => hpq), rfl⟩)
+        | nest b => exact absurd h not_false
+        | expr e => exact absurd h not_false
+      | nest b' =>
+        cases x with
+        | nest b =>
+          show (NestedValue.constInner b'.collapse).worldStats
+            = (NestedValue.constInner b.collapse).worldStats
+          rw [show b'.collapse = b.collapse from h.1]
+        | tok a => exact absurd h not_false
+        | expr e => exact absurd h not_false
+      | expr e' =>
+        cases x with
+        | expr e => exact h.2.2.2.2
+        | tok a => exact absurd h not_false
+        | nest b => exact absurd h not_false
+
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
 the family, the convention and the worlds alone. -/
@@ -1563,6 +1615,32 @@ theorem rel_filter_of_iff {R : α → β → Prop} {s : Multiset α}
     · rw [ite_eq_right hpa, ite_eq_right (fun hqb => hpa ((hpq a b hab).mpr hqb)),
         zero_add, zero_add]
       exact ih
+
+/-- **Two nested values whose occurrences correspond read alike.** The
+annotations agree, so the data at each occurrence agree
+(`NestedValue.occStats_eq`), and what a nested value reads is a function
+of those where `K` is complemented
+(`NestedValue.predProvWith_congr_of_occStats`). The collapses agree
+because they are the occurrences' own. -/
+theorem GenValue.Equiv.of_nest_rel (hc : complemented K)
+    {a' a : NestedValue T K} (hagg : a'.agg = a.agg)
+    (hsc : a'.scalar = a.scalar)
+    (h : Multiset.Rel (fun o' o : AggExpr T K × K =>
+      o'.snd = o.snd ∧ o'.fst.worldStats = o.fst.worldStats
+        ∧ o'.fst.collapse = o.fst.collapse) a'.occs a.occs) :
+    GenValue.Equiv (Sum.inr (AggTok.nest a') : GenValue T K)
+      (Sum.inr (AggTok.nest a)) := by
+  have hst : a'.occs.map NestedValue.occStats
+      = a.occs.map NestedValue.occStats :=
+    map_eq_of_rel h (fun o' o ho => by
+      rw [NestedValue.occStats_eq, NestedValue.occStats_eq, ho.1, ho.2.1])
+  have hcol : a'.collapse = a.collapse := by
+    show a'.agg _ = a.agg _
+    rw [hagg]
+    exact congrArg a.agg (map_eq_of_rel h (fun o' o ho => ho.2.2))
+  exact ⟨hcol, hsc,
+    NestedValue.vals_congr_of_occStats hc hagg hsc hst,
+    fun P => NestedValue.predProvWith_congr_of_occStats hc hagg hsc hst P⟩
 
 /-- Products of related multisets are related pairwise. -/
 theorem rel_bind {R : α → β → Prop} {S : γ → δ' → Prop}
@@ -2084,6 +2162,64 @@ theorem exprWhenOf_mapAnn_equiv (h : SemiringWithMonusHom K K')
       (AggExpr.ofSeqDistWhen_tiePerm_occs f t keep
         (!w.s (Tuple.key O x.fst)) γ htie)
 
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **A projection column reads simulated rows alike**: a term reads the
+regular values the simulation keeps, a token column is carried as it is,
+and a term over an aggregate column moves the function and leaves the
+family (`GenValue.Equiv.postcomp`). -/
+theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
+    {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
+    {γ : Fin cI → T} {r' : GenRow T K' mI} {r : GenRow T K mI}
+    (hcol : ∀ k, GenValue.Equiv (r'.fst k)
+      (AggValue.mapAnnSum ⇑h.toRingHom (r.fst k))) :
+    GenValue.Equiv (pc.eval r'.fst γ)
+      (AggValue.mapAnnSum ⇑h.toRingHom (pc.eval r.fst γ)) := by
+  cases pc with
+  | term t =>
+    simp only [ProjColIn.eval]
+    show t.eval r'.fst γ = t.eval r.fst γ
+    calc t.eval r'.fst γ
+        = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
+          TermGIn.eval_equiv t hcol
+      _ = t.eval r.fst γ := TermGIn.eval_mapAnnSum h t r.fst
+  | provTerm t =>
+    simp only [ProjColIn.eval]
+    show t.eval r'.fst γ = t.eval r.fst γ
+    calc t.eval r'.fst γ
+        = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
+          TermGIn.eval_equiv t hcol
+      _ = t.eval r.fst γ := TermGIn.eval_mapAnnSum h t r.fst
+  | token k hk =>
+    simp only [ProjColIn.eval]
+    exact hcol k
+  | aggTerm k hk gf =>
+    -- reading an aggregate column through a function leaves its
+    -- family and its convention alone, so the simulation carries
+    -- over (`GenValue.Equiv.postcomp`)
+    simp only [ProjColIn.eval]
+    have hk' := hcol k
+    cases hx' : r'.fst k with
+    | inl v' =>
+      cases hx : r.fst k with
+      | inl v =>
+        rw [hx', hx] at hk'
+        exact congrArg gf hk'
+      | inr a =>
+        rw [hx', hx] at hk'
+        exact absurd hk' GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      cases hx : r.fst k with
+      | inl v =>
+        rw [hx', hx] at hk'
+        exact absurd hk' GenValue.Equiv.not_inr_inl
+      | inr x =>
+        rw [hx', hx] at hk'
+        show GenValue.Equiv (Sum.inr (x'.postcomp gf))
+          (Sum.inr ((x.postcomp gf).mapAnn ⇑h.toRingHom))
+        rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf x]
+        exact hk'.postcomp gf
+
+
 /-- **Row-wise simulation.** Evaluating the transported query on the
 pushed-forward database produces, row for row, simulations of the
 base-side rows: same regular values, equivalent aggregate columns, and
@@ -2091,7 +2227,7 @@ the pushed-forward finalized annotation. -/
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (d : AnnotatedDatabase T K) (γ : Fin c → T),
-      q.framesContainSelf → q.noGammaNest →
+      q.framesContainSelf → q.nestInComplemented (K := K') →
       Multiset.Rel (GenRow.Sim h)
         (q.evaluate (h.mapAnnotatedDatabase d) γ)
         (q.evaluate d γ) := by
@@ -2113,50 +2249,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     simp only [AggQueryIn.evaluate]
     refine rel_map_of_rel (ih d γ hw hn) (fun r' r hs => ⟨?_, ?_⟩)
     · intro j
-      cases hp : ps j with
-      | term t =>
-        simp only [hp, ProjColIn.eval]
-        show t.eval r'.fst γ = t.eval r.fst γ
-        calc t.eval r'.fst γ
-            = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
-              TermGIn.eval_equiv t hs.1
-          _ = t.eval r.fst γ := TermGIn.eval_mapAnnSum h t r.fst
-      | provTerm t =>
-        simp only [hp, ProjColIn.eval]
-        show t.eval r'.fst γ = t.eval r.fst γ
-        calc t.eval r'.fst γ
-            = t.eval (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
-              TermGIn.eval_equiv t hs.1
-          _ = t.eval r.fst γ := TermGIn.eval_mapAnnSum h t r.fst
-      | token k hk =>
-        simp only [hp, ProjColIn.eval]
-        exact hs.1 k
-      | aggTerm k hk gf =>
-        -- reading an aggregate column through a function leaves its
-        -- family and its convention alone, so the simulation carries
-        -- over (`GenValue.Equiv.postcomp`)
-        simp only [hp, ProjColIn.eval]
-        have hk' := hs.1 k
-        cases hx' : r'.fst k with
-        | inl v' =>
-          cases hx : r.fst k with
-          | inl v =>
-            rw [hx', hx] at hk'
-            exact congrArg gf hk'
-          | inr a =>
-            rw [hx', hx] at hk'
-            exact absurd hk' GenValue.Equiv.not_inl_inr
-        | inr x' =>
-          cases hx : r.fst k with
-          | inl v =>
-            rw [hx', hx] at hk'
-            exact absurd hk' GenValue.Equiv.not_inr_inl
-          | inr x =>
-            rw [hx', hx] at hk'
-            show GenValue.Equiv (Sum.inr (x'.postcomp gf))
-              (Sum.inr ((x.postcomp gf).mapAnn ⇑h.toRingHom))
-            rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf x]
-            exact hk'.postcomp gf
+      exact (ps j).equiv_eval_of_sim h hs.1
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2
@@ -2604,12 +2697,95 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       (ofGroup_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0) X
         (fun i : Fin 0 => i.elim0))⟩
   | @GammaNest cI mI nI₁ κ' is his p f q ih =>
-    -- the one operator this does not cover: the two sides' groups are
-    -- equal as bags of occurrences whose inner values *read* the same,
-    -- and `GenValue.Equiv` at that level is what `noGammaNest` records
-    -- as unproved
-    intro d γ _ hn
-    exact absurd hn not_false
+    -- one output row per key, and the keys are the columns' deterministic
+    -- values, which a simulation keeps. For one key the two groups are
+    -- related row for row, so their occurrences carry pushed annotations
+    -- and columns whose statistics agree – which is all a nested value
+    -- reads of them (`GenValue.Equiv.of_nest_rel`), the weight splitting
+    -- per occurrence because `K'` is complemented
+    intro d γ hw hn
+    simp only [AggQueryIn.evaluate]
+    have hrel := ih d γ hw hn.2
+    have hkey : ∀ (r' : GenRow T K' mI) (r : GenRow T K mI),
+        GenRow.Sim h r' r →
+        (fun k => AggValue.collapseSum (r'.fst (is k)) : Tuple T nI₁)
+          = (fun k => AggValue.collapseSum (r.fst (is k))) := by
+      intro r' r hs
+      funext k
+      rw [GenValue.Equiv.collapseSum_eq (hs.1 (is k)),
+        AggValue.collapseSum_mapAnnSum]
+    rw [show ((q.evaluate (h.mapAnnotatedDatabase d) γ).map
+          (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+            : Tuple T nI₁))).dedup
+        = ((q.evaluate d γ).map
+          (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+            : Tuple T nI₁))).dedup
+        from congrArg Multiset.dedup (map_eq_of_rel hrel hkey)]
+    refine rel_map_of_forall (fun g _ => ?_)
+    -- the group's rows are related row for row
+    have hgroup := rel_filter_of_iff
+      (p := fun row : GenRow T K' mI =>
+        (fun k => AggValue.collapseSum (row.fst (is k)) : Tuple T nI₁) = g)
+      (q := fun row : GenRow T K mI =>
+        (fun k => AggValue.collapseSum (row.fst (is k)) : Tuple T nI₁) = g)
+      hrel (fun r' r hs => by rw [hkey r' r hs])
+    -- and so are the occurrences they become
+    have hocc : Multiset.Rel (fun o' o : AggExpr T K' × K' =>
+        o'.snd = o.snd ∧ o'.fst.worldStats = o.fst.worldStats
+          ∧ o'.fst.collapse = o.fst.collapse)
+        (((q.evaluate (h.mapAnnotatedDatabase d) γ).filter
+            (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+              : Tuple T nI₁) = g)).map
+          (fun row => (GenValue.innerValue (p.eval row.fst γ),
+            row.snd.finalize)))
+        ((((q.evaluate d γ).filter
+            (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+              : Tuple T nI₁) = g)).map
+          (fun row => (GenValue.innerValue (p.eval row.fst γ),
+            row.snd.finalize))).map
+          (fun o => (o.fst.mapAnn ⇑h.toRingHom, h.toRingHom o.snd))) := by
+      rw [Multiset.map_map]
+      refine rel_map_of_rel hgroup (fun r' r hs => ⟨hs.2, ?_, ?_⟩)
+      · show (GenValue.innerValue (p.eval r'.fst γ)).worldStats
+          = ((GenValue.innerValue (p.eval r.fst γ)).mapAnn
+            ⇑h.toRingHom).worldStats
+        rw [← GenValue.innerValue_mapAnnSum]
+        exact (p.equiv_eval_of_sim h hs.1).innerValue_worldStats
+      · show (GenValue.innerValue (p.eval r'.fst γ)).collapse
+          = ((GenValue.innerValue (p.eval r.fst γ)).mapAnn
+            ⇑h.toRingHom).collapse
+        rw [← GenValue.innerValue_mapAnnSum, NestedValue.collapse_innerValue,
+          NestedValue.collapse_innerValue]
+        exact GenValue.Equiv.collapseSum_eq (p.equiv_eval_of_sim h hs.1)
+    refine ⟨fun k => ?_, ?_⟩
+    · refine Fin.addCases (fun i => ?_) (fun j => ?_) k
+      · dsimp only
+        rw [Fin.append_left, Fin.append_left]
+        rfl
+      · dsimp only
+        rw [Fin.append_right, Fin.append_right]
+        refine GenValue.Equiv.of_nest_rel hn.1 rfl rfl ?_
+        dsimp only [NestedValue.mapAnn]
+        exact hocc
+    · dsimp only
+      rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
+        SemiringWithMonusHom.map_delta]
+      refine congrArg SemiringWithMonus.delta ?_
+      rw [List.sum_singleton, List.sum_singleton]
+      rw [show (((q.evaluate (h.mapAnnotatedDatabase d) γ).filter
+            (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+              : Tuple T nI₁) = g)).map
+            (fun row => (GenValue.innerValue (p.eval row.fst γ),
+              row.snd.finalize))).map Prod.snd
+          = ((((q.evaluate d γ).filter
+              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
+                : Tuple T nI₁) = g)).map
+              (fun row => (GenValue.innerValue (p.eval row.fst γ),
+                row.snd.finalize))).map Prod.snd).map ⇑h.toRingHom from by
+        rw [Multiset.map_map, Multiset.map_map, Multiset.map_map]
+        exact map_eq_of_rel hgroup (fun r' r hs => hs.2)]
+      exact (map_multiset_sum h.toRingHom _).symm
+
   | @Gamma cI mI nI₁ nI₂ is ts fs q keep ih =>
     intro d γ hw hn
     simp only [AggQueryIn.evaluate]
@@ -2737,16 +2913,33 @@ value-neutral by guard absorption (`delta_absorb`), and the annotation
 tie-breaks of the group sort are value-neutral by the tie-block
 congruence layer.
 
-The one thing asked of the *query* is that a multi-frame window frame by
-the tuple (`AggQueryIn.framesContainSelf`): such a window lists its
-shared family by occurrence index, and a change of annotation semiring
-re-sorts that index inside blocks of equal rows. Every window function
-the library derives satisfies it, and
+Two things are asked of the *query*. First, that a multi-frame window
+frame by the tuple (`AggQueryIn.framesContainSelf`): such a window lists
+its shared family by occurrence index, and a change of annotation
+semiring re-sorts that index inside blocks of equal rows. Every window
+function the library derives satisfies it, and
 `AggQueryIn.framesContainSelf_of_noWinExpr` discharges it for a query
-with no multi-frame window at all. -/
+with no multi-frame window at all.
+
+Second, that the *target* semiring be complemented wherever the query
+aggregates a grouping a second time (`AggQueryIn.nestInComplemented`): a
+nested world's annotation is one monus over both levels, and what carries
+it occurrence by occurrence is `NestedValue.World.ann_split`, which needs
+`1 - (a + b) = (1 - a) * (1 - b)`. A query with no second-level
+aggregation asks nothing, by
+`AggQueryIn.nestInComplemented_of_noGammaNest`.
+
+Both are hypotheses of *this proof* and not of the mathematics. Every
+output annotation is an expression in the input annotations over `⊕`,
+`⊗`, `⊖`, `δ`, `𝟘`, `𝟙`, and a hom commutes with such an expression in
+every m-semiring; `presentProd ⊗ (𝟙 ⊖ absentSum)` is one. What
+complementedness buys is not the commutation but the *factorization* of
+that global monus, which the row-wise simulation needs because it relates
+aggregate columns rather than whole annotations. A proof that related
+whole annotations would not ask it. -/
 theorem AggQueryIn.evaluateAnnotated_hom (h : SemiringWithMonusHom K K')
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-    (hw : q.framesContainSelf) (hn : q.noGammaNest)
+    (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K'))
     (d : AnnotatedDatabase T K) :
     q.evaluateAnnotated (h.mapAnnotatedDatabase d)
       = SemiringWithMonusHom.mapAnnotatedRelation h

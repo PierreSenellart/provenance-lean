@@ -696,7 +696,16 @@ the expression takes there and whether it is a world. The arity does not
 appear in the type, so two aggregate columns can be compared by it – which
 is what `GenValue.Equiv` needs for a column a nested value reads, since a
 nested world's weight is this and not the four readings
-(`NestedValue.World.ann_split`). -/
+(`NestedValue.World.ann_split`).
+
+These four are what a world of the outer family needs of this occurrence
+and no more – what it holds, what it leaves out, what it reads there and
+whether that is a reading at all – so the bag of them is the nested
+analogue of the single annotation an *ordinary* occurrence supplies. That
+a tie-block permutation preserves it (`worldStats_congr`) and that every
+operator's aggregate column gives it then follow from that reading, which
+is why the statistic is the object to compare columns by rather than one
+that happens to go through. -/
 def worldStats [CommSemiringWithMonus K] (e : AggExpr T K) :
     Multiset (K × K × T × Bool) :=
   (Finset.univ : Finset (Finset (Fin e.occs.length))).val.map

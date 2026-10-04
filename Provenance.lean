@@ -453,8 +453,10 @@ proven engine several general results reuse internally.
   (`GammaNest`: the term aggregated reads an aggregate column, so the
   column built is a *nested* token whose occurrences are the group's rows
   as a bag, each carrying the aggregate *expression* read there –
-  `Provenance.NestedExample` writes it, and `noGammaNest` is what the
-  results it still owes exclude it with), the
+  `Provenance.NestedExample` writes it, the random world and the PQE
+  results ask one storey (`nestOnce`), the hom commutation a complemented
+  target (`nestInComplemented`), and `noGammaNest` is left excluding only
+  the two syntactic token fences it is the counterexample to), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
   `GenPred` mixing regular and aggregate atoms (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` by
@@ -946,8 +948,12 @@ proven engine several general results reuse internally.
   every `SemiringWithMonusHom` –
   the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of “compile once, evaluate
   many”. The evaluator-level commutation
-  (`AggQuery.evaluateAnnotated_hom`) holds hypothesis-free over every
-  m-semiring: the guard-absorption identities licensed by `delta_absorb`
+  (`AggQuery.evaluateAnnotated_hom`) asks nothing of the hom and holds
+  over every m-semiring, asking only two things of the query – that a
+  multi-frame window frame by the tuple (`framesContainSelf`) and that
+  the target semiring be complemented wherever the query aggregates a
+  grouping a second time (`nestInComplemented`): the guard-absorption
+  identities licensed by `delta_absorb`
   (`AggValue.predProv_delta_absorb`, `GenPred.predsem_delta_absorb`)
   neutralize the supersede decisions a non-injective hom can conflate,
   the group-sequence transport (`havingGroup_tiePerm`,
@@ -963,7 +969,15 @@ proven engine several general results reuse internally.
   the pushforward are the pushforwards of the worlds, `worlds_mapAnn`,
   each carrying the pushed annotation, `World.ann_mapAnn`) and
   `NestedValue.predProvWith_delta_absorb` gives it the guard absorption,
-  so `GenValue.Equiv` relates nested columns like expression ones
+  so `GenValue.Equiv` relates nested columns like expression ones. What a
+  *nested* column asks at the evaluator is more than those readings: its
+  world's weight takes one monus over both levels, and what carries it is
+  `NestedValue.World.ann_split`, which factors that monus occurrence by
+  occurrence in a complemented semiring (`monus_multiset_sum`), together
+  with the statistic `AggExpr.worldStats` – the bag of triples `(∏_{j∈S}
+  anns j, Σ_{j∉S} anns j, valOn S)` over the subfamilies of an inner
+  family – which `GenRow.Sim` relates on an aggregate column and which a
+  tie-block permutation preserves (`AggExpr.worldStats_congr`)
 - `Provenance.QueryToAgg` – the embedding of the classical query
   syntax into the general evaluator: `Query.toAgg` translates the
   non-aggregating fragment one to one over all-regular kinds, faithfully
