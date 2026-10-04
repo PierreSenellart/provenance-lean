@@ -517,3 +517,94 @@ theorem AggValue.predProvOf_toComposite (a : AggValue T K) (op : CompOp)
   · simpa using AggValue.predProv_toComposite a op c
   · simpa using AggValue.predProvScalar_toComposite a op c
 
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The same length, named by the transported expression's own family. -/
+theorem AggExpr.length_toComposite (a : AggExpr T K) :
+    a.occs.length = a.toComposite.occs.length := a.length_inl_occs
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The transport leaves an occurrence's annotation where it was. -/
+theorem AggExpr.anns_toComposite (a : AggExpr T K)
+    (i : Fin a.occs.length) :
+    a.toComposite.anns (finCongr a.length_toComposite i) = a.anns i := by
+  show (a.toComposite.occs.get _).snd.fst = (a.occs.get i).snd.fst
+  simp [AggExpr.toComposite, List.get_eq_getElem, List.getElem_map]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- And an occurrence's membership of a leaf's group, the flags being
+carried along with it. -/
+theorem AggExpr.mem_inFrame_toComposite (a : AggExpr T K) (j : Fin a.arity)
+    (i : Fin a.occs.length) :
+    finCongr a.length_toComposite i ∈ a.toComposite.inFrame j
+      ↔ i ∈ a.inFrame j := by
+  rw [AggExpr.mem_inFrame, AggExpr.mem_inFrame]
+  show (a.toComposite.occs.get _).snd.snd.fst j = true ↔ _
+  simp [AggExpr.toComposite, List.get_eq_getElem, List.getElem_map]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Hence a transported world is a world exactly when it was one. -/
+theorem AggExpr.isWorld_toComposite (a : AggExpr T K)
+    (W : Finset (Fin a.occs.length)) :
+    a.toComposite.IsWorld (W.map (finCongr a.length_toComposite).toEmbedding)
+      ↔ a.IsWorld W := by
+  unfold AggExpr.IsWorld
+  refine forall_congr' (fun j => imp_congr (Iff.of_eq rfl) ?_)
+  constructor
+  · rintro ⟨i', hi'⟩
+    obtain ⟨hiW, hif⟩ := Finset.mem_inter.mp hi'
+    refine ⟨(finCongr a.length_toComposite).symm i', Finset.mem_inter.mpr
+      ⟨Finset.mem_map_equiv.mp hiW, ?_⟩⟩
+    refine (a.mem_inFrame_toComposite j _).mp ?_
+    rwa [Equiv.apply_symm_apply]
+  · rintro ⟨i, hi⟩
+    obtain ⟨hiW, hif⟩ := Finset.mem_inter.mp hi
+    exact ⟨finCongr a.length_toComposite i, Finset.mem_inter.mpr
+      ⟨Finset.mem_map_equiv.mpr (by rwa [Equiv.symm_apply_apply]),
+        (a.mem_inFrame_toComposite j i).mpr hif⟩⟩
+
+/-- **The reading of a transported expression**: a world of the transport
+is a world of the original, carrying the same annotation and reading the
+embedding of the value read there, so a test that restricts along `inl`
+sees the same thing. -/
+theorem AggExpr.predProvWith_toComposite (a : AggExpr T K) (P : T → Kleene)
+    (Q : T ⊕ K → Kleene) (hQ : ∀ v, Q (Sum.inl v) = P v) :
+    a.toComposite.predProvWith Q = a.predProvWith P := by
+  unfold AggExpr.predProvWith
+  rw [Finset.sum_filter, Finset.sum_filter]
+  refine (Fintype.sum_equiv (finCongr a.length_toComposite).finsetCongr
+    (fun W => if a.IsWorld W
+      then Having.worldAnn a.anns W * Having.chiOf P (a.valOn W) else 0)
+    _ (fun W => ?_)).symm
+  rw [Equiv.finsetCongr_apply]
+  by_cases hw : a.IsWorld W
+  · rw [ite_eq_left hw, ite_eq_left ((a.isWorld_toComposite W).mpr hw)]
+    refine congrArg₂ (· * ·) ?_ ?_
+    · rw [AggValue.worldAnn_map_finCongr a.length_toComposite]
+      exact (congrArg (fun α : Fin a.occs.length → K => Having.worldAnn α W)
+        (funext (fun i => a.anns_toComposite i))).symm
+    · rw [show a.toComposite.valOn
+            (W.map (finCongr a.length_toComposite).toEmbedding)
+          = Sum.inl (a.valOn W) from a.valOn_toComposite W]
+      unfold Having.chiOf
+      rw [hQ]
+  · rw [ite_eq_right hw,
+      ite_eq_right (fun h => hw ((a.isWorld_toComposite W).mp h))]
+
+/-- Hence a comparison against an embedded constant. -/
+theorem AggExpr.predProv_toComposite (a : AggExpr T K) (op : CompOp)
+    (c : T) :
+    a.toComposite.predProv op (Sum.inl c) = a.predProv op c := by
+  rw [AggExpr.predProv_eq_predProvWith, AggExpr.predProv_eq_predProvWith]
+  exact a.predProvWith_toComposite _ _ (fun v => CompOp.eval3_inl op v c)
+
+/-- **The gate reads a transported token unchanged**, nested tokens
+apart: an ordinary token by `AggValue.predProvOf_toComposite`, an
+expression by `AggExpr.predProv_toComposite`. -/
+theorem AggTok.predProvOf_toComposite (x : AggTok T K) (hx : x.isNested = false)
+    (op : CompOp) (c : T) :
+    x.toComposite.predProvOf op (Sum.inl c) = x.predProvOf op c := by
+  cases x with
+  | tok a => exact AggValue.predProvOf_toComposite a op c
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+  | expr a => exact AggExpr.predProv_toComposite a op c
+

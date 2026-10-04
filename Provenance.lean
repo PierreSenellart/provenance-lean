@@ -1070,7 +1070,17 @@ proven engine several general results reuse internally.
   `GenPred.gateTerm` translates the `predsem` algebra into a rewritten
   term (`∧ ↦ ⊗`, `∨ ↦ ⊕`, `¬` pushed to the atoms), an aggregate atom
   becoming a `provsql_having` gate and a regular one a `TermG.chiGate`
-  indicator gate. Whether the group-existence guard is superseded or
+  indicator gate. It is faithful (`GenPred.gateTerm_evalRew`) for a row
+  whose aggregate columns hold no *nested* token: the gate reads the
+  transported column, and the transport preserves the reading of an
+  ordinary token (`AggValue.predProvOf_toComposite`) and of an
+  expression – a window's, or a filtered aggregate's – alike
+  (`AggExpr.predProv_toComposite`, off the world transport
+  `AggExpr.isWorld_toComposite` and `AggExpr.valOn_toComposite`). What it
+  does exclude is a *range* atom (`GenPred.rangeFree`), and that is the
+  gate vocabulary's own limit: no gate carries a range, so the emitted
+  term is the product of two comparisons, which reads the two bounds in
+  two worlds rather than one. Whether the group-existence guard is superseded or
   kept as a factor is decided by `GenPred.entailsExistence`, in
   `GenPred.siteProvTerm`: an aggregate-only predicate always supersedes
   it (`GenPred.aggOnly_entailsExistence`), one with a regular atom

@@ -464,10 +464,17 @@ def GenPredIn.gateTerm {n : ℕ} {κ : Fin n → ColKind} :
 
 /-- **The gate term computes the predicate provenance**, for an
 arbitrary predicate: relative to the two gate primitives, which is
-exactly the sense in which ProvSQL's own rewriting is correct. -/
+exactly the sense in which ProvSQL's own rewriting is correct.
+
+What the row is asked is that no aggregate column hold a *nested* token
+(`GenRow.NoNested`): the `provsql_having` gate reads the transported
+column, and the transport is faithful for an ordinary token
+(`AggValue.predProvOf_toComposite`) and for an expression – a window's,
+or a filtered aggregate's – by `AggExpr.predProv_toComposite`. A nested
+token's transport has no such lemma yet. -/
 theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     ∀ (φ : GenPred T κ), φ.rangeFree = true → ∀ (neg : Bool) (r : GenRow T K n),
-      GenRow.OrdinaryTokens r.fst →
+      GenRow.NoNested r.fst →
       (φ.gateTerm neg).evalRew r.toCompositeRow
         = Sum.inr (φ.predsem neg r.fst)
   | .cmp op t₁ t₂, _, neg, r, _ => by
@@ -488,10 +495,8 @@ theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     cases hx : r.fst k with
     | inl v => rfl
     | inr x =>
-      obtain ⟨a, rfl⟩ := AggTok.eq_tok_of_isTok (hnn k x hx)
-      show (Sum.inr (AggValue.toComposite a |>.predProvOf _ _) : T ⊕ K) = _
-      rw [AggValue.predProvOf_toComposite]
-      rfl
+      show (Sum.inr (x.toComposite.predProvOf _ (Sum.inl _)) : T ⊕ K) = _
+      rw [AggTok.predProvOf_toComposite x (hnn k x hx)]
   | .and φ ψ, hrf, neg, r, hnn => by
     show TermGIn.evalRew (if neg then _ else _) _ = _
     show _ = Sum.inr (if neg then _ + _ else _ * _)
@@ -580,7 +585,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 aggregate column is the ordinary token the grouping builds. -/
 theorem gammaRow_noNested {n₁ n₂ : ℕ} (g : Tuple T n₁)
     (h : Fin n₂ → AggValue T K) :
-    GenRow.OrdinaryTokens (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
+    GenRow.NoNested (Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
       (fun j => Sum.inr (AggTok.tok (h j)))) := by
   intro k x hx
   revert hx
