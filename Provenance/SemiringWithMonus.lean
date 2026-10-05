@@ -284,9 +284,11 @@ partition of that family into the annotations of the two halves
 (`Having.worldAnn_split`), and so what lets a predicate whose atoms read
 disjoint families be evaluated atom by atom rather than over the union.
 It is not an m-semiring identity – the non-negative rationals with
-truncated subtraction fail it at `a = b = ½` – but it holds throughout
-the catalog, `𝔹` and `𝔹[X]` by De Morgan and `ℕ` because `𝟙 ⊖ a` is
-`𝟘` or `𝟙` there. -/
+truncated subtraction fail it at `a = b = ½`. The library proves it for
+`𝔹` and `𝔹[X]` by De Morgan (`Bool.complemented`,
+`BoolFunc.complemented`) and for `ℕ` because `𝟙 ⊖ a` is `𝟘` or `𝟙`
+there (`Nat.complemented`). For the rest of the catalog it is
+**unchecked**: do not write that it holds throughout. -/
 abbrev complemented (α) [SemiringWithMonus α] :=
   ∀ a b : α, 1 - (a + b) = (1 - a) * (1 - b)
 
