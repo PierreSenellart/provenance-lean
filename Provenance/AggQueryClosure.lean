@@ -79,9 +79,15 @@ correct; the fused rule stays because it is the shape ProvSQL emits.
 
 So the closure is complete for the operators the kind discipline admits
 above a grouping, and for a grouping and a `HAVING` above anything the
-closure reaches. What is outside it is the operators with no rewriting at
-all -- the windows, the apply, the two recursions and the alternatives --
-and a difference above a grouping, which the kinds already forbid.
+closure reaches. What is outside it is a difference above a grouping,
+which the kinds already forbid, and the operators this layer gives no
+rewriting rule: the windows, the apply, the two recursions and the
+alternatives. For the apply, the recursions and the alternatives there is
+a reason in the shape of the rewritten plan, recorded with
+`AggQueryIn.classical`. For the **windows** there is none: ProvSQL does
+rewrite them, and what is absent here is a *specification* of that
+rewriting, which the semantics this file formalizes does not give. So the
+window rules are out of scope rather than impossible.
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]

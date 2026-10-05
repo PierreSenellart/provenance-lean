@@ -1117,9 +1117,12 @@ proven engine several general results reuse internally.
   `having_entails_group_existence` test is therefore an optimization and
   not what makes the rewriting correct; the fused site rule stays because
   it is the shape ProvSQL emits. Difference above a grouping the kinds
-  already forbid; what is left outside is the operators with no
-  rewriting at all – the windows, the apply, the two recursions and the
-  alternatives
+  already forbid; what is left outside is the operators this layer gives
+  no rule for – the apply, the two recursions and the alternatives, each
+  for a reason in the shape of the rewritten plan, and the **windows**,
+  which ProvSQL does rewrite: what is missing there is a specification of
+  that rewriting, not a possibility, and specifying it is outside the
+  semantics this library formalizes
 
 **The classical rewriting layer**
 
