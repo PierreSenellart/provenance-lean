@@ -1,0 +1,218 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 1:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{QUANT}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{k}{MODE}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}REG AIR\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}AIR\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}RAIL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}SHIP\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}TRUCK\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}MAIL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}FOB\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{DISC}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{10}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l\PYGZus{}suppkey}\PYG{p}{,}
+\PYG{n}{l\PYGZus{}linenumber}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l\PYGZus{}linestatus}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{lineitem}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[MODE]\PYGZsq{}}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{QUANT}\PYG{p}{]}
+\PYG{k}{OR}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{k}{cast}\PYG{p}{([}\PYG{n}{DISC}\PYG{p}{]}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{k}{float}\PYG{p}{)}\PYG{o}{/}\PYG{l+m+mf}{100.0}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 2:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{NATION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{24}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{PRICE}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{l+m+mf}{100000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{k}{DISTINCT}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderdate}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{PRICE}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}\PYG{+w}{ }\PYG{k}{IN}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}P\PYGZsq{}}\PYG{p}{,}\PYG{l+s+s1}{\PYGZsq{}F\PYGZsq{}}\PYG{p}{);}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 3:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{REGION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{4}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{k}{COST}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{1000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}mfgr}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}retailprice}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}\PYG{+w}{ }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}\PYG{+w}{  }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}suppkey}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n}\PYG{+w}{    }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{region}\PYG{+w}{ }\PYG{n}{r}\PYG{+w}{    }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{REGION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{k}{COST}\PYG{p}{];}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 4:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{PRICE}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{l+m+mf}{100000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{k}{DISTINCT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{PRICE}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{p}{,}\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 5:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{k}{COST}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{100}\PYG{p}{,}\PYG{l+m+mf}{1000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{AVAIL}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{8888}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}address}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}phone}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}\PYG{+w}{ }\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}
+\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}suppkey}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{k}{COST}\PYG{p}{]}
+\PYG{k}{OR}\PYG{+w}{ }\PYG{p}{(}\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}availqty}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{AVAIL}\PYG{p}{]}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{k}{cast}\PYG{p}{([}\PYG{k}{COST}\PYG{p}{]}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{k}{float}\PYG{p}{)}\PYG{o}{/}\PYG{l+m+mf}{2}\PYG{p}{);}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 6:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{A}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}STANDARD\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}SMALL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}MEDIUM\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}LARGE\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}ECONOMY\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}PROMO\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{B}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}ANODIZED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}BURNISHED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}PLATED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}POLISHED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}BRUSHED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{C}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}TIN\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}NICKEL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}BRASS\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}STEEL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}COPPER\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{SIZE}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{part}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}brand}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{part}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{p\PYGZus{}type}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[A] [B] [C]\PYGZsq{}}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{SIZE}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{part}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}brand}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 7:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{k}{MODE}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}REG AIR\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}AIR\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}RAIL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}SHIP\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}TRUCK\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}MAIL\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}FOB\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{QUANT}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{o}{*}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{lineitem}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[MODE]\PYGZsq{}}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{QUANT}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}linestatus}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}F\PYGZsq{}}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 8:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{OP}\PYG{o}{=}\PYG{n+nb}{TEXT}\PYG{p}{(\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}1\PYGZhy{}URGENT\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}2\PYGZhy{}HIGH\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}3\PYGZhy{}MEDIUM\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},}
+\PYG{p}{\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}4\PYGZhy{}NOT SPECIFIED\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{},\PYGZob{}}\PYG{l+s+sName}{\PYGZdq{}5\PYGZhy{}LOW\PYGZdq{}}\PYG{p}{,}\PYG{l+m+mf}{1}\PYG{p}{\PYGZcb{});}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{CLERK}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{9}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderdate}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{+w}{ }\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{+w}{ }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{o\PYGZus{}custkey}\PYG{o}{=}\PYG{+w}{ }\PYG{n}{c\PYGZus{}custkey}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[OP]\PYGZsq{}}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o\PYGZus{}clerk}\PYG{+w}{ }\PYG{k}{like}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Clerk\PYGZsh{}00000000[CLERK]\PYGZpc{}\PYGZsq{}}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 9:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{NATION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{24}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{BAL}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{region}\PYG{+w}{ }\PYG{n}{r}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}\PYG{p}{,}
+\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}suppkey}\PYG{o}{=}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}suppkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c\PYGZus{}acctbal}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{BAL}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 10:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{NATION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{24}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{BAL}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c\PYGZus{}acctbal}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{BAL}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 11:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{REGION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{4}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{BAL}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{o}{*}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n}\PYG{+w}{ }\PYG{k}{ON}\PYG{+w}{  }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{region}\PYG{+w}{ }\PYG{n}{r}\PYG{+w}{ }\PYG{k}{ON}\PYG{+w}{  }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{REGION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}acctbal}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{BAL}\PYG{p}{];}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 12:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{DMIN}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{121}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{DMAX}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{([}\PYG{n}{DMIN}\PYG{p}{],}\PYG{l+m+mf}{121}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{TAX\PYGZus{}A}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{3}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{TAX\PYGZus{}B}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{4}\PYG{p}{,}\PYG{l+m+mf}{8}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{o}{*}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}clerk}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderdate}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}\PYG{+w}{ }\PYG{k}{INNER}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}
+\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1994\PYGZhy{}12\PYGZhy{}01\PYGZsq{}}
+\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[DMIN]\PYGZsq{}}\PYG{+w}{ }\PYG{k}{day}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1996\PYGZhy{}12\PYGZhy{}01\PYGZsq{}}
+\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}[DMAX]\PYGZsq{}}\PYG{+w}{ }\PYG{k}{day}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{p}{(}
+\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}tax}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{k}{cast}\PYG{p}{([}\PYG{n}{TAX\PYGZus{}A}\PYG{p}{]}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{k}{float}\PYG{p}{)}\PYG{o}{/}\PYG{l+m+mf}{100.0}
+\PYG{+w}{ }\PYG{k}{OR}
+\PYG{p}{(}\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}tax}\PYG{+w}{ }\PYG{o}{\PYGZgt{}}\PYG{+w}{ }\PYG{k}{cast}\PYG{p}{([}\PYG{n}{TAX\PYGZus{}B}\PYG{p}{]}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{k}{float}\PYG{p}{)}\PYG{o}{/}\PYG{l+m+mf}{100.0}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}O\PYGZsq{}}\PYG{p}{)}
+\PYG{p}{);}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 13:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{NATION}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{24}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{P\PYGZus{}MIN}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{l+m+mf}{100000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{P\PYGZus{}MAX}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{([}\PYG{n}{P\PYGZus{}MIN}\PYG{p}{],}\PYG{l+m+mf}{200000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderstatus}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}phone}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{P\PYGZus{}MIN}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{P\PYGZus{}MAX}\PYG{p}{];}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 14:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{REGION}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{0}\PYG{p}{,}\PYG{l+m+mf}{4}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{S\PYGZus{}MIN}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{1000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{S\PYGZus{}MAX}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{([}\PYG{n}{S\PYGZus{}MIN}\PYG{p}{],}\PYG{l+m+mf}{2000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}brand}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{region}\PYG{+w}{ }\PYG{n}{r}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}suppkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{n}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{r}\PYG{l+m+mf}{.}\PYG{n}{r\PYGZus{}regionkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{REGION}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{S\PYGZus{}MIN}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{S\PYGZus{}MAX}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}brand}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 15:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{P\PYGZus{}MIN}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{10000}\PYG{p}{,}\PYG{l+m+mf}{100000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{P\PYGZus{}MAX}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{([}\PYG{n}{P\PYGZus{}MIN}\PYG{p}{],}\PYG{l+m+mf}{200000}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{k}{DISTINCT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}linenumber}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{P\PYGZus{}MIN}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}totalprice}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{P\PYGZus{}MAX}\PYG{p}{];}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 16:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{SIZE}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{M}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{5}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{N}\PYG{o}{=}\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{5}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{name}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Customer\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{type}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{SIZE}\PYG{p}{]}
+\PYG{k}{EXCEPT}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{name}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Customer\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{type}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}custkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o}\PYG{l+m+mf}{.}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}orderkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{l+m+mf}{.}\PYG{n}{l\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}brand}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}BRAND\PYGZsh{}[M][N]\PYGZsq{}}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 17:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{MIN}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{MAX}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{([}\PYG{n}{MIN}\PYG{p}{],}\PYG{l+m+mf}{50}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}type}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{part}\PYG{+w}{ }\PYG{n}{p}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{partsupp}\PYG{+w}{ }\PYG{n}{ps}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}partkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}suppkey}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{MIN}\PYG{p}{]}
+\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{MAX}\PYG{p}{]}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}type}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{p}\PYG{l+m+mf}{.}\PYG{n}{p\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{ps}\PYG{l+m+mf}{.}\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{} Query 18:}
+\PYG{n}{define}\PYG{+w}{ }\PYG{n}{NATION}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{RANDOM}\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{p}{,}\PYG{l+m+mf}{25}\PYG{p}{,}\PYG{n}{uniform}\PYG{p}{);}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}name}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{name}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Customer\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{type}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{+w}{ }\PYG{n}{c}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c}\PYG{l+m+mf}{.}\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{]}
+\PYG{k}{UNION}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}name}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{name}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Supplier\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{k}{type}
+\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{supplier}\PYG{+w}{ }\PYG{n}{s}
+\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{s}\PYG{l+m+mf}{.}\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{p}{[}\PYG{n}{NATION}\PYG{p}{];}
+\end{MintedVerbatim}

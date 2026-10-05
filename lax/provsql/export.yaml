@@ -1,0 +1,180 @@
+library: https://github.com/PierreSenellart/provenance-lean
+ref: c80a8db
+prefix: Provenance
+options:
+  - autoImplicit true
+  - backward.isDefEq.respectTransparency false
+targets:
+  - Icde2026.msemiring_axiom_i
+  - Icde2026.msemiring_axiom_ii
+  - Icde2026.msemiring_axiom_iii
+  - Icde2026.delta_axiom_i
+  - Icde2026.delta_axiom_ii
+  - Icde2026.why_zero
+  - Icde2026.why_one
+  - Icde2026.why_add
+  - Icde2026.why_mul
+  - Icde2026.why_monus
+  - Icde2026.why_isMSemiring
+  - Icde2026.eval_rel
+  - Icde2026.eval_proj
+  - Icde2026.eval_sel
+  - Icde2026.eval_prod
+  - Icde2026.eval_sum
+  - Icde2026.eval_dedup
+  - Icde2026.eval_diff
+  - Icde2026.rule_projection
+  - Icde2026.rule_product
+  - Icde2026.rule_dupelim
+  - Icde2026.rule_difference
+  - Icde2026.rewriting_valid
+  - ProbAssignment.theorem_12
+  - ProbAssignment.corollary_13
+copyright: 2026 Pierre Senellart
+notice: >-
+  The paper under paper/ is the arXiv version of "ProvSQL: A General System
+  for Keeping Track of the Provenance and Probability of Data" by Aryak Sen,
+  Silviu Maniu and Pierre Senellart (arXiv:2504.12058, version 3), which its
+  authors distribute under the Creative Commons Attribution 4.0 license
+  (CC BY 4.0).
+manifest:
+  title: "ProvSQL: provenance-aware query rewriting and probabilistic query evaluation are correct"
+  authors:
+    - name: Pierre Senellart
+      orcid: 0000-0002-7909-5369
+      github: PierreSenellart
+  bibEntries:
+    - "@inproceedings{sen2026provsql,\n  author = {Aryak Sen and Silviu Maniu and Pierre Senellart},\n  title = {{ProvSQL}: A General System for Keeping Track of the Provenance and Probability of Data},\n  booktitle = {Proceedings of the 42nd {IEEE} International Conference on Data Engineering ({ICDE} 2026)},\n  year = {2026},\n  eprint = {2504.12058},\n  archivePrefix = {arXiv}\n}\n"
+    - "@software{senellart2026provenancelean,\n  author = {Pierre Senellart},\n  title = {provenance-lean: Database Provenance in {Lean} 4},\n  year = {2026},\n  doi = {10.5281/zenodo.21809151},\n  url = {https://github.com/PierreSenellart/provenance-lean}\n}\n"
+    - "@inproceedings{amsterdamer2011aggregate,\n  author = {Yael Amsterdamer and Daniel Deutch and Val Tannen},\n  title = {Provenance for aggregate queries},\n  booktitle = {Proceedings of the 30th {ACM} {SIGMOD-SIGACT-SIGART} Symposium on Principles of Database Systems ({PODS} 2011)},\n  pages = {153--164},\n  publisher = {{ACM}},\n  year = {2011},\n  doi = {10.1145/1989284.1989302}\n}\n"
+  paper:
+    folder: paper
+    main: main.tex
+    engine: pdflatex
+restated:
+  AnnotatedDatabase: AnnotatedDatabases.AnnotatedDatabase
+  AnnotatedDatabase.find: AnnotatedDatabases.AnnotatedDatabase.find
+  AnnotatedDatabase.find.f: AnnotatedDatabases.AnnotatedDatabase.find.f
+  AnnotatedDatabase.randomWorld: ProbabilisticDatabases.AnnotatedDatabase.randomWorld
+  AnnotatedDatabase.toComposite: AnnotatedDatabases.AnnotatedDatabase.toComposite
+  AnnotatedRelation: AnnotatedDatabases.AnnotatedRelation
+  AnnotatedRelation.toComposite: AnnotatedDatabases.AnnotatedRelation.toComposite
+  AnnotatedTuple: AnnotatedDatabases.AnnotatedTuple
+  AnnotatedTuple.toComposite: AnnotatedDatabases.AnnotatedTuple.toComposite
+  BoolFunc: BooleanFunctions.BoolFunc
+  BoolTerm: RelationalAlgebra.BoolTerm
+  BoolTerm.EQ: RelationalAlgebra.BoolTerm.EQ
+  BoolTerm.GE: RelationalAlgebra.BoolTerm.GE
+  BoolTerm.GT: RelationalAlgebra.BoolTerm.GT
+  BoolTerm.LE: RelationalAlgebra.BoolTerm.LE
+  BoolTerm.LT: RelationalAlgebra.BoolTerm.LT
+  BoolTerm.NE: RelationalAlgebra.BoolTerm.NE
+  BoolTerm.castToAnnotatedTuple: RelationalAlgebra.BoolTerm.castToAnnotatedTuple
+  BoolTerm.eval: RelationalAlgebra.BoolTerm.eval
+  BoolTerm.evalDecidable: RelationalAlgebra.BoolTerm.evalDecidable
+  CompOp: RelationalAlgebra.CompOp
+  CompOp.eq: RelationalAlgebra.CompOp.eq
+  CompOp.eval: RelationalAlgebra.CompOp.eval
+  CompOp.ge: RelationalAlgebra.CompOp.ge
+  CompOp.gt: RelationalAlgebra.CompOp.gt
+  CompOp.le: RelationalAlgebra.CompOp.le
+  CompOp.lt: RelationalAlgebra.CompOp.lt
+  CompOp.ne: RelationalAlgebra.CompOp.ne
+  Database: Databases.Database
+  Database.find: Databases.Database.find
+  Database.find.f: Databases.Database.find.f
+  HasAltLinearOrder: SemiringsWithMonus.HasAltLinearOrder
+  HasAltLinearOrder.altOrder: SemiringsWithMonus.HasAltLinearOrder.altOrder
+  HasAltLinearOrder.mk: SemiringsWithMonus.HasAltLinearOrder.mk
+  ProbAssignment: ProbabilisticDatabases.ProbAssignment
+  ProbAssignment.funcProb: ProbabilisticDatabases.ProbAssignment.funcProb
+  ProbAssignment.marginalProb: ProbabilisticDatabases.ProbAssignment.marginalProb
+  ProbAssignment.mk: ProbabilisticDatabases.ProbAssignment.mk
+  ProbAssignment.prob: ProbabilisticDatabases.ProbAssignment.prob
+  ProbAssignment.valProb: ProbabilisticDatabases.ProbAssignment.valProb
+  Query: RelationalAlgebra.Query
+  Query.Dedup: RelationalAlgebra.Query.Dedup
+  Query.Diff: RelationalAlgebra.Query.Diff
+  Query.Having: RelationalAlgebra.Query.Having
+  Query.Prod: RelationalAlgebra.Query.Prod
+  Query.Proj: RelationalAlgebra.Query.Proj
+  Query.ProvSum: RelationalAlgebra.Query.ProvSum
+  Query.Rel: RelationalAlgebra.Query.Rel
+  Query.Sel: RelationalAlgebra.Query.Sel
+  Query.Sum: RelationalAlgebra.Query.Sum
+  Query.aggdepth2_plus_depth: RelationalAlgebra.Query.aggdepth2_plus_depth
+  Query.arity: RelationalAlgebra.Query.arity
+  Query.evaluate: MultisetSemantics.Query.evaluate
+  Query.rewriting: RewritingRules.Query.rewriting
+  Query.source: RelationalAlgebra.Query.source
+  Relation: Databases.Relation
+  Relation.cast: Databases.Relation.cast
+  Relation.groupSeq: MultisetSemantics.Relation.groupSeq
+  Selection: RelationalAlgebra.Selection
+  Selection.And: RelationalAlgebra.Selection.And
+  Selection.BT: RelationalAlgebra.Selection.BT
+  Selection.Not: RelationalAlgebra.Selection.Not
+  Selection.Or: RelationalAlgebra.Selection.Or
+  Selection.True: RelationalAlgebra.Selection.True
+  Selection.castToAnnotatedTuple: RelationalAlgebra.Selection.castToAnnotatedTuple
+  Selection.eval: RelationalAlgebra.Selection.eval
+  Selection.evalDecidable: RelationalAlgebra.Selection.evalDecidable
+  Selection.evalDecidableAnnotated: AnnotatedSemantics.Selection.evalDecidableAnnotated
+  SemiringWithMonus: SemiringsWithMonus.SemiringWithMonus
+  SemiringWithMonus.delta: SemiringsWithMonus.SemiringWithMonus.delta
+  SemiringWithMonus.mk: SemiringsWithMonus.SemiringWithMonus.mk
+  SemiringWithMonus.toSemiring: SemiringsWithMonus.SemiringWithMonus.toSemiring
+  SemiringWithMonus.toSub: SemiringsWithMonus.SemiringWithMonus.toSub
+  SeqAggFunc: RelationalAlgebra.SeqAggFunc
+  Term: RelationalAlgebra.Term
+  Term.add: RelationalAlgebra.Term.add
+  Term.castToAnnotatedTuple: RelationalAlgebra.Term.castToAnnotatedTuple
+  Term.const: RelationalAlgebra.Term.const
+  Term.eval: RelationalAlgebra.Term.eval
+  Term.index: RelationalAlgebra.Term.index
+  Term.mul: RelationalAlgebra.Term.mul
+  Term.sub: RelationalAlgebra.Term.sub
+  Tuple: Databases.Tuple
+  Tuple.fromComposite: AnnotatedDatabases.Tuple.fromComposite
+  ValueType: Databases.ValueType
+  ValueType.mk: Databases.ValueType.mk
+  ValueType.toAddCommSemigroup: Databases.ValueType.toAddCommSemigroup
+  ValueType.toLinearOrder: Databases.ValueType.toLinearOrder
+  ValueType.toMul: Databases.ValueType.toMul
+  ValueType.toSub: Databases.ValueType.toSub
+  ValueType.toZero: Databases.ValueType.toZero
+  Why: WhyProvenance.Why
+  Why.carrier: WhyProvenance.Why.carrier
+  Why.mk: WhyProvenance.Why.mk
+  addFn: MultisetSemantics.addFn
+  instAddAnnotatedRelation: AnnotatedDatabases.instAddAnnotatedRelation
+  instAddBoolFunc: BooleanFunctions.instAddBoolFunc
+  instAddRelation: Databases.instAddRelation
+  instAddWhy: WhyProvenance.instAddWhy
+  instAssociativeAddFn: MultisetSemantics.instAssociativeAddFn
+  instCommSemiringBoolFunc: BooleanFunctions.instCommSemiringBoolFunc
+  instCommSemiringWhy: WhyProvenance.instCommSemiringWhy
+  instCommutativeAddFn: MultisetSemantics.instCommutativeAddFn
+  instDecidableEqBoolFunc: BooleanFunctions.instDecidableEqBoolFunc
+  instDecidableEqTuple: Databases.instDecidableEqTuple
+  instDecidableEval: RelationalAlgebra.instDecidableEval
+  instDecidableMemRelation: ProbabilisticDatabases.instDecidableMemRelation
+  instDecidableRelTupleLt: Databases.instDecidableRelTupleLt
+  instHMulRelationHAddNat: Databases.instHMulRelationHAddNat
+  instLEBoolFunc: BooleanFunctions.instLEBoolFunc
+  instLETuple: Databases.instLETuple
+  instLTTuple: Databases.instLTTuple
+  instLinearOrderTuple: Databases.instLinearOrderTuple
+  instMembershipRelation: ProbabilisticDatabases.instMembershipRelation
+  instMulBoolFunc: BooleanFunctions.instMulBoolFunc
+  instOneBoolFunc: BooleanFunctions.instOneBoolFunc
+  instSemiringWithMonusBoolFunc: BooleanFunctions.instSemiringWithMonusBoolFunc
+  instSemiringWithMonusWhy: WhyProvenance.instSemiringWithMonusWhy
+  instSubBoolFunc: BooleanFunctions.instSubBoolFunc
+  instValueTypeSumOfHasAltLinearOrderOfSemiringWithMonus: AnnotatedDatabases.instValueTypeSumOfHasAltLinearOrderOfSemiringWithMonus
+  instZeroBoolFunc: BooleanFunctions.instZeroBoolFunc
+  instZeroWhy: WhyProvenance.instZeroWhy
+  randomWorld: ProbabilisticDatabases.randomWorld
+  tupleAnnotation: ProbabilisticDatabases.tupleAnnotation
+  why_mul: WhyProvenance.why_mul
+  instCoeWhySet: WhyProvenance.instCoeWhySet

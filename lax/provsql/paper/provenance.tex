@@ -1,0 +1,22 @@
+\section{Querying Annotated Relations}
+\label{sec:annotated}
+
+Now that our query language is fixed, we introduce the notion of annotated
+relations (Section~\ref{sec:semirings}) and the semantics of queries over
+such annotated relations in Section~\ref{sec:annotated_relations}.
+This is based on annotated relations defined for provenance semirings as
+in~\cite{green2007provenance}, but with two key differences: we go beyond
+semirings for annotation, namely using the m-semirings
+from~\cite{dblp:journals/japll/geertsp10} and the $\delta$-semirings
+of~\cite{amsterdamer2011provenance}, and, as in SQL, relations are multisets and not
+sets. We
+then show in Section~\ref{sec:query_rewriting} how the semantics of provenance
+over annotated relations can be captured by query rewriting. Finally, we
+define probabilistic query evaluation and show how it can
+be performed in an intensional way relying on provenance
+(Section~\ref{sec:pqe}).
+
+\input{semirings}
+\input{semantics}
+\input{rewriting}
+\input{pqe}

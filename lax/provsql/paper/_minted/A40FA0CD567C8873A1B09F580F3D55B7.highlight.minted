@@ -1,0 +1,9 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{+w}{  }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{.}\PYG{o}{*}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{.}\PYG{o}{*}
+\PYG{+w}{  }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{+w}{ }\PYG{n}{o}
+\PYG{+w}{  }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{.}\PYG{n}{l\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o}\PYG{p}{.}\PYG{n}{o\PYGZus{}orderkey}
+\PYG{+w}{  }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{.}\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1994\PYGZhy{}12\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{   }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}98\PYGZsq{}}\PYG{+w}{ }\PYG{k}{day}
+\PYG{+w}{  }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l}\PYG{p}{.}\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}12\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{   }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}117\PYGZsq{}}\PYG{+w}{ }\PYG{k}{day}\PYG{p}{;}
+\end{MintedVerbatim}

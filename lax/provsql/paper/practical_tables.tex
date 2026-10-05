@@ -1,0 +1,40 @@
+\begin{table*}
+	\centering
+	\caption{Provenance derivation
+		for GProM on $\qex$}\label{tab:gprom_query2}
+	%\vspace{-1.2em}
+	\resizebox{\textwidth}{!}{
+		\begin{tabular}{lllllllll}
+			\toprule
+			\textbf{city} & \textbf{prov\_personnel\_id} & \textbf{prov\_personnel\_name} & \textbf{prov\_personnel\_position} & \textbf{prov\_personnel\_city} & \textbf{prov\_personnel\_1\_id} & \textbf{prov\_personnel\_1\_name} & \textbf{prov\_personnel\_1\_position} & \textbf{prov\_personnel\_1\_city} \\
+			\midrule
+			\revision{Nairobi}      & 1                            &
+      \revision{Juma}                           & Director                           & \revision{Nairobi}                       & 2                               & Paul                              & Janitor                               & \revision{Nairobi}                          \\
+      Paris         & 3                            & \revision{David}                           & Analyst                            & Paris                          & 6                               & Nancy                             & HR                                    & Paris                             \\
+      Paris         & 3                            & \revision{David}
+                    & Analyst                            & Paris
+                    & 5                               & \revision{Aaheli}                          & Double agent                          & Paris                             \\
+			\revision{Beijing}        & 4                            & Ellen
+                                & Field agent                        &
+      \revision{Beijing}                         & 7
+                                                 & \revision{Jing}                             & Analyst                               & \revision{Beijing}                            \\
+      Paris         & 5                            & \revision{Aaheli}                       & Double agent                       & Paris                          & 6                               & Nancy                             & HR                                    & Paris                             \\
+			\bottomrule
+		\end{tabular}}
+\end{table*}
+\begin{table}
+	\centering
+	\footnotesize
+	\caption{Provenance derivation for ProvSQL on~$\qex$}\label{tab:provsql_query2}
+	%\vspace{-1.2em}
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{city} & \textbf{why}                                                  & \textbf{provsql} \\
+		\midrule
+    \revision{Nairobi}      & \{"\{\revision{Juma},Paul\}"\}                                           & d1b22232-\dots   \\
+    Paris         &
+    \{"\{\revision{David},\revision{Aaheli}\}","\{\revision{Aaheli},Nancy\}","\{\revision{David},Nancy\}"\} & d82a769d-\dots   \\
+    \revision{Beijing}        & \{"\{Ellen,\revision{Jing}\}"\}                                         & 1a407bcb-\dots   \\
+		\bottomrule
+	\end{tabular}
+\end{table}

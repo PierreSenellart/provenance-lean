@@ -1,0 +1,5 @@
+\begin{MintedVerbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{+w}{  }\PYG{esc}{\PYG{k}{PROVENANCE OF}}\PYG{+w}{ }\PYG{p}{(}\PYG{k}{SELECT}\PYG{+w}{ }\PYG{k}{DISTINCT}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}
+\PYG{+w}{    }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{personnel}\PYG{+w}{ }\PYG{n}{p1}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{personnel}\PYG{+w}{ }\PYG{n}{p2}
+\PYG{+w}{    }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}\PYG{o}{=}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{city}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{id}\PYG{o}{\PYGZlt{}}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{id}\PYG{p}{)}
+\end{MintedVerbatim}

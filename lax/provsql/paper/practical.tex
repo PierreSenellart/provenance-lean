@@ -1,0 +1,156 @@
+\begin{toappendix}
+\section{Provenance and Probability in Different Systems}
+\label{sec:practical}
+
+
+\input{practical_tables}
+
+We explain the query interface for provenance computation in GProM and
+ProvSQL, and for probabilistic query evaluation in MayBMS and ProvSQL.
+This helps understanding how these systems represent provenance and
+uncertain information, and how to produce a benchmark adapted to each
+system.
+
+We consider again from Example~\ref{ex:semantics}
+the \emph{Personnel} instance introduced in
+Table \ref{tab:personnel} and the query $\qex$, which can be written in
+SQL as follows:
+\begin{minted}{sql}
+  SELECT DISTINCT p1.city
+  FROM personnel p1 JOIN personnel p2
+  ON p1.city=p2.city AND p1.id<p2.id
+\end{minted}
+
+\paragraph*{Provenance computation}
+To find the provenance of this query in GProM we need to use the
+\mintkeyword{PROVENANCE OF}
+construct in the query statement:
+\begin{minted}[escapeinside=||]{sql}
+  |\PYG{k}{PROVENANCE OF}| (SELECT DISTINCT p1.city
+    FROM personnel p1 JOIN personnel p2
+    ON p1.city=p2.city AND p1.id<p2.id)
+\end{minted}
+For this query, GProM produces the provenance derivation in Table~\ref{tab:gprom_query2}.
+GProM attaches multiple additional attributes to the output tuples of a query.
+In GProM's result, ``Paris'' appears three times: once due to
+{\revision{David}} and
+{\revision{Aaheli}}, once due to {\revision{Aaeheli}} and {Nancy}, and once due to
+  {\revision{David}}
+and {Nancy}. Each occurrence of {Paris} in GProM's output is accompanied
+by the provenance attributes of the two input tuples that caused it to
+appear. We see in particular that GProM disregards the
+\mintkeyword{DISTINCT} keyword: the output of the query would be the
+same without it.
+
+To find similar provenance information for the same query using
+ProvSQL, we first make the table provenance-aware by using the
+\mintinline{sql}{add_provenance} UDF and then specialize the generic
+provenance token, using a provenance mapping \emph{personnel\_name} where each tuple is
+represented by the \textit{name} attribute, to why-provenance:
+\begin{minted}{sql}
+  SELECT p1.city, why(provenance(), 'personnel_name')
+  FROM personnel p1 JOIN personnel p2
+  ON p1.city=p2.city AND p1.id<p2.id
+  GROUP BY p1.city
+\end{minted}
+Provenance evaluation is seen as a form of aggregation, which explains
+why we transformed \mintkeyword{DISTINCT} into a \mintkeyword{GROUP BY}.
+This results in a more compact representation, as shown in Table~\ref{tab:provsql_query2}.
+ProvSQL computes the why-provenance for each output tuple as sets of
+sets. Of course, in ProvSQL, any (m-)semiring can be used for the
+computation, not just why-provenance: ProvSQL defines a number of common
+examples, and a user can add new UDFs defining the operations of the
+semiring of choice.
+
+\begin{table}
+	\centering
+	\caption{The \emph{Personnel\_prob} table in MayBMS}\label{tab:personnel_p}
+	\begin{tabular}{lllllll}
+		\toprule
+		\textbf{id} & \textbf{name} & \textbf{position} & \textbf{city} & \textbf{\_v0} & \textbf{\_d0} & \textbf{\_p0} \\
+		\midrule
+    1           & \revision{Juma}          & Director          & \revision{Nairobi}      & 1008          & 1             & 0.5           \\
+		2           & Paul          & Janitor           & \revision{Nairobi}      & 1009          & 1             & 0.7           \\
+    3           & \revision{David}          & Analyst           & Paris         & 10010         & 1             & 0.3           \\
+		4           & Ellen         & Field agent       & \revision{Beijing}        & 10011         & 1             & 0.2           \\
+    5           & \revision{Aaheli}     & Double agent      & Paris         & 10012         & 1             & 1.0           \\
+		6           & Nancy         & HR                & Paris         & 10013         & 1             & 0.8           \\
+    7           & \revision{Jing}         & Analyst           & \revision{Beijing}        & 10014         & 1             & 0.2           \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+\begin{table}
+	\centering
+	\caption{Result of probability computation in ProvSQL (right) and
+		MayBMS (left)}\label{tab:maybms_prob_eval}
+	\begin{tabular}{ll}
+		\toprule
+		\textbf{city} & \textbf{conf} \\
+		\midrule
+		\revision{Nairobi}      & $0.35$        \\
+		Paris         & $0.86$        \\
+		\revision{Beijing}        & $0.04$        \\
+		\bottomrule
+	\end{tabular}
+	\qquad
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{city} & \textbf{prob} & \textbf{provsql} \\
+		\midrule
+		\revision{Nairobi}      & 0.35          & d1b22232-\dots   \\
+		Paris         & 0.86          & d82a769d-\dots   \\
+		\revision{Beijing}        & 0.04          & 1a407bcb-\dots   \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+\paragraph*{Probability computation}
+We now consider the
+TID relation introduced in Example~\ref{ex:probability}.
+
+To compute probabilities in MayBMS, the following steps have to be
+followed. We first use \mintkeyword{PICK TUPLES} to create a new
+TID table with  probabilities given by some SQL expression. In this new table, named \emph{Personnel\_prob}, MayBMS
+adds three extra attribute: an event variable \emph{\_v0}, a decision
+value \emph{\_d0} and a probability \emph{\_p0}, as shown in
+Table~\ref{tab:personnel_p}. In short, each unique event variable translate to a
+set of mutually exclusive events, independent across event variables;
+the decision value specifies the event, and the probability is that of
+the event value. This is an encoding of the compact U-relation model for
+probabilistic databases~\cite{DBLP:conf/icde/AntovaJKO08}, itself very
+similar to that of probabilistic c-tables~\cite{greent06}.
+MayBMS offers two functions for probabilistic qurery evaluation:
+\mintinline{sql}{conf()} and \mintinline{sql}{tconf()} for computing the exact
+probabilities (along with some functions for computing approximations).
+The difference between these two functions is that
+\mintinline{sql}{conf()} computes a probability of distinct results
+(along with a \mintinline{sql}{GROUP BY} clause), while
+\mintinline{sql}{tconf()} performs no duplicate elimination.
+We can then use the following query:
+\begin{minted}{sql}
+  SELECT city, conf() FROM (
+    SELECT p1.city
+    FROM personnel_prob p1, personnel_prob p2
+    WHERE p1.city=p2.city AND p1.id<p2.id) temp
+  GROUP BY city
+\end{minted}
+whose result in MayBMS is given in Table~\ref{tab:maybms_prob_eval}
+(left), matching what we computed in Example~\ref{ex:probability}.
+Note that MayBMS does not support the \mintkeyword{JOIN} keyword
+for queries with self-join, so the query needs to be rewritten with a
+subquery as shown.
+
+In ProvSQL, we first attach a probability on Boolean variables using the
+\mintinline{sql}{set_prob()} UDF then, at query time, we use the
+a UDF to perform probabilistic
+query evaluation:
+\begin{minted}{sql}
+  SELECT p1.city, probability_evaluate(provenance())
+  FROM personnel p1 JOIN personnel p2
+  ON p1.city=p2.city AND p1.id<p2.id
+  GROUP BY p1.city
+\end{minted}
+The result is shown in Table~\ref{tab:maybms_prob_eval} (right)
+-- we
+notice the result is still a provenance-aware table, with its
+\emph{provsql} attribute.
+\end{toappendix}

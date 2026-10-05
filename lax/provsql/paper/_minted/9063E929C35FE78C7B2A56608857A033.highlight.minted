@@ -1,0 +1,34 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query1}
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l\PYGZus{}returnflag}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l\PYGZus{}linestatus}\PYG{+w}{ }\PYG{k}{FROM}
+\PYG{n}{lineitem}\PYG{+w}{ }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{o}{\PYGZlt{}=}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1998\PYGZhy{}09\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{l\PYGZus{}returnflag}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{l\PYGZus{}linestatus}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query3}
+\PYG{+w}{ }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{customer}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{orders}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}
+\PYG{+w}{ }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{c\PYGZus{}mktsegment}\PYG{o}{=}\PYG{l+s+s1}{\PYGZsq{}BUILDING\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{c\PYGZus{}custkey}\PYG{o}{=}\PYG{n}{o\PYGZus{}custkey}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}\PYG{o}{=}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderdate}\PYG{o}{\PYGZlt{}}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}03\PYGZhy{}15\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{o}{\PYGZgt{}}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}05\PYGZhy{}15\PYGZsq{}}\PYG{+w}{ }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}\PYG{p}{,}
+\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderdate}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{o\PYGZus{}shippriority}\PYG{+w}{ }\PYG{k}{LIMIT}\PYG{+w}{ }\PYG{l+m+mf}{20}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 4}
+\PYG{+w}{ }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{orders}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}
+\PYG{+w}{ }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderdate}\PYG{o}{\PYGZgt{}=}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1993\PYGZhy{}07\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderdate}\PYG{o}{\PYGZlt{}}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1993\PYGZhy{}10\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}\PYG{o}{=}\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{+w}{ }\PYG{n}{l\PYGZus{}commitdate}\PYG{o}{\PYGZlt{}}\PYG{n}{l\PYGZus{}receiptdate}\PYG{+w}{ }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{p}{;}
+
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query12}
+\PYG{+w}{ }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{orders}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{k}{WHERE}
+\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderkey}\PYG{o}{=}\PYG{n}{l\PYGZus{}orderkey}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{p}{(}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{o}{=}\PYG{l+s+s1}{\PYGZsq{}MAIL\PYGZsq{}}\PYG{+w}{ }\PYG{k}{OR}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{o}{=}\PYG{l+s+s1}{\PYGZsq{}SHIP\PYGZsq{}}\PYG{+w}{ }\PYG{p}{)}
+\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}commitdate}\PYG{o}{\PYGZlt{}}\PYG{n}{l\PYGZus{}receiptdate}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{o}{\PYGZlt{}}\PYG{n}{l\PYGZus{}commitdate}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}receiptdate}\PYG{o}{\PYGZgt{}=}\PYG{l+s+s1}{\PYGZsq{}1992\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}receiptdate}\PYG{o}{\PYGZlt{}}\PYG{l+s+s1}{\PYGZsq{}1999\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{ }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{p}{;}
+
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 15}
+\PYG{+w}{ }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{s\PYGZus{}suppkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}address}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}phone}
+\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{supplier}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{lineitem}\PYG{+w}{ }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{s\PYGZus{}suppkey}\PYG{o}{=}\PYG{n}{l\PYGZus{}suppkey}
+\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{o}{\PYGZgt{}=}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1991\PYGZhy{}10\PYGZhy{}10\PYGZsq{}}\PYG{+w}{ }\PYG{k}{AND}
+\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{o}{\PYGZlt{}}\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1992\PYGZhy{}01\PYGZhy{}10\PYGZsq{}}\PYG{+w}{ }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{s\PYGZus{}suppkey}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}name}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}address}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{s\PYGZus{}phone}\PYG{p}{;}
+\end{MintedVerbatim}

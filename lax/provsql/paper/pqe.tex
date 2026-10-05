@@ -1,0 +1,78 @@
+\subsection{Probabilistic Query Evaluation}
+\label{sec:pqe}
+
+Annotated relations can be used for probabilistic query evaluation using
+the so-called intensional approach~\cite{suciu2011probabilistic}. First,
+assume a finite set $X$ of variables, each variable $x\in X$ being
+assigned a probability $\Pr(x)$. $\Pr$ can be extended to a
+probability distribution over valuations over $X$, assuming independence
+of variables:
+$\Pr(\nu)=\prod_{x\mid\nu(x)=\top}\nu(x)\times\prod_{x\mid\nu(x)=\bot}(1-\nu(x))$.
+This in turns extends to a probability
+distribution over Boolean functions: if $f\in\mathcal{B}[X]$ is a Boolean
+function over variables in~$X$, then $\Pr(f)=\sum_{\nu|f(\nu)=\top} \Pr(\nu)$.
+
+Consider a $\mathcal{B}[X]$-relation $\hat I$ of arity~$k$. For any
+subinstance $\hat J$ of~$\hat I$, the characteristic Boolean function of
+$\hat J$ within $\hat I$ is: \(\Phi_{\hat I}(\hat J)\defeq\bigwedge_{(u,\alpha)\in
+	\hat J}\alpha\land\bigwedge_{(u,\alpha)\in\hat I, (u,\alpha)\notin
+	J}\lnot\alpha\). The probability of $\hat J$ is then $\Pr(\Phi_{\hat I}(\hat J))$.
+For a query $q$ over $\hat I$ in $\RA_k$, we define the marginal probability that a
+tuple $t$ of arity~$k$ appears in
+the output of $q$ as $\Pr(t\in q(\hat I))\defeq\sum_{\hat J\subseteq\hat I, t\in
+		\sem{J}{q}}\Pr(\hat J)$.
+
+Our semantics for extended relational algebra over $\mathbb{K}$-relations is
+compatible with probabilistic query evaluation:
+
+\begin{theoremrep}
+\laxmain{% lax begin Lax392996.ProbabilisticEvaluation
+}%
+\laxapp{% lax begin Lax392996.ProbabilisticEvaluation
+}%
+	\label{thm:pqe}
+	For any finite set of variables~$X$, probability distribution $\Pr$
+	over $X$, $\mathcal{B}[X]$-relation~$\hat I$
+	and relational
+	algebra query~$q$ without aggregation, for any tuple~$t$ with same
+	arity as $q$,
+	$\Pr(t\in q(\hat I))=\Pr\left(\bigvee_{(t,\alpha)\in \ansem{\hat I}{q}}\alpha\right)$.
+\laxapp{% lax end
+}%
+\laxmain{% lax end
+}%
+\end{theoremrep}
+\input{proof_pqe}
+
+The reason why this theorem is about queries without aggregation is
+that the result of aggregate queries are tuples whose values include
+annotations; for a similar result, we would need to talk about the
+distribution of data values, or some summary thereof (such as the
+expected value). This is out of scope of this work.
+
+Combining Theorems~\ref{thm:rewriting} and~\ref{thm:pqe}, we obtain:
+% lax begin Lax392996.ProbabilisticEvaluationByRewriting
+\begin{corollary}
+	\label{cor:pqe}
+	For any finite set of variables~$X$, probability distribution $\Pr$
+	over $X$, $\mathcal{B}[X]$-relation~$\hat I$
+	and relational
+	algebra query~$q$ without aggregation, for any tuple~$t$ with same
+	arity as $q$, if $\hat q$ is the query rewritten from q by applying the
+	rewritten rules (R\ref{r1})--(R\ref{rn}) then
+	$\Pr(t\in q(\hat I))=\Pr\left(\bigvee_{(t,\alpha)\in \sem{\hat I}{\hat q}}\alpha\right)$.
+\end{corollary}
+% lax end
+
+% lax begin Lax392996.ProbabilityExample
+\begin{example}\label{ex:probability}
+	Returning again to Examples \ref{ex:semantics} and \ref{ex:provenance},
+	assume we independently assign to each $t_i$ in our
+	$\mathit{Personnel}$
+	$\mathcal{B}[\set{t_1,\dots,t_7}]$-instance a probability $\Pr(t_i)$
+  \revision{with $\Pr(t_1)=0.5$ and $\Pr(t_2)=0.7$}.
+	We can then compute the probability of $\qex$ results as\revision{, for
+  instance for Nairobi}:
+			\(\Pr(t_1\land t_2) = 0.5\cdot0.7=0.35\).
+\end{example}
+% lax end
