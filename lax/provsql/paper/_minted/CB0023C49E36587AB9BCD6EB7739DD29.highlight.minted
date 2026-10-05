@@ -1,0 +1,4 @@
+\begin{MintedVerbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{esc}{$\#i_1,\dots,\#i_m, f_1(t_1),\dots, f_n(t_n)$}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{p}{(}\PYG{esc}{$q$}\PYG{p}{)}
+\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{l+m+mi}{1}\PYG{p}{,}\PYG{+w}{ }\PYG{esc}{$\dots$}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{m}
+\end{MintedVerbatim}

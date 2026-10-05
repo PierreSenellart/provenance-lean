@@ -1,0 +1,3 @@
+\begin{MintedVerbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{k}{DISTINCT}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{p}{(}\PYG{esc}{$q$}\PYG{p}{)}
+\end{MintedVerbatim}
