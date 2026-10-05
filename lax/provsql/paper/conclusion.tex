@@ -1,0 +1,27 @@
+\section{Conclusion}
+\label{sec:conlusion}
+ProvSQL's data model, architecture, and generic design makes it suitable
+to compute a large range of provenance annotations
+and to
+provide a generic solution for query evaluation in probabilistic databases. ProvSQL supports
+a larger subset of SQL than other existing systems and is actively
+maintained. Its performance is suitable for multi-GB
+databases; overhead of provenance computation is often
+constant (with the notable exception of aggregate queries) and, despite
+the \textsf{\#P}-hardness of the problem, it is often possible to compute
+probabilities of query outputs in acceptable time.
+
+Many perspectives for improvement exist. First, augmenting the support of
+SQL is a necessity for general applicability; this includes
+relatively simple cases such as subqueries in \mintkeyword{WHERE}
+clauses or \mintkeyword{OUTER JOIN} queries, nested aggregations, and much more complex cases
+such as \mintkeyword{WITH RECURSIVE} queries which requires changes to
+the
+query executor.
+Second, when
+evaluating safe queries over tuple-independent databases, the intensional
+approach to probabilistic query evaluation is suboptimal. It is
+unknown whether the safe plan algorithm~\cite{dalvi2013dichotomy}
+can be turned into an intensional approach, but some results in this
+direction~\cite{DBLP:conf/pods/Monet20} are a first step toward
+safe query plans.

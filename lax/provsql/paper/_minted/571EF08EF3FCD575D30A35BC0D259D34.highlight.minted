@@ -1,0 +1,6 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{+w}{  }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{why}\PYG{p}{(}\PYG{n}{provenance}\PYG{p}{(),}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}personnel\PYGZus{}name\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{  }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{personnel}\PYG{+w}{ }\PYG{n}{p1}\PYG{+w}{ }\PYG{k}{JOIN}\PYG{+w}{ }\PYG{n}{personnel}\PYG{+w}{ }\PYG{n}{p2}
+\PYG{+w}{  }\PYG{k}{ON}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}\PYG{o}{=}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{city}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{id}\PYG{o}{\PYGZlt{}}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{id}
+\PYG{+w}{  }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}
+\end{MintedVerbatim}

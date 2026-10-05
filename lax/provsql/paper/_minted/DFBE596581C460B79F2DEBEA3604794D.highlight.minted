@@ -1,0 +1,180 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 1:}
+\PYG{k}{select}
+\PYG{n}{l\PYGZus{}returnflag}\PYG{p}{,}
+\PYG{n}{l\PYGZus{}linestatus}\PYG{p}{,}
+\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}quantity}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{sum\PYGZus{}qty}\PYG{p}{,}
+\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{sum\PYGZus{}base\PYGZus{}price}\PYG{p}{,}
+\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{))}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{sum\PYGZus{}disc\PYGZus{}price}\PYG{p}{,}
+\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{)}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n}{l\PYGZus{}tax}\PYG{p}{))}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{sum\PYGZus{}charge}\PYG{p}{,}
+\PYG{n}{avg}\PYG{p}{(}\PYG{n}{l\PYGZus{}quantity}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{avg\PYGZus{}qty}\PYG{p}{,}
+\PYG{n}{avg}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{avg\PYGZus{}price}\PYG{p}{,}
+\PYG{n}{avg}\PYG{p}{(}\PYG{n}{l\PYGZus{}discount}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{avg\PYGZus{}disc}\PYG{p}{,}
+\PYG{n}{count}\PYG{p}{(}\PYG{o}{*}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{count\PYGZus{}order}
+
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{n}{lineitem}
+\PYG{k}{where}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1998\PYGZhy{}12\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}117\PYGZsq{}}\PYG{+w}{ }\PYG{k}{day}
+\PYG{k}{group}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}returnflag}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}linestatus}
+\PYG{k}{order}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}returnflag}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}linestatus}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 6:}
+\PYG{k}{select}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{revenue}
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{n}{lineitem}
+\PYG{k}{where}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1\PYGZsq{}}\PYG{+w}{ }\PYG{k}{year}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{+w}{ }\PYG{k}{between}\PYG{+w}{ }\PYG{l+m+mf}{0.09}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{l+m+mf}{0.01}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{l+m+mf}{0.09}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{l+m+mf}{0.01}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{l+m+mf}{24}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 7:}
+\PYG{k}{select}
+\PYG{+w}{        }\PYG{n}{supp\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{cust\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}year}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{n}{volume}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{revenue}
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{p}{(}
+\PYG{+w}{                }\PYG{k}{select}
+\PYG{+w}{                        }\PYG{n}{n1}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{supp\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{n2}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{cust\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{k}{extract}\PYG{p}{(}\PYG{k}{year}\PYG{+w}{ }\PYG{k}{from}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{l\PYGZus{}year}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{l\PYGZus{}extendedprice}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{volume}
+\PYG{+w}{                }\PYG{k}{from}
+\PYG{+w}{                        }\PYG{n}{supplier}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{lineitem}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{orders}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{customer}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n1}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{nation}\PYG{+w}{ }\PYG{n}{n2}
+\PYG{+w}{                }\PYG{k}{where}
+\PYG{+w}{                        }\PYG{n}{s\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}suppkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{c\PYGZus{}custkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{o\PYGZus{}custkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n1}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{c\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n2}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}nationkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{p}{(}
+\PYG{+w}{                                }\PYG{p}{(}\PYG{n}{n1}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}RUSSIA\PYGZsq{}}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{n2}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}INDIA\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                                }\PYG{k}{or}\PYG{+w}{ }\PYG{p}{(}\PYG{n}{n1}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}INDIA\PYGZsq{}}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{n2}\PYG{l+m+mf}{.}\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}RUSSIA\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                        }\PYG{p}{)}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{k}{between}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1995\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1996\PYGZhy{}12\PYGZhy{}31\PYGZsq{}}
+\PYG{+w}{        }\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{shipping}
+\PYG{k}{group}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{supp\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{cust\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}year}
+\PYG{k}{order}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{supp\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{cust\PYGZus{}nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}year}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 9:}
+
+\PYG{k}{select}
+\PYG{+w}{        }\PYG{n}{nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{o\PYGZus{}year}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{n}{amount}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{sum\PYGZus{}profit}
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{p}{(}
+\PYG{+w}{                }\PYG{k}{select}
+\PYG{+w}{                        }\PYG{n}{n\PYGZus{}name}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{nation}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{k}{extract}\PYG{p}{(}\PYG{k}{year}\PYG{+w}{ }\PYG{k}{from}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderdate}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{o\PYGZus{}year}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{l\PYGZus{}extendedprice}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{)}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{ps\PYGZus{}supplycost}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{amount}
+\PYG{+w}{                }\PYG{k}{from}
+\PYG{+w}{                        }\PYG{n}{part}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{supplier}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{lineitem}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{partsupp}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{orders}\PYG{p}{,}
+\PYG{+w}{                        }\PYG{n}{nation}
+\PYG{+w}{                }\PYG{k}{where}
+\PYG{+w}{                        }\PYG{n}{s\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}suppkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{ps\PYGZus{}suppkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}suppkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{ps\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{s\PYGZus{}nationkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{n\PYGZus{}nationkey}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}name}\PYG{+w}{ }\PYG{k}{like}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}\PYGZpc{}orchid\PYGZpc{}\PYGZsq{}}
+\PYG{+w}{        }\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{profit}
+\PYG{k}{group}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{o\PYGZus{}year}
+\PYG{k}{order}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{nation}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{o\PYGZus{}year}\PYG{+w}{ }\PYG{k}{desc}\PYG{p}{;}
+
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 12:}
+\PYG{k}{select}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}shipmode}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{k}{case}
+\PYG{+w}{                }\PYG{k}{when}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1\PYGZhy{}URGENT\PYGZsq{}}
+\PYG{+w}{                        }\PYG{k}{or}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}2\PYGZhy{}HIGH\PYGZsq{}}
+\PYG{+w}{                        }\PYG{k}{then}\PYG{+w}{ }\PYG{l+m+mf}{1}
+\PYG{+w}{                }\PYG{k}{else}\PYG{+w}{ }\PYG{l+m+mf}{0}
+\PYG{+w}{        }\PYG{k}{end}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{high\PYGZus{}line\PYGZus{}count}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{k}{case}
+\PYG{+w}{                }\PYG{k}{when}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{o}{\PYGZlt{}\PYGZgt{}}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1\PYGZhy{}URGENT\PYGZsq{}}
+\PYG{+w}{                        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{o\PYGZus{}orderpriority}\PYG{+w}{ }\PYG{o}{\PYGZlt{}\PYGZgt{}}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}2\PYGZhy{}HIGH\PYGZsq{}}
+\PYG{+w}{                        }\PYG{k}{then}\PYG{+w}{ }\PYG{l+m+mf}{1}
+\PYG{+w}{                }\PYG{k}{else}\PYG{+w}{ }\PYG{l+m+mf}{0}
+\PYG{+w}{        }\PYG{k}{end}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{low\PYGZus{}line\PYGZus{}count}
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{n}{orders}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{lineitem}
+\PYG{k}{where}
+\PYG{+w}{        }\PYG{n}{o\PYGZus{}orderkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}orderkey}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}TRUCK\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}AIR\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}commitdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}receiptdate}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}commitdate}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}receiptdate}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1997\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}
+\PYG{+w}{        }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}receiptdate}\PYG{+w}{ }\PYG{o}{\PYGZlt{}}\PYG{+w}{ }\PYG{n+nb}{date}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1997\PYGZhy{}01\PYGZhy{}01\PYGZsq{}}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{n+nb}{interval}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}1\PYGZsq{}}\PYG{+w}{ }\PYG{k}{year}
+\PYG{k}{group}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}shipmode}
+\PYG{k}{order}\PYG{+w}{ }\PYG{k}{by}
+\PYG{+w}{        }\PYG{n}{l\PYGZus{}shipmode}\PYG{p}{;}
+
+\PYG{c+c1}{\PYGZhy{}\PYGZhy{}Query 19:}
+\PYG{k}{select}
+\PYG{+w}{        }\PYG{n}{sum}\PYG{p}{(}\PYG{n}{l\PYGZus{}extendedprice}\PYG{o}{*}\PYG{+w}{ }\PYG{p}{(}\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{o}{\PYGZhy{}}\PYG{+w}{ }\PYG{n}{l\PYGZus{}discount}\PYG{p}{))}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n}{revenue}
+\PYG{k}{from}
+\PYG{+w}{        }\PYG{n}{lineitem}\PYG{p}{,}
+\PYG{+w}{        }\PYG{n}{part}
+\PYG{k}{where}
+\PYG{+w}{        }\PYG{p}{(}
+\PYG{+w}{                }\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}brand}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Brand\PYGZsh{}54\PYGZsq{}}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}container}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}SM CASE\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}SM BOX\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}SM PACK\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}SM PKG\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{l+m+mf}{4}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{l+m+mf}{4}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{l+m+mf}{10}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{k}{between}\PYG{+w}{ }\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{l+m+mf}{5}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}AIR\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}AIR REG\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipinstruct}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}DELIVER IN PERSON\PYGZsq{}}
+\PYG{+w}{        }\PYG{p}{)}
+\PYG{+w}{        }\PYG{k}{or}
+\PYG{+w}{        }\PYG{p}{(}
+\PYG{+w}{                }\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}brand}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Brand\PYGZsh{}51\PYGZsq{}}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}container}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}MED BAG\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}MED BOX\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}MED PKG\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}MED PACK\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{l+m+mf}{11}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{l+m+mf}{11}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{l+m+mf}{10}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{k}{between}\PYG{+w}{ }\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{l+m+mf}{10}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}AIR\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}AIR REG\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipinstruct}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}DELIVER IN PERSON\PYGZsq{}}
+\PYG{+w}{        }\PYG{p}{)}
+\PYG{+w}{        }\PYG{k}{or}
+\PYG{+w}{        }\PYG{p}{(}
+\PYG{+w}{                }\PYG{n}{p\PYGZus{}partkey}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{n}{l\PYGZus{}partkey}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}brand}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}Brand\PYGZsh{}21\PYGZsq{}}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}container}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}LG CASE\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}LG BOX\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}LG PACK\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}LG PKG\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZgt{}=}\PYG{+w}{ }\PYG{l+m+mf}{28}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}quantity}\PYG{+w}{ }\PYG{o}{\PYGZlt{}=}\PYG{+w}{ }\PYG{l+m+mf}{28}\PYG{+w}{ }\PYG{o}{+}\PYG{+w}{ }\PYG{l+m+mf}{10}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{p\PYGZus{}size}\PYG{+w}{ }\PYG{k}{between}\PYG{+w}{ }\PYG{l+m+mf}{1}\PYG{+w}{ }\PYG{k}{and}\PYG{+w}{ }\PYG{l+m+mf}{15}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipmode}\PYG{+w}{ }\PYG{k}{in}\PYG{+w}{ }\PYG{p}{(}\PYG{l+s+s1}{\PYGZsq{}AIR\PYGZsq{}}\PYG{p}{,}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}AIR REG\PYGZsq{}}\PYG{p}{)}
+\PYG{+w}{                }\PYG{k}{and}\PYG{+w}{ }\PYG{n}{l\PYGZus{}shipinstruct}\PYG{+w}{ }\PYG{o}{=}\PYG{+w}{ }\PYG{l+s+s1}{\PYGZsq{}DELIVER IN PERSON\PYGZsq{}}
+\PYG{+w}{        }\PYG{p}{);}
+\end{MintedVerbatim}

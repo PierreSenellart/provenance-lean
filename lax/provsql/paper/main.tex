@@ -1,0 +1,110 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{newtxtext}
+\usepackage[vvarbb]{newtxmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[english]{babel}
+\usepackage{array}
+\usepackage{subcaption}
+\usepackage{paralist}
+\usepackage{graphics}
+\usepackage{fdsymbol}
+\usepackage[frozencache]{minted}
+\usepackage{xcolor}
+\usemintedstyle{manni}
+\usepackage{caption}
+\undef\openbox
+\usepackage[appendix=append]{apxproof}
+\renewcommand{\appendixsectionformat}[2]{Material for Section~#1 (#2)}
+\usepackage{booktabs}
+\usepackage{pifont}
+\usepackage{listings}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[bb=boondox]{mathalfa}
+\newcommand{\defeq}{\overset{\text{\tiny def}}{=}}
+
+\newcommand{\revision}[1]{{#1}}
+
+\newcommand\leanmain{\href{https://provsql.org/lean-docs/Provenance.html}{\fbox{\includegraphics[height=.6em]{lean}}}}
+\newcommand\lean[2]{\href{https://provsql.org/lean-docs/Provenance/#1.html\##2}{\fbox{\includegraphics[height=.6em]{lean}}}}
+
+\newtheoremrep{theorem}{Theorem}
+\newtheoremrep{proposition}[theorem]{Proposition}
+\newtheoremrep{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+% Allow floats occupying a big fraction of a column, but with still text
+% on that column
+\renewcommand{\floatpagefraction}{.9}
+
+\newcommand{\sil}[1]{{\color{teal}{{\textbf{Silviu}: #1}}}}
+\newcommand{\rjok}[1]{{\color{orange}{{\textbf{Aryak}: #1}}}}
+\newcommand{\pierre}[1]{{\color{blue}{{\textbf{Pierre}: #1}}}}
+
+\input{macros}
+
+\renewcommand{\epsilon}{\varepsilon}
+\renewcommand{\phi}{\varphi}
+\renewcommand{\leq}{\leqslant}
+\renewcommand{\geq}{\geqslant}
+
+\begin{document}
+
+\title{ProvSQL: A General System for Keeping Track of~the~Provenance~and~Probability~of~Data}
+
+\author{%
+  \IEEEauthorblockN{%
+    Aryak Sen\IEEEauthorrefmark{1},
+    Silviu Maniu\IEEEauthorrefmark{1}\IEEEauthorrefmark{2},
+    Pierre Senellart\IEEEauthorrefmark{3}\IEEEauthorrefmark{2}
+  }
+  \IEEEauthorblockA{\IEEEauthorrefmark{1}{Univ.\ Grenoble Alpes, CNRS, Grenoble INP, LIG}
+  Grenoble, France}
+  \IEEEauthorblockA{\IEEEauthorrefmark{2}{CNRS@CREATE LTD, Singapore}}
+\IEEEauthorblockA{\IEEEauthorrefmark{3}DI ENS, ENS, CNRS, PSL University
+\& Inria, Paris, France}
+}
+
+%\input{author_response}
+
+\maketitle
+
+\input{abstract}
+
+\begin{IEEEkeywords}
+data provenance, probabilistic database, semiring provenance, ProvSQL
+\end{IEEEkeywords}
+
+\input{intro}
+\input{related}
+\input{preliminaries}
+\input{provenance}
+\input{implementation}
+\input{practical}
+\input{benchmark}
+\input{conclusion}
+
+\section*{Acknowledgements}
+This research is part of the program DesCartes and is supported by the National Research Foundation, Prime Minister's Office, Singapore
+ under its Campus for Research Excellence and Technological Enterprise
+ (CREATE) program. It is also partially supported by DataGEMS, funded by
+ the European Union's Horizon Europe Research and Innovation
+ programme, under grant agreement 101188416.
+ We are also grateful to Charles Paperman for suggesting the memory-mapped
+ implementation of the circuit.
+
+\clearpage
+\input{ai}
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+
+\end{document}

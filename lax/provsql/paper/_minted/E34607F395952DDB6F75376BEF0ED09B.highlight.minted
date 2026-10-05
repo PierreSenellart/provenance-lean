@@ -1,0 +1,7 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{+w}{  }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{city}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{conf}\PYG{p}{()}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{p}{(}
+\PYG{+w}{    }\PYG{k}{SELECT}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}
+\PYG{+w}{    }\PYG{k}{FROM}\PYG{+w}{ }\PYG{n}{personnel\PYGZus{}prob}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{,}\PYG{+w}{ }\PYG{n}{personnel\PYGZus{}prob}\PYG{+w}{ }\PYG{n}{p2}
+\PYG{+w}{    }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{city}\PYG{o}{=}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{city}\PYG{+w}{ }\PYG{k}{AND}\PYG{+w}{ }\PYG{n}{p1}\PYG{p}{.}\PYG{n}{id}\PYG{o}{\PYGZlt{}}\PYG{n}{p2}\PYG{p}{.}\PYG{n}{id}\PYG{p}{)}\PYG{+w}{ }\PYG{n}{temp}
+\PYG{+w}{  }\PYG{k}{GROUP}\PYG{+w}{ }\PYG{k}{BY}\PYG{+w}{ }\PYG{n}{city}
+\end{MintedVerbatim}

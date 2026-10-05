@@ -1,0 +1,63 @@
+\section{Related Systems} \label{sec:related}
+Trio \cite{dblp:conf/vldb/agrawalbshnsw06} was an early system for
+managing uncertain data, focusing on the representation on different
+forms of uncertainty, including probabilities. It
+does not support computation of arbitrary marginals, which is at the core
+of modern probabilistic databases. Though it adopts a mediator approach,
+it is tied to specific and obsolete versions of PostgreSQL (8.2 or 8.3).
+
+Obsolescence is a common problem for systems of this era: the provenance
+tracking system Perm \cite{DBLP:conf/icde/GlavicA09} and the
+probabilistic datbase system Orion \cite{singh2008orion} are respectively
+unmaintained forks of PostgreSQL 8.3 and 8.4; the distributed Orchestra
+system
+\cite{DBLP:conf/sigmod/GreenKTBIT07}, which provides
+an early implementation of provenance semirings, cannot be compiled because
+some of its dependencies are on servers that have disappeared; MystiQ
+\cite{DBLP:conf/sigmod/BoulosDMMRS05}, implementing safe query
+plan evaluation, requires Java 5.0, which reached end-of-service in
+2009.
+
+MayBMS
+\cite{huang2009maybms}\footnote{\url{https://maybms.sourceforge.net/}} is a probabilistic database system
+implementing the general and compact model of U-relations
+\cite{DBLP:conf/icde/AntovaJKO08}. Its query evaluator, SPROUT
+\cite{DBLP:conf/icde/OlteanuHK09} was designed for efficiency and is in
+particular able to exploit the structure of \emph{safe}
+queries~\cite{dalvi2013dichotomy}. It was developed as a fork of
+PostgreSQL 8.3, which is obsolete and hard to deploy. Some
+effort has been made in keeping the system compilable, however, though it
+requires using a virtual machine running an older operating system. It
+does not support provenance semirings. We
+use MayBMS in our experiments as a state-of-the-art system for
+probabilistic query evaluation.
+
+GProM~\cite{bahareh2018gprom}\footnote{\url{https://github.com/IITDBGroup/gprom}}
+is a middleware layer that adds provenance support to various
+database backends (in particular, Oracle and PostgreSQL). It translates
+declarative queries with provenance requirements into SQL code, which is
+subsequently executed by the backend database system. GProM supports the
+capture of provenance for SQL queries, as well as some Datalog queries.
+Some features not present in ProvSQL are support for
+transactions and PROV-JSON serialization~\cite{provjson}. On the other
+hand, in contrast with ProvSQL, it does not support probabilistic query
+evaluation, arbitrary semiring provenance, or provenance of
+non-monotone queries. As it is modern, actively maintained, and
+feature-rich, we use it as a comparison point in
+Section~\ref{sec:experiments}.
+
+ProbLog
+\cite{DBLP:journals/tplp/FierensBRSGTJR15}\footnote{\url{https://dtai.cs.kuleuven.be/problog/}}
+is an actively maintained and easy-to-use probabilistic programming
+system, inspired from Prolog and Datalog. SQL queries
+and probabilistic databases can be encoded into ProbLog in a
+straightforward way. Data can also be stored in a
+SQLite database and ProbLog uses knowledge compilation to compute
+probabilities of program outputs. However, our experiments showed it does not
+scale, as even though the data is stored in a
+database, it is loaded in main memory when needed by the query evaluator,
+and none of the usual query optimization infrastructure is used.
+Indeed, on the simplest query of our benchmark (query~1 of~\qcust, see
+Section~\ref{sec:experiments}), ProbLog ran out-of-memory on the smallest
+database scale factor used in our experiments (1~GB). On a database 10
+times smaller, it did not complete after 5 hours.

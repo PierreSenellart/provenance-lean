@@ -1,0 +1,155 @@
+\section{Introduction}
+\label{sec:introduction}
+
+As data is increasingly used for decision making and training machine
+learning models, it is crucial to account for two of its main inherent
+challenges. The first is that \emph{sources matter}. Indeed, more and
+more importance is given to being able to trace final results back to the
+original data, to ensure that the results being presented to final users
+represent the truth. Secondly, in many cases data itself is
+\emph{uncertain}, be it from the data collection process or as a result
+of data processing, such as using machine learning. To
+tackle these issues, it is important to have systems able to keep track
+of the \emph{provenance} of data, and are also capable to \emph{reason} about its uncertainty.
+
+Data provenance -- tracking data throughout a transformation process --
+has a long history in research, especially within relational data
+management. The main aims of data provenance are to keep track of \emph{where}
+results come from, and to show \emph{why} and \emph{how} these results
+are computed.
+Early works on
+provenance~\cite{dblp:conf/fsttcs/bunemankt00,bunemankt01} reflected on
+the importance of determining the origin of query output, specifically in
+the form of \emph{where} and \emph{why} provenance. A related
+concept is that of data lineage~\cite{dblp:conf/vldb/agrawalbshnsw06},
+introduced in the Trio system for uncertain data
+management. A breakthrough was achieved through the \emph{provenance
+	semiring} framework~\cite{green2007provenance} which
+concisely models many different forms of provenance, including
+why-provenance and Trio's lineage. In this framework, relations are
+\emph{annotated} with elements of semirings and relational algebra
+operators are mapped to semiring operations. Extensions of this framework
+to more complex
+queries~\cite{dblp:journals/japll/geertsp10,amsterdamer2011provenance,DBLP:conf/sigmod/BourhisDM20}
+have since been proposed.
+
+Managing data uncertainty was another parallel line of research.
+Uncertainty was initially accounted for via concepts such as NULL values~\cite{dblp:journals/sigmod/codd75b} and c-tables \cite{imielinskil84}.
+More recently, tuple-independent databases, where each tuple is
+independently annotated with a probability value, were introduced
+by Dalvi and Suciu~\cite{dblp:conf/vldb/dalvis04}, and extended to block-independent
+databases in~\cite{dblp:journals/jcss/dalvirs11}, as a simple probabilistic
+model of uncertainty. Even in these simple frameworks,
+\emph{probabilistic query evaluation}, i.e., computing the probability of
+a query result, is a \textsf{\#P}-hard problem.
+Some tractable cases are however known: when queries have some
+specific properties (e.g., \emph{safe queries} over tuple-independent databases~\cite{dalvi2013dichotomy}), or when data
+itself has a tree-like structure~\cite{amarilli2015provenance}, captured
+by the notion of treewidth~\cite{maniu2019experimental}.
+\revision{We are focusing in this work on the probabilistic database
+  approach to modeling uncertainty, though we note that other approaches
+  exist in the literature, e.g.,
+\cite{UmanoFukami1994,AbelloCheney2024}.}
+
+Though most of the works cited so far are theoretical in nature, various
+systems implement some form of provenance and
+probability evaluation or both: examples include Trio
+\cite{dblp:conf/vldb/agrawalbshnsw06}, Orchestra
+\cite{DBLP:conf/sigmod/GreenKTBIT07},
+Orion \cite{singh2008orion}, MayBMS
+\cite{huang2009maybms},
+Perm~\cite{DBLP:conf/icde/GlavicA09},
+and more recently GProM \cite{bahareh2018gprom}. Except
+GProM, these systems are unfortunately unmaintained, have become hard to
+deploy or are even defunct.
+None of these systems provide a generic tool able to both keep track of
+the probability and provenance of data, for a wide variety of provenance frameworks.
+
+In this article, we explain how the rich
+literature on provenance and probabilistic query evaluation is a basis
+for the implementation of ProvSQL, a plugin for the PostgreSQL database
+management system. ProvSQL aims to provide a generic, easy-to-deploy, and
+scalable solution to store and evaluate data provenance and
+probabilities. \revision{A proof-of-concept of} ProvSQL was the subject
+of an early demonstration paper~\cite{senellart2018provsql} in 2018; \revision{significant changes
+were brought to ProvSQL since:
+a complete architecture change (described
+in Section~\ref{sec:impl_relations}), support
+for aggregation queries, computation of probability relying on tree decomposition
+techniques (see Section~\ref{sec:impl_prob}), etc.
+ProvSQL} was used as a
+provenance computation tool in several lines of research, by a variety of authors
+\cite{DBLP:conf/ijcai/CalvaneseLOP019,DBLP:conf/sigmod/DavidsonDFKKM22,DBLP:journals/corr/abs-2109-06339,DBLP:conf/ideas/PintorCM22,DBLP:conf/dlog/BorgwardtBK23,yunus2025using}.
+
+This paper is the first to provide a comprehensive presentation of its
+data model, query evaluation approach, and implementation aspects, as
+well as its real-world performance. Specifically, we provide the
+following contributions:
+\begin{asparaenum}[(i)]
+	\item We detail how the \textbf{theoretical results on provenance and
+		probability are applied to real-world systems} using the SQL data
+	model, using a generic representation of provenance and relying on
+	a multiset semantics, and by evaluating the probability of Boolean
+  provenance formulas for
+	probabilistic
+	query evaluation. We also discuss practical implementations of
+  extensions to the basic semiring model via the monus operator \cite{dblp:journals/japll/geertsp10} and semimodules for aggregates \cite{amsterdamer2011provenance}.
+	\item We present \textbf{design choices in ProvSQL} for provenance and
+	probability computation, such as rewriting queries for
+	provenance tracking, memory-mapped storage of provenance
+	circuits, and knowledge compilation for probability
+	computation.
+	\item To enable fair comparison with other systems and to
+	quantitatively assess the performance of ProvSQL in real-world
+	scenarios, we \textbf{propose publicly available benchmarks}, inspired from the TPC-H relational query benchmark, for both provenance and probabilistic query evaluation.
+	\item We \textbf{evaluate the performance of ProvSQL} on these benchmarks, both by itself (by measuring the provenance and probability overhead ProvSQL adds to PostgreSQL) and by comparing it to other systems that provide some of the features of ProvSQL. Specifically, we compare to GProM for provenance management and MayBMS for probabilistic query evaluation.
+\end{asparaenum}
+
+%Our findings show that ProvSQL is able to handle provenance and
+%probabilistic query evaluation at scale (on multi-gigabyte databases), with a reasonable overhead in
+%most cases. Indeed, we find that in aggregate the overhead of provenance
+%tracking is constant (around 2 to 3 times the cost of the query without
+%provenance); variations exist for individual queries, suggesting
+%potential for further optimization. In contrast with other
+%similar systems, ProvSQL also
+%captures a larger subset of SQL (notably including the full relational
+%algebra with multiset semantics as well as
+%aggregation), and readily allows for
+%provenance computation in arbitrary semirings and extensions thereof.
+%Thanks to the compact representation of provenance circuits, ProvSQL
+%scales better than GProM for provenance tracking.
+%When comparing probability computation, we find that MayBMS is
+%competitive with ProvSQL \emph{on those queries MayBMS support}; however,
+%ProvSQL often performs similarly even though it does not use any
+%query-based optimization.
+Our findings show that ProvSQL handles
+provenance and probabilistic query evaluation at
+scale (on multi-gigabyte databases), with reasonable overhead.
+Performance varies by query, leaving room for
+optimization. Compared with similar systems,
+ProvSQL supports a larger subset of SQL
+(including multiset semantics and aggregation)
+and works with arbitrary semirings. Its
+compact provenance circuits let it scale
+better than GProM. For probability computation,
+MayBMS is competitive with ProvSQL \emph{on those queries MayBMS support}; however,
+ProvSQL often performs similarly even though it
+does not use any
+query-based optimization as MayBMS does.
+
+%Section~\ref{sec:related} reviews some of the most prominent
+%systems for keeping track of the provenance of data and for managing
+%probabilistic data. We provide the definition of the query language
+%studied, an extension of the relational algebra with multiset semantics,
+%in Section~\ref{sec:prelim}. In Section~\ref{sec:annotated},
+%we introduce annotated relations and how they are used for provenance
+%tracking and probabilistic query evaluation. We then explain in
+%Section~\ref{sec:implementation} how these concepts are implemented in
+%practice in ProvSQL. Finally, we present the result of our experimental evaluation
+%in Section~\ref{sec:experiments}\ and conclude in Section~\ref{sec:conlusion}.
+
+ProvSQL is available as open source\footnote{\url{https://github.com/PierreSenellart/provsql}}. A companion
+repository\footnote{\url{https://github.com/Aryak320/benchmark_suite}}
+complements this paper, including benchmark scripts, additional details, proofs of
+all results, and links to formal definitions and proofs for the Lean proof
+assistant (also identified and linked to by \leanmain{} throughout the paper).

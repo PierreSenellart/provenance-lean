@@ -1,0 +1,304 @@
+\section{Extended Relational Algebra}
+\label{sec:prelim}
+
+We now present the query language underlying ProvSQL; it is an extension
+of the relational algebra with multiset (or \emph{bag}) semantics, allowing for
+aggregation. We first give basic definitions and notation about multisets.
+
+\begin{definition}
+	A \emph{multiset} m over a set~$V$ is a function $V\to\mathbb{N}^*$. It
+	is
+	is \emph{finite} if it has finite domain. For $v\in V$, we note $v\in m$ if $m(v)>0$
+	and $v\not\in m$ otherwise.
+	Given two
+	multisets $m_1$ and $m_2$ over~$V$, we define the \emph{multiset union} of
+	$m_1$ and~$m_2$ as $m_1\uplus m_2: x\mapsto
+		m_1(x)+m_2(x)$ and the \emph{cross product} of $m_1$ and~$m_2$ as the multiset
+	over $V^2$ defined by $m_1\times m_2:(x_1,x_2)\mapsto m_1(x_1)\times
+		m_2(x_2)$. Any set~$V$ can be seen as the multiset over~$V$ where $m(v)=1$ for
+	all $v\in V$.
+
+	A finite multiset with
+	domain $\{a_1,\dots,a_n\}$ can be
+	written in the form
+	\(\mset{\underbrace{a_1,\dots,a_1}_{\text{$m(a_1)$ times}},\dots,
+	\underbrace{a_n,\dots,a_n}_{\text{$m(a_n)$ times}}}.\)
+	Finally, we also use the notation $\mset{f(x)\mid x\in m}$ or
+	$\biguplus_{x\in m} \mset{f(x)}$ for
+	a finite multiset~$m$ with domain $\{a_1,\dots,a_n\}$ and some function
+	$f$ over~$V$
+	to mean the multiset
+	\(\mset{\underbrace{f(a_1),\dots,f(a_1)}_{\text{$m(a_1)$ times}},\dots,
+	\underbrace{f(a_n),\dots,f(a_n)}_{\text{$m(a_n)$ times}}}.\)
+\end{definition}
+
+We define an algebra for queries over relational databases under the
+multiset semantics
+which is as close as possible to a simple subset of SQL as
+dealt with by standard DBMSs.
+Our algebra is based on the relational algebra with set
+semantics typically used in database
+theory~\cite{DBLP:books/aw/AbiteboulHV95} but includes
+operators to explicitly control
+duplicate elimination as
+in~\cite{DBLP:conf/pods/DayalGK82,DBLP:journals/iandc/GrumbachM99} and
+to express aggregation \cite{DBLP:journals/tcs/Libkin03}.
+
+To simplify the presentation, we adopt an ordered, unnamed, and untyped
+perspective: attributes are referred to by their positions within the
+relation, do not have a name, and are assumed to be from a universal
+domain~$\mathcal{V}$. In practical SQL implementations, attributes do have names and
+types, but it is straightforward to propagate them throughout query
+execution.
+
+% lax begin Lax392996.Databases
+Let us fix a set $\mathcal{L}$ of relation labels and a set $\mathcal{V}$
+of values. A~database schema
+$\mathcal{D}:\mathcal{L}\to\bN$ assigns arities to a \emph{finite}
+set of relation labels.
+A \emph{relation of arity~$k\in\bN$} is a \emph{finite multiset} of
+tuples over~$\mathcal{V}^k$. An instance of a database
+schema~$\mathcal{D}$, or a database over~$\mathcal{D}$ for short, is a
+function mapping each relation name $R$ in the domain of~$\mathcal{D}$ to
+a relation of arity $\mathcal{D}(R)$.
+% lax end
+
+A \emph{positional index} is an expression of the form ``$\#i$''
+for $i\in\bN^*$. A \emph{term} is any expression involving
+positional indices and values from~$\mathcal{V}$, combined using
+arbitrary operators and functions over values in $\mathcal{V}$. The
+\emph{max-index} of a term is the maximum of all $i$ such that
+``\#$i$'' appears in the term (or 0 if none appear). Given a
+tuple~$u=(u_1,\dots,u_k)$ and a term~$t$ of max-index~$\leq k$, we
+define $t(u)$ as the value of~$\mathcal{V}$ obtained by replacing in~$t$
+every
+positional index~\#$i$ with~$u_i$ and evaluating the whole
+expression.
+
+% lax begin Lax392996.RelationalAlgebra
+Given a database schema~$\mathcal{D}$, we recursively define the language
+$\RA_k$ of relational algebra queries of arity $k\in\mathbb{N}$ as
+follows \lean{Query}{Query}:
+\begin{compactdesc}
+	\item[relation] for any relation~$R$ in the domain of~$\mathcal{D}$,
+	$R\in\RA_{\mathcal{D}(R)}$;
+	\item[projection] for $k\in\bN$, $q\in\RA_{k}$,
+	$t_1,\dots, t_n$ terms of max-index~\mbox{$\leq k$}, $\Pi_{t_1,\dots,t_n}(q)\in\RA_n$;
+	\item[selection] for $k\in\bN$, $q\in\RA_k$, and $\phi$ a
+	Boolean combination of (in)equality comparisons between terms
+	of max-index~$\leq k$,
+	$\sigma_\phi(q)\in\RA_k$;
+	\item[cross product] for $k_1,k_2\in\bN$, $q_1\in\RA_{k_1}$,
+	$q_2\in\RA_{k_2}$, $q_1\times q_2\in\RA_{k_1+k_2}$;
+	\item[multiset sum] for $k\in\bN$, $q_1,q_2\in\RA_k$,
+	$q_1\uplus q_2\in\RA_k$;
+	\item[duplicate elimination] for $k\in\bN$,
+	$q\in\RA_k$, $\epsilon(q)\in\RA_k$;
+	\item[multiset difference] for $k\in\bN$, $q_1,q_2\in\RA_k$, $q_1 - q_2\in\RA_k$;
+	\item[aggregation] for $k\in\bN$,
+	$q\in\RA_k$, distinct $(i_j)_{1\leq j\leq k}$,
+	terms~$t_1,\dots t_n$
+	of max-index~$\leq k$, functions $f_1,\dots,f_n$ from finite multisets of values to
+	values,
+	$\gamma_{i_1,\dots,i_m}[t_1:f_1,\dots,t_n:f_n](q)\in\RA_{m+n}$.
+\end{compactdesc}
+% lax end
+
+Some other operators can be seen as syntactic sugar:
+\begin{inparadesc}
+	\item[join] $q_1\bowtie_\phi q_2 \defeq \sigma_\phi(q_1\times q_2)$;
+	%	\item[full join]
+	%	$q_1\bowtie q_2\defeq q_1\bowtie_{\#1=\#(k+1)\land\dots\land\#k=\#(2k)}q_2\:$
+	%	(if $q_1,q_2\in\RA_k$);
+	\item[set union] $q_1\cup q_2\defeq \epsilon(q_1\uplus q_2)$.
+\end{inparadesc}
+
+\begin{toappendix}
+% lax begin Lax392996.MultisetSemantics
+We define the semantics $\sem{I}{\cdot}$ of relational algebra
+queries on an instance~$I$ over~$\mathcal{D}$ by induction:
+\lean{Query}{Query.evaluate}
+\begin{compactdesc}
+	\item[relation] for any relation label~$R$ in the domain of~$\mathcal{D}$,
+	$\sem{I}{ R}\defeq I(R)$;
+	\item[projection] for $k\in\bN$, $q\in\RA_{k}$,
+	$t_1,\dots, t_n$ terms of max-index~\mbox{$\leq k$},
+	$\sem{I}{\Pi_{t_1,\dots,t_n}(q)}\defeq
+		\mset{(t_1(u),\dots,t_n(u))\mid u\in\sem{I}{ q}}
+	$;
+	\item[selection] for $k\in\bN$, $q\in\RA_k$, and $\phi$ a
+	Boolean combination of (in)equality comparisons between terms
+	of max-index~$\leq k$,
+	$\sem{I}{\sigma_\phi(q)}\defeq
+		\mset{u\mid u\in\sem{I}{ q}, \phi(u)}$;
+	\item[cross product] for $k_1,k_2\in\bN$, $q_1\in\RA_{k_1}$,
+	$q_2\in\RA_{k_2}$, \(\sem{I}{ q_1\times q_2} \defeq
+	\sem{I}{q_1}\times\sem{I}{q_2};\)
+	\item[multiset sum] for $k\in\bN$, $q_1,q_2\in\RA_k$,
+	\(\sem{I}{ q_1\uplus q_2}\defeq\sem{I}{ q_1}\uplus\sem{I}{ q_2};\)
+	\item[duplicate elimination] for $k\in\bN$,
+	$q\in\RA_k$,
+	\(
+	\sem{I}{\epsilon(q)}\) maps $t$ to~$1$
+	if $\sem Iq(t)>0$ and to~$0$ otherwise;
+	\item[multiset difference]
+	for $k\in\bN$, $q_1,q_2\in\RA_k$,
+	$\sem{I}{q_1-q_2}$
+	maps $t$ to~$0$ if
+	$\sem{I}{q_2}(t)>0$ and to~$\sem{I}{q_1}(t)$ otherwise;
+	\item[aggregation] for $k\in\bN$,
+	$q\in\RA_k$, distinct $(i_j)_{1\leq j\leq k}$,
+	terms~$t_1,\dots t_n$
+	of max-index~$\leq k$, functions $f_1,\dots,f_n$ from finite multiset of values to
+	values,
+	\(\sem{I}{\gamma_{i_1,\dots,i_m}
+		[t_1:f_1,\dots,t_n:f_n](q)}\) is:\\
+    \(
+	\Big\{\,
+	\Big(v_1,\dots,v_m,                f_1\left(\mset{t_1(u)\mid u\in \sem{I}{q},
+	(u_{i_1},\dots,u_{i_m})=(v_1,\dots,v_m)}\right),
+  \dots,\)\\{}\qquad
+	\(f_n\left(\mset{t_n(u)\mid
+	u\in
+	\sem{I}{q},
+	(u_{i_1},\dots,u_{i_m})=(v_1,\dots,v_m)}\right)\Big)
+	\:\Big|
+	(v_1,\dots,v_m)\in\sem{I}{\epsilon(\Pi_{\#i_1,\dots,\#i_m}(q))}
+	\,\Big\}.
+	\)
+  \bigskip
+\end{compactdesc}
+% lax end
+\end{toappendix}
+
+\revision{The semantics $\sem{I}{\cdot}$ of queries on an instance
+  $I$ over~$\mathcal{D}$ is defined as expected (see companion repository
+for details) for most operators.}
+Note\revision{, however,} that the definition of the multiset difference is not the usual one,
+and also not the one corresponding to the \mintinline{sql}{EXCEPT ALL} operator of
+SQL, though it does correspond to the important \mintinline{sql}{NOT IN}
+operator of SQL. This is mainly for practicality: the standard definition of multiset
+difference
+where $\sem{I}{q_1-q_2}(t)=\max(0,\sem{I}{q_1}(t)-\sem{I}{q_2}(t))$ leads
+to intractability of the provenance computation. The difference
+disappears in the set semantics: the semantics of $\epsilon(q_1-q_2)$
+matches with that of \mintinline{sql}{EXCEPT}.
+
+Importantly, in this work, we assume that the aggregation operator, if it is used, is
+applied last (at the top-level operator), similarly to what is done in
+Section~3 of~\cite{amsterdamer2011provenance}; nested aggregation
+queries, discussed in Section~4 of~\cite{amsterdamer2011provenance}, are
+implemented in ProvSQL, but as there is currently no clear semantics for
+semiring provenance for arbitrary semirings over nested aggregation
+queries, we leave them out-of-scope of this work.
+
+\begin{example}\label{ex:semantics}
+	Consider the instance $I$ of the
+	relation \textit{Personnel} given in Table~\ref{tab:personnel},
+	containing names of people, their position and their city (remember attribute
+	names are not part of the model, they are just given here for ease of
+	reading). Ignoring for now the~$t_i$'s, the
+	relation has arity~$4$.
+	Consider the following query: \emph{``What are the cities where at
+		least two persons are working?''}. This
+	can be expressed (without using aggregation) as:
+	\(
+		\qex\defeq\epsilon\left(\Pi_{\#4}\left(\textit{Personnel}\bowtie_{\#4=\#8\land\#1<\#5}
+			\textit{Personnel}\right)\right).
+	\)
+	Note the need for duplicate elimination $\epsilon$ due to the
+	multiset semantics. Then
+  $\sem{I}{\qex}=\mset{(\textup{\revision{Nairobi}}),(\textup{Paris}),(\textup{\revision{Beijing}})}$.
+\end{example}
+
+\begin{table}
+	\centering
+	\caption{The \textit{Personnel} relation
+  (\revision{derived} from~\cite{dblp:journals/sigmod/senellart17})}\label{tab:personnel}
+	\vspace{-.5em}
+	\begin{tabular}{lllll}
+		\toprule
+		\underline{\textbf{id}} & \textbf{name} & \textbf{position} & \textbf{city}         \\
+		\midrule
+    1                       & \revision{Juma}          & Director          & \revision{Nairobi}      & $t_1$ \\
+		2                       & Paul          & Janitor           & \revision{Nairobi}      & $t_2$ \\
+    3                       & \revision{David}          & Analyst           & Paris         & $t_3$ \\
+		4                       & Ellen         & Field agent       & \revision{Beijing}        & $t_4$ \\
+    5                       & \revision{Aaheli}        & Double agent      & Paris         & $t_5$ \\
+		6                       & Nancy         & HR                & Paris         & $t_6$ \\
+    7                       & \revision{Jing}          & Analyst           & \revision{Beijing}        & $t_7$ \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+
+\begin{toappendix}
+	We also give SQL translations
+	of the operators defined in this section, assuming appropriate
+	translations of unnamed positional indices to attribute names within
+	terms (when it makes a difference, we use
+	PostgreSQL syntax variants):
+	\begin{description}
+		\item[relation]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM |$R$|
+    \end{minted}
+		\item[projection]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT |$t_1, t_2, \dots, t_n$| FROM (|$q$|)
+    \end{minted}
+		\item[selection]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM (|$q$|) WHERE |$\phi$|
+    \end{minted}
+		\item[cross product]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM (|$q_1$|), (|$q_2$|)
+    \end{minted}
+		\item[multiset sum]~
+		\begin{minted}[escapeinside=||]{sql}
+|$q_1$| UNION ALL |$q_2$|
+    \end{minted}
+		\item[duplicate elimination]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT DISTINCT * FROM (|$q$|)
+    \end{minted}
+		\item[multiset difference]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM (|$q_1$|) AS temp WHERE ROW(temp.*) NOT IN (|$q_2$|)
+    \end{minted}
+		\item[aggregation]~If $\#j$ stands for the name of the $j$th attribute
+		returned by the query $q$:
+		\begin{minted}[escapeinside=||]{sql}
+SELECT |$\#i_1,\dots,\#i_m, f_1(t_1),\dots, f_n(t_n)$| FROM (|$q$|)
+GROUP BY 1, |$\dots$|, m
+    \end{minted}
+		\item[join]~
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM (|$q_1$|) JOIN (|$q_2$|) ON |$\phi$|
+    \end{minted}
+		or simply
+		\begin{minted}[escapeinside=||]{sql}
+SELECT * FROM (|$q_1$|), (|$q_2$|) WHERE |$\phi$|
+    \end{minted}
+		\item[set union]~
+		\begin{minted}[escapeinside=||]{sql}
+|$q_1$| UNION |$q_2$|
+    \end{minted}
+	\end{description}
+
+	In addition to relations being unlabeled and untyped, our query semantics slightly differs from SQL in the following way:
+	\begin{compactitem}
+		\item As mentioned, our semantics for multiset difference
+		follows \mintinline{sql}{NOT IN}, not \mintinline{sql}{EXCEPT ALL}.
+		\item We do not consider \mintinline{sql}{NULL} values in any way.
+		\item We do not reproduce some quirks of SQL groupless aggregation: in SQL,
+		\mintinline{sql}{SELECT COUNT(x) FROM R} returns 0 on an empty relation
+		of schema \mintinline{sql}{R(x INT)} while \mintinline{sql}{SELECT SUM(x) FROM R}
+		returns \mintinline{sql}{NULL}. In our semantics, $\gamma_{\#1}[\#1:
+				f](R)$ returns the empty relation, however $f$ is defined, if evaluated on
+		an instance where $R$ is empty.
+		This is more consistent with
+		aggregation under grouping.
+	\end{compactitem}
+\end{toappendix}

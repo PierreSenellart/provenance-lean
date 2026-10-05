@@ -1,0 +1,85 @@
+\subsection{Query Rewriting}
+\label{sec:query_rewriting}
+
+The key way ProvSQL implements the semantics of the extended algebra over
+annotated relations is by \emph{rewriting the query} over annotated
+relations to include in the query the necessary operations on provenance
+operations. The query can then be evaluated using the standard query
+evaluator of PostgreSQL. We
+% lax begin Lax392996.RewritingRules
+employ the following \ref{rn} rewriting rules, which are applied inductively on an
+extended relational algebra formula:
+\lean{QueryRewriting}{query.Rewriting}
+\begin{asparaenum}[(R1)]
+	\item \label{r1} \label{rprojection} for $k\in\bN$, $q\in\RA_{k}$,
+	$t_1,\dots, t_n$ terms of max-index~\mbox{$\leq k$},
+	$\Pi_{t_1,\dots,t_n}(q)$ is rewitten to $\Pi_{t_1,\dots,t_n,\#(k+1)}(q)$
+	\item \label{rcp}
+	For $k_1,k_2\in\mathbb{N}$, $q_1\in\RA_{k_1}$, $q_2\in\RA_{k_2}$,
+	\(q_1\times q_2\) is rewritten to:
+	\(\Pi_{\#1,\dots,\#k_1,\#(k_1+2),\dots,\#(k_1+k_2+1),\#(k_1+1)\otimes\#(k_1+k_2+2)}(q_1\times
+	q_2)\).
+	\item \label{rdupelim} For $k\in\mathbb{N}$, $q\in\RA_k$,
+	$\epsilon(q)$ is rewritten to:
+	$\gamma_{1,\dots,k}[\#(k+1): \bigoplus](q)$.
+	\item For $k\in\mathbb{N}, q_1,q_2\in\RA_k$, $q_1-q_2$ is rewritten to:\\
+    \hspace*{1.2em}$\Pi_{\#1,\dots,\#(k+1)}(q_1\bowtie_{\scriptscriptstyle\#1=\#(k+2)\land\dots\land\#k=\#(2k+1)}$\\\hspace*{4em} $\epsilon(\Pi_{\scriptscriptstyle\#1,\dots,\#k}(q_1)-\Pi_{\scriptscriptstyle\#1,\dots,\#k}(q_2)))$\\
+	\({}\uplus
+  \Pi_{\#1,\dots,\#k,\#(k+1)\ominus\#(2k+2)}\!(q_1\bowtie_{\scriptscriptstyle\#1=\#(k+2)\land\dots\land\#k=\#(2k+1)}\)\\\hspace*{4em}\(
+	\gamma_{\scriptscriptstyle\#1,\dots,\#k}[{\scriptstyle\#(k+1):\bigoplus}](q_2))
+	\)
+	\item For $k\in\mathbb{N}$, $q\in\RA_k$, distinct $(i_j)_{1\leq j\leq k}$, terms
+	$t_1,\dots,t_n$ of max-index $\leq k$, monoid aggregate functions
+	$f_1,\dots,f_n$, $\gamma_{i_1,\dots,i_m}[t_1:f_1,\dots,t_n:f_n](q)$ is
+	rewritten to:\\
+	$\gamma_{i_1,\dots,i_m}[t_1*\#(k+1):\hat f_1,\dots,
+		t_n*\#(k+1):\hat f_n,\#(k+1):\delta\left(\bigoplus\right)](q)\).
+	\label{rn}
+\end{asparaenum}
+% lax end
+
+Note that
+relation names, selection, and multiset sum operators
+are not rewritten. \revision{Using query rewriting to perform provenance evaluation
+has been proposed in previous works (see, in particular,
+Amsterdamer et al. \cite{amsterdamer2011provenance}, Fink and Olteanu
+\cite{fink2012aggregation} and Perm \cite{DBLP:conf/icde/GlavicA09}).
+The two distinguishing aspects of this work is that
+we natively support the multiset semantics that SQL engines natively
+implement (requiring adaptation of rewriting rules for projection and
+explicit duplicate elimination) and that we support difference.}
+
+We show that these rewriting rules allow us to recover the exact
+semantics of the extended relational algebra over annotated relations:
+
+% lax begin Lax392996.RewritingCorrectness
+\begin{theoremrep}
+  \label{thm:rewriting} \lean{QueryRewriting}{Query.rewriting_valid}
+	Let $\mathcal{D}$ be a database schema, $q$ any extended relational
+	algebra query over~$\mathcal{D}$, $\mathbb{K}$ an appropriate algebraic
+	structure, and $\hat I$ a $\mathbb{K}$-instance over $\mathcal{D}$. Let
+	$\hat q$ be the query rewritten from $q$ by applying the rewriting rules
+	(R\ref{r1})--(R\ref{rn}) recursively bottom up. Then $\ansem{\hat
+			I}q=\sem{\hat I}{\hat q}$.
+\end{theoremrep}
+% lax end
+
+\input{proof_rewriting}
+
+\begin{example}\label{ex:rewriting}
+	Returning to query $\qex$ from Example \ref{ex:semantics}, let us trace
+	the rewriting rules applied by ProvSQL bottom up (for space reasons,
+	$\mathit{Personnel}$ is abbreviated to $P$):
+	\begin{align*}
+		\qex={}                              & \epsilon(\Pi_{\#4}(P\bowtie_{\#4=\#8\land\#1<\#5}P))                                                              \\
+		={}                                  & \epsilon(\Pi_{\#4}(\sigma_{\#4=\#8\land\#1<\#5}(P\times P)))                                                      \\
+		\xrightarrow{(R\ref{rcp})}{}         & \epsilon(\Pi_{\#4}(\sigma_{\#4=\#8\land\#1<\#5}(\Pi_{\#1,\dots,\#4,\#6,\dots\#9,\#5\otimes\#10}(P\times P))))     \\
+		\xrightarrow{(R\ref{rprojection})}{} & \epsilon(\Pi_{\#4,\#9}(\sigma_{\#4=\#8\land\#1<\#5}(\Pi_{\#1,\dots,\#4,\#6,\dots\#9,\#5\otimes\#10}(P\times P)))) \\
+		\xrightarrow{(R\ref{rdupelim})}{}    &
+		\gamma_{1}[\#2:\bigoplus](                                                                                                                               \\
+		                                     & \quad\Pi_{\#4,\#9}(\sigma_{\#4=\#8\land\#1<\#5}(\Pi_{\#1,\dots,\#4,\#6,\dots\#9,\#5\otimes\#10}(P\times
+		P))))
+	\end{align*}
+	If $\qexhat$ is this rewritten query, one can check that
+	$\sem{\hat I}{\qexhat}=\ansem{\hat I}{\qex}$.
+\end{example}

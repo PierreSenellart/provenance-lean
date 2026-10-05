@@ -1,0 +1,152 @@
+\begin{proof}
+% lax begin Lax392996Proofs.Bridge.theorem_12
+	For a $\mathcal{B}[X]$-relation $\hat I$ and a valuation~$\nu$
+	over~$X$, we define $\nu(\hat I)$ to be the (unannotated) relation~$J$
+	obtained from $\hat I$ by removing all tuples with annotation $\alpha$
+	such as $\alpha(\nu)=\bot$ and keeping all other tuples. In other
+	words, $\nu(\hat I)=J\iff\Phi_{\hat I}(\hat J)(\nu)=\top$.
+
+	For a $\mathcal{B}[X]$-relation $\hat I$, a query~$q$ without
+	aggregation and a tuple~$t$ with same arity as~$q$, we define
+	$\Prov(t\in q(\hat I))$, the \emph{Boolean provenance of $t$ for $q$ on
+		$\hat I$}, to be the Boolean function that maps a valuation $\nu$
+	to $\top$ if $t\in \sem{\nu(\hat I)}{q}$ and to $\bot$ otherwise.
+
+	We first note that $\Pr(t\in q(\hat I))=\Pr(\Prov(t\in q(\hat I)))$.
+	Indeed:
+	\begin{align*}
+		\Pr(\Prov(t\in q(\hat I)))
+		= & \sum_{\nu\mid t\in \sem{v(\hat I)}{q}}\Pr(\nu)
+		=\sum_{\hat J\subseteq \hat I,t\in\sem{J}{q}}\sum_{\nu\mid\nu(\hat I)=J}\Pr(\nu)
+		=\sum_{\hat J\subseteq \hat I,t\in\sem{J}{q}}\sum_{\nu\mid\nu(\hat I)=J}\Pr(\nu)
+	\end{align*}
+	while
+	\begin{align*}
+		\Pr(t\in q(\hat I))=\sum_{\hat J\subseteq\hat I,
+			t\in\sem{J}{q}}\Pr(\hat J)
+		=\sum_{\hat J\subseteq \hat I,t\in\sem{J}{q}}\Pr[\Phi_{\hat I}(\hat J)]
+		=\sum_{\hat J\subseteq \hat I,t\in\sem{J}{q}}\sum_{\nu|\Phi_{\hat I}(\hat J)(\nu)=\top}\Pr(\nu)
+		=\sum_{\hat J\subseteq \hat I,t\in\sem{J}{q}}\sum_{\nu|\nu(\hat
+			I)=J}\Pr(\nu).
+	\end{align*}
+
+	It then suffices to show that
+	\[\Prov(t\in q(\hat I))=\bigvee_{(t,\alpha)\in\ansem{\hat
+				I}{q}}\alpha\]
+	or, in other terms, that
+	\[t\in \sem{\nu(\hat I)}{q} \quad\text{if and only if}\quad \exists
+		(t,\alpha)\in\ansem{\hat I}{q}, \alpha(\nu)=\top.\]
+	We proceed by induction on the structure of $q$.
+
+	\begin{itemize}
+		\item \textbf{relation} for any relation label~$R$ in the domain
+			of~$\mathcal{D}$,
+			\(
+			t\in \sem{\nu(\hat I)}{R}
+			\iff
+			t\in \nu(\hat I)(R)
+			\iff
+			\exists(t,\alpha)\in\hat I(R)\: \alpha(\nu)=\top
+			\iff
+			\exists(t,\alpha)\in\ansem{\hat I}{R}, \alpha(\nu)=\top.
+			\)
+
+		\item \textbf{projection} for $k\in\bN$, $q\in\RA_{k}$,
+			$t_1,\dots, t_n$ of terms of max-index $\leq k$,
+			\begin{align*}
+				t\in\sem{\nu(\hat I)}{\Pi_{t_1,\dots,t_n}(q)}
+				 & \iff
+				\exists u\in \sem{\nu(\hat I)}{q}, t=(t_1(u),\dots,t_n(u))                             \\
+				 & \iff
+				\exists (u,\alpha)\in\ansem{\hat I}{q}, \alpha(\nu)=\top \land t=(t_1(u),\dots,t_n(u)) \\
+				 & \iff
+				\exists (t,\alpha)\in\ansem{\hat I}{\Pi_{t_1,\dots,t_n}(q)}, \alpha(\nu)=\top.
+			\end{align*}
+		\item \textbf{selection} for $k\in\bN$, $q\in\RA_k$, and
+			$\phi$ a Boolean combination of (in)equality comparisons involving terms
+			of max-index $\leq k$,
+			\begin{align*}
+				t\in\sem{\nu(\hat I)}{\sigma_\phi(q)}
+				 & \iff
+				t\in\sem{\nu(\hat I)}{q}, \phi(u)                                   \\
+				 & \iff
+				\exists(t,\alpha)\in\ansem{\hat I}{q}, \alpha(\nu)=\top\land\phi(u) \\
+				 & \iff
+				\exists(t,\alpha)\in\ansem{\hat I}{\sigma_\phi(q)}, \alpha(\nu)=\top.
+			\end{align*}
+		\item \textbf{cross product} for $k_1,k_2\in\bN$, $q_1\in\RA_{k_1}$,
+			$q_2\in\RA_{k_2}$,
+			\begin{align*}
+				t\in\sem{\nu(\hat I)}{q_1\times q_2}
+				 & \iff
+				t=(t_1,t_2), t_1\in\sem{\nu(\hat I)}{q_1}\land t_2\in\sem{\nu(\hat I)}{q_2} \\
+				 & \iff
+				t=(t_1,t_2),
+				\exists (t_1,\alpha)\in\ansem{\hat I}{q_1}, \alpha(\nu)=\top\land
+				\exists(t_2,\beta)\in\ansem{\hat I}{q_2}, \beta(\nu)=\top                   \\
+				 & \iff
+				t=(t_1,t_2),
+				\exists (t_1,\alpha,t_2,\beta)\in\ansem{\hat
+				I}{q_1}\times\ansem{\hat I}{q_2}, (\alpha\hat\land\beta)(\nu)=\top          \\
+				 & \iff
+				\exists (t,\gamma)\in\ansem{\hat I}{q_1\times q_2}, \gamma(\nu)=\top.
+			\end{align*}
+		\item \textbf{multiset sum} for $k\in\bN$, $q_1,q_2\in\RA_k$,
+			\begin{align*}
+				t\in \sem{\nu(\hat I)}{q_1\uplus q_2} & \iff
+				t\in\sem{\nu(\hat I)}{q_1}\uplus\sem{\nu(\hat I)}{q_2}
+				\\  & \iff
+				(\exists(t,\alpha)\in\ansem{\hat
+						I}{q_1}\alpha(\nu)=\top)\lor(\exists(t,\alpha)\in\ansem{\hat
+						I}{q_2}\alpha(\nu)=\top)
+				\\  & \iff
+				\exists(t,\alpha)\in\ansem{\hat
+					I}{q_1}\uplus\ansem{\hat I}{q_2}\alpha(\nu)=\top
+				\\  & \iff
+				\exists(t,\alpha)\in\ansem{\hat
+					I}{q_1\uplus q_2}\alpha(\nu)=\top.
+			\end{align*}
+
+		\item \textbf{duplicate elimination} for $k\in\bN$,
+			$q\in\RA_k$,
+			\begin{align*}
+				t\in\sem{\nu(\hat I)}{\epsilon(q)}
+				\iff
+				t\in\sem{\nu(\hat I)}{q}
+				\iff
+				\exists (t,\alpha)\in \ansem{\hat I}{q}, \alpha(\nu)=\top
+				\iff
+				\exists (t,\beta)\in\ansem{\hat I}{\epsilon(q)},
+				\beta(\nu)=\top
+			\end{align*}
+			(the last equivalence comes from the fact that a disjunction is
+			true if and only if one of the disjunct is true).
+
+		\item \textbf{multiset difference}
+			for $k\in\bN$, $q_1,q_2\in\RA_k$,
+			\begin{align*}
+				t\in\sem{\nu(\hat I)}{q_1-q_2}
+				 & \iff
+				t\in\sem{\nu(\hat I)}{q_1}\land t\notin\sem{\nu(\hat I)}{q_2} \\
+				 & \iff
+				(\exists\alpha (t,\alpha)\in\ansem{\hat I}{q_1},
+				\alpha(\nu)=\top)\land\lnot
+				(\exists \beta (t,\beta)\in\ansem{\hat
+				I}{q_2},\beta(\nu)=\top)                                      \\
+				 & \iff
+				(\exists\alpha (t,\alpha)\in\ansem{\hat I}{q_1},
+				\alpha(\nu)=\top)\land\lnot\left(
+				\bigvee_{\beta\mid(t,\beta)\in\ansem{\hat I}{q_2}}\beta(\nu)=\top)
+				\right)                                                       \\
+				 & \iff
+				(\exists\alpha (t,\alpha)\in\ansem{\hat I}{q_1},
+				\alpha(\nu)\land\lnot\left(
+					\bigvee_{\beta\mid(t,\beta)\in\ansem{\hat I}{q_2}}\beta(\nu)=\top)
+				\right)=\top                                                  \\
+				 & \iff
+				\exists(t,\alpha')\in\ansem{\hat I}{q_1-q_2}, \alpha'(\nu)=\top.
+				\qedhere
+			\end{align*}
+	\end{itemize}
+% lax end
+\end{proof}

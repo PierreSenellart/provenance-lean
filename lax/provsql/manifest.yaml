@@ -1,0 +1,44 @@
+specVersion: "1"
+id: "lax-392996"
+leanVersion: "v4.33.0"
+mathlibVersion: "db584cd6d46c92f209a44c0f1c829460d327499d"
+title: "ProvSQL: provenance-aware query rewriting is correct"
+authors:
+  - name: "Pierre Senellart"
+    orcid: "0000-0002-7909-5369"
+    github: "PierreSenellart"
+  - name: "Aryak Sen"
+  - name: "Silviu Maniu"
+  - name: "Claude (Anthropic)"
+bibEntries:
+  - |
+    @inproceedings{sen2026provsql,
+      author = {Aryak Sen and Silviu Maniu and Pierre Senellart},
+      title = {{ProvSQL}: A General System for Keeping Track of the Provenance and Probability of Data},
+      booktitle = {Proceedings of the 42nd {IEEE} International Conference on Data Engineering ({ICDE} 2026)},
+      year = {2026},
+      eprint = {2504.12058},
+      archivePrefix = {arXiv}
+    }
+  - |
+    @software{senellart2026provenancelean,
+      author = {Pierre Senellart},
+      title = {provenance-lean: Database Provenance in {Lean} 4},
+      year = {2026},
+      doi = {10.5281/zenodo.21809151},
+      url = {https://github.com/PierreSenellart/provenance-lean}
+    }
+  - |
+    @inproceedings{amsterdamer2011aggregate,
+      author = {Yael Amsterdamer and Daniel Deutch and Val Tannen},
+      title = {Provenance for aggregate queries},
+      booktitle = {Proceedings of the 30th {ACM} {SIGMOD-SIGACT-SIGART} Symposium on Principles of Database Systems ({PODS} 2011)},
+      pages = {153--164},
+      publisher = {{ACM}},
+      year = {2011},
+      doi = {10.1145/1989284.1989302}
+    }
+paper:
+  folder: "paper"
+  main: "main.tex"
+  engine: "pdflatex"

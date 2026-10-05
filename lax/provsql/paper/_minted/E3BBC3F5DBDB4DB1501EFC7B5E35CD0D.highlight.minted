@@ -1,0 +1,3 @@
+\begin{MintedVerbatim}[commandchars=\\\{\},codes={\catcode`\$=3\catcode`\^=7\catcode`\_=8\relax}]
+\PYG{k}{SELECT}\PYG{+w}{ }\PYG{o}{*}\PYG{+w}{ }\PYG{k}{FROM}\PYG{+w}{ }\PYG{p}{(}\PYG{esc}{$q_1$}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{AS}\PYG{+w}{ }\PYG{n}{temp}\PYG{+w}{ }\PYG{k}{WHERE}\PYG{+w}{ }\PYG{k}{ROW}\PYG{p}{(}\PYG{n}{temp}\PYG{p}{.}\PYG{o}{*}\PYG{p}{)}\PYG{+w}{ }\PYG{k}{NOT}\PYG{+w}{ }\PYG{k}{IN}\PYG{+w}{ }\PYG{p}{(}\PYG{esc}{$q_2$}\PYG{p}{)}
+\end{MintedVerbatim}

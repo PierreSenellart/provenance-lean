@@ -1,0 +1,115 @@
+\subsection{Algebra over Annotated Relations}
+\label{sec:annotated_relations}
+% lax begin Lax392996.AnnotatedSemantics
+
+We define the semantics $\ansem{\hat I}{\cdot}$ of extended relational algebra
+queries on a $\mathbb{K}$-instance $\hat I$ over $\mathcal{D}$ by
+induction; for the definition to be meaningful, $\mathbb{K}$ needs to be a
+semiring; a m-semiring for the multiset difference operator; and a
+$\delta$-semiring for the aggregation operator. (We say that $\mathbb{K}$
+is \emph{appropriate} for~$q$ if this is the case.)
+\lean{QueryAnnotatedDatabase}{Query.evaluateAnnotated}
+\begin{compactdesc}
+	\item[relation] for any relation label~$R$ in the domain of~$\mathcal{D}$,
+	$\ansem{\hat I}{R}\defeq\hat I(R)$;
+	\item[projection] for $k\in\bN$, $q\in\RA_{k}$,\\
+	$t_1,\dots, t_n$ terms of max-index $\leq k$,
+	$\ansem{\hat I}{\Pi_{t_1,\dots,t_n}(q)}\defeq
+		\mset{\left(t_1(u),\dots,t_n(u), \alpha\right) \mid (u,\alpha)\in\ansem{\hat I}{ q}}
+	$;
+	\item[selection] for $k\in\bN$, $q\in\RA_k$, and
+	$\phi$ a Boolean combination of (in)equality comparisons between terms
+	of max-index $\leq k$,
+	$\ansem{\hat I}{\sigma_\phi(q)}\defeq
+		\mset{(u,\alpha)\mid (u,\alpha)\in\ansem{\hat I}{ q}, \phi(u)}$;
+	\item[cross product] for $k_1,k_2\in\bN$,\\ $q_1\in\RA_{k_1}$,
+	$q_2\in\RA_{k_2}$, \(\ansem{\hat I}{ q_1\times q_2}
+	\defeq\mset{(u,v,\alpha_1\otimes\alpha_2) \mid
+		(u,\alpha_1,v,\alpha_2)\in\ansem{\hat I}{ q_1}\times\ansem{\hat I}{ q_2}};\)
+	\item[multiset sum] for $k\in\bN$, $q_1,q_2\in\RA_k$, \(\ansem{\hat I}{ q_1\uplus
+		q_2}\defeq\ansem{\hat I}{ q_1}\uplus\ansem{\hat
+		I}{ q_2};\)
+	\item[duplicate elimination] for $k\in\bN$,
+	$q\in\RA_k$,\\
+	\(
+	\ansem{\hat I}{\epsilon(q)}\defeq\bigcup_{u\mid\exists\alpha (u,\alpha)\in
+		\ansem{\hat I}{q}}\left\{\,\left(u,\bigoplus_{\alpha\mid(u,\alpha)\in\ansem{\hat
+			I}{q}}\alpha\right)\,\right\};
+	\)
+	\item[multiset difference]
+	for $k\in\bN$, $q_1,q_2\in\RA_k$, \\\(
+	\hspace*{-2em}	\ansem{\hat I}{q_1-q_2}\defeq
+	\mset{\left(u,\alpha\ominus\bigoplus_{\beta\mid(u,\beta)\in\ansem{\hat
+				I}{q_2}}\beta\right)\:\middle|\:(u,\alpha)\in \ansem{\hat
+			I}{q_1} };
+	\)
+	\item[aggregation] for $k\in\bN$,
+	$q\in\RA_k$, distinct $(i_j)_{1\leq j\leq k}$,
+	terms~$t_1,\dots t_n$
+	of max-index $\leq k$, monoid aggregate functions
+	$f_1,\dots,f_n$,\\
+	\(
+	\ansem{\hat I}{\gamma_{i_1,\dots,i_m}
+		[t_1:f_1,\dots,t_n:f_n](q)}\defeq\)\\\(\scriptstyle
+	\Big\{\,
+	(v_1,\dots,v_m,
+	\hat
+	f_1\left(\mset{t_1(u)*\alpha\mid
+	(u,\alpha)\in
+	\ansem{\hat
+		I}{q},
+	(u_{i_1},\dots,u_{i_m})=(v_1,\dots,v_m)}\right),\)\\\(\scriptstyle
+	\dots,
+	\hat f_n\left(\mset{t_n(u)*\alpha\mid
+	(u,\alpha)\in
+	\ansem{\hat
+		I}{q},
+	(u_{i_1},\dots,u_{i_m})=(v_1,\dots,v_m)}\right),
+	\)\\\(\scriptstyle
+	\delta(\beta))
+	\:\Big|\:
+	(v_1,\dots,v_m,\beta)\in\ansem{\hat I}{\epsilon(\Pi_{\#i_1,\dots,\#i_m}(q))}
+	\,\Big\}\)
+	where:
+	\begin{compactitem}
+		\item ``$*$'' denotes a tensor
+		product used to combine the data values of $\mathcal{V}$ with the
+		$\delta$-semiring annotations from $\mathbb{K}$ in a semimodule
+		$\mathcal{V}_{\mathbb{K}}$;
+		\item
+		for any $f_i$, $\hat f_i$ is a new aggregate function lifted from
+		values in $\mathcal{V}$ to values in $\mathcal{V}_\mathbb{K}$
+	\end{compactitem}
+	See~\cite{amsterdamer2011provenance} for
+	details about provenance semimodules.
+\end{compactdesc}
+% lax end
+
+\begin{example}\label{ex:provenance}
+	We return to Example \ref{ex:semantics} and to the instance of the \textit{Personnel}
+	table of Table~\ref{tab:personnel}. The $t_i$'s are now interpreted as
+	tuple annotations in some semiring~$\mathbb{K}$, resulting in a
+	$\mathbb{K}$-relation~$\hat I$.
+	Following the semantics of $\qex$ over annotated relations, we
+	compute $\ansem{\hat I}{\qex}$ as:
+	\begin{center}
+		\upshape
+		\begin{tabular}{ll}
+			\toprule
+			\revision{Nairobi} & $t_1\otimes t_2$                                               \\
+			Paris    & $(t_3\otimes t_5)\oplus(t_5\otimes t_6)\oplus(t_3\otimes t_6)$ \\
+			\revision{Beijing}   & $t_4\otimes t_7$                                               \\
+			\bottomrule
+		\end{tabular}
+	\end{center}
+	If we choose for~$\mathbb{K}$ the semiring~$\mathcal{B}[X]$ where
+	$X=\set{t_1,\dots,t_7}$,
+	the annotation for \textup{Paris} is the Boolean function given by the
+	formula $(t_3\land t_5)\lor(t_5\land t_6)\lor(t_3\land t_6)$. This
+	is a form of \emph{Boolean
+		provenance}~\cite{dblp:journals/sigmod/senellart17}:
+	\textup{Paris} is in the result iff either both tuples
+  representing \textup{\revision{David}} and \textup{\revision{Aaheli}},
+  or \textup{\revision{Aaheli}}
+  and \textup{Nancy}, or \textup{\revision{David}} and \textup{Nancy}, are present.
+\end{example}

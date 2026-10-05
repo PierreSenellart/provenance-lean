@@ -1,0 +1,199 @@
+\section{Implementation in ProvSQL}\label{sec:implementation}
+
+Theorem~\ref{thm:rewriting} and Corollary~\ref{cor:pqe} pave the way for
+a practical implementation of provenance management and probabilistic
+query evaluation in a SQL DBMS. Note that the data model follows as
+closely as possible the practical behavior of SQL engines, instead of the
+theoretical model of annotated relations used in most of the literature:
+multiset semantics, explicit duplicate elimination using
+\mintinline{sql}{DISTINCT} or \mintinline{sql}{GROUP BY},
+ordered attributes within relations.
+
+We now explain how ProvSQL is implemented. ProvSQL uses PostgreSQL's
+extension mechanism to change the behavior of the DBMS. This extension mechanism
+allows to provide user-defined functions (UDFs), which can be written
+either in PL/pgSQL, the application language of PostgreSQL, or in~C, to
+implement provenance- and probability-related functionalities in~C. The
+extension
+mechanism also allows to run \emph{hooks} through a C interface at
+different key phases of query evaluation. ProvSQL uses a combination of
+SQL, PL/pgSQL, C, and C++ code interfacing with the C code, to implement
+its behavior.
+
+\subsection{Annotated relations}
+\label{sec:impl_relations}
+
+As in Section~\ref{sec:semirings}, ProvSQL adds to every relation for
+which provenance needs to be tracked (which can be specified with a UDF)
+an extra \emph{provsql} attribute
+to store the annotation. Instead of choosing a specific algebraic
+structure for the annotation ahead of time, this annotation is a generic
+\emph{universally unique identifier
+	(UUID)}~\cite{DBLP:journals/rfc/rfc9562}. We explain further on how these
+generic annotations can be specialized to specific (m)-semirings.
+Annotations of \emph{base tuples} are randomly generated using the UUIDv4
+standard and can be interpreted as abstract tuple identifiers; the
+128-bit address space makes the collision probability vanishingly
+small.
+Annotations are built from these base annotations by using the
+(m-)semiring operations; to store resulting annotations in the same
+attribute, they are also UUIDs, this time computed following UUIDv5
+by computing a \mbox{SHA-1} hash formed from a fixed namespace, and a
+normalized description of the operator and its UUID operands. This
+guarantees, in particular, that annotations are generated in a
+deterministic manner: the same query over the same data will result in
+the exact same result, annotations included.
+
+Retaining opaque UUIDs is not enough: one also needs to be able to
+efficiently determine how they relate to each other. This is done by
+storing a \emph{provenance circuit} (a compact DAG representation of
+provenance expressions, first introduced in~\cite{deutch2014circuits})
+where each UUIDv4 points to a leaf gate representing inputs of the
+circuit and each UUIDv5 to an inner gate labeled by the operator and with
+children the operand UUIDs. Similarly, data values that are results of
+aggregate queries are represented as gates in the same circuit (with
+UUIDv5 representation) encoding their semimodule construction.
+
+Storage of this provenance circuit in the
+DBMS is a challenge:
+\begin{asparaenum}[(i)]
+	\item \label{item:append-only} It is an append-only data structure; except in cases where one
+	wants to perform some clean-up, there is never the need of removing
+	gates from the circuit, and a gate never needs to be updated.
+	\item \label{item:updated-query-time} It is a data structure which is updated at the time a query is
+	evaluated, following the query rewriting approach of
+	Section~\ref{sec:query_rewriting}.
+	\item \label{item:persistent} The content of this circuit needs to be stored in a persistent
+	manner: UUIDs become uninterpretable without the circuit.
+	\item \label{item:large} The circuit can become very large, as it
+	contains one gate per tuple, and one gate
+	per operation performed in a query.
+	\item \label{item:fast} Access to the circuit needs to be as fast as
+	possible.
+\end{asparaenum}
+
+Initial implementations of ProvSQL stored this circuit as an extra table
+within the database, which
+solved~(\ref{item:persistent})--(\ref{item:large}). But PostgreSQL
+tables are not optimized for append-only operations
+(\ref{item:append-only}) and, most importantly,
+(\ref{item:updated-query-time}) caused concurrency control issues. We
+then experimented with shared-memory storage of the circuit, which solved
+most issues but did not scale (\ref{item:large}) and made persistence
+(\ref{item:persistent}) an issue in case of failure.
+
+Our final
+implementation provides a satisfactory solution to (\ref{item:append-only})--(\ref{item:fast}):
+The circuit is stored outside of the database, in \emph{append-only
+	files} that
+are properly indexed and \emph{memory-mapped} so that the operating
+system can keep most
+often used fragments in RAM buffers. To avoid concurrency issues, access to
+these files is managed by a \emph{single PostgreSQL worker process},
+communicating with other backends through
+inter-process communication (with \emph{pipes}). Finally, each backend
+process has a \emph{small local cache} of most recently accessed circuit information.
+
+\subsection{Query rewriting}
+
+The main way ProvSQL is keeping track of the provenance of data is by the
+query rewriting approach discussed in
+Section~\ref{sec:query_rewriting}. To implement this within PostgreSQL, ProvSQL
+defines
+a custom hook at \emph{query planning time}
+before the query is sent to PostgreSQL's planner. If the query involves
+annotated relations (i.e., tables with the special \emph{provsql}
+attribute of UUID type), the query is analyzed to determine if it is part of the
+supported language (the extended relational algebra described
+in Section~\ref{sec:prelim}, as represented in SQL). If not, an error message is
+displayed instead of performing inadequate provenance computation. If so,
+the query is rewritten as described in Section~\ref{sec:query_rewriting} and
+then sent to the regular planner for continued processing and evaluation.
+
+\subsection{Specialization to specific (m-)semirings}
+
+Annotations computed by ProvSQL are abstract UUIDs, with description in
+the circuit on how these are computed from base tuple UUIDs. One
+important point is that representation can be specialized to any
+arbitrary \mbox{(m-)semi}\-ring and semimodule by applying homomorphisms: ProvSQL
+essentially works in the \emph{universal} semiring (the how-semiring of
+integer polynomials, see~\cite{green2007provenance}) and in the
+\emph{universal} m-semiring (the free m-semiring, see
+\cite{dblp:journals/japll/geertsp10}), from which there exist unique
+homomorphisms to any application (m-)semiring.
+Each algebraic structure of interest is compiled into a C++ class
+whose methods describe the different operations
+($\oplus$, $\otimes$, possibly $\ominus$ and~$\delta$)
+of the algebraic
+structure.
+At a user's request,
+given a \emph{provenance
+	mapping} from base UUIDs to values in that algebraic structure (e.g.,
+  integers in the counting semiring),
+the relevant part of the circuit is
+retrieved from its memory mapped representation, and ProvSQL
+  evaluates the circuit in a bottom-up
+manner to determine the actual semiring annotation of every tuple in the
+result of a query, using the methods provided by the class.
+
+\subsection{Probability evaluation}
+\label{sec:impl_prob}
+
+Probabilistic query evaluation in ProvSQL relies on
+Corollary~\ref{cor:pqe}: provenance is computed in the same way as for
+provenance tracking, using query rewriting, and when a marginal
+probability computation is requested, we specialize the provenance to
+$\mathcal{B}[X]$ (given a mapping of base UUIDs to some Boolean function,
+e.g., one distinct variable per UUIDs to obtain a tuple-independent
+database) and then compute the probability of the corresponding Boolean
+circuit. Note that the computation of Boolean provenance, as it is
+crucial for probabilistic query evaluation, is further optimized from the
+regular retrieval of subcircuits from the the memory-mapped circuit.
+
+ProvSQL implements different ways of computing the probability of a
+Boolean circuit (e.g., naïve enumeration of possible worlds,
+Monte-Carlo sampling, or some other approximation techniques such as
+WeightMC~\cite{DBLP:conf/aaai/ChakrabortyFMSV14}). We focus here on its
+default computation method, which works in three steps:
+\begin{asparaenum}[(1)]
+	\item We determine whether the Boolean circuit is
+	read-once~\cite{DBLP:journals/pvldb/SenDG10}, i.e., if every variable
+	occurs only once; if so, its probability can be computed in
+	linear-time.
+	\item Otherwise, we use a heuristic
+	algorithm~\cite{maniu2019experimental} to quickly obtain a
+	tree-decomposition of small width ($\leq 10$) of the circuit, if
+	possible; if so,  we use an algorithm
+	from~\cite{dblp:journals/mst/amarillicms20} to extract a
+	deterministic and decomposable circuit from the Boolean circuit, on
+	which the probability is computed in linear time.
+	\item Otherwise, we encode the circuit in conjunctive normal form using
+	Tseitin's transformation \cite{Tseitin1983} and use an external
+	knowledge compiler (by default d4
+	\cite{dblp:conf/ijcai/lagniezm17} but we also support c2d
+	\cite{DBLP:conf/ecai/Darwiche04} and DSHARP
+	\cite{DBLP:conf/ai/MuiseMBH12}) as a black box to compile it into a
+	deterministic and decomposable circuit, on which the probability is
+	computed in linear time (but this new circuit may be exponential in
+	size).
+\end{asparaenum}
+
+Recall that probabilistic query evaluation is intractable
+($\mathsf{\#P}$-hard):
+the potential exponential blow-up of the last step is
+unavoidable.
+
+\subsection{Other features}
+At the time of writing, ProvSQL also implements other features,
+which
+are outside of the scope of this paper: it supports provenance for
+non-terminal aggregate queries, following Section~4
+of~\cite{amsterdamer2011provenance}; Shapley value
+computation and expected Shapley value computation as described
+in~\cite{DBLP:journals/pacmmod/KarmakarMSB24}; provenance of update
+operations~\cite{widiaatmaja2025demonstration} as proposed in~\cite{DBLP:conf/sigmod/BourhisDM20}; expected
+value computation for \mintinline{SQL}{COUNT}, \mintinline{SQL}{MIN},
+\mintinline{SQL}{MAX}, \mintinline{SQL}{SUM}, following the algorithms
+in~\cite{abiteboul2011capturing}; and where-provenance
+\cite{bunemankt01,senellart2018provsql}, which is a form of provenance not captured by
+semirings \cite{DBLP:journals/ftdb/CheneyCT09}.

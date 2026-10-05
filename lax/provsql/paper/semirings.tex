@@ -1,0 +1,140 @@
+\subsection{Semirings and Beyond}
+\label{sec:semirings}
+% lax begin Lax392996.AnnotatedDatabases
+
+Given some algebraic structure~$\mathbb{K}$ for \emph{annotations} (typically, a semiring or a
+generalization thereof) and some set
+$\mathcal{V}_{\mathbb{K}}\supseteq\mathcal{V}$ of \emph{values} (typically, either
+$\mathcal{V}$ itself or an extension of $\mathcal{V}$ including
+$\mathbb{K}$-semimodules), a \emph{$\mathbb{K}$-relation of arity
+	$k\in\mathbb{N}$} over $\mathcal{V}_{\mathbb{K}}$ is a \emph{multiset} of tuples over
+$(\mathcal{V}_{\mathbb{K}})^k\times\mathbb{K}$, often written $(u,\alpha)$ with
+$u\in(\mathcal{V}_{\mathbb{K}})^k$ and $\alpha\in\mathbb{K}$. A~$\mathbb{K}$-instance of a database
+schema~$\mathcal{D}$, or $\mathbb{K}$-database over $\mathcal{D}$ for
+short, is a function mapping each relation name $R$ in the domain of
+$\mathcal{D}$ to a $\mathbb{K}$-relation of arity $\mathcal{D}(R)$.
+% lax end
+\lean{AnnotatedDatabase}{AnnotatedDatabase} Such
+$\mathbb{K}$-instances are typically denoted $\hat I$, and when we use
+such a notation $I$ then means the relation projected on the first~$k$
+columns, without the annotation.
+
+We define in particular:
+\begin{definition}
+	A \emph{semiring} $(\mathbb{K},\oplus,\otimes,\mathbb 0,\mathbb 1)$ is
+	a set $\mathbb K$ of elements along with two binary
+	operators over~$\mathbb{K}$ ($\oplus$ and $\otimes$) and two distinguished
+	elements of $\mathbb{K}$ ($\mathbb{0}$ and $\mathbb{1}$), such that:
+	\begin{compactenum}[(i)]
+		\item $(\mathbb{K}, \oplus, \mathbb{0})$ is a commutative monoid;
+		\item $(\mathbb{K}, \otimes, \mathbb{1})$ is a (non-necessarily
+		commutative) monoid;
+		\item $\otimes$ distributes over $\oplus$: $\forall
+			a,b,c\in\mathbb{K}$, $a\otimes(b\oplus c)=(a\otimes b)\oplus
+			(a\otimes c)$ and $(a\oplus b)\otimes c=(a\otimes c)\oplus(b\otimes
+			c)$;
+		\item $\mathbb{0}$ is annihilator for $\otimes$: $\forall a\: \mathbb{0}\otimes
+			a=a\otimes\mathbb{0}=\mathbb{0}$.
+	\end{compactenum}
+\end{definition}
+
+\begin{example}
+	\label{exa:semiring}
+	The following structures are semirings:
+	\begin{compactdesc}
+		\item[Counting semiring] $(\mathbb{N}, +, \times, 0, 1)$
+		\item[Boolean function semiring] for a finite set
+		$X$, $(\mathcal{B}[X],\hat\lor,\hat\land,\hat\bot,\hat\top)$ where
+		$\mathcal{B}[X]$ is the set of functions mapping valuations over~$X$
+		(i.e., functions from $X$ to $\{\bot,\top\}$) to
+		either $\bot$ (false) or $\top$ (true), $f\hat\lor g$ (resp.,
+		$f\hat\land g$) is the function that maps
+		a valuation $\nu$ to $f(\nu) \lor g(\nu)$ (resp., $f(\nu)\land
+			g(\nu)$),
+		and $\hat\bot$ (resp., $\hat\top$) is the constant function returning
+		always $\bot$ (resp., $\top$)
+		\item[Why-provenance \cite{bunemankt01}] for a finite set $X$,\\
+		$(2^{2^X},\emptyset,\{emptyset\},\cup,\Cup)$ where $\Cup$ is defined
+		by $A\Cup B\defeq \{a\cup b\mid a\in A, b\in B\}$
+	\end{compactdesc}
+\end{example}
+
+% lax begin Lax392996.SemiringsWithMonus
+\begin{definition}
+  \lean{SemiringWithMonus}{SemiringWithMonus}
+	A \emph{semiring with monus}~$\mathbb{K}$, or \emph{m-semiring} is a semiring
+	along with an extra binary operation $\ominus$ such that for all $a,
+		b, c\in\mathbb{K}$:
+	\begin{inparaenum}[(i)]
+		\item $a \oplus (b \ominus a) = b \oplus (a \ominus b)$;
+		\item $(a \ominus b) \ominus c = a \ominus (b \oplus c)$;
+		\item $a \ominus a = \mathbb{0} \ominus a = \mathbb{0}$.
+	\end{inparaenum}
+\end{definition}
+% lax end
+
+The semirings from Example~\ref{exa:semiring} can be extended with a
+monus operator to form an m-semiring: this was noted
+in~\cite{dblp:journals/japll/geertsp10} for $\mathbb{N}$ (where $\ominus$
+is the truncated
+difference ($a\ominus b\defeq\max(a-b, 0)$) and in $\mathcal{B}[X]$
+(where it is $(a,b)\mapsto a \land\lnot b$). For Why-provenance:
+
+% lax begin Lax392996.WhyProvenance
+\begin{propositionrep}
+  \lean{Semirings/Why}{instSemiringWithMonusWhy}
+	For a set $X$,
+	$(2^{2^X}\!\!,\varnothing,\{\varnothing\},\cup,\doublecup,\setminus)$ is an
+	m-semiring.
+\end{propositionrep}
+% lax end
+
+\begin{proof}
+% lax begin Lax392996Proofs.Bridge.why_isMSemiring
+	For $R, S, T\in 2^{2^X}$:
+
+	\begin{compactenum}[(i)]
+		\item
+		$S \cup (T \setminus S) =S \cup T = T \cup S = T \cup (S \setminus T).$
+		\item
+		$R \setminus (S \cup T) = \{x\in R \mid x \notin S, x \notin T\}=
+			\{x\in R\setminus S\mid x \notin T\}=(R \setminus S) \setminus T. $
+		\item $S\setminus S=\emptyset \setminus S=\emptyset$. \qedhere
+	\end{compactenum}
+% lax end
+\end{proof}
+
+For computing the provenance of aggregate queries,
+\cite{amsterdamer2011provenance} introduces an extra operator:
+a \emph{$\delta$-semiring} is a semiring along with a unary operation
+$\delta$ such that:
+\begin{inparaenum}[(i)]
+	\item \(\delta(\mathbb{0})=\mathbb{0}\);
+	\item
+	\(\delta(\mathbb{1}\oplus\dots\oplus\mathbb{1})=\mathbb{1}\) whatever
+	the number of $\mathbb{1}$s as input to~$\delta$.
+\end{inparaenum}
+For a discussion on choosing such a $\delta$ function,
+see~\cite{amsterdamer2011provenance}. A simple
+choice we will use for all semirings is the function that maps
+$\mathbb 0$ to~$\mathbb{0}$ and anything else to~$\mathbb{1}$.
+
+Finally, also to capture the provenance of aggregate queries, we will
+need to restrict which aggregate functions can be used:
+\begin{definition}
+	A \emph{monoid aggregate function} $f$ over values in a set~$V$ is a
+	monoid homomorphism from the monoid of finite multisets of values of~$V$
+	(with multiset union as monoid operation) to some monoid over~$V$.
+	In other words, $f:(V\to \mathbb{N}^*)\to V$ is a monoid aggregate function if there exists a
+	monoid $(V,\cdot,e)$ such that $f(\mset{})=e$ and
+	$f(S\uplus T)=f(S)\cdot f(T)$.
+\end{definition}
+
+\begin{example}
+	The function $\mathrm{count}$, that turns a multiset~$m$ into the sum of
+	all $m(v)$ for $v$ in the domain of~$m$ is a monoid aggregate function
+	from multisets of arbitrary values to $(\mathbb{N},+)$. Similarly,
+	$\mathrm{sum}$ is a monoid aggregate function from multisets over, say,
+	$\mathbb{Q}$ to $(\mathbb{Q},+)$, and $\min$ from multisets over
+	$\mathbb{Q}$ to $(\mathbb Q,\min)$.
+\end{example}
