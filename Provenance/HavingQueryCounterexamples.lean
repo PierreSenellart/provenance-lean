@@ -10,6 +10,7 @@ import Provenance.Semirings.Tropical
 import Provenance.Semirings.Nat
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Viterbi
+import Provenance.Derived
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -20,6 +21,15 @@ commutative m-semirings that are absorptive and whose `⊗` distributes over
 `⊖`. This file witnesses, **at the level of queries evaluated on concrete
 annotated databases** (not merely of the underlying algebraic identities),
 that both hypotheses are needed. All facts are checked by `decide`.
+
+Since 2026-10-05 it also witnesses, at that same level, that the
+`EXCEPT` spelling of `WHERE NOT EXISTS` is not the antijoin
+(`ChainFive.antijoin_query_ne_except`, beside the algebraic
+`ChainFive.antijoin_ne_difference`). An operator-level witness and a
+query-level one are different statements, not two presentations of one:
+the second has to pick the operators the syntax offers, an instance on
+which the two spellings mean the same condition, and the place where a
+rewriting claims they agree.
 
 The instances share the base relation `R(g, v)` of arity 2, grouped by the
 first column; on the fused side the query is
@@ -93,6 +103,79 @@ def q2ge2 : Query ℕ 1 :=
 def q2eq1 : Query ℕ 1 := q2ge1 - q2ge2
 
 /-! ### Distributivity is needed: the `ChainFive` instance -/
+
+/-! #### The antijoin and the `EXCEPT` that spells it
+
+`ChainFive.antijoin_ne_difference` is the algebra: `a ⊗ (𝟙 ⊖ b)` and
+`a ⊖ a ⊗ b` differ at `a = b = hi`. These are the same two readings as
+*queries* on an instance, which is a different statement and not another
+presentation of that one: the operators have to be the ones the syntax
+offers, the instance has to make the condition they spell the same, and
+the two evaluations have to be compared where the rewriting claims they
+agree. -/
+
+/-- `R(a)` with one row annotated `hi`, and `Q(b)` with the one row it
+matches, also annotated `hi`. -/
+def dX : AnnotatedDatabase ℕ ChainFive :=
+  [("R", ⟨1, ({⟨![0], ChainFive.hi⟩}
+      : Multiset (AnnotatedTuple ℕ ChainFive 1))⟩),
+   ("Q", ⟨1, ({⟨![0], ChainFive.hi⟩}
+      : Multiset (AnnotatedTuple ℕ ChainFive 1))⟩)]
+
+/-- The left arm, as a general query. -/
+def qXR : AggQuery ℕ 1 (ColKind.allReg 1) := AggQueryIn.Rel 1 "R"
+
+/-- The right arm, read once per row of the left. -/
+def qXQ : AggQueryIn ℕ 1 1 (ColKind.allReg 1) := AggQueryIn.Rel 1 "Q"
+
+/-- The correlated match `Q.b = R.a`. -/
+def phiX : GenPredIn ℕ 1 (ColKind.allReg 1) :=
+  GenPredIn.cmp CompOp.eq (TermGIn.index 0 rfl) (TermGIn.outer 0)
+
+/-- `WHERE NOT EXISTS` as the syntax offers it: the derived antijoin,
+which counts the matches and keeps the rows whose count is `𝟘`. -/
+def qAnti : AggQuery ℕ 1 (ColKind.allReg 1) :=
+  AggQueryIn.antijoin SeqAggFunc.count 0 phiX qXR qXQ
+
+/-- `R` as a classical query. -/
+def qcR : Query ℕ 1 := Query.Rel 1 "R"
+
+/-- `Q` as a classical query. -/
+def qcQ : Query ℕ 1 := Query.Rel 1 "Q"
+
+/-- The `EXCEPT` that spells the same condition:
+`R - Π_{#0}(σ_{#0 = #1}(R × Q))`. -/
+def qExcept : Query ℕ 1 :=
+  qcR - Π ![#0] (σ (Selection.BT (#0 == #1))
+    (@Query.Prod ℕ 1 1 2 (by decide) qcR qcQ))
+
+/-- **The antijoin keeps the row**, annotated `hi ⊗ (𝟙 ⊖ hi) = hi`: the
+world in which the match is absent weighs `𝟙 ⊖ hi`, which is `𝟙` in the
+chain. -/
+theorem chainFive_antijoinQuery :
+    (qAnti.evaluateAnnotated dX).map (fun p => p.snd)
+      = {ChainFive.hi} := by
+  decide
+
+/-- **The `EXCEPT` drops it**, annotated `hi ⊖ hi ⊗ hi = 𝟘`: the chain's
+monus cancels the row against its own matched copy
+(`ChainFive.difference_ann`). -/
+theorem chainFive_exceptQuery :
+    (qExcept.evaluateAnnotated (by decide) dX).map (fun p => p.snd)
+      = {(0 : ChainFive)} := by
+  decide
+
+/-- **Query-level witness that the `EXCEPT` spelling of `WHERE NOT
+EXISTS` is not the antijoin**: on one row with one match in the
+absorptive, non-distributive `ChainFive`, the antijoin keeps the row and
+the difference drops it. `ChainFive.antijoin_ne_difference` is the same
+fact about the operations; this one is about two queries evaluated on an
+instance, and it is what a rewriting that replaces one spelling by the
+other has to answer for. -/
+theorem ChainFive.antijoin_query_ne_except :
+    (qAnti.evaluateAnnotated dX).map (fun p => p.snd)
+      ≠ (qExcept.evaluateAnnotated (by decide) dX).map (fun p => p.snd) := by
+  decide
 
 /-- One group with key `0`, values `1, 2, 3`, annotations `mid, hi, hi`. -/
 def dC : AnnotatedDatabase ℕ ChainFive :=
