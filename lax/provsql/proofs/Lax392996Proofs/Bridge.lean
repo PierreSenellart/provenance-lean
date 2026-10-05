@@ -10,6 +10,15 @@ import Lax392996.RewritingRules
 import Lax392996.RewritingCorrectness
 import Lax392996.ProbabilisticDatabases
 import Lax392996.ProbabilisticEvaluation
+import Lax392996.ProbabilisticEvaluationByRewriting
+import Lax392996.PersonnelExample
+import Lax392996.ProvenanceExample
+import Lax392996.RewritingExample
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.NormNum
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Data.Fintype.BigOperators
+import Lax392996.ProbabilityExample
 import Lax392996Proofs.Provenance.Papers.Icde2026
 import Lax392996Proofs.Provenance.Probability
 import Lax392996Proofs.Provenance.QueryRewriting
@@ -35,6 +44,9 @@ open Lax392996.Databases Lax392996.AnnotatedDatabases Lax392996.RelationalAlgebr
 open Lax392996.MultisetSemantics Lax392996.AnnotatedSemantics
 open Lax392996.RewritingRules Lax392996.RewritingCorrectness
 open Lax392996.ProbabilisticDatabases Lax392996.ProbabilisticEvaluation
+open Lax392996.ProbabilisticEvaluationByRewriting
+open Lax392996.PersonnelExample Lax392996.ProvenanceExample Lax392996.RewritingExample
+open Lax392996.ProbabilityExample
 
 /-! ### Semirings with monus -/
 
@@ -534,5 +546,178 @@ theorem theorem_12 : ∀ {X : Type} [Fintype X] [DecidableEq X] {T : Type} [Valu
     ProbAssignment.marginalProb P q Î t
       = ProbAssignment.funcProb P (tupleAnnotation (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated q hq Î) t) :=
   by intro X _ _ T _ P n q hq Î t; rw [evaluateAnnotated_eq]; exact Foreign.ProbAssignment.theorem_12 P q hq Î t
+
+/--
+---
+conclusion: Lax392996.ProbabilisticEvaluationByRewriting.corollary_13
+---
+The library's corollary: Theorem 12 followed by the correctness of the
+rewriting, the composite answer read back tuple by tuple.
+-/
+theorem corollary_13 : ∀ {X : Type} [Fintype X] [DecidableEq X] {T : Type} [ValueType T]
+    (P : ProbAssignment X) [HasAltLinearOrder (BoolFunc X)] {n : ℕ} (q : Query T n) (hq : q.source)
+    (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n),
+    ProbAssignment.marginalProb P q Î t
+      = ProbAssignment.funcProb P (tupleAnnotation
+          (Multiset.map Tuple.fromComposite (Query.evaluate (Query.rewriting q hq) Î.toComposite)) t) := by
+  intro X _ _ T _ P _ n q hq Î t
+  exact Foreign.ProbAssignment.corollary_13 P q hq Î t
+
+/-! ### The running example, by computation
+
+The example claims are decided by evaluating the definitions on the
+concrete data: the semantics unfolded through their equations, the
+multisets compared with the decidable equality of tuples, and the Boolean
+annotations compared pointwise on the 128 valuations of the seven
+variables, by the kernel. The tuple type being a plain definition, the
+unfolding needs the transparency option the library itself builds with. -/
+
+set_option maxRecDepth 8000
+set_option backward.isDefEq.respectTransparency false
+
+/--
+---
+conclusion: Lax392996.PersonnelExample.qcity_answer
+---
+By computation: the join yields the five pairs of persons of a same city
+with increasing ids, projected to their city and deduplicated.
+-/
+theorem qcity_answer :
+    Query.evaluate qcity instanceI = Multiset.ofList [!["Nairobi"], !["Paris"], !["Beijing"]] := by
+  simp only [qcity, instanceI, personnel, Query.evaluate]
+  exact @of_decide_eq_true _ (@Multiset.decidableEq (Tuple String 1) instDecidableEqTuple _ _) (by rfl)
+
+/--
+---
+conclusion: Lax392996.ProvenanceExample.data_answer
+---
+By computation, on the data parts.
+-/
+theorem data_answer : ∀ hq : qcity.source,
+    Multiset.map Prod.fst (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated qcity hq instanceB)
+      = Multiset.ofList [!["Nairobi"], !["Paris"], !["Beijing"]] := by
+  intro hq
+  simp only [qcity, instanceB, personnelB, Lax392996.AnnotatedSemantics.Query.evaluateAnnotated]
+  exact @of_decide_eq_true _ (@Multiset.decidableEq (Tuple String 1) instDecidableEqTuple _ _) (by rfl)
+
+/--
+---
+conclusion: Lax392996.ProvenanceExample.nairobi_annotation
+---
+By computation, on every valuation.
+-/
+theorem nairobi_annotation : ∀ (hq : qcity.source) (ν : Fin 7 → Bool),
+    tupleAnnotation (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated qcity hq instanceB)
+      !["Nairobi"] ν = (ν 0 && ν 1) := by
+  intro hq
+  simp only [qcity, instanceB, personnelB, Lax392996.AnnotatedSemantics.Query.evaluateAnnotated]
+  decide +kernel
+
+/--
+---
+conclusion: Lax392996.ProvenanceExample.paris_annotation
+---
+By computation, on every valuation.
+-/
+theorem paris_annotation : ∀ (hq : qcity.source) (ν : Fin 7 → Bool),
+    tupleAnnotation (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated qcity hq instanceB)
+      !["Paris"] ν = ((ν 2 && ν 4) || (ν 4 && ν 5) || (ν 2 && ν 5)) := by
+  intro hq
+  simp only [qcity, instanceB, personnelB, Lax392996.AnnotatedSemantics.Query.evaluateAnnotated]
+  decide +kernel
+
+/--
+---
+conclusion: Lax392996.ProvenanceExample.beijing_annotation
+---
+By computation, on every valuation.
+-/
+theorem beijing_annotation : ∀ (hq : qcity.source) (ν : Fin 7 → Bool),
+    tupleAnnotation (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated qcity hq instanceB)
+      !["Beijing"] ν = (ν 3 && ν 6) := by
+  intro hq
+  simp only [qcity, instanceB, personnelB, Lax392996.AnnotatedSemantics.Query.evaluateAnnotated]
+  decide +kernel
+
+/--
+---
+conclusion: Lax392996.RewritingExample.qcity_rewriting
+---
+By unfolding the rewriting on the query's constructors; the projection
+tuples agree position by position.
+-/
+theorem qcity_rewriting : ∀ (K : Type) (hq : qcity.source),
+    Query.rewriting (K := K) qcity hq = qcityRewritten K := by
+  intro K hq
+  simp only [qcity, qcityRewritten, Query.rewriting, Nat.reduceAdd, Selection.castToAnnotatedTuple,
+    BoolTerm.castToAnnotatedTuple, Term.castToAnnotatedTuple, Query.ProvSum.injEq, Query.Proj.injEq,
+    Query.Sel.injEq, heq_eq_eq, true_and, and_true]
+  repeat' apply And.intro
+  all_goals (first | rfl | (funext l; fin_cases l <;> rfl))
+
+/-- Independence: the probability of `t_i ∧ t_j`, for distinct variables, is the product. -/
+theorem funcProb_and (P : ProbAssignment (Fin 7)) (i j : Fin 7) (hij : i ≠ j) :
+    ProbAssignment.funcProb P (fun ν => ν i && ν j) = P.prob i * P.prob j := by
+  classical
+  let h : Fin 7 → Bool → ℚ := fun x b =>
+    if x = i ∨ x = j then (if b then P.prob x else 0) else (if b then P.prob x else 1 - P.prob x)
+  have key : ∀ v : Fin 7 → Bool,
+      (if (v i && v j) = true then P.valProb v else 0) = ∏ x, h x (v x) := by
+    intro v
+    by_cases hv : (v i && v j) = true
+    · rw [if_pos hv]
+      unfold ProbAssignment.valProb
+      apply Finset.prod_congr rfl
+      intro x _
+      by_cases hx : x = i ∨ x = j
+      · have hvx : v x = true := by
+          rcases hx with rfl | rfl
+          · exact (Bool.and_eq_true _ _).mp hv |>.1
+          · exact (Bool.and_eq_true _ _).mp hv |>.2
+        simp [h, hx, hvx]
+      · simp [h, hx]
+    · rw [if_neg hv]
+      symm
+      have : v i = false ∨ v j = false := by
+        by_cases hi : v i = true
+        · by_cases hj : v j = true
+          · exact absurd (by simp [hi, hj]) hv
+          · exact Or.inr (by simpa using hj)
+        · exact Or.inl (by simpa using hi)
+      rcases this with hi | hj
+      · exact Finset.prod_eq_zero (Finset.mem_univ i) (by simp [h, hi])
+      · exact Finset.prod_eq_zero (Finset.mem_univ j) (by simp [h, hj])
+  unfold ProbAssignment.funcProb
+  simp only [key]
+  rw [← Fintype.piFinset_univ, ← Finset.prod_univ_sum]
+  have hsum : ∀ x, (∑ b : Bool, h x b) = if x = i ∨ x = j then P.prob x else 1 := by
+    intro x
+    rw [Fintype.sum_bool]
+    by_cases hx : x = i ∨ x = j
+    · simp [h, hx]
+    · simp [h, hx]
+  simp only [hsum]
+  rw [show (fun x => if x = i ∨ x = j then P.prob x else 1)
+        = fun x => if x ∈ ({i, j} : Finset (Fin 7)) then P.prob x else 1 by
+        funext x; simp]
+  rw [Finset.prod_ite_mem, Finset.univ_inter, Finset.prod_pair hij]
+
+/--
+---
+conclusion: Lax392996.ProbabilityExample.nairobi_probability
+---
+By Theorem 12 the probability is that of Nairobi's annotation, which is
+`t_1 ∧ t_2` by the annotated example; two independent variables give the
+product of their probabilities.
+-/
+theorem nairobi_probability :
+    ProbAssignment.marginalProb P qcity instanceB !["Nairobi"] = 7/20 := by
+  have hq : qcity.source := by simp [qcity, Query.source]
+  rw [Lax392996.ProbabilisticEvaluation.theorem_12 P qcity hq instanceB]
+  have h : tupleAnnotation (Lax392996.AnnotatedSemantics.Query.evaluateAnnotated qcity hq instanceB)
+      !["Nairobi"] = fun ν => ν 0 && ν 1 := funext (nairobi_annotation hq)
+  rw [h, funcProb_and P 0 1 (by decide)]
+  simp [P]
+  norm_num
 
 end Lax392996Proofs.Bridge

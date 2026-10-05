@@ -25,8 +25,11 @@ the output of $q$ as $\Pr(t\in q(\hat I))\defeq\sum_{\hat J\subseteq\hat I, t\in
 Our semantics for extended relational algebra over $\mathbb{K}$-relations is
 compatible with probabilistic query evaluation:
 
-% lax begin Lax392996.ProbabilisticEvaluation
 \begin{theoremrep}
+\laxmain{% lax begin Lax392996.ProbabilisticEvaluation
+}%
+\laxapp{% lax begin Lax392996.ProbabilisticEvaluation
+}%
 	\label{thm:pqe}
 	For any finite set of variables~$X$, probability distribution $\Pr$
 	over $X$, $\mathcal{B}[X]$-relation~$\hat I$
@@ -34,8 +37,11 @@ compatible with probabilistic query evaluation:
 	algebra query~$q$ without aggregation, for any tuple~$t$ with same
 	arity as $q$,
 	$\Pr(t\in q(\hat I))=\Pr\left(\bigvee_{(t,\alpha)\in \ansem{\hat I}{q}}\alpha\right)$.
+\laxapp{% lax end
+}%
+\laxmain{% lax end
+}%
 \end{theoremrep}
-% lax end
 \input{proof_pqe}
 
 The reason why this theorem is about queries without aggregation is
@@ -45,6 +51,7 @@ distribution of data values, or some summary thereof (such as the
 expected value). This is out of scope of this work.
 
 Combining Theorems~\ref{thm:rewriting} and~\ref{thm:pqe}, we obtain:
+% lax begin Lax392996.ProbabilisticEvaluationByRewriting
 \begin{corollary}
 	\label{cor:pqe}
 	For any finite set of variables~$X$, probability distribution $\Pr$
@@ -55,7 +62,9 @@ Combining Theorems~\ref{thm:rewriting} and~\ref{thm:pqe}, we obtain:
 	rewritten rules (R\ref{r1})--(R\ref{rn}) then
 	$\Pr(t\in q(\hat I))=\Pr\left(\bigvee_{(t,\alpha)\in \sem{\hat I}{\hat q}}\alpha\right)$.
 \end{corollary}
+% lax end
 
+% lax begin Lax392996.ProbabilityExample
 \begin{example}\label{ex:probability}
 	Returning again to Examples \ref{ex:semantics} and \ref{ex:provenance},
 	assume we independently assign to each $t_i$ in our
@@ -66,3 +75,4 @@ Combining Theorems~\ref{thm:rewriting} and~\ref{thm:pqe}, we obtain:
   instance for Nairobi}:
 			\(\Pr(t_1\land t_2) = 0.5\cdot0.7=0.35\).
 \end{example}
+% lax end

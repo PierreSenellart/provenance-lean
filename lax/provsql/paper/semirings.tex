@@ -42,7 +42,10 @@ We define in particular:
 	\label{exa:semiring}
 	The following structures are semirings:
 	\begin{compactdesc}
+% lax begin Lax392996.CountingSemiring
 		\item[Counting semiring] $(\mathbb{N}, +, \times, 0, 1)$
+% lax end
+% lax begin Lax392996.BooleanFunctions
 		\item[Boolean function semiring] for a finite set
 		$X$, $(\mathcal{B}[X],\hat\lor,\hat\land,\hat\bot,\hat\top)$ where
 		$\mathcal{B}[X]$ is the set of functions mapping valuations over~$X$
@@ -53,9 +56,12 @@ We define in particular:
 			g(\nu)$),
 		and $\hat\bot$ (resp., $\hat\top$) is the constant function returning
 		always $\bot$ (resp., $\top$)
+% lax end
+% lax begin Lax392996.WhyProvenance
 		\item[Why-provenance \cite{bunemankt01}] for a finite set $X$,\\
 		$(2^{2^X},\emptyset,\{emptyset\},\cup,\Cup)$ where $\Cup$ is defined
 		by $A\Cup B\defeq \{a\cup b\mid a\in A, b\in B\}$
+% lax end
 	\end{compactdesc}
 \end{example}
 
@@ -80,14 +86,20 @@ is the truncated
 difference ($a\ominus b\defeq\max(a-b, 0)$) and in $\mathcal{B}[X]$
 (where it is $(a,b)\mapsto a \land\lnot b$). For Why-provenance:
 
-% lax begin Lax392996.WhyProvenance
 \begin{propositionrep}
+\laxmain{% lax begin Lax392996.WhyProvenance
+}%
+\laxapp{% lax begin Lax392996.WhyProvenance
+}%
   \lean{Semirings/Why}{instSemiringWithMonusWhy}
 	For a set $X$,
 	$(2^{2^X}\!\!,\varnothing,\{\varnothing\},\cup,\doublecup,\setminus)$ is an
 	m-semiring.
+\laxapp{% lax end
+}%
+\laxmain{% lax end
+}%
 \end{propositionrep}
-% lax end
 
 \begin{proof}
 % lax begin Lax392996Proofs.Bridge.why_isMSemiring

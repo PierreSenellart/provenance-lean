@@ -30,6 +30,9 @@ set_option backward.isDefEq.respectTransparency false
 namespace Lax392996.AnnotatedDatabases.AnnotatedDatabase
 end Lax392996.AnnotatedDatabases.AnnotatedDatabase
 
+namespace Lax392996.AnnotatedDatabases.Tuple
+end Lax392996.AnnotatedDatabases.Tuple
+
 namespace Lax392996.AnnotatedSemantics.Selection
 end Lax392996.AnnotatedSemantics.Selection
 
@@ -69,6 +72,10 @@ end Lax392996.RelationalAlgebra.Query
 namespace Lax392996.RelationalAlgebra.Selection
 export Lax392996.AnnotatedSemantics.Selection (evalDecidableAnnotated)
 end Lax392996.RelationalAlgebra.Selection
+
+namespace Lax392996.Databases.Tuple
+export Lax392996.AnnotatedDatabases.Tuple (fromComposite)
+end Lax392996.Databases.Tuple
 
 /-!
 # Probability distributions over Boolean variables
@@ -1011,6 +1018,54 @@ noncomputable linear order on `BoolFunc X` will do. -/
 namespace ProbAssignment
 
 variable (P : Lax392996.ProbabilisticDatabases.ProbAssignment X)
+
+end ProbAssignment
+
+namespace Lax392996.ProbabilisticDatabases.ProbAssignment
+
+variable (P : Lax392996.ProbabilisticDatabases.ProbAssignment X)
+
+open Lax392996Proofs.Foreign.ProbAssignment in
+/-- **Corollary 13** ([Sen, Maniu & Senellart][sen2026provsql], Section IV-D).
+For any non-aggregation query `q`, any `BoolFunc X`-annotated database `Î`
+and any tuple `t`, the marginal probability that `t` appears in the random
+output of `q` equals the probability of the disjunctive annotation of `t`
+in the result of evaluating the **plain rewritten query** `q̂` on the
+composite-encoded database.
+
+Combines `theorem_12` and `Query.rewriting_valid`. -/
+theorem _root_.Lax392996Proofs.Foreign.ProbAssignment.corollary_13 [Lax392996.SemiringsWithMonus.HasAltLinearOrder (Lax392996.BooleanFunctions.BoolFunc X)]
+    (q : Lax392996.RelationalAlgebra.Query T n) (hq : q.source)
+    (Î : Lax392996.AnnotatedDatabases.AnnotatedDatabase T (Lax392996.BooleanFunctions.BoolFunc X)) (t : Lax392996.Databases.Tuple T n) :
+    P.marginalProb q Î t
+      = P.funcProb (Lax392996.ProbabilisticDatabases.tupleAnnotation
+          (Multiset.map Lax392996.AnnotatedDatabases.Tuple.fromComposite
+            ((q.rewriting hq).evaluate Î.toComposite)) t) := by
+  rw [P.theorem_12 q hq Î t,
+      ← Lax392996Proofs.Foreign.Query.rewriting_valid q hq Î,
+      Lax392996Proofs.Foreign.AnnotatedRelation.map_fromComposite_toComposite]
+
+end Lax392996.ProbabilisticDatabases.ProbAssignment
+
+namespace ProbAssignment
+
+variable (P : Lax392996.ProbabilisticDatabases.ProbAssignment X)
+
+end ProbAssignment
+
+namespace Lax392996.ProbabilisticDatabases.ProbAssignment
+
+variable (P : Lax392996.ProbabilisticDatabases.ProbAssignment X)
+
+export Lax392996Proofs.Foreign.ProbAssignment (corollary_13)
+
+end Lax392996.ProbabilisticDatabases.ProbAssignment
+
+namespace ProbAssignment
+
+variable (P : Lax392996.ProbabilisticDatabases.ProbAssignment X)
+
+export Lax392996Proofs.Foreign.ProbAssignment (corollary_13)
 
 end ProbAssignment
 

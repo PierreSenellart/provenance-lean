@@ -1,4 +1,4 @@
-library: /home/claude/git/provenance-lean
+library: https://github.com/PierreSenellart/provenance-lean
 ref: c80a8db
 prefix: Provenance
 options:
@@ -29,23 +29,20 @@ targets:
   - Icde2026.rule_difference
   - Icde2026.rewriting_valid
   - ProbAssignment.theorem_12
+  - ProbAssignment.corollary_13
 copyright: 2026 Pierre Senellart
 notice: >-
   The paper under paper/ is the arXiv version of "ProvSQL: A General System
   for Keeping Track of the Provenance and Probability of Data" by Aryak Sen,
   Silviu Maniu and Pierre Senellart (arXiv:2504.12058, version 3), which its
   authors distribute under the Creative Commons Attribution 4.0 license
-  (CC BY 4.0); the IEEEtran class it uses is under the LaTeX Project Public
-  License.
+  (CC BY 4.0).
 manifest:
   title: "ProvSQL: provenance-aware query rewriting and probabilistic query evaluation are correct"
   authors:
     - name: Pierre Senellart
       orcid: 0000-0002-7909-5369
       github: PierreSenellart
-    - name: Aryak Sen
-    - name: Silviu Maniu
-    - name: Claude (Anthropic)
   bibEntries:
     - "@inproceedings{sen2026provsql,\n  author = {Aryak Sen and Silviu Maniu and Pierre Senellart},\n  title = {{ProvSQL}: A General System for Keeping Track of the Provenance and Probability of Data},\n  booktitle = {Proceedings of the 42nd {IEEE} International Conference on Data Engineering ({ICDE} 2026)},\n  year = {2026},\n  eprint = {2504.12058},\n  archivePrefix = {arXiv}\n}\n"
     - "@software{senellart2026provenancelean,\n  author = {Pierre Senellart},\n  title = {provenance-lean: Database Provenance in {Lean} 4},\n  year = {2026},\n  doi = {10.5281/zenodo.21809151},\n  url = {https://github.com/PierreSenellart/provenance-lean}\n}\n"
@@ -138,6 +135,7 @@ restated:
   Term.mul: RelationalAlgebra.Term.mul
   Term.sub: RelationalAlgebra.Term.sub
   Tuple: Databases.Tuple
+  Tuple.fromComposite: AnnotatedDatabases.Tuple.fromComposite
   ValueType: Databases.ValueType
   ValueType.mk: Databases.ValueType.mk
   ValueType.toAddCommSemigroup: Databases.ValueType.toAddCommSemigroup

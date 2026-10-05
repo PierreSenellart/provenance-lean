@@ -24,6 +24,9 @@ end Lax392996.AnnotatedDatabases.AnnotatedRelation
 namespace Lax392996.AnnotatedDatabases.AnnotatedTuple
 end Lax392996.AnnotatedDatabases.AnnotatedTuple
 
+namespace Lax392996.AnnotatedDatabases.Tuple
+end Lax392996.AnnotatedDatabases.Tuple
+
 namespace Lax392996.AnnotatedSemantics.Selection
 end Lax392996.AnnotatedSemantics.Selection
 
@@ -83,6 +86,10 @@ end Lax392996.RelationalAlgebra.Query
 namespace Lax392996.RelationalAlgebra.Selection
 export Lax392996.AnnotatedSemantics.Selection (evalDecidableAnnotated)
 end Lax392996.RelationalAlgebra.Selection
+
+namespace Lax392996.Databases.Tuple
+export Lax392996.AnnotatedDatabases.Tuple (fromComposite)
+end Lax392996.Databases.Tuple
 
 /-!
 # Query evaluation by rewriting
@@ -768,7 +775,7 @@ composite encoding loses no information: peeling the data columns and the
 annotation column back out reconstructs the original annotated tuple. -/
 lemma _root_.Lax392996Proofs.Foreign.Tuple.fromComposite_toComposite
   {T K: Type} [Lax392996.Databases.ValueType T] [Zero K] {n: ℕ} (p: Lax392996.AnnotatedDatabases.AnnotatedTuple T K n):
-  Lax392996Proofs.Foreign.Tuple.fromComposite p.toComposite = p := by
+  Lax392996.AnnotatedDatabases.Tuple.fromComposite p.toComposite = p := by
   apply Prod.ext
   · funext k
     show (match p.toComposite (k.castLE (Nat.le_succ n)) with
@@ -789,6 +796,34 @@ end Lax392996.Databases.Tuple
 namespace Tuple
 export Lax392996Proofs.Foreign.Tuple (fromComposite_toComposite)
 end Tuple
+
+namespace Lax392996.AnnotatedDatabases.AnnotatedRelation
+
+open Lax392996Proofs.Foreign.AnnotatedRelation in
+/-- Pushforward version of `Tuple.fromComposite_toComposite`: mapping
+`Tuple.fromComposite` over a composite-encoded annotated relation recovers
+the original annotated relation. -/
+lemma _root_.Lax392996Proofs.Foreign.AnnotatedRelation.map_fromComposite_toComposite
+  {T K: Type} [Lax392996.Databases.ValueType T] [Zero K] {n: ℕ} (r: Lax392996.AnnotatedDatabases.AnnotatedRelation T K n):
+  Multiset.map Lax392996.AnnotatedDatabases.Tuple.fromComposite r.toComposite = r := by
+  unfold Lax392996.AnnotatedDatabases.AnnotatedRelation.toComposite
+  rw [Multiset.map_map]
+  conv_rhs => rw [← Multiset.map_id r]
+  apply Multiset.map_congr rfl
+  intro p _
+  exact Lax392996Proofs.Foreign.Tuple.fromComposite_toComposite p
+
+end Lax392996.AnnotatedDatabases.AnnotatedRelation
+
+namespace Lax392996.AnnotatedDatabases.AnnotatedRelation
+
+export Lax392996Proofs.Foreign.AnnotatedRelation (map_fromComposite_toComposite)
+
+end Lax392996.AnnotatedDatabases.AnnotatedRelation
+
+namespace AnnotatedRelation
+export Lax392996Proofs.Foreign.AnnotatedRelation (map_fromComposite_toComposite)
+end AnnotatedRelation
 
 namespace Lax392996.RelationalAlgebra.Query
 
@@ -1106,7 +1141,7 @@ lemma _root_.Lax392996Proofs.Foreign.AnnotatedRelation.toComposite_filter
     (ar : Lax392996.AnnotatedDatabases.AnnotatedRelation T K n) (pred : Lax392996.AnnotatedDatabases.AnnotatedTuple T K n → Prop)
     [DecidablePred pred] :
     Lax392996.AnnotatedDatabases.AnnotatedRelation.toComposite (Multiset.filter pred ar)
-    = ar.toComposite.filter (fun t : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ pred (Lax392996Proofs.Foreign.Tuple.fromComposite t)) := by
+    = ar.toComposite.filter (fun t : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ pred (Lax392996.AnnotatedDatabases.Tuple.fromComposite t)) := by
   unfold Lax392996.AnnotatedDatabases.AnnotatedRelation.toComposite
   rw [Multiset.filter_map]
   congr 1
@@ -1772,7 +1807,7 @@ theorem _root_.Lax392996Proofs.Foreign.Query.rewriting_valid
       -- `(fromComposite p).1 = (fromComposite q).1` (in `Tuple T n`) via Sum.inl-lift
       -- injectivity, valid for pairs in `Prod2`.
       let dp3 : DecidablePred (fun x : Lax392996.Databases.Tuple (T⊕K) (n+1) × Lax392996.Databases.Tuple (T⊕K) (n+1) =>
-          (Lax392996Proofs.Foreign.Tuple.fromComposite x.1).1 = (Lax392996Proofs.Foreign.Tuple.fromComposite x.2).1) :=
+          (Lax392996.AnnotatedDatabases.Tuple.fromComposite x.1).1 = (Lax392996.AnnotatedDatabases.Tuple.fromComposite x.2).1) :=
         fun x => decEq _ _
       have hcong2 : @Multiset.filter _ _ dp2 Prod2 = @Multiset.filter _ _ dp3 Prod2 := by
         apply Multiset.filter_congr
@@ -1781,9 +1816,9 @@ theorem _root_.Lax392996Proofs.Foreign.Query.rewriting_valid
         obtain ⟨hp1, hp2⟩ := Multiset.mem_product.mp hpair
         obtain ⟨ap, _, hp1_eq⟩ := Multiset.mem_map.mp hp1
         obtain ⟨v, _, hq_eq⟩ := Multiset.mem_map.mp hp2
-        have hfrom_p1 : (Lax392996Proofs.Foreign.Tuple.fromComposite pair.1).1 = ap.1 := by
+        have hfrom_p1 : (Lax392996.AnnotatedDatabases.Tuple.fromComposite pair.1).1 = ap.1 := by
           rw [← hp1_eq, Lax392996Proofs.Foreign.Tuple.fromComposite_toComposite]
-        have hfrom_p2 : (Lax392996Proofs.Foreign.Tuple.fromComposite pair.2).1 = v := by
+        have hfrom_p2 : (Lax392996.AnnotatedDatabases.Tuple.fromComposite pair.2).1 = v := by
           rw [← hq_eq, Lax392996Proofs.Foreign.Tuple.fromComposite_toComposite]
         constructor
         · intro heq
@@ -1828,7 +1863,7 @@ theorem _root_.Lax392996Proofs.Foreign.Query.rewriting_valid
       have hS_nodup : ((AR₂.map Prod.fst).dedup : Multiset (Lax392996.Databases.Tuple T n)).Nodup :=
         Multiset.nodup_dedup _
       have h_val_eq : ∀ v ∈ ((AR₂.map Prod.fst).dedup : Multiset (Lax392996.Databases.Tuple T n)),
-          (Lax392996Proofs.Foreign.Tuple.fromComposite
+          (Lax392996.AnnotatedDatabases.Tuple.fromComposite
             (Lax392996.AnnotatedDatabases.AnnotatedTuple.toComposite
               (v, (Multiset.map Prod.snd
                     (Multiset.filter (fun p : Lax392996.AnnotatedDatabases.AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum))).1
@@ -1842,8 +1877,8 @@ theorem _root_.Lax392996Proofs.Foreign.Query.rewriting_valid
         (fun v : Lax392996.Databases.Tuple T n ↦ Lax392996.AnnotatedDatabases.AnnotatedTuple.toComposite
           (v, (Multiset.map Prod.snd
                 (Multiset.filter (fun p : Lax392996.AnnotatedDatabases.AnnotatedTuple T K n ↦ p.1 = v) AR₂)).sum))
-        (fun p : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996Proofs.Foreign.Tuple.fromComposite p).1)
-        (fun q : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996Proofs.Foreign.Tuple.fromComposite q).1)
+        (fun p : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996.AnnotatedDatabases.Tuple.fromComposite p).1)
+        (fun q : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996.AnnotatedDatabases.Tuple.fromComposite q).1)
         (fun (p q : Lax392996.Databases.Tuple (T⊕K) (n+1)) ↦
           fun (k : Fin (n+1)) ↦
             (if ↑k < n then (#((Fin.castLE (by omega : n+1 ≤ 2*n+2)) k) : Lax392996.RelationalAlgebra.Term (T⊕K) (2*n+2))
@@ -1863,7 +1898,7 @@ theorem _root_.Lax392996Proofs.Foreign.Query.rewriting_valid
       --                                      = ap.1 ∈ dedup
       have hfilter_eq :
           Multiset.filter
-            ((fun p : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996Proofs.Foreign.Tuple.fromComposite p).1 ∈ (AR₂.map Prod.fst).dedup)
+            ((fun p : Lax392996.Databases.Tuple (T⊕K) (n+1) ↦ (Lax392996.AnnotatedDatabases.Tuple.fromComposite p).1 ∈ (AR₂.map Prod.fst).dedup)
               ∘ Lax392996.AnnotatedDatabases.AnnotatedTuple.toComposite) AR₁
           = Multiset.filter (fun p : Lax392996.AnnotatedDatabases.AnnotatedTuple T K n ↦
               p.1 ∈ Multiset.map Prod.fst AR₂) AR₁ := by

@@ -22,6 +22,14 @@
 \usepackage{caption}
 \undef\openbox
 \usepackage[appendix=append]{apxproof}
+% Lax marks on restated statements: a mark inside a theoremrep body would be
+% typeset twice, once in the text and once in the appendix restatement, so
+% each copy gets its own mark, guarded by where it is typeset.
+\newif\ifinappendix
+\let\laxappendixprelim\appendixprelim
+\renewcommand{\appendixprelim}{\laxappendixprelim\global\inappendixtrue}
+\DeclareRobustCommand{\laxmain}[1]{\ifinappendix\else#1\fi}
+\DeclareRobustCommand{\laxapp}[1]{\ifinappendix#1\fi}
 \renewcommand{\appendixsectionformat}[2]{Material for Section~#1 (#2)}
 \usepackage{booktabs}
 \usepackage{pifont}

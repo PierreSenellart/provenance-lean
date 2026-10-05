@@ -52,8 +52,11 @@ explicit duplicate elimination) and that we support difference.}
 We show that these rewriting rules allow us to recover the exact
 semantics of the extended relational algebra over annotated relations:
 
-% lax begin Lax392996.RewritingCorrectness
 \begin{theoremrep}
+\laxmain{% lax begin Lax392996.RewritingCorrectness
+}%
+\laxapp{% lax begin Lax392996.RewritingCorrectness
+}%
   \label{thm:rewriting} \lean{QueryRewriting}{Query.rewriting_valid}
 	Let $\mathcal{D}$ be a database schema, $q$ any extended relational
 	algebra query over~$\mathcal{D}$, $\mathbb{K}$ an appropriate algebraic
@@ -61,11 +64,15 @@ semantics of the extended relational algebra over annotated relations:
 	$\hat q$ be the query rewritten from $q$ by applying the rewriting rules
 	(R\ref{r1})--(R\ref{rn}) recursively bottom up. Then $\ansem{\hat
 			I}q=\sem{\hat I}{\hat q}$.
+\laxapp{% lax end
+}%
+\laxmain{% lax end
+}%
 \end{theoremrep}
-% lax end
 
 \input{proof_rewriting}
 
+% lax begin Lax392996.RewritingExample
 \begin{example}\label{ex:rewriting}
 	Returning to query $\qex$ from Example \ref{ex:semantics}, let us trace
 	the rewriting rules applied by ProvSQL bottom up (for space reasons,
@@ -83,3 +90,4 @@ semantics of the extended relational algebra over annotated relations:
 	If $\qexhat$ is this rewritten query, one can check that
 	$\sem{\hat I}{\qexhat}=\ansem{\hat I}{\qex}$.
 \end{example}
+% lax end

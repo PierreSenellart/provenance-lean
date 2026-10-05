@@ -16,8 +16,9 @@ and a $\mathbb{K}$-instance maps each relation name, at its arity, to a
 $\mathbb{K}$-relation: the two claims record that the definitions are these
 ones. An annotated tuple of arity $k$ also reads as a plain tuple of arity
 $k+1$ over $\mathcal{V} \uplus \mathbb{K}$, its annotation in the last
-column, which extends to relations and instances; this composite reading
-is what the rewriting of the paper targets. For it, $\mathcal{V} \uplus
+column, which extends to relations and instances, and a composite tuple
+reads back as an annotated one; this composite reading is what the
+rewriting of the paper targets. For it, $\mathcal{V} \uplus
 \mathbb{K}$ is made a value type, with data values below annotations and
 the annotations compared through the alternative linear order of
 $\mathbb{K}$.
@@ -29,7 +30,7 @@ open Lax392996.Databases Lax392996.SemiringsWithMonus
 
 universe u
 
-variable {T : Type} [ValueType T] {K : Type} {n : ℕ}
+variable {T : Type} [ValueType T] {K : Type} [Zero K] {n : ℕ}
 
 /-- An annotated tuple: a tuple paired with an annotation, ordered
 lexicographically. -/
@@ -57,6 +58,14 @@ def AnnotatedDatabase.find (n: ℕ) (s: String) (d: AnnotatedDatabase T K) :
 last column over `T ⊕ K`. -/
 def AnnotatedTuple.toComposite (p: AnnotatedTuple T K n) :=
   Fin.append (λ k: Fin n ↦ Sum.inl (p.fst k)) ![Sum.inr p.snd]
+
+/-- The annotated tuple a composite tuple reads as: the data values from
+its first `n` columns, the annotation from its last one. -/
+def Tuple.fromComposite (t: Tuple (T⊕K) (n+1)) : AnnotatedTuple T K n :=
+  (
+    λ (k: Fin n) ↦ match t (k.castLE (by simp)) with | Sum.inl x => x | Sum.inr _ => 0,
+                   match t (Fin.last n)         with | Sum.inl _ => 0 | Sum.inr x => x
+  )
 
 /-- The composite reading of an annotated relation. -/
 def AnnotatedRelation.toComposite (ar: AnnotatedRelation T K n):

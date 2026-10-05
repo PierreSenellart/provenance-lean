@@ -29,8 +29,8 @@ end Lax392996.AnnotatedDatabases.AnnotatedRelation
 namespace Lax392996.AnnotatedDatabases.AnnotatedTuple
 end Lax392996.AnnotatedDatabases.AnnotatedTuple
 
-namespace Lax392996.Databases.Tuple
-end Lax392996.Databases.Tuple
+namespace Lax392996.AnnotatedDatabases.Tuple
+end Lax392996.AnnotatedDatabases.Tuple
 
 namespace Lax392996Proofs.Foreign.AnnotatedDatabase
 end Lax392996Proofs.Foreign.AnnotatedDatabase
@@ -44,8 +44,9 @@ end Lax392996Proofs.Foreign.AnnotatedTuple
 namespace Lax392996Proofs.Foreign.Relation
 end Lax392996Proofs.Foreign.Relation
 
-namespace Lax392996Proofs.Foreign.Tuple
-end Lax392996Proofs.Foreign.Tuple
+namespace Lax392996.Databases.Tuple
+export Lax392996.AnnotatedDatabases.Tuple (fromComposite)
+end Lax392996.Databases.Tuple
 
 /-!
 # Annotated databases
@@ -104,27 +105,6 @@ end AnnotatedRelation
 instance _root_.Lax392996Proofs.Foreign.instZeroAnnotatedRelation : Zero (Lax392996.AnnotatedDatabases.AnnotatedRelation T K n) where zero := (∅: Multiset (Lax392996.AnnotatedDatabases.AnnotatedTuple T K n))
 
 instance _root_.Lax392996Proofs.Foreign.instZeroSigmaNatAnnotatedRelation : Zero ((n : ℕ) × Lax392996.AnnotatedDatabases.AnnotatedRelation T K n) where zero := ⟨0,(∅: Multiset (Lax392996.AnnotatedDatabases.AnnotatedTuple T K 0))⟩
-
-namespace Lax392996.Databases.Tuple
-
-open Lax392996Proofs.Foreign.Tuple in
-def _root_.Lax392996Proofs.Foreign.Tuple.fromComposite (t: Lax392996.Databases.Tuple (T⊕K) (n+1)) : Lax392996.AnnotatedDatabases.AnnotatedTuple T K n :=
-  (
-    λ (k: Fin n) ↦ match t (k.castLE (by simp)) with | Sum.inl x => x | Sum.inr _ => 0,
-                   match t (Fin.last n)         with | Sum.inl _ => 0 | Sum.inr x => x
-  )
-
-end Lax392996.Databases.Tuple
-
-namespace Lax392996.Databases.Tuple
-
-export Lax392996Proofs.Foreign.Tuple (fromComposite)
-
-end Lax392996.Databases.Tuple
-
-namespace Tuple
-export Lax392996Proofs.Foreign.Tuple (fromComposite)
-end Tuple
 
 namespace Lax392996.AnnotatedDatabases.AnnotatedRelation
 

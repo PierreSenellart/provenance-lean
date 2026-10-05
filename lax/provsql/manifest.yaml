@@ -7,9 +7,6 @@ authors:
   - name: "Pierre Senellart"
     orcid: "0000-0002-7909-5369"
     github: "PierreSenellart"
-  - name: "Aryak Sen"
-  - name: "Silviu Maniu"
-  - name: "Claude (Anthropic)"
 bibEntries:
   - |
     @inproceedings{sen2026provsql,

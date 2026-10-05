@@ -1,4 +1,4 @@
-The paper under paper/ is the arXiv version of "ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data" by Aryak Sen, Silviu Maniu and Pierre Senellart (arXiv:2504.12058, version 3), which its authors distribute under the Creative Commons Attribution 4.0 license (CC BY 4.0); the IEEEtran class it uses is under the LaTeX Project Public License.
+The paper under paper/ is the arXiv version of "ProvSQL: A General System for Keeping Track of the Provenance and Probability of Data" by Aryak Sen, Silviu Maniu and Pierre Senellart (arXiv:2504.12058, version 3), which its authors distribute under the Creative Commons Attribution 4.0 license (CC BY 4.0).
 
 The Lean code under proofs/ is derived from a library distributed under the following license (MIT), whose notices the vendored files retain. This submission is distributed under the Apache License 2.0, see LICENSE.
 
