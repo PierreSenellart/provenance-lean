@@ -1093,6 +1093,12 @@ lemma Query.rewriting_valid_diff_inner_dd_inst
         (Multiset.map Prod.fst AR₁)).dedup := by
   convert Query.rewriting_valid_diff_inner_dd AR₁ AR₂ using 4
 
+/-- Correctness of the rewriting, rules (R1)–(R4): the annotated semantics of a
+source query, read as a plain relation with the annotation in the last column,
+is the plain semantics of the rewritten query on the composite database.
+
+Registered in the Lax archive as
+[`Lax392996.RewritingCorrectness.rewriting_valid`](https://laxarchive.org/lax-392996/Lax392996.RewritingCorrectness.html#s-Lax392996.RewritingCorrectness.rewriting_valid). -/
 theorem Query.rewriting_valid
   [ValueType T] [SemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
   (q: Query T n) (hq: q.source) :

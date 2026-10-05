@@ -1034,7 +1034,10 @@ take the probability of the resulting Boolean function.
 
 The proof reduces to (a) `tupleAnnotation_apply_eq_true_iff`, the pointwise
 reading of the disjunctive annotation, and (b) `randomWorld_evaluateAnnotated`,
-the commutation of plain query evaluation with random-world projection. -/
+the commutation of plain query evaluation with random-world projection.
+
+Registered in the Lax archive as
+[`Lax392996.ProbabilisticEvaluation.theorem_12`](https://laxarchive.org/lax-392996/Lax392996.ProbabilisticEvaluation.html#s-Lax392996.ProbabilisticEvaluation.theorem_12). -/
 theorem theorem_12
     (q : Query T n) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
@@ -1087,7 +1090,10 @@ output of `q` equals the probability of the disjunctive annotation of `t`
 in the result of evaluating the **plain rewritten query** `q̂` on the
 composite-encoded database.
 
-Combines `theorem_12` and `Query.rewriting_valid`. -/
+Combines `theorem_12` and `Query.rewriting_valid`.
+
+Registered in the Lax archive as
+[`Lax392996.ProbabilisticEvaluationByRewriting.corollary_13`](https://laxarchive.org/lax-392996/Lax392996.ProbabilisticEvaluationByRewriting.html#s-Lax392996.ProbabilisticEvaluationByRewriting.corollary_13). -/
 theorem corollary_13 [HasAltLinearOrder (BoolFunc X)]
     (q : Query T n) (hq : q.source)
     (Î : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :

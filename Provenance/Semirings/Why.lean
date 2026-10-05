@@ -227,7 +227,10 @@ level, `2^(2^X)` ordered by inclusion.
 
 Named explicitly, and not to be renamed: this name is published as a link target
 in [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
-Provenance and Probability of Data*, ICDE 2026][sen2026provsql]. -/
+Provenance and Probability of Data*, ICDE 2026][sen2026provsql].
+
+Registered in the Lax archive as
+[`Lax392996.WhyProvenance.Why.isMSemiring`](https://laxarchive.org/lax-392996/Lax392996.WhyProvenance.html#s-Lax392996.WhyProvenance.Why.isMSemiring). -/
 instance instSemiringWithMonusWhy : SemiringWithMonus (Why α) where
   le a b := a.carrier ⊆ b.carrier
   le_refl := by simp
