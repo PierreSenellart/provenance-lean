@@ -35,7 +35,14 @@
 \usepackage{pifont}
 \usepackage{listings}
 \usepackage[pdfborder={0 0 0}]{hyperref}
-\usepackage[bb=boondox]{mathalfa}
+% mathalfa makes \mathbb a lazily initialised math alphabet, which breaks
+% under LuaLaTeX once math is nested in \text; pdfLaTeX typesets the paper,
+% LuaLaTeX only derives the Lax archive's web view, with newtxmath's own
+% blackboard bold.
+\usepackage{iftex}
+\ifpdftex
+  \usepackage[bb=boondox]{mathalfa}
+\fi
 \newcommand{\defeq}{\overset{\text{\tiny def}}{=}}
 
 \newcommand{\revision}[1]{{#1}}
