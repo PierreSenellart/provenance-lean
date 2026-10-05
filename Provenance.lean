@@ -1078,9 +1078,13 @@ proven engine several general results reuse internally.
   (`AggExpr.predProv_toComposite`, off the world transport
   `AggExpr.isWorld_toComposite` and `AggExpr.valOn_toComposite`). What it
   does exclude is a *range* atom (`GenPred.rangeFree`), and that is the
-  gate vocabulary's own limit: no gate carries a range, so the emitted
-  term is the product of two comparisons, which reads the two bounds in
-  two worlds rather than one. Whether the group-existence guard is superseded or
+  gate vocabulary's own limit: ProvSQL's gate carries one comparison, so
+  the emitted term is the product of two of them, which denotes the
+  two-world reading. The system recovers the one-world reading in its
+  evaluation pass instead – a product of conditions over one contributor
+  family is resolved jointly, with the closed form `S_C ⊖ S_{D+1}`
+  (`Having.G_eq_S_monus_S`) for a two-sided bound on a count – so
+  lifting the fence means modelling that pass, not adding a gate. Whether the group-existence guard is superseded or
   kept as a factor is decided by `GenPred.entailsExistence`, in
   `GenPred.siteProvTerm`: an aggregate-only predicate always supersedes
   it (`GenPred.aggOnly_entailsExistence`), one with a regular atom

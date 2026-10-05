@@ -393,12 +393,29 @@ the product of the two atoms' provenances, which is the range's own
 `⊕`-sum only where `AggValue.predProvOf_mul_predProvOf` applies.
 
 What the emitted term denotes and what an evaluator computes from it are
-two questions. An evaluator that recognises the two gates as reading one
-occurrence family may resolve them jointly – enumerate that family's
-worlds once, or use the closed form `Having.range_eq_S_monus_S` where
-its hypotheses hold – and so recover the range's reading from a term
-that does not denote it. What the term cannot do is carry the range to
-an evaluator that does not look for the pattern. -/
+two questions, and ProvSQL answers the second one outside the circuit
+(confirmed against the implementation, 2026-10-05). Its gate is
+`gate_cmp`, two wires and one operator, with no range form, and the
+rewriter turns `∧` into `provenance_times` and `∨` into
+`provenance_plus` over one gate per atom – which is exactly the algebra
+of `GenPredIn.gateTerm`. Evaluation then recognises a times or plus whose
+children are conditions over one contributor family, rebuilds their
+Boolean tree, enumerates that family's worlds *once* (bounded, a couple
+of dozen contributors) and keeps a world iff the whole predicate holds
+there; a conjunction bounding one `count(*)` from both sides has the
+closed form `S_C ⊖ S_{D+1}`, which is this library's
+`Having.G_eq_S_monus_S`, where that lemma's hypotheses hold. The plain
+product is accepted as the answer only in a semiring where product *is*
+the joint reading (exclusive with idempotent product); where joint
+resolution does not apply the system falls back to the product and warns
+that it is not the provenance of the combination.
+
+So the fence is faithful to the circuit, which is what `gateTerm`
+translates into, and the joint reading lives in the evaluation pass.
+Lifting it means modelling that pass – a Boolean combination of `cmpAgg`
+atoms over one token's family, read in one world, which is what
+`AggValue.predProvOfAnd` and `Provenance.JointFamily` already are
+semantically – and not adding a gate. -/
 def GenPredIn.rangeFree {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
   | .cmp _ _ _ => true
   | .aggCmp _ _ _ _ => true
@@ -2033,8 +2050,7 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     rw [AggQueryIn.map_toCompositeRow_of_reg q (AggQueryIn.classical_kinds q hq) d,
       AggQueryIn.rewriting_valid q hq d,
       AggQueryIn.evaluateRew_plain _ (AggQueryIn.rewriting_noGammaTok q hq)
-        (AggQueryIn.rewriting_chiFree q hq)
-        (AggQueryIn.rewriting_noFilter q hq)]
+        (AggQueryIn.rewriting_chiFree q hq)]
   | gamma is ts fs qg hq =>
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
   | selAgg φ hφ hrf hnn h₀ ih =>

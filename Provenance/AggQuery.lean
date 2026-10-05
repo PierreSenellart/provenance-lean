@@ -1543,9 +1543,7 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g
       (fun j => (fs j)
-        ((match keep j with
-          | none => Relation.groupSeq is r g
-          | some φ => (Relation.groupSeq is r g).filter φ.keeps).map
+        ((Relation.groupSeqOpt is r g (keep j)).map
           (fun v => (ts j).eval v γ))))
   | _, _, _, @GammaScalar _ _ _m n₂ ts fs q, d, γ =>
     let r := q.evaluatePlain d γ
@@ -1691,6 +1689,7 @@ theorem AggQueryIn.evaluatePlain_Gamma_eq {c m n₁ n₂ : ℕ}
           ((Relation.groupSeq is (q.evaluatePlain d γ) g).map
             (fun v => (ts j).eval v γ)))) := by
   rw [AggQueryIn.evaluatePlain]
+  simp only [Relation.groupSeqOpt_none]
 
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
 theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
@@ -1771,6 +1770,27 @@ theorem AggQueryIn.evaluatePlain_Win_eq_when {c n m p : ℕ}
   unfold ValueFrame.windowValueWhen
   dsimp only [Fin.cast_eq_self]
   rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
+
+/-- **The `Win` case of the plain evaluator, clause or no clause**, which
+is the form a recursion over the syntax needs: the frame is read through
+`ValueFrame.windowValueOpt`, which is the unfiltered reading where there
+is no clause and the cut one where there is. -/
+theorem AggQueryIn.evaluatePlain_Win_eq_opt {c n m p : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Option (Selection T n))
+    (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
+    {γ : Fin c → T} :
+    (AggQueryIn.Win P O o w t f q dist keep).evaluatePlain d γ
+      = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
+          (Fin.snoc u
+            (ValueFrame.windowValueOpt P O o w t
+              (if dist then f.distinct else f) keep
+              (q.evaluatePlain d γ) u γ)
+            : Tuple T (n + 1))) := by
+  cases keep with
+  | none => exact AggQueryIn.evaluatePlain_Win_eq P O o w t f dist q d
+  | some φ => exact AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q d
 
 /-- **The `WinExpr` case of the plain evaluator, read off the
 relation**: each leaf aggregates over its own frame, and `g` combines
@@ -2115,14 +2135,20 @@ theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
   rfl
 
 /-- **No `FILTER` clause.** A grouping may cut the occurrence sequence
-one of its aggregates reads (`AggQueryIn.Gamma`'s `keep`), and a
-multi-frame window the part of its frame a leaf reads
-(`AggQueryIn.WinExpr`'s `keeps`). The rewriting layer does not rewrite
-either – a clause is a predicate on the base domain and the rewritten
-world's rows carry composite values – so its results exclude them with
-this, as they exclude `GammaTok` with `AggQueryIn.noGammaTok`. The
-evaluators, the hom commutation, the possible-world reading and the
-data-part adequacy all cover a clause and ask nothing. -/
+one of its aggregates reads (`AggQueryIn.Gamma`'s `keep`), a window the
+part of its frame it reads (`AggQueryIn.Win`'s `keep`), and a multi-frame
+window the part of each leaf's frame (`AggQueryIn.WinExpr`'s `keeps`).
+
+What asks this is `AggQueryIn.evaluate_ordinaryTokens`, and for the
+reason that fence exists: a *filtered* aggregate of a grouping or of a
+frame builds an aggregate *expression* and not an ordinary token, the
+clause cutting what the expression reads and not its family. Nothing
+else asks it. In particular the rewritten world's evaluator reads a
+clause like the plain one does – both through
+`Relation.groupSeqOpt` and `ValueFrame.windowValueOpt` – so
+`AggQueryIn.evaluateRew_plain` covers a filtered grouping and a filtered
+window, as the evaluators, the hom commutation, the possible-world
+reading and the data-part adequacy already did. -/
 def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True

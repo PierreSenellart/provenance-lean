@@ -589,6 +589,7 @@ aggregate to read and the bag is the input. -/
 def onBag (f : SeqAggFunc T) (hf : f.Symmetric) : Multiset T → T :=
   fun s => Quot.liftOn s f (fun _ _ hp => hf hp)
 
+omit [ValueType T] in
 @[simp] theorem onBag_coe (f : SeqAggFunc T) (hf : f.Symmetric) (L : List T) :
     f.onBag hf (↑L : Multiset T) = f L := rfl
 
@@ -1002,6 +1003,25 @@ commutative aggregates it is irrelevant. -/
 def Relation.groupSeq (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁) :
     List (Tuple T m) :=
   Multiset.sort (Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k') r) (· ≤ ·)
+
+/-- **The occurrence sequence an aggregate of a grouping reads**: the
+group's rows, cut by a `FILTER` clause where the aggregate carries one.
+Both the plain evaluator and the rewritten world's evaluator read a group
+through this, so the two agree clause for clause. -/
+def Relation.groupSeqOpt (is : Tuple (Fin m) n₁) (r : Relation T m)
+    (g : Tuple T n₁) (keep : Option (Selection T m)) : List (Tuple T m) :=
+  match keep with
+  | none => Relation.groupSeq is r g
+  | some φ => (Relation.groupSeq is r g).filter φ.keeps
+
+@[simp] theorem Relation.groupSeqOpt_none (is : Tuple (Fin m) n₁)
+    (r : Relation T m) (g : Tuple T n₁) :
+    Relation.groupSeqOpt is r g none = Relation.groupSeq is r g := rfl
+
+@[simp] theorem Relation.groupSeqOpt_some (is : Tuple (Fin m) n₁)
+    (r : Relation T m) (g : Tuple T n₁) (φ : Selection T m) :
+    Relation.groupSeqOpt is r g (some φ)
+      = (Relation.groupSeq is r g).filter φ.keeps := rfl
 
 /-- **What a group holds**: the tuples of the relation whose key is the
 group's. -/
