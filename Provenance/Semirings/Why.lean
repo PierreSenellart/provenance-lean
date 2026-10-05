@@ -442,3 +442,29 @@ theorem Why.counterexample_having [Inhabited α] :
   intro h
   have hcarr := congrArg Why.carrier h
   exact (Set.singleton_ne_empty ({default} : Set α)) hcarr
+
+/-- **`Why[X]` is complemented.** `𝟙 ⊖ a` is `{∅} ∖ a`, which is `𝟙`
+where `a` does not hold the empty witness and `𝟘` where it does; the
+pairwise union of two copies of `{∅}` is `{∅}` and anything paired with
+`∅` is `∅`, so both sides are `𝟙` exactly when neither summand holds the
+empty witness. -/
+theorem Why.complemented : _root_.complemented (Why α) := by
+  intro a b
+  ext w
+  show w ∈ ({∅} : Set (Set α)) \ (a.carrier ∪ b.carrier)
+    ↔ w ∈ { z : Set α | ∃ x y : Set α,
+        x ∈ ({∅} : Set (Set α)) \ a.carrier
+          ∧ y ∈ ({∅} : Set (Set α)) \ b.carrier ∧ z = x ∪ y }
+  constructor
+  · rintro ⟨hw, hnot⟩
+    have hw' : w = ∅ := hw
+    subst hw'
+    exact ⟨∅, ∅, ⟨rfl, fun h => hnot (Or.inl h)⟩,
+      ⟨rfl, fun h => hnot (Or.inr h)⟩, (Set.union_self _).symm⟩
+  · rintro ⟨x, y, ⟨hx, hxa⟩, ⟨hy, hyb⟩, rfl⟩
+    have hx' : x = ∅ := hx
+    have hy' : y = ∅ := hy
+    subst hx'
+    subst hy'
+    rw [Set.union_self]
+    exact ⟨rfl, fun h => h.elim (fun h' => hxa h') (fun h' => hyb h')⟩

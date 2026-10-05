@@ -359,3 +359,27 @@ theorem MinMax.zero_le {α : Type} [LinearOrder α] [BoundedOrder α]
 /-- **And `𝟙` greatest.** -/
 theorem MinMax.le_one {α : Type} [LinearOrder α] [BoundedOrder α]
     (a : MinMax α) : a ≤ (1 : MinMax α) := bot_le
+
+/-- **The min-max semiring is complemented.** `𝟙 ⊖ a` is `𝟘` where `a`
+is `𝟙` – `𝟙` being `⊥` in the carrier – and `𝟙` elsewhere; `⊕` is `min`
+and `⊗` is `max`, so both sides are `𝟘` exactly when one of the two
+summands is `𝟙`. -/
+theorem MinMax.complemented {α : Type} [LinearOrder α] [BoundedOrder α] :
+    _root_.complemented (MinMax α) := by
+  intro a b
+  have hsub : ∀ x : MinMax α, (1 : MinMax α) - x
+      = if (⊥ : α) ≥ x.val then ⟨⊤⟩ else ⟨⊥⟩ := fun _ => rfl
+  rw [hsub, hsub, hsub]
+  have hadd : (a + b).val = min a.val b.val := rfl
+  have hmul : ∀ x y : MinMax α, (x * y) = ⟨max x.val y.val⟩ := fun _ _ => rfl
+  rw [hadd, hmul]
+  by_cases ha : (⊥ : α) ≥ a.val
+  · have : (⊥ : α) ≥ min a.val b.val := le_trans (min_le_left _ _) ha
+    simp [ha, this]
+  · by_cases hb : (⊥ : α) ≥ b.val
+    · have : (⊥ : α) ≥ min a.val b.val := le_trans (min_le_right _ _) hb
+      simp [ha, hb, this]
+    · have : ¬ ((⊥ : α) ≥ min a.val b.val) := by
+        rw [ge_iff_le, min_le_iff]
+        exact fun h => h.elim (fun h' => ha h') (fun h' => hb h')
+      simp [ha, hb, this]

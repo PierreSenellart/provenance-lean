@@ -417,3 +417,33 @@ theorem Lukasiewicz.mul_sub_left_distributive :
       simp at hbc
       simp[Lukasiewicz.sub_def]
       simp[not_le_of_gt hbc]
+
+/-- **Łukasiewicz is complemented.** `𝟙 ⊖ a` is `𝟘` where `a` is `𝟙` – the
+top of `[0,1]` – and `𝟙` elsewhere, and the t-norm of two such values is
+`𝟘` exactly when one of them is. Since `⊕` is `max`, both sides are `𝟘`
+exactly when one of the two summands is `𝟙`. -/
+theorem Lukasiewicz.complemented : _root_.complemented Lukasiewicz := by
+  intro a b
+  have hone : ((1 : Lukasiewicz) : ℚ) = 1 := rfl
+  have hsub : ∀ x : Lukasiewicz, (1 : Lukasiewicz) - x
+      = if (1 : Lukasiewicz) ≤ x then 0 else 1 := by
+    intro x
+    rw [Lukasiewicz.sub_def]
+    split_ifs with h
+    · rfl
+    · rfl
+  rw [hsub, hsub, hsub]
+  by_cases ha : (1 : Lukasiewicz) ≤ a
+  · have hab : (1 : Lukasiewicz) ≤ a + b :=
+      le_trans ha (by exact le_max_left a b)
+    simp [ha, hab]
+  · by_cases hb : (1 : Lukasiewicz) ≤ b
+    · have hab : (1 : Lukasiewicz) ≤ a + b :=
+        le_trans hb (by exact le_max_right a b)
+      simp [ha, hb, hab]
+    · have hab : ¬ ((1 : Lukasiewicz) ≤ a + b) := by
+        intro h
+        rcases max_cases a b with ⟨he, -⟩ | ⟨he, -⟩
+        · exact ha (he ▸ h)
+        · exact hb (he ▸ h)
+      simp [ha, hb, hab]

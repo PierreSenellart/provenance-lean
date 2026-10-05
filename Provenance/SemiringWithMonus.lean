@@ -283,12 +283,24 @@ It is what makes the annotation of a world of a family split along a
 partition of that family into the annotations of the two halves
 (`Having.worldAnn_split`), and so what lets a predicate whose atoms read
 disjoint families be evaluated atom by atom rather than over the union.
-It is not an m-semiring identity – the non-negative rationals with
-truncated subtraction fail it at `a = b = ½`. The library proves it for
-`𝔹` and `𝔹[X]` by De Morgan (`Bool.complemented`,
-`BoolFunc.complemented`) and for `ℕ` because `𝟙 ⊖ a` is `𝟘` or `𝟙`
-there (`Nat.complemented`). For the rest of the catalog it is
-**unchecked**: do not write that it holds throughout. -/
+It is not an m-semiring identity – the non-negative reals with truncated
+subtraction fail it at `a = b = ½`, which
+`HavingQueryCounterexamples.nnreal_not_complemented` records against the
+m-semiring instance there – but it is proved for
+**every semiring of the catalog**, for one of two reasons. Either
+`𝟙 ⊖ ·` is a genuine complement, which is De Morgan's law: `𝔹`
+(`Bool.complemented`), `𝔹[X]` (`BoolFunc.complemented`) and the temporal
+semiring (`IntervalUnion.complemented`). Or `𝟙 ⊖ ·` takes only the two
+values `𝟘` and `𝟙`, is `𝟘` exactly on a property that a sum has iff one
+of its summands has, and `⊗` is `𝟘`-absorbing with `𝟙 ⊗ 𝟙 = 𝟙`: `ℕ`
+(`Nat.complemented`), `ℕ[X]` (`How.complemented`, the constant
+coefficient), `Lin[X]` (`Which.complemented`), `Why[X]`
+(`Why.complemented`, the empty witness), the tropical semirings
+(`MinTropical.complemented`), Viterbi (`Viterbi.complemented`), the
+bounded linear order (`MinMax.complemented`) and Łukasiewicz
+(`Lukasiewicz.complemented`). The second reason is a fact about each
+semiring and not a consequence of the two-valuedness alone, which is why
+each is proved rather than argued once. -/
 abbrev complemented (α) [SemiringWithMonus α] :=
   ∀ a b : α, 1 - (a + b) = (1 - a) * (1 - b)
 

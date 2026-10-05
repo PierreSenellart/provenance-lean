@@ -9,6 +9,7 @@ import Provenance.Semirings.ChainFive
 import Provenance.Semirings.Tropical
 import Provenance.Semirings.Nat
 import Provenance.Semirings.MinMax
+import Provenance.Semirings.Viterbi
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -1228,3 +1229,56 @@ world keeps the weight of the rows it holds. -/
 theorem mm_incoherentWorld_ne_zero :
     (incoherentWorld (MinMax.mk (1 : Fin 3)) (MinMax.mk 1)
       (MinMax.mk 1) (MinMax.mk 1)).ann ≠ 0 := by decide
+
+/-! ## Complementedness is not an m-semiring identity
+
+Every semiring of the catalog is complemented (`complemented`'s
+docstring lists the eleven proofs), which is why the hypothesis the
+nested homomorphism commutation carries excludes nothing anyone computes
+in. It is not, however, a consequence of the axioms: the non-negative
+rationals with truncated subtraction are an m-semiring and fail the law
+at `a = b = ½`. They are not a provenance semiring – ordinary
+multiplication is not `⊗` of any provenance reading – which is what the
+counterexample needs them not to be. -/
+
+/-- The non-negative reals with truncated subtraction: an m-semiring,
+with the indicator `δ`. The document's witness is `ℚ≥0`; the
+phenomenon is the same and `ℝ≥0` is the carrier this development already
+has at hand (Viterbi's), so the law is refuted over it. -/
+noncomputable instance NNReal.instSemiringWithMonus :
+    SemiringWithMonus NNReal :=
+  { (inferInstance : Semiring NNReal), (inferInstance : PartialOrder NNReal),
+    (inferInstance : IsOrderedAddMonoid NNReal),
+    (inferInstance : CanonicallyOrderedAdd NNReal),
+    (inferInstance : Sub NNReal) with
+    monus_spec := fun _ _ _ => tsub_le_iff_left
+    delta := fun a => if a = 0 then 0 else 1
+    delta_zero := by simp
+    delta_natCast_pos := by
+      intro n hn
+      have hne : ((n : NNReal)) ≠ 0 := Nat.cast_ne_zero.mpr hn.ne'
+      simp [hne]
+    delta_absorb := by
+      intro a b
+      by_cases h : a + b = 0
+      · have ha : a = 0 := (add_eq_zero.mp h).1
+        simp [ha]
+      · simp [h] }
+
+/-- **Complementedness is not an m-semiring identity**: over the
+non-negative reals it fails at `a = b = ½`, where the left side is
+`𝟙 ⊖ 𝟙 = 𝟘` and the right side is `½ ⊗ ½ = ¼`. Every semiring of the
+catalog satisfies it (see `complemented`'s docstring), so the hypothesis
+the nested homomorphism commutation carries excludes nothing anyone
+computes in – but it is a hypothesis and not a theorem. -/
+theorem nnreal_not_complemented : ¬ complemented NNReal := by
+  intro h
+  have h2 := h (1 / 2) (1 / 2)
+  have hsum : ((1 : NNReal) / 2 + (1 : NNReal) / 2 : NNReal) = 1 := by
+    norm_num
+  have hhalf : ((1 : NNReal) - (1 : NNReal) / 2 : NNReal) = (1 : NNReal) / 2 := by
+    rw [tsub_eq_iff_eq_add_of_le
+      (by norm_num : ((1 : NNReal) / 2 : NNReal) ≤ 1)]
+    norm_num
+  rw [hsum, tsub_self, hhalf] at h2
+  norm_num at h2

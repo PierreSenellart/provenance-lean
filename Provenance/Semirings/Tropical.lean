@@ -535,3 +535,35 @@ theorem minScan_ne_prov :
   exact absurd (WithTop.coe_injective (MinTropical.trop_injective h)) (by norm_num)
 
 end MinTropicalR
+
+/-- **The tropical semiring is complemented.** `𝟙 ⊖ a` is `𝟘` where
+`a`'s weight is at most `𝟙`'s – the monus reading the *usual* order, not
+the semiring's – and `𝟙` elsewhere. Addition is the minimum of the
+weights and multiplication their sum, so both sides are `𝟘` exactly when
+one of the two summands has weight at most `𝟙`'s. -/
+theorem MinTropical.complemented [LinearOrderedAddCommMonoidWithTop α] :
+    _root_.complemented (MinTropical α) := by
+  intro a b
+  have hsub : ∀ x : MinTropical α, (1 : MinTropical α) - x
+      = if MinTropical.untrop (1 : MinTropical α) ≥ MinTropical.untrop x
+        then 0 else 1 := fun _ => rfl
+  rw [hsub, hsub, hsub]
+  by_cases ha : MinTropical.untrop (1 : MinTropical α)
+      ≥ MinTropical.untrop a
+  · have hab : MinTropical.untrop (1 : MinTropical α)
+        ≥ MinTropical.untrop (a + b) := by
+      rw [MinTropical.untrop_add]
+      exact le_trans (min_le_left _ _) ha
+    rw [ite_eq_left hab, ite_eq_left ha, zero_mul]
+  · by_cases hb : MinTropical.untrop (1 : MinTropical α)
+        ≥ MinTropical.untrop b
+    · have hab : MinTropical.untrop (1 : MinTropical α)
+          ≥ MinTropical.untrop (a + b) := by
+        rw [MinTropical.untrop_add]
+        exact le_trans (min_le_right _ _) hb
+      rw [ite_eq_left hab, ite_eq_right ha, ite_eq_left hb, mul_zero]
+    · have hab : ¬ (MinTropical.untrop (1 : MinTropical α)
+          ≥ MinTropical.untrop (a + b)) := by
+        rw [MinTropical.untrop_add, ge_iff_le, min_le_iff]
+        exact fun h => h.elim (fun h' => ha h') (fun h' => hb h')
+      rw [ite_eq_right hab, ite_eq_right ha, ite_eq_right hb, one_mul]

@@ -1703,3 +1703,20 @@ theorem IntervalUnion.homomorphism_from_BoolFunc_rat
       ∃ h : SemiringWithMonusHom (BoolFunc Y) (IntervalUnion (WithBot (WithTop ℚ))),
         ∀ i : Y, h (BoolFunc.var i) = ν i :=
   IntervalUnion.homomorphism_from_BoolFunc _ Y
+
+/-- **The temporal semiring is complemented**, for the first of the two
+reasons: `𝟙 ⊖ ·` is a genuine complement – `𝟙` is the whole timeline –
+and `⊕`/`⊗` are union and intersection, so the law is De Morgan's. -/
+theorem IntervalUnion.complemented {α : Type} [LinearOrder α]
+    [DenselyOrdered α] [BoundedOrder α] :
+    _root_.complemented (IntervalUnion α) := by
+  intro a b
+  refine ext_toSet _ _ (Set.ext (fun x => ?_))
+  rw [sub_eq_diff, mem_diff, mul_eq_inter, mem_inter, sub_eq_diff,
+    sub_eq_diff, mem_diff, mem_diff, add_eq_union, mem_union, one_toSet]
+  constructor
+  · rintro ⟨-, hnot⟩
+    exact ⟨⟨Set.mem_univ x, fun h => hnot (Or.inl h)⟩,
+      ⟨Set.mem_univ x, fun h => hnot (Or.inr h)⟩⟩
+  · rintro ⟨⟨-, hna⟩, ⟨-, hnb⟩⟩
+    exact ⟨Set.mem_univ x, fun h => h.elim (fun h' => hna h') (fun h' => hnb h')⟩

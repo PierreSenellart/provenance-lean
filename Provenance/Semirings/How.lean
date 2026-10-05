@@ -265,3 +265,32 @@ theorem How.no_hom_from_BoolFunc {Y : Type} [Inhabited Y] :
       ¬ ∃ φ : BoolFunc Y →+* MvPolynomial X ℕ,
         ∀ i : Y, φ (BoolFunc.var i) = ν i :=
   BoolFunc.no_hom_of_not_absorptive How.not_absorptive
+
+/-- **`ℕ[X]` is complemented**, for the reason `ℕ` is: `𝟙 ⊖ p` has every
+coefficient of `𝟙` truncated by `p`'s, so it is `𝟙` where `p`'s constant
+coefficient vanishes and `𝟘` elsewhere, and a sum's constant coefficient
+vanishes exactly when both summands' do. -/
+theorem How.complemented : _root_.complemented (MvPolynomial X ℕ) := by
+  intro a b
+  have hsub : ∀ p : MvPolynomial X ℕ, (1 : MvPolynomial X ℕ) - p
+      = if p.coeff 0 = 0 then 1 else 0 := by
+    intro p
+    ext m
+    rw [coeff_sub]
+    by_cases hm : m = 0
+    · subst hm
+      by_cases hp : p.coeff 0 = 0
+      · simp [hp]
+      · have h1 : (1 : MvPolynomial X ℕ).coeff 0 = 1 := by simp
+        have h0 : (0 : MvPolynomial X ℕ).coeff 0 = 0 := by simp
+        rw [h1, ite_eq_right hp, h0]
+        omega
+    · have h1 : (1 : MvPolynomial X ℕ).coeff m = 0 := by
+        simp [MvPolynomial.coeff_one, Ne.symm hm]
+      rw [h1]
+      by_cases hp : p.coeff 0 = 0 <;>
+        simp [hp, MvPolynomial.coeff_one, Ne.symm hm]
+  rw [hsub, hsub, hsub, AddMonoidAlgebra.coeff_add]
+  by_cases ha : a.coeff 0 = 0
+  · by_cases hb : b.coeff 0 = 0 <;> simp [ha, hb]
+  · simp [ha]
