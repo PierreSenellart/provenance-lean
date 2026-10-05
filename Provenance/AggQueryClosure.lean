@@ -57,7 +57,10 @@ Difference closes as well (`AggQueryIn.diffRew`).
 The *grouping itself* closes over an arbitrary rewritten subquery
 (`AggQueryIn.RewritesTo.gammaOf`, off `AggQueryIn.gammaRewOf_valid`): what
 the rule asks of its input is only that some query of the rewritten world
-compute its rows, not that it be classical. This is what covers a
+compute its rows, not that it be classical. A clause rides into it unchanged
+(`Selection.castToAnnotatedTuple` reads the data columns, which the
+embedding keeps), so a filtered grouping is covered as well
+(`AggQueryIn.rewritesTo_gamma_filter`). This is what covers a
 `GROUP BY` whose input is itself a grouping -- the kind discipline asking
 the inner aggregate column to be read out first, as SQL does with a
 `SELECT key, count(*) AS c` subquery -- which
@@ -1911,12 +1914,13 @@ inductive AggQueryIn.RewritesTo :
       {q' : AggQuery (T ⊕ K) (m + 1)
         (ColKind.rewKindsOf (ColKind.allReg m))}
       (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
-      (fs : Tuple (SeqAggFunc T) n₂) :
+      (fs : Tuple (SeqAggFunc T) n₂)
+      (keep : Fin n₂ → Option (Selection T m)) :
       RewritesTo qg q' →
-      RewritesTo (AggQueryIn.Gamma is ts fs qg)
+      RewritesTo (AggQueryIn.Gamma is ts fs qg keep)
         (AggQueryIn.gammaRewOf is ts fs
           (fun k => ColKind.rewKindsOf_of_lt (ColKind.allReg m) (is k).isLt)
-          (ColKind.rewKindsOf_last (ColKind.allReg m)) q')
+          (ColKind.rewKindsOf_last (ColKind.allReg m)) q' keep)
   | havingPred {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
       (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
@@ -1991,6 +1995,22 @@ inductive AggQueryIn.RewritesTo :
       RewritesTo (AggQueryIn.Prod q₁ q₂) (AggQueryIn.prodRew q₁' q₂')
 
 omit [DecidableEq K] in
+/-- **A filtered grouping is in the closure.** `count(*) FILTER (WHERE p)`
+over a classical subquery rewrites like any other grouping: the clause
+rides into the rewritten plan unchanged
+(`Selection.castToAnnotatedTuple`), its aggregate's column becoming an
+expression over the whole group on both sides
+(`AggExpr.ofGroupWhen_toComposite`). -/
+theorem AggQueryIn.rewritesTo_gamma_filter {m n₁ n₂ : ℕ}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂)
+    (keep : Fin n₂ → Option (Selection T m))
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    ∃ q' : AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂),
+      AggQueryIn.RewritesTo (AggQueryIn.Gamma is ts fs qg keep) q' :=
+  ⟨_, .gammaOf is ts fs keep (.classical qg hq)⟩
+
+omit [DecidableEq K] in
 /-- **A grouping over a grouping is in the closure.** The kind
 discipline asks the inner aggregate column to be read out first – here by
 a projection of terms, which is what `SELECT key, count(*) AS c` followed
@@ -2010,7 +2030,7 @@ theorem AggQueryIn.rewritesTo_gamma_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
         (AggQueryIn.Gamma is' ts' fs'
           (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
             (AggQueryIn.Gamma is ts fs qg))) q' :=
-  ⟨_, .gammaOf is' ts' fs'
+  ⟨_, .gammaOf is' ts' fs' (fun _ => none)
     (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq))⟩
 
 omit [DecidableEq K] in
@@ -2037,7 +2057,7 @@ theorem AggQueryIn.rewritesTo_having_over_gamma {m m₂ n₁ n₂ p₁ p₂ : �
             (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
               (AggQueryIn.Gamma is ts fs qg)))) q' :=
   ⟨_, .selAgg φ hφ hrf (AggQueryIn.noGammaNest_of_classical qg hq)
-    (.gammaOf is' ts' fs'
+    (.gammaOf is' ts' fs' (fun _ => none)
       (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq)))⟩
 
 /-- **Whole-query correctness of the compositional rewriting**: along the
@@ -2062,8 +2082,8 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
   | selAgg φ hφ hrf hnn h₀ ih =>
     exact AggQueryIn.selAggRew_valid φ hφ hrf _ _ d
       (fun r hr => AggQueryIn.evaluate_noNested _ hnn d r hr) ih
-  | gammaOf is ts fs h₀ ih =>
-    exact AggQueryIn.gammaRewOf_valid is ts fs _ _ _ _ d _ rfl
+  | gammaOf is ts fs keep h₀ ih =>
+    exact AggQueryIn.gammaRewOf_valid is ts fs _ _ _ _ keep d _ rfl
       (AggQueryIn.provRel_of_toCompositeRow _ _ _ d ih)
   | havingPred is ts fs φ hφ hrf qg hq =>
     exact AggQueryIn.havingPredRew_valid is ts fs φ hφ hrf qg hq d

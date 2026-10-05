@@ -145,7 +145,7 @@ def AggQueryIn.strip :
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
@@ -164,7 +164,7 @@ theorem AggQueryIn.strip_source :
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
 
 end Strip
@@ -277,7 +277,7 @@ theorem AggQueryIn.strip_rel :
   | _, _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .Retag _ _, hq, _ => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq, _ => False.elim hq
 
 /-- **Faithfulness of the strip**: on the classical fragment the general

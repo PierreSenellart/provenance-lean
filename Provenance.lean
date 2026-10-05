@@ -514,8 +514,12 @@ proven engine several general results reuse internally.
   (`ValueFrame.windowValue`) that the relation gives it – which is the form
   every theorem about the operator uses.
   Every aggregating operator carries SQL's `FILTER` clause: `Gamma`'s
-  `keep`, one per aggregate, `Win`'s `keep`, and `WinExpr`'s `keeps`, one
-  per leaf of the expression. What a clause may change is what its own
+  `keep`, one per aggregate, `Win`'s `keep`, `WinExpr`'s `keeps`, one per
+  leaf of the expression, and `GammaTok`'s in the rewritten world. A
+  clause reads *regular columns only*, SQL forbidding an aggregate inside
+  the `FILTER` of an aggregate, so its truth at an occurrence is the same
+  in every world and survives any transport that keeps the data columns –
+  which is why no result below asks anything about what a clause reads. What a clause may change is what its own
   aggregate **reads**, and nothing else: the worlds stay the group's or
   the frame's, every occurrence carrying its annotation to them, so the
   world in which only rejected rows are present is still a world and the
@@ -1044,7 +1048,12 @@ proven engine several general results reuse internally.
   embedding on token-free rows (`GenRow.toCompositeRow_of_reg`);
   `AggQuery.gammaRew` is the rewritten grouping (`GammaTok` over the
   classically rewritten subquery) and `AggQuery.gammaRew_valid` its
-  correctness, resting on the reusable
+  correctness; a `FILTER` clause rides into it unchanged
+  (`Selection.castToAnnotatedTuple`), its aggregate's column being an
+  expression over the whole group on both sides
+  (`AggExpr.ofGroupWhen_toComposite`, against the rewritten world's
+  `AggExpr.ofGroupWhenRew`, whose reading is the one the transport
+  carries). Both rest on the reusable
   `AggQuery.rewriting_provRel` – the rewritten world's reading of a
   classical rewriting back as an annotated relation, and
   `AggValue.predProv_toComposite` – a transported token is read by the

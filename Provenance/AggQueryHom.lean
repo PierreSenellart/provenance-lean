@@ -2257,7 +2257,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
       show (GenAnn.mk (h.toRingHom x.snd) 0).finalize
         = h.toRingHom ((GenAnn.mk x.snd 0).finalize)
       rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
-  | @GammaTok cI mI nI₁ nI₂ κ' is his ts fs a q ih =>
+  | @GammaTok cI mI nI₁ nI₂ κ' is his ts fs a q keep ih =>
     intro d γ hw hn
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2316,8 +2316,15 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         · rw [Fin.append_left, Fin.append_left]
           rfl
         · rw [Fin.append_right, Fin.append_right]
-          exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
-            (ofGroup_mapAnn_tiePerm h (fs j') (ts j') is X kv.fst)⟩
+          cases hkj : keep j' with
+          | none =>
+            exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
+              (ofGroup_mapAnn_tiePerm h (fs j') (ts j') is X kv.fst)⟩
+          | some φ =>
+            -- as under `Gamma`: a filtered aggregate's column is an
+            -- expression over the whole group, tie-permuted on both sides
+            exact exprGroupWhen_mapAnn_equiv h (fs j') (ts j') φ.keeps is X
+              kv.fst
       · rw [Fin.append_right, Fin.append_right]
         rw [show Multiset.filter
               (fun p : AnnotatedTuple T K' mI =>

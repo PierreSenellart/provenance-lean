@@ -119,6 +119,29 @@ instance GenPredIn.instDecidableHoldsRew {c n : ℕ} {κ : Fin n → ColKind}
     (u : Tuple (GenValue (T ⊕ K) K) n) : Decidable (φ.holdsRew u γ) :=
   φ.decHoldsRew u γ
 
+/-- **The reading a one-leaf expression of the rewritten world carries**:
+the leaf's value, normalized through the data arm.
+
+Every aggregate the rewriting emits is data-valued, being lifted from the
+source's (`SeqAggFunc.liftComposite`), so the normalization is a no-op on
+what actually arises. What it buys is that the column is the composite
+transport of the source's *on the nose*: `AggExpr.toComposite` lifts an
+expression's own function the same way, and a bare projection would read
+alike but not be the same data. -/
+def AggExprFun.projComposite : (Fin 1 → T ⊕ K) → T ⊕ K :=
+  fun v => Sum.inl (Sum.elim id (fun _ => (0 : T)) (v 0))
+
+/-- **A filtered aggregate of a group, in the rewritten world**: the
+expression `AggQueryIn.GammaTok` builds for an aggregate carrying a
+`FILTER` clause – one leaf over the whole group, the clause cutting only
+what it reads – with the reading the composite transport carries. -/
+def AggExpr.ofGroupWhenRew {c m : ℕ} (f : SeqAggFunc (T ⊕ K))
+    (t : TermIn (T ⊕ K) c m) (keep : Tuple (T ⊕ K) m → Bool)
+    (U : List (AnnotatedTuple (T ⊕ K) K m))
+    (γ : Fin c → T ⊕ K := fun _ => 0) : AggExpr (T ⊕ K) K :=
+  { AggExpr.ofGroupWhen f t keep U γ with
+    g := AggExprFun.projComposite (T := T) (K := K) }
+
 /-! ## The evaluator -/
 
 /-- **The rewritten world's evaluator**: plain multiset semantics over
@@ -236,7 +259,7 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
           (((r.filter (fun u => ∀ k' : Fin n₁,
               GenRow.plainTuple u (is k') = g k')).map
             (fun u => t.evalRew u γ)).fold addFn 0)))
-  | _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q, D, γ =>
+  | _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, D, γ =>
     let r := q.evaluateRew D γ
     let ar : AnnotatedRelation (T ⊕ K) K m :=
       r.map (fun u => (GenRow.plainTuple u, (a.evalRew u γ).annPart))
@@ -246,8 +269,13 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
       ((fun g : Tuple (T ⊕ K) n₁ =>
         Fin.append
           (Fin.append (fun k => (Sum.inl (g k) : GenValue (T ⊕ K) K))
-            (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-              (Having.havingGroup is ar g) γ))))
+            -- a `FILTER` on one of the aggregates makes its column an
+            -- expression over the whole group, as under `Gamma`
+            (fun j => Sum.inr (match keep j with
+              | none => AggTok.tok (AggValue.ofGroup (fs j) (ts j)
+                  (Having.havingGroup is ar g) γ)
+              | some φ => AggTok.expr (AggExpr.ofGroupWhenRew (T := T) (fs j)
+                  (ts j) φ.keeps (Having.havingGroup is ar g) γ))))
           (fun _ : Fin 1 => Sum.inl
             (Sum.inr (SemiringWithMonus.delta
               ((Having.havingGroup is ar g).map Prod.snd).sum))))
@@ -276,7 +304,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
-  | _, _, _, .GammaTok _ _ _ _ _ _ => False
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaTok
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaTok
 
@@ -299,7 +327,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
-  | _, _, _, .GammaTok _ _ _ _ a q => a.chiFree ∧ q.chiFree
+  | _, _, _, .GammaTok _ _ _ _ a q _ => a.chiFree ∧ q.chiFree
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.chiFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chiFree
 
@@ -566,7 +594,7 @@ theorem AggQueryIn.evaluateRew_plain :
           (Multiset.map_congr rfl (fun u _ => t.evalRew_inl hc.1 u)) ?_
         refine congrArg₂ Multiset.map rfl ?_
         congr 1
-  | GammaTok is his ts fs a q ih =>
+  | GammaTok is his ts fs a q keep ih =>
     intro hq hc D γ
     exact hq.elim
   | @Win cI n' m' p' P O o w t f q dist keep ih =>
@@ -660,7 +688,7 @@ theorem AggQueryIn.rewriting_noGammaTok :
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
@@ -690,7 +718,7 @@ theorem AggQueryIn.rewriting_noFilter :
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
@@ -751,7 +779,7 @@ theorem AggQueryIn.rewriting_chiFree :
   | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q

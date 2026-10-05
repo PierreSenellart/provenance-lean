@@ -1869,7 +1869,7 @@ theorem AggQueryIn.evaluate_guarded :
       exact ColKind.noConfusion hconf
     · rw [Fin.append_right] at hconf
       exact ColKind.noConfusion hconf
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a' q ih =>
+  | @GammaTok cI m n₁ n₂ κ' is his ts fs a' q keep ih =>
     intro d γ r hr v hfin k a ha
     have hconf := AggQueryIn.evaluate_conform _ d r hr k
     rw [ha] at hconf
@@ -1888,9 +1888,18 @@ theorem AggQueryIn.evaluate_guarded :
         exact ColKind.noConfusion hconf
       · simp only [Fin.append_left, Fin.append_right] at ha
         rw [← Sum.inr.inj ha]
-        refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
-        rw [AggValue.annList_ofGroup]
-        exact hG
+        cases hkj : keep j' with
+        | none =>
+          refine Or.inr ((AggValue.annGuard_iff_realized _ v).mp ?_)
+          rw [AggValue.annList_ofGroup]
+          exact hG
+        | some φ =>
+          -- as under `Gamma`: the expression's family is the whole group,
+          -- so the group's own guard gives it a realized occurrence
+          rw [AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
+          refine AggExpr.realizedWorld_nonempty_of_annGuard _ v ?_
+          rw [AggExpr.annList_ofGroupWhen]
+          exact hG
     · rw [Fin.append_right] at hconf
       exact ColKind.noConfusion hconf
   | Retag h q ih =>
@@ -3362,7 +3371,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | ProvSum is his t q ih =>
     intro hq
     exact hq.elim
-  | GammaTok is his ts fs a q ih =>
+  | GammaTok is his ts fs a q keep ih =>
     intro hq
     exact hq.elim
   | @Win cI nI mI pI P O o w t f q dist keep ih =>

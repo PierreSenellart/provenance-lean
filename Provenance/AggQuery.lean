@@ -741,15 +741,13 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   modeling semantics, and the world-faithfulness exclusions
   (`noProvSum`) rule it out of source queries.
 
-  It carries **no `FILTER` clause**, which is why `AggQueryIn.gammaRew`
-  rewrites an unfiltered grouping only. That is a limit of this
-  operator's reach and not a missing rule: a clause changes neither the
-  gate nor the guard – the guard is the sum over *every* occurrence of the
-  group, a rejected one included – so it rides through the rewriting
-  unchanged, asking it for no rule of its own. Giving the field would mean
-  carrying it by `Selection.castToAnnotatedTuple` and building
-  `AggExpr.ofGroupWhen` where the source does, with one transport lemma
-  (the analogue of `AggValue.ofGroup_toComposite`) to prove.
+  Its `keep` is the same clause as `AggQueryIn.Gamma`'s, read the same
+  way: it cuts what an aggregate reads and leaves the family and the
+  guard whole, so a filtered aggregate's column is an aggregate
+  expression (`AggExpr.ofGroupWhen`) and not an ordinary token. The
+  rewriting carries the source's clause into it unchanged
+  (`Selection.castToAnnotatedTuple`), a clause asking the rewriting for
+  no rule of its own.
 
   A clause over the rewritten schema could also compare the *provenance*
   column, which the transport never produces and which the semantics
@@ -761,6 +759,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
       (is : Tuple (Fin m) n₁) → (his : ∀ k, κ (is k) ≠ ColKind.agg) →
       (ts : Tuple (TermIn T c m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
       (a : TermGIn T c κ) → AggQueryIn T c m κ →
+      (keep : Fin n₂ → Option (Selection T m) := fun _ => none) →
       AggQueryIn T c (n₁ + n₂ + 1)
         (Fin.append
           (Fin.append (fun k => κ (is k)) (fun _ => ColKind.agg))
@@ -1250,15 +1249,21 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
               (fun p => t.evalPlain p.fst γ)).fold addFn 0)),
         ⟨((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             Prod.snd).sum, 0⟩⟩ : GenRow T K (n₁ + 1)))
-  | _, _, _, @GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q, d, γ =>
+  | _, _, _, @GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
       let g : Tuple T n₁ := kv.fst
       let U := Having.havingGroup is r g
+      -- a filtered aggregate reads its group as an expression, as under
+      -- `Gamma`: the family stays the whole group and the clause cuts
+      -- only what the aggregate reads of it
       ⟨Fin.append
         (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
-          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ))))
+          (fun j => Sum.inr (match keep j with
+            | none => AggTok.tok (AggValue.ofGroup (fs j) (ts j) U γ)
+            | some φ =>
+                AggTok.expr (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps U γ))))
         (fun _ : Fin 1 => Sum.inl
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
@@ -1592,13 +1597,14 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
     keys.map (fun g => Fin.append g (fun _ : Fin 1 =>
       ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
         (fun u => t.evalPlain u γ)).fold addFn 0))
-  | _, _, _, @GammaTok _ _ _m n₁ n₂ _κ is _his ts fs a q, d, γ =>
+  | _, _, _, @GammaTok _ _ _m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
     let r := q.evaluatePlain d γ
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append
       (Fin.append g
         (fun j => (fs j)
-          ((Relation.groupSeq is r g).map (fun v => (ts j).eval v γ))))
+          ((Relation.groupSeqOpt is r g (keep j)).map
+            (fun v => (ts j).eval v γ))))
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u γ)).fold addFn 0))
@@ -1902,7 +1908,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, GammaNest is his p f q => GammaNest is his p f q.stripAgg
   | _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
   | _, _, _, Retag h q => Retag h q.stripAgg
-  | _, _, _, GammaTok is his ts fs a q => GammaTok is his ts fs a q.stripAgg
+  | _, _, _, GammaTok is his ts fs a q keep =>
+      GammaTok is his ts fs a q.stripAgg keep
   | _, _, _, Win P O o w t f q dist keep =>
       Win P O o w t f q.stripAgg dist keep
   | _, _, _, WinExpr P O o ws ts fs g q keeps =>
@@ -1931,7 +1938,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ q => q.noProvSum
-  | _, _, _, .GammaTok _ _ _ _ _ _ => False
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noProvSum
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noProvSum
 
@@ -1959,7 +1966,7 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .GammaNest _ _ _ _ q => q.altFree
   | _, _, _, .ProvSum _ _ _ q => q.altFree
   | _, _, _, .Retag _ q => q.altFree
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.altFree
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.altFree
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.altFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.altFree
 
@@ -2162,9 +2169,10 @@ theorem GenRow.NoNested.of_ordinary {n : ℕ} {u : Tuple (GenValue T K) n}
   rfl
 
 /-- **No `FILTER` clause.** A grouping may cut the occurrence sequence
-one of its aggregates reads (`AggQueryIn.Gamma`'s `keep`), a window the
-part of its frame it reads (`AggQueryIn.Win`'s `keep`), and a multi-frame
-window the part of each leaf's frame (`AggQueryIn.WinExpr`'s `keeps`).
+one of its aggregates reads (`AggQueryIn.Gamma`'s `keep`, and
+`AggQueryIn.GammaTok`'s in the rewritten world), a window the part of its
+frame it reads (`AggQueryIn.Win`'s `keep`), and a multi-frame window the
+part of each leaf's frame (`AggQueryIn.WinExpr`'s `keeps`).
 
 What asks this is `AggQueryIn.evaluate_ordinaryTokens`, and for the
 reason that fence exists: a *filtered* aggregate of a grouping or of a
@@ -2194,7 +2202,7 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.noFilter
   | _, _, _, .ProvSum _ _ _ q => q.noFilter
   | _, _, _, .Retag _ q => q.noFilter
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.noFilter
+  | _, _, _, .GammaTok _ _ _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
   | _, _, _, .Win _ _ _ _ _ _ q _ keep => keep = none ∧ q.noFilter
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q keeps => (∀ l, keeps l = none) ∧ q.noFilter
 
@@ -2246,7 +2254,7 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ q => q.noGammaNest
   | _, _, _, .Retag _ q => q.noGammaNest
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.noGammaNest
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noGammaNest
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaNest
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaNest
 
@@ -2282,7 +2290,7 @@ def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
   | _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
   | _, _, _, .Retag _ q => q.nestInComplemented
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.nestInComplemented
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestInComplemented
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.nestInComplemented
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestInComplemented
 
@@ -2310,7 +2318,7 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   | GammaNest is his p f q ih => exact fun h => absurd h not_false
   | ProvSum is his t q ih => exact ih
   | Retag hk q ih => exact ih
-  | GammaTok is his ts fs ann q ih => exact ih
+  | GammaTok is his ts fs ann q keep ih => exact ih
   | Win P O o w t f q dist keep ih => exact ih
   | WinExpr P O o ws ts fs g q keeps ih => exact ih
 
@@ -2344,7 +2352,7 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
   | _, _, _, .ProvSum _ _ _ q => q.nestOnce
   | _, _, _, .Retag _ q => q.nestOnce
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.nestOnce
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestOnce
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.nestOnce
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestOnce
 
@@ -2372,7 +2380,7 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
-  | GammaTok a b cc dd e q ih => exact ih
+  | GammaTok a b cc dd e q keep ih => exact ih
   | Win a b cc dd e ff q dist kp ih => exact ih
   | WinExpr a b cc dd e ff gg q kps ih => exact ih
 
@@ -2404,7 +2412,7 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.noWinExpr
   | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
   | _, _, _, .Retag _ q => q.noWinExpr
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.noWinExpr
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noWinExpr
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noWinExpr
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
@@ -2440,7 +2448,7 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.framesContainSelf
   | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
   | _, _, _, .Retag _ q => q.framesContainSelf
-  | _, _, _, .GammaTok _ _ _ _ _ q => q.framesContainSelf
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.framesContainSelf
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.framesContainSelf
   | _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
@@ -2468,7 +2476,7 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | GammaNest a b cc dd q ih => exact ih
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
-  | GammaTok a b cc dd e q ih => exact ih
+  | GammaTok a b cc dd e q keep ih => exact ih
   | Win a b cc dd e ff q dist kp ih => exact ih
   | WinExpr a b cc dd e ff gg q kps ih => exact fun hw => absurd hw not_false
 
@@ -2621,19 +2629,22 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     exact ih hq hn hfl d r hr k a ha
-  | GammaTok is his ts fs ann q ih =>
+  | GammaTok is his ts fs ann q keep ih =>
     intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · refine Fin.addCases (fun i' => ?_) (fun j' => ?_) i <;> intro a ha
       · exact absurd ha (by simp [Fin.append_left])
-      · cases a with
+      · -- no clause here, by `hfl`, so the column is an ordinary token
+        cases a with
         | tok _ => rfl
         | nest _ =>
-          exact absurd ha (by simp [Fin.append_left, Fin.append_right])
+          exact absurd ha (by
+            simp [Fin.append_left, Fin.append_right, hfl.1 j'])
         | expr _ =>
-          exact absurd ha (by simp [Fin.append_left, Fin.append_right])
+          exact absurd ha (by
+            simp [Fin.append_left, Fin.append_right, hfl.1 j'])
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
   | Win P O o w t f q dist keep ih =>
@@ -2805,19 +2816,22 @@ theorem AggQueryIn.evaluate_noNested :
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     exact ih hn d r hr k a ha
-  | GammaTok is his ts fs ann q ih =>
+  | GammaTok is his ts fs ann q keep ih =>
     intro hn d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · refine Fin.addCases (fun i' => ?_) (fun j' => ?_) i <;> intro a ha
       · exact absurd ha (by simp [Fin.append_left])
-      · cases a with
+      · -- a clause makes the column an expression, which is not nested
+        cases a with
         | tok _ => rfl
         | nest _ =>
-          exact absurd ha (by simp [Fin.append_left, Fin.append_right])
-        | expr _ =>
-          exact absurd ha (by simp [Fin.append_left, Fin.append_right])
+          refine absurd ha ?_
+          cases hk : keep j' with
+          | none => simp [Fin.append_left, Fin.append_right, hk]
+          | some φ => simp [Fin.append_left, Fin.append_right, hk]
+        | expr _ => rfl
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
   | Win P O o w t f q dist keep ih =>
@@ -3016,7 +3030,7 @@ theorem AggQueryIn.evaluate_conform :
     · dsimp only
       rw [Fin.append_right, Fin.append_right]
       rfl
-  | GammaTok is his ts fs a q ih =>
+  | GammaTok is his ts fs a q keep ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr

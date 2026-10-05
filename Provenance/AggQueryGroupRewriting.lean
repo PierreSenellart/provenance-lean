@@ -161,6 +161,33 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
   rw [← a.valOn_toComposite Finset.univ]
   exact congrArg a.toComposite.valOn (Finset.map_univ_equiv _).symm
 
+omit [DecidableEq K] in
+/-- **The expression a filtered aggregate of a group builds transports
+too**: the clause of the rewritten world is the source's read on the
+embedded row, which `Selection.castToAnnotatedTuple` keeps, so the
+occurrences, their annotations and their clause flags all agree. -/
+theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
+    (t : Term T m) (φ : Selection T m) (U : List (AnnotatedTuple T K m)) :
+    (AggExpr.ofGroupWhen f t φ.keeps U).toComposite
+      = AggExpr.ofGroupWhenRew (T := T) f.liftComposite
+          t.castToAnnotatedTuple (φ.castToAnnotatedTuple (K := K)).keeps
+          (U.map (fun p => ((p.toComposite, p.snd)
+            : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
+  unfold AggExpr.toComposite AggExpr.ofGroupWhenRew AggExpr.ofGroupWhen
+    AggExpr.ofSeqWhen
+  refine congrArg (fun l => (AggExpr.mk 1 l (fun _ => f.liftComposite)
+    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0))
+      : AggExpr (T ⊕ K) K)) ?_
+  rw [List.map_map, List.map_map]
+  refine List.map_congr_left (fun p _ => ?_)
+  refine Prod.ext (funext (fun _ => ?_)) (Prod.ext rfl (Prod.ext rfl ?_))
+  · exact (TermIn.castToAnnotatedTuple_eval t p.fst p.snd).symm
+  · refine funext (fun _ => ?_)
+    show φ.keeps p.fst
+      = (φ.castToAnnotatedTuple (K := K)).keeps (AnnotatedTuple.toComposite p)
+    unfold Selection.keeps AnnotatedTuple.toComposite
+    rw [Selection.castToAnnotatedTuple_eval3 φ p.fst p.snd]
+
 /-- Transport a token to the composite value domain. A nested token
 transports its inner values the same way, and an expression its shared
 occurrences, its leaf aggregates and its own function. -/
@@ -352,7 +379,8 @@ def AggQueryIn.gammaRewOf {m n₁ n₂ : ℕ} {κ' : Fin (m + 1) → ColKind}
     (fs : Tuple (SeqAggFunc T) n₂)
     (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
     (hprov : κ' (Fin.last m) = ColKind.prov)
-    (q' : AggQuery (T ⊕ K) (m + 1) κ') :
+    (q' : AggQuery (T ⊕ K) (m + 1) κ')
+    (keep : Fin n₂ → Option (Selection T m) := fun _ => none) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
   AggQueryIn.Retag
     (fun k => congrArg ColKind.base
@@ -365,7 +393,10 @@ def AggQueryIn.gammaRewOf {m n₁ n₂ : ℕ} {κ' : Fin (m + 1) → ColKind}
       (fun j => (ts j).castToAnnotatedTuple)
       (fun j => (fs j).liftComposite)
       (TermGIn.provIndex (Fin.last m) hprov)
-      q')
+      q'
+      -- the source's clause, read on the embedded row: it tests the data
+      -- columns, which the embedding keeps
+      (fun j => (keep j).map Selection.castToAnnotatedTuple))
 
 /-- **The rewritten bare grouping**: ProvSQL's `provsql_agg` grouping over
 the classically rewritten subquery, reading the occurrence annotations
@@ -398,7 +429,8 @@ theorem AggQueryIn.gammaRewOf_valid {m n₁ n₂ : ℕ}
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
     (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
     (hprov : κ' (Fin.last m) = ColKind.prov)
-    (q' : AggQuery (T ⊕ K) (m + 1) κ') (d : AnnotatedDatabase T K)
+    (q' : AggQuery (T ⊕ K) (m + 1) κ')
+    (keep : Fin n₂ → Option (Selection T m)) (d : AnnotatedDatabase T K)
     (R : AnnotatedRelation T K m)
     (hR : Multiset.map GenRow.toAnnotated (qg.evaluate d) = R)
     (har : Multiset.map (fun u => ((GenRow.plainTuple u,
@@ -407,8 +439,8 @@ theorem AggQueryIn.gammaRewOf_valid {m n₁ n₂ : ℕ}
         (q'.evaluateRew d.toComposite)
       = R.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) :
-    ((AggQueryIn.Gamma is ts fs qg).evaluate d).map GenRow.toCompositeRow
-      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q').evaluateRew
+    ((AggQueryIn.Gamma is ts fs qg keep).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q' keep).evaluateRew
           d.toComposite := by
   simp only [AggQueryIn.evaluate]
   rw [hR]
@@ -473,8 +505,15 @@ theorem AggQueryIn.gammaRewOf_valid {m n₁ n₂ : ℕ}
     · rw [Fin.append_left, Fin.append_left]
       rfl
     · rw [Fin.append_right, Fin.append_right]
-      exact congrArg (fun a => Sum.inr (AggTok.tok a))
-        (AggValue.ofGroup_toComposite _ _ _)
+      cases hkj : keep j' with
+      | none =>
+        exact congrArg (fun a => Sum.inr (AggTok.tok a))
+          (AggValue.ofGroup_toComposite _ _ _)
+      | some φ =>
+        -- a filtered aggregate's column is an expression on both sides,
+        -- and the clause is the source's read on the embedded row
+        exact congrArg (fun a => Sum.inr (AggTok.expr a))
+          (AggExpr.ofGroupWhen_toComposite _ _ _ _)
   · rw [Fin.append_right, Fin.append_right]
     dsimp only
     rw [GenAnn.finalize_gamma, List.map_map]
@@ -493,7 +532,8 @@ theorem AggQueryIn.gammaRew_valid {m n₁ n₂ : ℕ}
       = (AggQueryIn.gammaRew is ts fs qg hq).evaluateRew d.toComposite :=
   AggQueryIn.gammaRewOf_valid is ts fs qg
     (fun k => ColKind.rewKinds_lt (is k).isLt)
-    (ColKind.rewKinds_of_not_lt (lt_irrefl m)) (qg.rewriting hq) d
+    (ColKind.rewKinds_of_not_lt (lt_irrefl m)) (qg.rewriting hq)
+    (fun _ => none) d
     ((qg.strip hq).evaluateAnnotated (qg.strip_source hq) d)
     (AggQueryIn.strip_bridge qg hq d)
     (AggQueryIn.rewriting_provRel qg hq d)

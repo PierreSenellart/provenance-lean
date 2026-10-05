@@ -337,9 +337,9 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .ProvSum is his t q =>
       .ProvSum is his (t.substMap θ) (q.substMap θ)
   | _, _, _, _, θ, .Retag h q => .Retag h (q.substMap θ)
-  | _, _, _, _, θ, .GammaTok is his ts fs a q =>
+  | _, _, _, _, θ, .GammaTok is his ts fs a q keep =>
       .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
-        (q.substMap θ)
+        (q.substMap θ) keep
   | _, _, _, _, θ, .Win P O o w t f q dist keep =>
       .Win P O o w (t.substMap θ) f (q.substMap θ) dist keep
   | _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
@@ -480,7 +480,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     exact congrArg (Multiset.fold addFn 0)
       (Multiset.map_congr rfl (fun u _ => TermGIn.evalPlain_substMap θ t u γ))
   | Retag h q ih => intro d θ D γ; rw [AggQueryIn.substMap]; exact ih θ D γ
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q ih =>
+  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -697,11 +697,11 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, TermGIn.evalPlain_substMap]
     rw [ih θ dB γ]
   | Retag h q ih => intro d θ dB γ; rw [AggQueryIn.substMap]; exact ih θ dB γ
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q ih =>
+  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
-      TermGIn.evalPlain_substMap]
+      AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
     rw [ih θ dB γ]
   | @Win cI n' m' p' P O o w t f q dist keep ih =>
     intro d θ dB γ

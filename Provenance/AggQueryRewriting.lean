@@ -89,7 +89,7 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ _ => False
-  | _, _, _, .GammaTok _ _ _ _ _ _ => False
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   -- rewriting a window into the provenance-carrying form is not part of
   -- (R1)-(R5); a window is excluded from the fragment, as a grouping is
   | _, _, _, .Win _ _ _ _ _ _ _ _ _ => False
@@ -124,7 +124,7 @@ theorem AggQueryIn.noGammaNest_of_classical :
   | _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim
   | _, _, _, .ProvSum _ _ _ _, hq => hq.elim
   | _, _, _, .Retag _ _, hq => hq.elim
-  | _, _, _, .GammaTok _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => hq.elim
   | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => hq.elim
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => hq.elim
 

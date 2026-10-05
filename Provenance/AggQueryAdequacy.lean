@@ -562,7 +562,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
         Multiset.map_map]
       exact Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
         (fun _ _ => rfl)
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q ih =>
+  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
     intro hq d γ
     rw [hplain]
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
@@ -602,12 +602,25 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
         rw [Fin.append_left, Fin.append_left, Fin.append_right,
           Fin.append_right]
         simp only [AggValue.collapseSum, Sum.elim_inr, AggTok.collapse]
-        rw [AggValue.collapse_ofGroup]
-        have hg := congrArg (List.map (fun v => (ts j').eval v γ))
-          (havingGroup_map_fst is
-            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
-        rw [List.map_map, hview] at hg
-        exact congrArg (fs j') hg
+        -- a clause cuts the occurrences on both sides alike
+        cases hkj : keep j' with
+        | none =>
+          show (AggValue.ofGroup (fs j') (ts j') _ γ).collapse = _
+          rw [AggValue.collapse_ofGroup]
+          have hg := congrArg (List.map (fun v => (ts j').eval v γ))
+            (havingGroup_map_fst is
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+          rw [List.map_map, hview] at hg
+          exact congrArg (fs j') hg
+        | some φ =>
+          show (AggExpr.ofGroupWhen (fs j') (ts j') φ.keeps _ γ).collapse = _
+          rw [AggExpr.collapse_ofGroupWhen]
+          have hg := congrArg
+            (fun L => (L.filter φ.keeps).map (fun v => (ts j').eval v γ))
+            (havingGroup_map_fst is
+              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+          rw [hview] at hg
+          exact congrArg (fs j') hg
     · show AggValue.collapseSum _ = _
       rw [Fin.append_right, Fin.append_right]
       simp only [AggValue.collapseSum]
