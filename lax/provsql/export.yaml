@@ -38,7 +38,7 @@ notice: >-
   (CC BY 4.0); the IEEEtran class it uses is under the LaTeX Project Public
   License.
 manifest:
-  title: "ProvSQL: provenance-aware query rewriting is correct"
+  title: "ProvSQL: provenance-aware query rewriting and probabilistic query evaluation are correct"
   authors:
     - name: Pierre Senellart
       orcid: 0000-0002-7909-5369

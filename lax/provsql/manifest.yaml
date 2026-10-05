@@ -2,7 +2,7 @@ specVersion: "1"
 id: "lax-392996"
 leanVersion: "v4.33.0"
 mathlibVersion: "db584cd6d46c92f209a44c0f1c829460d327499d"
-title: "ProvSQL: provenance-aware query rewriting is correct"
+title: "ProvSQL: provenance-aware query rewriting and probabilistic query evaluation are correct"
 authors:
   - name: "Pierre Senellart"
     orcid: "0000-0002-7909-5369"

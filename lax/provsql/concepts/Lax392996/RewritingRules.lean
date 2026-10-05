@@ -4,7 +4,7 @@ import Lax392996.RelationalAlgebra
 
 /-!
 ---
-title: The provenance-aware rewriting of queries
+title: The provenance-aware rewriting of queries, rules (R1) to (R4)
 type: definition
 ---
 The rewriting $\hat q$ of a source query $q$ of arity $k$ into a query of

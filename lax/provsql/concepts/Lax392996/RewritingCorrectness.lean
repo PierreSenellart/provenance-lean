@@ -8,7 +8,7 @@ import Lax392996.RewritingRules
 
 /-!
 ---
-title: Correctness of the provenance-aware rewriting
+title: Correctness of the provenance-aware rewriting, rules (R1) to (R4)
 type: theorem
 ---
 Let $q$ be a source query, $\mathbb{K}$ an m-semiring with decidable
@@ -18,7 +18,10 @@ bottom up. Then $\langle\!\langle q \rangle\!\rangle_{\hat I} = [\![\hat
 q]\!]_{\hat I}$: the annotated semantics of $q$ on $\hat I$, read as a plain
 relation with the annotation in the last column, is the multiset semantics
 of $\hat q$ on the composite reading of $\hat I$. This is the theorem of the
-paper for rules (R1) to (R4).
+paper restricted to rules (R1) to (R4): the paper's statement also covers
+the aggregation rule (R5), which this submission does not state; the
+library proves an analogue of it, on its general syntax with symbolic
+aggregate tokens, outside the paper's syntax.
 -/
 
 namespace Lax392996.RewritingCorrectness
