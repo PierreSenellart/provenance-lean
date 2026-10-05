@@ -657,7 +657,17 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   rejected rows – the row SQL emits for a group all of whose rows the
   clause rejects. `none` is the aggregate with no clause, and the clause
   that keeps everything reads exactly as `none` does. The clause reads
-  the group's input row and no outer column, as SQL's does. -/
+  the group's input row and no outer column, as SQL's does.
+
+  It reads **regular columns only**, and not by convention: SQL forbids
+  an aggregate inside the `FILTER` of an aggregate, so a clause is a
+  predicate of the plain value domain and not an atom over a token. Two
+  consequences the metatheory lives off. Its truth at an occurrence is
+  the same in every world, which is why no result here carries a
+  hypothesis about what a clause reads – the worlds it cuts are the
+  occurrence's own. And it is preserved by any transport that keeps the
+  data columns, which is why the rewriting can carry a clause unchanged
+  (`Selection.castToAnnotatedTuple`) with nothing to prove about it. -/
   | Gamma : {c m n₁ n₂ : ℕ} →
       (is : Tuple (Fin m) n₁) → (ts : Tuple (TermIn T c m) n₂) →
       (fs : Tuple (SeqAggFunc T) n₂) → AggQueryIn T c m (ColKind.allReg m) →
@@ -729,7 +739,24 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   carrying the group-existence guard. Its faithful semantics lives in
   the rewritten world's evaluator; the generic evaluators give it total
   modeling semantics, and the world-faithfulness exclusions
-  (`noProvSum`) rule it out of source queries. -/
+  (`noProvSum`) rule it out of source queries.
+
+  It carries **no `FILTER` clause**, which is why `AggQueryIn.gammaRew`
+  rewrites an unfiltered grouping only. That is a limit of this
+  operator's reach and not a missing rule: a clause changes neither the
+  gate nor the guard – the guard is the sum over *every* occurrence of the
+  group, a rejected one included – so it rides through the rewriting
+  unchanged, asking it for no rule of its own. Giving the field would mean
+  carrying it by `Selection.castToAnnotatedTuple` and building
+  `AggExpr.ofGroupWhen` where the source does, with one transport lemma
+  (the analogue of `AggValue.ofGroup_toComposite`) to prove.
+
+  A clause over the rewritten schema could also compare the *provenance*
+  column, which the transport never produces and which the semantics
+  permits in one form only: as an evaluation of the annotation in `𝔹`
+  whose result does not enter an annotation, the way the displayed-value
+  aggregate reads the rows whose token holds under `hTop`. Anything else
+  would be evaluating an annotation while building one. -/
   | GammaTok : {c m n₁ n₂ : ℕ} → {κ : Fin m → ColKind} →
       (is : Tuple (Fin m) n₁) → (his : ∀ k, κ (is k) ≠ ColKind.agg) →
       (ts : Tuple (TermIn T c m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
