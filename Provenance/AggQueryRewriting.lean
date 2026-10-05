@@ -97,6 +97,39 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
+/-- A classical query builds no nested token, every aggregating operator
+being outside the fragment. -/
+theorem AggQueryIn.noGammaNest_of_classical :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.classical → q.noGammaNest
+  | _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, .Proj _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
+  | _, _, _, .Sel _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
+  | _, _, _, .Prod q₁ q₂, hq =>
+    ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
+      AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
+  | _, _, _, .Sum q₁ q₂, hq =>
+    ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
+      AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
+  | _, _, _, .Dedup q, hq => AggQueryIn.noGammaNest_of_classical q hq
+  | _, _, _, .Diff q₁ q₂, hq =>
+    ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
+      AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
+  | _, _, _, .Apply _ _, hq => hq.elim
+  | _, _, _, .Alt _ _ _, hq => hq.elim
+  | _, _, _, .Mu _ _ _ _, hq => hq.elim
+  | _, _, _, .MuSet _ _ _ _, hq => hq.elim
+  | _, _, _, .Gamma _ _ _ _ _, hq => hq.elim
+  | _, _, _, .GammaScalar _ _ _, hq => hq.elim
+  | _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim
+  | _, _, _, .ProvSum _ _ _ _, hq => hq.elim
+  | _, _, _, .Retag _ _, hq => hq.elim
+  | _, _, _, .GammaTok _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => hq.elim
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
 /-- Classical queries have all-regular kinds (pointwise). -/
 theorem AggQueryIn.classical_kinds :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),

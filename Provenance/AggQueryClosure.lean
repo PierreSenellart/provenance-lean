@@ -62,17 +62,26 @@ compute its rows, not that it be classical. This is what covers a
 the inner aggregate column to be read out first, as SQL does with a
 `SELECT key, count(*) AS c` subquery -- which
 `AggQueryIn.rewritesTo_gamma_gamma` exhibits and the classical `gamma`
-rule cannot reach. The `HAVING` site stays fused and classical, because
-its rewriting supersedes the group guard its own `Gamma` created: the
-rewritten row carries the *finalized* annotation and not the pending
-factor, so the supersede decision has to be taken where the factor is
-known.
+rule cannot reach. The *selection with an aggregate atom* closes over an
+arbitrary rewritten subquery too (`AggQueryIn.RewritesTo.selAgg`, off
+`AggQueryIn.selAggRew_valid`), so a `HAVING` need not sit on the grouping
+it reads: `AggQueryIn.rewritesTo_having_over_gamma` puts one over a
+grouping of a grouping. Its provenance column is the gate term times the
+row's own provenance column, with *no* entailment test -- where the
+predicate entails the group's existence the evaluator drops the pending
+factor and the gate term absorbs the guard left in the column instead
+(`GenPredIn.predsem_absorb_prod`, exactly for the factors whose family
+the predicate compares, which is what the evaluator's supersede filter
+selects). The entailment test of the fused site
+(`GenPredIn.siteProvTerm`) is therefore an optimization -- ProvSQL's
+`having_entails_group_existence` -- and not what makes the rewriting
+correct; the fused rule stays because it is the shape ProvSQL emits.
 
 So the closure is complete for the operators the kind discipline admits
-above a grouping, and for a grouping above anything the closure reaches.
-What is outside it is the operators with no rewriting at all -- the
-windows, the apply, the two recursions and the alternatives -- and a
-difference above a grouping, which the kinds already forbid.
+above a grouping, and for a grouping and a `HAVING` above anything the
+closure reaches. What is outside it is the operators with no rewriting at
+all -- the windows, the apply, the two recursions and the alternatives --
+and a difference above a grouping, which the kinds already forbid.
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
@@ -1703,6 +1712,107 @@ def AggQueryIn.rewritingOf {n : ℕ} {κ : Fin n → ColKind}
       (ColKind.rewKindsOf_base_of_reg (AggQueryIn.classical_kinds q hq) k).symm)
     (q.rewriting hq)
 
+/-! ## The general selection with an aggregate atom -/
+
+/-- **The provenance column of a rewritten selection whose predicate
+compares an aggregate column**, over an arbitrary rewritten subquery: the
+predicate's gate term times the row's own provenance column.
+
+No entailment test is needed here, unlike at the fused site
+(`GenPredIn.siteProvTerm`): where the predicate entails the group's
+existence the evaluator *drops* the pending factor, and the gate term
+absorbs the `δ`-guard it left in the provenance column instead
+(`GenPredIn.predsem_absorb_prod`). So multiplying by the column is right
+in both cases, and the test is only the optimization ProvSQL performs. -/
+def GenPredIn.selProvTerm {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred T κ) :
+    TermG (T ⊕ K) (ColKind.rewKindsOf κ) :=
+  TermGIn.mul (φ.gateTerm false)
+    (TermGIn.provIndex (c := 0) (Fin.last n) (ColKind.rewKindsOf_last κ))
+
+/-- The output columns of a rewritten selection: every data column copied
+verbatim, whatever its kind, and the predicate's provenance term in the
+provenance column. -/
+def AggQueryIn.selAggCols {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred T κ) :
+    Tuple (ProjCol (T ⊕ K) (ColKind.rewKindsOf κ)) (n + 1) :=
+  fun j =>
+    if hj : (j : ℕ) < n then
+      ProjColIn.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n))
+    else
+      ProjColIn.provTerm (φ.selProvTerm (K := K))
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- They have the rewritten kinds of the source. -/
+theorem AggQueryIn.selAggCols_kind {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (j : Fin (n + 1)) :
+    (AggQueryIn.selAggCols (K := K) φ j).kind = ColKind.rewKindsOf κ j := by
+  unfold AggQueryIn.selAggCols
+  by_cases hj : (((j : ℕ) < n) : Prop)
+  · rw [dite_eq_left hj, ProjColIn.copy_kind]
+    exact congrArg (ColKind.rewKindsOf κ)
+      (Fin.ext rfl : Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n) = j)
+  · rw [dite_eq_right hj]
+    exact (ColKind.rewKindsOf_of_not_lt κ hj).symm
+
+/-- **The rewritten selection with an aggregate atom**, over an arbitrary
+rewritten subquery: keep every data column and replace the provenance
+column by the predicate's provenance term. -/
+def AggQueryIn.selAggRew {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred T κ)
+    (q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ)) :
+    AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ) :=
+  AggQueryIn.Retag
+    (fun j => congrArg ColKind.base (AggQueryIn.selAggCols_kind φ j))
+    (AggQueryIn.Proj (AggQueryIn.selAggCols φ) q')
+
+/-- **Correctness of the general selection rewriting**, relative to the
+gate primitives: for a predicate with an aggregate atom, over any
+rewritten subquery that computes the input's rows. The data columns are
+copied, and in the provenance column the gate term multiplies the row's
+finalized annotation, which is the evaluator's own update by
+`GenAnn.finalize_sel` – the superseded pending factors being exactly the
+ones the gate term absorbs. -/
+theorem AggQueryIn.selAggRew_valid {n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPred T κ) (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
+    (q : AggQuery T n κ)
+    (q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ))
+    (d : AnnotatedDatabase T K)
+    (hnn : ∀ r ∈ q.evaluate d, GenRow.NoNested r.fst)
+    (hrel : (q.evaluate d).map GenRow.toCompositeRow
+      = q'.evaluateRew d.toComposite) :
+    ((AggQueryIn.Sel φ q).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.selAggRew φ q').evaluateRew d.toComposite := by
+  unfold AggQueryIn.selAggRew
+  show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) d.toComposite
+  simp only [AggQueryIn.evaluate, AggQueryIn.evaluateRew]
+  rw [ite_eq_left hφ, ← hrel, Multiset.map_map, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun r hr => ?_)
+  simp only [Function.comp_apply]
+  have hconf : ∀ k, GenValue.kindOf (r.fst k) = (κ k).base :=
+    fun k => AggQueryIn.evaluate_conform q d r hr k
+  funext j
+  unfold AggQueryIn.selAggCols
+  by_cases hj : (((j : ℕ) < n) : Prop)
+  · rw [dite_eq_left hj,
+      ProjColIn.copy_evalRew _ _ (GenRow.toCompositeRow_conform r hconf _),
+      GenRow.toCompositeRow_castAdd, GenRow.toCompositeRow_coord,
+      dite_eq_left hj]
+  · rw [dite_eq_right hj, GenRow.toCompositeRow_coord, dite_eq_right hj]
+    show _ = Sum.inl (TermGIn.evalRew (φ.selProvTerm) _)
+    unfold GenPredIn.selProvTerm
+    show _ = Sum.inl (TermGIn.evalRew (φ.gateTerm false) _
+      * TermGIn.evalRew (TermGIn.provIndex _ _) _)
+    rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false r (hnn r hr)]
+    show _ = Sum.inl (Sum.inr (φ.predsem false r.fst _)
+      * AggValue.collapseSum (r.toCompositeRow (Fin.last n)))
+    rw [GenRow.toCompositeRow_last]
+    show (Sum.inl (Sum.inr (GenAnn.finalize _)) : GenValue (T ⊕ K) K)
+      = Sum.inl (Sum.inr (φ.predsem false r.fst _ * GenAnn.finalize r.snd))
+    refine congrArg (fun k => (Sum.inl (Sum.inr k) : GenValue (T ⊕ K) K)) ?_
+    exact GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
+      (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
+        ⟨k, Finset.mem_val.mpr hk, by rw [hka]⟩)
+      (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
+        ⟨k, Finset.mem_val.mpr hk, by rw [hka]; simp [hsc]⟩)
+
 /-- **What a token-building grouping reads off an embedded row**: the
 composite encoding of the row's finalized annotated tuple, and the
 annotation its provenance column carries. Nothing is asked of the row's
@@ -1815,6 +1925,12 @@ inductive AggQueryIn.RewritesTo :
       (φ : GenPred T κ) (hφ : φ.hasAggAtom = false) :
       RewritesTo q q' →
       RewritesTo (AggQueryIn.Sel φ q) (AggQueryIn.Sel φ.castRew q')
+  | selAgg {n : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ}
+      {q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ)}
+      (φ : GenPred T κ) (hφ : φ.hasAggAtom = true)
+      (hrf : φ.rangeFree = true) (hnn : q.noGammaNest) :
+      RewritesTo q q' →
+      RewritesTo (AggQueryIn.Sel φ q) (AggQueryIn.selAggRew φ q')
   | proj {n m : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ}
       {q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ)}
       (ps : Tuple (ProjCol T κ) m) :
@@ -1874,6 +1990,33 @@ theorem AggQueryIn.rewritesTo_gamma_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
   ⟨_, .gammaOf is' ts' fs'
     (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq))⟩
 
+omit [DecidableEq K] in
+/-- **A `HAVING` over a grouping of a grouping is in the closure.** Two
+rules the closure did not have before reach it: the grouping over an
+arbitrary rewriting (`gammaOf`) and the selection with an aggregate atom
+over an arbitrary rewriting (`selAgg`). The fused site rule cannot – its
+input has to be classical – and the aggregate-free `sel` rule cannot
+either, the predicate comparing a token. -/
+theorem AggQueryIn.rewritesTo_having_over_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+    (fs : Tuple (SeqAggFunc T) n₂)
+    (os : Tuple (TermG T (ColKind.gammaKinds n₁ n₂)) m₂)
+    (is' : Tuple (Fin m₂) p₁) (ts' : Tuple (Term T m₂) p₂)
+    (fs' : Tuple (SeqAggFunc T) p₂)
+    (φ : GenPred T (ColKind.gammaKinds p₁ p₂))
+    (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    ∃ q' : AggQuery (T ⊕ K) (p₁ + p₂ + 1)
+        (ColKind.rewKindsOf (ColKind.gammaKinds p₁ p₂)),
+      AggQueryIn.RewritesTo
+        (AggQueryIn.Sel φ
+          (AggQueryIn.Gamma is' ts' fs'
+            (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
+              (AggQueryIn.Gamma is ts fs qg)))) q' :=
+  ⟨_, .selAgg φ hφ hrf (AggQueryIn.noGammaNest_of_classical qg hq)
+    (.gammaOf is' ts' fs'
+      (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq)))⟩
+
 /-- **Whole-query correctness of the compositional rewriting**: along the
 closure, the general evaluator's rows, embedded token-aware into the
 composite domain, are exactly the rewritten world's evaluation. -/
@@ -1894,6 +2037,9 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
         (AggQueryIn.rewriting_noFilter q hq)]
   | gamma is ts fs qg hq =>
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
+  | selAgg φ hφ hrf hnn h₀ ih =>
+    exact AggQueryIn.selAggRew_valid φ hφ hrf _ _ d
+      (fun r hr => AggQueryIn.evaluate_noNested _ hnn d r hr) ih
   | gammaOf is ts fs h₀ ih =>
     exact AggQueryIn.gammaRewOf_valid is ts fs _ _ _ _ d _ rfl
       (AggQueryIn.provRel_of_toCompositeRow _ _ _ d ih)

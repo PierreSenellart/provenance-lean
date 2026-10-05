@@ -1099,13 +1099,20 @@ proven engine several general results reuse internally.
   `AggQuery.provRel_of_toCompositeRow` reads off any such rewriting – so
   a `GROUP BY` over a `GROUP BY` is covered, the inner aggregate column
   read out first as the kinds ask
-  (`AggQuery.rewritesTo_gamma_gamma`). The `HAVING` site is still fused
-  and classical, which is not known to be necessary: the rewritten row
-  carries the finalized annotation rather than the pending factor, and a
-  semiring cannot divide the guard out – but a predicate entailing the
-  group's existence absorbs it (`GenPred.predsem_absorb_prod`), so what a
-  general selection rule lacks is that absorption plus a supersede test
-  taken on the rewritten row, not an impossibility. Difference above a grouping the kinds
+  (`AggQuery.rewritesTo_gamma_gamma`). The **selection with an aggregate
+  atom** closes over an arbitrary rewritten subquery as well
+  (`AggQuery.RewritesTo.selAgg`, off `AggQuery.selAggRew_valid`), so a
+  `HAVING` need not sit on the grouping it reads – one over a grouping of
+  a grouping is covered (`AggQuery.rewritesTo_having_over_gamma`). Its
+  provenance column is the gate term times the row's own provenance
+  column, with no entailment test: where the predicate entails the
+  group's existence the evaluator drops the pending factor and the gate
+  term absorbs the guard left in the column instead
+  (`GenPred.predsem_absorb_prod`, for exactly the factors the evaluator's
+  supersede filter selects). ProvSQL's
+  `having_entails_group_existence` test is therefore an optimization and
+  not what makes the rewriting correct; the fused site rule stays because
+  it is the shape ProvSQL emits. Difference above a grouping the kinds
   already forbid; what is left outside is the operators with no
   rewriting at all – the windows, the apply, the two recursions and the
   alternatives

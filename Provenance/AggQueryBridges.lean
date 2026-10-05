@@ -372,3 +372,315 @@ theorem AggQueryIn.evaluate_Sel_reg_absorb {c n : ℕ} {κ : Fin n → ColKind}
     rw [show ((GenPredIn.cmp (T := T) (κ := κ) op t₁ t₂).and ψ).comparedCols
         = ψ.comparedCols from by
       simp [GenPredIn.comparedCols]]
+
+
+/-! ## Guard absorption and the finalize identities
+
+These belong to the *evaluator*, not to any particular metatheorem: an
+existence-entailing predicate provenance absorbs the `δ`-guard of the
+group it compares, which is what licenses the evaluator's supersede of a
+pending factor, and the finalize identities say what the three row
+transformations do to the factored annotation. The homomorphism layer and
+the rewriting closure both read them. -/
+
+section GuardAbsorption
+
+variable {c n : ℕ} {κ : Fin n → ColKind}
+
+/-! ## Guard absorption
+
+The first substantive use of the `delta_absorb` axiom: an
+existence-entailing predicate provenance algebraically absorbs its
+group's `δ`-guard. Every monomial of the possible-world sum contains
+some occurrence annotation of the group (the worlds are non-empty), and
+`delta_absorb` lets that occurrence swallow `δ` of the whole group
+sum. -/
+
+omit [HasAltLinearOrder K] in
+/-- A token's predicate provenance absorbs the `δ`-guard of its own
+group, for an arbitrary test on its value. -/
+theorem AggValue.predProvWith_delta_absorb (a : AggValue T K)
+    (P : T → Kleene) :
+    a.predProvWith P
+        * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
+      = a.predProvWith P := by
+  unfold AggValue.predProvWith
+  rw [Finset.sum_mul]
+  refine Finset.sum_congr rfl fun W hW => ?_
+  obtain ⟨-, hne⟩ := Finset.mem_filter.mp hW
+  obtain ⟨i₀, hi₀⟩ := hne
+  have hmem : a.anns i₀ ∈ (↑(a.occs.map Prod.snd) : Multiset K) :=
+    Multiset.mem_coe.mpr
+      (List.mem_map.mpr ⟨a.occs.get i₀, List.get_mem _ _, rfl⟩)
+  have hr : (a.occs.map Prod.snd).sum
+      = a.anns i₀ + ((↑(a.occs.map Prod.snd) : Multiset K).erase
+          (a.anns i₀)).sum := by
+    rw [← Multiset.sum_coe, ← Multiset.sum_cons, Multiset.cons_erase hmem]
+  have key : a.anns i₀
+      * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
+      = a.anns i₀ := by
+    rw [hr]
+    exact SemiringWithMonus.delta_absorb _ _
+  have hw : Having.worldAnn a.anns W
+      = a.anns i₀ * ((∏ i ∈ W.erase i₀, a.anns i)
+          * (1 - ∑ i ∈ Wᶜ, a.anns i)) := by
+    unfold Having.worldAnn
+    rw [← Finset.mul_prod_erase W a.anns hi₀, mul_assoc]
+  rw [hw]
+  calc a.anns i₀ * ((∏ i ∈ W.erase i₀, a.anns i)
+          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chiOf P (a.valOn W)
+        * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
+      = ((∏ i ∈ W.erase i₀, a.anns i) * (1 - ∑ i ∈ Wᶜ, a.anns i)
+          * Having.chiOf P (a.valOn W))
+        * (a.anns i₀
+          * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)) := by
+        rw [mul_rotate (a.anns i₀), mul_assoc]
+    _ = ((∏ i ∈ W.erase i₀, a.anns i) * (1 - ∑ i ∈ Wᶜ, a.anns i)
+          * Having.chiOf P (a.valOn W)) * a.anns i₀ := by
+        rw [key]
+    _ = a.anns i₀ * ((∏ i ∈ W.erase i₀, a.anns i)
+          * (1 - ∑ i ∈ Wᶜ, a.anns i)) * Having.chiOf P (a.valOn W) :=
+        (mul_rotate _ _ _).symm
+
+omit [HasAltLinearOrder K] in
+/-- The comparison case. -/
+theorem AggValue.predProv_delta_absorb (a : AggValue T K) (op : CompOp)
+    (c : T) :
+    a.predProv op c
+        * SemiringWithMonus.delta ((a.occs.map Prod.snd).sum)
+      = a.predProv op c :=
+  AggValue.predProvWith_delta_absorb a (fun v => op.eval3 v c)
+
+omit [HasAltLinearOrder K] in
+/-- **Guard absorption for entailing predicates**: when a predicate
+entails existence and all its compared tokens carry the annotation list
+`ℓ₀`, its predicate provenance absorbs `δ(⊕ℓ₀)`. -/
+theorem GenPredIn.predsem_delta_absorb {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) (u : Tuple (GenValue T K) n)
+    (ℓ₀ : List K)
+    (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀)
+    (hent : φ.entailsExistence neg = true) :
+    φ.predsem neg u γ * SemiringWithMonus.delta ℓ₀.sum
+      = φ.predsem neg u γ := by
+  induction φ generalizing neg with
+  | cmp op t₁ t₂ => exact absurd hent (by simp [GenPredIn.entailsExistence])
+  | aggCmp k h op t =>
+    cases hu : u k with
+    | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
+    | inr x =>
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      cases x with
+      | tok a =>
+        simp only [AggTok.scalar_tok] at hsc
+        simp only [AggTok.annList_tok] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOf_tok]
+        rw [AggValue.predProvOf_of_grouped hsc, ← heq]
+        exact AggValue.predProv_delta_absorb a _ _
+      | nest b =>
+        simp only [AggTok.scalar_nest] at hsc
+        simp only [AggTok.annList_nest] at heq
+        simp only [GenPredIn.predsem, AggTok.predProvOf, hu,
+          AggTok.predProvOfWith]
+        rw [← heq, List.sum_singleton]
+        exact NestedValue.predProvWith_delta_absorb b hsc _
+      | expr e =>
+        simp only [AggTok.scalar_expr] at hsc
+        simp only [AggTok.annList_expr] at heq
+        simp only [GenPredIn.predsem, AggTok.predProvOf, hu,
+          AggTok.predProvOfWith_expr]
+        rw [← heq]
+        exact AggExpr.predProvWith_delta_absorb e
+          (AggExpr.exists_grouped_of_not_isScalar hsc) _
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    cases hu : u k with
+    | inl w => simp only [GenPredIn.predsem, hu, zero_mul]
+    | inr x =>
+      obtain ⟨hsc, heq⟩ := huni k (Finset.mem_singleton_self k) x hu
+      cases x with
+      | tok a =>
+        simp only [AggTok.scalar_tok] at hsc
+        simp only [AggTok.annList_tok] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_tok]
+        rw [AggValue.predProvOfWith, hsc, ite_eq_right Bool.false_ne_true,
+          ← heq]
+        exact AggValue.predProvWith_delta_absorb a _
+      | nest b =>
+        simp only [AggTok.scalar_nest] at hsc
+        simp only [AggTok.annList_nest] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith]
+        rw [← heq, List.sum_singleton]
+        exact NestedValue.predProvWith_delta_absorb b hsc _
+      | expr e =>
+        simp only [AggTok.scalar_expr] at hsc
+        simp only [AggTok.annList_expr] at heq
+        simp only [GenPredIn.predsem, hu, AggTok.predProvOfWith_expr]
+        rw [← heq]
+        exact AggExpr.predProvWith_delta_absorb e
+          (AggExpr.exists_grouped_of_not_isScalar hsc) _
+  | and φ ψ ihφ ihψ =>
+    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
+      fun k hk => huni k (Finset.mem_union_left _ hk)
+    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
+      fun k hk => huni k (Finset.mem_union_right _ hk)
+    cases neg with
+    | false =>
+      have he : (GenPredIn.and φ ψ).predsem false u γ
+          = φ.predsem false u γ * ψ.predsem false u γ := rfl
+      have hent' : (φ.entailsExistence false || ψ.entailsExistence false)
+          = true := hent
+      rw [Bool.or_eq_true] at hent'
+      rw [he]
+      rcases hent' with h | h
+      · calc φ.predsem false u γ * ψ.predsem false u γ
+              * SemiringWithMonus.delta ℓ₀.sum
+            = ψ.predsem false u γ * (φ.predsem false u γ
+              * SemiringWithMonus.delta ℓ₀.sum) := by
+              rw [mul_comm (φ.predsem false u γ) (ψ.predsem false u γ), mul_assoc]
+          _ = ψ.predsem false u γ * φ.predsem false u γ := by
+              rw [ihφ false huφ h]
+          _ = φ.predsem false u γ * ψ.predsem false u γ := mul_comm _ _
+      · calc φ.predsem false u γ * ψ.predsem false u γ
+              * SemiringWithMonus.delta ℓ₀.sum
+            = φ.predsem false u γ * (ψ.predsem false u γ
+              * SemiringWithMonus.delta ℓ₀.sum) := mul_assoc _ _ _
+          _ = φ.predsem false u γ * ψ.predsem false u γ := by
+              rw [ihψ false huψ h]
+    | true =>
+      have he : (GenPredIn.and φ ψ).predsem true u γ
+          = φ.predsem true u γ + ψ.predsem true u γ := rfl
+      have hent' : (φ.entailsExistence true && ψ.entailsExistence true)
+          = true := hent
+      rw [Bool.and_eq_true] at hent'
+      rw [he, add_mul, ihφ true huφ hent'.1, ihψ true huψ hent'.2]
+  | or φ ψ ihφ ihψ =>
+    have huφ : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
+      fun k hk => huni k (Finset.mem_union_left _ hk)
+    have huψ : ∀ k ∈ ψ.comparedCols, ∀ a : AggTok T K,
+        u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀ :=
+      fun k hk => huni k (Finset.mem_union_right _ hk)
+    cases neg with
+    | false =>
+      have he : (GenPredIn.or φ ψ).predsem false u γ
+          = φ.predsem false u γ + ψ.predsem false u γ := rfl
+      have hent' : (φ.entailsExistence false && ψ.entailsExistence false)
+          = true := hent
+      rw [Bool.and_eq_true] at hent'
+      rw [he, add_mul, ihφ false huφ hent'.1, ihψ false huψ hent'.2]
+    | true =>
+      have he : (GenPredIn.or φ ψ).predsem true u γ
+          = φ.predsem true u γ * ψ.predsem true u γ := rfl
+      have hent' : (φ.entailsExistence true || ψ.entailsExistence true)
+          = true := hent
+      rw [Bool.or_eq_true] at hent'
+      rw [he]
+      rcases hent' with h | h
+      · calc φ.predsem true u γ * ψ.predsem true u γ
+              * SemiringWithMonus.delta ℓ₀.sum
+            = ψ.predsem true u γ * (φ.predsem true u γ
+              * SemiringWithMonus.delta ℓ₀.sum) := by
+              rw [mul_comm (φ.predsem true u γ) (ψ.predsem true u γ), mul_assoc]
+          _ = ψ.predsem true u γ * φ.predsem true u γ := by
+              rw [ihφ true huφ h]
+          _ = φ.predsem true u γ * ψ.predsem true u γ := mul_comm _ _
+      · calc φ.predsem true u γ * ψ.predsem true u γ
+              * SemiringWithMonus.delta ℓ₀.sum
+            = φ.predsem true u γ * (ψ.predsem true u γ
+              * SemiringWithMonus.delta ℓ₀.sum) := mul_assoc _ _ _
+          _ = φ.predsem true u γ * ψ.predsem true u γ := by
+              rw [ihψ true huψ h]
+  | not φ ih =>
+    have he : (GenPredIn.not φ).predsem neg u γ = φ.predsem (!neg) u γ := rfl
+    rw [he]
+    exact ih (!neg) huni hent
+
+omit [HasAltLinearOrder K] in
+/-- An existence-entailing predicate provenance absorbs the `δ`-guards of
+any collection of pending factors, each of which is the occurrence list of
+*every* compared token. -/
+theorem GenPredIn.predsem_absorb_prod (φ : GenPredIn T c κ) {γ : Fin c → T}
+    (u : Tuple (GenValue T K) n) (hent : φ.entailsExistence false = true)
+    (D : Multiset (List K))
+    (hD : ∀ l ∈ D, ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.scalar = false ∧ a.annList = l) :
+    φ.predsem false u γ
+        * (D.map (fun l => SemiringWithMonus.delta l.sum)).prod
+      = φ.predsem false u γ := by
+  induction D using Multiset.induction_on with
+  | empty => rw [Multiset.map_zero, Multiset.prod_zero, mul_one]
+  | cons l D ih =>
+    rw [Multiset.map_cons, Multiset.prod_cons, ← mul_assoc,
+      GenPredIn.predsem_delta_absorb φ false u l
+        (fun k hk a hka => hD l (Multiset.mem_cons_self l D) k hk a hka) hent]
+    exact ih (fun l' hl' => hD l' (Multiset.mem_cons_of_mem hl'))
+
+omit [HasAltLinearOrder K] in
+/-- **Selection finalize identity.** On each side separately, the
+annotation produced by an aggregate-atom selection finalizes to the
+predicate provenance times the input's finalized annotation: kept pending
+factors commute out, and each superseded factor is absorbed by the
+predicate provenance, its drop condition being exactly the absorption
+license. The compared-lists multiset `C` is abstract; the only fact used
+is that every compared token's occurrence list belongs to it. -/
+theorem GenAnn.finalize_sel (φ : GenPredIn T c κ) {γ : Fin c → T}
+    (u : Tuple (GenValue T K) n) (b : K) (P : Multiset (List K))
+    (C Cs : Multiset (List K))
+    (hC : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.annList ∈ C)
+    (hCs : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T K,
+      u k = Sum.inr a → a.scalar = true → a.annList ∈ Cs) :
+    GenAnn.finalize ⟨b * φ.predsem false u γ,
+      if φ.entailsExistence false then
+        P.filter (fun l => ¬(Cs = 0 ∧ C ≠ 0 ∧ ∀ l' ∈ C, l' = l))
+      else P⟩
+      = φ.predsem false u γ * GenAnn.finalize ⟨b, P⟩ := by
+  by_cases hent : φ.entailsExistence false = true
+  · rw [ite_eq_left hent]
+    show b * φ.predsem false u γ * _ = φ.predsem false u γ * (b * _)
+    set dropCond := fun l : List K => (Cs = 0 ∧ C ≠ 0 ∧ ∀ l' ∈ C, l' = l)
+      with hdrop
+    have habs : φ.predsem false u γ
+        * ((P.filter dropCond).map
+            (fun l => SemiringWithMonus.delta l.sum)).prod
+        = φ.predsem false u γ := by
+      refine GenPredIn.predsem_absorb_prod φ u hent _
+        (fun l hl k hk a hka => ?_)
+      have hcond := (Multiset.mem_filter.mp hl).2
+      refine ⟨?_, hcond.2.2 a.annList (hC k hk a hka)⟩
+      by_contra hsc
+      rw [Bool.not_eq_false] at hsc
+      have := hCs k hk a hka hsc
+      rw [hcond.1] at this
+      exact absurd this (Multiset.notMem_zero _)
+    calc b * φ.predsem false u γ
+          * ((P.filter (fun l => ¬ dropCond l)).map
+              (fun l => SemiringWithMonus.delta l.sum)).prod
+        = b * (φ.predsem false u γ
+            * (((P.filter (fun l => ¬ dropCond l)).map
+                (fun l => SemiringWithMonus.delta l.sum)).prod
+              * ((P.filter dropCond).map
+                (fun l => SemiringWithMonus.delta l.sum)).prod)) := by
+          rw [mul_comm (((P.filter (fun l => ¬ dropCond l)).map
+              (fun l => SemiringWithMonus.delta l.sum)).prod),
+            ← mul_assoc (φ.predsem false u γ), habs, mul_assoc]
+      _ = b * (φ.predsem false u γ
+            * ((P.filter (fun l => ¬ dropCond l) + P.filter dropCond).map
+                (fun l => SemiringWithMonus.delta l.sum)).prod) := by
+          rw [Multiset.map_add, Multiset.prod_add]
+      _ = φ.predsem false u γ
+            * (b * (P.map (fun l => SemiringWithMonus.delta l.sum)).prod) := by
+          have hsplit : P.filter (fun l => ¬ dropCond l) + P.filter dropCond
+              = P := by
+            rw [add_comm]
+            exact Multiset.filter_add_not _ P
+          rw [hsplit, mul_left_comm]
+  · rw [ite_eq_right hent]
+    show b * φ.predsem false u γ * _ = φ.predsem false u γ * (b * _)
+    rw [mul_right_comm]
+    exact mul_comm _ _
+
+
+end GuardAbsorption
