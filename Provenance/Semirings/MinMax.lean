@@ -12,6 +12,16 @@ where addition is `min` and multiplication is `max`. The natural order is the
 multiplicative identity). This semiring models security levels or (dually) the fuzzy
 semiring.
 
+**Which order a line speaks in.** The two orders are opposite, and a
+statement reads as its own negation if the reader supplies the wrong one:
+the *semiring's* natural order is what the axioms and every statement of
+`Provenance.SemiringWithMonus` use (`𝟘 = ⊤` is least), while the
+*carrier's* order on `α` is what the monus is implemented in
+(`a ⊖ b = ⊤` where `a.val ≥ b.val`). The proofs below say `.val` wherever
+they mean the carrier's. `Provenance.Semirings.Tropical` has the same
+reversal, and each file has misled a reader at least once: when a line
+looks backwards, check which order it is written in first.
+
 Also defined:
 * `MaxMin α = MinMax (OrderDual α)` – the dual semiring with `max` for addition and
   `min` for multiplication

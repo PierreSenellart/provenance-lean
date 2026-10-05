@@ -20,6 +20,19 @@ is `0`.
 The tropical semiring is absorptive and idempotent, and satisfies left-distributivity
 of multiplication over monus.
 
+**Which order a line speaks in.** Two orders live here and they are
+opposite: the *semiring's* natural order, in which the axioms and every
+statement of `Provenance.SemiringWithMonus` are written (`𝟘 = ⊤` is the
+least element, and `a ≤ b` is `untrop a ≥ untrop b`), and the *carrier's*
+order, in which the monus is implemented (`a ⊖ b = ⊤` where
+`untrop a ≥ untrop b`). A statement about this semiring therefore reads
+as its own opposite depending on which order the reader supplies, and the
+proofs below say `untrop` wherever they mean the carrier's. The same
+reversal is in `Provenance.Semirings.MinMax`, and it has misled a reader
+of each file at least once: when a line looks like the negation of what
+it should say, check which order it is written in before believing
+either.
+
 The tropical semiring is used as a provenance semiring in
 [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance].
 
