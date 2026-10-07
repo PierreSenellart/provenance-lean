@@ -107,16 +107,24 @@ example : φexactlyTwo.aggOnly = true := rfl
 
 /- Plain semantics: a `HAVING` selection filters, so Paris (3 persons) is
 gone. -/
-#eval! hdr "AggQuery plain: HAVING COUNT(*) = 2"
-#eval! (AggQueryIn.Sel φexactlyTwo qgCount).evaluatePlain d
+theorem having_plain :
+    ((AggQueryIn.Sel φexactlyTwo qgCount).evaluatePlain d).map
+        (fun u => (u 0, u 1))
+      = ((([("New York", "2"), ("Berlin", "2")] : List (String × String)))
+          : Multiset _) := by
+  decide
 
 /- Annotated semantics: the aggregate token collapses to the actual-world
 count, and the row *survives* with annotation `𝟘` – exactly as ProvSQL
 emits it, since in other possible worlds Paris may well have two
 persons. -/
-#eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) = 2"
-#eval! ((AggQueryIn.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
-  : AnnotatedRelation String ℕ 2)
+theorem having_annotated :
+    (((AggQueryIn.Sel φexactlyTwo qgCount).evaluateAnnotated d_count
+        : AnnotatedRelation String ℕ 2)).map
+        (fun p => ((p.fst 0, p.fst 1), p.snd))
+      = ((([(("Berlin", "2"), 1), (("New York", "2"), 1), (("Paris", "3"), 0)]
+          : List ((String × String) × ℕ))) : Multiset _) := by
+  decide
 
 /- Projecting the group key out of a grouping, of a `HAVING` site, and
 their difference: the cities with fewer than three persons. -/
@@ -131,13 +139,26 @@ def qgBigCities : AggQuery String 1 (ColKind.allReg 1) :=
   AggQueryIn.Proj cityCols (AggQueryIn.Sel φatLeastThree qgCount)
 def qgSmallCities := AggQueryIn.Diff qgAllCities qgBigCities
 
-#eval! hdr "AggQuery annotated ℕ: all cities"
-#eval! (qgAllCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)
-#eval! hdr "AggQuery annotated ℕ: cities with ≥ 3 persons"
-#eval! (qgBigCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)
-#eval! hdr "AggQuery annotated ℕ: cities with < 3 persons"
-#eval! (qgSmallCities.evaluateAnnotated d_count
-  : AnnotatedRelation String ℕ 1)
+theorem allCities_annotated :
+    ((qgAllCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)).map
+        (fun p => (p.fst 0, p.snd))
+      = ((([("Berlin", 1), ("New York", 1), ("Paris", 1)]
+          : List (String × ℕ))) : Multiset _) := by
+  decide
+
+theorem bigCities_annotated :
+    ((qgBigCities.evaluateAnnotated d_count : AnnotatedRelation String ℕ 1)).map
+        (fun p => (p.fst 0, p.snd))
+      = ((([("Berlin", 0), ("New York", 0), ("Paris", 1)]
+          : List (String × ℕ))) : Multiset _) := by
+  decide
+
+theorem smallCities_annotated :
+    ((qgSmallCities.evaluateAnnotated d_count
+        : AnnotatedRelation String ℕ 1)).map (fun p => (p.fst 0, p.snd))
+      = ((([("Berlin", 1), ("New York", 1), ("Paris", 0)]
+          : List (String × ℕ))) : Multiset _) := by
+  decide
 
 /- The rewritten world. `AggQueryIn.gammaRew` is the bare grouping – ProvSQL's
 `provsql_agg` over the rewritten subquery – whose provenance column carries
@@ -153,12 +174,27 @@ def qgHavingRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
   AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φexactlyTwo qgPersonnel trivial
 
-#eval! hdr "rewritten: bare GROUP BY (gammaRew), guard δ(⊕ U) in the last column"
-#eval! (qgCountRew.evaluateRew d_count.toComposite).map
-  (fun u => (fun k => AggValue.collapseSum (u k) : Tuple (String ⊕ ℕ) 3))
-#eval! hdr "rewritten: HAVING COUNT(*) = 2 (havingPredRew), gate in the last column"
-#eval! (qgHavingRew.evaluateRew d_count.toComposite).map
-  (fun u => (fun k => AggValue.collapseSum (u k) : Tuple (String ⊕ ℕ) 3))
+theorem gammaRew_rewritten :
+    (qgCountRew.evaluateRew d_count.toComposite).map
+        (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
+          AggValue.collapseSum (u 2)))
+      = ((([(Sum.inl "Berlin", Sum.inl "2", Sum.inr 1),
+            (Sum.inl "New York", Sum.inl "2", Sum.inr 1),
+            (Sum.inl "Paris", Sum.inl "3", Sum.inr 1)]
+          : List ((String ⊕ ℕ) × (String ⊕ ℕ) × (String ⊕ ℕ))))
+          : Multiset _) := by
+  decide
+
+theorem havingRew_rewritten :
+    (qgHavingRew.evaluateRew d_count.toComposite).map
+        (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
+          AggValue.collapseSum (u 2)))
+      = ((([(Sum.inl "Berlin", Sum.inl "2", Sum.inr 1),
+            (Sum.inl "New York", Sum.inl "2", Sum.inr 1),
+            (Sum.inl "Paris", Sum.inl "3", Sum.inr 0)]
+          : List ((String ⊕ ℕ) × (String ⊕ ℕ) × (String ⊕ ℕ))))
+          : Multiset _) := by
+  decide
 
 /- A `HAVING` predicate mixing a *regular* atom into the aggregate one:
 `HAVING COUNT(*) ≥ 3 OR city = 'Berlin'`. The regular atom becomes an
@@ -183,12 +219,24 @@ def qgMixedRew : AggQuery (String ⊕ ℕ) 3 (ColKind.gammaRewKinds 1 1) :=
   AggQueryIn.havingPredRew ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
     φbigOrBerlin qgPersonnel trivial
 
-#eval! hdr "AggQuery annotated ℕ: HAVING COUNT(*) ≥ 3 OR city = 'Berlin'"
-#eval! ((AggQueryIn.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
-  : AnnotatedRelation String ℕ 2)
-#eval! hdr "rewritten: the same mixed predicate, gate ⊗ guard in the last column"
-#eval! (qgMixedRew.evaluateRew d_count.toComposite).map
-  (fun u => (fun k => AggValue.collapseSum (u k) : Tuple (String ⊕ ℕ) 3))
+theorem mixed_annotated :
+    (((AggQueryIn.Sel φbigOrBerlin qgCount).evaluateAnnotated d_count
+        : AnnotatedRelation String ℕ 2)).map
+        (fun p => ((p.fst 0, p.fst 1), p.snd))
+      = ((([(("Berlin", "2"), 1), (("New York", "2"), 0), (("Paris", "3"), 1)]
+          : List ((String × String) × ℕ))) : Multiset _) := by
+  decide
+
+theorem mixedRew_rewritten :
+    (qgMixedRew.evaluateRew d_count.toComposite).map
+        (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
+          AggValue.collapseSum (u 2)))
+      = ((([(Sum.inl "Berlin", Sum.inl "2", Sum.inr 1),
+            (Sum.inl "New York", Sum.inl "2", Sum.inr 0),
+            (Sum.inl "Paris", Sum.inl "3", Sum.inr 1)]
+          : List ((String ⊕ ℕ) × (String ⊕ ℕ) × (String ⊕ ℕ))))
+          : Multiset _) := by
+  decide
 
 /- The compositional closure applies to the whole difference query: its
 derivation composes the bare-grouping rule, the `HAVING`-site rule, a
@@ -220,10 +268,32 @@ def qwCity := RA[String |
   ⊞[#3 ; ; OrderSpec.unordered ; ValueFrame.whole ;
     `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
-#eval! hdr "plain: SUM(1) OVER (PARTITION BY city)"
-#eval! qwCity.evaluatePlain d
-#eval! hdr "annotated ℕ: the same window, every row keeping its annotation"
-#eval! (qwCity.evaluateAnnotated d_count : AnnotatedRelation String ℕ 5)
+theorem window_plain :
+    (qwCity.evaluatePlain d).map (fun u => (u 0, u 1, u 2, u 3, u 4))
+      = ((([("1", "John", "Director", "New York", "2"),
+            ("2", "Paul", "Janitor", "New York", "2"),
+            ("3", "Dave", "Analyst", "Paris", "3"),
+            ("4", "Ellen", "Field agent", "Berlin", "2"),
+            ("5", "Magdalen", "Double agent", "Paris", "3"),
+            ("6", "Nancy", "HR", "Paris", "3"),
+            ("7", "Susan", "Analyst", "Berlin", "2")]
+          : List (String × String × String × String × String)))
+          : Multiset _) := by
+  decide
+
+theorem window_annotated :
+    ((qwCity.evaluateAnnotated d_count : AnnotatedRelation String ℕ 5)).map
+        (fun p => ((p.fst 0, p.fst 1, p.fst 2, p.fst 3, p.fst 4), p.snd))
+      = ((([(("1", "John", "Director", "New York", "2"), 1),
+            (("2", "Paul", "Janitor", "New York", "2"), 1),
+            (("3", "Dave", "Analyst", "Paris", "3"), 1),
+            (("4", "Ellen", "Field agent", "Berlin", "2"), 1),
+            (("5", "Magdalen", "Double agent", "Paris", "3"), 1),
+            (("6", "Nancy", "HR", "Paris", "3"), 1),
+            (("7", "Susan", "Analyst", "Berlin", "2"), 1)]
+          : List ((String × String × String × String × String) × ℕ)))
+          : Multiset _) := by
+  decide
 
 /-! The rows strictly before the current row's peers: a frame that contains
 neither the row nor its equals, so it can be empty in a world where the row
@@ -235,8 +305,18 @@ def qwRunning := RA[String |
   ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
     `("1") : SeqAggFunc.sum] rel 4 "Personnel" ]
 
-#eval! hdr "plain: a running count over the rows strictly before, per city"
-#eval! qwRunning.evaluatePlain d
+theorem running_plain :
+    (qwRunning.evaluatePlain d).map (fun u => (u 0, u 1, u 2, u 3, u 4))
+      = ((([("1", "John", "Director", "New York", "0"),
+            ("2", "Paul", "Janitor", "New York", "1"),
+            ("3", "Dave", "Analyst", "Paris", "0"),
+            ("4", "Ellen", "Field agent", "Berlin", "0"),
+            ("5", "Magdalen", "Double agent", "Paris", "1"),
+            ("6", "Nancy", "HR", "Paris", "2"),
+            ("7", "Susan", "Analyst", "Berlin", "1")]
+          : List (String × String × String × String × String)))
+          : Multiset _) := by
+  decide
 
 /-! ### An aggregate over no row
 
@@ -255,8 +335,28 @@ def qwRunningNull := RA[WithNull String |
   ⊞[#3 ; #0 ; OrderSpec.asc 1 ; ValueFrame.rangeBefore (OrderSpec.asc 1) ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
-#eval! hdr "plain: SUM over the rows strictly before – NULL where there are none"
-#eval! qwRunningNull.evaluatePlain dNull
+theorem runningNull_plain :
+    (qwRunningNull.evaluatePlain dNull).map
+        (fun u => (u 0, u 1, u 2, u 3, u 4))
+      = ((([(WithNull.val "1", WithNull.val "John", WithNull.val "Director",
+              WithNull.val "New York", WithNull.nil),
+            (WithNull.val "2", WithNull.val "Paul", WithNull.val "Janitor",
+              WithNull.val "New York", WithNull.val "1"),
+            (WithNull.val "3", WithNull.val "Dave", WithNull.val "Analyst",
+              WithNull.val "Paris", WithNull.nil),
+            (WithNull.val "4", WithNull.val "Ellen",
+              WithNull.val "Field agent", WithNull.val "Berlin",
+              WithNull.nil),
+            (WithNull.val "5", WithNull.val "Magdalen",
+              WithNull.val "Double agent", WithNull.val "Paris",
+              WithNull.val "1"),
+            (WithNull.val "6", WithNull.val "Nancy", WithNull.val "HR",
+              WithNull.val "Paris", WithNull.val "2"),
+            (WithNull.val "7", WithNull.val "Susan", WithNull.val "Analyst",
+              WithNull.val "Berlin", WithNull.val "1")]
+          : List (WithNull String × WithNull String × WithNull String
+              × WithNull String × WithNull String))) : Multiset _) := by
+  decide
 
 /-! ### Where the nulls go is the clause's business
 
@@ -295,7 +395,28 @@ def qwNullsFirst := RA[WithNull String |
   ⊞[#3 ; #0 ; ascNullsFirst ; ValueFrame.rangeBefore ascNullsFirst ;
     `(WithNull.val "1") : SeqAggFunc.sum.sqlOf] rel 4 "Personnel" ]
 
-#eval! hdr "plain: running count, ORDER BY id ASC NULLS LAST"
-#eval! qwNullsLast.evaluatePlain dOrdNull
-#eval! hdr "plain: running count, ORDER BY id ASC NULLS FIRST"
-#eval! qwNullsFirst.evaluatePlain dOrdNull
+theorem nullsLast_plain :
+    (qwNullsLast.evaluatePlain dOrdNull).map
+        (fun u => (u 0, u 1, u 2, u 3, u 4))
+      = ((([(WithNull.nil, WithNull.val "Paul", WithNull.val "Janitor",
+              WithNull.val "New York", WithNull.val "2"),
+            (WithNull.val "1", WithNull.val "John", WithNull.val "Director",
+              WithNull.val "New York", WithNull.nil),
+            (WithNull.val "2", WithNull.val "Ann", WithNull.val "Analyst",
+              WithNull.val "New York", WithNull.val "1")]
+          : List (WithNull String × WithNull String × WithNull String
+              × WithNull String × WithNull String))) : Multiset _) := by
+  decide
+
+theorem nullsFirst_plain :
+    (qwNullsFirst.evaluatePlain dOrdNull).map
+        (fun u => (u 0, u 1, u 2, u 3, u 4))
+      = ((([(WithNull.nil, WithNull.val "Paul", WithNull.val "Janitor",
+              WithNull.val "New York", WithNull.nil),
+            (WithNull.val "1", WithNull.val "John", WithNull.val "Director",
+              WithNull.val "New York", WithNull.val "1"),
+            (WithNull.val "2", WithNull.val "Ann", WithNull.val "Analyst",
+              WithNull.val "New York", WithNull.val "2")]
+          : List (WithNull String × WithNull String × WithNull String
+              × WithNull String × WithNull String))) : Multiset _) := by
+  decide

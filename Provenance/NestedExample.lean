@@ -30,12 +30,16 @@ here carries a tuple with an aggregate column.
 The two readings are not the same object. The alternatives explode a row
 into one per value its column takes, each annotated so that it is present
 exactly in the worlds where the column has that value; the nested reading
-keeps one row and reads it world by world. The `#eval`s below show where
+keeps one row and reads it world by world. The checks below show where
 they part: the alternatives' token collapses to `4`, which is no world's
 answer, where the nested token collapses to `3`, which is SQL's.
 
-The checks are `#eval`s, as `Provenance.Example`'s are: the evaluator
-sorts, and the kernel does not reduce through that.
+Each check is a theorem closed by `decide`: the evaluator reads a relation
+as a sequence through an insertion sort, which the kernel reduces, so the
+computed value is compared against the expected one by the kernel. The
+queries built with `AggQueryIn.castKind` need `evaluate_castKind` or
+`evaluatePlain_castKind` first – the kernel does not reduce a cast along a
+proof.
 -/
 
 namespace NestedExample
@@ -97,19 +101,30 @@ abbrev outer : AggQuery ℕ 1 (fun _ => ColKind.agg) :=
 
 **The inner grouping, plainly**: one row per group with its count, `(1,2)`
 and `(2,1)`. -/
-#eval (inner.evaluatePlain D).map (fun u => (u 0, u 1))
+theorem inner_plain :
+    (inner.evaluatePlain D).map (fun u => (u 0, u 1))
+      = (([(1, 2), (2, 1)] : List (ℕ × ℕ)) : Multiset _) := by
+  decide
 
 /-! **The outer aggregation, plainly**: `2 + 1 = 3`, which is SQL's
 `sum(count(*))`. Over a plain relation an aggregate value is a value and
 `Alt` is the identity, so the alternatives cost nothing here. -/
-#eval (outer.evaluatePlain D).map (fun u => u 0)
+theorem outer_plain :
+    (outer.evaluatePlain D).map (fun u => u 0)
+      = (([3] : List ℕ) : Multiset ℕ) := by
+  simp only [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain_castKind]
+  decide
 
 /-! **The alternatives, annotated**: one row per `(group, value)` pair the
 count can take, each carrying the group's annotation times `[c ≐ v]`. With
 every input row annotated `1` over `ℕ`, the group of `1`'s has a count of
 `2` and the group of `2` a count of `1`. -/
-#eval ((AggQueryIn.Alt 1 inner_kind inner).evaluateAnnotated dN).map
-  (fun p => ((p.fst 0, p.fst 1), p.snd))
+theorem alt_annotated :
+    ((AggQueryIn.Alt 1 inner_kind inner).evaluateAnnotated dN).map
+        (fun p => ((p.fst 0, p.fst 1), p.snd))
+      = ((([((1, 1), 0), ((1, 2), 1), ((2, 1), 1)] : List ((ℕ × ℕ) × ℕ)))
+          : Multiset _) := by
+  decide
 
 /-! **And the outer aggregation's token**: its occurrences are the three
 alternatives, each carrying the alternative's annotation. Printed as
@@ -124,10 +139,14 @@ occurrences annotated `𝟘` inside their aggregate values", and it is why
 column read as a key gives one row per value the column takes in *some*
 world, so the data part of the annotated evaluation is not the data part
 of any one world. -/
-#eval (outer.evaluate dN).map (fun r =>
-  match r.fst 0 with
-  | Sum.inr (AggTok.tok a) => a.occs
-  | _ => [])
+theorem outer_token_occs :
+    (outer.evaluate dN).map (fun r =>
+        match r.fst 0 with
+        | Sum.inr (AggTok.tok a) => a.occs
+        | _ => [])
+      = (([[(1, 0), (2, 1), (1, 1)]] : List (List (ℕ × ℕ))) : Multiset _) := by
+  simp only [AggQueryIn.evaluate, AggQueryIn.evaluate_castKind]
+  decide
 
 /-! ## The direct nested reading
 
@@ -146,25 +165,35 @@ abbrev outerNest : AggQuery ℕ (0 + 1)
 
 /-! **Plainly it is SQL's answer**: `2 + 1 = 3`, the same as through the
 alternatives, an aggregate value being a value over a plain relation. -/
-#eval (outerNest.evaluatePlain D).map (fun u => u 0)
+theorem outerNest_plain :
+    (outerNest.evaluatePlain D).map (fun u => u 0)
+      = (([3] : List ℕ) : Multiset ℕ) := by
+  decide
 
 /-! **The occurrences of its token, annotated**: the inner grouping's two
 rows, each as `(the collapse of the inner value, the row's
 annotation)` – the counts `2` and `1`, each annotated `1`. -/
-#eval (outerNest.evaluate dN).map (fun r =>
-  match r.fst 0 with
-  | Sum.inr (AggTok.nest a) =>
-    a.occs.map (fun o : AggExpr ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
-  | _ => 0)
+theorem outerNest_occs :
+    (outerNest.evaluate dN).map (fun r =>
+        match r.fst 0 with
+        | Sum.inr (AggTok.nest a) =>
+          a.occs.map (fun o : AggExpr ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
+        | _ => 0)
+      = (([(([(2, 1), (1, 1)] : List (ℕ × ℕ)) : Multiset _)]
+          : List (Multiset (ℕ × ℕ))) : Multiset _) := by
+  decide
 
 /-! **Its deterministic reading is `3`** – and not the `4` the
 alternatives' token collapses to. Nothing is read twice here: the nested
 token keeps one row and reads it world by world, where `Alt` explodes the
 row into one per value its column takes. -/
-#eval (outerNest.evaluate dN).map (fun r =>
-  match r.fst 0 with
-  | Sum.inr x => x.collapse
-  | Sum.inl v => v)
+theorem outerNest_collapse :
+    (outerNest.evaluate dN).map (fun r =>
+        match r.fst 0 with
+        | Sum.inr x => x.collapse
+        | Sum.inl v => v)
+      = (([3] : List ℕ) : Multiset ℕ) := by
+  decide
 
 /-! **And the values it takes over its worlds**: `{1, 2, 3}`. A world
 keeps some of the two outer occurrences – at least one, the reading being
@@ -173,9 +202,12 @@ grouped – and, of each it keeps, some of that group's rows, at least one
 row of it), `2` (both groups with one row each, or the first group's two
 rows) and `3` (everything). `0` is not among them: that would be the
 empty world, which a grouped reading does not have. -/
-#eval (outerNest.evaluate dN).map (fun r =>
-  match r.fst 0 with
-  | Sum.inr (AggTok.nest a) => a.vals
-  | _ => ∅)
+theorem outerNest_vals :
+    (outerNest.evaluate dN).map (fun r =>
+        match r.fst 0 with
+        | Sum.inr (AggTok.nest a) => a.vals
+        | _ => ∅)
+      = ((([({3, 2, 1} : Finset ℕ)] : List (Finset ℕ))) : Multiset _) := by
+  decide
 
 end NestedExample

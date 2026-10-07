@@ -1087,6 +1087,7 @@ family, and what makes the two readings below differ. -/
 theorem mergeOccs_two :
     AggValue.mergeOccs [((5 : ℕ), (1 : ℕ)), (5, 1)] = [(5, 2)] := by
   simp [AggValue.mergeOccs, AggValue.classSum, List.dedup_cons_of_mem]
+  rfl
 
 /-- `count(DISTINCT x) FILTER (WHERE true) OVER (w)` over two occurrences
 of equal value annotated `𝟙`: by `mergeOccs_two` the family is the one
@@ -1099,14 +1100,13 @@ def natWinDistinct : AggExpr ℕ ℕ where
   g := fun v => v 0
 
 /-- **A distinct count is the length of the deduplicated sequence.**
-`SeqAggFunc.distinct` sorts the distinct values, and the sort does not
-reduce in the kernel, so the reading below is stated with the form that
-does – this is what makes the two the same aggregate. -/
+`SeqAggFunc.distinct` sorts the distinct values, and a count does not read
+the order, so the two are the same aggregate. -/
 theorem count_distinct_eq_dedup_length :
     SeqAggFunc.count.distinct = fun l : List ℕ => (List.dedup l).length := by
   funext l
-  show (Multiset.sort ((l.dedup : Multiset ℕ)) (· ≤ ·)).length = _
-  rw [Multiset.length_sort]
+  show (sortList ((l.dedup : Multiset ℕ))).length = _
+  rw [length_sortList]
   rfl
 
 /-- The same data read **without the merge**, the leaf deduplicating

@@ -160,7 +160,7 @@ function of the values is what makes it a reading rather than a choice –
 so nothing is asked of the aggregate, and in particular not symmetry. -/
 def mergeOccs [ValueType T] [AddCommMonoid K] (l : List (T × K)) :
     List (T × K) :=
-  (Multiset.sort ((l.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
+  (sortList ((l.map Prod.fst).dedup : Multiset T)).map
     (fun v => (v, classSum l v))
 
 /-- The same on a token: the payload merged, the aggregate and the
@@ -178,7 +178,7 @@ def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
 @[simp] theorem map_fst_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) :
     (mergeByValue a).occs.map Prod.fst
-      = Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·) := by
+      = sortList ((a.occs.map Prod.fst).dedup : Multiset T) := by
   unfold mergeByValue mergeOccs
   rw [List.map_map]
   exact List.map_id' _
@@ -188,7 +188,7 @@ theorem mem_mergeOccs [ValueType T] [AddCommMonoid K]
     {l : List (T × K)} {x : T × K} (hx : x ∈ l) :
     (x.fst, classSum l x.fst) ∈ mergeOccs l := by
   refine List.mem_map.mpr ⟨x.fst, ?_, rfl⟩
-  rw [Multiset.mem_sort, Multiset.mem_coe, List.mem_dedup]
+  rw [mem_sortList, Multiset.mem_coe, List.mem_dedup]
   exact List.mem_map.mpr ⟨x, hx, rfl⟩
 
 /-- The same on a token. -/
@@ -237,10 +237,10 @@ theorem mergeOccs_map [ValueType T] [AddCommMonoid K] {K'' : Type}
     mergeOccs (l.map (fun o => (o.fst, h o.snd)))
       = (mergeOccs l).map (fun o => (o.fst, h o.snd)) := by
   unfold mergeOccs
-  show List.map _ (Multiset.sort ((List.map Prod.fst
-      (List.map (fun o => (o.fst, h o.snd)) l)).dedup : Multiset T) _) = _
+  show List.map _ (sortList ((List.map Prod.fst
+      (List.map (fun o => (o.fst, h o.snd)) l)).dedup : Multiset T)) = _
   rw [List.map_map]
-  show List.map _ (Multiset.sort ((List.map Prod.fst l).dedup : Multiset T) _)
+  show List.map _ (sortList ((List.map Prod.fst l).dedup : Multiset T))
     = List.map _ (List.map _ _)
   rw [List.map_map]
   exact List.map_congr_left (fun v _ =>

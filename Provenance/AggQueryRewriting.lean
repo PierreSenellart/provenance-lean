@@ -82,8 +82,8 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- provenance column, so the name bound by the rounds would have to be
   -- bound to the rewritten relation, and the fixpoint is then over a
   -- different schema than the one the source query iterates
-  | _, _, _, .Mu _ _ _ _ => False
-  | _, _, _, .MuSet _ _ _ _ => False
+  | _, _, _, .Mu _ _ _ => False
+  | _, _, _, .MuSet _ _ _ => False
   | _, _, _, .Gamma _ _ _ _ _ => False
   | _, _, _, .GammaScalar _ _ _ => False
   | _, _, _, .GammaNest _ _ _ _ _ => False
@@ -117,8 +117,8 @@ theorem AggQueryIn.noGammaNest_of_classical :
       AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
   | _, _, _, .Apply _ _, hq => hq.elim
   | _, _, _, .Alt _ _ _, hq => hq.elim
-  | _, _, _, .Mu _ _ _ _, hq => hq.elim
-  | _, _, _, .MuSet _ _ _ _, hq => hq.elim
+  | _, _, _, .Mu _ _ _, hq => hq.elim
+  | _, _, _, .MuSet _ _ _, hq => hq.elim
   | _, _, _, .Gamma _ _ _ _ _, hq => hq.elim
   | _, _, _, .GammaScalar _ _ _, hq => hq.elim
   | _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim

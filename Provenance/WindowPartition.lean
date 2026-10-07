@@ -60,8 +60,7 @@ it. -/
 theorem groupSeq_eq_sortList (P : Tuple (Fin n) m) (r : Relation T n)
     (g : Tuple T m) :
     Relation.groupSeq P r g
-      = sortList (r.filter (fun u => ∀ k : Fin m, u (P k) = g k)) :=
-  sortList_eq (Multiset.pairwise_sort _ _) (Multiset.sort_eq _ _)
+      = sortList (r.filter (fun u => ∀ k : Fin m, u (P k) = g k)) := rfl
 
 /-! ## The join picks one group per row -/
 

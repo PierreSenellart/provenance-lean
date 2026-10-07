@@ -346,7 +346,7 @@ def fullOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- The rows of the left arm that have a match: the first block of the
 inner join. -/
-def matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+noncomputable def matchedLeft (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
     Multiset (Tuple T n₁) :=
@@ -417,7 +417,7 @@ theorem evaluatePlain_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
 
 /-- The rows of the right arm that have a match: the second block of the
 inner join. -/
-def matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+noncomputable def matchedRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂)) (d : Database T) :
     Multiset (Tuple T n₂) :=

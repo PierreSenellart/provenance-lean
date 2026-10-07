@@ -315,6 +315,54 @@ instance [LinearOrder α] :
     have : a≠c := by exact fun z ↦ hca (id (Eq.symm z))
     simp[this]
 
+/-- A multiset as a sorted list: the canonical reading of a relation as a
+sequence. It is computable, where a choice through `Multiset.toList` is
+not, and it is determined by the multiset, which is what lets two
+sequences built from the same rows be recognised as the same sequence.
+
+It is an insertion sort rather than `Multiset.sort`, which is defined by
+well-founded recursion and does not reduce in the kernel: the evaluators
+read a relation as a sequence through this, and a `decide`-checked
+equation about a computed relation needs every step of it to reduce. -/
+def sortList {α : Type} [LinearOrder α] (M : Multiset α) : List α :=
+  (M.foldr sortedInsert ⟨[], by simp⟩).val
+
+/-- Sorting changes no element: the list's multiset is the original. -/
+@[simp] theorem sortList_coe {α : Type} [LinearOrder α] (M : Multiset α) :
+    (↑(sortList M) : Multiset α) = M := by
+  induction M using Multiset.induction_on with
+  | empty => rfl
+  | cons a M ih =>
+    rw [sortList, Multiset.foldr_cons]
+    calc (↑((sortedInsert a (M.foldr sortedInsert ⟨[], by simp⟩)).val) : Multiset α)
+        = ↑(a :: (M.foldr sortedInsert ⟨[], by simp⟩).val) :=
+          Multiset.coe_eq_coe.mpr (List.perm_orderedInsert _ a _)
+      _ = a ::ₘ ↑((M.foldr sortedInsert ⟨[], by simp⟩).val) := rfl
+      _ = a ::ₘ M := by rw [← sortList, ih]
+
+/-- And it sorts: the list is pairwise `≤`. -/
+theorem sortList_pairwise {α : Type} [LinearOrder α] (M : Multiset α) :
+    (sortList M).Pairwise (· ≤ ·) :=
+  (Multiset.foldr sortedInsert ⟨[], by simp⟩ M).property
+
+/-- Sorting changes no count: the list is as long as the multiset. -/
+@[simp] theorem length_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
+    (sortList M).length = Multiset.card M := by
+  rw [← Multiset.coe_card, sortList_coe]
+
+/-- An element of the sorted list is an element of the multiset. -/
+@[simp] theorem mem_sortList {α : Type} [LinearOrder α] {M : Multiset α}
+    {x : α} : x ∈ sortList M ↔ x ∈ M := by
+  rw [← Multiset.mem_coe, sortList_coe]
+
+/-- **A sorted list is its multiset's sorted list.** Two sequences built
+by sorting the same rows are the same sequence, whatever route built
+them. -/
+theorem sortList_eq {α : Type} [LinearOrder α] {l : List α} {M : Multiset α}
+    (hs : l.Pairwise (· ≤ ·)) (hm : (↑l : Multiset α) = M) : l = sortList M :=
+  List.Perm.eq_of_pairwise' (r := (· ≤ ·)) hs (sortList_pairwise M)
+    (Multiset.coe_eq_coe.mp (by rw [hm, sortList_coe]))
+
 instance [ToString T] : ToString (Relation T n) where
   toString r :=
     String.intercalate "\n" ((r.foldr sortedInsert ⟨[],by simp⟩).val.map toString) ++ "\n"

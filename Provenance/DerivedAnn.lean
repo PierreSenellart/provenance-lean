@@ -33,7 +33,7 @@ variable [ValueType T]
 
 /-- The `⊕`-sum of the annotations a query gives one tuple: what
 duplicate elimination accumulates on it. -/
-def annSum (q : AggQuery T n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+noncomputable def annSum (q : AggQuery T n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (u : Tuple T n) : K :=
   (Multiset.map Prod.snd (Multiset.filter
     (fun p : AnnotatedTuple T K n => p.1 = u) (q.evaluateAnnotated d))).sum
@@ -211,7 +211,7 @@ variable [ValueTypeNull T] {n₁ n₂ : ℕ}
 /-- **The `⊕`-sum of the annotations of a row's matches**, over the matches
 of *every copy* of its tuple – the difference the padded copy goes through
 is per tuple and syntactic. -/
-def matchAnn (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+noncomputable def matchAnn (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (u : Tuple T n₁) : K :=
@@ -293,7 +293,7 @@ theorem evaluateAnnotated_leftOuter (φ : GenPred T (ColKind.allReg (n₁ + n₂
 
 /-- The `⊕`-sum of the annotations of the matches of a row of the right
 arm. -/
-def matchAnnRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
+noncomputable def matchAnnRight (φ : GenPred T (ColKind.allReg (n₁ + n₂)))
     (q₁ : AggQuery T n₁ (ColKind.allReg n₁))
     (q₂ : AggQuery T n₂ (ColKind.allReg n₂))
     (d : AnnotatedDatabase T K) (v : Tuple T n₂) : K :=
@@ -418,7 +418,7 @@ def _root_.AnnotatedRelation.annTotal (r : AnnotatedRelation T K n) : K :=
 /-- The token a match count builds on a row `u` of the left arm: the
 scalar count, over the column `kap`, of the rows of `Q` that `φ` matches
 `u` with. -/
-def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
+noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (Q : AggQueryIn T k l (ColKind.allReg l))
     (d : AnnotatedDatabase T K) (u : Tuple T k) : AggValue T K :=

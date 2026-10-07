@@ -148,7 +148,7 @@ def AggExpr.ofGroupWhenRew {c m : ℕ} (f : SeqAggFunc (T ⊕ K))
 token-bearing rows. Value-kinded operators act through the `inl`
 embedding; `GammaTok` builds tokens and the group guard; the gates
 inside terms are interpreted by `predProvOf` and `Having.chi`. -/
-def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
+noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn (T ⊕ K) c n κ → Database (T ⊕ K) →
     (γ : Fin c → (T ⊕ K) := fun _ => 0) →
     Multiset (Tuple (GenValue (T ⊕ K) K) n)
@@ -165,21 +165,21 @@ def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- operator: the rewritten plan cannot enumerate a token's values, and
   -- on plain rows there is one alternative, so it is the identity here
   | _, _, _, .Alt _ _ q, D, γ => q.evaluateRew D γ
-  | _, _, _, .Mu b s q₀ q₁, D, γ =>
+  | _, _, _, .Mu s q₀ q₁, D, γ =>
     -- the rounds are relations of the rewritten schema, so each round is
     -- read back through the collapse that `Rel` embeds
-    (muSum (fun X : Relation (T ⊕ K) _ =>
+    (muSumFix (fun X : Relation (T ⊕ K) _ =>
         (q₁.evaluateRew (D.assign s X) γ).map
-          (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))) b
+          (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _)))
       ((q₀.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _)))).map
       (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
-  | _, _, _, .MuSet b s q₀ q₁, D, γ =>
-    (muIter (fun X : Relation (T ⊕ K) _ =>
+  | _, _, _, .MuSet s q₀ q₁, D, γ =>
+    (muFix (fun X : Relation (T ⊕ K) _ =>
       (((q₀.evaluateRew (D.assign s X) γ).map
           (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))
         + (q₁.evaluateRew (D.assign s X) γ).map
-            (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).dedup)) b).map
+            (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).dedup))).map
       (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
   | _, _, _, .Prod q₁ q₂, D, γ =>
     ((q₁.evaluateRew D γ).product (q₂.evaluateRew D γ)).map
@@ -297,8 +297,8 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .Dedup q => q.noGammaTok
   | _, _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
   | _, _, _, .Alt _ _ q => q.noGammaTok
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
+  | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, .Gamma _ _ _ q _ => q.noGammaTok
   | _, _, _, .GammaScalar _ _ q => q.noGammaTok
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
@@ -320,8 +320,8 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Dedup q => q.chiFree
   | _, _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
   | _, _, _, .Alt _ _ q => q.chiFree
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
+  | _, _, _, .Mu _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, .Gamma _ _ _ q _ => q.chiFree
   | _, _, _, .GammaScalar _ _ q => q.chiFree
   | _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
@@ -514,16 +514,16 @@ theorem AggQueryIn.evaluateRew_plain :
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     exact ih hq hc D γ
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
+  | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    refine congrArg _ (muSum_congr (fun X => ?_) b ?_)
+    refine congrArg _ (muSumFix_congr (fun X => ?_) ?_)
     · rw [ih₁ hq.2 hc.2 (D.assign s X) γ, map_plainTuple_map_inl]
     · rw [ih₀ hq.1 hc.1 D γ, map_plainTuple_map_inl]
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
-    refine congrArg _ (muIter_congr (fun X => ?_) b)
+    refine congrArg _ (muFix_congr (fun X => ?_))
     rw [ih₀ hq.1 hc.1 (D.assign s X) γ, ih₁ hq.2 hc.2 (D.assign s X) γ,
       map_plainTuple_map_inl, map_plainTuple_map_inl]
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>

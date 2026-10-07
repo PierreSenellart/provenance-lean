@@ -160,9 +160,8 @@ private theorem map_fst_filter_map_pair (p : BoolFunc X → Bool)
       simp [hu, map_fst_filter_map_pair p g t]
 
 theorem nodup_sort_dedup (l : List T) :
-    (Multiset.sort (Multiset.ofList (List.dedup l)) (· ≤ ·)).Nodup :=
-  (Quotient.exact
-    (Multiset.sort_eq (Multiset.ofList (List.dedup l)) (· ≤ ·))).symm.nodup
+    (sortList (Multiset.ofList (List.dedup l))).Nodup :=
+  (Quotient.exact (sortList_coe (Multiset.ofList (List.dedup l)))).symm.nodup
       (List.nodup_dedup l)
 
 omit [Fintype X] [DecidableEq X] in
@@ -176,14 +175,14 @@ theorem specialize_mergeByValue (a : AggValue T (BoolFunc X)) (v : X → Bool) :
   show a.agg _ = a.agg _
   refine congrArg a.agg ?_
   rw [show (mergeByValue a).occs
-      = (Multiset.sort ((a.occs.map Prod.fst).dedup : Multiset T) (· ≤ ·)).map
+      = (sortList ((a.occs.map Prod.fst).dedup : Multiset T)).map
         (fun u => (u, classSum a.occs u)) from rfl,
     map_fst_filter_map_pair (fun α => α v) (fun u => classSum a.occs u)]
-  refine List.Perm.eq_of_pairwise' ((Multiset.pairwise_sort _ _).filter _)
-    (Multiset.pairwise_sort _ _) ?_
+  refine List.Perm.eq_of_pairwise' ((sortList_pairwise _).filter _)
+    (sortList_pairwise _) ?_
   refine (List.perm_ext_iff_of_nodup ((nodup_sort_dedup _).filter _)
     (nodup_sort_dedup _)).mpr (fun u => ?_)
-  rw [List.mem_filter, Multiset.mem_sort, Multiset.mem_sort,
+  rw [List.mem_filter, mem_sortList, mem_sortList,
         Multiset.mem_coe, Multiset.mem_coe, List.mem_dedup, List.mem_dedup,
         List.mem_map, List.mem_map]
   constructor
@@ -1820,12 +1819,12 @@ theorem AggQueryIn.evaluate_guarded :
       · refine ih d r₀ hr₀ v ?_ j a
           ((Function.update_of_ne hj (Sum.inl v') r₀.fst).symm.trans ha)
         exact mul_mul_eval_drop _ _ _ v hfin
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
+  | Mu s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -3062,6 +3061,7 @@ through its collapse – the deterministic reading, not the world one. -/
 theorem AggQueryIn.genRandomWorld_evaluate :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (_hq : q.noProvSum) (_hn : q.nestOnce)
+      (_hr : q.recSettles (K := BoolFunc X))
       (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
       {γ : Fin c → T},
     genRandomWorld v (q.evaluate d γ)
@@ -3069,14 +3069,14 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [AnnotatedDatabase.find_randomWorld]
     cases hf : d.find n s with
     | none => rfl
     | some rn => exact genRandomWorld_ofAnnotated rn v
   | Proj ps q ih =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
@@ -3085,7 +3085,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         (GenAnn.finalize_cash r.snd.base r.snd.pending
           (r.snd.pending ∩ tokenLists (fun j => (ps j).eval r.fst γ))
           Multiset.inter_le_left)))]
-    rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map, ← ih hq hn d v]
+    rw [Multiset.map_congr rfl (fun r hr => ?_), ← Multiset.map_map, ← ih hq hn hr d v]
     · rfl
     · -- pointwise: the specialized projected tuple is the plain projection
       -- of the specialized tuple
@@ -3096,7 +3096,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       funext j
       exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
   | Sel φ q ih =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ]
@@ -3111,7 +3111,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       · exact GenPredIn.sel_finalize_eval_iff φ r.fst r.snd.base
           r.snd.pending v (AggQueryIn.evaluate_conform q d r hr)
           (fun hfin => AggQueryIn.evaluate_guarded q d r hr v hfin)
-      · rw [← ih hq hn d v]
+      · rw [← ih hq hn hr d v]
         unfold genRandomWorld
         rw [filter_map_comm, Multiset.filter_filter]
         exact Multiset.map_congr
@@ -3128,13 +3128,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       · exact and_congr_right fun _ => GenPredIn.holds_iff_specialize φ
           (by simpa using hφ) r.fst
           (AggQueryIn.evaluate_conform q d r hr) v
-      · rw [← ih hq hn d v]
+      · rw [← ih hq hn hr d v]
         unfold genRandomWorld
         rw [filter_map_comm, Multiset.filter_filter]
         exact Multiset.map_congr
           (Multiset.filter_congr fun r _ => and_comm) (fun r _ => rfl)
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
@@ -3150,7 +3150,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     · rw [product_filter
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
-        (q₁.evaluate d γ) (q₂.evaluate d γ), ← ih₁ hq.1 hn.1 d v, ← ih₂ hq.2 hn.2 d v]
+        (q₁.evaluate d γ) (q₂.evaluate d γ), ← ih₁ hq.1 hn.1 hr.1 d v, ← ih₂ hq.2 hn.2 hr.2 d v]
       show _ = Multiset.map
         (fun uv : Tuple T _ × Tuple T _ => Fin.append uv.fst uv.snd)
         (Multiset.product (genRandomWorld v (q₁.evaluate d γ))
@@ -3161,14 +3161,14 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       intro xy _
       exact specializeTuple_append' xy.fst.fst xy.snd.fst v
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     -- the left side is all-regular, so its rows specialize as they collapse
     have hspec : ∀ x ∈ q₁.evaluate d γ,
         GenRow.specializeTuple v x.fst = GenRow.plainTuple x.fst :=
       fun x hx => specializeTuple_eq_plainTuple x.fst
         (fun k => AggQueryIn.evaluate_conform q₁ d x hx k) v
-    conv_rhs => rw [← ih₁ hq.1 hn.1 d v]
+    conv_rhs => rw [← ih₁ hq.1 hn.1 hr.1 d v]
     unfold genRandomWorld
     rw [filter_bind, Multiset.map_bind, Multiset.bind_map, bind_filter]
     refine Multiset.bind_congr (fun x hx => ?_)
@@ -3185,7 +3185,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
                   ⟨x.snd.base * y.snd.base,
                     x.snd.pending + y.snd.pending⟩)
                     : GenRow T (BoolFunc X) _)) from fun M => ?_]
-      · rw [Multiset.map_map, ← ih₂ hq.2 hn.2 d v]
+      · rw [Multiset.map_map, ← ih₂ hq.2 hn.2 hr.2 d v]
         unfold genRandomWorld
         rw [Multiset.map_map]
         refine Multiset.map_congr rfl (fun y _ => ?_)
@@ -3211,59 +3211,63 @@ theorem AggQueryIn.genRandomWorld_evaluate :
           (GenAnn.finalize_mul x.snd y.snd)) ▸ hfin)
       exact this.1
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [genRandomWorld_add, ih₁ hq.1 hn.1 d v, ih₂ hq.2 hn.2 d v]
+    rw [genRandomWorld_add, ih₁ hq.1 hn.1 hr.1 d v, ih₂ hq.2 hn.2 hr.2 d v]
   | Dedup q ih =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
-      genRandomWorld_allReg, ih hq hn d v]
+      genRandomWorld_allReg, ih hq hn hr d v]
   | Alt k hk q ih =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_bind_alternativesAt k v (q.evaluate d γ)
       (fun r hr a ha hfin =>
         AggQueryIn.evaluate_guarded q d r hr v hfin k a ha)]
-    exact ih hq hn d v
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hn d v γ
+    exact ih hq hn hr d v
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated]
-    refine Eq.trans (muSum_map (h := _root_.randomWorld v)
-      (randomWorld_add v)
+    refine Eq.trans (muSumFix_map (h := _root_.randomWorld v)
+      rfl (randomWorld_add v)
       (stepP := fun Y => q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ)
       (fun Y => by
+        show _root_.randomWorld v
+            ((q₁.evaluate (d.assign s Y) γ).map GenRow.toAnnotated) = _
         rw [genRandomWorld_allReg]
-        exact ih₁ hq.2 hn.2 (d.assign s Y) v) b _) ?_
-    rw [genRandomWorld_allReg, ih₀ hq.1 hn.1 d v]
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
-    intro hq hn d v γ
+        exact ih₁ hq.2 hn.2 hr.2.2 (d.assign s Y) v)
+      (hr.1 d γ).1 (hr.1 d γ).2) ?_
+    rw [genRandomWorld_allReg, ih₀ hq.1 hn.1 hr.2.1 d v]
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated]
-    refine muIter_map (h := _root_.randomWorld v) rfl
+    refine muFix_map (h := _root_.randomWorld v) rfl
       (stepP := fun Y => (q₀.evaluatePlain ((d.randomWorld v).assign s Y) γ
         + q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ).dedup)
-      (fun Y => ?_) b
+      (fun Y => ?_) (hr.1 d γ)
     show _root_.randomWorld v (AnnotatedRelation.dedupAnn (_ + _)) = _
     rw [AnnotatedRelation.dedupAnn, randomWorld_groupByKey, randomWorld_add,
       genRandomWorld_allReg, genRandomWorld_allReg,
-      ih₀ hq.1 hn.1 (d.assign s Y) v, ih₁ hq.2 hn.2 (d.assign s Y) v]
+      ih₀ hq.1 hn.1 hr.2.1 (d.assign s Y) v,
+      ih₁ hq.2 hn.2 hr.2.2 (d.assign s Y) v]
     rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     refine Eq.trans (genRandomWorld_ofAnnotated _ v)
       (Eq.trans (randomWorld_monus
         ((q₁.evaluate d γ).map GenRow.toAnnotated)
         ((q₂.evaluate d γ).map GenRow.toAnnotated) v) ?_)
-    rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 hn.1 d v, ih₂ hq.2 hn.2 d v]
+    rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 hn.1 hr.1 d v, ih₂ hq.2 hn.2 hr.2 d v]
   | @GammaScalar cI m n₂ ts fs q ih =>
     -- one row on each side, kept in every world, its tokens specializing to
     -- the aggregates over the realized rows
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [← ih hq hn d v, ← genRandomWorld_allReg q d v]
+    rw [← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [show Multiset.filter
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
@@ -3290,9 +3294,9 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     -- group's rows is, and the realized world of the token keeps that
     -- occurrence and reads it in the world it cuts out of the row's own
     -- column (`ProjColIn.specialize_innerValue`)
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [← ih hq (AggQueryIn.nestOnce_of_noGammaNest q hn) d v]
+    rw [← ih hq (AggQueryIn.nestOnce_of_noGammaNest q hn) hr d v]
     -- the rows, the key read off their values, and what a row contributes
     set rows := q.evaluate d γ with hrows
     set key : GenRow T (BoolFunc X) m → Tuple T n₁ :=
@@ -3409,9 +3413,9 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         exact ProjColIn.specialize_innerValue p row.fst (hconf row hrow')
           (hnest row hrow') v
   | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
-    rw [← ih hq hn d v, ← genRandomWorld_allReg q d v]
+    rw [← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
     rw [Multiset.filter_congr (fun kv (_ : kv ∈ Multiset.ofList
@@ -3507,11 +3511,11 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame – and a clause cuts the frame by the
     -- rows, which the restriction does not move
-    intro hq hn d v γ
+    intro hq hn hr d v γ
     cases hk : keep with
     | none =>
       rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq,
-        ← ih hq hn d v, ← genRandomWorld_allReg q d v]
+        ← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
       unfold genRandomWorld randomWorld
       rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
         Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
@@ -3532,7 +3536,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         rfl
     | some φ =>
       rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluatePlain_Win_eq_when,
-        ← ih hq hn d v, ← genRandomWorld_allReg q d v]
+        ← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
       unfold genRandomWorld randomWorld
       rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
         Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
@@ -3552,15 +3556,15 @@ theorem AggQueryIn.genRandomWorld_evaluate :
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         rfl
   | Retag h q ih =>
-    intro hq hn d v γ
-    exact ih hq hn d v
+    intro hq hn hr d v γ
+    exact ih hq hn hr d v
   | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
     -- one output row per realized occurrence. The column specializes to
     -- the plain window value the realized world gives the row
     -- (`exprOf_specialize`), so nothing depends on the indexing – which
     -- is what lets the family be compared with a relation at all.
-    intro hq hn d v γ
-    rw [AggQueryIn.evaluatePlain_WinExpr_eq_when, ← ih hq hn d v,
+    intro hq hn hr d v γ
+    rw [AggQueryIn.evaluatePlain_WinExpr_eq_when, ← ih hq hn hr d v,
       ← genRandomWorld_allReg q d v]
     simp only [AggQueryIn.evaluate]
     set R : Multiset (AnnotatedTuple T (BoolFunc X) nI) :=
@@ -3610,11 +3614,12 @@ general query is true in a world iff the plain evaluation of that world
 is non-empty. Immediate from the random-world commutation. -/
 theorem AggQueryIn.booleanProv_eval_iff {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hq : q.noProvSum) (hn : q.nestOnce)
+    (hr : q.recSettles (K := BoolFunc X))
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) :
     (q.booleanProv d) v = true
       ↔ q.evaluatePlain (d.randomWorld v) ≠ 0 := by
   unfold AggQueryIn.booleanProv
-  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hn d v]
+  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hn hr d v]
   unfold genRandomWorld
   rw [Ne, Multiset.map_eq_zero]
   constructor
@@ -3645,7 +3650,7 @@ query equals the probability of its Boolean provenance. This removes the
 top-level restriction of the fused `booleanHaving_pqe`. -/
 theorem AggQueryIn.boolean_pqe {n : ℕ} {κ : Fin n → ColKind}
     (P : ProbAssignment X) (q : AggQuery T n κ) (hq : q.noProvSum)
-    (hn : q.nestOnce)
+    (hn : q.nestOnce) (hr : q.recSettles (K := BoolFunc X))
     (d : AnnotatedDatabase T (BoolFunc X)) :
     AggQueryIn.booleanProb P q d = P.funcProb (q.booleanProv d) := by
   unfold AggQueryIn.booleanProb ProbAssignment.funcProb
@@ -3653,9 +3658,9 @@ theorem AggQueryIn.boolean_pqe {n : ℕ} {κ : Fin n → ColKind}
   by_cases h : q.evaluatePlain (d.randomWorld v) = 0
   · rw [ite_eq_left (Multiset.card_eq_zero.mpr h),
       ite_eq_right (fun hf =>
-        (AggQueryIn.booleanProv_eval_iff q hq hn d v).mp hf h)]
+        (AggQueryIn.booleanProv_eval_iff q hq hn hr d v).mp hf h)]
   · rw [ite_eq_right (fun hc => h (Multiset.card_eq_zero.mp hc)),
-      ite_eq_left ((AggQueryIn.booleanProv_eval_iff q hq hn d v).mpr h)]
+      ite_eq_left ((AggQueryIn.booleanProv_eval_iff q hq hn hr d v).mpr h)]
 
 /-- The provenance of a tuple `t` in a general query with all-regular
 output: the `⊕`-sum of the finalized annotations of the rows whose data
@@ -3671,12 +3676,12 @@ noncomputable def AggQueryIn.tupleProv {n : ℕ}
 a world iff `t` belongs to the plain evaluation of that world. -/
 theorem AggQueryIn.tupleProv_eval_iff {n : ℕ}
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hn : q.nestOnce)
+    (hn : q.nestOnce) (hr : q.recSettles (K := BoolFunc X))
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) (v : X → Bool) :
     (q.tupleProv d t) v = true
       ↔ t ∈ q.evaluatePlain (d.randomWorld v) := by
   unfold AggQueryIn.tupleProv
-  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hn d v]
+  rw [multiset_sum_eval, ← AggQueryIn.genRandomWorld_evaluate q hq hn hr d v]
   unfold genRandomWorld
   rw [Multiset.mem_map]
   constructor
@@ -3719,14 +3724,14 @@ intensional-PQE theorem `ProbAssignment.theorem_12`, with aggregate
 comparisons allowed anywhere in the query. -/
 theorem AggQueryIn.tuple_pqe {n : ℕ} (P : ProbAssignment X)
     (q : AggQuery T n (ColKind.allReg n)) (hq : q.noProvSum)
-    (hn : q.nestOnce)
+    (hn : q.nestOnce) (hr : q.recSettles (K := BoolFunc X))
     (d : AnnotatedDatabase T (BoolFunc X)) (t : Tuple T n) :
     AggQueryIn.tupleProb P q d t = P.funcProb (q.tupleProv d t) := by
   unfold AggQueryIn.tupleProb ProbAssignment.funcProb
   refine Finset.sum_congr rfl fun v _ => ?_
   by_cases h : t ∈ q.evaluatePlain (d.randomWorld v)
   · rw [ite_eq_left h,
-      ite_eq_left ((AggQueryIn.tupleProv_eval_iff q hq hn d t v).mpr h)]
+      ite_eq_left ((AggQueryIn.tupleProv_eval_iff q hq hn hr d t v).mpr h)]
   · rw [ite_eq_right h,
       ite_eq_right (fun hf =>
-        h ((AggQueryIn.tupleProv_eval_iff q hq hn d t v).mp hf))]
+        h ((AggQueryIn.tupleProv_eval_iff q hq hn hr d t v).mp hf))]

@@ -1663,9 +1663,9 @@ theorem groupSeq_randomWorld {m n₁ : ℕ} [HasAltLinearOrder (BoolFunc X)]
               : Multiset (AnnotatedTuple T (BoolFunc X) m)) := by rw [hcoe]
       _ = ↑(((havingGroup is r g).filter (fun p => p.snd v)).map Prod.fst) :=
           Multiset.map_coe _ _
-  show Multiset.sort _ (· ≤ ·) = _
-  exact List.Perm.eq_of_pairwise' (Multiset.pairwise_sort _ _) hsorted
-    (Multiset.coe_eq_coe.mp (by rw [Multiset.sort_eq]; exact hmul))
+  show sortList _ = _
+  exact List.Perm.eq_of_pairwise' (sortList_pairwise _) hsorted
+    (Multiset.coe_eq_coe.mp (by rw [sortList_coe]; exact hmul))
 
 /-- A key is realized in the random world iff the realized world of its
 group sequence is non-empty. -/

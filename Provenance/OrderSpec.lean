@@ -583,16 +583,22 @@ theorem val_eq_of_readLe {x y : α} (h₁ : readLe key val o x y = true)
 /-- **The occurrences of a frame, in the order the clause reads them.** -/
 def sortSeq (key : β → Tuple T p) (val : α → β) (o : OrderSpec p)
     (L : List α) : List α :=
-  L.mergeSort (readLe key val o)
+  L.insertionSort (fun x y => readLe key val o x y = true)
+
+/-- The clause's reading is total and transitive, which is what sorting a
+sequence by it asks. -/
+instance total_readLe : Std.Total (fun x y : α => readLe key val o x y = true) :=
+  ⟨fun a b => readLe_total (key := key) (val := val) (o := o) a b⟩
+
+instance isTrans_readLe : IsTrans α (fun x y => readLe key val o x y = true) :=
+  ⟨fun _ _ _ => readLe_trans⟩
 
 theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L :=
-  List.mergeSort_perm L _
+  List.perm_insertionSort _ L
 
 theorem sortSeq_sorted (L : List α) :
     (sortSeq key val o L).Pairwise (fun x y => readLe key val o x y = true) :=
-  List.pairwise_mergeSort (fun _ _ _ => readLe_trans) (fun a b => by
-    rcases readLe_total (key := key) (val := val) (o := o) a b with h | h <;>
-      simp [h]) L
+  List.pairwise_insertionSort _ L
 
 /-- **Any two readings of one frame in the clause's order give the same
 sequence of values.** They differ only inside blocks of occurrences carrying

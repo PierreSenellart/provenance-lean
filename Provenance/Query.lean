@@ -410,6 +410,15 @@ instance : @Std.Commutative T addFn where
 instance : @Std.Associative T addFn where
   assoc := add_assoc
 
+/-- **`sortList` is `Multiset.sort`**, which the kernel does not reduce: a
+linear order admits one sorted list of a multiset, so the two agree, and a
+statement about one transfers to the other. The library's evaluators read a
+relation as a sequence through `sortList`, so that a `decide`-checked
+equation about a computed relation reduces. -/
+theorem sort_eq_sortList {α : Type} [LinearOrder α] (M : Multiset α) :
+    Multiset.sort M (· ≤ ·) = sortList M :=
+  sortList_eq (Multiset.pairwise_sort _ _) (Multiset.sort_eq _ _)
+
 /-- An aggregate function on *sequences* of values: an arbitrary function
 from finite sequences over `T` to `T`. Beyond the monoid-shaped `⊕`-sum
 of `Query.ProvSum`, this interface covers non-commutative aggregates –
@@ -610,7 +619,7 @@ grouped `DISTINCT` aggregate is not this transformer but the abbreviation
 distinct value is one occurrence annotated by the `⊕` of the occurrences it
 stands for. -/
 def distinct (f : SeqAggFunc T) : SeqAggFunc T :=
-  fun L => f (Multiset.sort (L.dedup : Multiset T) (· ≤ ·))
+  fun L => f (sortList (L.dedup : Multiset T))
 
 /-- **A distinct aggregate reads its input as a multiset**, whatever the
 aggregate: what deduplication leaves is one value per class and not a
@@ -621,16 +630,17 @@ u)` is rejected – and it is why `distinct` needs no hypothesis on `f`
 where a dedup-order reading would have needed symmetry. -/
 theorem distinct_symmetric (f : SeqAggFunc T) : f.distinct.Symmetric := by
   intro L L' hp
-  show f (Multiset.sort _ (· ≤ ·)) = f (Multiset.sort _ (· ≤ ·))
-  exact congrArg f (congrArg (fun s => Multiset.sort s (· ≤ ·))
-    (Quot.sound hp.dedup))
+  show f (sortList _) = f (sortList _)
+  exact congrArg f (congrArg sortList (Quot.sound hp.dedup))
 
 /-- **Any enumeration of the distinct values gives the distinct
 aggregate its value**, for a symmetric aggregate: what the order is
 fixed by does not matter once the aggregate does not read it. -/
 theorem distinct_eq_of_perm {f : SeqAggFunc T} (hf : f.Symmetric)
     {L L' : List T} (h : L'.Perm L.dedup) : f.distinct L = f L' :=
-  hf ((Quotient.exact (Multiset.sort_eq (L.dedup : Multiset T) (· ≤ ·))).trans
+  hf ((Quotient.exact (by
+      rw [← sort_eq_sortList]; exact Multiset.sort_eq (L.dedup : Multiset T) (· ≤ ·)
+        : (↑(sortList (L.dedup : Multiset T)) : Multiset T) = ↑L.dedup)).trans
     h.symm)
 
 section MinMax
@@ -1002,7 +1012,7 @@ non-commutative sequence aggregates read the occurrences of a group; for
 commutative aggregates it is irrelevant. -/
 def Relation.groupSeq (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁) :
     List (Tuple T m) :=
-  Multiset.sort (Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k') r) (· ≤ ·)
+  sortList (Multiset.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k') r)
 
 /-- **The occurrence sequence an aggregate of a grouping reads**: the
 group's rows, cut by a `FILTER` clause where the aggregate carries one.
@@ -1028,13 +1038,13 @@ group's. -/
 theorem Relation.mem_groupSeq {m n₁ : ℕ} {is : Tuple (Fin m) n₁}
     {r : Multiset (Tuple T m)} {g : Tuple T n₁} {u : Tuple T m} :
     u ∈ Relation.groupSeq is r g ↔ u ∈ r ∧ ∀ k, u (is k) = g k := by
-  rw [Relation.groupSeq, Multiset.mem_sort, Multiset.mem_filter]
+  rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter]
 
 /-- A group of a relation that has no duplicate row has none either. -/
 theorem Relation.nodup_groupSeq {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
     {r : Multiset (Tuple T m)} (h : r.Nodup) (g : Tuple T n₁) :
     (Relation.groupSeq is r g).Nodup := by
-  rw [← Multiset.coe_nodup, Relation.groupSeq, Multiset.sort_eq]
+  rw [← Multiset.coe_nodup, Relation.groupSeq, sortList_coe]
   exact h.filter _
 
 /-- Standard multiset semantics of a query over a plain database.

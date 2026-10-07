@@ -2,6 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Mathlib.Order.Lattice.Nat
 import Provenance.AggExpr
 import Provenance.Nested
 import Provenance.Frame
@@ -608,28 +609,30 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   `M₀ = ⟦q₀⟧` and `M_{i+1} = ⟦q₁⟧_{d[s ↦ Mᵢ]}`, and the query is their
   multiset sum.
 
-  The operator of the semantics is *partial*: it is defined where some
-  round is empty, which is where SQL's own iteration ends. A total
-  evaluator cannot decide that, so the number of rounds is in the
-  syntax – `Mu b` sums the rounds up to `b`. Where some round `i ≤ b` is
-  empty this is the semantics' `⨄_{i≥0} Mᵢ`, and then it does not depend
-  on `b` (`AggQueryIn.evaluate_Mu_eq_of_le`); where no round is empty,
-  `Mu b` says what SQL says after `b` rounds and the semantics' operator
-  says nothing. -/
-  | Mu : {c n : ℕ} → (b : ℕ) → (s : String) →
+  The operator is **partial**: it means the sum of the rounds up to the
+  first empty one, and means nothing where no round is empty
+  (`MuSettles`). The evaluator is total and says `⨄_{i<n} Mᵢ` for that
+  `n` where there is one, junk elsewhere, which is why every result about
+  a recursion carries `AggQueryIn.recSettles`; a bounded computation
+  witnesses the value through `AggQueryIn.evaluate_Mu_of_empty`. The
+  round count is *not* part of the query: a recursion that stops at a
+  count rather than at its own rounds is not this operator. -/
+  | Mu : {c n : ℕ} → (s : String) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n)
   /-- **Recursion up to duplicates**: SQL's `WITH RECURSIVE … UNION`.
-  Read as the least fixpoint the semantics says it is: `X₀` empty and
-  `X_{j+1} = ⟦ε(q₀ ⊎ q₁)⟧_{d[s ↦ X_j]}`, annotations included, and the
-  query is `X_b`. Where the iteration stabilizes at some `j ≤ b` this is
-  the semantics' value and does not depend on `b`
-  (`AggQueryIn.evaluate_MuSet_eq_of_le`); the semantics says nothing
-  where it does not stabilize. Unlike `Mu` it stabilizes whenever no
-  tuple has a derivation through itself, and in an absorptive semiring
-  with such derivations too. -/
-  | MuSet : {c n : ℕ} → (b : ℕ) → (s : String) →
+  The least fixpoint the semantics says it is: `X₀` empty,
+  `X_{j+1} = ⟦ε(q₀ ⊎ q₁)⟧_{d[s ↦ X_j]}` with annotations, and the query
+  is `X_j` for the first `j` with `X_{j+1} = X_j`.
+
+  **Partial**, like `Mu`: it means nothing where the rounds never settle
+  (`MuSetSettles`), the evaluator says junk there, and results carry
+  `AggQueryIn.recSettles`;
+  `AggQueryIn.evaluate_MuSet_of_fix` turns a round that repeats into the
+  value. It settles whenever no tuple has a derivation through itself,
+  and in an absorptive semiring with such derivations too. -/
+  | MuSet : {c n : ℕ} → (s : String) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n)
@@ -1019,6 +1022,53 @@ def muIter {α : Type} (step : Multiset α → Multiset α) : ℕ → Multiset �
   | 0 => 0
   | b + 1 => step (muIter step b)
 
+/-! ### What the recursions mean: the rounds settling
+
+`muSum` and `muIter` run a *given* number of rounds, which is a tool and
+not the semantics: a recursion means the value its rounds settle at, and
+means nothing where they do not settle. `MuSetSettles` and `MuSettles`
+say when there is such a value, `muFix` and `muSumFix` are it, and the
+two transfer lemmas below are how a bounded computation witnesses it –
+reach a round that repeats, or an empty one, and the semantics is that
+value. -/
+
+/-- **A set recursion settles** when some round equals the next. The
+rounds are then constant from there on, so the value is well defined. -/
+def MuSetSettles {α : Type} (step : Multiset α → Multiset α) : Prop :=
+  ∃ j, step^[j + 1] 0 = step^[j] 0
+
+/-- **A duplicate-preserving recursion settles** when some round past
+the first is empty, which is where SQL's own iteration stops. -/
+def MuSettles {α : Type} (step : Multiset α → Multiset α)
+    (M : Multiset α) : Prop :=
+  ∃ k, step^[k + 1] M = 0
+
+/-- The first round at which a set recursion repeats; `0` where it never
+does (`Nat.sInf_empty`), which is junk and is what makes the total
+function below say nothing where the semantics says nothing. -/
+noncomputable def muFixIdx {α : Type} (step : Multiset α → Multiset α) : ℕ :=
+  sInf {j | step^[j + 1] 0 = step^[j] 0}
+
+/-- The number of rounds a duplicate-preserving recursion sums: up to the
+first empty one, `0` where there is none. -/
+noncomputable def muRounds {α : Type} (step : Multiset α → Multiset α)
+    (M : Multiset α) : ℕ :=
+  sInf {k | step^[k + 1] M = 0}
+
+/-- **The value a set recursion settles at** – `X_j` for the first `j`
+with `X_{j+1} = X_j`. Junk (`∅`) where the rounds never settle, which no
+statement about it may read: a result about a set recursion carries
+`MuSetSettles` as a hypothesis. -/
+noncomputable def muFix {α : Type} (step : Multiset α → Multiset α) :
+    Multiset α :=
+  muIter step (muFixIdx step)
+
+/-- **The value a duplicate-preserving recursion settles at** – the sum
+of the rounds up to the first empty one. Junk where no round is empty. -/
+noncomputable def muSumFix {α : Type} (step : Multiset α → Multiset α)
+    (M : Multiset α) : Multiset α :=
+  muSum step (muRounds step M) M
+
 /-- One more round adds one more iterate. -/
 theorem muSum_succ {α : Type} (step : Multiset α → Multiset α) (b : ℕ)
     (M : Multiset α) :
@@ -1066,6 +1116,59 @@ theorem muIter_eq_of_le {α : Type} {step : Multiset α → Multiset α} {j : �
     · rw [muIter, ih (Nat.lt_succ_iff.mp h), hj]
     · rw [le_antisymm hb h]
 
+/-- `muIter` is iteration from the empty relation. -/
+theorem muIter_eq_iterate {α : Type} (step : Multiset α → Multiset α) (j : ℕ) :
+    muIter step j = step^[j] 0 := by
+  induction j with
+  | zero => rfl
+  | succ j ih => rw [muIter, ih, Function.iterate_succ_apply']
+
+/-- **A round that repeats witnesses the value a set recursion settles
+at**: `muFix` is that round, whatever later round exhibited it. This is
+how a bounded computation establishes the semantics. -/
+theorem muFix_eq_of_fix {α : Type} {step : Multiset α → Multiset α} {j : ℕ}
+    (hj : step (muIter step j) = muIter step j) :
+    muFix step = muIter step j := by
+  have hmem : j ∈ {i | step^[i + 1] 0 = step^[i] 0} := by
+    show step^[j + 1] 0 = step^[j] 0
+    rw [Function.iterate_succ_apply', ← muIter_eq_iterate]
+    exact hj
+  have hne : {i | step^[i + 1] 0 = step^[i] 0}.Nonempty := ⟨j, hmem⟩
+  have hm : step (muIter step (muFixIdx step)) = muIter step (muFixIdx step) := by
+    have hspec : step^[muFixIdx step + 1] 0 = step^[muFixIdx step] 0 := by
+      rw [muFixIdx]
+      exact Nat.sInf_mem hne
+    rw [muIter_eq_iterate]
+    rw [Function.iterate_succ_apply'] at hspec
+    exact hspec
+  have hle : muFixIdx step ≤ j := by
+    rw [muFixIdx]
+    exact Nat.sInf_le hmem
+  rw [muFix]
+  exact (muIter_eq_of_le hm hle).symm
+
+/-- **An empty round witnesses the value a duplicate-preserving
+recursion settles at.** -/
+theorem muSumFix_eq_of_empty {α : Type} {step : Multiset α → Multiset α}
+    (h0 : step 0 = 0) {M : Multiset α} {k : ℕ} (hk : step^[k + 1] M = 0) :
+    muSumFix step M = muSum step k M := by
+  have hmem : k ∈ {i | step^[i + 1] M = 0} := hk
+  have hne : {i | step^[i + 1] M = 0}.Nonempty := ⟨k, hmem⟩
+  have hspec : step^[muRounds step M + 1] M = 0 := by
+    rw [muRounds]; exact Nat.sInf_mem hne
+  have hle : muRounds step M ≤ k := by
+    rw [muRounds]; exact Nat.sInf_le hmem
+  rw [muSumFix]
+  rcases Nat.eq_or_lt_of_le hle with heq | hlt
+  · rw [heq]
+  · have h1 : muSum step k M = muSum step (muRounds step M + 1) M :=
+      muSum_eq_of_le h0 hspec (le_refl _) (by omega)
+    have h2 : muSum step (muRounds step M + 1) M
+        = muSum step (muRounds step M) M := by
+      rw [muSum_succ, hspec, add_zero]
+    exact h2.symm.trans h1.symm
+
+
 /-- Rounds built from the same step on the same seed agree. -/
 theorem muSum_congr {α : Type} {step step' : Multiset α → Multiset α}
     (h : ∀ X, step X = step' X) (b : ℕ) :
@@ -1106,6 +1209,71 @@ theorem muIter_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 
   | zero => exact h0
   | succ b ih => rw [muIter, hstep, ih, muIter]
 
+/-- **The round a set recursion settles at is a fixpoint of its step.** -/
+theorem muFix_isFix {α : Type} {step : Multiset α → Multiset α}
+    (h : MuSetSettles step) : step (muFix step) = muFix step := by
+  have hne : {i | step^[i + 1] 0 = step^[i] 0}.Nonempty := h
+  have hspec : step^[muFixIdx step + 1] 0 = step^[muFixIdx step] 0 := by
+    rw [muFixIdx]
+    exact Nat.sInf_mem hne
+  rw [muFix, muIter_eq_iterate]
+  rw [Function.iterate_succ_apply'] at hspec
+  exact hspec
+
+/-- **A map commutes with the value a set recursion settles at**, where
+it settles: the images of the rounds are the rounds of the image, so a
+fixpoint maps to a fixpoint, and the image settles no later. This is what
+replaces `muIter_map` once the round count is not part of the query. -/
+theorem muFix_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+    {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
+    (hstep : ∀ X, h (step X) = stepP (h X)) (hs : MuSetSettles step) :
+    h (muFix step) = muFix stepP := by
+  have hfix : step (muIter step (muFixIdx step)) = muIter step (muFixIdx step) :=
+    muFix_isFix hs
+  have hfixP : stepP (muIter stepP (muFixIdx step))
+      = muIter stepP (muFixIdx step) := by
+    rw [← muIter_map h0 hstep, ← hstep, hfix]
+  rw [muFix, muIter_map h0 hstep, (muFix_eq_of_fix hfixP).symm]
+
+/-- **A map commutes with the value a duplicate-preserving recursion
+settles at**, where it settles and an empty round stays empty. -/
+theorem muSumFix_map {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
+    (hadd : ∀ x y, h (x + y) = h x + h y)
+    {step : Multiset α → Multiset α} {stepP : Multiset β → Multiset β}
+    (hstep : ∀ X, h (step X) = stepP (h X)) (hz : step 0 = 0)
+    {M : Multiset α} (hm : MuSettles step M) :
+    h (muSumFix step M) = muSumFix stepP (h M) := by
+  have hne : {i | step^[i + 1] M = 0}.Nonempty := hm
+  have hspec : step^[muRounds step M + 1] M = 0 := by
+    rw [muRounds]
+    exact Nat.sInf_mem hne
+  have hiter : ∀ i (N : Multiset α), h (step^[i] N) = stepP^[i] (h N) := by
+    intro i
+    induction i with
+    | zero => intro N; rfl
+    | succ i ih =>
+      intro N
+      rw [Function.iterate_succ_apply, Function.iterate_succ_apply, ih, hstep]
+  have hspecP : stepP^[muRounds step M + 1] (h M) = 0 := by
+    rw [← hiter, hspec, h0]
+  have hzP : stepP 0 = 0 := by rw [← h0, ← hstep, hz, h0]
+  rw [muSumFix_eq_of_empty hz hspec, muSumFix_eq_of_empty hzP hspecP,
+    muSum_map hadd hstep]
+
+/-- **Steps that agree have the same settling value**, for a
+duplicate-preserving recursion. -/
+theorem muSumFix_congr {α : Type} {step step' : Multiset α → Multiset α}
+    (h : ∀ X, step X = step' X) {M M' : Multiset α} (hM : M = M') :
+    muSumFix step M = muSumFix step' M' := by
+  subst hM
+  exact congrArg (fun f => muSumFix f M) (funext h)
+
+/-- **Steps that agree have the same fixpoint**, for a
+duplicate-eliminating recursion. -/
+theorem muFix_congr {α : Type} {step step' : Multiset α → Multiset α}
+    (h : ∀ X, step X = step' X) : muFix step = muFix step' :=
+  congrArg muFix (funext h)
+
 /-- Duplicate elimination on an annotated relation: one slot per tuple,
 annotated by the `⊕` of its copies – what `Dedup` computes, named for
 the rounds of `MuSet`. -/
@@ -1114,7 +1282,7 @@ def AnnotatedRelation.dedupAnn {n : ℕ} (r : AnnotatedRelation T K n) :
 
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
-def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
+noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) : Multiset (GenRow T K n) :=
   match c, n, κ, q, d, γ with
@@ -1180,14 +1348,16 @@ def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     (Multiset.ofList (groupByKey r).val).map GenRow.ofAnnotated
   | _, _, _, Alt k _ q, d, γ =>
     (q.evaluate d γ).bind (fun r => r.alternativesAt k)
-  | _, _, _, Mu b s q₀ q₁, d, γ =>
-    (muSum (fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated) b
+  | _, _, _, Mu s q₀ q₁, d, γ =>
+    -- the rounds up to the first empty one, junk where none is empty
+    (muSumFix (fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
       ((q₀.evaluate d γ).map GenRow.toAnnotated)).map GenRow.ofAnnotated
-  | _, _, _, MuSet b s q₀ q₁, d, γ =>
-    (muIter (fun X =>
+  | _, _, _, MuSet s q₀ q₁, d, γ =>
+    -- the round the iteration settles at, junk where it never settles
+    (muFix (fun X =>
       AnnotatedRelation.dedupAnn
         (((q₀.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
-          + ((q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated))) b).map
+          + ((q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)))).map
       GenRow.ofAnnotated
   | _, _, _, Diff q₁ q₂, d, γ =>
     let r₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ).map GenRow.toAnnotated
@@ -1322,7 +1492,7 @@ theorem AggQueryIn.evaluate_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKin
 
 /-- The final annotated relation computed by a general query: evaluate,
 then finalize every row. -/
-def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
+noncomputable def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) : AnnotatedRelation T K n :=
   (q.evaluate d γ).map GenRow.toAnnotated
@@ -1331,7 +1501,7 @@ def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
 
 /-- The round function of `Mu`: the body read with the name bound to the
 previous round. -/
-def AggQueryIn.muStep {c n : ℕ} (s : String)
+noncomputable def AggQueryIn.muStep {c n : ℕ} (s : String)
     (q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) :
     AnnotatedRelation T K n → AnnotatedRelation T K n :=
@@ -1339,7 +1509,7 @@ def AggQueryIn.muStep {c n : ℕ} (s : String)
 
 /-- The round function of `MuSet`: `ε(q₀ ⊎ q₁)` read with the name bound
 to the previous round. -/
-def AggQueryIn.muSetStep {c n : ℕ} (s : String)
+noncomputable def AggQueryIn.muSetStep {c n : ℕ} (s : String)
     (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) :
     AnnotatedRelation T K n → AnnotatedRelation T K n :=
@@ -1347,51 +1517,48 @@ def AggQueryIn.muSetStep {c n : ℕ} (s : String)
     (q₀.evaluateAnnotated (d.assign s X) γ
       + q₁.evaluateAnnotated (d.assign s X) γ)
 
-/-- `Mu` is the multiset sum of its rounds. -/
-theorem AggQueryIn.evaluate_Mu {c n : ℕ} (b : ℕ) (s : String)
+/-- `Mu` is the sum of its rounds up to the first empty one. -/
+theorem AggQueryIn.evaluate_Mu {c n : ℕ} (s : String)
     (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :
-    (AggQueryIn.Mu b s q₀ q₁).evaluate d γ
-      = (muSum (AggQueryIn.muStep s q₁ d γ) b (q₀.evaluateAnnotated d γ)).map
-          GenRow.ofAnnotated :=
+    (AggQueryIn.Mu s q₀ q₁).evaluate d γ
+      = (muSumFix (AggQueryIn.muStep s q₁ d γ)
+          (q₀.evaluateAnnotated d γ)).map GenRow.ofAnnotated :=
   rfl
 
-/-- `MuSet` is the `b`-th step of its fixpoint iteration. -/
-theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (b : ℕ) (s : String)
+/-- `MuSet` is the round its iteration settles at. -/
+theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (s : String)
     (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :
-    (AggQueryIn.MuSet b s q₀ q₁).evaluate d γ
-      = (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) b).map GenRow.ofAnnotated :=
+    (AggQueryIn.MuSet s q₀ q₁).evaluate d γ
+      = (muFix (AggQueryIn.muSetStep s q₀ q₁ d γ)).map GenRow.ofAnnotated :=
   rfl
 
-/-- **The bound drops out of `Mu` where the rounds end.** Given a round
-that is empty and a round function that keeps an empty round empty –
-which is what the semantics asks for in asking that some round be empty –
-every bound past that round computes the same relation, so on that
-fragment `Mu b` is the semantics' `⨄_{i≥0} Mᵢ` and the bound is not part
-of what the query means. -/
-theorem AggQueryIn.evaluate_Mu_eq_of_le {c n : ℕ} {b b' i : ℕ} (s : String)
+/-- **An empty round computes `Mu`.** Given a round that is empty and a
+round function that keeps an empty round empty – which is what the
+semantics asks for in asking that some round be empty – the query's value
+is the bounded sum up to that round. This is how a computation witnesses
+the semantics, the round count being no part of the query. -/
+theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {k : ℕ} (s : String)
     (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (h0 : AggQueryIn.muStep s q₁ d γ 0 = 0)
-    (hi : (AggQueryIn.muStep s q₁ d γ)^[i] (q₀.evaluateAnnotated d γ) = 0)
-    (hb : i ≤ b) (hbb : b ≤ b') :
-    (AggQueryIn.Mu b' s q₀ q₁).evaluate d γ
-      = (AggQueryIn.Mu b s q₀ q₁).evaluate d γ := by
-  rw [AggQueryIn.evaluate_Mu, AggQueryIn.evaluate_Mu,
-    muSum_eq_of_le h0 hi hb hbb]
+    (hk : (AggQueryIn.muStep s q₁ d γ)^[k + 1]
+        (q₀.evaluateAnnotated d γ) = 0) :
+    (AggQueryIn.Mu s q₀ q₁).evaluate d γ
+      = (muSum (AggQueryIn.muStep s q₁ d γ) k
+          (q₀.evaluateAnnotated d γ)).map GenRow.ofAnnotated := by
+  rw [AggQueryIn.evaluate_Mu, muSumFix_eq_of_empty h0 hk]
 
-/-- **The bound drops out of `MuSet` where the iteration stabilizes.** -/
-theorem AggQueryIn.evaluate_MuSet_eq_of_le {c n : ℕ} {b b' j : ℕ} (s : String)
+/-- **A repeating round computes `MuSet`.** -/
+theorem AggQueryIn.evaluate_MuSet_of_fix {c n : ℕ} {j : ℕ} (s : String)
     (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
     (γ : Fin c → T)
     (hj : AggQueryIn.muSetStep s q₀ q₁ d γ
         (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j)
-      = muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j)
-    (hb : j ≤ b) (hbb : b ≤ b') :
-    (AggQueryIn.MuSet b' s q₀ q₁).evaluate d γ
-      = (AggQueryIn.MuSet b s q₀ q₁).evaluate d γ := by
-  rw [AggQueryIn.evaluate_MuSet, AggQueryIn.evaluate_MuSet,
-    muIter_eq_of_le hj (hb.trans hbb), muIter_eq_of_le hj hb]
+      = muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j) :
+    (AggQueryIn.MuSet s q₀ q₁).evaluate d γ
+      = (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j).map GenRow.ofAnnotated := by
+  rw [AggQueryIn.evaluate_MuSet, muFix_eq_of_fix hj]
 
 /-- The row a window gives a row of its input relation: the row itself, one
 column longer, with the token the relation gives it, its annotation kept and
@@ -1542,7 +1709,7 @@ computing the aggregate of each group's full occurrence sequence (in the
 canonical `≼` order of `Relation.groupSeq`) and every selection filtering
 classically. `Diff` is the all-or-nothing difference of
 `Query.evaluate`. -/
-def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
+noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Database T →
     (γ : Fin c → T := fun _ => 0) → Relation T n
   | _, n, _, Rel _ s, d, _ =>
@@ -1562,11 +1729,12 @@ def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
   | _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
   | _, _, _, Alt _ _ q, d, γ => q.evaluatePlain d γ
-  | _, _, _, Mu b s q₀ q₁, d, γ =>
-    muSum (fun X => q₁.evaluatePlain (d.assign s X) γ) b (q₀.evaluatePlain d γ)
-  | _, _, _, MuSet b s q₀ q₁, d, γ =>
-    muIter (fun X => (q₀.evaluatePlain (d.assign s X) γ
-      + q₁.evaluatePlain (d.assign s X) γ).dedup) b
+  | _, _, _, Mu s q₀ q₁, d, γ =>
+    muSumFix (fun X => q₁.evaluatePlain (d.assign s X) γ)
+      (q₀.evaluatePlain d γ)
+  | _, _, _, MuSet s q₀ q₁, d, γ =>
+    muFix (fun X => (q₀.evaluatePlain (d.assign s X) γ
+      + q₁.evaluatePlain (d.assign s X) γ).dedup)
   | _, _, _, Diff q₁ q₂, d, γ =>
     let r₂ : Multiset (Tuple T _) := q₂.evaluatePlain d γ
     (q₁.evaluatePlain d γ).filter (fun t => t ∉ r₂)
@@ -1901,8 +2069,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Dedup q => Dedup q.stripAgg
   | _, _, _, Diff q₁ _ => q₁.stripAgg
   | _, _, _, Alt k h q => Alt k h q.stripAgg
-  | _, _, _, Mu b s q₀ q₁ => Mu b s q₀.stripAgg q₁.stripAgg
-  | _, _, _, MuSet b s q₀ q₁ => MuSet b s q₀.stripAgg q₁.stripAgg
+  | _, _, _, Mu s q₀ q₁ => Mu s q₀.stripAgg q₁.stripAgg
+  | _, _, _, MuSet s q₀ q₁ => MuSet s q₀.stripAgg q₁.stripAgg
   | _, _, _, Gamma is ts fs q keep => Gamma is ts fs q.stripAgg keep
   | _, _, _, GammaScalar ts fs q => GammaScalar ts fs q.stripAgg
   | _, _, _, GammaNest is his p f q => GammaNest is his p f q.stripAgg
@@ -1931,8 +2099,8 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.noProvSum
   | _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, .Alt _ _ q => q.noProvSum
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
+  | _, _, _, .Mu _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, .Gamma _ _ _ q _ => q.noProvSum
   | _, _, _, .GammaScalar _ _ q => q.noProvSum
   | _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
@@ -1959,8 +2127,8 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Dedup q => q.altFree
   | _, _, _, .Diff q₁ q₂ => q₁.altFree ∧ q₂.altFree
   | _, _, _, .Alt _ _ _ => False
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, .Mu _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
   | _, _, _, .Gamma _ _ _ q _ => q.altFree
   | _, _, _, .GammaScalar _ _ q => q.altFree
   | _, _, _, .GammaNest _ _ _ _ q => q.altFree
@@ -2195,8 +2363,8 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.noFilter
   | _, _, _, .Diff q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
   | _, _, _, .Alt _ _ q => q.noFilter
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
+  | _, _, _, .Mu _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
   | _, _, _, .Gamma _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
   | _, _, _, .GammaScalar _ _ q => q.noFilter
   | _, _, _, .GammaNest _ _ _ _ q => q.noFilter
@@ -2247,8 +2415,8 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.noGammaNest
   | _, _, _, .Diff q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
   | _, _, _, .Alt _ _ q => q.noGammaNest
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
+  | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
   | _, _, _, .Gamma _ _ _ q _ => q.noGammaNest
   | _, _, _, .GammaScalar _ _ q => q.noGammaNest
   | _, _, _, .GammaNest _ _ _ _ _ => False
@@ -2257,6 +2425,47 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noGammaNest
   | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaNest
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaNest
+
+/-- **Every recursion of the query settles.** A recursion means the value
+its rounds settle at and means nothing elsewhere, so a result that
+evaluates one asks this: at a `MuSet`, that the iteration repeats a round
+(`MuSetSettles`); at a `Mu`, that some round is empty (`MuSettles`) and
+that an empty round stays empty, which is what SQL's requirement that the
+recursive reference occur in the body buys.
+
+It is asked at *every* database, because a nested recursion is evaluated
+at the databases its enclosing rounds produce. A query with no recursion
+satisfies it with no content
+(`AggQueryIn.recSettles_of_noRecursion`). -/
+def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Proj _ q => q.recSettles
+  | _, _, _, .Sel _ q => q.recSettles
+  | _, _, _, .Prod q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, .Apply q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, .Sum q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, .Dedup q => q.recSettles
+  | _, _, _, .Diff q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, .Alt _ _ q => q.recSettles
+  | _, _, _, .Mu s q₀ q₁ =>
+      (∀ (d : AnnotatedDatabase T K) γ,
+          AggQueryIn.muStep s q₁ d γ 0 = 0
+            ∧ MuSettles (AggQueryIn.muStep s q₁ d γ)
+                (q₀.evaluateAnnotated d γ))
+        ∧ q₀.recSettles ∧ q₁.recSettles
+  | _, _, _, .MuSet s q₀ q₁ =>
+      (∀ (d : AnnotatedDatabase T K) γ,
+          MuSetSettles (AggQueryIn.muSetStep s q₀ q₁ d γ))
+        ∧ q₀.recSettles ∧ q₁.recSettles
+  | _, _, _, .Gamma _ _ _ q _ => q.recSettles
+  | _, _, _, .GammaScalar _ _ q => q.recSettles
+  | _, _, _, .GammaNest _ _ _ _ q => q.recSettles
+  | _, _, _, .ProvSum _ _ _ q => q.recSettles
+  | _, _, _, .Retag _ q => q.recSettles
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.recSettles
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
 
 /-- **Every second-level aggregation is read in a complemented
 semiring.** This is what the hom commutation asks of `GammaNest` instead
@@ -2283,8 +2492,8 @@ def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.nestInComplemented
   | _, _, _, .Diff q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
   | _, _, _, .Alt _ _ q => q.nestInComplemented
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
+  | _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
   | _, _, _, .Gamma _ _ _ q _ => q.nestInComplemented
   | _, _, _, .GammaScalar _ _ q => q.nestInComplemented
   | _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
@@ -2311,8 +2520,8 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Alt k hk q ih => exact ih
-  | Mu a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | MuSet a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma is ts fs q keep ih => exact ih
   | GammaScalar ts fs q ih => exact ih
   | GammaNest is his p f q ih => exact fun h => absurd h not_false
@@ -2345,8 +2554,8 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.nestOnce
   | _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
   | _, _, _, .Alt _ _ q => q.nestOnce
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, .Mu _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
   | _, _, _, .Gamma _ _ _ q _ => q.nestOnce
   | _, _, _, .GammaScalar _ _ q => q.nestOnce
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
@@ -2373,8 +2582,8 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Alt a b q ih => exact ih
-  | Mu a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | MuSet a b q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma a b cc q kp ih => exact ih
   | GammaScalar a b q ih => exact ih
   | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
@@ -2405,8 +2614,8 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.noWinExpr
   | _, _, _, .Diff q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
   | _, _, _, .Alt _ _ q => q.noWinExpr
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, .Mu _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
   | _, _, _, .Gamma _ _ _ q _ => q.noWinExpr
   | _, _, _, .GammaScalar _ _ q => q.noWinExpr
   | _, _, _, .GammaNest _ _ _ _ q => q.noWinExpr
@@ -2441,8 +2650,8 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Dedup q => q.framesContainSelf
   | _, _, _, .Diff q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
   | _, _, _, .Alt _ _ q => q.framesContainSelf
-  | _, _, _, .Mu _ _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
-  | _, _, _, .MuSet _ _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, .Mu _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
   | _, _, _, .Gamma _ _ _ q _ => q.framesContainSelf
   | _, _, _, .GammaScalar _ _ q => q.framesContainSelf
   | _, _, _, .GammaNest _ _ _ _ q => q.framesContainSelf
@@ -2469,8 +2678,8 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
   | Alt a b q ih => exact ih
-  | Mu a b q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
-  | MuSet a b q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
+  | Mu a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
+  | MuSet a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
   | Gamma a b cc q kp ih => exact ih
   | GammaScalar a b q ih => exact ih
   | GammaNest a b cc dd q ih => exact ih
@@ -2589,12 +2798,12 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
         exact absurd ha (by simp)
       · exact ih hq hn hfl d r₀ hr₀ j a
           ((Function.update_of_ne hj (Sum.inl v) r₀.fst).symm.trans ha)
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
+  | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -2775,12 +2984,12 @@ theorem AggQueryIn.evaluate_noNested :
         exact absurd ha (by simp)
       · exact ih hn d r₀ hr₀ j a
           ((Function.update_of_ne hj (Sum.inl v) r₀.fst).symm.trans ha)
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
+  | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -2972,12 +3181,12 @@ theorem AggQueryIn.evaluate_conform :
       · show GenValue.kindOf (Function.update r₀.fst k (Sum.inl v) j) = _
         rw [Function.update_of_ne hj, Function.update_of_ne hj]
         exact ih d r₀ hr₀ j
-  | Mu b s q₀ q₁ ih₀ ih₁ =>
+  | Mu s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
-  | MuSet b s q₀ q₁ ih₀ ih₁ =>
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr

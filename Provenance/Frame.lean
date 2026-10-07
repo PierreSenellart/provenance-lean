@@ -38,28 +38,6 @@ order value. -/
 def Tuple.key (is : Tuple (Fin n) p) (u : Tuple T n) : Tuple T p :=
   fun k => u (is k)
 
-/-- A multiset as a sorted list: the canonical reading of a relation as a
-sequence. It is computable, where a choice through `Multiset.toList` is not,
-and it is determined by the multiset, which is what lets two sequences built
-from the same rows be recognised as the same sequence. -/
-def sortList {α : Type} [LinearOrder α] (M : Multiset α) : List α :=
-  (M.foldr sortedInsert ⟨[], by simp⟩).val
-
-@[simp] theorem sortList_coe {α : Type} [LinearOrder α] (M : Multiset α) :
-    (↑(sortList M) : Multiset α) = M :=
-  Having.foldr_sortedInsert_coe M
-
-theorem sortList_pairwise {α : Type} [LinearOrder α] (M : Multiset α) :
-    (sortList M).Pairwise (· ≤ ·) :=
-  (Multiset.foldr sortedInsert ⟨[], by simp⟩ M).property
-
-/-- **A sorted list is its multiset's sorted list.** Two sequences built by
-sorting the same rows are the same sequence, whatever route built them. -/
-theorem sortList_eq {α : Type} [LinearOrder α] {l : List α} {M : Multiset α}
-    (hs : l.Pairwise (· ≤ ·)) (hm : (↑l : Multiset α) = M) : l = sortList M :=
-  List.Perm.eq_of_pairwise' (r := (· ≤ ·)) hs (sortList_pairwise M)
-    (Multiset.coe_eq_coe.mp (by rw [hm, sortList_coe]))
-
 /-- Sorting and then keeping what a predicate accepts is sorting what it
 accepts: filtering does not disturb an order. -/
 theorem sortList_filter {α : Type} [LinearOrder α] (M : Multiset α)
@@ -779,7 +757,7 @@ theorem frameListOf_of_peer {α : Type} [LinearOrder α] (val : α → Tuple T n
     (hval : ∀ a b : α, a ≤ b → val a ≤ val b) :
     frameListOf val P O o w X x = sortList (frameOf val P O w X x) := by
   unfold frameListOf OrderSpec.sortSeq
-  refine List.mergeSort_of_pairwise ?_
+  refine List.Pairwise.insertionSort_eq ?_
   refine (sortList_pairwise _).imp (fun {a b} hab => ?_)
   show OrderSpec.readLe (Tuple.key O) val o a b = true
   unfold OrderSpec.readLe
@@ -1054,12 +1032,12 @@ theorem sortSeq_mapAnn {K' : Type} (O : Tuple (Fin n) p) (o : OrderSpec p)
       = OrderSpec.sortSeq (Tuple.key O) Prod.fst o
           (List.map (fun q : AnnotatedTuple T K n =>
             ((q.fst, g q.snd) : AnnotatedTuple T K' n)) L) :=
-  List.map_mergeSort
-    (f := fun q : AnnotatedTuple T K n =>
-      ((q.fst, g q.snd) : AnnotatedTuple T K' n))
-    (s := OrderSpec.readLe (Tuple.key O)
-      (Prod.fst : AnnotatedTuple T K' n → Tuple T n) o)
-    (fun _ _ _ _ => rfl)
+  List.map_insertionSort _
+    (fun x y => OrderSpec.readLe (Tuple.key O)
+      (Prod.fst : AnnotatedTuple T K' n → Tuple T n) o x y = true)
+    (fun q : AnnotatedTuple T K n =>
+      ((q.fst, g q.snd) : AnnotatedTuple T K' n)) L
+    (fun _ _ _ _ => Iff.rfl)
 
 omit [HasAltLinearOrder K] in
 /-- **Reading annotated occurrences in the clause's order and projecting to
@@ -1071,9 +1049,11 @@ theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
         (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
       = OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
           (List.map (α := AnnotatedTuple T K n) Prod.fst L) :=
-  List.map_mergeSort (f := (Prod.fst : AnnotatedTuple T K n → Tuple T n))
-    (s := OrderSpec.readLe (Tuple.key O) (id : Tuple T n → Tuple T n) o)
-    (fun _ _ _ _ => rfl)
+  List.map_insertionSort _
+    (fun x y => OrderSpec.readLe (Tuple.key O)
+      (id : Tuple T n → Tuple T n) o x y = true)
+    (Prod.fst : AnnotatedTuple T K n → Tuple T n) L
+    (fun _ _ _ _ => Iff.rfl)
 
 theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p)
@@ -1082,10 +1062,11 @@ theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
         (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
       = frameSeqOn (α := Tuple T n) id P O o w r.plain i := by
   unfold frameSeqOn OrderSpec.sortSeq
-  refine Eq.trans (List.map_mergeSort
-      (f := (Prod.fst : AnnotatedTuple T K n → Tuple T n))
-      (s := OrderSpec.readLe (Tuple.key O) (id : Tuple T n → Tuple T n) o)
-      (fun _ _ _ _ => rfl)) ?_
+  refine Eq.trans (List.map_insertionSort _
+      (fun x y => OrderSpec.readLe (Tuple.key O)
+        (id : Tuple T n → Tuple T n) o x y = true)
+      (Prod.fst : AnnotatedTuple T K n → Tuple T n) _
+      (fun _ _ _ _ => Iff.rfl)) ?_
   rw [frameSeq_plain]
 
 /-- **The token's deterministic reading is the plain aggregate over the
