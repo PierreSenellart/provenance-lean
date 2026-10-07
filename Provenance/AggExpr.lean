@@ -701,7 +701,7 @@ nested world's weight is this and not the four readings
 The fourth component is the *expression's own* world condition
 (`AggExpr.IsWorld`: each grouped leaf's family met by the subfamily),
 which is the second conjunct of `NestedValue.World.IsWorldWith` and so
-common to both answers to `q:nestedcoherent`. It is not that question's
+common to both readings of a nested world. It is not that comparison's
 parameter, which is `extra`, a clause on the subfamily an *absent*
 occurrence may take – nothing an inner expression alone decides.
 

@@ -1457,3 +1457,24 @@ theorem nestedIncoherent_ne_coherent :
           (fun W => W.IsWorld nestedIncoherentWitness
             ∧ ∀ d ∈ W.occs, d.present = false → d.sub = ∅)).map
         NestedValue.World.ann).sum := by decide
+
+/-- **The world a valuation realizes is this incoherent one**, which is
+what settles the question rather than merely opening it: the realized
+world sets an occurrence present exactly when the valuation makes its
+*outer* annotation true, and keeps the inner occurrences the valuation
+makes true, independently (`NestedValue.realizedOcc`). So where a
+selection has brought a row's annotation to `𝟘` while its aggregate
+column stays realized, the actual world keeps the inner occurrences of an
+absent outer one. -/
+theorem realizedWorld_not_coherent :
+    ¬ (∀ d ∈ (nestedIncoherentWitness.realizedWorld id).occs,
+        d.present = false → d.sub = ∅) := by decide
+
+/-- **And the current reading admits it**, so it is the reading under
+which the `𝔹`-sum is the indicator of the actual world. A reading that
+forbade it would annotate this value `𝟘` where the world as it is holds
+the row, which `NestedValue.World.ann_eval_iff` and the possible-world
+results built on it would then contradict. -/
+theorem realizedWorld_isWorld :
+    (nestedIncoherentWitness.realizedWorld id).IsWorld
+      nestedIncoherentWitness := by decide

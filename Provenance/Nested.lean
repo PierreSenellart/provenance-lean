@@ -125,10 +125,27 @@ def World.kept (W : World T K) : Multiset (WorldOcc T K) :=
   W.occs.filter (fun d => d.present = true)
 
 /-- **Admissibility, with the coherence condition as a parameter.**
-`extra` is the clause `q:nestedcoherent` leaves open – whether a world
-is barred from meeting the family of an inner value it does not read.
-The document's reading is `IsWorld`, which takes `extra` to be
-vacuous. -/
+`extra` is the clause that was once open – whether a world is barred from
+meeting the family of an inner value it does not read. It is **settled**
+(2026-10-07): the reading is `IsWorld`, `extra` vacuous, and the
+alternative is not a convention but wrong.
+
+Why: the world a valuation realizes sets an occurrence present exactly
+when the valuation makes its *outer* annotation true, and keeps the inner
+occurrences it makes true, independently (`realizedOcc`). A selection on
+an aggregate value brings a failing group's row to `𝟘` while its
+aggregate column stays realized, so the actual world keeps the inner
+occurrences of an absent outer one. Barring that configuration removes
+the world as it is: over `𝔹` the two readings give `⊤` and `𝟘` on
+`HavingQueryCounterexamples.nestedIncoherentWitness`
+(`nestedIncoherent_ne_coherent`, `realizedWorld_not_coherent`), so a
+coherent reading would contradict `World.ann_eval_iff` and the
+possible-world results resting on it.
+
+The condition is one-directional and must be: a present outer occurrence
+needs its inner family met, but a met family does **not** make its
+occurrence present. The parameter stays because it is what the two
+readings are compared through. -/
 def World.IsWorldWith (W : World T K) (a : NestedValue T K)
     (extra : World T K → Prop) : Prop :=
   (a.scalar = true ∨ 0 < Multiset.card W.kept)
@@ -143,7 +160,10 @@ def World.IsWorld (W : World T K) (a : NestedValue T K) : Prop :=
   W.IsWorldWith a (fun _ => True)
 
 /-- The reading that bars a world from meeting the family of an inner
-value it does not read – the other answer to `q:nestedcoherent`. -/
+value it does not read. **Refuted**, not an alternative: it removes the
+world a valuation realizes where a selection has brought an outer
+annotation to `𝟘`, which `IsWorldWith`'s docstring sets out. Kept so that
+the refutation can be stated. -/
 def World.IsWorldCoherent (W : World T K) (a : NestedValue T K) : Prop :=
   W.IsWorldWith a (fun W => ∀ d ∈ W.occs, d.present = false → d.sub = ∅)
 
@@ -240,9 +260,10 @@ through `AggExpr.worldStats`, which is what `GenValue.Equiv` carries. -/
 where it is present, and whether it is a world of its own expression.
 
 Nothing is asked of an *absent* occurrence – the third component is
-`true` there – because that is `World.IsWorld`, the reading the document
-commits to. This is where the two answers to `q:nestedcoherent` part: the
-coherent one asks such an occurrence for `sub = ∅`, and a statistic for
+`true` there – because that is `World.IsWorld`, the reading the semantics
+commits to and the one the realized world has (`IsWorldWith`'s docstring
+says why the alternative is wrong). This is where the two readings part:
+the coherent one asks such an occurrence for `sub = ∅`, and a statistic for
 it would need the family's total annotation, which `AggExpr.worldStats`
 does not single out among its entries (though a tie-block permutation
 preserves it too, so the route would be the same). -/
@@ -509,9 +530,9 @@ end Enumeration
 /-! ## What a world of a nested value is annotated
 
 The annotation is the one every family gets: the product of what is
-present times `𝟙 ⊖` the sum of what is absent. It does not depend on
-`q:nestedcoherent`, which is about *which* worlds are admitted and not
-about how a given one is weighed – so it can be written now. The inner
+present times `𝟙 ⊖` the sum of what is absent. It does not depend on which
+worlds are admitted, that being a separate question from how a given one
+is weighed – so it can be written now. The inner
 products range over every occurrence, which is the literal reading of
 "the occurrences present in `W`"; under the coherent reading they
 collapse to the occurrences the world actually reads
@@ -1436,8 +1457,8 @@ def mapAnn {K' : Type} (h : K → K') : AggTok T K → AggTok T K'
 /-! ### The readings, on each kind of token
 
 Each reading delegates: to `AggValue` on an ordinary token, to
-`NestedValue` on a nested one – over the world set `q:nestedcoherent`
-leaves as a choice between two available definitions – and to `AggExpr`
+`NestedValue` on a nested one – over `World.IsWorld`, the admitted world
+set – and to `AggExpr`
 on an expression, whose worlds are the subfamilies of the shared family
 meeting every grouped leaf. So the *definitions* cover all three kinds;
 what the metatheory has not yet proved beyond an ordinary token it
