@@ -35,6 +35,9 @@ import Provenance.AggQuerySubst
 import Provenance.Derived
 import Provenance.DerivedAnn
 
+/- Which operators a query cannot do without -/
+import Provenance.PlainBasis
+
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
 
