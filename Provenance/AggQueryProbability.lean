@@ -1700,6 +1700,10 @@ theorem AggQueryIn.evaluate_guarded :
       rw [hf] at hr
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Empty =>
+    intro d γ r hr
+    simp only [AggQueryIn.evaluate] at hr
+    exact absurd hr (Multiset.notMem_zero r)
   | Proj ps q ih =>
     intro d γ r hr v hfin j a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -3075,6 +3079,10 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     cases hf : d.find n s with
     | none => rfl
     | some rn => exact genRandomWorld_ofAnnotated rn v
+  | Empty =>
+    intro hq hn hr d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rfl
   | Proj ps q ih =>
     intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]

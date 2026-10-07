@@ -1545,5 +1545,106 @@ theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
 
 end Where
 
+/-! ## Constant relations
+
+`AggQueryIn.Empty` is the one leaf that belongs to the query rather than
+to the instance, and everything a query builds from nowhere is derived
+from it here: the unit relation is its scalar aggregation with no
+aggregate, and a constant relation is a union of projections of the unit
+onto constants. A constant relation therefore needs no leaf of its own,
+and the non-emptiness SQL asks of `VALUES` is a condition of this
+notation and not of the syntax. -/
+
+section Constants
+
+variable [ValueType T] {k : ℕ}
+
+/-- **The unit relation `𝟏`**: one empty tuple, annotated `𝟙`. It is the
+scalar aggregation of the empty relation with no aggregate – PostgreSQL's
+`SELECT;` – and the row it emits exists on its own: no group, so no
+group-existence factor. -/
+def unit : AggQuery T 0 (ColKind.allReg 0) :=
+  (AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
+      (AggQueryIn.Empty : AggQuery T 0 (ColKind.allReg 0))).castKind
+    (funext fun j => j.elim0)
+
+/-- **One row of constants**: the unit projected onto the values of `u`. -/
+def rowOf (u : Tuple T k) : AggQuery T k (ColKind.allReg k) :=
+  (AggQueryIn.Proj (fun j => ProjColIn.term (TermGIn.const (u j)))
+      unit).castKind (funext fun _ => rfl)
+
+/-- **`VALUES`**: the constant relation holding the tuples of `us`, with
+duplicates kept, as the union of one row per entry. SQL's `VALUES` asks
+for at least one row, which is the hypothesis here; `SELECT` without
+`FROM` is the case of one tuple. -/
+def values (us : List (Tuple T k)) (h : us ≠ []) :
+    AggQuery T k (ColKind.allReg k) :=
+  match us, h with
+  | [], h => absurd rfl h
+  | u :: rest, _ =>
+      rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v)) (rowOf u)
+
+/-- **The unit has one row, and it is the empty tuple.** Stated against
+any arity-`0` tuple, every one of them being that tuple. -/
+@[simp] theorem evaluatePlain_unit (D : Database T) (γ : Fin 0 → T)
+    (u : Tuple T 0) : (unit : AggQuery T 0 _).evaluatePlain D γ
+      = ({u} : Multiset (Tuple T 0)) := by
+  show ((AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0)
+    (fun j : Fin 0 => j.elim0)
+    (AggQueryIn.Empty : AggQuery T 0 (ColKind.allReg 0))).castKind
+      (funext fun j => j.elim0)).evaluatePlain D γ
+    = ({u} : Multiset (Tuple T 0))
+  rw [AggQueryIn.evaluatePlain_castKind]
+  simp only [AggQueryIn.evaluatePlain]
+  exact congrArg (fun v : Tuple T 0 => ({v} : Multiset (Tuple T 0)))
+    (funext fun j => j.elim0)
+
+/-- **A row of constants is that row.** -/
+@[simp] theorem evaluatePlain_rowOf (u : Tuple T k) (D : Database T)
+    (γ : Fin 0 → T) : (rowOf u).evaluatePlain D γ
+      = ({u} : Multiset (Tuple T k)) := by
+  show ((AggQueryIn.Proj (fun j => ProjColIn.term (TermGIn.const (u j)))
+      unit).castKind (funext fun _ => rfl)).evaluatePlain D γ
+    = ({u} : Multiset (Tuple T k))
+  rw [AggQueryIn.evaluatePlain_castKind]
+  simp only [AggQueryIn.evaluatePlain]
+  rw [evaluatePlain_unit D γ (fun j => j.elim0), Multiset.map_singleton]
+  rfl
+
+/-- The rows a union of constant rows adds to what it starts from. -/
+theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
+    (q : AggQuery T k (ColKind.allReg k)) (D : Database T) (γ : Fin 0 → T)
+    (r : Multiset (Tuple T k)) (hq : q.evaluatePlain D γ = r) :
+    (l.foldl (fun q' v => AggQueryIn.Sum q' (rowOf v)) q).evaluatePlain D γ
+      = r + Multiset.ofList l := by
+  induction l generalizing q r with
+  | nil =>
+    rw [List.foldl_nil, hq]
+    exact (add_zero r).symm
+  | cons v t ih =>
+    rw [List.foldl_cons,
+      ih (AggQueryIn.Sum q (rowOf v)) (r + ({v} : Multiset (Tuple T k))) (by
+        show q.evaluatePlain D γ + (rowOf v).evaluatePlain D γ
+          = r + ({v} : Multiset (Tuple T k))
+        rw [hq, evaluatePlain_rowOf v D γ]),
+      add_assoc]
+    rfl
+
+/-- **What `VALUES` holds**: its tuples, with their duplicates, on every
+instance. -/
+theorem evaluatePlain_values (us : List (Tuple T k)) (h : us ≠ [])
+    (D : Database T) (γ : Fin 0 → T) :
+    (values us h).evaluatePlain D γ = Multiset.ofList us := by
+  match us, h with
+  | [], h => exact absurd rfl h
+  | u :: rest, _ =>
+    show (rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v))
+      (rowOf u)).evaluatePlain D γ = _
+    rw [evaluatePlain_foldl_rowOf rest (rowOf u) D γ
+      ({u} : Multiset (Tuple T k)) (evaluatePlain_rowOf u D γ)]
+    rfl
+
+end Constants
+
 
 end AggQueryIn

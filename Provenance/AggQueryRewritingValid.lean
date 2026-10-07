@@ -152,6 +152,35 @@ theorem AggQueryIn.rewriting_plain :
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
     simp only [AggQueryIn.evaluatePlain, Query.evaluate]
     cases D.find (n + 1) s <;> rfl
+  | _, _, _, .Empty, hq, D => by
+    -- both sides are the empty relation of the rewritten schema: one
+    -- projects nothing, the other filters a relation by a predicate that
+    -- keeps nothing
+    have hl : (AggQueryIn.Empty.rewriting (K := K) hq).evaluatePlain D
+        = (0 : Relation (T ⊕ K) 1) := by
+      show (AggQueryIn.Retag _ (AggQueryIn.Proj
+        (fun _ : Fin 1 => ProjColIn.term (TermGIn.const 0))
+        (AggQueryIn.Empty : AggQuery (T ⊕ K) 0 (ColKind.allReg 0)))).evaluatePlain D
+          = 0
+      simp only [AggQueryIn.evaluatePlain]
+      rfl
+    have hr : ((AggQueryIn.Empty.strip hq).rewriting (K := K)
+          (AggQueryIn.strip_source (T := T) AggQueryIn.Empty hq)).evaluate D
+        = (0 : Relation (T ⊕ K) 1) := by
+      show (Query.Sel (Selection.Not Selection.True).castToAnnotatedTuple
+        ((Query.Rel 0 "").rewriting _)).evaluate D = 0
+      unfold Query.evaluate
+      let _ : DecidablePred (Selection.eval
+          ((Selection.Not Selection.True : Selection T 0).castToAnnotatedTuple
+            (K := K))) :=
+        ((Selection.Not Selection.True : Selection T 0).castToAnnotatedTuple
+          (K := K)).evalDecidable
+      refine Multiset.eq_zero_of_forall_notMem (fun u hu => ?_)
+      have hev := (Multiset.mem_filter.mp hu).2
+      exact absurd hev (by
+        simp [Selection.castToAnnotatedTuple, Selection.eval, Selection.eval3,
+          Kleene.not])
+    rw [hl, hr]
   | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]

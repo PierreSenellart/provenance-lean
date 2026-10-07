@@ -39,6 +39,7 @@ conjunction of its predicates, in the order they were written. -/
 def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → AggQueryIn T c n κ
   | _, _, _, .Rel n s => .Rel n s
+  | _, _, _, .Empty => .Empty
   | _, _, _, .Proj ps q => .Proj ps q.normalize
   | _, _, _, .Sel φ q =>
     match q.normalize with
@@ -70,6 +71,7 @@ because there is no chain. -/
 def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.chainFree
   | _, _, _, .Sel _ (.Sel _ _) => False
   | _, _, _, .Sel _ q => q.chainFree
@@ -98,6 +100,7 @@ theorem AggQueryIn.normalize_chainFree :
   intro c n κ q
   induction q with
   | Rel n s => trivial
+  | Empty => trivial
   | Proj ps q ih => exact ih
   | Sel φ q ih =>
     show (match q.normalize with
@@ -134,6 +137,7 @@ theorem AggQueryIn.normalize_id_of_chainFree :
   intro c n κ q
   induction q with
   | Rel n s => intro _; rfl
+  | Empty => intro _; rfl
   | Proj ps q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Sel φ q ih =>
     intro h

@@ -840,5 +840,104 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
 
 end Where
 
+/-! ## Constant relations, annotated
+
+The unit relation's row and each row of a constant relation carry `𝟙`: a
+constant relation is part of the query, so no instance weighs it. -/
+
+section Constants
+
+variable [ValueType T] {k : ℕ}
+
+/-- **The unit relation's row is annotated `𝟙`.** -/
+@[simp] theorem evaluateAnnotated_unit (d : AnnotatedDatabase T K)
+    (γ : Fin 0 → T) (u : Tuple T 0) :
+    (unit : AggQuery T 0 _).evaluateAnnotated d γ
+      = ({(u, 1)} : Multiset (AnnotatedTuple T K 0)) := by
+  show ((AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0)
+    (fun j : Fin 0 => j.elim0)
+    (AggQueryIn.Empty : AggQuery T 0 (ColKind.allReg 0))).castKind
+      (funext fun j => j.elim0)).evaluateAnnotated d γ
+    = ({(u, 1)} : Multiset (AnnotatedTuple T K 0))
+  rw [AggQueryIn.evaluateAnnotated, AggQueryIn.evaluate_castKind]
+  simp only [AggQueryIn.evaluate, Multiset.map_singleton]
+  refine congrArg (fun p : AnnotatedTuple T K 0 =>
+      ({p} : Multiset (AnnotatedTuple T K 0))) (Prod.ext ?_ ?_)
+  · exact funext fun j => j.elim0
+  · simp [GenRow.toAnnotated, GenAnn.finalize]
+
+/-- **And so is each row of a constant relation.** -/
+@[simp] theorem evaluateAnnotated_rowOf (u : Tuple T k)
+    (d : AnnotatedDatabase T K) (γ : Fin 0 → T) :
+    (rowOf u).evaluateAnnotated d γ
+      = ({(u, 1)} : Multiset (AnnotatedTuple T K k)) := by
+  show ((AggQueryIn.Proj (fun j => ProjColIn.term (TermGIn.const (u j)))
+      unit).castKind (funext fun _ => rfl)).evaluateAnnotated d γ
+    = ({(u, 1)} : Multiset (AnnotatedTuple T K k))
+  rw [AggQueryIn.evaluateAnnotated, AggQueryIn.evaluate_castKind]
+  simp only [AggQueryIn.evaluate]
+  rw [show (unit : AggQuery T 0 _).evaluate d γ
+      = ({⟨fun j : Fin 0 => j.elim0, ⟨1, 0⟩⟩} : Multiset (GenRow T K 0)) from by
+    show ((AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0)
+      (fun j : Fin 0 => j.elim0)
+      (AggQueryIn.Empty : AggQuery T 0 (ColKind.allReg 0))).castKind
+        (funext fun j => j.elim0)).evaluate d γ = _
+    rw [AggQueryIn.evaluate_castKind]
+    simp only [AggQueryIn.evaluate]
+    exact congrArg (fun r : GenRow T K 0 => ({r} : Multiset (GenRow T K 0)))
+      (Prod.ext (funext fun j => j.elim0) rfl)]
+  rw [Multiset.map_singleton, Multiset.map_singleton]
+  refine congrArg (fun p : AnnotatedTuple T K k =>
+      ({p} : Multiset (AnnotatedTuple T K k))) (Prod.ext ?_ ?_)
+  · exact funext fun j => rfl
+  · simp [GenRow.toAnnotated, GenAnn.finalize]
+
+/-- The annotated rows a union of constant rows adds to what it starts
+from. -/
+theorem evaluateAnnotated_foldl_rowOf (l : List (Tuple T k))
+    (q : AggQuery T k (ColKind.allReg k)) (d : AnnotatedDatabase T K)
+    (γ : Fin 0 → T) (r : Multiset (AnnotatedTuple T K k))
+    (hq : q.evaluateAnnotated d γ = r) :
+    (l.foldl (fun q' v => AggQueryIn.Sum q' (rowOf v)) q).evaluateAnnotated d γ
+      = r + Multiset.ofList
+          ((l.map (fun u => ((u, 1) : AnnotatedTuple T K k)))
+            : List (AnnotatedTuple T K k)) := by
+  induction l generalizing q r with
+  | nil =>
+    rw [List.foldl_nil, hq]
+    exact (add_zero r).symm
+  | cons v t ih =>
+    rw [List.foldl_cons,
+      ih (AggQueryIn.Sum q (rowOf v))
+        (r + ({(v, 1)} : Multiset (AnnotatedTuple T K k))) (by
+        rw [AggQueryIn.evaluateAnnotated]
+        simp only [AggQueryIn.evaluate, Multiset.map_add]
+        rw [show (q.evaluate d γ).map GenRow.toAnnotated
+            = q.evaluateAnnotated d γ from rfl, hq,
+          show ((rowOf v).evaluate d γ).map GenRow.toAnnotated
+            = (rowOf v).evaluateAnnotated d γ from rfl,
+          evaluateAnnotated_rowOf v d γ]),
+      add_assoc]
+    rfl
+
+/-- **What `VALUES` holds, annotated**: its tuples, each carrying `𝟙`. -/
+theorem evaluateAnnotated_values (us : List (Tuple T k)) (h : us ≠ [])
+    (d : AnnotatedDatabase T K) (γ : Fin 0 → T) :
+    (values us h).evaluateAnnotated d γ
+      = Multiset.ofList
+          ((us.map (fun u => ((u, 1) : AnnotatedTuple T K k)))
+            : List (AnnotatedTuple T K k)) := by
+  match us, h with
+  | [], h => exact absurd rfl h
+  | u :: rest, _ =>
+    show (rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v))
+      (rowOf u)).evaluateAnnotated d γ = _
+    rw [evaluateAnnotated_foldl_rowOf rest (rowOf u) d γ
+      ({(u, 1)} : Multiset (AnnotatedTuple T K k))
+      (evaluateAnnotated_rowOf u d γ)]
+    rfl
+
+end Constants
+
 
 end AggQueryIn

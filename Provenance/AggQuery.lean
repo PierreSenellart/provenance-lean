@@ -568,6 +568,20 @@ never compute over tokens. -/
 inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type where
   /-- Base relation (all-regular). -/
   | Rel : {c : ℕ} → (n : ℕ) → String → AggQueryIn T c n (ColKind.allReg n)
+  /-- **The empty relation of arity `0`**, empty on every instance. It is
+  the one leaf that belongs to the *query* and not to the instance, which
+  is what makes it the base of everything a query can build from nowhere:
+  the unit relation is the scalar aggregation of it with no aggregate
+  (`Derived.unit`, one empty tuple annotated `𝟙`, which is PostgreSQL's
+  `SELECT;`), and SQL's `VALUES` is a union of projections of that onto
+  constants (`Derived.values`). A constant relation therefore needs no
+  leaf of its own, and this one needs no side condition: non-emptiness is
+  a condition of the derived notation, not of the syntax.
+
+  Keeping it at arity `0` is what leaves `GammaScalar` alone in its
+  class: every other operator is empty on an empty instance, and the
+  scalar aggregation is the one that emits a row regardless. -/
+  | Empty : {c : ℕ} → AggQueryIn T c 0 (ColKind.allReg 0)
   /-- Generalized projection. -/
   | Proj : {c n m : ℕ} → {κ : Fin n → ColKind} →
       (ps : Tuple (ProjColIn T c κ) m) → AggQueryIn T c n κ →
@@ -1290,6 +1304,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     match d.find n s with
     | none => (∅ : Multiset (GenRow T K n))
     | some rn => (rn : Multiset (AnnotatedTuple T K n)).map GenRow.ofAnnotated
+  | _, _, _, Empty, _, _ => (∅ : Multiset (GenRow T K 0))
   | _, _, _, @Proj _ _ n m κ ps q, d, γ =>
     (q.evaluate d γ).map (fun r =>
       let u' : Tuple (GenValue T K) m := fun j => (ps j).eval r.fst γ
@@ -1716,6 +1731,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
     match d.find n s with
     | none => (∅ : Multiset (Tuple T n))
     | some rn => rn
+  | _, _, _, Empty, _, _ => (0 : Relation T 0)
   | _, _, _, @Proj _ _ n _ κ ps q, d, γ =>
     (q.evaluatePlain d γ).map (fun u => (fun j => (ps j).evalPlain u γ))
   | _, _, _, Sel φ q, d, γ =>
@@ -2060,6 +2076,7 @@ is stated against the plain evaluation of the stripped query, mirroring
 def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → AggQueryIn T c n κ
   | _, _, _, Rel n s => Rel n s
+  | _, _, _, Empty => Empty
   | _, _, _, Proj ps q => Proj ps q.stripAgg
   | _, _, _, Sel φ q =>
     if φ.hasAggAtom then q.stripAgg else Sel φ q.stripAgg
@@ -2091,6 +2108,7 @@ the annotated evaluators. -/
 def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.noProvSum
   | _, _, _, .Sel _ q => q.noProvSum
   | _, _, _, .Prod q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
@@ -2119,6 +2137,7 @@ Boolean support and the random world, which `Alt` respects. -/
 def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T' c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.altFree
   | _, _, _, .Sel _ q => q.altFree
   | _, _, _, .Prod q₁ q₂ => q₁.altFree ∧ q₂.altFree
@@ -2355,6 +2374,7 @@ reading and the data-part adequacy already did. -/
 def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.noFilter
   | _, _, _, .Sel _ q => q.noFilter
   | _, _, _, .Prod q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
@@ -2407,6 +2427,7 @@ operator's aggregate column therefore gives. -/
 def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.noGammaNest
   | _, _, _, .Sel _ q => q.noGammaNest
   | _, _, _, .Prod q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
@@ -2440,6 +2461,7 @@ satisfies it with no content
 def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.recSettles
   | _, _, _, .Sel _ q => q.recSettles
   | _, _, _, .Prod q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
@@ -2484,6 +2506,7 @@ non-negative rationals, where `𝟙 ⊖ (½ ⊕ ½)` is `𝟘` against `¼`. -/
 def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.nestInComplemented
   | _, _, _, .Sel _ q => q.nestInComplemented
   | _, _, _, .Prod q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
@@ -2512,6 +2535,7 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   intro c n κ q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
@@ -2546,6 +2570,7 @@ operator outright. -/
 def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.nestOnce
   | _, _, _, .Sel _ q => q.nestOnce
   | _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
@@ -2574,6 +2599,7 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   intro c n κ q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
@@ -2606,6 +2632,7 @@ that the frames be read off the tuples
 def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.noWinExpr
   | _, _, _, .Sel _ q => q.noWinExpr
   | _, _, _, .Prod q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
@@ -2642,6 +2669,7 @@ a single-frame `Win`, whose token is read off the relation. -/
 def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
   | _, _, _, .Proj _ q => q.framesContainSelf
   | _, _, _, .Sel _ q => q.framesContainSelf
   | _, _, _, .Prod q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
@@ -2670,6 +2698,7 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   intro c n κ q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
@@ -2718,6 +2747,10 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
       rw [hf] at hr
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Empty =>
+    intro _ _ _ d γ r hr
+    simp only [AggQueryIn.evaluate] at hr
+    exact absurd hr (Multiset.notMem_zero r)
   | Proj ps q ih =>
     intro hq hn hfl d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -2904,6 +2937,10 @@ theorem AggQueryIn.evaluate_noNested :
       rw [hf] at hr
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Empty =>
+    intro _ d γ r hr
+    simp only [AggQueryIn.evaluate] at hr
+    exact absurd hr (Multiset.notMem_zero r)
   | Proj ps q ih =>
     intro hn d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -3089,6 +3126,10 @@ theorem AggQueryIn.evaluate_conform :
       rw [hf] at hr
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       rfl
+  | Empty =>
+    intro d γ r hr
+    simp only [AggQueryIn.evaluate] at hr
+    exact absurd hr (Multiset.notMem_zero r)
   | Proj ps q ih =>
     intro d γ r hr j
     simp only [AggQueryIn.evaluate] at hr

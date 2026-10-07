@@ -448,6 +448,13 @@ proven engine several general results reuse internally.
   `agg_token` / uuid data types – enforcing the scope conditions
   statically (`Gamma` over all-regular inputs only, no `Dedup`/`Diff`
   over token columns, normal-form projections and selections),
+  the **empty relation** `Empty` of arity `0` – the one leaf that belongs
+  to the query and not to the instance, from which the unit relation
+  (`AggQuery.unit`, its scalar aggregation with no aggregate: one empty
+  tuple annotated `𝟙`, PostgreSQL's `SELECT;`) and SQL's `VALUES`
+  (`AggQuery.values`, a union of projections of the unit onto constants,
+  with `evaluatePlain_values` and `evaluateAnnotated_values` reading
+  them) are derived, so a constant relation needs no leaf of its own –
   aggregation without grouping (`GammaScalar`, whose single row survives an
   empty input: annotated `𝟙` with no group-existence factor, its tokens
   read in the scalar convention), **second-level aggregation**
@@ -474,20 +481,24 @@ proven engine several general results reuse internally.
   `MuSet` (`… UNION`) bind a relation name to the previous round –
   `AnnotatedDatabase.assign`, a cons, since a database is searched front
   to back – and iterate: `Mu` sums its rounds, `MuSet` runs the fixpoint
-  iteration of `ε(q₀ ⊎ q₁)`. The semantics' operators are partial,
-  defined where some round is empty or the iteration stabilizes, which a
-  total evaluator cannot decide, so the number of rounds is in the
-  syntax and `AggQuery.evaluate_Mu_eq_of_le` and
-  `evaluate_MuSet_eq_of_le` say the bound drops out past that round: on
-  the fragment where the semantics is defined, the bound is not part of
-  what the query means. That `⨄_{i≥0} Mᵢ` is a relation at all needs an
-  empty round to be a fixpoint of the round function, which SQL buys by
-  requiring the recursive reference to occur in the body and the bare
-  syntax does not, so it is the hypothesis `step 0 = 0` where it is
-  used. The rounds carry their own lemmas (`muSum`, `muIter`,
-  `muSum_map`, `muIter_map`, `muSum_congr`, `muIter_congr`), which is
-  what carries adequacy, the random-world commutation and the
-  homomorphism through them round by round. Recursion is outside the
+  iteration of `ε(q₀ ⊎ q₁)`. The two operators are **partial**: what
+  each denotes is the value its rounds settle at – the sum up to the
+  first empty round (`muSumFix`) and the first fixpoint of the iteration
+  (`muFix`), both taken through `Nat.sInf` – and a recursion that does
+  not settle has no value. Nothing in the syntax bounds the rounds: a
+  recursion that stopped at a count rather than at its own rounds would
+  not be this operator. Settling is a hypothesis, `AggQuery.recSettles`,
+  which the four results that evaluate a recursion carry (adequacy, the
+  homomorphism commutation, the random world and the PQE results off
+  it); it also asks `step 0 = 0` at `Mu`, which is what makes an empty
+  round a fixpoint – SQL buys it by requiring the recursive reference to
+  occur in the body, and the bare syntax does not. The rounds carry
+  their own lemmas (`muSum`, `muIter`, `muSumFix`, `muFix`,
+  `muSumFix_map`, `muFix_map`, `muSumFix_congr`, `muFix_congr`), which
+  is what carries adequacy, the random-world commutation and the
+  homomorphism through them round by round. Taking the fixpoint makes
+  the evaluators `noncomputable`, so the worked examples check their
+  values by `decide` rather than printing them. Recursion is outside the
   (R1)–(R5) rewriting fragment (`AggQuery.classical`): a rewritten body
   carries the provenance column, so the bound name would have to be
   bound to the rewritten relation and the fixpoint would be over another

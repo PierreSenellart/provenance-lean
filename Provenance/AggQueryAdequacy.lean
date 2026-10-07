@@ -271,6 +271,12 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     · rfl
     · rw [Option.map_some, Multiset.map_map]
       rfl
+  | Empty =>
+    intro hq hr d γ
+    rw [hplain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
+      AggQueryIn.evaluatePlain]
+    rfl
   | Proj ps q ih =>
     intro hq hr d γ
     rw [hplain]

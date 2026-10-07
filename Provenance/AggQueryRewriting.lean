@@ -65,6 +65,9 @@ regular terms only, selections without aggregate atoms. -/
 def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
+  -- the empty relation is in the fragment: its rewriting is the empty
+  -- relation of the rewritten schema, with nothing to carry
+  | _, _, _, .Empty => True
   | _, _, _, .Proj ps q =>
       (∀ j, (ps j).kind = ColKind.reg) ∧ q.classical
   | _, _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.classical
@@ -103,6 +106,7 @@ theorem AggQueryIn.noGammaNest_of_classical :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.classical → q.noGammaNest
   | _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, .Empty, _ => trivial
   | _, _, _, .Proj _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
   | _, _, _, .Sel _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
   | _, _, _, .Prod q₁ q₂, hq =>
@@ -276,6 +280,12 @@ def AggQueryIn.rewriting :
     q.classical → AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)
   | _, n, _, .Rel _ s, _ =>
     AggQueryIn.retagToRew (fun _ => rfl) (AggQueryIn.Rel (n + 1) s)
+  | _, _, _, .Empty, _ =>
+    -- one column, the provenance one, over no row: a projection of the
+    -- empty relation, which is empty whatever it projects
+    AggQueryIn.retagToRew (fun _ => rfl)
+      (AggQueryIn.Proj (fun _ : Fin 1 => ProjColIn.term (TermGIn.const 0))
+        (AggQueryIn.Empty : AggQuery (T ⊕ K) 0 (ColKind.allReg 0)))
   | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
     AggQueryIn.retagToRew
       (fun j => by

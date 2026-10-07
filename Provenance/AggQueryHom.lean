@@ -1953,6 +1953,10 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     | some rn =>
       simp only [Option.map_some]
       exact rel_ofAnnotated_map h rn
+  | Empty =>
+    intro d γ hw hn hrec
+    simp only [AggQueryIn.evaluate]
+    exact Multiset.Rel.zero
   | Proj ps q ih =>
     intro d γ hw hn hrec
     simp only [AggQueryIn.evaluate]

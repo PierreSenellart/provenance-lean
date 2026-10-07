@@ -133,6 +133,10 @@ def AggQueryIn.strip :
     {c n : ℕ} → {κ : Fin n → ColKind} → (q : AggQueryIn T c n κ) →
     q.classical → Query T n
   | _, n, _, .Rel _ s, _ => .Rel n s
+  -- the classical syntax has no empty leaf, so the strip spells it as a
+  -- selection that keeps nothing; both readings of it are empty on every
+  -- instance, which is what the leaf denotes
+  | _, _, _, .Empty, _ => .Sel (Selection.Not Selection.True) (.Rel 0 "")
   | _, _, _, .Proj ps q, hq =>
     .Proj (fun j => (ps j).strip) (q.strip hq.2)
   | _, _, _, .Sel φ q, hq => .Sel φ.strip (q.strip hq.2)
@@ -154,6 +158,7 @@ theorem AggQueryIn.strip_source :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
       (hq : q.classical), (q.strip hq).source
   | _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, .Empty, _ => trivial
   | _, _, _, .Proj _ q, hq => strip_source q hq.2
   | _, _, _, .Sel _ q, hq => strip_source q hq.2
   | _, _, _, .Prod q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
@@ -198,6 +203,18 @@ theorem AggQueryIn.strip_rel :
     cases d.find n s with
     | none => exact Multiset.Rel.zero
     | some rn => exact rel_inv_ofAnnotated rn
+  | _, _, _, .Empty, hq, d => by
+    have h0 : (AggQueryIn.Empty.strip hq).evaluateAnnotated
+        (AggQueryIn.strip_source (T := T) AggQueryIn.Empty hq) d
+          = (0 : AnnotatedRelation T K 0) := by
+      show (Query.Sel (Selection.Not Selection.True)
+        (Query.Rel 0 "")).evaluateAnnotated _ d = 0
+      unfold Query.evaluateAnnotated
+      refine Multiset.filter_eq_nil.mpr (fun a _ => ?_)
+      show ¬ ((Selection.Not Selection.True).eval3 a.fst = Kleene.true)
+      exact fun h => absurd h (by simp [Selection.eval3, Kleene.not])
+    rw [h0]
+    exact Multiset.Rel.zero
   | _, _, _, .Proj ps q, hq, d => by
     refine rel_map_of_rel (strip_rel q hq.2 d) (fun r p hr => ⟨?_, ?_, ?_⟩)
     · funext j

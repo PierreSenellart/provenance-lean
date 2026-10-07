@@ -312,6 +312,7 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (q : AggQueryIn T c n κ) : AggQueryIn T d n κ :=
   match c, d, n, κ, θ, q with
   | _, _, _, _, _, .Rel n s => .Rel n s
+  | _, _, _, _, _, .Empty => .Empty
   | _, _, _, _, θ, .Proj ps q =>
       AggQueryIn.castKind (funext fun j => ProjColIn.kind_substMap θ (ps j))
         (.Proj (fun j => (ps j).substMap θ) (q.substMap θ))
@@ -390,6 +391,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
   intro c n κ q
   induction q with
   | Rel n s => intro d θ D γ; rfl
+  | Empty => intro d θ D γ; rfl
   | Proj ps q ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap, AggQueryIn.evaluatePlain_castKind]
@@ -619,6 +621,7 @@ theorem AggQueryIn.evaluate_substMap :
   intro c n κ q
   induction q with
   | Rel n s => intro d θ dB γ; rfl
+  | Empty => intro d θ dB γ; rfl
   | Proj ps q ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap, AggQueryIn.evaluate_castKind]
