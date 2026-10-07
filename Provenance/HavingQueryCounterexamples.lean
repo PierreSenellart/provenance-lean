@@ -1398,3 +1398,62 @@ theorem nnreal_not_complemented : ¬ complemented NNReal := by
     norm_num
   rw [hsum, tsub_self, hhalf] at h2
   norm_num at h2
+
+/-! ## The coherent reading of a nested world is not a convention
+
+`q:nestedcoherent` asks whether a world of a nested value may keep an
+inner occurrence of an outer occurrence it drops. The library's
+`NestedValue.World.IsWorld` allows it; `IsWorldCoherent` forbids it. It
+would be tempting to close the question by showing the two readings agree
+wherever anyone computes – in a Boolean algebra with `δ = id` – and the
+argument for that is: an incoherent world keeps an inner `α` while the
+outer occurrence's own `β` sits in the monus, so the weight is
+`α ⊗ (𝟙 ⊖ (β ⊕ …))`, which exclusivity kills *if* `α ≤ β`.
+
+**Nothing makes `α ≤ β`.** An occurrence's outer annotation and its inner
+family's annotations are independent fields, and the evaluator can build
+a row whose annotation is `𝟘` while its aggregate column has a realized
+occurrence – a selection with an aggregate atom keeps its failing rows
+annotated `𝟘`. Over `𝔹`, the two readings then differ: the incoherent
+world weighs `⊤ ⊗ (𝟙 ⊖ 𝟘) = ⊤`, so the current reading reports `⊤` where
+the coherent one reports `𝟘`. The question is therefore a choice about
+the semantics and not a convention that the catalog's semirings make
+invisible. -/
+
+/-- An inner expression with one occurrence annotated `α`, grouped. -/
+def nestedInner (α : Bool) : AggExpr ℕ Bool :=
+  { arity := 1
+    occs := [((fun _ => 1), α, (fun _ => true), (fun _ => true))]
+    aggs := fun _ => SeqAggFunc.count
+    scalar := fun _ => false
+    g := fun v => v 0 }
+
+/-- Two outer occurrences, grouped: one annotated `⊤`, one annotated `𝟘`,
+each carrying an inner occurrence annotated `⊤`. The second is the row a
+selection keeps annotated `𝟘` whose aggregate column is still realized. -/
+def nestedIncoherentWitness : NestedValue ℕ Bool :=
+  { agg := fun s => s.card
+    occs := {(nestedInner true, true), (nestedInner true, false)}
+    scalar := false }
+
+/-- **The current reading admits five worlds, the coherent reading
+three.** -/
+theorem nestedIncoherentWitness_world_counts :
+    (Multiset.card (nestedIncoherentWitness.worlds.filter
+        (fun W => W.IsWorld nestedIncoherentWitness)),
+      Multiset.card (nestedIncoherentWitness.worlds.filter
+        (fun W => W.IsWorld nestedIncoherentWitness
+          ∧ ∀ d ∈ W.occs, d.present = false → d.sub = ∅)))
+      = (5, 3) := by decide
+
+/-- **And they weigh the row differently over `𝔹`**: `⊤` against `𝟘`. So
+`q:nestedcoherent` is not settled by `δ = id` with exclusivity, and the
+two readings are not interchangeable in any semiring of the catalog. -/
+theorem nestedIncoherent_ne_coherent :
+    ((nestedIncoherentWitness.worlds.filter
+        (fun W => W.IsWorld nestedIncoherentWitness)).map
+      NestedValue.World.ann).sum
+      ≠ ((nestedIncoherentWitness.worlds.filter
+          (fun W => W.IsWorld nestedIncoherentWitness
+            ∧ ∀ d ∈ W.occs, d.present = false → d.sub = ∅)).map
+        NestedValue.World.ann).sum := by decide
