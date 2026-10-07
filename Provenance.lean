@@ -128,6 +128,7 @@ import Provenance.Semirings.IntervalUnion
 import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
+import Provenance.Semirings.Security
 import Provenance.Semirings.Tropical
 import Provenance.Semirings.Viterbi
 import Provenance.Semirings.Which
@@ -1399,6 +1400,19 @@ proven engine several general results reuse internally.
 - `Provenance.Semirings.Interval`, `Provenance.Semirings.IntervalUnion` –
   intervals and finite unions of intervals over a dense linear order, used for
   temporal databases
+- `Provenance.Semirings.Security` – the alternative security semiring
+  `S′ = 𝔹^L` of Amsterdamer, Deutch and Tannen: the subsets of a set of
+  clearance levels, a tuple annotated with the levels at which it may be
+  seen. It is the instance at `Set L` of
+  `BooleanAlgebra.toSemiringWithMonus`, which reads **any** Boolean
+  algebra as an m-semiring (`⊕ = ⊔`, `⊗ = ⊓`, `a ⊖ b = a ∖ b`, `δ = id`)
+  and proves there, once, everything the properties tables ask of a
+  semiring: both idempotences, absorptivity, exclusivity,
+  complementedness and `⊗`-over-`⊖` distributivity. That construction is
+  a `def` and not an instance on purpose – `Bool`, `Prop`, `Set α` and
+  `α → Bool` are all Boolean algebras, so a global instance would collide
+  with the catalog's own `𝔹` and `𝔹[X]` instances – and `Security` is its
+  own type for the same reason
 
 **Published papers**
 
