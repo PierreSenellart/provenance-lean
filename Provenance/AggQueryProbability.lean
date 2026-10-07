@@ -3,6 +3,7 @@
   Authors: Pierre Senellart
 -/
 import Provenance.AggQueryBridges
+import Provenance.JointFamily
 import Provenance.HavingProbability
 
 /-!
@@ -287,6 +288,133 @@ theorem predProvWith_eval_iff (a : AggValue T (BoolFunc X)) (P : T → Kleene)
       exact ⟨(worldAnn_eval_iff a.anns _ v).mpr rfl,
         (chiOf_eval_iff P _ v).mpr hP⟩
     exact hgoal
+
+/-! ### The joint reading of two families, and the row it annotates
+
+Over `𝔹[X]` a valuation picks one world of a family – the occurrences it
+realizes – and the joint reading of two families is therefore true at a
+valuation exactly when each family's own realized world is a world of it
+and the test holds on the two values read there
+(`Having.jointPair_eval_iff`).
+
+That is what makes the **row** reading exact here, at every family size:
+the row an implementation reports is `δ(β₁) ⊗ δ(β₂) ⊗ (p₁ ⊕ p₂)`, which
+over `𝔹[X]` is `[T₁ ≠ ∅] ∧ [T₂ ≠ ∅] ∧ (ψ₁ ∨ ψ₂)` once each `p_i`'s own
+existence guard is absorbed into the factor already beside it, and the
+joint reading is the same conjunction (`AggValue.row_agree_of_delta_id`).
+`δ` being the identity is what the two `δ` factors contribute, and it is
+a property of this semiring and not of its being a Boolean algebra: the
+indicator is a legal `δ` on any Boolean algebra too, and over `𝔹` the
+two cannot be told apart. -/
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- The left half of the world a valuation realizes in a concatenated
+family is the left family's own realized world. -/
+theorem leftPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
+    Having.leftPart (Finset.univ.filter (fun k =>
+        Having.catAnn a.anns b.anns k v = true))
+      = a.realized v := by
+  ext i
+  rw [Having.mem_leftPart, AggValue.realized, Finset.mem_filter,
+    Finset.mem_filter]
+  simp [Having.catAnn_left]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- And the right half is the right family's. -/
+theorem rightPart_realized (a b : AggValue T (BoolFunc X)) (v : X → Bool) :
+    Having.rightPart (Finset.univ.filter (fun k =>
+        Having.catAnn a.anns b.anns k v = true))
+      = b.realized v := by
+  ext j
+  rw [Having.mem_rightPart, AggValue.realized, Finset.mem_filter,
+    Finset.mem_filter]
+  simp [Having.catAnn_right]
+
+/-- **The joint reading over `𝔹[X]`**: true at a valuation exactly when
+each grouped family has a realized occurrence and the test holds on the
+two values the valuation reads. -/
+theorem jointPair_eval_iff (a b : AggValue T (BoolFunc X))
+    (R : T → T → Kleene) (v : X → Bool) :
+    (Having.jointPair a b R) v = true
+      ↔ (a.scalar = true ∨ (a.realized v).Nonempty)
+        ∧ (b.scalar = true ∨ (b.realized v).Nonempty)
+        ∧ R (a.specialize (fun α => α v)) (b.specialize (fun α => α v))
+            = Kleene.true := by
+  rw [AggValue.specialize_eval, AggValue.specialize_eval]
+  unfold Having.jointPair
+  rw [sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨W, hW, hWv⟩
+    obtain ⟨-, hne⟩ := Finset.mem_filter.mp hW
+    have hsplit : ((Having.worldAnn (Having.catAnn a.anns b.anns) W) v
+        && (Having.chiOf (K := BoolFunc X)
+            (fun _ => R (a.valOn (Having.leftPart W))
+              (b.valOn (Having.rightPart W))) (0 : T)) v) = true := hWv
+    rw [Bool.and_eq_true] at hsplit
+    have hWeq : W = Finset.univ.filter (fun k =>
+        Having.catAnn a.anns b.anns k v = true) :=
+      (worldAnn_eval_iff _ W v).mp hsplit.1
+    subst hWeq
+    rw [leftPart_realized a b v, rightPart_realized a b v] at hne
+    rw [leftPart_realized a b v, rightPart_realized a b v] at hsplit
+    exact ⟨hne.1, hne.2, (chiOf_eval_iff _ _ v).mp hsplit.2⟩
+  · rintro ⟨hnea, hneb, hR⟩
+    refine ⟨Finset.univ.filter (fun k =>
+        Having.catAnn a.anns b.anns k v = true),
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩, ?_⟩
+    · rw [leftPart_realized a b v, rightPart_realized a b v]
+      exact ⟨hnea, hneb⟩
+    · have hgoal : ((Having.worldAnn (Having.catAnn a.anns b.anns)
+            (Finset.univ.filter (fun k =>
+              Having.catAnn a.anns b.anns k v = true))) v
+          && (Having.chiOf (K := BoolFunc X)
+              (fun _ => R (a.valOn (Having.leftPart
+                  (Finset.univ.filter (fun k =>
+                    Having.catAnn a.anns b.anns k v = true))))
+                (b.valOn (Having.rightPart
+                  (Finset.univ.filter (fun k =>
+                    Having.catAnn a.anns b.anns k v = true)))))
+              (0 : T)) v) = true := by
+        rw [Bool.and_eq_true]
+        refine ⟨(worldAnn_eval_iff _ _ v).mpr rfl, ?_⟩
+        rw [leftPart_realized a b v, rightPart_realized a b v]
+        exact (chiOf_eval_iff _ _ v).mpr hR
+      exact hgoal
+
+/-- **The row is exact over `𝔹[X]`, at every family size**: for two
+grouped families, the row an implementation reports – the two groups'
+existence factors times the structural `⊕` of the two sides – is the
+joint reading of the disjunction.
+
+Each side's predicate provenance already carries its own family's
+existence, so the `δ` factors absorb it and both readings come to
+"both groups exist, and one of the two tests holds in the world the
+valuation picks". `δ` being the identity here is what lets the factors do
+that: `HavingQueryCounterexamples.chain_row_ne` is the same statement
+failing where `δ` collapses a group, in a semiring whose `⊕` is
+idempotent, so idempotence is not the condition. -/
+theorem row_agree_of_delta_id (a b : AggValue T (BoolFunc X))
+    (P Q : T → Kleene) (ha : a.scalar = false) (hb : b.scalar = false) :
+    SemiringWithMonus.delta (∑ i, a.anns i)
+          * SemiringWithMonus.delta (∑ j, b.anns j)
+          * (a.predProvWith P + b.predProvWith Q)
+      = Having.jointPair a b (fun x y => (P x).or (Q y)) := by
+  have hsum : ∀ c : AggValue T (BoolFunc X), ∀ v : X → Bool,
+      ((∑ i, c.anns i) v = true) ↔ (c.realized v).Nonempty := by
+    intro c v
+    rw [sum_eval_eq_true_iff, AggValue.realized, Finset.filter_nonempty_iff]
+  funext v
+  have hmul : ∀ x y : BoolFunc X, (x * y) v = (x v && y v) := fun _ _ => rfl
+  have hadd : ∀ x y : BoolFunc X, (x + y) v = (x v || y v) := fun _ _ => rfl
+  have hdel : ∀ x : BoolFunc X, (SemiringWithMonus.delta x) v = x v :=
+    fun _ => rfl
+  rw [Bool.eq_iff_iff]
+  simp only [hmul, hadd, hdel, Bool.and_eq_true, Bool.or_eq_true]
+  rw [hsum a v, hsum b v, AggValue.predProvWith_eval_iff,
+    AggValue.predProvWith_eval_iff, jointPair_eval_iff, ha, hb]
+  simp only [Bool.false_eq_true, false_or]
+  rw [Kleene.or_eq_true_iff]
+  tauto
 
 /-- The scalar counterpart for a test. -/
 theorem predProvScalarWith_eval_iff (a : AggValue T (BoolFunc X))

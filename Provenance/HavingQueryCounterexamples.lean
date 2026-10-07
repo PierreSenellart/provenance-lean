@@ -826,9 +826,16 @@ annotated `hi` and `mid`, the first side's test satisfied and the
 second's not, give `hi` for the reported row and `lo` for the joint
 reading, the `δ` factors having replaced the second family's `mid` by
 `𝟙`. The missing factor is the other side's annotation, and `δ` can
-only restore it where `δ` *is* the identity, which `𝔹` and `𝔹[X]` have
-and `ChainFive`, Viterbi, `ℕ`, the tropical semirings and `MinMax` do
-not. -/
+only restore it where `δ` *is* the identity, which `𝔹`, `𝔹[X]`, interval
+union and min-max have (`delta := id` in each instance) and `ChainFive`,
+`ℕ`, `ℕ[X]`, `Lin[X]`, `Why[X]`, the tropical semirings, Viterbi and
+Łukasiewicz do not.
+
+Min-max is the instructive one: `δ = id` and `⊕` idempotent are *not*
+sufficient either, since it is not exclusive and so not a Boolean
+algebra, and whether the row is exact there beyond two singleton
+families is open. What is settled is the Boolean case – see
+`AggValue.row_agree_of_delta_id` for `𝔹[X]` at every family size. -/
 
 /-- One occurrence annotated `hi`, grouped. -/
 def chainTokenHi : AggValue ℕ ChainFive :=
