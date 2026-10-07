@@ -869,6 +869,32 @@ theorem bool_row_agree :
       = Having.jointPair boolTokenT boolTokenF
           (fun x y => (testNe x).or (testEq y)) := by decide
 
+/-- One occurrence annotated `α`, grouped. -/
+def boolTokenOf (α : Bool) : AggValue ℕ Bool :=
+  ⟨SeqAggFunc.count, [(1, α)], false⟩
+
+/-- **The same agreement as an equation in the annotations**, at this
+family shape: for *every* pair of annotations, not just the pair `true`,
+`false` that `bool_row_agree` fixes.
+
+The distinction is what decides whether the fact transfers. Both sides
+are, at a fixed shape and fixed tests, terms in the annotation variables
+over `⊕`, `⊗`, `⊖` and `δ`; where `δ` is the identity those are terms of
+the Boolean-algebra signature, so an equation between them that holds
+over `𝔹` holds in every Boolean algebra, the two-element one generating
+the variety. `bool_row_agree` is not such an equation – its annotations
+are the two literals – so it transfers nothing by itself; this one does,
+for this shape. What no statement here gives is the family shapes: both
+are about two singleton grouped families, and an implementation that
+exempts a semiring on the strength of this needs the equation for the
+shapes it actually builds. -/
+theorem bool_row_agree_all : ∀ α β : Bool,
+    SemiringWithMonus.delta α * SemiringWithMonus.delta β
+        * ((boolTokenOf α).predProvWith testNe
+          + (boolTokenOf β).predProvWith testEq)
+      = Having.jointPair (boolTokenOf α) (boolTokenOf β)
+          (fun x y => (testNe x).or (testEq y)) := by decide
+
 /-! ### A `FILTER` clause that keeps everything is observable
 
 A filtered aggregate read over the occurrences the clause keeps – a *cut*

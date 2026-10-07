@@ -823,6 +823,75 @@ that would cause a `Mul` diamond. -/
 instance (priority := 100) {K : Type} [h : CommSemiringWithMonus K] : CommMonoid K where
   mul_comm := h.mul_comm
 
+/-! ### An exclusive lattice m-semiring is a Boolean algebra
+
+In an absorptive m-semiring `⊕` is the join of a lattice whose top is
+`𝟙` (`le_one_of_absorptive`) and, where `⊗` is idempotent too, `⊗` is its
+meet: the two lattice absorption laws are *derived* from `𝟙 ⊕ a = 𝟙` and
+distributivity (`add_mul_self`, `mul_add_self`) rather than assumed. The
+lattice is distributive, `⊗` distributing over `⊕` by the semiring
+axioms, and one distributive law in a lattice gives the other.
+
+In such a semiring `𝟙 ⊖ a` always joins `a` to `𝟙`
+(`add_one_monus_eq_one_of_absorptive`, by residuation), and
+**exclusivity is exactly what makes it a complement** – `exclusive` says
+it meets `a` at `𝟘` – after which the complement is unique
+(`monus_one_unique_compl`). So an exclusive lattice m-semiring is a
+distributive lattice in which every element has a complement, i.e. a
+Boolean algebra; conversely, in a Boolean algebra residuation forces
+`a ⊖ b = a ⊓ bᶜ`, whose exclusivity is `a ⊓ aᶜ = ⊥`. What follows is the
+elementwise content of that characterization, stated without building the
+lattice structure. -/
+
+/-- A product is below each factor, in an absorptive semiring. -/
+theorem mul_le_right {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (a b : α) : a * b ≤ b :=
+  le_iff_exists_add.mpr ⟨b, by
+    calc b = b * (a + 1) := by rw [add_comm a 1, hab a, mul_one]
+      _ = b * a + b * 1 := mul_add b a 1
+      _ = a * b + b := by rw [mul_comm b a, mul_one]⟩
+
+/-- The first lattice absorption law, derived: `a ⊕ a ⊗ b = a`. -/
+theorem add_mul_self {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (a b : α) : a + a * b = a := by
+  calc a + a * b = a * 1 + a * b := by rw [mul_one]
+    _ = a * (1 + b) := (mul_add a 1 b).symm
+    _ = a := by rw [hab b, mul_one]
+
+/-- The second, where `⊗` is idempotent: `a ⊗ (a ⊕ b) = a`. -/
+theorem mul_add_self {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hm : ∀ x : α, x * x = x) (a b : α) :
+    a * (a + b) = a := by
+  rw [mul_add, hm a]
+  exact add_mul_self hab a b
+
+/-- **Exclusivity makes `𝟙 ⊖ a` a complement**: it joins `a` to `𝟙` and
+meets it at `𝟘`. -/
+theorem monus_one_isCompl {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hex : exclusive α) (a : α) :
+    a + (1 - a) = 1 ∧ a * (1 - a) = 0 :=
+  ⟨add_one_monus_eq_one_of_absorptive hab a, hex a⟩
+
+/-- **And the complement is unique**, by the distributive-lattice
+argument: any `b` joining `a` to `𝟙` and meeting it at `𝟘` is `𝟙 ⊖ a`.
+With `monus_one_isCompl` this is what identifies `𝟙 ⊖ ·` with Boolean
+complementation. -/
+theorem monus_one_unique_compl {α : Type} [CommSemiringWithMonus α]
+    (hab : absorptive α) (hex : exclusive α) {a b : α}
+    (hjoin : a + b = 1) (hmeet : a * b = 0) : b = 1 - a := by
+  refine le_antisymm ?_ ?_
+  · calc b = b * 1 := (mul_one b).symm
+      _ = b * (a + (1 - a)) := by
+          rw [add_one_monus_eq_one_of_absorptive hab]
+      _ = b * a + b * (1 - a) := mul_add b a (1 - a)
+      _ = b * (1 - a) := by rw [mul_comm b a, hmeet, zero_add]
+      _ ≤ 1 - a := mul_le_right hab b (1 - a)
+  · calc 1 - a = (1 - a) * 1 := (mul_one _).symm
+      _ = (1 - a) * (a + b) := by rw [hjoin]
+      _ = (1 - a) * a + (1 - a) * b := mul_add _ a b
+      _ = (1 - a) * b := by rw [mul_comm (1 - a) a, hex a, zero_add]
+      _ ≤ b := mul_le_right hab _ b
+
 /-- **The complement of a sum is the product of the complements**, over a
 whole family at once: what one monus over everything a world leaves out
 becomes when the family is split into as many parts as there are
