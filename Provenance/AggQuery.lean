@@ -1103,6 +1103,64 @@ def GenRow.readTuple {n : ℕ} (κ : Fin n → ColKind)
     | ColKind.agg => 0
     | _ => AggValue.collapseSum (u k)
 
+/-- **What a term reading regular columns reads of a row is what it
+reads of the window's reading of that row.** The nulling a window
+applies to its input (`ColKind.readTuple`) touches only the aggregate
+columns, and such a term names none of them – so the aggregated term,
+and with it the partition and order keys below, are blind to it. What
+the nulling is *for* is the rest: the canonical order on rows, by which
+a listing of a frame is determinized, and which would otherwise tell
+two rows apart by an aggregate column – reading differently in each
+world. -/
+theorem TermIn.eval_readTuple {c n : ℕ} {κ : Fin n → ColKind}
+    (t : TermIn T c n) (hr : t.regOnly κ = true) (u : Tuple T n)
+    (γ : Fin c → T) : t.eval (ColKind.readTuple κ u) γ = t.eval u γ := by
+  induction t with
+  | const a => rfl
+  | outer k => rfl
+  | index k =>
+    show ColKind.readTuple κ u k = u k
+    have hk : (κ k).base = ColKind.reg := by
+      have := hr
+      rw [TermIn.regOnly, beq_iff_eq] at this
+      exact this
+    show (match (κ k).base with
+      | ColKind.agg => (0 : T)
+      | _ => u k) = u k
+    rw [hk]
+  | add t₁ t₂ ih₁ ih₂ =>
+    obtain ⟨h₁, h₂⟩ := Bool.and_eq_true_iff.mp hr
+    exact congrArg₂ (fun a b : T => a + b) (ih₁ h₁) (ih₂ h₂)
+  | sub t₁ t₂ ih₁ ih₂ =>
+    obtain ⟨h₁, h₂⟩ := Bool.and_eq_true_iff.mp hr
+    exact congrArg₂ (fun a b : T => a - b) (ih₁ h₁) (ih₂ h₂)
+  | mul t₁ t₂ ih₁ ih₂ =>
+    obtain ⟨h₁, h₂⟩ := Bool.and_eq_true_iff.mp hr
+    exact congrArg₂ (fun a b : T => a * b) (ih₁ h₁) (ih₂ h₂)
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    obtain ⟨h₁₂₃, h₄⟩ := Bool.and_eq_true_iff.mp hr
+    obtain ⟨h₁₂, h₃⟩ := Bool.and_eq_true_iff.mp h₁₂₃
+    obtain ⟨h₁, h₂⟩ := Bool.and_eq_true_iff.mp h₁₂
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁ h₁, ih₂ h₂, ih₃ h₃, ih₄ h₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    obtain ⟨h₁, h₂⟩ := Bool.and_eq_true_iff.mp hr
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁ h₁, ih₂ h₂]
+    rfl
+
+/-- **And a key of regular columns is blind to it too.** -/
+theorem Tuple.key_readTuple {n m : ℕ} {κ : Fin n → ColKind}
+    (is : Tuple (Fin n) m) (hr : ∀ k, (κ (is k)).base = ColKind.reg)
+    (u : Tuple T n) :
+    Tuple.key is (ColKind.readTuple κ u) = Tuple.key is u := by
+  funext k
+  show (match (κ (is k)).base with
+    | ColKind.agg => (0 : T)
+    | _ => u (is k)) = u (is k)
+  rw [hr k]
+
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The two readings agree: what a window reads of a row is what it reads
 of its regular reading. -/
