@@ -41,6 +41,9 @@ import Provenance.PlainBasis
 /- An apply read as a product -/
 import Provenance.Decorrelate
 
+/- The basis, assembled -/
+import Provenance.BasisAssembly
+
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
 
@@ -879,7 +882,33 @@ proven engine several general results reuse internally.
   (`Relation.applyJoin_slices`). `hasDecorrelation_of_usesOnly` assembles
   the cases, and `exists_applyFree_plainEquiv` is the closed-query
   corollary, over the unit as the parameter relation: every query of the
-  fragment is plain-equivalent to one with no apply
+  fragment is plain-equivalent to one with no apply. The *target* class
+  set is a parameter throughout (`decorrOps` being what the construction
+  itself needs, beyond the classes the query already uses), which is
+  what lets the result be composed with the other passes: a query with
+  no window decorrelates to one with no window, and a nine-class target
+  would not record that
+- `Provenance.BasisAssembly` – **the basis, assembled**: the generation
+  half of `thm:plainbasis`, as three passes over the syntax.
+  `AggQueryIn.exists_winFree` replaces every window by an apply of a
+  scalar aggregation, `AggQueryIn.exists_applyFree_plainEquiv` (the
+  decorrelation) replaces every apply by a product, and
+  `AggQueryIn.exists_basisOps_of_dedupDiff` replaces the duplicate
+  elimination and the difference the decorrelation leaves behind;
+  `AggQueryIn.exists_basisOps_plainEquiv` composes them, so **every
+  query of the plain fragment is equivalent to one over the six classes
+  `∅`, `Π`, `σ`, `×`, `⊎`, `γ`**. The order of the passes is forced, and
+  each is stated with its target class set as a parameter – which is why
+  the decorrelation had to be parameterized too: a pass may only be
+  composed with the next if what it produces is known not to contain
+  what the previous one removed. `Generates` reads the conclusion as a
+  property of a set of classes, `basisOps_generates` says the six have
+  it, and `generates_necessary` is the converse for four of the classes,
+  from the invariants of `Provenance.PlainBasis` and their witnesses.
+  What a window has to be for the first pass to reach it is
+  `AggQueryIn.WinsDerivable`: its frame contains its current row, its
+  input is all-regular, its frame condition is a predicate, and it is
+  not a multi-frame window – whose column no term expresses
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

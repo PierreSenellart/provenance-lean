@@ -1356,6 +1356,16 @@ def AggQueryIn.notInDiff (a : T) (f : SeqAggFunc T)
       .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
     (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg a f q₁ q₂)))
 
+/-- **What the `NOT IN` form uses**: a projection, a selection, a
+product, an aggregation and a union – the basis classes, which is the
+point of the identity. -/
+theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind} (a : T)
+    (f : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
+    (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S) (hx : OpKind.prod ∈ S)
+    (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S) (h₁ : q₁.usesOnly S)
+    (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiff a f q₁ q₂).usesOnly S :=
+  ⟨hp, hs, hx, h₁, hg, hu, ⟨hp, h₁⟩, ⟨hp, h₂⟩⟩
+
 /-- Tagging a row appends the constant to it. -/
 private theorem tagCols_eval (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
     (AggQueryIn.tagCols (T := T) (k := k) a j).evalPlain u (fun _ => 0)
@@ -2006,61 +2016,96 @@ theorem winApplyKinds (n : ℕ) :
   · rw [Fin.snoc_castSucc,
       show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
 
+/-- **The substitution the apply's right side reads its context
+through**: the left row comes first, so the ambient column `j` sits at
+`n + j`. -/
+def applyOuter (T : Type) (c n : ℕ) : Fin c → T ⊕ Fin (n + c) :=
+  fun j => Sum.inr (Fin.natAdd n j)
+
+omit [ValueType T] in
+/-- And what it reads there is the ambient valuation. -/
+@[simp] theorem substVal_applyOuter (c n' : ℕ) (u : Tuple T n')
+    (γ : Fin c → T) :
+    substVal (applyOuter T c n') (Fin.append u γ) = γ :=
+  funext (fun j => by
+    show (Fin.append u γ : Tuple T (n' + c)) (Fin.natAdd n' j) = γ j
+    rw [Fin.append_right])
+
 /-- **A window written with an apply and a scalar aggregation**: for each
 row of the query, the term aggregated over the rows that row's frame
 holds, read in the window's own order. -/
-def winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ψ : GenPredIn T n (ColKind.allReg n)) (t : Term T n) (f : SeqAggFunc T)
-    (q : AggQuery T n (ColKind.allReg n)) :
-    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+def winByApply {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) :
+    AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   AggQueryIn.castKind (winApplyKinds n)
     (AggQueryIn.Apply q
-      (AggQueryIn.GammaScalar ![t.substMap (weakenOuter T n)] ![f]
-        (AggQueryIn.Sel (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ)
-          (q.substMap (weakenOuter T n)))
+      (AggQueryIn.GammaScalar ![t.substMap (applyOuter T c n)] ![f]
+        (AggQueryIn.Sel (GenPredIn.and
+            (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
+          (q.substMap (applyOuter T c n)))
         (GroupOrder.byCols O o)))
 
 /-- **A window is an apply of a scalar aggregation** (`prop:winderived`),
 over plain relations: the rows the selection keeps are the current row's
 frame, the clause reads them in the order the window reads them, and the
 aggregate is then the window's value. -/
-theorem evaluatePlain_winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf)
-    (ψ : GenPredIn T n (ColKind.allReg n))
-    (hρ : ∀ y u : Tuple T n, ψ.holdsPlain y u
-      ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
-    (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
-    (D : Database T) :
-    (winByApply P O o ψ t f q).evaluatePlain D
+theorem evaluatePlain_winByApply {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
+    (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
+      ψ.holdsPlain y (Fin.append u γ)
+        ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
+    (γ : Fin c → T) :
+    (winByApply P O o ψ t f q).evaluatePlain D γ
       = (AggQueryIn.Win P O o w t f q
-          (winReadsReg_allReg P O t)).evaluatePlain D := by
+          (winReadsReg_allReg P O t)).evaluatePlain D γ := by
   classical
-  rw [winByApply, AggQueryIn.evaluatePlain_castKind,
-    AggQueryIn.evaluatePlain_Apply, AggQueryIn.evaluatePlain_Win_eq]
+  rw [winByApply, AggQueryIn.evaluatePlain_castKind]
+  show (q.evaluatePlain D γ).bind (fun u =>
+      ((AggQueryIn.GammaScalar ![t.substMap (applyOuter T c n)] ![f]
+        (AggQueryIn.Sel (GenPredIn.and
+            (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
+          (q.substMap (applyOuter T c n)))
+        (GroupOrder.byCols O o)).evaluatePlain D
+          (Fin.append u γ)).map (fun v => (Fin.append u v : Tuple T (n + 1))))
+    = _
+  rw [AggQueryIn.evaluatePlain_Win_eq]
   simp only [ColKind.readTuple_allReg, Multiset.map_id', Bool.false_eq_true,
     ite_false]
+  -- the right side has one row, so the apply is a map
   refine Eq.trans (Multiset.bind_congr (fun u hu => ?_))
-    (Multiset.bind_singleton (s := q.evaluatePlain D) (fun u =>
-      (Fin.snoc u (ValueFrame.windowValue P O o w t f (q.evaluatePlain D) u)
-        : Tuple T (n + 1))))
+    (Multiset.bind_singleton (s := q.evaluatePlain D γ) (fun u =>
+      (Fin.snoc u (ValueFrame.windowValue P O o w t f
+        (q.evaluatePlain D γ) u γ) : Tuple T (n + 1))))
   -- the rows the selection keeps are the row's own frame
   have hframe : (AggQueryIn.Sel
-        (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ)
-        (q.substMap (weakenOuter T n))).evaluatePlain D u
+        (GenPredIn.and
+          (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
+        (q.substMap (applyOuter T c n))).evaluatePlain D (Fin.append u γ)
       = ValueFrame.frameOf (α := Tuple T n) id P O w
-        (q.evaluatePlain D) u := by
+        (q.evaluatePlain D γ) u := by
     show Multiset.filter (fun y : Tuple T n =>
-        (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ).holdsPlain y u)
-        ((q.substMap (weakenOuter T n)).evaluatePlain D u) = _
-    rw [AggQueryIn.evaluatePlain_substMap, substVal_weakenOuter,
+        (GenPredIn.and
+          (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k)))
+          ψ).holdsPlain y (Fin.append u γ))
+        ((q.substMap (applyOuter T c n)).evaluatePlain D (Fin.append u γ)) = _
+    rw [AggQueryIn.evaluatePlain_substMap, substVal_applyOuter,
       ValueFrame.frameOf_of_containsSelf _ _ _ hc _ hu]
     refine Multiset.filter_congr (fun y _ => ?_)
-    rw [holdsPlain_and_iff, outerKeyCond_holdsPlain, hρ y u]
+    rw [holdsPlain_and_iff, outerKeyCond_holdsPlain, hρ y u γ]
     refine and_congr ?_ Iff.rfl
-    exact ⟨fun hk => funext (fun k => hk k), fun hk k => congrFun hk k⟩
+    constructor
+    · intro hk
+      exact funext (fun k => (hk k).trans (Fin.append_left u γ (P k)))
+    · intro hk k
+      exact (congrFun hk k).trans (Fin.append_left u γ (P k)).symm
   rw [gammaScalar_one, hframe, Multiset.map_singleton]
-  refine congrArg (fun x : Tuple T (n + 1) => ({x} : Multiset (Tuple T (n + 1))))
-    ?_
+  refine congrArg (fun x : Tuple T (n + 1) =>
+    ({x} : Multiset (Tuple T (n + 1)))) ?_
   funext j
   refine Fin.lastCases ?_ (fun i => ?_) j
   · rw [Fin.snoc_last,
@@ -2070,45 +2115,45 @@ theorem evaluatePlain_winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     refine congrArg f ?_
     rw [show Relation.groupSeqOrd (fun k : Fin 0 => k.elim0)
           (GroupOrder.byCols O o)
-          (ValueFrame.frameOf (α := Tuple T n) id P O w (q.evaluatePlain D) u)
+          (ValueFrame.frameOf (α := Tuple T n) id P O w (q.evaluatePlain D γ) u)
           (fun k : Fin 0 => k.elim0)
         = OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
           (sortList (ValueFrame.frameOf (α := Tuple T n) id P O w
-            (q.evaluatePlain D) u)) from by
+            (q.evaluatePlain D γ) u)) from by
       show OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
           (Relation.groupSeq (fun k : Fin 0 => k.elim0) _
             (fun k : Fin 0 => k.elim0)) = _
       rw [Relation.groupSeq_emptyKey]]
     refine List.map_congr_left (fun v _ => ?_)
-    rw [TermIn.eval_substMap, substVal_weakenOuter]
+    rw [TermIn.eval_substMap, substVal_applyOuter]
   · rw [Fin.snoc_castSucc,
       show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
 
 /-- **The derived form uses no window**: an apply, a scalar aggregation
 and a selection, which is what the generation half of `thm:plainbasis`
 asks of it. The apply then goes by the decorrelation. -/
-theorem usesOnly_winByApply {S : Set OpKind} (P : Tuple (Fin n) m)
+theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ψ : GenPredIn T n (ColKind.allReg n)) (t : Term T n) (f : SeqAggFunc T)
-    {q : AggQuery T n (ColKind.allReg n)} (ha : OpKind.apply ∈ S)
-    (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S) (hq : q.usesOnly S) :
-    (winByApply P O o ψ t f q).usesOnly S := by
+    (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
+    (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
+    (ha : OpKind.apply ∈ S) (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S)
+    (hq : q.usesOnly S) : (winByApply P O o ψ t f q).usesOnly S := by
   rw [winByApply, AggQueryIn.usesOnly_castKind]
   exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap q _).mpr hq⟩
 
 /-- **A window is expressible without one** (`prop:winderived`), as the
 equivalence of queries the classification uses. -/
-theorem plainEquiv_winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf)
-    (ψ : GenPredIn T n (ColKind.allReg n))
-    (hρ : ∀ y u : Tuple T n, ψ.holdsPlain y u
-      ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
-    (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n)) :
+theorem plainEquiv_winByApply {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
+    (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
+      ψ.holdsPlain y (Fin.append u γ)
+        ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) :
     (AggQueryIn.Win P O o w t f q
-        (winReadsReg_allReg P O t)).PlainEquiv (winByApply P O o ψ t f q) := by
-  intro D γ
-  rw [show γ = (fun j : Fin 0 => (0 : T)) from funext (fun j => j.elim0)]
-  exact (evaluatePlain_winByApply P O o hc ψ hρ t f q D).symm
+        (winReadsReg_allReg P O t)).PlainEquiv (winByApply P O o ψ t f q) :=
+  fun D γ => (evaluatePlain_winByApply P O o hc ψ hρ t f q D γ).symm
 
 end WinDerived
 
