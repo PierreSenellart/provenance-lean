@@ -2,6 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
+import Provenance.Determinacy
 import Provenance.PlainBasis
 
 /-!
@@ -36,12 +37,13 @@ peers of the clause carry equal values of the aggregated term – and
 under determinacy every listing the clause allows gives one value.
 Re-typing changes the listing, since an aggregate column read as a value
 enters the tie-break, but only *inside* a block of peers, so a
-determinate window reads the same value either way. `Retypable` is a
-condition on the query and determinacy one on the rows, so the fence
-asks what a syntactic predicate can see: of a window, either an
-all-regular input – where no column moves – or a symmetric aggregate
-with no `FILTER` clause, which is determinacy's syntactic half
-(`ValueFrame.windowValue_readTuple`).
+determinate window reads the same value either way
+(`ValueFrame.windowValue_readTuple_of_det`). That is what
+`AggQueryIn.Retypable` asks of a window – determinacy on every
+instance, quantified as `AggQueryIn.recSettles` is, or an all-regular
+input where no column moves – and it is the document's condition rather
+than an approximation of it. What it still excludes is a `FILTER`
+clause, for a reason of its own.
 
 What this is for: the swaps of `sec:basis` – a selection written with a
 difference, a product written with an apply – are stated over queries
@@ -366,25 +368,30 @@ No projection column may post-compose an aggregate column
 (`ProjColIn.aggTerm`): its value is `gf` of the column, and the term
 language applies no arbitrary `gf`.
 
-And every window either reads an all-regular input or aggregates its
-frame symmetrically with no `FILTER` clause. A window is the one
-operator whose *plain* semantics reads the kind vector: it reads its
-input through `ColKind.readTuple`, which nulls the aggregate columns, so
-a window over a re-typed input reads values where the original read `0`.
-Both are listings the clause allows, and they differ only inside a block
-of peers – an aggregate column read as a value enters the tie-break and
-nothing else. So an aggregate whose value does not depend on the listing
-reads the same sequence either way, and a symmetric one is the case a
-predicate on the query can recognize (`ValueFrame.windowValue_readTuple`;
-the other is the document's second reading of determinacy, peers
-carrying equal values of the term, which is a condition on the rows).
-An order-dependent aggregate over a frame whose peers carry different
-values does tell the two apart: over the rows `(2,5)`, `(2,6)`, `(1,7)`
-whose first column is an aggregate one, with no `ORDER BY`, so that all
-three are peers, `first_value` of the second column reads `5` before the
-re-typing and `7` after. The clause is excluded for a different reason:
-a `FILTER` is a `Selection` on the whole row, which nothing here bars
-from comparing an aggregate column. -/
+And every window either reads an all-regular input or is
+**determinate** on every instance, with no `FILTER` clause. A window is
+the one operator whose *plain* semantics reads the kind vector: it reads
+its input through `ColKind.readTuple`, which nulls the aggregate
+columns, so a window over a re-typed input reads values where the
+original read `0`. Both are listings the clause allows, and they differ
+only inside a block of peers – an aggregate column read as a value
+enters the tie-break and nothing else. Determinacy is exactly the
+condition under which that cannot be seen, and it is the document's own
+condition on an aggregation: the aggregate reads its frame as a bag, or
+the term it aggregates is constant on the rows the clause leaves tied
+(`Relation.rowsAgree` of `Provenance.Determinacy`, read on the rows the
+window reads, `AggQueryIn.readRows`). Since it is a condition on the
+rows, it is quantified over the instance here, in the manner of
+`AggQueryIn.recSettles`;
+`ValueFrame.windowValue_readTuple_of_det` is what it buys, and
+`ValueFrame.windowValue_readTuple` the symmetric case of the same thing.
+A query the condition refuses does tell the two readings apart: over the
+rows `(2,5)`, `(2,6)`, `(1,7)` whose first column is an aggregate one,
+with no `ORDER BY`, so that all three are peers, `first_value` of the
+second column reads `5` before the re-typing and `7` after. The clause
+is excluded for a different reason, and not by determinacy: a `FILTER`
+is a `Selection` on the whole row, which nothing here bars from
+comparing an aggregate column. -/
 def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -405,9 +412,14 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.Retypable
   | _, _, _, .Retag _ q => q.Retypable
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
-  | _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ _ _ _ _ fn q _ dist keep =>
+  | c, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ O o _ t fn q _ dist keep =>
       ((∀ i, κ' i = ColKind.reg)
-          ∨ ((if dist then fn.distinct else fn).Symmetric ∧ keep = none))
+          ∨ ((∀ (D : Database T) (γ : Fin c → T),
+                (if dist then fn.distinct else fn).Symmetric
+                  ∨ Relation.rowsAgree (q.readRows D γ)
+                      (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
+                      (fun y => t.eval y γ))
+              ∧ keep = none))
         ∧ q.Retypable
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
 
@@ -639,6 +651,64 @@ theorem ValueFrame.windowValue_readTuple {c n m p : ℕ} {κ : Fin n → ColKind
   refine Multiset.map_congr rfl (fun v _ => ?_)
   exact TermIn.eval_readTuple t hreg v γ
 
+/-- **A determinate window reads the same value before and after the
+nulling**, symmetric or not: the two listings of the frame are sorted by
+the clause's keys and differ only inside a block of peers, where the
+term does not look (`OrderSpec.map_eq_of_keySorted`). This is the
+document's own condition on an aggregation, and it is what
+`AggQueryIn.Retypable` asks of a window over aggregate columns. -/
+theorem ValueFrame.windowValue_readTuple_of_det {c : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (hrr : WinReadsReg κ P O t) (R : Multiset (Tuple T n))
+    {u : Tuple T n} (hu : u ∈ R) (γ : Fin c → T)
+    (hdet : Relation.rowsAgree (R.map (ColKind.readTuple κ))
+      (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
+      (fun y => t.eval y γ)) :
+    ValueFrame.windowValue P O o w t f (R.map (ColKind.readTuple κ))
+        (ColKind.readTuple κ u) γ
+      = ValueFrame.windowValue P O o w t f R u γ := by
+  obtain ⟨hP, hO, hreg⟩ := hrr
+  unfold ValueFrame.windowValue
+  refine congrArg f ?_
+  set A : List (Tuple T n) :=
+    ValueFrame.frameListOf (α := Tuple T n) id P O o w R u with hA
+  set B : List (Tuple T n) :=
+    ValueFrame.frameListOf (α := Tuple T n) id P O o w
+      (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u) with hB
+  have hAmap : A.map (fun v => t.eval v γ)
+      = (A.map (ColKind.readTuple κ)).map (fun v => t.eval v γ) := by
+    rw [List.map_map]
+    exact List.map_congr_left (fun v _ => (TermIn.eval_readTuple t hreg v γ).symm)
+  rw [hAmap]
+  have hperm : B.Perm (A.map (ColKind.readTuple κ)) := by
+    refine Multiset.coe_eq_coe.mp ?_
+    rw [hB, ValueFrame.frameListOf_coe, ← Multiset.map_coe, hA,
+      ValueFrame.frameListOf_coe,
+      ValueFrame.frameOf_readTuple P O w hP hO R hu]
+  have hkeyB : B.Pairwise (fun y z : Tuple T n =>
+      o.le (Tuple.key O y) (Tuple.key O z) = true) := by
+    rw [hB]
+    exact (OrderSpec.sortSeq_sorted _).imp (fun {x y} h =>
+      OrderSpec.le_of_readLe (val := (id : Tuple T n → Tuple T n)) h)
+  have hkeyA : (A.map (ColKind.readTuple κ)).Pairwise (fun y z : Tuple T n =>
+      o.le (Tuple.key O y) (Tuple.key O z) = true) := by
+    rw [List.pairwise_map, hA]
+    refine (OrderSpec.sortSeq_sorted _).imp (fun {x y} h => ?_)
+    rw [Tuple.key_readTuple O hO, Tuple.key_readTuple O hO]
+    exact OrderSpec.le_of_readLe (val := (id : Tuple T n → Tuple T n)) h
+  refine OrderSpec.map_eq_of_keySorted (Tuple.key O) o (fun v => t.eval v γ)
+    (S := fun y => y ∈ R.map (ColKind.readTuple κ)) hdet B
+    (A.map (ColKind.readTuple κ)) ?_ hperm hkeyB hkeyA
+  intro y hy
+  rw [hB] at hy
+  exact ValueFrame.mem_of_mem_frameOf (α := Tuple T n) id P O w
+    (R.map (ColKind.readTuple κ)) (Multiset.mem_map_of_mem _ hu)
+    (show y ∈ ValueFrame.frameOf (α := Tuple T n) id P O w
+        (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u) from by
+      rw [← ValueFrame.frameListOf_coe (α := Tuple T n) id P O o w]
+      exact Multiset.mem_coe.mpr hy)
+
 /-! ## Every query is one whose columns are all values -/
 
 /-- **The kind discipline costs nothing in the plain semantics**: every
@@ -841,8 +911,13 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
         simp only [ColKind.readTuple_allReg, Multiset.map_id',
           ValueFrame.windowValueOpt_none]
         refine Multiset.map_congr rfl (fun y hy => ?_)
-        exact congrArg (Fin.snoc (α := fun _ => T) y)
-          (ValueFrame.windowValue_readTuple P' O o w t hsym hrr _ hy γ)
+        refine congrArg (Fin.snoc (α := fun _ => T) y) ?_
+        rcases hsym D γ with hs | hdet
+        · exact ValueFrame.windowValue_readTuple P' O o w t hs hrr _ hy γ
+        · refine ValueFrame.windowValue_readTuple_of_det P' O o w t _ hrr _ hy γ
+            ?_
+          rw [← he' D γ]
+          exact hdet
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs

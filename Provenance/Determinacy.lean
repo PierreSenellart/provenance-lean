@@ -45,9 +45,11 @@ row. That listing is one the condition admits, and every result of the
 metatheory relates two readings of *one* listing, so no theorem needs
 determinacy: the hom commutation, the random world, the rewriting and
 the adequacy hold on every instance, determinate or not. Determinacy is
-what a *second* listing would ask for, which is why it is also the right
-hypothesis for the re-typing of `Provenance.AllRegular`, where erasing a
-column's tag lets it into the tie-break.
+what a *second* listing asks for, which is why it is the hypothesis the
+re-typing of `Provenance.AllRegular` carries at a window: erasing a
+column's tag lets it into the tie-break, and
+`ValueFrame.windowValue_readTuple_of_det` is where `rowsAgree` and
+`OrderSpec.map_eq_of_keySorted` are put to work.
 -/
 
 variable {T : Type} [ValueType T] {n m p : ℕ}
@@ -360,3 +362,39 @@ theorem AggQueryIn.gammaAgg_eq_of_listing_of_determinateOn {c k n₁ n₂ : ℕ}
   · exact hsym ((hperm.trans (Relation.groupSeqOrd_perm is ord _ g).symm).map _)
   · exact congrArg (fs j) (Relation.groupSeqOrd_map_eq_of_listing is ord _ g _
       hagree L hperm hsorted)
+
+/-! ## Listings that agree only on the clause
+
+A re-typing, or any other change of what breaks a tie, leaves a listing
+sorted by the clause's *keys* and reorders it inside a block of peers.
+That is weaker than `OrderSpec.readLe`-sortedness and it is all the
+invariance needs. -/
+
+/-- The clause's reading puts an occurrence before another only where the
+clause itself does. -/
+theorem OrderSpec.le_of_readLe {α β : Type} [LinearOrder β]
+    {key : β → Tuple T p} {val : α → β} {o : OrderSpec p} {x y : α}
+    (h : OrderSpec.readLe key val o x y = true) :
+    o.le (key (val x)) (key (val y)) = true := by
+  by_cases hp : o.peer (key (val x)) (key (val y)) = true
+  · rw [OrderSpec.peer, Bool.and_eq_true] at hp
+    exact hp.1
+  · rw [OrderSpec.readLe, ite_eq_right hp] at h
+    exact h
+
+/-- **Two listings of one bag sorted by the clause's keys read alike**,
+for a reading that is constant on the clause's peers. This is the
+invariance a change of tie-break asks for: the blocks of peers come in
+the order the clause fixes, and inside a block the reading does not
+look. -/
+theorem OrderSpec.map_eq_of_keySorted {α γ : Type} (key : α → Tuple T p)
+    (o : OrderSpec p) (q : α → γ) {S : α → Prop}
+    (hq : ∀ x y, S x → S y → o.peer (key x) (key y) = true → q x = q y)
+    (L L' : List α) (hS : ∀ x ∈ L, S x) (hperm : L.Perm L')
+    (hL : L.Pairwise (fun x y => o.le (key x) (key y) = true))
+    (hL' : L'.Pairwise (fun x y => o.le (key x) (key y) = true)) :
+    L.map q = L'.map q :=
+  List.map_eq_of_pairwise_of_symm
+    (fun x y hx hy h₁ h₂ => hq x y hx hy
+      (by rw [OrderSpec.peer, Bool.and_eq_true]; exact ⟨h₁, h₂⟩))
+    L L' hS hperm hL hL'

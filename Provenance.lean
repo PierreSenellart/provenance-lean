@@ -908,19 +908,20 @@ proven engine several general results reuse internally.
   takes a column read as a token to the column – and two things have
   none, which `AggQueryIn.Retypable` fences off: a projection column
   post-composing an aggregate with an arbitrary function
-  (`ProjColIn.aggTerm`), and **an order-dependent window over aggregate
+  (`ProjColIn.aggTerm`), and **a non-determinate window over aggregate
   columns**. A window is the one operator whose *plain* semantics reads
   the kind vector: it reads its input through `ColKind.readTuple`,
   nulling the aggregate columns, which is one of the listings of a frame
   that its order clause allows. Reading an aggregate column as a value
   puts it into the tie-break, so the re-typed window lists a block of
-  peers in another order – immaterial to an aggregate whose value does
-  not depend on the listing, which is all the semantics admits, and
-  visible to one that does. The fence therefore asks of a window either
-  an all-regular input or a symmetric aggregate
-  (`ValueFrame.windowValue_readTuple`) with no `FILTER` clause – a
-  clause being a selection on the whole row, which nothing bars from
-  comparing an aggregate column. What the theorem leaves behind is
+  peers in another order – immaterial to a *determinate* window, which
+  is all the semantics admits, and visible to one the semantics refuses.
+  The fence is therefore determinacy itself, quantified over the
+  instance as `AggQueryIn.recSettles` is, or an all-regular input
+  (`ValueFrame.windowValue_readTuple_of_det`, with
+  `windowValue_readTuple` the symmetric case), and it still excludes a
+  `FILTER` clause – a clause being a selection on the whole row, which
+  nothing bars from comparing an aggregate column. What the theorem leaves behind is
   `AggQueryIn.SwapReady`, which is what the two swaps of the basis ask
   for
 - `Provenance.Determinacy` – **the listing an aggregate reads, and the
@@ -941,7 +942,8 @@ proven engine several general results reuse internally.
   means. `AggQueryIn.evaluatePlain` is unchanged and keeps its own
   listing – one the condition admits – which is why no result of the
   metatheory asks for determinacy: each relates two readings of one
-  listing
+  listing. The one place two listings meet is the re-typing of
+  `Provenance.AllRegular`, whose window fence *is* this condition
 - `Provenance.BasisAssembly` – **the basis, assembled**: the generation
   half of `thm:plainbasis`, as three passes over the syntax.
   `AggQueryIn.exists_winFree` replaces every window by an apply of a
