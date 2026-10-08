@@ -191,6 +191,8 @@ instance : Mul String where
   mul _ _ := ""
 
 instance : ValueType String where
+  nonzero := Nat.repr 1
+  nonzero_ne_zero := by decide
   add_comm := by
     intro a b
     rcases ha : strToNat? a with _ | n

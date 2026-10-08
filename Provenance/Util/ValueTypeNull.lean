@@ -227,6 +227,11 @@ instance [AddCommSemigroup T] : AddCommSemigroup (WithNull T) where
 instance instValueType [ValueType T] : ValueType (WithNull T) where
   isNull a := (a : Option T).isNone
   isNull_zero := rfl
+  nonzero := val ValueType.nonzero
+  nonzero_ne_zero := by
+    intro h
+    exact ValueType.nonzero_ne_zero (Option.some.inj h)
+  isNull_nonzero := rfl
 
 instance [ValueType T] : ValueTypeNull (WithNull T) where
   null := nil

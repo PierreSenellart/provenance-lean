@@ -418,6 +418,8 @@ fragment. -/
 /-- Natural numbers as a value type (used for kernel-computable
 counterexamples: unlike `String`, the order on `ℕ` reduces by `decide`). -/
 instance : ValueType ℕ where
+  nonzero := 1
+  nonzero_ne_zero := Nat.one_ne_zero
 
 /-- Nothing in `ℕ` is null. -/
 instance : NoNulls ℕ := ⟨fun _ => rfl⟩

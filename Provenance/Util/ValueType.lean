@@ -15,6 +15,15 @@ class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, Lin
   /-- The domain's zero is not its null: an aggregate over no row is not an
   aggregate that came out zero. -/
   isNull_zero : isNull 0 = false := by rfl
+  /-- **A value of its own**: one that is neither the zero nor the null. A
+  domain of SQL has one, and a query needs one to mark a row with – which
+  is what the difference does when it tags the two sides of a union to
+  tell them apart afterwards. -/
+  nonzero : T
+  /-- It is not the zero. -/
+  nonzero_ne_zero : nonzero ≠ 0
+  /-- And it is not the null. -/
+  isNull_nonzero : isNull nonzero = false := by rfl
 
 /-- A value domain in which nothing is null. The three-valued semantics
 agrees with the two-valued one there, which is why every statement proved
@@ -27,6 +36,13 @@ export NoNulls (isNull_eq_false)
 
 instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
   zero := Sum.inr 0
+
+  -- a value of the data side, which the provenance zero is not
+  nonzero := Sum.inl ValueType.nonzero
+  nonzero_ne_zero := by
+    intro h
+    exact absurd h (by simp)
+  isNull_nonzero := ValueType.isNull_nonzero
 
   -- the rewriting domain inherits its nulls from the data side; a
   -- provenance value is never null

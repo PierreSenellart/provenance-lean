@@ -295,7 +295,7 @@ is. -/
 theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     {sch : Schema} (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S)
     (hx : OpKind.prod ∈ S) (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S)
-    (hap : OpKind.apply ∉ S) (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+    (hap : OpKind.apply ∉ S) (f : SeqAggFunc T)
     (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), c = 0 →
       q.usesOnly (insert OpKind.dedup (insert OpKind.diff S)) →
@@ -375,13 +375,14 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     obtain ⟨q₂', hu₂, hs₂, hn₂, he₂⟩ := ih₂ hc hq.2.2 hqs.2
     subst hc
     -- the difference is a count over the tagged union
-    refine ⟨AggQueryIn.notInDiff a f q₁' q₂',
-      AggQueryIn.usesOnly_notInDiff a f hp hs hx hu hg hu₁ hu₂,
-      AggQueryIn.overSchema_notInDiff a f hs₁ hs₂,
-      (fun hn => AggQueryIn.noAggTerm_notInDiff a f (hn₁ hn.1) (hn₂ hn.2)),
+    refine ⟨AggQueryIn.notInDiff ValueType.nonzero f q₁' q₂',
+      AggQueryIn.usesOnly_notInDiff ValueType.nonzero f hp hs hx hu hg hu₁ hu₂,
+      AggQueryIn.overSchema_notInDiff ValueType.nonzero f hs₁ hs₂,
+      (fun hn => AggQueryIn.noAggTerm_notInDiff ValueType.nonzero f
+        (hn₁ hn.1) (hn₂ hn.2)),
       fun D γ => ?_⟩
-    refine Eq.trans ?_ (AggQueryIn.diff_plainEquiv_notIn a ha f hzero q₁' q₂'
-      D γ)
+    refine Eq.trans ?_ (AggQueryIn.diff_plainEquiv_notIn ValueType.nonzero
+      ValueType.nonzero_ne_zero f hzero q₁' q₂' D γ)
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
@@ -465,8 +466,8 @@ derivable – its frame containing its current row, its input all-regular,
 and a predicate of the language holding where its frame condition holds
 and its `FILTER` clause keeps the row. `DISTINCT` and the clause are
 covered; a multi-frame window is not. -/
-theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+theorem AggQueryIn.exists_basisOps_plainEquiv_noAggTerm {sch : Schema} {n : ℕ}
+    {κ : Fin n → ColKind} (f : SeqAggFunc T)
     (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
     (q : AggQuery T n κ) (hq : q.usesOnly plainOps) (hd : q.WinsDerivable)
     (hqs : q.overSchema sch) :
@@ -489,9 +490,27 @@ theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
     AggQueryIn.exists_basisOps_of_dedupDiff (S := basisOps)
       (by simp [basisOps]) (by simp [basisOps]) (by simp [basisOps])
       (by simp [basisOps]) (by simp [basisOps]) (by simp [basisOps])
-      a ha f hzero q₂ rfl hu₂ hs₂
+      f hzero q₂ rfl hu₂ hs₂
   exact ⟨q₃, hu₃, hs₃, fun hqn => hn₃ (hn₂ (hn₁ hqn)),
     fun D γ => (he₁ D γ).trans ((he₂ D γ).trans (he₃ D γ))⟩
+
+/-- **The generation half of `thm:plainbasis`**: every query of the plain
+fragment is equivalent to one using only the six basis classes `∅`, `Π`,
+`σ`, `×`, `⊎`, `γ`, over the same schema.
+
+`exists_basisOps_plainEquiv_noAggTerm` is the same statement with the
+no-aggTerm invariant carried through, which is what the bases that
+re-type their columns need; it is no part of what the theorem says. -/
+theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
+    {κ : Fin n → ColKind} (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    (q : AggQuery T n κ) (hq : q.usesOnly plainOps) (hd : q.WinsDerivable)
+    (hqs : q.overSchema sch) :
+    ∃ q' : AggQuery T n κ,
+      q'.usesOnly basisOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
+  obtain ⟨q', hu', hs', -, he'⟩ :=
+    AggQueryIn.exists_basisOps_plainEquiv_noAggTerm f hzero q hq hd hqs
+  exact ⟨q', hu', hs', he'⟩
 
 /-- **A generating set over a schema**: every query over `sch` whose
 windows are derivable, and which applies no function to an aggregate
@@ -515,12 +534,12 @@ def schemaS : Schema := fun s => if s = "S" then some 2 else none
 /-- **The six classes generate, over a schema**: `GeneratesOn`'s form of
 the theorem above, which is what the classification's other half is
 stated against. -/
-theorem basisOps_generatesOn (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+theorem basisOps_generatesOn (f : SeqAggFunc T)
     (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
     GeneratesOn T sch basisOps :=
   fun q hqs hq hd hqn => by
     obtain ⟨q₃, hu₃, hs₃, hn₃, he₃⟩ :=
-      AggQueryIn.exists_basisOps_plainEquiv a ha f hzero q hq hd hqs
+      AggQueryIn.exists_basisOps_plainEquiv_noAggTerm f hzero q hq hd hqs
     obtain ⟨q', hu', hs', -, he'⟩ :=
       AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
         (AggQueryIn.retypable_of_noAggTerm (by simp [basisOps]) q₃ hu₃
@@ -530,8 +549,7 @@ theorem basisOps_generatesOn (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
 /-- Over `ℕ`, with the tag `1` and the sum. -/
 theorem basisOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisOps :=
-  basisOps_generatesOn 1 one_ne_zero List.sum (fun _ => List.sum_eq_zero_iff)
-    sch
+  basisOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
 
 /-! ## What every generating set must contain
 
@@ -898,7 +916,7 @@ asked to be closed, which is where that identity is proved, and to use
 no apply – both of which the three passes' output is. -/
 theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     (hp : OpKind.proj ∈ S) (hd : OpKind.diff ∈ S)
-    (hap : OpKind.apply ∉ S) (yes : T) (hyes : yes ≠ 0) :
+    (hap : OpKind.apply ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), c = 0 →
       q.usesOnly (insert OpKind.sel S) → q.SwapReady → q.overSchema sch →
       ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
@@ -924,12 +942,14 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     subst hc
     have hκ := funext hreg
     subst hκ
-    refine ⟨AggQueryIn.selByDiff yes (φ.polTerm yes true) q',
-      AggQueryIn.usesOnly_selByDiff yes _ hp hd hu',
-      AggQueryIn.overSchema_selByDiff yes _ hs',
-      AggQueryIn.swapReady_selByDiff yes _ hw'', fun D γ => ?_⟩
-    refine Eq.trans ?_ (AggQueryIn.sel_plainEquiv_selByDiff_polTerm yes hyes
-      φ hagg q' D γ)
+    refine ⟨AggQueryIn.selByDiff ValueType.nonzero
+        (φ.polTerm ValueType.nonzero true) q',
+      AggQueryIn.usesOnly_selByDiff ValueType.nonzero _ hp hd hu',
+      AggQueryIn.overSchema_selByDiff ValueType.nonzero _ hs',
+      AggQueryIn.swapReady_selByDiff ValueType.nonzero _ hw'',
+      fun D γ => ?_⟩
+    refine Eq.trans ?_ (AggQueryIn.sel_plainEquiv_selByDiff_polTerm
+      ValueType.nonzero ValueType.nonzero_ne_zero φ hagg q' D γ)
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Prod q₁ q₂ ih₁ ih₂ =>
@@ -1042,21 +1062,21 @@ whose projections post-compose no aggregate column is equivalent to one
 over `∅`, `Π`, `×`, `⊎`, `γ`, `−`. The tag `yes ≠ 0` is what the
 selection's difference marks the rows it keeps with. -/
 theorem AggQueryIn.exists_basisDiffOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (yes : T)
-    (hyes : yes ≠ 0) (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
+    {κ : Fin n → ColKind} (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
     (hd : q.WinsDerivable) (hqs : q.overSchema sch) (hqn : q.NoAggTerm) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisDiffOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, hn₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv a ha f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv_noAggTerm f hzero q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_noAggTerm (by simp [basisOps]) q₃ hu₃
         (hn₃ hqn)) hs₃
   obtain ⟨q₅, hu₅, hs₅, -, he₅⟩ :=
     AggQueryIn.exists_selFree (S := basisDiffOps) (by simp [basisDiffOps])
-      (by simp [basisDiffOps]) (by simp [basisDiffOps]) yes hyes q₄ rfl
+      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl
       (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
@@ -1068,14 +1088,14 @@ theorem AggQueryIn.exists_basisDiffOps_plainEquiv {sch : Schema} {n : ℕ}
 /-- **The basis with the apply for `×`**: the same, over `∅`, `Π`, `σ`,
 the apply, `⊎`, `γ`. -/
 theorem AggQueryIn.exists_basisApplyOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+    {κ : Fin n → ColKind} (f : SeqAggFunc T)
     (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (q : AggQuery T n κ)
     (hq : q.usesOnly plainOps) (hd : q.WinsDerivable)
     (hqs : q.overSchema sch) (hqn : q.NoAggTerm) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisApplyOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, hn₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv a ha f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv_noAggTerm f hzero q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_noAggTerm (by simp [basisOps]) q₃ hu₃
@@ -1091,36 +1111,33 @@ theorem AggQueryIn.exists_basisApplyOps_plainEquiv {sch : Schema} {n : ℕ}
     fun D γ => ((he₃ D γ).trans (he₄ D γ)).trans (he₅ D γ)⟩
 
 /-- **`{∅, Π, ×, ⊎, γ, −}` generates, over a schema.** -/
-theorem basisDiffOps_generatesOn (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (yes : T)
-    (hyes : yes ≠ 0) (sch : Schema) : GeneratesOn T sch basisDiffOps :=
+theorem basisDiffOps_generatesOn (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+    GeneratesOn T sch basisDiffOps :=
   fun q hqs hq hd hqn => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisDiffOps_plainEquiv a ha f hzero yes hyes q hq hd
-        hqs hqn
+      AggQueryIn.exists_basisDiffOps_plainEquiv f hzero q hq hd hqs hqn
     exact ⟨q', hs', hu', he'⟩
 
 /-- **`{∅, Π, σ, apply, ⊎, γ}` generates, over a schema.** -/
-theorem basisApplyOps_generatesOn (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+theorem basisApplyOps_generatesOn (f : SeqAggFunc T)
     (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
     GeneratesOn T sch basisApplyOps :=
   fun q hqs hq hd hqn => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisApplyOps_plainEquiv a ha f hzero q hq hd hqs hqn
+      AggQueryIn.exists_basisApplyOps_plainEquiv f hzero q hq hd hqs hqn
     exact ⟨q', hs', hu', he'⟩
 
 /-- Over `ℕ`, with the tag `1`, the sum, and `1` as the selection's
 marker. -/
 theorem basisDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisDiffOps :=
-  basisDiffOps_generatesOn 1 one_ne_zero List.sum
-    (fun _ => List.sum_eq_zero_iff) 1 one_ne_zero sch
+  basisDiffOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
 
 /-- Over `ℕ`, with the tag `1` and the sum. -/
 theorem basisApplyOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyOps :=
-  basisApplyOps_generatesOn 1 one_ne_zero List.sum
-    (fun _ => List.sum_eq_zero_iff) sch
+  basisApplyOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
 
 /-! ## Three windows that are derivable
 
@@ -1187,14 +1204,14 @@ def basisApplyDiffOps : Set OpKind :=
 the plain fragment whose projections post-compose no aggregate column is
 equivalent to one over `∅`, `Π`, the apply, `⊎`, `γ`, `−`. -/
 theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (yes : T)
-    (hyes : yes ≠ 0) (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
+    {κ : Fin n → ColKind} (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
     (hd : q.WinsDerivable) (hqs : q.overSchema sch) (hqn : q.NoAggTerm) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisApplyDiffOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, hn₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv a ha f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv_noAggTerm f hzero q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_noAggTerm (by simp [basisOps]) q₃ hu₃
@@ -1203,7 +1220,7 @@ theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
   -- for the product swap
   obtain ⟨q₅, hu₅, hs₅, hw₅, he₅⟩ :=
     AggQueryIn.exists_selFree (S := basisDiffOps) (by simp [basisDiffOps])
-      (by simp [basisDiffOps]) (by simp [basisDiffOps]) yes hyes q₄ rfl
+      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl
       (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
@@ -1222,20 +1239,18 @@ theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
     (((he₃ D γ).trans (he₄ D γ)).trans (he₅ D γ)).trans (he₆ D γ)⟩
 
 /-- **`{∅, Π, apply, ⊎, γ, −}` generates, over a schema.** -/
-theorem basisApplyDiffOps_generatesOn (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (yes : T)
-    (hyes : yes ≠ 0) (sch : Schema) : GeneratesOn T sch basisApplyDiffOps :=
+theorem basisApplyDiffOps_generatesOn (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+    GeneratesOn T sch basisApplyDiffOps :=
   fun q hqs hq hd hqn => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisApplyDiffOps_plainEquiv a ha f hzero yes hyes q hq
-        hd hqs hqn
+      AggQueryIn.exists_basisApplyDiffOps_plainEquiv f hzero q hq hd hqs hqn
     exact ⟨q', hs', hu', he'⟩
 
 /-- Over `ℕ`, with the tag `1`, the sum and the marker `1`. -/
 theorem basisApplyDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyDiffOps :=
-  basisApplyDiffOps_generatesOn 1 one_ne_zero List.sum
-    (fun _ => List.sum_eq_zero_iff) 1 one_ne_zero sch
+  basisApplyDiffOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
 
 /-- **The two `RANGE` frames over a domain that names its null**: the
 same windows as `AggQueryIn.winsDerivable_win_rangeUpTo` and
