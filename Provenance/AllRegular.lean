@@ -1,0 +1,860 @@
+/-
+  Released under the MIT license as described in the file LICENSE.
+  Authors: Pierre Senellart
+-/
+import Provenance.PlainBasis
+
+/-!
+# Reading every column as a value
+
+In the plain semantics every column holds a value of the domain: the
+kind vector is a *syntactic* index, saying which operators may be
+written where, and `AggQueryIn.evaluatePlain` returns plain tuples. The
+operators that compare keys – duplicate elimination, the difference, a
+grouping's and a partition's indices – are the ones that insist on
+regular columns, and `AggQueryIn.Alt` is what bridges them: it reads an
+aggregate column as a key, and over a plain relation it is the identity
+(its own docstring says so). `AggQueryIn.Retag` does the same between
+the two value-armed kinds.
+
+This module makes that into a theorem: **every query is
+plain-equivalent to one whose columns are all regular**
+(`AggQueryIn.exists_allReg`), so the kind discipline costs nothing in
+the plain semantics. Three readings of an aggregate column have exact
+regular counterparts – an aggregate atom is the same comparison on the
+column, a range atom is its two comparisons, and a column read as a
+token is the column – and the one that has none is
+`ProjColIn.aggTerm`, which post-composes the column with an arbitrary
+function of the domain: no term expresses that.
+
+A window is the other exception, and for a different reason: it is the
+one operator whose plain semantics reads the kind vector, reading its
+input through `ColKind.readTuple`. That nulling is how the library lists
+a frame, and it is one admissible listing: what the document asks of an
+aggregation is *determinacy* – the aggregate is symmetric, or any two
+peers of the clause carry equal values of the aggregated term – and
+under determinacy every listing the clause allows gives one value.
+Re-typing changes the listing, since an aggregate column read as a value
+enters the tie-break, but only *inside* a block of peers, so a
+determinate window reads the same value either way. `Retypable` is a
+condition on the query and determinacy one on the rows, so the fence
+asks what a syntactic predicate can see: of a window, either an
+all-regular input – where no column moves – or a symmetric aggregate
+with no `FILTER` clause, which is determinacy's syntactic half
+(`ValueFrame.windowValue_readTuple`).
+
+What this is for: the swaps of `sec:basis` – a selection written with a
+difference, a product written with an apply – are stated over queries
+whose columns are regular, because that is what `Diff` and an apply's
+left side take. Regularizing first is what lets them apply to a query
+that has aggregate columns in its *type* and ordinary values in its
+rows.
+-/
+
+variable {T : Type} [ValueType T]
+
+/-! ## The three readings that have regular counterparts -/
+
+/-- **A term reading every column as a regular one.** A provenance
+column is read as the value it holds; the aggregate-comparison gate has
+no plain value of its own (the generic evaluators give it `0`), so it
+becomes that constant. -/
+def TermGIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
+    TermGIn T c κ → TermGIn T c (ColKind.allReg n)
+  | .const a => .const a
+  | .outer j => .outer j
+  | .index k _ => .index k rfl
+  | .provIndex k _ => .index k rfl
+  | .cmpAgg _ _ _ _ => .const 0
+  | .chiGate op t₁ t₂ => .chiGate op t₁.toReg t₂.toReg
+  | .add t₁ t₂ => .add t₁.toReg t₂.toReg
+  | .sub t₁ t₂ => .sub t₁.toReg t₂.toReg
+  | .mul t₁ t₂ => .mul t₁.toReg t₂.toReg
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+      .caseWhen op t₁.toReg t₂.toReg t₃.toReg t₄.toReg
+  | .coalesce t₁ t₂ => .coalesce t₁.toReg t₂.toReg
+
+/-- It reads what the term reads. -/
+theorem TermGIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (t : TermGIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
+    (t.toReg).evalPlain u γ = t.evalPlain u γ := by
+  induction t with
+  | const a => rfl
+  | outer j => rfl
+  | index k h => rfl
+  | provIndex k h => rfl
+  | cmpAgg k h op t ih => rfl
+  | chiGate op t₁ t₂ ih₁ ih₂ => rfl
+  | add t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | sub t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | mul t₁ t₂ ih₁ ih₂ => exact congrArg₂ _ ih₁ ih₂
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    show (if op.eval3 _ _ = Kleene.true then _ else _) = _
+    rw [ih₁, ih₂, ih₃, ih₄]
+    rfl
+  | coalesce t₁ t₂ ih₁ ih₂ =>
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [ih₁, ih₂]
+    rfl
+
+/-- **A predicate reading every column as a regular one.** An aggregate
+atom becomes the same comparison on the column, and a range atom the
+conjunction of its two – which is what it says on a row, the difference
+between them being what they annotate. -/
+def GenPredIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
+    GenPredIn T c κ → GenPredIn T c (ColKind.allReg n)
+  | .cmp op t₁ t₂ => .cmp op t₁.toReg t₂.toReg
+  | .aggCmp k _ op t => .cmp op (.index k rfl) t.toReg
+  | .aggRange k _ op₁ t₁ op₂ t₂ =>
+      .and (.cmp op₁ (.index k rfl) t₁.toReg)
+        (.cmp op₂ (.index k rfl) t₂.toReg)
+  | .and φ ψ => .and φ.toReg ψ.toReg
+  | .or φ ψ => .or φ.toReg ψ.toReg
+  | .not φ => .not φ.toReg
+
+/-- It reads what the predicate reads. -/
+theorem GenPredIn.evalPlain3_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
+    (φ.toReg).evalPlain3 u γ = φ.evalPlain3 u γ := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    show CompOp.eval3 op _ _ = CompOp.eval3 op _ _
+    rw [TermGIn.evalPlain_toReg, TermGIn.evalPlain_toReg]
+  | aggCmp k h op t =>
+    show CompOp.eval3 op _ _ = CompOp.eval3 op _ _
+    rw [TermGIn.evalPlain_toReg]
+    rfl
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    show Kleene.and (CompOp.eval3 op₁ _ _) (CompOp.eval3 op₂ _ _)
+      = Kleene.and (CompOp.eval3 op₁ _ _) (CompOp.eval3 op₂ _ _)
+    rw [TermGIn.evalPlain_toReg, TermGIn.evalPlain_toReg]
+    rfl
+  | and φ ψ ihφ ihψ => exact congrArg₂ Kleene.and ihφ ihψ
+  | or φ ψ ihφ ihψ => exact congrArg₂ Kleene.or ihφ ihψ
+  | not φ ih => exact congrArg Kleene.not ih
+
+/-- It keeps the same rows. -/
+theorem GenPredIn.holdsPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) (u : Tuple T n) (γ : Fin c → T) :
+    (φ.toReg).holdsPlain u γ ↔ φ.holdsPlain u γ := by
+  unfold GenPredIn.holdsPlain
+  rw [GenPredIn.evalPlain3_toReg]
+
+/-- And it has no aggregate atom left. -/
+@[simp] theorem GenPredIn.hasAggAtom_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) : (φ.toReg).hasAggAtom = false := by
+  induction φ with
+  | cmp op t₁ t₂ => rfl
+  | aggCmp k h op t => rfl
+  | aggRange k h op₁ t₁ op₂ t₂ => rfl
+  | and φ ψ ihφ ihψ => rw [GenPredIn.toReg, GenPredIn.hasAggAtom, ihφ, ihψ]; rfl
+  | or φ ψ ihφ ihψ => rw [GenPredIn.toReg, GenPredIn.hasAggAtom, ihφ, ihψ]; rfl
+  | not φ ih => rw [GenPredIn.toReg, GenPredIn.hasAggAtom, ih]
+
+/-- **A projection column read as a regular one.** A column read as a
+token is the column; a provenance column is the value it holds. The
+post-composing reading has no counterpart, and is sent to a constant –
+which is why the lemma below asks `noAggTerm`. -/
+def ProjColIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
+    ProjColIn T c κ → ProjColIn T c (ColKind.allReg n)
+  | .term t => .term t.toReg
+  | .token k _ => .term (.index k rfl)
+  | .aggTerm _ _ _ => .term (.const 0)
+  | .provTerm t => .term t.toReg
+
+/-- Every column it builds is regular. -/
+@[simp] theorem ProjColIn.kind_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (p : ProjColIn T c κ) : (p.toReg).kind = ColKind.reg := by
+  cases p <;> rfl
+
+/-- It reads what the column reads, where that has a regular
+counterpart. -/
+theorem ProjColIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
+    (p : ProjColIn T c κ) (hp : p.noAggTerm = true) (u : Tuple T n)
+    (γ : Fin c → T) : (p.toReg).evalPlain u γ = p.evalPlain u γ := by
+  cases p with
+  | term t => exact TermGIn.evalPlain_toReg t u γ
+  | token k h => rfl
+  | aggTerm k h gf => exact absurd hp (by simp [ProjColIn.noAggTerm])
+  | provTerm t => exact TermGIn.evalPlain_toReg t u γ
+
+/-! ## Reading a query's own columns as values
+
+`Alt` reads one aggregate column as a key and `Retag` reads the
+provenance columns as values, so regularizing a query's columns is a
+recursion over them. Both are the identity over a plain relation, which
+is what makes the whole thing invisible to `evaluatePlain`. -/
+
+/-- The kind vector with the columns below `m` read as regular. -/
+def regBelow {n : ℕ} (κ : Fin n → ColKind) (m : ℕ) : Fin n → ColKind :=
+  fun k => if k.val < m then ColKind.reg else κ k
+
+theorem regBelow_zero {n : ℕ} (κ : Fin n → ColKind) : regBelow κ 0 = κ := by
+  funext k
+  exact ite_eq_right (Nat.not_lt_zero k.val)
+
+theorem regBelow_ge {n m : ℕ} (κ : Fin n → ColKind) (h : n ≤ m) :
+    regBelow κ m = ColKind.allReg n := by
+  funext k
+  exact ite_eq_left (Nat.lt_of_lt_of_le k.isLt h)
+
+theorem regBelow_succ_of_le {n : ℕ} (κ : Fin n → ColKind) {m : ℕ}
+    (h : n ≤ m) : regBelow κ (m + 1) = regBelow κ m := by
+  rw [regBelow_ge κ h, regBelow_ge κ (Nat.le_succ_of_le h)]
+
+theorem regBelow_succ {n : ℕ} (κ : Fin n → ColKind) {m : ℕ} (h : m < n) :
+    regBelow κ (m + 1)
+      = Function.update (regBelow κ m) (⟨m, h⟩ : Fin n) ColKind.reg := by
+  funext k
+  by_cases hk : k = (⟨m, h⟩ : Fin n)
+  · subst hk
+    rw [Function.update_self]
+    exact ite_eq_left (Nat.lt_succ_self m)
+  · rw [Function.update_of_ne hk]
+    show (if k.val < m + 1 then ColKind.reg else κ k)
+      = if k.val < m then ColKind.reg else κ k
+    by_cases hlt : k.val < m
+    · rw [ite_eq_left (Nat.lt_succ_of_lt hlt), ite_eq_left hlt]
+    · have hne : k.val ≠ m := fun hc => hk (Fin.ext hc)
+      rw [ite_eq_right (fun hc => hlt (Nat.lt_of_le_of_ne
+          (Nat.le_of_lt_succ hc) hne)), ite_eq_right hlt]
+
+/-- **Every column below `m` read as a value.** -/
+def AggQueryIn.altBelow {c n : ℕ} :
+    (m : ℕ) → {κ : Fin n → ColKind} → AggQueryIn T c n κ →
+      AggQueryIn T c n (regBelow κ m)
+  | 0, κ, q => q.castKind (regBelow_zero κ).symm
+  | m + 1, κ, q =>
+    if h : m < n then
+      match hk : regBelow κ m (⟨m, h⟩ : Fin n) with
+      | ColKind.agg =>
+          (AggQueryIn.Alt (⟨m, h⟩ : Fin n) hk
+            (AggQueryIn.altBelow m q)).castKind (regBelow_succ κ h).symm
+      | ColKind.reg =>
+          (AggQueryIn.altBelow m q).castKind (by
+            rw [regBelow_succ κ h]
+            exact (Function.update_eq_self_iff.mpr hk.symm).symm)
+      | ColKind.prov =>
+          (AggQueryIn.Retag (κ' := regBelow κ (m + 1)) (fun i => by
+            rw [regBelow_succ κ h]
+            by_cases hi : i = (⟨m, h⟩ : Fin n)
+            · subst hi
+              rw [Function.update_self, hk]
+              rfl
+            · rw [Function.update_of_ne hi])
+            (AggQueryIn.altBelow m q))
+    else
+      (AggQueryIn.altBelow m q).castKind
+        (regBelow_succ_of_le κ (Nat.le_of_not_lt h)).symm
+
+/-- **A query with every column read as a value.** -/
+def AggQueryIn.allRegOf {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) : AggQueryIn T c n (ColKind.allReg n) :=
+  (q.altBelow n).castKind (regBelow_ge κ le_rfl)
+
+omit [ValueType T] in
+/-- Reading the columns as values changes no operator. -/
+@[simp] theorem AggQueryIn.usesOnly_altBelow {c n : ℕ} {S : Set OpKind} :
+    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      (q.altBelow m).usesOnly S ↔ q.usesOnly S := by
+  intro m
+  induction m with
+  | zero =>
+    intro κ q
+    show ((q.castKind _).usesOnly S) ↔ _
+    rw [AggQueryIn.usesOnly_castKind]
+  | succ m ih =>
+    intro κ q
+    unfold AggQueryIn.altBelow
+    split
+    · split
+      · rw [AggQueryIn.usesOnly_castKind]
+        show (AggQueryIn.Alt _ _ (q.altBelow m)).usesOnly S ↔ _
+        rw [AggQueryIn.usesOnly]
+        exact ih q
+      · rw [AggQueryIn.usesOnly_castKind]
+        exact ih q
+      · show (AggQueryIn.Retag _ (q.altBelow m)).usesOnly S ↔ _
+        rw [AggQueryIn.usesOnly]
+        exact ih q
+    · rw [AggQueryIn.usesOnly_castKind]
+      exact ih q
+
+omit [ValueType T] in
+/-- Nor which relations it names. -/
+@[simp] theorem AggQueryIn.overSchema_altBelow {c n : ℕ} {sch : Schema} :
+    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      (q.altBelow m).overSchema sch ↔ q.overSchema sch := by
+  intro m
+  induction m with
+  | zero =>
+    intro κ q
+    show ((q.castKind _).overSchema sch) ↔ _
+    rw [AggQueryIn.overSchema_castKind]
+  | succ m ih =>
+    intro κ q
+    unfold AggQueryIn.altBelow
+    split
+    · split
+      · rw [AggQueryIn.overSchema_castKind]
+        show (AggQueryIn.Alt _ _ (q.altBelow m)).overSchema sch ↔ _
+        rw [AggQueryIn.overSchema]
+        exact ih q
+      · rw [AggQueryIn.overSchema_castKind]
+        exact ih q
+      · show (AggQueryIn.Retag _ (q.altBelow m)).overSchema sch ↔ _
+        rw [AggQueryIn.overSchema]
+        exact ih q
+    · rw [AggQueryIn.overSchema_castKind]
+      exact ih q
+
+/-- **And it is invisible to the plain semantics**: both readings are the
+identity there. -/
+@[simp] theorem AggQueryIn.evaluatePlain_altBelow {c n : ℕ} :
+    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+      (D : Database T) (γ : Fin c → T),
+      (q.altBelow m).evaluatePlain D γ = q.evaluatePlain D γ := by
+  intro m
+  induction m with
+  | zero =>
+    intro κ q D γ
+    show (q.castKind _).evaluatePlain D γ = _
+    rw [AggQueryIn.evaluatePlain_castKind]
+  | succ m ih =>
+    intro κ q D γ
+    unfold AggQueryIn.altBelow
+    split
+    · split
+      · rw [AggQueryIn.evaluatePlain_castKind]
+        show (AggQueryIn.Alt _ _ (q.altBelow m)).evaluatePlain D γ = _
+        rw [AggQueryIn.evaluatePlain]
+        exact ih q D γ
+      · rw [AggQueryIn.evaluatePlain_castKind]
+        exact ih q D γ
+      · show (AggQueryIn.Retag _ (q.altBelow m)).evaluatePlain D γ = _
+        rw [AggQueryIn.evaluatePlain]
+        exact ih q D γ
+    · rw [AggQueryIn.evaluatePlain_castKind]
+      exact ih q D γ
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.usesOnly_allRegOf {c n : ℕ} {S : Set OpKind}
+    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    (q.allRegOf).usesOnly S ↔ q.usesOnly S := by
+  rw [AggQueryIn.allRegOf, AggQueryIn.usesOnly_castKind,
+    AggQueryIn.usesOnly_altBelow]
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.overSchema_allRegOf {c n : ℕ} {sch : Schema}
+    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    (q.allRegOf).overSchema sch ↔ q.overSchema sch := by
+  rw [AggQueryIn.allRegOf, AggQueryIn.overSchema_castKind,
+    AggQueryIn.overSchema_altBelow]
+
+@[simp] theorem AggQueryIn.evaluatePlain_allRegOf {c n : ℕ}
+    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (D : Database T)
+    (γ : Fin c → T) : (q.allRegOf).evaluatePlain D γ = q.evaluatePlain D γ := by
+  rw [AggQueryIn.allRegOf, AggQueryIn.evaluatePlain_castKind,
+    AggQueryIn.evaluatePlain_altBelow]
+
+/-! ## The one reading with no regular counterpart -/
+
+/-- **What a query has to be for its columns to be readable as values.**
+Two things, and both are real.
+
+No projection column may post-compose an aggregate column
+(`ProjColIn.aggTerm`): its value is `gf` of the column, and the term
+language applies no arbitrary `gf`.
+
+And every window either reads an all-regular input or aggregates its
+frame symmetrically with no `FILTER` clause. A window is the one
+operator whose *plain* semantics reads the kind vector: it reads its
+input through `ColKind.readTuple`, which nulls the aggregate columns, so
+a window over a re-typed input reads values where the original read `0`.
+Both are listings the clause allows, and they differ only inside a block
+of peers – an aggregate column read as a value enters the tie-break and
+nothing else. So an aggregate whose value does not depend on the listing
+reads the same sequence either way, and a symmetric one is the case a
+predicate on the query can recognize (`ValueFrame.windowValue_readTuple`;
+the other is the document's second reading of determinacy, peers
+carrying equal values of the term, which is a condition on the rows).
+An order-dependent aggregate over a frame whose peers carry different
+values does tell the two apart: over the rows `(2,5)`, `(2,6)`, `(1,7)`
+whose first column is an aggregate one, with no `ORDER BY`, so that all
+three are peers, `first_value` of the second column reads `5` before the
+re-typing and `7` after. The clause is excluded for a different reason:
+a `FILTER` is a `Selection` on the whole row, which nothing here bars
+from comparing an aggregate column. -/
+def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj ps q => (∀ j, (ps j).noAggTerm = true) ∧ q.Retypable
+  | _, _, _, .Sel _ q => q.Retypable
+  | _, _, _, .Prod q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, .Apply q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, .Sum q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, .Dedup q => q.Retypable
+  | _, _, _, .Diff q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, .Alt _ _ q => q.Retypable
+  | _, _, _, .Mu _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
+  | _, _, _, .Gamma _ _ _ q _ _ => q.Retypable
+  | _, _, _, .GammaScalar _ _ q _ => q.Retypable
+  | _, _, _, .GammaNest _ _ p _ q => p.noAggTerm = true ∧ q.Retypable
+  | _, _, _, .ProvSum _ _ _ q => q.Retypable
+  | _, _, _, .Retag _ q => q.Retypable
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
+  | _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ _ _ _ _ fn q _ dist keep =>
+      ((∀ i, κ' i = ColKind.reg)
+          ∨ ((if dist then fn.distinct else fn).Symmetric ∧ keep = none))
+        ∧ q.Retypable
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
+
+/-- **A window-free query with no `aggTerm` column is re-typable.** The
+window is the only case where `AggQueryIn.Retypable` asks more than
+`AggQueryIn.NoAggTerm`, so a query whose classes exclude the window
+satisfies the one as soon as it satisfies the other. This is what lets
+the three passes of `Provenance.BasisAssembly` thread the structural
+condition alone: the first of them replaces every window by an apply of
+a scalar aggregation, and after it the window case is vacuous. -/
+theorem AggQueryIn.retypable_of_noAggTerm {S : Set OpKind}
+    (hw : OpKind.win ∉ S) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → q.NoAggTerm → q.Retypable := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ _ => trivial
+  | Empty => exact fun _ _ => trivial
+  | Proj ps q ih => exact fun hq hn => ⟨hn.1, ih hq.2 hn.2⟩
+  | Sel φ q ih => exact fun hq hn => ih hq.2 hn
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+  | Dedup q ih => exact fun hq hn => ih hq.2 hn
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+  | Alt k h q ih => exact fun hq hn => ih hq hn
+  | Retag h q ih => exact fun hq hn => ih hq hn
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
+  | Gamma is ts fs q keep ord ih => exact fun hq hn => ih hq.2 hn
+  | GammaScalar ts fs q ord ih => exact fun hq hn => ih hq.2 hn
+  | GammaNest is his pc f q ih => exact fun hq hn => ⟨hn.1, ih hq.2 hn.2⟩
+  | GammaTok is his ts fs a q keep ih => exact fun hq _ => hq.elim
+  | ProvSum is his t q ih => exact fun hq _ => hq.elim
+  | Win P O o w t f q hrr dist keep ih => exact fun hq _ => absurd hq.1 hw
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hq _ => absurd hq.1 hw
+
+/-- **What the swaps of `sec:basis` ask of a query**: the input of every
+selection has regular columns and its predicate has no aggregate atom
+(so that the selection can become a difference, which takes regular
+columns), and the left factor of every product has regular columns (so
+that the product can become an apply, whose left side takes them). It is
+what `AggQueryIn.exists_allReg` leaves behind. -/
+def AggQueryIn.SwapReady : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj _ q => q.SwapReady
+  | _, _, κ, .Sel φ q =>
+      (∀ i, κ i = ColKind.reg) ∧ φ.hasAggAtom = false ∧ q.SwapReady
+  | _, _, _, @AggQueryIn.Prod _ _ _ _ κ₁ _ q₁ q₂ =>
+      (∀ i, κ₁ i = ColKind.reg) ∧ q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, .Apply q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, .Sum q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, .Dedup q => q.SwapReady
+  | _, _, _, .Diff q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, .Alt _ _ q => q.SwapReady
+  | _, _, _, .Mu _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
+  | _, _, _, .Gamma _ _ _ q _ _ => q.SwapReady
+  | _, _, _, .GammaScalar _ _ q _ => q.SwapReady
+  | _, _, _, .GammaNest _ _ _ _ q => q.SwapReady
+  | _, _, _, .ProvSum _ _ _ q => q.SwapReady
+  | _, _, _, .Retag _ q => q.SwapReady
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.SwapReady
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.SwapReady
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.SwapReady
+
+omit [ValueType T] in
+/-- **The difference a selection becomes is ready for the product swap**
+wherever its input is: it projects, tags and takes differences, and
+introduces no product and no selection of its own. This is what lets the
+two swaps be composed, so that the basis with `−` for `σ` *and* the
+apply for `×` is reached. -/
+theorem AggQueryIn.swapReady_selByDiff {k : ℕ} (yes : T)
+    (t : TermGIn T 0 (ColKind.allReg k)) {q : AggQuery T k (ColKind.allReg k)}
+    (hq : q.SwapReady) : (AggQueryIn.selByDiff yes t q).SwapReady :=
+  ⟨hq, hq, hq⟩
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.swapReady_castKind {c n : ℕ}
+    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ) :
+    (q.castKind h).SwapReady ↔ q.SwapReady := by
+  cases h
+  exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.swapReady_altBelow {c n : ℕ} :
+    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      (q.altBelow m).SwapReady ↔ q.SwapReady := by
+  intro m
+  induction m with
+  | zero =>
+    intro κ q
+    show ((q.castKind _).SwapReady) ↔ _
+    rw [AggQueryIn.swapReady_castKind]
+  | succ m ih =>
+    intro κ q
+    unfold AggQueryIn.altBelow
+    split
+    · split
+      · rw [AggQueryIn.swapReady_castKind]
+        show (AggQueryIn.Alt _ _ (q.altBelow m)).SwapReady ↔ _
+        rw [AggQueryIn.SwapReady]
+        exact ih q
+      · rw [AggQueryIn.swapReady_castKind]
+        exact ih q
+      · show (AggQueryIn.Retag _ (q.altBelow m)).SwapReady ↔ _
+        rw [AggQueryIn.SwapReady]
+        exact ih q
+    · rw [AggQueryIn.swapReady_castKind]
+      exact ih q
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.swapReady_allRegOf {c n : ℕ}
+    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    (q.allRegOf).SwapReady ↔ q.SwapReady := by
+  rw [AggQueryIn.allRegOf, AggQueryIn.swapReady_castKind,
+    AggQueryIn.swapReady_altBelow]
+
+/-! ## A window over columns it does not read
+
+A window reads the regular columns of its input and carries the
+aggregate ones through: `ColKind.readTuple` nulls an aggregate column
+before the partition, the frame, the order and the term see the row. It
+is one listing of the frame among those the clause allows, which is all
+the semantics asks for, an aggregation being admitted only where its
+value does not depend on the listing.
+
+That is why re-typing is not free here: reading an aggregate column as a
+value puts it into the tie-break, which can reorder rows the clause
+leaves tied, and an order-dependent aggregate reads the reordered
+sequence. Where the aggregate reads its frame as a bag the reordering is
+immaterial, and this section proves that much. -/
+
+omit [ValueType T] in
+/-- Which decision procedure an erasure uses does not matter. -/
+private theorem erase_instEq {α : Type} (i j : DecidableEq α) (s : Multiset α)
+    (a : α) : @Multiset.erase α i s a = @Multiset.erase α j s a := by
+  rw [Subsingleton.elim i j]
+
+/-- **The frame of the nulled relation is the nulled frame.** The frame
+condition reads the partition and order keys, which the nulling leaves
+alone, so the rows it holds are the same ones; and a row agreeing with
+the current row on every regular column has its order key, hence is in
+the frame exactly when the current row is, so the occurrence a frame
+excluding its current row takes out is taken out on both sides. -/
+theorem ValueFrame.frameOf_readTuple {n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (w : ValueFrame T p)
+    (hP : ∀ k, (κ (P k)).base = ColKind.reg)
+    (hO : ∀ k, (κ (O k)).base = ColKind.reg)
+    (R : Multiset (Tuple T n)) {u : Tuple T n} (hu : u ∈ R) :
+    ValueFrame.frameOf (α := Tuple T n) id P O w
+        (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u)
+      = (ValueFrame.frameOf (α := Tuple T n) id P O w R u).map
+          (ColKind.readTuple κ) := by
+  have hkP : ∀ y : Tuple T n,
+      Tuple.key P (ColKind.readTuple κ y) = Tuple.key P y :=
+    fun y => Tuple.key_readTuple P hP y
+  have hkO : ∀ y : Tuple T n,
+      Tuple.key O (ColKind.readTuple κ y) = Tuple.key O y :=
+    fun y => Tuple.key_readTuple O hO y
+  set m' : Tuple T n → Tuple T n := ColKind.readTuple κ with hm'
+  set cond : Tuple T n → Prop := fun y =>
+    Tuple.key P y = Tuple.key P u
+      ∧ w.ρ (Tuple.key O y) (Tuple.key O u) = true with hcond
+  -- the rows the condition keeps are the nulled images of those it keeps
+  have hfil : Multiset.filter (fun y : Tuple T n =>
+        Tuple.key P y = Tuple.key P (m' u)
+          ∧ w.ρ (Tuple.key O y) (Tuple.key O (m' u)) = true) (R.map m')
+      = (Multiset.filter cond R).map m' := by
+    rw [hm', hkP u, hkO u, Multiset.filter_map]
+    refine congrArg _ (Multiset.filter_congr (fun y _ => ?_))
+    simp only [Function.comp_apply, hcond, Tuple.key_readTuple P hP,
+      Tuple.key_readTuple O hO]
+  -- and the occurrence a frame excluding its current row takes out is the
+  -- same one on both sides
+  have herase : @Multiset.erase (Tuple T n)
+        (fun a b => LinearOrder.toDecidableEq a b)
+        ((Multiset.filter cond R).map m') (m' u)
+      = (@Multiset.erase (Tuple T n)
+          (fun a b => LinearOrder.toDecidableEq a b)
+          (Multiset.filter cond R) u).map m' := by
+    rw [erase_instEq (α := Tuple T n) (fun a b => LinearOrder.toDecidableEq a b)
+        (fun a b => instDecidableEqTuple a b),
+      erase_instEq (α := Tuple T n) (fun a b => LinearOrder.toDecidableEq a b)
+        (fun a b => instDecidableEqTuple a b)]
+    by_cases hmem : u ∈ Multiset.filter cond R
+    · exact (Multiset.map_erase_of_mem m' _ hmem).symm
+    · have hnot : m' u ∉ (Multiset.filter cond R).map m' := by
+        intro hc
+        obtain ⟨v, hv, hveq⟩ := Multiset.mem_map.mp hc
+        obtain ⟨-, hvρ⟩ := (Multiset.mem_filter.mp hv).2
+        have hkey : Tuple.key O v = Tuple.key O u := by
+          rw [← hkO v, ← hkO u, hm']
+          exact congrArg (Tuple.key O) hveq
+        exact hmem (Multiset.mem_filter.mpr ⟨hu, rfl, hkey ▸ hvρ⟩)
+      rw [Multiset.erase_of_notMem hnot, Multiset.erase_of_notMem hmem]
+  unfold ValueFrame.frameOf
+  simp only [id_eq]
+  rw [hfil, herase, hm', hkO u]
+  by_cases hs : w.s (Tuple.key O u) = true
+  · rw [ite_eq_left hs, ite_eq_left hs, Multiset.map_cons]
+  · rw [ite_eq_right hs, ite_eq_right hs]
+
+/-- **A symmetric window reads the same value before and after the
+nulling.** The frame holds the same rows either way
+(`ValueFrame.frameOf_readTuple`), and the term reads the same value at
+each of them (`TermIn.eval_readTuple`), so the two sequences the
+aggregate is applied to are permutations of one another – and a
+symmetric aggregate does not tell them apart. -/
+theorem ValueFrame.windowValue_readTuple {c n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) {f : SeqAggFunc T}
+    (hf : f.Symmetric) (hrr : WinReadsReg κ P O t)
+    (R : Multiset (Tuple T n)) {u : Tuple T n} (hu : u ∈ R) (γ : Fin c → T) :
+    ValueFrame.windowValue P O o w t f (R.map (ColKind.readTuple κ))
+        (ColKind.readTuple κ u) γ
+      = ValueFrame.windowValue P O o w t f R u γ := by
+  obtain ⟨hP, hO, hreg⟩ := hrr
+  refine hf (Multiset.coe_eq_coe.mp ?_)
+  rw [← Multiset.map_coe, ← Multiset.map_coe, ValueFrame.frameListOf_coe,
+    ValueFrame.frameListOf_coe, ValueFrame.frameOf_readTuple P O w hP hO R hu,
+    Multiset.map_map]
+  refine Multiset.map_congr rfl (fun v _ => ?_)
+  exact TermIn.eval_readTuple t hreg v γ
+
+/-! ## Every query is one whose columns are all values -/
+
+/-- **The kind discipline costs nothing in the plain semantics**: every
+query whose projections post-compose no aggregate column is
+plain-equivalent to one all of whose columns are regular, using the same
+operator classes and naming the same relations.
+
+Each case rebuilds the operator over re-typed children and then reads
+the columns it produces as values (`AggQueryIn.allRegOf`), which is the
+identity there. `Alt` and `Retag` disappear: their children come back
+already regular. -/
+theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → q.Retypable → q.overSchema sch →
+      ∃ q' : AggQueryIn T c n (ColKind.allReg n),
+        q'.usesOnly S ∧ q'.overSchema sch ∧ q'.SwapReady
+          ∧ ∀ (D : Database T) (γ : Fin c → T),
+            q.evaluatePlain D γ = q'.evaluatePlain D γ := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial,
+      fun _ _ => rfl⟩
+  | Empty =>
+    exact fun hq _ _ => ⟨AggQueryIn.Empty, hq, trivial, trivial,
+      fun _ _ => rfl⟩
+  | Proj ps q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt.2 hqs
+    refine ⟨(AggQueryIn.Proj (fun j => (ps j).toReg) q').castKind
+        (funext (fun j => ProjColIn.kind_toReg (ps j))), ?_, ?_, ?_,
+      fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_castKind]
+      exact ⟨hq.1, hu'⟩
+    · rw [AggQueryIn.overSchema_castKind]
+      exact hs'
+    · rw [AggQueryIn.swapReady_castKind]
+      exact hw'
+    · rw [AggQueryIn.evaluatePlain_castKind]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he' D γ]
+      refine Multiset.map_congr rfl (fun u _ => funext (fun j => ?_))
+      exact (ProjColIn.evalPlain_toReg (ps j) (hnt.1 j) u γ).symm
+  | Sel φ q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
+    refine ⟨AggQueryIn.Sel φ.toReg q', ⟨hq.1, hu'⟩, hs',
+      ⟨fun i => rfl, GenPredIn.hasAggAtom_toReg φ, hw'⟩, fun D γ => ?_⟩
+    simp only [AggQueryIn.evaluatePlain]
+    rw [he' D γ]
+    exact Multiset.filter_congr (fun u _ =>
+      (GenPredIn.holdsPlain_toReg φ u γ).symm)
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro hq hnt hqs
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hq.2.1 hnt.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hq.2.2 hnt.2 hqs.2
+    refine ⟨(AggQueryIn.Prod q₁' q₂').castKind (AggQueryIn.append_allReg _ _),
+      ?_, ?_, ?_, fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_castKind]
+      exact ⟨hq.1, hu₁, hu₂⟩
+    · rw [AggQueryIn.overSchema_castKind]
+      exact ⟨hs₁, hs₂⟩
+    · rw [AggQueryIn.swapReady_castKind]
+      exact ⟨fun i => rfl, hw₁, hw₂⟩
+    · rw [AggQueryIn.evaluatePlain_castKind]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he₁ D γ, he₂ D γ]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro hq hnt hqs
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hq.2.1 hnt.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hq.2.2 hnt.2 hqs.2
+    refine ⟨(AggQueryIn.Apply q₁' q₂').castKind (AggQueryIn.append_allReg _ _),
+      ?_, ?_, ?_, fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_castKind]
+      exact ⟨hq.1, hu₁, hu₂⟩
+    · rw [AggQueryIn.overSchema_castKind]
+      exact ⟨hs₁, hs₂⟩
+    · rw [AggQueryIn.swapReady_castKind]
+      exact ⟨hw₁, hw₂⟩
+    · rw [AggQueryIn.evaluatePlain_castKind]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he₁ D γ]
+      exact Multiset.bind_congr (fun u _ =>
+        congrArg (Multiset.map _) (he₂ D (Fin.append u γ)))
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hq hnt hqs
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hq.2.1 hnt.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hq.2.2 hnt.2 hqs.2
+    refine ⟨AggQueryIn.Sum q₁' q₂', ⟨hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩, ⟨hw₁, hw₂⟩,
+      fun D γ => ?_⟩
+    simp only [AggQueryIn.evaluatePlain]
+    rw [he₁ D γ, he₂ D γ]
+  | Dedup q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
+    refine ⟨AggQueryIn.Dedup q', ⟨hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
+    simp only [AggQueryIn.evaluatePlain]
+    rw [he' D γ]
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro hq hnt hqs
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hq.2.1 hnt.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hq.2.2 hnt.2 hqs.2
+    refine ⟨AggQueryIn.Diff q₁' q₂', ⟨hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩, ⟨hw₁, hw₂⟩,
+      fun D γ => ?_⟩
+    simp only [AggQueryIn.evaluatePlain]
+    rw [he₁ D γ]
+    exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
+  | Alt i hi q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq hnt hqs
+    exact ⟨q', hu', hs', hw', fun D γ => he' D γ⟩
+  | Retag hbase q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq hnt hqs
+    exact ⟨q', hu', hs', hw', fun D γ => he' D γ⟩
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Gamma is ts fs q keep ord ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
+    refine ⟨(AggQueryIn.Gamma is ts fs q' keep ord).allRegOf, ?_, ?_, ?_,
+      fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_allRegOf]
+      exact ⟨hq.1, hu'⟩
+    · rw [AggQueryIn.overSchema_allRegOf]
+      exact hs'
+    · rw [AggQueryIn.swapReady_allRegOf]
+      exact hw'
+    · rw [AggQueryIn.evaluatePlain_allRegOf]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he' D γ]
+  | GammaScalar ts fs q ord ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
+    refine ⟨(AggQueryIn.GammaScalar ts fs q' ord).allRegOf, ?_, ?_, ?_,
+      fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_allRegOf]
+      exact ⟨hq.1, hu'⟩
+    · rw [AggQueryIn.overSchema_allRegOf]
+      exact hs'
+    · rw [AggQueryIn.swapReady_allRegOf]
+      exact hw'
+    · rw [AggQueryIn.evaluatePlain_allRegOf]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he' D γ]
+  | GammaNest is his pc fn q ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt.2 hqs
+    refine ⟨(AggQueryIn.GammaNest is (fun k hc => ColKind.noConfusion hc)
+      pc.toReg fn q').allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_allRegOf]
+      exact ⟨hq.1, hu'⟩
+    · rw [AggQueryIn.overSchema_allRegOf]
+      exact hs'
+    · rw [AggQueryIn.swapReady_allRegOf]
+      exact hw'
+    · rw [AggQueryIn.evaluatePlain_allRegOf]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he' D γ]
+      refine Multiset.map_congr rfl (fun g _ => ?_)
+      funext j
+      refine Fin.addCases (fun k => ?_) (fun z => ?_) j
+      · rw [Fin.append_left, Fin.append_left]
+      · rw [Fin.append_right, Fin.append_right]
+        refine congrArg fn (Multiset.map_congr rfl (fun u _ => ?_))
+        exact (ProjColIn.evalPlain_toReg pc hnt.1 u γ).symm
+  | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
+  | ProvSum is his t q ih => exact fun hq => hq.elim
+  | Win P' O o w t fn q hrr dist keep ih =>
+    intro hq hnt hqs
+    obtain ⟨hwin, hnt'⟩ := hnt
+    rcases hwin with hreg | ⟨hsym, hkeep⟩
+    · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
+      have hκ := funext hreg
+      subst hκ
+      refine ⟨(AggQueryIn.Win P' O o w t fn q' (winReadsReg_allReg P' O t) dist
+        keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
+      · rw [AggQueryIn.usesOnly_allRegOf]
+        exact ⟨hq.1, hu'⟩
+      · rw [AggQueryIn.overSchema_allRegOf]
+        exact hs'
+      · rw [AggQueryIn.swapReady_allRegOf]
+        exact hw'
+      · rw [AggQueryIn.evaluatePlain_allRegOf]
+        simp only [AggQueryIn.evaluatePlain]
+        rw [he' D γ]
+        rfl
+    · subst hkeep
+      obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
+      refine ⟨(AggQueryIn.Win P' O o w t fn q' (winReadsReg_allReg P' O t) dist
+        none).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
+      · rw [AggQueryIn.usesOnly_allRegOf]
+        exact ⟨hq.1, hu'⟩
+      · rw [AggQueryIn.overSchema_allRegOf]
+        exact hs'
+      · rw [AggQueryIn.swapReady_allRegOf]
+        exact hw'
+      · rw [AggQueryIn.evaluatePlain_allRegOf]
+        simp only [AggQueryIn.evaluatePlain]
+        rw [he' D γ]
+        simp only [ColKind.readTuple_allReg, Multiset.map_id',
+          ValueFrame.windowValueOpt_none]
+        refine Multiset.map_congr rfl (fun y hy => ?_)
+        exact congrArg (Fin.snoc (α := fun _ => T) y)
+          (ValueFrame.windowValue_readTuple P' O o w t hsym hrr _ hy γ)
+  | WinExpr P' O o ws ts fs g q keeps ih =>
+    intro hq hnt hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
+    refine ⟨(AggQueryIn.WinExpr P' O o ws ts fs g q' keeps).allRegOf, ?_, ?_,
+      ?_, fun D γ => ?_⟩
+    · rw [AggQueryIn.usesOnly_allRegOf]
+      exact ⟨hq.1, hu'⟩
+    · rw [AggQueryIn.overSchema_allRegOf]
+      exact hs'
+    · rw [AggQueryIn.swapReady_allRegOf]
+      exact hw'
+    · rw [AggQueryIn.evaluatePlain_allRegOf]
+      simp only [AggQueryIn.evaluatePlain]
+      rw [he' D γ]
+

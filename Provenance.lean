@@ -41,6 +41,9 @@ import Provenance.PlainBasis
 /- An apply read as a product -/
 import Provenance.Decorrelate
 
+/- Reading every column as a value -/
+import Provenance.AllRegular
+
 /- The basis, assembled -/
 import Provenance.BasisAssembly
 
@@ -888,6 +891,35 @@ proven engine several general results reuse internally.
   what lets the result be composed with the other passes: a query with
   no window decorrelates to one with no window, and a nine-class target
   would not record that
+- `Provenance.AllRegular` – **reading every column as a value**: in the
+  plain semantics every column holds a value of the domain, the kind
+  vector being a syntactic index, and `AggQueryIn.exists_allReg` makes
+  that into a theorem – every query is plain-equivalent to one all of
+  whose columns are regular, using the same classes and naming the same
+  relations. `AggQueryIn.Alt` is the bridge (it reads an aggregate
+  column as a key and is the identity over a plain relation) and
+  `AggQueryIn.Retag` the one for a provenance column; `altBelow` applies
+  them column by column. Three readings of an aggregate column have
+  exact regular counterparts – `GenPredIn.toReg` takes an aggregate atom
+  to the same comparison and a range atom to its two, `ProjColIn.toReg`
+  takes a column read as a token to the column – and two things have
+  none, which `AggQueryIn.Retypable` fences off: a projection column
+  post-composing an aggregate with an arbitrary function
+  (`ProjColIn.aggTerm`), and **an order-dependent window over aggregate
+  columns**. A window is the one operator whose *plain* semantics reads
+  the kind vector: it reads its input through `ColKind.readTuple`,
+  nulling the aggregate columns, which is one of the listings of a frame
+  that its order clause allows. Reading an aggregate column as a value
+  puts it into the tie-break, so the re-typed window lists a block of
+  peers in another order – immaterial to an aggregate whose value does
+  not depend on the listing, which is all the semantics admits, and
+  visible to one that does. The fence therefore asks of a window either
+  an all-regular input or a symmetric aggregate
+  (`ValueFrame.windowValue_readTuple`) with no `FILTER` clause – a
+  clause being a selection on the whole row, which nothing bars from
+  comparing an aggregate column. What the theorem leaves behind is
+  `AggQueryIn.SwapReady`, which is what the two swaps of the basis ask
+  for
 - `Provenance.BasisAssembly` – **the basis, assembled**: the generation
   half of `thm:plainbasis`, as three passes over the syntax.
   `AggQueryIn.exists_winFree` replaces every window by an apply of a
@@ -905,10 +937,52 @@ proven engine several general results reuse internally.
   property of a set of classes, `basisOps_generates` says the six have
   it, and `generates_necessary` is the converse for four of the classes,
   from the invariants of `Provenance.PlainBasis` and their witnesses.
+  Each pass also carries `AggQueryIn.overSchema`: the query it produces
+  names the relations the query it is given names, which is what the
+  other half needs – two of the six rows (`∅` and `σ`/`−`) are necessary
+  only for a query over the schema, a reference to a name the schema
+  does not declare reading the empty relation. The six rows are
+  `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
+  `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
+  `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`, each
+  over the schema its witness lives on.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its
-  input is all-regular, its frame condition is a predicate, and it is
-  not a multi-frame window – whose column no term expresses
+  input is all-regular, a predicate of the language holds exactly where
+  its frame condition holds and its `FILTER` clause keeps the row, and
+  it is not a multi-frame window – whose column no term expresses.
+  `DISTINCT` and the clause themselves are covered, the derived form
+  aggregating `f^distinct` where the window does and reading the clause
+  in the selection that spells the frame out
+  (`evaluatePlain_winByApplyOf`). The predicate itself is built for
+  three frames – the whole partition, and the two `RANGE` frames read
+  against the clause where nothing is null
+  (`AggQueryIn.winsDerivable_win_whole`, `_rangeUpTo`, `_rangeBefore`,
+  off `OrderSpec.lePredOn` / `ltPredOn`, the clause's lexicographic
+  comparison as a predicate, and `Selection.toPredIn`, a classical
+  selection read in a context). What blocks the null branches is that
+  the predicate language has comparisons and `IS NOT DISTINCT FROM` but
+  no `IS NULL` atom, there being no null constant in `ValueType`.
+  The two *swaps* – `−` for `σ`, the apply for `×` – are the passes
+  `AggQueryIn.exists_selFree` and `AggQueryIn.exists_prodFree`, which
+  ask `AggQueryIn.SwapReady` of their input: a selection's input and a
+  product's left factor with regular columns, which
+  `Provenance.AllRegular` provides. Composing them gives the two
+  **alternative bases**: `AggQueryIn.exists_basisDiffOps_plainEquiv`
+  over `{∅, Π, ×, ⊎, γ, −}` and
+  `AggQueryIn.exists_basisApplyOps_plainEquiv` over
+  `{∅, Π, σ, apply, ⊎, γ}`, each the three passes, then the re-typing,
+  then the swap, with `basisDiffOps_generatesOn` and
+  `basisApplyOps_generatesOn` their `GeneratesOn` forms. The property
+  that makes the composition work is `AggQueryIn.NoAggTerm` – no
+  projection column post-composing an aggregate column – which the three
+  passes and the decorrelation *preserve*, each carrying the
+  preservation as an implication in its conclusion so that the six-class
+  statement asks nothing extra; the re-typing's condition on windows is
+  vacuous there, the first pass having replaced every window by an apply
+  (`AggQueryIn.retypable_of_noAggTerm`). So `NoAggTerm` of the source is
+  the one hypothesis the alternative bases carry beyond the six, and
+  `GeneratesOn` asks it
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
