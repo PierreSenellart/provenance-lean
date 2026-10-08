@@ -602,7 +602,7 @@ def firstValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t SeqAggFunc.pickFirst q
+  Win P O o w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `last_value(t)`: the same frame, read backwards. Only the reading
 order is reversed – the frame is an argument, so a frame the clause
@@ -611,7 +611,7 @@ def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o.reverse w t SeqAggFunc.pickFirst q
+  Win P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `lag(t)`: `last_value` over the rows strictly before the current
 row's peers. -/
@@ -633,7 +633,7 @@ def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (i : ℕ) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t (SeqAggFunc.pickNth i) q
+  Win P O o w t (SeqAggFunc.pickNth i) q (winReadsReg_allReg P O t)
 
 /-- `lag(t, i+1)`: the value `i + 1` rows before the current row's
 peers, the frame of `lag` read backwards from its end. -/
@@ -702,7 +702,8 @@ def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   (Proj (overWindow n (fun x => 1 + x))
-    (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q)).castKind
+    (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
+      (winReadsReg_allReg P O _))).castKind
       (funext (overWindow_kind n _))
 
 /-- **What a rank computes over plain relations**: each row of the input,
@@ -738,7 +739,7 @@ def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   (Proj (overWindow n (fun x => 1 + x))
     (Win P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
-      true)).castKind (funext (overWindow_kind n _))
+      (winReadsReg_allReg P O _) true)).castKind (funext (overWindow_kind n _))
 
 /-- **What a dense rank computes over plain relations**: one plus the
 distinct count of the order column over the rows sorted strictly before
@@ -1409,6 +1410,7 @@ def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
     (q : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   Win P O o w (filterTerm op t₁ t₂ t) f q
+    (winReadsReg_allReg P O _)
 
 /-- **What a filtered null-skipping aggregation computes over plain
 relations**: each group's aggregate reads the occurrences of the group
@@ -1524,7 +1526,7 @@ def winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool := false) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t f q dist (some φ)
+  Win P O o w t f q (winReadsReg_allReg P O t) dist (some φ)
 
 /-- **What a filtered window aggregate computes over plain relations**:
 each row's aggregate reads the rows of its frame the clause keeps. No
@@ -1541,7 +1543,9 @@ theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
               (if dist then f.distinct else f) φ.keeps
               (q.evaluatePlain D γ) u γ)
             : Tuple T (n + 1))) :=
-  AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q D
+  by
+  simpa [winWhere] using AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q
+    (winReadsReg_allReg P O t) D
 
 end Where
 

@@ -1138,6 +1138,51 @@ theorem natWinDistinct_ne_unmerged :
     natWinDistinct.predProvWith testEq1
       ≠ natWinUnmerged.predProvWith testEq1 := by decide
 
+/-! ### A window may not read an aggregate column of its input
+
+`AggQueryIn.Win` takes any input kinds, and reads its input through
+`ColKind.readTuple`: the regular columns, and nothing of the aggregate
+ones – not even to break a tie in the `ORDER BY`. This is why the second
+half is needed and `WinReadsReg` alone would not do. The two relations
+below hold the same regular columns row for row and differ only in the
+middle column, an aggregate one; read *whole*, the determinized peer
+order (`OrderSpec.readLe`, whose ties are broken by the row) puts a
+different row first, and `first_value` of the regular column the window
+does read comes out `2` on one and `1` on the other. An aggregate
+column's value is what its token reads in a world, so a window reading
+its input whole would order two peers one way in one world and the other
+way in the next, and its column would not read in a world what the plain
+window reads of that world. -/
+
+/-- Three columns: a key the `ORDER BY` reads, an aggregate column, and
+the value the aggregate reads. -/
+def peerKinds : Fin 3 → ColKind := ![ColKind.reg, ColKind.agg, ColKind.reg]
+
+/-- Two rows the `ORDER BY` leaves tied, with an aggregate column whose
+deterministic reading is `5` and `3`. -/
+def peerRelDet : Relation ℕ 3 :=
+  Multiset.ofList [![0, 5, 1], ![0, 3, 2]]
+
+/-- The same two rows in a world where that column reads `1` and `9`:
+the same regular columns, row for row. -/
+def peerRelWorld : Relation ℕ 3 :=
+  Multiset.ofList [![0, 1, 1], ![0, 9, 2]]
+
+/-- What a window reads of the two is the same relation. -/
+theorem peerRel_readTuple_eq :
+    peerRelDet.map (ColKind.readTuple peerKinds)
+      = peerRelWorld.map (ColKind.readTuple peerKinds) := by decide
+
+/-- Yet read whole they give `first_value` different values, which is
+why the reading cuts the aggregate column out. -/
+theorem windowValue_ne_of_agg_column :
+    (ValueFrame.windowValue (fun k : Fin 0 => k.elim0) ![0] (OrderSpec.asc 1)
+        ValueFrame.whole (TermIn.index (c := 0) 2) SeqAggFunc.pickFirst peerRelDet
+        ![0, 5, 1] : ℕ)
+      ≠ (ValueFrame.windowValue (fun k : Fin 0 => k.elim0) ![0]
+          (OrderSpec.asc 1) ValueFrame.whole (TermIn.index (c := 0) 2)
+          SeqAggFunc.pickFirst peerRelWorld ![0, 1, 1] : ℕ) := by decide
+
 /-! ### Inclusion–exclusion is not the joint reading of a disjunction
 
 Over disjoint families whose totals are `𝟙` – the scalar convention,

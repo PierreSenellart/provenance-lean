@@ -274,7 +274,7 @@ macro_rules
       match a with
       | `(raAgg| $t:raTerm : $f:term) =>
           `(AggQueryIn.Win ![$keys,*] ![$ords,*] $o $w (ra_cterm% $t) $f
-              (allReg (ra_query% $q)))
+              (allReg (ra_query% $q)) (winReadsReg_allReg _ _ _))
       | _ => Lean.Macro.throwUnsupported
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>
       `(AggQueryIn.Diff (allReg (ra_query% $a)) (allReg (ra_query% $b)))

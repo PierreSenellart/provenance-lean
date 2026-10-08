@@ -56,6 +56,28 @@ def TermIn.substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) :
       (t₄.substMap θ)
   | .coalesce t₁ t₂ => .coalesce (t₁.substMap θ) (t₂.substMap θ)
 
+omit [ValueType T] in
+/-- Substituting the outer columns reads no column of the row, so what a
+term reads of them is unchanged – which is what a window's
+`WinReadsReg` asks of its term. -/
+@[simp] theorem TermIn.regOnly_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (κ : Fin n → ColKind) (t : TermIn T c n) :
+    (t.substMap θ).regOnly κ = t.regOnly κ := by
+  induction t with
+  | const a => rfl
+  | outer k =>
+    show (Sum.elim TermIn.const TermIn.outer (θ k)).regOnly κ = true
+    cases θ k with
+    | inl a => rfl
+    | inr j => rfl
+  | index k => rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂]; rfl
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂]; rfl
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂]; rfl
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂, ih₃, ih₄]; rfl
+  | coalesce t₁ t₂ ih₁ ih₂ => rw [TermIn.substMap, TermIn.regOnly, ih₁, ih₂]; rfl
+
 theorem TermIn.eval_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d)
     (t : TermIn T c n) (u : Tuple T n) (γ : Fin d → T) :
     (t.substMap θ).eval u γ = t.eval u (substVal θ γ) := by
@@ -341,8 +363,10 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .GammaTok is his ts fs a q keep =>
       .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
         (q.substMap θ) keep
-  | _, _, _, _, θ, .Win P O o w t f q dist keep =>
-      .Win P O o w (t.substMap θ) f (q.substMap θ) dist keep
+  | _, _, _, _, θ, .Win P O o w t f q hrr dist keep =>
+      .Win P O o w (t.substMap θ) f (q.substMap θ)
+        ⟨hrr.1, hrr.2.1, by rw [TermIn.regOnly_substMap]; exact hrr.2.2⟩
+        dist keep
   | _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
       .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
 termination_by structural q
@@ -495,14 +519,16 @@ theorem AggQueryIn.evaluatePlain_substMap :
       exact congrArg (Multiset.fold addFn 0)
         (Multiset.map_congr rfl
           (fun u _ => TermGIn.evalPlain_substMap θ a u γ))
-  | @Win cI n' m' p' P O o w t f q dist keep ih =>
+  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
     rw [ih θ D γ]
-    refine congrArg OccFam.toMultiset (congrArg (OccFam.mk _) (funext fun i =>
-      congrArg (Fin.snoc _) (congrArg (if dist then f.distinct else f) ?_)))
-    exact List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ)
+    refine Multiset.map_congr rfl (fun u _ => ?_)
+    refine congrArg (fun v => (Fin.snoc u v : Tuple T (n' + 1))) ?_
+    rcases keep with _ | φ <;>
+      exact congrArg (if dist then f.distinct else f)
+        (List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ))
   | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
@@ -575,6 +601,73 @@ theorem ValueFrame.token_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
   split
   · exact AggValue.ofGroup_substMap θ f t _ γ
   · exact AggValue.ofScalarGroup_substMap θ f t _ γ
+
+omit [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
+/-- The same read off the relation, which is the form the evaluator's
+`Win` clause uses. -/
+theorem ValueFrame.tokenOf_substMap {c d n m p : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    (γ : Fin d → T) :
+    ValueFrame.tokenOf P O o w (t.substMap θ) f X x γ
+      = ValueFrame.tokenOf P O o w t f X x (substVal θ γ) := by
+  unfold ValueFrame.tokenOf
+  split
+  · exact AggValue.ofGroup_substMap θ f t _ γ
+  · exact AggValue.ofScalarGroup_substMap θ f t _ γ
+
+omit [DecidableEq K] in
+/-- And with `DISTINCT`, which only merges the classes afterwards. -/
+theorem ValueFrame.tokenOfDist_substMap {c d n m p : ℕ}
+    (θ : Fin c → T ⊕ Fin d) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (dist : Bool) (X : AnnotatedRelation T K n)
+    (x : AnnotatedTuple T K n) (γ : Fin d → T) :
+    ValueFrame.tokenOfDist P O o w (t.substMap θ) f dist X x γ
+      = ValueFrame.tokenOfDist P O o w t f dist X x (substVal θ γ) := by
+  unfold ValueFrame.tokenOfDist
+  rw [ValueFrame.tokenOf_substMap]
+
+omit [DecidableEq K] in
+/-- And under a `FILTER` clause, whose column is an expression. -/
+theorem ValueFrame.exprWhenOf_substMap {c d n m p : ℕ}
+    (θ : Fin c → T ⊕ Fin d) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (dist : Bool) (keep : Tuple T n → Bool)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
+    (γ : Fin d → T) :
+    ValueFrame.exprWhenOf P O o w (t.substMap θ) f dist keep X x γ
+      = ValueFrame.exprWhenOf P O o w t f dist keep X x (substVal θ γ) := by
+  unfold ValueFrame.exprWhenOf
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    unfold AggExpr.ofSeqWhen
+    simp only [TermIn.eval_substMap]
+  · simp only [ite_true]
+    unfold AggExpr.ofSeqDistWhen
+    simp only [TermIn.eval_substMap]
+
+omit [DecidableEq K] in
+/-- **The row a window adds, under a substitution**: the substitution
+reaches the aggregated term and nothing else, the row's own columns and
+its annotation going through untouched. -/
+theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ}
+    (θ : Fin c → T ⊕ Fin d) (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (keep : Option (Selection T n))
+    (X : AnnotatedRelation T K n) (x : GenRow T K n) (γ : Fin d → T)
+    (dist : Bool) :
+    ValueFrame.windowGenRow κ P O o w (t.substMap θ) f keep X x γ dist
+      = ValueFrame.windowGenRow κ P O o w t f keep X x (substVal θ γ) dist := by
+  unfold ValueFrame.windowGenRow
+  rcases keep with _ | φ
+  · dsimp only
+    rw [ValueFrame.tokenOfDist_substMap]
+  · dsimp only
+    rw [ValueFrame.exprWhenOf_substMap]
 
 omit [DecidableEq K] in
 omit [CommSemiringWithMonus K] in
@@ -705,11 +798,10 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
     rw [ih θ dB γ]
-  | @Win cI n' m' p' P O o w t f q dist keep ih =>
+  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, ValueFrame.tokenDist,
-      ValueFrame.token_substMap, ValueFrame.exprWhen_substMap]
+    simp only [AggQueryIn.evaluate, ValueFrame.windowGenRow_substMap]
     rw [ih θ dB γ]
   | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     intro d θ dB γ

@@ -170,34 +170,32 @@ section Evaluator
 
 variable [CommSemiringWithMonus K] [DecidableEq K]
 
-/-- **The `Win` case of the general evaluator is the window of its input.**
-The evaluator reads its input in the canonical order; this says the answer is
-the window of the relation, which by `window_toMultiset_congr` is what any
-reading gives. -/
-theorem AggQueryIn.evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
+/-- **The `Win` case of the general evaluator is the window of its
+input.** Each row keeps its columns, its annotation and its pending
+factors and gains the token the relation gives it. The token is a
+function of the relation and of that row alone, which is what makes the
+answer independent of any indexing of the occurrences
+(`ValueFrame.window_toMultiset_congr`). -/
+theorem AggQueryIn.evaluate_Win {n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
-    (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
+    (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) :
-    (AggQueryIn.Win P O o w t f q).evaluate d
-      = ValueFrame.windowRel P O o w t f (q.evaluateAnnotated d) := by
-  show (ValueFrame.window P O o w t f
-      (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
-  exact ValueFrame.window_toMultiset_congr P O o w t f (by simp)
+    (AggQueryIn.Win P O o w t f q hrr).evaluate d
+      = (q.evaluate d).map (fun x =>
+          ValueFrame.windowGenRow κ P O o w t f none
+            ((q.evaluate d).map (GenRow.readAnnotated κ)) x) := rfl
 
 /-- A window keeps its input's rows one for one: it removes none, merges
 none, and adds one column to each. -/
-@[simp] theorem AggQueryIn.card_evaluate_Win {n m p : ℕ} (P : Tuple (Fin n) m)
+@[simp] theorem AggQueryIn.card_evaluate_Win {n m p : ℕ}
+    {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
-    (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
+    (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) :
-    Multiset.card ((AggQueryIn.Win P O o w t f q).evaluate d)
-      = Multiset.card (q.evaluate d) := by
-  show Multiset.card (ValueFrame.window P O o w t f
-      (OccFam.ofSorted (q.evaluateAnnotated d))).toMultiset = _
-  rw [OccFam.card_toMultiset]
-  show (OccFam.ofSorted (q.evaluateAnnotated d)).size = _
-  rw [← OccFam.card_toMultiset, OccFam.toMultiset_ofSorted]
-  simp [AggQueryIn.evaluateAnnotated]
+    Multiset.card ((AggQueryIn.Win P O o w t f q hrr).evaluate d)
+      = Multiset.card (q.evaluate d) :=
+  Multiset.card_map _ _
 
 omit [DecidableEq K] in
 /-- **The window read off the relation.** Its rows are one per row of the

@@ -231,12 +231,17 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun k => Sum.inl (Fin.append g (fun _ : Fin 1 =>
         f ((r.filter (fun u => key u = g)).map
           (fun u => p.evalPlain u γ))) k)))
-  | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' P O o w t f q dist keep, D, γ =>
+  | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' P O o w t f q _hrr dist keep,
+      D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
+    -- the window reads the regular columns of its input, here as the
+    -- plain evaluator reads them
+    let read := r.map (ColKind.readTuple κ')
     r.map (fun u : Tuple (T ⊕ K) n' =>
       ((fun k => Sum.inl ((Fin.snoc u (ValueFrame.windowValueOpt P O o w t
-            (if dist then f.distinct else f) keep r u γ)
+            (if dist then f.distinct else f) keep read
+              (ColKind.readTuple κ' u) γ)
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
   | _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na P O o ws ts fs g q keeps, D, γ =>
@@ -307,7 +312,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
   | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaTok
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaTok
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
@@ -331,7 +336,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
   | _, _, _, .GammaTok _ _ _ _ a q _ => a.chiFree ∧ q.chiFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.chiFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.chiFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chiFree
 
 /-- On `inl`-embedded rows a gate-free term evaluates in the rewritten
@@ -604,7 +609,7 @@ theorem AggQueryIn.evaluateRew_plain :
   | GammaTok is his ts fs a q keep ih =>
     intro hq hc D γ
     exact hq.elim
-  | @Win cI n' m' p' P O o w t f q dist keep ih =>
+  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
     -- a window reads the collapsed rows, which the embedding leaves
     -- alone, and its `FILTER` clause cuts the frame on both sides
     intro hq hc D γ
@@ -697,7 +702,7 @@ theorem AggQueryIn.rewriting_noGammaTok :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
@@ -728,7 +733,7 @@ theorem AggQueryIn.rewriting_noFilter :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 
@@ -790,7 +795,7 @@ theorem AggQueryIn.rewriting_chiFree :
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
 termination_by structural _ _ _ q _ => q
 

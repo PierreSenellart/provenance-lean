@@ -83,7 +83,7 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .GammaNest _ _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaTok _ _ _ _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .ProvSum _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => OpKind.win ∈ S ∧ q.usesOnly S
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => OpKind.win ∈ S ∧ q.usesOnly S
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => OpKind.win ∈ S ∧ q.usesOnly S
 
 /-- **Expressibility**: two queries of the same arity are equivalent when
@@ -157,7 +157,7 @@ def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .GammaNest _ _ _ _ q => q.overSchema sch
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.overSchema sch
   | _, _, _, .ProvSum _ _ _ q => q.overSchema sch
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.overSchema sch
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.overSchema sch
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.overSchema sch
 
 /-- **A conforming instance**: it binds every name the schema declares, at
@@ -249,7 +249,7 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
   | GammaTok is his ts fs a q keep ih => intro h hq; exact ih h hq.2
   | ProvSum is his t q ih => intro h hq; exact ih h hq.2
-  | Win P O o w t f q dist keep ih => intro h hq; exact ih h hq.2
+  | Win P O o w t f q hrr dist keep ih => intro h hq; exact ih h hq.2
   | WinExpr P O o ws ts fs g q keeps ih => intro h hq; exact ih h hq.2
 
 /-! ## Counting rows: two facts the invariants run on -/
@@ -374,10 +374,9 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D hD γ)
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ
-    simp only [AggQueryIn.evaluatePlain, OccFam.card_toMultiset]
-    rw [OccFam.size_ofSorted]
+    simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
     exact ih hq.2 D hD γ
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro hq D hD γ
@@ -603,7 +602,7 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
       exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
         ((Multiset.dedup_eq_zero_iff _).mp
           ((Multiset.map_eq_zero_iff _ _).mp hc)))
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq hw
     rcases ih hq.2 hw with h | h
     · refine Or.inl (fun D γ => ?_)
@@ -612,9 +611,7 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
       rfl
     · refine Or.inr (fun D γ hD hc => ?_)
       simp only [AggQueryIn.evaluatePlain] at hc
-      refine h D γ hD (Multiset.card_eq_zero.mp ?_)
-      exact (OccFam.size_ofSorted (q.evaluatePlain D γ)).symm.trans
-        (OccFam.size_eq_zero_of_mk_toMultiset _ _ hc)
+      exact h D γ hD ((Multiset.map_eq_zero_iff _ _).mp hc)
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro hq hw
     rcases ih hq.2 hw with h | h
@@ -741,7 +738,7 @@ def AggQueryIn.sizeBound : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ q => q.sizeBound
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.sizeBound
   | _, _, _, .ProvSum _ _ _ q => q.sizeBound
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.sizeBound
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.sizeBound
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sizeBound
 
 /-- **Without `×` and the apply, an answer is linear in the instance.** -/
@@ -817,11 +814,11 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
       Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D γ)
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
-      OccFam.card_toMultiset]
-    exact le_trans (le_of_eq (OccFam.size_ofSorted _)) (ih hq.2 D γ)
+      Multiset.card_map]
+    exact ih hq.2 D γ
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
@@ -979,7 +976,23 @@ theorem Multiset.count_map_dedup_le {n₁ nr : ℕ}
       (Multiset.nodup_iff_count_le_one.mp (Multiset.nodup_dedup keys) _)
 
 /-- **A row a window produces is as many as the row it extends**: the
-window keeps the occurrence's row, which can be read back off it. -/
+window keeps the row it is computed for, and that row can be read back
+off the one it produces. -/
+theorem Multiset.count_map_snoc_le {n : ℕ} (rows : Multiset (Tuple T n))
+    (g : Tuple T n → T) {b : ℕ}
+    (hb : ∀ x, Multiset.count x rows ≤ b) (u : Tuple T (n + 1)) :
+    Multiset.count u
+        (rows.map (fun v => (Fin.snoc v (g v) : Tuple T (n + 1)))) ≤ b := by
+  classical
+  rw [Multiset.count_map]
+  refine le_trans (Multiset.card_le_card (Multiset.monotone_filter_right rows
+    (q := fun v => (fun k => u k.castSucc) = v) (fun v hv => ?_))) ?_
+  · exact funext fun k => by rw [hv, Fin.snoc_castSucc]
+  · exact le_trans (le_of_eq (Multiset.count_eq_card_filter_eq rows _).symm)
+      (hb _)
+
+/-- The same read off a family, which is the form a multi-frame window's
+answer has. -/
 theorem OccFam.count_mk_toMultiset_le {n nr : ℕ} (r : OccFam (Tuple T n))
     (f : Fin r.size → Tuple T nr) (key : Tuple T nr → Tuple T n)
     (h : ∀ i, key (f i) = r.row i) {b : ℕ}
@@ -1020,7 +1033,7 @@ def AggQueryIn.multBound : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .GammaNest _ _ _ _ _ => 1
   | _, _, _, .GammaTok _ _ _ _ _ _ _ => 1
   | _, _, _, .ProvSum _ _ _ _ => 1
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.multBound
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.multBound
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.multBound
 
 /-- **Without `Π`, multiplicities are bounded by the query.** -/
@@ -1103,14 +1116,10 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
     exact Multiset.count_map_dedup_le _ _
       (fun v k => v (Fin.castAdd _ k)) (fun g => funext fun k => by
         rw [Fin.append_left]) u
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
-    refine OccFam.count_mk_toMultiset_le _ _
-      (fun v k => v k.castSucc) (fun i => funext fun k => by
-        rw [Fin.snoc_castSucc]) (fun x => ?_) u
-    rw [OccFam.toMultiset_ofSorted]
-    exact ih hq.2 D hD γ x
+    exact Multiset.count_map_snoc_le _ _ (fun x => ih hq.2 D hD γ x) u
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
@@ -1249,7 +1258,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
   | GammaNest is his p f q ih => intro hq; exact absurd hq.1 hγ
   | GammaTok is his ts fs a q keep ih => intro hq; exact absurd hq.1 hγ
   | ProvSum is his t q ih => intro hq; exact absurd hq.1 hγ
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain]
     rw [ih hq.2 D hD γ]

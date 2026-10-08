@@ -400,39 +400,55 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     apply Multiset.map_congr rfl
     intro r _
     rfl
-  | @Win cI n' m' p' P O o w t f q dist keep ih =>
-    -- one output row per input occurrence; the data part of the added column
-    -- is the token's deterministic reading, which is the plain aggregate
-    -- over the frame
+  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
+    -- one output row per input row; the data part of the added column is
+    -- the token's deterministic reading, which is the plain aggregate over
+    -- the frame of the plain relation
     intro hq hr d γ
     rw [hplain]
-    -- the canonical indexing of the plain evaluation is the plain reading of
-    -- the canonical indexing of the annotated one
-    have hocc : OccFam.ofSorted (q.stripAgg.evaluatePlain d.toPlain γ)
-        = (OccFam.ofSorted ((q.evaluate d γ).map GenRow.toAnnotated)).plain := by
-      rw [← ih hq hr d]
-      exact (ValueFrame.ofSorted_plain
-        (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).symm
-    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [OccFam.toMultiset_map]
-    refine congrArg OccFam.toMultiset ?_
-    rw [hocc]
-    refine OccFam.ext_cast rfl (fun i => ?_)
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
+      AggQueryIn.evaluatePlain]
+    have hin : Multiset.map (fun r : GenRow T K n' => GenRow.plainTuple r.fst)
+          (q.evaluate d γ)
+        = q.stripAgg.evaluatePlain d.toPlain γ := by
+      rw [← ih hq hr d, hplain]
+    rw [Multiset.map_map, ← hin, Multiset.map_map]
+    refine Multiset.map_congr rfl (fun x hx => ?_)
     funext k
-    dsimp only [GenRow.plainTuple, OccFam.plain]
     refine Fin.lastCases ?_ (fun k' => ?_) k
-    · rw [Fin.snoc_last, Fin.snoc_last]
+    · -- the added column
+      -- the relation the window reads: what it reads of each row
+      set X : Multiset (AnnotatedTuple T K n') :=
+        Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) with hX
+      have hmem : GenRow.readAnnotated κw x ∈ X :=
+        Multiset.mem_map.mpr ⟨x, hx, rfl⟩
+      dsimp only [Function.comp_apply, GenRow.plainTuple,
+        ValueFrame.windowGenRow]
+      rw [Fin.snoc_last, Fin.snoc_last]
       cases hk : keep with
-      | none => exact ValueFrame.collapse_tokenDist P O o w t f dist _ i
+      | none =>
+        rw [show AggValue.collapseSum
+              (Sum.inr (AggTok.tok (ValueFrame.tokenOfDist P O o w t f dist
+                X (GenRow.readAnnotated κw x) γ)) : GenValue T K)
+            = (ValueFrame.tokenOfDist P O o w t f dist
+                X (GenRow.readAnnotated κw x) γ).collapse from rfl,
+          ValueFrame.collapse_tokenOfDist P O o w t f dist _ _ hmem, hX,
+          Multiset.map_map, Multiset.map_map]
+        rfl
       | some φ =>
-        -- the data part of a filtered window's column is its collapse,
-        -- which is the plain filtered window value
-        refine (ValueFrame.collapse_exprWhen P O o w t f dist φ.keeps _ i).trans
-          (congrArg (fun L => (if dist then f.distinct else f)
-            (L.map (fun v => t.eval v γ)))
-            (congrArg (fun L => L.filter φ.keeps)
-              (ValueFrame.frameSeqOn_plain P O o w _ i)))
-    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+        show AggValue.collapseSum (Sum.inr (AggTok.expr _)) = _
+        rw [show AggValue.collapseSum
+              (Sum.inr (AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist
+                φ.keeps X (GenRow.readAnnotated κw x) γ)) : GenValue T K)
+            = (ValueFrame.exprWhenOf P O o w t f dist φ.keeps
+                X (GenRow.readAnnotated κw x) γ).collapse from rfl,
+          ValueFrame.collapse_exprWhenOf P O o w t f dist φ.keeps _ _,
+          ValueFrame.frameListOf_map_fst P O o w _ _ hmem, hX,
+          Multiset.map_map, Multiset.map_map]
+        rfl
+    · dsimp only [Function.comp_apply, GenRow.plainTuple,
+        ValueFrame.windowGenRow]
+      rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
   | @GammaScalar cI m n₂ ts fs q ih =>
     -- one row on each side; the data part is the aggregate over the whole

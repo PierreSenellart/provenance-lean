@@ -1213,6 +1213,22 @@ theorem GenRow.Sim.toAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
   show AggValue.collapseSum (r'.fst k) = AggValue.collapseSum (r.fst k)
   rw [(hs.1 k).collapseSum_eq, AggValue.collapseSum_mapAnnSum]
 
+omit [DecidableEq K] in
+/-- **What a window reads of simulated rows corresponds**: it reads the
+regular columns, which the simulation keeps, and nothing of the aggregate
+ones – so the relation a window reads of one side is the pushed-forward
+relation it reads of the other. -/
+theorem GenRow.Sim.readAnnotated_eq (h : SemiringWithMonusHom K K') {n : ℕ}
+    (κ : Fin n → ColKind) {r' : GenRow T K' n} {r : GenRow T K n}
+    (hs : GenRow.Sim h r' r) :
+    GenRow.readAnnotated κ r'
+      = SemiringWithMonusHom.mapAnnotatedTuple h (GenRow.readAnnotated κ r) := by
+  refine Prod.ext ?_ hs.2
+  show ColKind.readTuple κ (GenRow.plainTuple r'.fst)
+      = ColKind.readTuple κ (GenRow.plainTuple r.fst)
+  exact congrArg (ColKind.readTuple κ)
+    (congrArg Prod.fst (GenRow.Sim.toAnnotated_eq h hs))
+
 end Simulation
 
 /-! ## Per-side finalize identities
@@ -2214,65 +2230,52 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d γ hw hn hrec
     exact ih d γ hw hn hrec
-  | @Win cI nI mI pI P O o w t f q dist keep ih =>
-    -- one output row per input row; the tuple and the annotation are carried
-    -- across unchanged, and the token differs only by a tie-block
-    -- permutation – which a `FILTER` clause keeps, reading the tuple
+  | @Win cI nI mI pI κw P O o w t f q hrr dist keep ih =>
+    -- one output row per input row; the row's own columns and its
+    -- annotation are carried across unchanged, and the token differs only
+    -- by a tie-block permutation – which a `FILTER` clause keeps, reading
+    -- the tuple
     intro d γ hw hn hrec
+    have hsim := ih d γ hw hn hrec
+    -- the relation the window reads of one side is the pushed-forward
+    -- relation it reads of the other
+    have hread : (q.evaluate (h.mapAnnotatedDatabase d) γ).map
+          (GenRow.readAnnotated κw)
+        = ((q.evaluate d γ).map (GenRow.readAnnotated κw)).map
+            (fun p : AnnotatedTuple T K nI =>
+              ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI)) := by
+      rw [Multiset.map_map]
+      exact map_eq_of_rel hsim
+        (fun r' r hs => GenRow.Sim.readAnnotated_eq h κw hs)
     cases hk : keep with
     | some φ =>
-      rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluate_Win_eq_when]
-      have hY : q.evaluateAnnotated (h.mapAnnotatedDatabase d) γ
-          = Multiset.map (fun p : AnnotatedTuple T K nI =>
-              ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI))
-            (q.evaluateAnnotated d γ) := by
-        have h1 : (q.evaluate (h.mapAnnotatedDatabase d) γ).map
-              GenRow.toAnnotated
-            = ((q.evaluate d γ).map GenRow.toAnnotated).map
-                (SemiringWithMonusHom.mapAnnotatedTuple h) := by
-          rw [Multiset.map_map]
-          exact map_eq_of_rel (ih d γ hw hn hrec)
-            (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
-        exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
-      rw [hY, Multiset.map_map]
-      refine rel_map_of_forall (fun x hx => ?_)
-      refine ⟨fun k => ?_, ?_⟩
-      · simp only [Function.comp_apply, ValueFrame.windowRowWhen]
-        refine Fin.lastCases ?_ (fun k' => ?_) k
-        · rw [Fin.snoc_last, Fin.snoc_last]
-          exact exprWhenOf_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hx
-        · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-          rfl
-      · simp only [Function.comp_apply, ValueFrame.windowRowWhen]
-        show (GenAnn.mk (h.toRingHom x.snd) 0).finalize
-          = h.toRingHom ((GenAnn.mk x.snd 0).finalize)
-        rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
-    | none =>
-    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluate_Win_eq]
-    have hY : q.evaluateAnnotated (h.mapAnnotatedDatabase d) γ
-        = Multiset.map (fun p : AnnotatedTuple T K nI =>
-            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI))
-          (q.evaluateAnnotated d γ) := by
-      have h1 : (q.evaluate (h.mapAnnotatedDatabase d) γ).map GenRow.toAnnotated
-          = ((q.evaluate d γ).map GenRow.toAnnotated).map
-              (SemiringWithMonusHom.mapAnnotatedTuple h) := by
-        rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ hw hn hrec)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
-      exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
-    rw [hY, Multiset.map_map]
-    refine rel_map_of_forall (fun x hx => ?_)
-    refine ⟨fun k => ?_, ?_⟩
-    · simp only [Function.comp_apply, ValueFrame.windowRow]
+      rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluate_Win_eq_when,
+        hread]
+      refine Multiset.rel_map.mpr (hsim.mono (fun x' _ x hx hs => ?_))
+      have hmem : GenRow.readAnnotated κw x
+          ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) :=
+        Multiset.mem_map_of_mem _ hx
+      refine ⟨fun k => ?_, hs.2⟩
+      simp only [ValueFrame.windowGenRow]
       refine Fin.lastCases ?_ (fun k' => ?_) k
-      · rw [Fin.snoc_last, Fin.snoc_last]
-        exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hx
+      · rw [Fin.snoc_last, Fin.snoc_last,
+          GenRow.Sim.readAnnotated_eq h κw hs]
+        exact exprWhenOf_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hmem
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-        rfl
-    · simp only [Function.comp_apply, ValueFrame.windowRow]
-      show (GenAnn.mk (h.toRingHom x.snd) 0).finalize
-        = h.toRingHom ((GenAnn.mk x.snd 0).finalize)
-      rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero]
+        exact hs.1 k'
+    | none =>
+    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluate_Win_eq, hread]
+    refine Multiset.rel_map.mpr (hsim.mono (fun x' _ x hx hs => ?_))
+    have hmem : GenRow.readAnnotated κw x
+        ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) :=
+      Multiset.mem_map_of_mem _ hx
+    refine ⟨fun k => ?_, hs.2⟩
+    simp only [ValueFrame.windowGenRow]
+    refine Fin.lastCases ?_ (fun k' => ?_) k
+    · rw [Fin.snoc_last, Fin.snoc_last, GenRow.Sim.readAnnotated_eq h κw hs]
+      exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem
+    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+      exact hs.1 k'
   | @GammaTok cI mI nI₁ nI₂ κ' is his ts fs a q keep ih =>
     intro d γ hw hn hrec
     simp only [AggQueryIn.evaluate]

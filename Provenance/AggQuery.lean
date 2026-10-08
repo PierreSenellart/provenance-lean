@@ -561,6 +561,69 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
 /-- The all-regular kind vector. -/
 def ColKind.allReg (n : ℕ) : Fin n → ColKind := fun _ => ColKind.reg
 
+/-- **A term reads regular columns only.** An aggregate column holds a
+token, and a plain term reading one would read it through its
+deterministic collapse – the value SQL prints for it, but not what it
+reads in a given world. A window asks this of its aggregate term
+(`WinReadsReg`); the way to read an aggregate column *as a value* is
+`AggQueryIn.Alt`, which turns it into a regular one. -/
+def TermIn.regOnly {c n : ℕ} (κ : Fin n → ColKind) : TermIn T c n → Bool
+  | .const _ => true
+  | .outer _ => true
+  | .index k => (κ k).base == ColKind.reg
+  | .add t₁ t₂ => t₁.regOnly κ && t₂.regOnly κ
+  | .sub t₁ t₂ => t₁.regOnly κ && t₂.regOnly κ
+  | .mul t₁ t₂ => t₁.regOnly κ && t₂.regOnly κ
+  | .caseWhen _ t₁ t₂ t₃ t₄ =>
+      t₁.regOnly κ && t₂.regOnly κ && t₃.regOnly κ && t₄.regOnly κ
+  | .coalesce t₁ t₂ => t₁.regOnly κ && t₂.regOnly κ
+
+omit [ValueType T] in
+/-- Over all-regular columns the condition asks nothing. -/
+@[simp] theorem TermIn.regOnly_allReg {c n : ℕ} (t : TermIn T c n) :
+    t.regOnly (ColKind.allReg n) = true := by
+  induction t with
+  | const a => rfl
+  | outer k => rfl
+  | index k => rfl
+  | add t₁ t₂ ih₁ ih₂ => rw [TermIn.regOnly, ih₁, ih₂, Bool.and_self]
+  | sub t₁ t₂ ih₁ ih₂ => rw [TermIn.regOnly, ih₁, ih₂, Bool.and_self]
+  | mul t₁ t₂ ih₁ ih₂ => rw [TermIn.regOnly, ih₁, ih₂, Bool.and_self]
+  | caseWhen op t₁ t₂ t₃ t₄ ih₁ ih₂ ih₃ ih₄ =>
+    rw [TermIn.regOnly, ih₁, ih₂, ih₃, ih₄, Bool.and_self, Bool.and_self,
+      Bool.and_self]
+  | coalesce t₁ t₂ ih₁ ih₂ => rw [TermIn.regOnly, ih₁, ih₂, Bool.and_self]
+
+/-- **What a window may read of its input**: its `PARTITION BY`, its
+`ORDER BY` and its aggregate term read regular columns only. An aggregate
+column of the input – that of an earlier window of the same `SELECT`, say
+– is carried through unchanged and read by nothing, the determinized peer
+order included (`ColKind.readTuple`). That is what makes the column read
+in a world what the plain window reads of that world: an aggregate column
+can order two occurrences one way in one world and the other way in the
+next, so a window that read one would not commute with the possible
+worlds. Ordering or partitioning by an aggregate reads it as a key,
+through `AggQueryIn.Alt`. -/
+def WinReadsReg {c n m p : ℕ} (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (t : TermIn T c n) : Prop :=
+  (∀ k, (κ (P k)).base = ColKind.reg) ∧ (∀ k, (κ (O k)).base = ColKind.reg)
+    ∧ t.regOnly κ = true
+
+omit [ValueType T] in
+/-- An all-regular input satisfies it with nothing to check. -/
+theorem winReadsReg_allReg {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (t : TermIn T c n) :
+    WinReadsReg (ColKind.allReg n) P O t :=
+  ⟨fun _ => rfl, fun _ => rfl, TermIn.regOnly_allReg t⟩
+
+/-! A multi-frame window (`AggQueryIn.WinExpr`) asks no such condition,
+because its input is all-regular: its column is indexed by *occurrence*
+rather than determined by the row, and an occurrence of the relation a
+window reads does not determine the row it came from – two rows differing
+only in an aggregate column read alike – so carrying an aggregate column
+through one would need a canonical listing of general rows, which is an
+order on `AggTok`. -/
+
 /-- Kind-indexed general queries. The index discipline enforces the
 scope conditions: `Gamma` aggregates an all-regular input, `Dedup` and
 `Diff` require all-regular kinds, and the projection/selection grammars
@@ -805,14 +868,26 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   `SeqAggFunc.distinct`, and the order being a function of the values is
   what makes the reading world by world sound with no condition on the
   aggregate (`AggValue.specialize_mergeByValue`). It defaults to
-  `false`, so a window written without it means what it meant. -/
-  | Win : {c n m p : ℕ} →
+  `false`, so a window written without it means what it meant.
+
+  **Its input need not be all-regular**, which is what a second window of
+  one `SELECT` needs: `rank() OVER (…), avg(x) OVER (…)` is two windows,
+  the second over a relation that already holds the first one's aggregate
+  column. Such a column is carried through unchanged and read by nothing
+  – `WinReadsReg` asks the partition, the order and the term to read
+  regular columns, and `ColKind.readTuple` keeps an aggregate column out
+  of the determinized peer order as well. Both halves are needed: an
+  aggregate column can order two peers one way in one world and the other
+  way in the next, so a window reading one would not commute with the
+  possible worlds. Ordering or partitioning *by* an aggregate reads it as
+  a key, through `AggQueryIn.Alt`. -/
+  | Win : {c n m p : ℕ} → {κ : Fin n → ColKind} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
       (w : ValueFrame T p) →
       (t : TermIn T c n) → (f : SeqAggFunc T) →
-      AggQueryIn T c n (ColKind.allReg n) → (dist : Bool := false) →
+      AggQueryIn T c n κ → WinReadsReg κ P O t → (dist : Bool := false) →
       (keep : Option (Selection T n) := none) →
-      AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg)
+      AggQueryIn T c (n + 1) (Fin.snoc κ ColKind.agg)
   /-- **A window over several frames of one partition**, whose column is
   an aggregate *expression* and not an aggregate: leaf `l` aggregates
   `ts l` with `fs l` over the frame `ws l`, and `g` combines the leaves'
@@ -845,7 +920,24 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   so it creates no group and leaves nothing pending. It is the one
   operator of the syntax that builds a non-`tok` column, which is why
   `AggQueryIn.evaluate_ordinaryTokens` is conditional on
-  `noWinExpr`. -/
+  `noWinExpr`.
+
+  **Its input is all-regular, where `Win`'s need not be, and that is a
+  limit of the representation rather than of the semantics.** A window
+  over one frame carries an aggregate column of its input through
+  unchanged, because its token is a function of the relation and of the
+  row alone (`ValueFrame.tokenOf`) and needs no indexing; here the
+  column is a function of the *occurrence*, which is what keeps
+  `EXCLUDE CURRENT ROW` exact, and an occurrence is a position in a
+  listing of the rows. A listing of a bag has to be independent of the
+  listing it is computed from, so it is taken in the domain's order
+  (`OccFam.ofSorted`) – and rows holding aggregate values have no order
+  to be listed by, a token carrying functions. A family indexed by
+  occurrences as primitive objects, in the manner of
+  `NestedValue.World`, would carry such a column with nothing further to
+  prove: nothing here fails world by world, the reading a window takes
+  of its input being the same in every world either way
+  (`ColKind.readTuple`). -/
   | WinExpr : {c n m p q : ℕ} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
       (ws : Fin q → ValueFrame T p) →
@@ -875,6 +967,85 @@ def GenRow.plainTuple {n : ℕ} (u : Tuple (GenValue T K) n) : Tuple T n :=
 to its regular reading and cash the pending group factors. -/
 def GenRow.toAnnotated {n : ℕ} (r : GenRow T K n) : AnnotatedTuple T K n :=
   ⟨GenRow.plainTuple r.fst, r.snd.finalize⟩
+
+/-- **What a window reads of a plain row**: its regular columns, and a
+constant where the kinds put an aggregate column. Nothing of an aggregate
+column is read – not even to break a tie in the `ORDER BY`, which is why
+the determinized peer order is the same in every world (`WinReadsReg`
+says why that is what a window must do). On all-regular columns it is the
+row itself. -/
+def ColKind.readTuple {n : ℕ} (κ : Fin n → ColKind) (u : Tuple T n) :
+    Tuple T n :=
+  fun k => match (κ k).base with
+    | ColKind.agg => 0
+    | _ => u k
+
+/-- What a window reads of a general row: `ColKind.readTuple` of its
+columns, which is their collapse wherever a regular column sits. -/
+def GenRow.readTuple {n : ℕ} (κ : Fin n → ColKind)
+    (u : Tuple (GenValue T K) n) : Tuple T n :=
+  fun k => match (κ k).base with
+    | ColKind.agg => 0
+    | _ => AggValue.collapseSum (u k)
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The two readings agree: what a window reads of a row is what it reads
+of its regular reading. -/
+theorem ColKind.readTuple_plainTuple {n : ℕ} (κ : Fin n → ColKind)
+    (u : Tuple (GenValue T K) n) :
+    ColKind.readTuple κ (GenRow.plainTuple u) = GenRow.readTuple κ u := rfl
+
+/-- The occurrence a window's input relation gives a row of its input:
+what the window reads of the row, carrying the row's annotation. -/
+def GenRow.readAnnotated {n : ℕ} (κ : Fin n → ColKind) (r : GenRow T K n) :
+    AnnotatedTuple T K n :=
+  ⟨GenRow.readTuple κ r.fst, r.snd.finalize⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem GenRow.readAnnotated_allReg {n : ℕ} (r : GenRow T K n) :
+    GenRow.readAnnotated (ColKind.allReg n) r = GenRow.toAnnotated r := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem ColKind.readTuple_allReg {n : ℕ} (u : Tuple T n) :
+    ColKind.readTuple (ColKind.allReg n) u = u := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- An all-regular relation is read whole: the window reads every column
+of every row. -/
+@[simp] theorem ColKind.map_readTuple_allReg {n : ℕ}
+    (M : Multiset (Tuple T n)) :
+    M.map (ColKind.readTuple (ColKind.allReg n)) = M :=
+  Eq.trans (Multiset.map_congr rfl (fun _ _ => rfl)) (Multiset.map_id M)
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem GenRow.map_readAnnotated_allReg {n : ℕ}
+    (M : Multiset (GenRow T K n)) :
+    M.map (GenRow.readAnnotated (ColKind.allReg n))
+      = M.map GenRow.toAnnotated := rfl
+
+/-- **The row a window gives a row of its input**: the row itself, one
+column longer, carrying the token the relation gives it – or, under a
+`FILTER` clause, the aggregate expression over the whole frame whose leaf
+reads what the clause keeps.
+
+Its own columns go through untouched, aggregate columns included: a
+window reads regular columns and rewrites none of them. So do its
+annotation and its pending factors, a window creating no group. -/
+def ValueFrame.windowGenRow {c n m p : ℕ} (κ : Fin n → ColKind)
+    (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Option (Selection T n))
+    (X : AnnotatedRelation T K n) (x : GenRow T K n)
+    (γ : Fin c → T := fun _ => 0) (dist : Bool := false) :
+    GenRow T K (n + 1) :=
+  ⟨Fin.snoc x.fst (Sum.inr (match keep with
+      | none =>
+          AggTok.tok (ValueFrame.tokenOfDist P O o w t f dist X
+            (GenRow.readAnnotated κ x) γ)
+      | some φ =>
+          AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist φ.keeps X
+            (GenRow.readAnnotated κ x) γ))),
+    x.snd⟩
 
 /-- Embed an annotated tuple as a general row (all-regular, nothing
 pending). -/
@@ -1453,22 +1624,15 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, @Win _ _ n _m _p P O o w t f q dist keep, d, γ =>
-    let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
-    -- the canonical indexing: an occurrence is what a frame is computed for,
-    -- and two occurrences carrying the same row may have different frames
-    let occ := OccFam.ofSorted r
-    -- each occurrence keeps its row and its annotation, and gains its token;
-    -- no row is removed and no group is created, so nothing goes pending
-    (OccFam.mk occ.size (fun i =>
-      (⟨Fin.snoc (fun k => (Sum.inl ((occ.row i).fst k) : GenValue T K))
-          (Sum.inr (match keep with
-            | none =>
-                AggTok.tok (ValueFrame.tokenDist P O o w t f dist occ i γ)
-            | some φ =>
-                AggTok.expr
-                  (ValueFrame.exprWhen P O o w t f dist φ.keeps occ i γ))),
-        ⟨(occ.row i).snd, 0⟩⟩ : GenRow T K (n + 1)))).toMultiset
+  | _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
+    let rows := q.evaluate d γ
+    -- the relation the token is read over: what the window reads of each
+    -- row (`ColKind.readTuple`), carrying the row's annotation
+    let r : AnnotatedRelation T K n := rows.map (GenRow.readAnnotated κ')
+    -- each row keeps its columns, its annotation and its pending factors,
+    -- and gains its token: a window removes no row and creates no group
+    rows.map (fun x =>
+      ValueFrame.windowGenRow κ' P O o w t f keep r x γ dist)
   | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
     let occ := OccFam.ofSorted r
@@ -1592,23 +1756,16 @@ the input relation mapped row by row, each row gaining the token its relation
 gives it. This is the form every theorem about the operator uses; that it is
 legitimate – that an occurrence's token is determined by the relation even
 though its frame is not determined by its row – is `ValueFrame.tokenOf`. -/
-theorem AggQueryIn.evaluate_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluate_Win_eq {c n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
-    (q : AggQueryIn T c n (ColKind.allReg n))
+    (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) {γ : Fin c → T} :
-    (AggQueryIn.Win P O o w t f q dist).evaluate d γ
-      = (q.evaluateAnnotated d γ).map
-          (fun x => ValueFrame.windowRow P O o w t f
-            (q.evaluateAnnotated d γ) x γ dist) := by
-  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluateAnnotated d γ)]
-  rw [OccFam.toMultiset_map]
-  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : GenRow T K (n + 1)) = ValueFrame.windowRow P O o w t f _ _ _ dist
-  unfold ValueFrame.windowRow ValueFrame.tokenOfDist ValueFrame.tokenDist
-    AggQueryIn.evaluateAnnotated
-  dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.token_eq_tokenOf, OccFam.toMultiset_ofSorted]
+    (AggQueryIn.Win P O o w t f q hrr dist).evaluate d γ
+      = (q.evaluate d γ).map
+          (fun x => ValueFrame.windowGenRow κ P O o w t f none
+            ((q.evaluate d γ).map (GenRow.readAnnotated κ)) x γ dist) := rfl
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Embedding then finalizing is the identity on annotated tuples. -/
@@ -1719,6 +1876,49 @@ def ProjColIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ
   | .aggTerm k _ gf => gf (u k)
   | .provTerm t => t.evalPlain u γ
 
+/-- The value a window's added column takes on a row of a plain relation:
+the aggregate of the term over that row's frame, read off the relation. -/
+def ValueFrame.windowValue {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (R : Relation T n) (u : Tuple T n)
+    (γ : Fin c → T := fun _ => 0) : T :=
+  f ((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).map
+    (fun v => t.eval v γ))
+
+/-- **The value a window's added column takes under a `FILTER`
+clause**: the aggregate over the rows of the frame the clause keeps. -/
+def ValueFrame.windowValueWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
+  f (((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).filter keep).map
+    (fun v => t.eval v γ))
+
+/-- **The value one leaf of a multi-frame window takes**: the aggregate
+over its frame, over the part its own `FILTER` clause keeps where it
+carries one. -/
+def ValueFrame.windowValueOpt {c n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Option (Selection T n))
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
+  match keep with
+  | none => ValueFrame.windowValue P O o w t f R u γ
+  | some φ => ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ
+
+@[simp] theorem ValueFrame.windowValueOpt_none {c n m p : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
+    ValueFrame.windowValueOpt P O o w t f none R u γ
+      = ValueFrame.windowValue P O o w t f R u γ := rfl
+
+@[simp] theorem ValueFrame.windowValueOpt_some {c n m p : ℕ}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (φ : Selection T n) (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
+    ValueFrame.windowValueOpt P O o w t f (some φ) R u γ
+      = ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ := rfl
+
 /-- **The plain evaluator**: standard multiset semantics, with `Gamma`
 computing the aggregate of each group's full occurrence sequence (in the
 canonical `≼` order of `Relation.groupSeq`) and every selection filtering
@@ -1792,19 +1992,16 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u γ)).fold addFn 0))
-  | _, _, _, @Win _ _ n _m _p P O o w t f q dist keep, d, γ =>
-    -- the canonical indexing again; a frame is computed for an occurrence
-    let occ := OccFam.ofSorted (q.evaluatePlain d γ)
-    (OccFam.mk occ.size (fun i =>
-      (Fin.snoc (occ.row i)
-        ((if dist then f.distinct else f)
-          ((match keep with
-            | none => ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i
-            | some φ =>
-                (ValueFrame.frameSeqOn (α := Tuple T n) id P O o w occ i).filter
-                  φ.keeps).map
-            (fun v => t.eval v γ)))
-        : Tuple T (n + 1)))).toMultiset
+  | _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
+    let rows := q.evaluatePlain d γ
+    -- the window reads the regular columns of each row, as the annotated
+    -- evaluator does, so the two agree on what a frame holds
+    let read := rows.map (ColKind.readTuple κ')
+    rows.map (fun u =>
+      (Fin.snoc u (ValueFrame.windowValueOpt P O o w t
+          (if dist then f.distinct else f) keep read
+            (ColKind.readTuple κ' u) γ)
+        : Tuple T (n + 1)))
   | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
     let occ := OccFam.ofSorted (q.evaluatePlain d γ)
     (OccFam.mk occ.size (fun i =>
@@ -1828,49 +2025,6 @@ theorem AggQueryIn.evaluatePlain_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → C
           (q₂.evaluatePlain D u).map (fun v =>
             (Fin.append u v : Tuple T (n₁ + n₂)))) := by
   simp only [AggQueryIn.evaluatePlain, Fin.append_nil]
-
-/-- The value a window's added column takes on a row of a plain relation:
-the aggregate of the term over that row's frame, read off the relation. -/
-def ValueFrame.windowValue {c n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
-    (t : TermIn T c n) (f : SeqAggFunc T) (R : Relation T n) (u : Tuple T n)
-    (γ : Fin c → T := fun _ => 0) : T :=
-  f ((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).map
-    (fun v => t.eval v γ))
-
-/-- **The value a window's added column takes under a `FILTER`
-clause**: the aggregate over the rows of the frame the clause keeps. -/
-def ValueFrame.windowValueWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
-    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Tuple T n → Bool)
-    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
-  f (((ValueFrame.frameListOf (α := Tuple T n) id P O o w R u).filter keep).map
-    (fun v => t.eval v γ))
-
-/-- **The value one leaf of a multi-frame window takes**: the aggregate
-over its frame, over the part its own `FILTER` clause keeps where it
-carries one. -/
-def ValueFrame.windowValueOpt {c n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
-    (t : TermIn T c n) (f : SeqAggFunc T) (keep : Option (Selection T n))
-    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T := fun _ => 0) : T :=
-  match keep with
-  | none => ValueFrame.windowValue P O o w t f R u γ
-  | some φ => ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ
-
-@[simp] theorem ValueFrame.windowValueOpt_none {c n m p : ℕ}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
-    (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
-    ValueFrame.windowValueOpt P O o w t f none R u γ
-      = ValueFrame.windowValue P O o w t f R u γ := rfl
-
-@[simp] theorem ValueFrame.windowValueOpt_some {c n m p : ℕ}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
-    (φ : Selection T n) (R : Relation T n) (u : Tuple T n) (γ : Fin c → T) :
-    ValueFrame.windowValueOpt P O o w t f (some φ) R u γ
-      = ValueFrame.windowValueWhen P O o w t f φ.keeps R u γ := rfl
 
 /-- **Where the aggregate is symmetric the sequence a frame is read in does
 not matter**: any listing of the frame gives the value the window gives, so
@@ -1909,26 +2063,20 @@ theorem AggQueryIn.evaluatePlain_Gamma_eq {c m n₁ n₂ : ℕ}
   simp only [Relation.groupSeqOpt_none]
 
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
-theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
-    (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
+    (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.Win P O o w t f q dist).evaluatePlain d γ
+    (AggQueryIn.Win P O o w t f q hrr dist).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValue P O o w t
-              (if dist then f.distinct else f) (q.evaluatePlain d γ) u γ)
-            : Tuple T (n + 1))) := by
-  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluatePlain d γ)]
-  rw [OccFam.toMultiset_map]
-  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : Tuple T (n + 1))
-    = Fin.snoc _ (ValueFrame.windowValue P O o w t
-        (if dist then f.distinct else f) _ _ _)
-  unfold ValueFrame.windowValue
-  dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
+              (if dist then f.distinct else f)
+              ((q.evaluatePlain d γ).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u) γ)
+            : Tuple T (n + 1))) := rfl
 
 /-- The row a window gives a row of its input relation under a `FILTER`
 clause: as `ValueFrame.windowRow`, with the clause's column – an
@@ -1947,67 +2095,57 @@ def ValueFrame.windowRowWhen {c n m p : ℕ} (P : Tuple (Fin n) m)
 
 /-- **The `Win` case of the evaluator under a `FILTER` clause**, read off
 the relation, as `AggQueryIn.evaluate_Win_eq` is without one. -/
-theorem AggQueryIn.evaluate_Win_eq_when {c n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.evaluate_Win_eq_when {c n m p : ℕ} {κ : Fin n → ColKind}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool) (φ : Selection T n)
-    (q : AggQueryIn T c n (ColKind.allReg n))
+    (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) {γ : Fin c → T} :
-    (AggQueryIn.Win P O o w t f q dist (some φ)).evaluate d γ
-      = (q.evaluateAnnotated d γ).map
-          (fun x => ValueFrame.windowRowWhen P O o w t f φ.keeps
-            (q.evaluateAnnotated d γ) x γ dist) := by
-  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluateAnnotated d γ)]
-  rw [OccFam.toMultiset_map]
-  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : GenRow T K (n + 1))
-    = ValueFrame.windowRowWhen P O o w t f φ.keeps _ _ _ dist
-  unfold ValueFrame.windowRowWhen AggQueryIn.evaluateAnnotated
-  dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.exprWhen_eq_exprWhenOf, OccFam.toMultiset_ofSorted]
+    (AggQueryIn.Win P O o w t f q hrr dist (some φ)).evaluate d γ
+      = (q.evaluate d γ).map
+          (fun x => ValueFrame.windowGenRow κ P O o w t f (some φ)
+            ((q.evaluate d γ).map (GenRow.readAnnotated κ)) x γ dist) := rfl
 
 /-- **The `Win` case of the plain evaluator under a `FILTER` clause.** -/
 theorem AggQueryIn.evaluatePlain_Win_eq_when {c n m p : ℕ}
+    {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
-    (φ : Selection T n) (q : AggQueryIn T c n (ColKind.allReg n))
+    (φ : Selection T n) (q : AggQueryIn T c n κ)
+    (hrr : WinReadsReg κ P O t)
     (d : Database T) {γ : Fin c → T} :
-    (AggQueryIn.Win P O o w t f q dist (some φ)).evaluatePlain d γ
+    (AggQueryIn.Win P O o w t f q hrr dist (some φ)).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValueWhen P O o w t
               (if dist then f.distinct else f) φ.keeps
-              (q.evaluatePlain d γ) u γ)
-            : Tuple T (n + 1))) := by
-  conv_rhs => rw [← OccFam.toMultiset_ofSorted (q.evaluatePlain d γ)]
-  rw [OccFam.toMultiset_map]
-  refine congrArg OccFam.toMultiset (OccFam.ext_cast rfl (fun i => ?_))
-  show (_ : Tuple T (n + 1))
-    = Fin.snoc _ (ValueFrame.windowValueWhen P O o w t
-        (if dist then f.distinct else f) φ.keeps _ _ _)
-  unfold ValueFrame.windowValueWhen
-  dsimp only [Fin.cast_eq_self]
-  rw [ValueFrame.frameSeqOn_eq_frameListOf, OccFam.toMultiset_ofSorted]
+              ((q.evaluatePlain d γ).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u) γ)
+            : Tuple T (n + 1))) := rfl
 
 /-- **The `Win` case of the plain evaluator, clause or no clause**, which
 is the form a recursion over the syntax needs: the frame is read through
 `ValueFrame.windowValueOpt`, which is the unfiltered reading where there
 is no clause and the cut one where there is. -/
 theorem AggQueryIn.evaluatePlain_Win_eq_opt {c n m p : ℕ}
+    {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Option (Selection T n))
-    (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
+    (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.Win P O o w t f q dist keep).evaluatePlain d γ
+    (AggQueryIn.Win P O o w t f q hrr dist keep).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValueOpt P O o w t
               (if dist then f.distinct else f) keep
-              (q.evaluatePlain d γ) u γ)
+              ((q.evaluatePlain d γ).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u) γ)
             : Tuple T (n + 1))) := by
   cases keep with
-  | none => exact AggQueryIn.evaluatePlain_Win_eq P O o w t f dist q d
-  | some φ => exact AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q d
+  | none => exact AggQueryIn.evaluatePlain_Win_eq P O o w t f dist q hrr d
+  | some φ =>
+    exact AggQueryIn.evaluatePlain_Win_eq_when P O o w t f dist φ q hrr d
 
 /-- **The `WinExpr` case of the plain evaluator, read off the
 relation**: each leaf aggregates over its own frame, and `g` combines
@@ -2095,8 +2233,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Retag h q => Retag h q.stripAgg
   | _, _, _, GammaTok is his ts fs a q keep =>
       GammaTok is his ts fs a q.stripAgg keep
-  | _, _, _, Win P O o w t f q dist keep =>
-      Win P O o w t f q.stripAgg dist keep
+  | _, _, _, Win P O o w t f q hrr dist keep =>
+      Win P O o w t f q.stripAgg hrr dist keep
   | _, _, _, WinExpr P O o ws ts fs g q keeps =>
       WinExpr P O o ws ts fs g q.stripAgg keeps
 
@@ -2125,7 +2263,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ q => q.noProvSum
   | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noProvSum
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noProvSum
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noProvSum
 
 /-- **No aggregate column read as a key.** Reading one produces a row
@@ -2154,7 +2292,7 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .ProvSum _ _ _ q => q.altFree
   | _, _, _, .Retag _ q => q.altFree
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.altFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.altFree
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.altFree
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.altFree
 
 /-! ## Join conditions on key columns -/
@@ -2391,7 +2529,7 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.noFilter
   | _, _, _, .Retag _ q => q.noFilter
   | _, _, _, .GammaTok _ _ _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
-  | _, _, _, .Win _ _ _ _ _ _ q _ keep => keep = none ∧ q.noFilter
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ keep => keep = none ∧ q.noFilter
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q keeps => (∀ l, keeps l = none) ∧ q.noFilter
 
 /-- **No second-level aggregation.** `GammaNest` is the one operator of
@@ -2444,7 +2582,7 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.noGammaNest
   | _, _, _, .Retag _ q => q.noGammaNest
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noGammaNest
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noGammaNest
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaNest
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaNest
 
 /-- **Every recursion of the query settles.** A recursion means the value
@@ -2486,7 +2624,7 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.recSettles
   | _, _, _, .Retag _ q => q.recSettles
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.recSettles
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
 
 /-- **Every second-level aggregation is read in a complemented
@@ -2523,7 +2661,7 @@ def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
   | _, _, _, .Retag _ q => q.nestInComplemented
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestInComplemented
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.nestInComplemented
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestInComplemented
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestInComplemented
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
@@ -2552,7 +2690,7 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   | ProvSum is his t q ih => exact ih
   | Retag hk q ih => exact ih
   | GammaTok is his ts fs ann q keep ih => exact ih
-  | Win P O o w t f q dist keep ih => exact ih
+  | Win P O o w t f q hrr dist keep ih => exact ih
   | WinExpr P O o ws ts fs g q keeps ih => exact ih
 
 /-- **No second-level aggregation reads a second-level aggregation.**
@@ -2587,7 +2725,7 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.nestOnce
   | _, _, _, .Retag _ q => q.nestOnce
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestOnce
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.nestOnce
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestOnce
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestOnce
 
 omit [ValueType T] in
@@ -2616,7 +2754,7 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
   | GammaTok a b cc dd e q keep ih => exact ih
-  | Win a b cc dd e ff q dist kp ih => exact ih
+  | Win a b cc dd e ff q hrr dist kp ih => exact ih
   | WinExpr a b cc dd e ff gg q kps ih => exact ih
 
 /-- **No multi-frame window.** `WinExpr` is the one operator of the
@@ -2649,7 +2787,7 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
   | _, _, _, .Retag _ q => q.noWinExpr
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noWinExpr
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.noWinExpr
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noWinExpr
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 /-- **Every multi-frame window frames by the tuple.** A window
@@ -2686,7 +2824,7 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
   | _, _, _, .Retag _ q => q.framesContainSelf
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.framesContainSelf
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ => q.framesContainSelf
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.framesContainSelf
   | _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
 
@@ -2715,7 +2853,7 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
   | GammaTok a b cc dd e q keep ih => exact ih
-  | Win a b cc dd e ff q dist kp ih => exact ih
+  | Win a b cc dd e ff q hrr dist kp ih => exact ih
   | WinExpr a b cc dd e ff gg q kps ih => exact fun hw => absurd hw not_false
 
 /-- **Only `WinExpr` and `GammaNest` build anything but an ordinary
@@ -2889,17 +3027,21 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
             simp [Fin.append_left, Fin.append_right, hfl.1 j'])
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
-    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
-    · -- the window carries no clause, so its column is an ordinary token
-      dsimp only at ha
+    · -- the window carries no clause, so its own column is an ordinary token
+      dsimp only [ValueFrame.windowGenRow] at ha
       rw [Fin.snoc_last, hfl.1] at ha
       rw [← Sum.inr.inj ha]
       rfl
-    · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
+    · -- a column of the input, carried through: the induction hypothesis
+      refine ih hq hn hfl.2 d x hx i' a ?_
+      have ha' := ha
+      dsimp only [ValueFrame.windowGenRow] at ha'
+      rwa [Fin.snoc_castSucc] at ha'
   | GammaNest is his p f q ih =>
     -- the one operator that builds a nested token, which `noGammaNest`
     -- excludes
@@ -3080,18 +3222,22 @@ theorem AggQueryIn.evaluate_noNested :
         | expr _ => rfl
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro hn d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
-    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
     · -- an ordinary token with no clause, an expression with one, and
       -- nested in neither case
-      dsimp only at ha
+      dsimp only [ValueFrame.windowGenRow] at ha
       rw [Fin.snoc_last] at ha
       rw [← Sum.inr.inj ha]
       cases keep <;> rfl
-    · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
+    · -- a column of the input, carried through
+      refine ih hn d x hx i' a ?_
+      have ha' := ha
+      dsimp only [ValueFrame.windowGenRow] at ha'
+      rwa [Fin.snoc_castSucc] at ha'
   | GammaNest is his p f q ih =>
     -- the one operator that builds a nested token, which `noGammaNest`
     -- excludes
@@ -3297,17 +3443,17 @@ theorem AggQueryIn.evaluate_conform :
     · dsimp only
       rw [Fin.append_right, Fin.append_right]
       rfl
-  | Win P O o w t f q dist keep ih =>
+  | Win P O o w t f q hrr dist keep ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
-    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k
-    · dsimp only
+    · dsimp only [ValueFrame.windowGenRow]
       rw [Fin.snoc_last, Fin.snoc_last]
       rfl
-    · dsimp only
+    · dsimp only [ValueFrame.windowGenRow]
       rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-      rfl
+      exact ih d x hx i'
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr

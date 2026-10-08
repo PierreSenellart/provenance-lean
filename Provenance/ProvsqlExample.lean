@@ -224,6 +224,7 @@ abbrev ocols : Tuple (Fin 5) 3 := ![4, 2, 0]
 abbrev aheadQ : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
   AggQueryIn.Win (fun k : Fin 0 => k.elim0) ocols ord3
     (ValueFrame.rangeBefore ord3) (TermIn.const 1) cnt q1
+    (winReadsReg_allReg _ _ _)
 
 /-- `LIMIT 3`: at most two rows ahead. -/
 abbrev keep3 : GenPred V (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
@@ -278,11 +279,12 @@ count of the rows ahead; the rank is one more. -/
 abbrev rankWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
   AggQueryIn.Win ![0] ![4] ![OrderCol.DESC]
     (ValueFrame.rangeBefore ![OrderCol.DESC]) (TermIn.const 1) cnt q1
+    (winReadsReg_allReg _ _ _)
 
 /-- `avg(e.salary) OVER (PARTITION BY d.dept)`. -/
 abbrev avgWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
   AggQueryIn.Win ![0] (fun k : Fin 0 => k.elim0) OrderSpec.unordered
-    ValueFrame.whole (TermIn.index 4) avgAgg q1
+    ValueFrame.whole (TermIn.index 4) avgAgg q1 (winReadsReg_allReg _ _ _)
 
 /-- Every token true. -/
 abbrev vAll : X → Bool := fun _ => true

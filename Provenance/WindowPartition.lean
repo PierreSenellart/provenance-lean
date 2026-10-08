@@ -183,7 +183,8 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
-      = (AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluatePlain d := by
+      = (AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q
+          (winReadsReg_allReg P O t)).evaluatePlain d := by
   rw [winByJoin, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain_Win_eq]
   simp only [AggQueryIn.evaluatePlain]
   generalize hr : q.evaluatePlain d = r
@@ -221,7 +222,9 @@ theorem evaluatePlain_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   | last =>
     dsimp only [Function.comp_apply]
     rw [winProj, Fin.snoc_last, Fin.snoc_last]
-    simp only [ProjColIn.evalPlain, winAggPos, Fin.append_right]
+    simp only [ProjColIn.evalPlain, winAggPos, Fin.append_right,
+      ColKind.readTuple_allReg, Multiset.map_id', Bool.false_eq_true,
+      ite_false]
     show f (List.map t.eval (Relation.groupSeq P r (Tuple.key P u)))
       = ValueFrame.windowValue P O o ValueFrame.whole t f r u
     unfold ValueFrame.windowValue
@@ -265,7 +268,8 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map (fun r => (r.fst, r.snd.finalize))
-      = ((AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q).evaluate d).map
+      = ((AggQueryIn.Win P O o (ValueFrame.whole : ValueFrame T p) t f q
+          (winReadsReg_allReg P O t)).evaluate d).map
           (fun r => (r.fst, r.snd.finalize)) := by
   have hagg : (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
       (fun k => winLeftPos_kind (P k)) winKeyPos_kind).hasAggAtom = false :=
@@ -346,6 +350,17 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   have hmemU : GenRow.toAnnotated r ∈ U := by
     rw [hU, ← Multiset.mem_coe, Having.havingGroup_coe]
     exact Multiset.mem_filter.mpr ⟨hmemX, fun k => rfl⟩
+  -- the input is all-regular, so every column of the row is a plain value
+  have hreg : r.fst = fun k => (Sum.inl ((GenRow.toAnnotated r).fst k) : GenValue T K) := by
+    funext k
+    have hk := AggQueryIn.evaluate_conform q d r hr k
+    cases hv : r.fst k with
+    | inl v =>
+      simp only [GenRow.toAnnotated, GenRow.plainTuple, hv]
+      rfl
+    | inr a =>
+      rw [hv] at hk
+      exact absurd hk (by simp [GenValue.kindOf, ColKind.base, ColKind.allReg])
   -- the projected row: the original columns and the group's token
   have hu' : (fun j => (winProj n m j).eval (Fin.append r.fst
         (Fin.append (fun k => (Sum.inl (Tuple.key P (GenRow.plainTuple r.fst) k)
@@ -365,13 +380,16 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
       rw [winProj, Fin.snoc_castSucc, Fin.snoc_castSucc]
       show Sum.inl (AggValue.collapseSum (Fin.append r.fst _ (winLeftPos m k))) = _
       rw [Fin.append_left]
+      rw [hreg]
       rfl
   have htok : ValueFrame.tokenOf P O o (ValueFrame.whole : ValueFrame T p) t f
       (Multiset.map GenRow.toAnnotated (q.evaluate d)) (GenRow.toAnnotated r)
       = AggValue.ofGroup f t U :=
     ValueFrame.tokenOf_whole P O o ho t f _ hmemX
   refine Prod.ext ?_ ?_
-  · simp only [ValueFrame.windowRow, ValueFrame.tokenOfDist_false, htok]
+  · simp only [ValueFrame.windowGenRow, GenRow.readAnnotated_allReg,
+      ValueFrame.tokenOfDist_false, htok]
+    conv_rhs => rw [hreg]
     exact hu'
   -- the token lists of the projected row are the group's occurrence
   -- annotations, so the join keeps exactly the group's factor pending
@@ -384,7 +402,7 @@ theorem evaluate_winByJoin (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     show {List.map Prod.snd (List.map (fun p => (t.eval p.fst, p.snd)) U)} = _
     rw [List.map_map]
     rfl
-  simp only [ValueFrame.windowRow, GenAnn.finalize_of_pending_zero]
+  simp only [ValueFrame.windowGenRow]
   show ((r.snd.base * 1) * (Multiset.map (fun l => SemiringWithMonus.delta l.sum)
       (r.snd.pending + {U.map Prod.snd}
         - (r.snd.pending + {U.map Prod.snd}) ∩ _)).prod

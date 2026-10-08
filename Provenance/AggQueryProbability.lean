@@ -1935,61 +1935,82 @@ theorem AggQueryIn.evaluate_guarded :
             (fun k' a'' ha'' => ih d row
               (Multiset.mem_of_mem_filter (by rw [hrows] at hrow; exact hrow))
               v hfinrow k' a'' ha'') ha') hsc
-  | @Win cI n' m' p' P O o w t f q dist keep ih =>
+  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
     intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
-    obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+    obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.mp hr
+    dsimp only [ValueFrame.windowGenRow] at hfin
+    -- the relation the window reads, and the occurrence of it the row is:
+    -- the token the relation gives the row is that occurrence's
+    set R : Multiset (AnnotatedTuple T (BoolFunc X) n') :=
+      Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) with hR
+    obtain ⟨i, hi⟩ : ∃ i, (OccFam.ofSorted R).row i
+        = GenRow.readAnnotated κw x := by
+      obtain ⟨i, -, hi⟩ := Multiset.mem_map.mp (show GenRow.readAnnotated κw x
+          ∈ (OccFam.ofSorted R).toMultiset by
+        rw [OccFam.toMultiset_ofSorted, hR]
+        exact Multiset.mem_map_of_mem _ hx)
+      exact ⟨i, hi⟩
+    have hrow : ((OccFam.ofSorted R).row i).snd v = true := by
+      rw [hi]
+      exact hfin
     revert ha
     refine Fin.lastCases (fun ha => ?_) (fun k' ha => ?_) k
-    · dsimp only at ha
+    · dsimp only [ValueFrame.windowGenRow] at ha
       rw [Fin.snoc_last] at ha
       rw [← Sum.inr.inj ha]
       cases hk : keep with
       | some φ =>
+        dsimp only
         -- the column is an expression over the whole frame: where the row is
         -- in its own frame the leaf is grouped, and the row's own occurrence
         -- is in the family, realized with it
-        rw [AggTok.Realized_expr]
+        have hexp : ValueFrame.exprWhenOf P O o w t f dist φ.keeps
+            R (GenRow.readAnnotated κw x) γ
+            = ValueFrame.exprWhen P O o w t f dist φ.keeps
+                (OccFam.ofSorted R) i γ := by
+          rw [ValueFrame.exprWhen_eq_exprWhenOf, OccFam.toMultiset_ofSorted, hi]
+        rw [hexp, AggTok.Realized_expr]
         intro l hl
-        have hs : w.s (Tuple.key O ((OccFam.ofSorted
-            ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true := by
-          have hx : (!w.s (Tuple.key O ((OccFam.ofSorted
-              ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst)) = false := by
+        have hs : w.s (Tuple.key O ((OccFam.ofSorted R).row i).fst) = true := by
+          have hx' : (!w.s (Tuple.key O ((OccFam.ofSorted R).row i).fst))
+              = false := by
             rw [← ValueFrame.scalar_exprWhen P O o w t f dist φ.keeps _ i l]
             exact hl
-          simpa using hx
-        have hrow : (((OccFam.ofSorted
-            ((q.evaluate d γ).map GenRow.toAnnotated)).row i).snd) v = true := by
-          have := hfin
-          dsimp only at this
-          rwa [GenAnn.finalize_of_pending_zero] at this
+          simpa using hx'
         obtain ⟨j, hj⟩ := AggExpr.realizedWorld_nonempty_of_annGuard _ v
           (annGuard_annList_exprWhen P O o w t f dist φ.keeps _ i v hs hrow)
         exact ⟨j, Finset.mem_inter.mpr ⟨hj, by
           rw [ValueFrame.inFrame_exprWhen]; exact Finset.mem_univ _⟩⟩
       | none =>
-      by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted
-          ((q.evaluate d γ).map GenRow.toAnnotated)).row i).fst) = true
+      dsimp only
+      have htok : ValueFrame.tokenOfDist P O o w t f dist
+          R (GenRow.readAnnotated κw x) γ
+          = ValueFrame.tokenDist P O o w t f dist (OccFam.ofSorted R) i γ := by
+        unfold ValueFrame.tokenOfDist ValueFrame.tokenDist
+        rw [ValueFrame.token_eq_tokenOf, OccFam.toMultiset_ofSorted, hi]
+      rw [htok]
+      by_cases hs : w.s (Tuple.key O ((OccFam.ofSorted R).row i).fst) = true
       · refine Or.inr ?_
         cases dist
         · exact AggValue.realized_nonempty_of_mem _ v
-            (ValueFrame.mem_token_occs P O o w t f _ i hs) (by simpa using hfin)
+            (ValueFrame.mem_token_occs P O o w t f _ i hs) hrow
         · refine AggValue.realized_nonempty_of_mem _ v
             (AggValue.mem_occs_mergeByValue _
               (ValueFrame.mem_token_occs P O o w t f _ i hs)) ?_
           exact (AggValue.classSum_eval_iff v _ _).mpr
-            ⟨_, ValueFrame.mem_token_occs P O o w t f _ i hs, rfl,
-              by simpa using hfin⟩
+            ⟨_, ValueFrame.mem_token_occs P O o w t f _ i hs, rfl, hrow⟩
       · refine Or.inl ?_
         rw [ValueFrame.scalar_tokenDist]
         exact ValueFrame.token_scalar_of_not_mem P O o w t f _ i
           (by simpa using hs)
-    · dsimp only at ha
+    · -- a column of the input, guarded by the induction hypothesis
+      dsimp only [ValueFrame.windowGenRow] at ha
       rw [Fin.snoc_castSucc] at ha
-      exact absurd ha (by simp)
+      exact ih d x hx v hfin k' a ha
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro d γ r hr v _ k a ha
     have hconf := AggQueryIn.evaluate_conform _ d r hr k
@@ -2892,6 +2913,24 @@ private lemma specializeTuple_eq_plainTuple {n : ℕ}
   rw [hw]
   rfl
 
+omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
+/-- **A window reads a row the same in every world**: what it reads of
+the row's reading in a world is what it reads of the row. The columns it
+reads are regular, where a valuation moves nothing, and of an aggregate
+column it reads nothing – which is what makes a window over an input with
+aggregate columns commute with the possible worlds. -/
+private lemma readTuple_specializeTuple {n : ℕ} {κ : Fin n → ColKind}
+    (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool) :
+    ColKind.readTuple κ (GenRow.specializeTuple v u)
+      = GenRow.readTuple κ u := by
+  funext k
+  unfold ColKind.readTuple GenRow.readTuple
+  split
+  · rfl
+  · next h =>
+    exact GenValue.specializeAt_of_ne_agg (fun hagg => h (by rw [← hconf k, hagg])) v
+
 omit [ValueType T] [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
 private lemma specializeTuple_append' {n₁ n₂ : ℕ}
@@ -3514,55 +3553,72 @@ theorem AggQueryIn.genRandomWorld_evaluate :
   | GammaTok is his ts fs a q keep ih =>
     intro hq
     exact hq.elim
-  | @Win cI nI mI pI P O o w t f q dist keep ih =>
+  | @Win cI nI mI pI κw P O o w t f q hrr dist keep ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame – and a clause cuts the frame by the
     -- rows, which the restriction does not move
     intro hq hn hr d v γ
+    -- what the window reads of a row is the same in every world, so the
+    -- relation the plain window reads of the realized world is the realized
+    -- world of the relation the token is read over
+    have hread : Multiset.map (ColKind.readTuple κw)
+          (genRandomWorld v (q.evaluate d γ))
+        = randomWorld v
+            (Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ)) := by
+      unfold genRandomWorld randomWorld
+      rw [Multiset.map_map, filter_map_comm, Multiset.map_map]
+      refine Multiset.map_congr rfl (fun x hx => ?_)
+      exact readTuple_specializeTuple x.fst
+        (fun k => AggQueryIn.evaluate_conform q d x
+          (Multiset.mem_of_mem_filter hx) k) v
     cases hk : keep with
     | none =>
       rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq,
-        ← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
-      unfold genRandomWorld randomWorld
-      rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
-        Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
-          show (ValueFrame.windowRow P O o w t f
-                (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
-            ↔ x.snd v = true from by
-            simp [ValueFrame.windowRow])]
+        ← ih hq hn hr d v, hread]
+      unfold genRandomWorld
+      rw [filter_map_comm, Multiset.map_map, Multiset.map_map]
       refine Multiset.map_congr rfl (fun x hx => ?_)
       obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
-      simp only [Function.comp_apply, ValueFrame.windowRow]
+      have hmem : GenRow.readAnnotated κw x
+          ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) :=
+        Multiset.mem_map_of_mem _ hxR
+      have hrd : ColKind.readTuple κw (GenRow.specializeTuple v x.fst)
+          = (GenRow.readAnnotated κw x).fst :=
+        readTuple_specializeTuple x.fst
+          (fun k => AggQueryIn.evaluate_conform q d x hxR k) v
+      simp only [Function.comp_apply, ValueFrame.windowGenRow]
       funext k
       unfold GenRow.specializeTuple
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        exact tokenOfDist_specialize P O o w t f dist
-          (q.evaluateAnnotated d γ) hxR v hxc
+        rw [show ColKind.readTuple κw (fun k => GenValue.specializeAt v (x.fst k))
+            = (GenRow.readAnnotated κw x).fst from hrd]
+        exact tokenOfDist_specialize P O o w t f dist _ hmem v hxc
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-        rfl
     | some φ =>
       rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluatePlain_Win_eq_when,
-        ← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
-      unfold genRandomWorld randomWorld
-      rw [filter_map_comm, Multiset.map_map, Multiset.map_map,
-        Multiset.filter_congr (fun x (_ : x ∈ q.evaluateAnnotated d γ) =>
-          show (ValueFrame.windowRowWhen P O o w t f φ.keeps
-                (q.evaluateAnnotated d γ) x γ dist).snd.finalize v = true
-            ↔ x.snd v = true from by
-            simp [ValueFrame.windowRowWhen])]
+        ← ih hq hn hr d v, hread]
+      unfold genRandomWorld
+      rw [filter_map_comm, Multiset.map_map, Multiset.map_map]
       refine Multiset.map_congr rfl (fun x hx => ?_)
       obtain ⟨hxR, hxc⟩ := Multiset.mem_filter.mp hx
-      simp only [Function.comp_apply, ValueFrame.windowRowWhen]
+      have hmem : GenRow.readAnnotated κw x
+          ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) :=
+        Multiset.mem_map_of_mem _ hxR
+      have hrd : ColKind.readTuple κw (GenRow.specializeTuple v x.fst)
+          = (GenRow.readAnnotated κw x).fst :=
+        readTuple_specializeTuple x.fst
+          (fun k => AggQueryIn.evaluate_conform q d x hxR k) v
+      simp only [Function.comp_apply, ValueFrame.windowGenRow]
       funext k
       unfold GenRow.specializeTuple
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        exact exprWhenOf_specialize P O o w t f dist φ.keeps
-          (q.evaluateAnnotated d γ) hxR v hxc
+        rw [show ColKind.readTuple κw (fun k => GenValue.specializeAt v (x.fst k))
+            = (GenRow.readAnnotated κw x).fst from hrd]
+        exact exprWhenOf_specialize P O o w t f dist φ.keeps _ hmem v hxc
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-        rfl
   | Retag h q ih =>
     intro hq hn hr d v γ
     exact ih hq hn hr d v

@@ -1102,6 +1102,142 @@ theorem collapse_tokenDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
       ← frameSeqOn_plain, List.map_map]
     rfl
 
+/-- **A frame read off the relation, projected to its rows**: the frame
+of the plain relation. The frame is determined by values, so forgetting
+the annotations does not move it. -/
+theorem frameListOf_map_fst (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
+    (hmem : x ∈ X) :
+    (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x).map
+        Prod.fst
+      = frameListOf (α := Tuple T n) id P O o w
+        (Multiset.map (α := AnnotatedTuple T K n) Prod.fst X) x.fst := by
+  obtain ⟨i, hi⟩ : ∃ i : Fin (OccFam.ofSorted X).size,
+      (OccFam.ofSorted X).row i = x := by
+    have hx : x ∈ (OccFam.ofSorted X).toMultiset := by
+      rw [OccFam.toMultiset_ofSorted]; exact hmem
+    obtain ⟨i, -, hi⟩ := Multiset.mem_map.mp hx
+    exact ⟨i, hi⟩
+  have hrow : (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w
+          (OccFam.ofSorted X).toMultiset ((OccFam.ofSorted X).row i)).map
+        Prod.fst
+      = frameListOf (α := Tuple T n) id P O o w
+        (Multiset.map (α := AnnotatedTuple T K n) Prod.fst
+          (OccFam.ofSorted X).toMultiset) ((OccFam.ofSorted X).row i).fst := by
+    rw [← frameSeqOn_eq_frameListOf, frameSeqOn_plain,
+      frameSeqOn_eq_frameListOf,
+      show OccFam.toMultiset (OccFam.ofSorted X).plain
+          = Multiset.map (α := AnnotatedTuple T K n) Prod.fst
+            (OccFam.ofSorted X).toMultiset from by
+        unfold OccFam.toMultiset OccFam.plain
+        rw [Multiset.map_map]
+        rfl]
+    rfl
+  rw [OccFam.toMultiset_ofSorted, hi] at hrow
+  exact hrow
+
+/-- **What a token read off the relation holds**: the term's values over
+the frame of the *plain* relation, which is what the plain evaluator
+reads for that row. -/
+theorem tokenOf_occs_map_fst_row {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (r : OccFam (AnnotatedTuple T K n)) (i : Fin r.size) {γ : Fin c → T} :
+    ((tokenOf P O o w t f r.toMultiset (r.row i) γ).occs).map Prod.fst
+      = (frameListOf (α := Tuple T n) id P O o w
+          (Multiset.map (α := AnnotatedTuple T K n) Prod.fst r.toMultiset)
+          (r.row i).fst).map (fun v => t.eval v γ) := by
+  rw [← token_eq_tokenOf, token_occs, List.map_map,
+    show (List.map (Prod.fst ∘ fun q : AnnotatedTuple T K n =>
+            (t.eval q.fst γ, q.snd))
+          (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i))
+        = (List.map (fun v => t.eval v γ)
+            (List.map (α := AnnotatedTuple T K n) Prod.fst
+              (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)))
+      from by rw [List.map_map]; rfl,
+    frameSeqOn_plain, frameSeqOn_eq_frameListOf,
+    show OccFam.toMultiset r.plain
+        = Multiset.map (α := AnnotatedTuple T K n) Prod.fst r.toMultiset from by
+      unfold OccFam.toMultiset OccFam.plain
+      rw [Multiset.map_map]
+      rfl]
+  rfl
+
+/-- The same for a row of the relation. -/
+theorem tokenOf_occs_map_fst {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
+    (hmem : x ∈ X) {γ : Fin c → T} :
+    ((tokenOf P O o w t f X x γ).occs).map Prod.fst
+      = (frameListOf (α := Tuple T n) id P O o w
+          (Multiset.map (α := AnnotatedTuple T K n) Prod.fst X) x.fst).map
+        (fun v => t.eval v γ) := by
+  obtain ⟨i, hi⟩ : ∃ i : Fin (OccFam.ofSorted X).size,
+      (OccFam.ofSorted X).row i = x := by
+    have hx : x ∈ (OccFam.ofSorted X).toMultiset := by
+      rw [OccFam.toMultiset_ofSorted]; exact hmem
+    obtain ⟨i, -, hi⟩ := Multiset.mem_map.mp hx
+    exact ⟨i, hi⟩
+  have hrow := tokenOf_occs_map_fst_row P O o w t f (OccFam.ofSorted X) i
+    (γ := γ)
+  rw [OccFam.toMultiset_ofSorted, hi] at hrow
+  exact hrow
+
+/-- **The deterministic reading of a token read off the relation**: the
+aggregate over the frame of the plain relation, which is what the plain
+evaluator computes for that row. It is the relation-level counterpart of
+`collapse_token`, and it is what the data-part adequacy of a window rests
+on. -/
+theorem collapse_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (f : SeqAggFunc T) (X : Multiset (AnnotatedTuple T K n))
+    (x : AnnotatedTuple T K n) (hmem : x ∈ X) {γ : Fin c → T} :
+    (tokenOf P O o w t f X x γ).collapse
+      = f ((frameListOf (α := Tuple T n) id P O o w
+          (Multiset.map (α := AnnotatedTuple T K n) Prod.fst X) x.fst).map
+        (fun v => t.eval v γ)) := by
+  unfold AggValue.collapse
+  rw [tokenOf_agg, tokenOf_occs_map_fst P O o w t f X x hmem]
+
+/-- **With `DISTINCT`**: the classes are merged only afterwards, so the
+deterministic reading is the distinct aggregate of the frame. -/
+theorem collapse_tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (X : Multiset (AnnotatedTuple T K n)) (x : AnnotatedTuple T K n)
+    (hmem : x ∈ X) {γ : Fin c → T} :
+    (tokenOfDist P O o w t f dist X x γ).collapse
+      = (if dist then f.distinct else f)
+        ((frameListOf (α := Tuple T n) id P O o w
+          (Multiset.map (α := AnnotatedTuple T K n) Prod.fst X) x.fst).map
+          (fun v => t.eval v γ)) := by
+  unfold tokenOfDist
+  cases dist
+  · simpa using collapse_tokenOf P O o w t f X x hmem (γ := γ)
+  · simp only [ite_true]
+    rw [AggValue.collapse_mergeByValue, tokenOf_agg,
+      tokenOf_occs_map_fst P O o w t f X x hmem]
+
+/-- **And under a `FILTER` clause**, whose column is an expression: its
+reading is the aggregate over the part of the frame the clause keeps. -/
+theorem collapse_exprWhenOf [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n → Bool) (X : Multiset (AnnotatedTuple T K n))
+    (x : AnnotatedTuple T K n) {γ : Fin c → T} :
+    (exprWhenOf P O o w t f dist keep X x γ).collapse
+      = (if dist then f.distinct else f)
+        ((((frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x).map
+            Prod.fst).filter keep).map (fun v => t.eval v γ)) := by
+  unfold exprWhenOf
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    rw [AggExpr.collapse_ofSeqWhen]
+  · simp only [ite_true]
+    rw [AggExpr.collapse_ofSeqDistWhen]
+
 
 /-! ## The frames the clause determines
 
