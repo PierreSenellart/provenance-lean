@@ -53,8 +53,8 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt k h q => .Alt k h q.normalize
   | _, _, _, .Mu s q₀ q₁ => .Mu s q₀.normalize q₁.normalize
   | _, _, _, .MuSet s q₀ q₁ => .MuSet s q₀.normalize q₁.normalize
-  | _, _, _, .Gamma is ts fs q keep => .Gamma is ts fs q.normalize keep
-  | _, _, _, .GammaScalar ts fs q => .GammaScalar ts fs q.normalize
+  | _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q.normalize keep ord
+  | _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q.normalize ord
   | _, _, _, .GammaNest is his p f q => .GammaNest is his p f q.normalize
   | _, _, _, .ProvSum is his t q => .ProvSum is his t q.normalize
   | _, _, _, .Retag h q => .Retag h q.normalize
@@ -83,8 +83,8 @@ def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.chainFree
   | _, _, _, .Mu _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
   | _, _, _, .MuSet _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
-  | _, _, _, .Gamma _ _ _ q _ => q.chainFree
-  | _, _, _, .GammaScalar _ _ q => q.chainFree
+  | _, _, _, .Gamma _ _ _ q _ _ => q.chainFree
+  | _, _, _, .GammaScalar _ _ q _ => q.chainFree
   | _, _, _, .GammaNest _ _ _ _ q => q.chainFree
   | _, _, _, .ProvSum _ _ _ q => q.chainFree
   | _, _, _, .Retag _ q => q.chainFree
@@ -119,8 +119,8 @@ theorem AggQueryIn.normalize_chainFree :
   | Alt k h q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ => exact ⟨ih₀, ih₁⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact ⟨ih₀, ih₁⟩
-  | Gamma is ts fs q keep ih => exact ih
-  | GammaScalar ts fs q ih => exact ih
+  | Gamma is ts fs q keep ord ih => exact ih
+  | GammaScalar ts fs q ord ih => exact ih
   | GammaNest is his p f q ih => exact ih
   | ProvSum is his t q ih => exact ih
   | Retag h q ih => exact ih
@@ -161,8 +161,8 @@ theorem AggQueryIn.normalize_id_of_chainFree :
     intro h; rw [AggQueryIn.normalize, ih₀ h.1, ih₁ h.2]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro h; rw [AggQueryIn.normalize, ih₀ h.1, ih₁ h.2]
-  | Gamma is ts fs q keep ih => intro h; rw [AggQueryIn.normalize, ih h]
-  | GammaScalar ts fs q ih => intro h; rw [AggQueryIn.normalize, ih h]
+  | Gamma is ts fs q keep ord ih => intro h; rw [AggQueryIn.normalize, ih h]
+  | GammaScalar ts fs q ord ih => intro h; rw [AggQueryIn.normalize, ih h]
   | GammaNest is his p f q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | ProvSum is his t q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Retag hk q ih => intro h; rw [AggQueryIn.normalize, ih h]

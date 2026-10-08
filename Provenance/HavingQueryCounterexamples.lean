@@ -1138,6 +1138,46 @@ theorem natWinDistinct_ne_unmerged :
     natWinDistinct.predProvWith testEq1
       ≠ natWinUnmerged.predProvWith testEq1 := by decide
 
+/-! ### An aggregation's `ORDER BY` is not decoration
+
+`AggQueryIn.Gamma` and `GammaScalar` carry a `GroupOrder`: their
+aggregates read the group in that clause's order
+(`Relation.groupSeqOrd`, `Having.havingGroupOrd`) rather than in the
+domain's canonical one. For a symmetric aggregate that changes nothing,
+which is why `count` and `sum` never needed it; for an order-dependent
+one it does, so the clause is the aggregate's own and not an order the
+library could pick for it. The two rows below differ in the column the
+clause reads, and `first_value` of that column comes out `2` under the
+clause against `1` without it. -/
+
+/-- Two rows of one group, differing in the column the clause reads. -/
+def ordGroupRel : Relation ℕ 2 := Multiset.ofList [![0, 1], ![0, 2]]
+
+/-- `ORDER BY #1 DESC` inside the aggregate. -/
+def ordByDesc : GroupOrder ℕ 2 := GroupOrder.byCols ![1] ![OrderCol.DESC]
+
+/-- The whole relation as one group. -/
+abbrev noKey : Tuple (Fin 2) 0 := fun k => k.elim0
+
+/-- Under the clause the aggregate reads the larger value first. -/
+theorem groupSeqOrd_pickFirst :
+    (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey ordByDesc ordGroupRel
+        (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ) = 2 := by decide
+
+/-- Without it, in the domain's canonical order, it reads the smaller. -/
+theorem groupSeq_pickFirst :
+    (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey GroupOrder.unord
+        ordGroupRel (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ)
+      = 1 := by decide
+
+theorem groupSeqOrd_ne_groupSeq :
+    (SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey ordByDesc ordGroupRel
+        (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) : ℕ)
+      ≠ SeqAggFunc.pickFirst ((Relation.groupSeqOrd noKey GroupOrder.unord
+          ordGroupRel (fun k : Fin 0 => k.elim0)).map (fun u => u 1)) := by
+  rw [groupSeqOrd_pickFirst, groupSeq_pickFirst]
+  decide
+
 /-! ### A window may not read an aggregate column of its input
 
 `AggQueryIn.Win` takes any input kinds, and reads its input through

@@ -145,8 +145,8 @@ def AggQueryIn.strip :
   | _, _, _, .Sum q₁ q₂, hq => .Sum (q₁.strip hq.1) (q₂.strip hq.2)
   | _, _, _, .Dedup q, hq => .Dedup (q.strip hq)
   | _, _, _, .Diff q₁ q₂, hq => .Diff (q₁.strip hq.1) (q₂.strip hq.2)
-  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
@@ -165,8 +165,8 @@ theorem AggQueryIn.strip_source :
   | _, _, _, .Sum q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
   | _, _, _, .Dedup q, hq => strip_source q hq
   | _, _, _, .Diff q₁ q₂, hq => ⟨strip_source q₁ hq.1, strip_source q₂ hq.2⟩
-  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
@@ -290,8 +290,8 @@ theorem AggQueryIn.strip_rel :
     refine rel_map_of_forall (fun p _ => ?_)
     obtain ⟨u, α⟩ := p
     exact ⟨rfl, GenAnn.finalize_of_pending_zero _, rfl⟩
-  | _, _, _, .Gamma _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq, _ => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
   | _, _, _, .Retag _ _, hq, _ => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq, _ => False.elim hq

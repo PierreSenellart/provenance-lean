@@ -351,10 +351,10 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | _, _, _, _, θ, .Mu s q₀ q₁ => .Mu s (q₀.substMap θ) (q₁.substMap θ)
   | _, _, _, _, θ, .MuSet s q₀ q₁ =>
       .MuSet s (q₀.substMap θ) (q₁.substMap θ)
-  | _, _, _, _, θ, .Gamma is ts fs q keep =>
-      .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep
-  | _, _, _, _, θ, .GammaScalar ts fs q =>
-      .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ)
+  | _, _, _, _, θ, .Gamma is ts fs q keep ord =>
+      .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep ord
+  | _, _, _, _, θ, .GammaScalar ts fs q ord =>
+      .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ) ord
   | _, _, _, _, θ, .GammaNest is his p f q =>
       .GammaNest is his (p.substMap θ) f (q.substMap θ)
   | _, _, _, _, θ, .ProvSum is his t q =>
@@ -469,7 +469,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain, ih₀, ih₁]
-  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -477,7 +477,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     refine Multiset.map_congr rfl (fun g _ => ?_)
     refine congrArg (Fin.append g) (funext fun j => congrArg (fs j) ?_)
     exact List.map_congr_left (fun v _ => TermIn.eval_substMap θ (ts j) v γ)
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -770,13 +770,13 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ih₀, ih₁]
-  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap]
     rw [ih θ dB γ]
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofScalarGroup_substMap]

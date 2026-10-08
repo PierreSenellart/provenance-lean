@@ -1838,7 +1838,7 @@ theorem AggQueryIn.evaluate_guarded :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     -- every token of a scalar aggregation is scalar, so the guard is vacuous
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -1846,7 +1846,7 @@ theorem AggQueryIn.evaluate_guarded :
     subst hr
     rw [← Sum.inr.inj ha]
     exact Or.inl rfl
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     -- the group's existence guard is the occurrence-annotation list the
     -- operator puts pending, over every occurrence of the group. An
     -- unfiltered token is grouped and takes its realized occurrence from
@@ -1854,7 +1854,7 @@ theorem AggQueryIn.evaluate_guarded :
     intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
-    have hG : annGuard ((Having.havingGroup is
+    have hG : annGuard ((Having.havingGroupOrd is ord
         ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd) v :=
       ((GenAnn.finalize_eval_iff _ v).mp hfin).2 _ (Multiset.mem_singleton_self _)
     revert ha
@@ -2416,6 +2416,119 @@ private lemma annGuard_map_snd {m : ℕ}
   · rintro ⟨p, hp, h⟩
     exact ⟨p.snd, List.mem_map.mpr ⟨p, hp, rfl⟩, h⟩
 
+omit [Fintype X] [DecidableEq X] in
+/-- A group's existence guard does not read the order its aggregate asks
+for: the occurrences are the same, in another order. -/
+private lemma annGuard_havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (v : X → Bool) :
+    annGuard ((Having.havingGroupOrd is ord r g).map Prod.snd) v
+      ↔ annGuard ((Having.havingGroup is r g).map Prod.snd) v := by
+  rw [annGuard_map_snd, annGuard_map_snd]
+  exact exists_congr (fun p => and_congr_left'
+    (Having.mem_havingGroupOrd is ord r g p))
+
+/-- **Reading a group in a clause's order commutes with cutting it down
+to a world**, on the values the aggregate reads: both sides sort by the
+clause, and what the clause leaves tied carries equal values. -/
+private lemma groupOrd_randomWorld_map {c m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (t : TermIn T c m) (v : X → Bool) {γ : Fin c → T} :
+    (((Having.havingGroupOrd is ord r g).filter
+          (fun p => p.snd v)).map (fun p => t.eval p.fst γ))
+      = (Relation.groupSeqOrd is ord (randomWorld v r) g).map
+          (fun x => t.eval x γ) := by
+  cases ord with
+  | unord =>
+    rw [Relation.groupSeqOrd_unord, Having.havingGroupOrd_unord,
+      groupSeq_randomWorld, seqOf_realizedWorld, List.map_map]
+    rfl
+  | byCols cols spec =>
+    have hfst : ((Having.havingGroup is r g).filter
+          (fun p => p.snd v)).map Prod.fst
+        = Relation.groupSeq is (randomWorld v r) g := by
+      rw [groupSeq_randomWorld, seqOf_realizedWorld]
+    refine Eq.trans (OrderSpec.filter_sortSeq_map_eq
+      (key := Tuple.key cols)
+      (val := (Prod.fst : AnnotatedTuple T (BoolFunc X) m → Tuple T m))
+      (o := spec) (fun x : Tuple T m => t.eval x γ)
+      (fun p : AnnotatedTuple T (BoolFunc X) m => p.snd v)
+      (Having.havingGroup is r g)) ?_
+    show List.map (fun p : AnnotatedTuple T (BoolFunc X) m => t.eval p.fst γ)
+        (OrderSpec.sortSeq (Tuple.key cols) Prod.fst spec
+          ((Having.havingGroup is r g).filter (fun p => p.snd v))) = _
+    rw [show (fun p : AnnotatedTuple T (BoolFunc X) m => t.eval p.fst γ)
+        = (fun x : Tuple T m => t.eval x γ) ∘ Prod.fst from rfl,
+      ← List.map_map, ValueFrame.sortSeq_map_fst, hfst]
+    rfl
+
+/-- The same for a filtered aggregate's leaf: the clause cuts the rows,
+which the sort does not move. -/
+private lemma groupOrd_randomWorld_map_keep {c m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+    (r : AnnotatedRelation T (BoolFunc X) m) (g : Tuple T n₁)
+    (t : TermIn T c m) (keep : Tuple T m → Bool) (v : X → Bool)
+    {γ : Fin c → T} :
+    (((Having.havingGroupOrd is ord r g).filter
+          (fun p => keep p.fst && p.snd v)).map (fun p => t.eval p.fst γ))
+      = ((Relation.groupSeqOrd is ord (randomWorld v r) g).filter keep).map
+          (fun x => t.eval x γ) := by
+  cases ord with
+  | unord =>
+    rw [Relation.groupSeqOrd_unord, Having.havingGroupOrd_unord,
+      groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
+      List.filter_filter, List.map_map]
+    rfl
+  | byCols cols spec =>
+    have hfst : ((Having.havingGroup is r g).filter
+          (fun p => keep p.fst && p.snd v)).map Prod.fst
+        = (Relation.groupSeq is (randomWorld v r) g).filter keep := by
+      rw [groupSeq_randomWorld, seqOf_realizedWorld, List.filter_map,
+        List.filter_filter]
+      rfl
+    refine Eq.trans (OrderSpec.filter_sortSeq_map_eq
+      (key := Tuple.key cols)
+      (val := (Prod.fst : AnnotatedTuple T (BoolFunc X) m → Tuple T m))
+      (o := spec) (fun x : Tuple T m => t.eval x γ)
+      (fun p : AnnotatedTuple T (BoolFunc X) m => keep p.fst && p.snd v)
+      (Having.havingGroup is r g)) ?_
+    show List.map (fun p : AnnotatedTuple T (BoolFunc X) m => t.eval p.fst γ)
+        (OrderSpec.sortSeq (Tuple.key cols) Prod.fst spec
+          ((Having.havingGroup is r g).filter
+            (fun p => keep p.fst && p.snd v))) = _
+    rw [show (fun p : AnnotatedTuple T (BoolFunc X) m => t.eval p.fst γ)
+        = (fun x : Tuple T m => t.eval x γ) ∘ Prod.fst from rfl,
+      ← List.map_map, ValueFrame.sortSeq_map_fst, hfst]
+    show List.map (fun x : Tuple T m => t.eval (id x) γ)
+        (OrderSpec.sortSeq (Tuple.key cols) id spec
+          ((Relation.groupSeq is (randomWorld v r) g).filter keep))
+      = List.map (fun x : Tuple T m => t.eval (id x) γ)
+        ((OrderSpec.sortSeq (Tuple.key cols) id spec
+          (Relation.groupSeq is (randomWorld v r) g)).filter keep)
+    exact (OrderSpec.filter_sortSeq_map_eq
+      (key := Tuple.key cols) (val := (id : Tuple T m → Tuple T m))
+      (o := spec) (fun x : Tuple T m => t.eval x γ) keep
+      (Relation.groupSeq is (randomWorld v r) g)).symm
+
+/-- **The specialized token of an ordered group** is the plain aggregate
+of the group in the realized world, read in the same clause's order. -/
+private lemma specialize_ofGroupOrd {c m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T (BoolFunc X) m)
+    (g : Tuple T n₁) (f : SeqAggFunc T) (t : TermIn T c m) (v : X → Bool)
+    {γ : Fin c → T} :
+    (AggValue.ofGroup f t (Having.havingGroupOrd is ord r g) γ).specialize
+        (fun α => α v)
+      = f ((Relation.groupSeqOrd is ord (randomWorld v r) g).map
+          (fun x => t.eval x γ)) := by
+  unfold AggValue.specialize AggValue.ofGroup
+  show f (List.map Prod.fst (List.filter
+    (fun o : T × BoolFunc X => o.snd v)
+    (List.map (fun p : AnnotatedTuple T (BoolFunc X) m =>
+      ((t.eval p.fst γ, p.snd) : T × BoolFunc X))
+      (Having.havingGroupOrd is ord r g)))) = _
+  rw [List.filter_map, List.map_map]
+  exact congrArg f (groupOrd_randomWorld_map is ord r g t v)
+
 /-- The specialized group token is the plain aggregate of the group in
 the realized world. -/
 private lemma specialize_ofGroup {c m n₁ : ℕ}
@@ -2461,6 +2574,28 @@ private lemma specialize_exprOfGroupWhen {c m n₁ : ℕ}
     List.filter_filter, Function.comp_def, Bool.true_and]
   refine congrArg f (congrArg₂ List.map rfl
     (List.filter_congr (fun p _ => ?_)))
+  simp
+
+/-- **And the filtered one**: its leaf reads the occurrences the clause
+keeps among those the valuation realizes, in the aggregate's own order. -/
+private lemma specialize_exprOfGroupWhenOrd {c m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+    (r : AnnotatedRelation T (BoolFunc X) m) (g : Tuple T n₁)
+    (f : SeqAggFunc T) (t : TermIn T c m) (keep : Tuple T m → Bool)
+    (v : X → Bool) {γ : Fin c → T} :
+    (AggExpr.ofGroupWhen f t keep (Having.havingGroupOrd is ord r g) γ).specialize
+        (fun α => α v)
+      = f (((Relation.groupSeqOrd is ord (randomWorld v r) g).filter keep).map
+          (fun x => t.eval x γ)) := by
+  show f ((AggExpr.ofGroupWhen f t keep
+    (Having.havingGroupOrd is ord r g) γ).leafSeq ⟨0, by simp⟩ _) = _
+  rw [AggExpr.leafSeq_eq_filter, seqOf_realizedWorld_expr,
+    AggExpr.occs_ofGroupWhen]
+  simp only [List.filter_map, List.map_map, List.filter_filter,
+    Function.comp_def, Bool.true_and]
+  refine Eq.trans ?_ (congrArg f
+    (groupOrd_randomWorld_map_keep is ord r g t keep v))
+  refine congrArg f (congrArg₂ List.map rfl (List.filter_congr (fun p _ => ?_)))
   simp
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
@@ -3309,7 +3444,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         ((q₁.evaluate d γ).map GenRow.toAnnotated)
         ((q₂.evaluate d γ).map GenRow.toAnnotated) v) ?_)
     rw [genRandomWorld_allReg, genRandomWorld_allReg, ih₁ hq.1 hn.1 hr.1 d v, ih₂ hq.2 hn.2 hr.2 d v]
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     -- one row on each side, kept in every world, its tokens specializing to
     -- the aggregates over the realized rows
     intro hq hn hr d v γ
@@ -3319,12 +3454,12 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     rw [show Multiset.filter
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
           {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
-              (Having.havingGroup (fun i : Fin 0 => i.elim0)
+              (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         = {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
-              (Having.havingGroup (fun i : Fin 0 => i.elim0)
+              (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
@@ -3332,7 +3467,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
           rw [Multiset.mem_singleton] at hr; subst hr; rfl)]
     rw [Multiset.map_singleton]
     exact congrArg (fun u => (Multiset.ofList [u] : Multiset (Tuple T n₂)))
-      (funext fun j => specialize_ofGroup _
+      (funext fun j => specialize_ofGroupOrd _ ord
         ((q.evaluate d γ).map GenRow.toAnnotated) _ (fs j) (ts j) v)
   | @GammaNest cI m n₁ κ' is his p f q ih =>
     -- one output row per group that the realized world keeps, and its
@@ -3459,7 +3594,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         have hrow' : row ∈ rows := (Multiset.mem_filter.mp hrow).1
         exact ProjColIn.specialize_innerValue p row.fst (hconf row hrow')
           (hnest row hrow') v
-  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
     intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [← ih hq hn hr d v, ← genRandomWorld_allReg q d v]
@@ -3469,18 +3604,20 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         (groupByKey (((q.evaluate d γ).map GenRow.toAnnotated).map (fun p =>
           ((fun k => p.fst (is k), p.snd)
             : AnnotatedTuple T (BoolFunc X) n₁)))).val) =>
-      show (⟨1, {(Having.havingGroup is
+      show (⟨1, {(Having.havingGroupOrd is ord
             ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩
           : GenAnn (BoolFunc X)).finalize v = true
         ↔ annGuard ((Having.havingGroup is
             ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
               Prod.snd) v
-        from Iff.trans (GenAnn.finalize_eval_iff
-            ⟨1, {(Having.havingGroup is
+        from Iff.trans (Iff.trans (GenAnn.finalize_eval_iff
+            ⟨1, {(Having.havingGroupOrd is ord
               ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map
                 Prod.snd}⟩ v)
           ⟨fun h => h.2 _ (Multiset.mem_singleton_self _),
-           fun h => ⟨rfl, fun l hl => (Multiset.mem_singleton.mp hl) ▸ h⟩⟩)]
+           fun h => ⟨rfl, fun l hl => (Multiset.mem_singleton.mp hl) ▸ h⟩⟩)
+          (annGuard_havingGroupOrd is ord
+            ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst v))]
     -- key multisets: the realized keys are the realized world's keys
     have hkeys : (((randomWorld v
           ((q.evaluate d γ).map GenRow.toAnnotated)).map
@@ -3542,11 +3679,12 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     funext j
     cases hkj : keep j with
     | none =>
-      exact specialize_ofGroup is ((q.evaluate d γ).map GenRow.toAnnotated)
-        kv.fst (fs j) (ts j) v
+      exact specialize_ofGroupOrd is ord
+        ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst (fs j) (ts j) v
     | some φ =>
-      exact specialize_exprOfGroupWhen is ((q.evaluate d γ).map GenRow.toAnnotated)
-        kv.fst (fs j) (ts j) φ.keeps v
+      exact specialize_exprOfGroupWhenOrd is ord
+        ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst (fs j) (ts j)
+        φ.keeps v
   | ProvSum is his t q ih =>
     intro hq
     exact hq.elim

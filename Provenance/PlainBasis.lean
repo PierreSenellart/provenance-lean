@@ -78,8 +78,8 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .Retag _ q => q.usesOnly S
   | _, _, _, .Mu _ _ _ => False
   | _, _, _, .MuSet _ _ _ => False
-  | _, _, _, .Gamma _ _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
-  | _, _, _, .GammaScalar _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
+  | _, _, _, .Gamma _ _ _ q _ _ => OpKind.gamma ∈ S ∧ q.usesOnly S
+  | _, _, _, .GammaScalar _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaNest _ _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaTok _ _ _ _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .ProvSum _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
@@ -152,8 +152,8 @@ def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, n, _, .MuSet s q₀ q₁ =>
       sch s = none ∧ q₀.overSchema (sch.update s n)
         ∧ q₁.overSchema (sch.update s n)
-  | _, _, _, .Gamma _ _ _ q _ => q.overSchema sch
-  | _, _, _, .GammaScalar _ _ q => q.overSchema sch
+  | _, _, _, .Gamma _ _ _ q _ _ => q.overSchema sch
+  | _, _, _, .GammaScalar _ _ q _ => q.overSchema sch
   | _, _, _, .GammaNest _ _ _ _ q => q.overSchema sch
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.overSchema sch
   | _, _, _, .ProvSum _ _ _ q => q.overSchema sch
@@ -244,8 +244,8 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | Retag hk q ih => intro h hq; exact ih h hq
   | Mu s q₀ q₁ ih₀ ih₁ => intro _ hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact hq.elim
-  | Gamma is ts fs q keep ih => intro h hq; exact ih h hq.2
-  | GammaScalar ts fs q ih => intro h hq; exact ih h hq.2
+  | Gamma is ts fs q keep ord ih => intro h hq; exact ih h hq.2
+  | GammaScalar ts fs q ord ih => intro h hq; exact ih h hq.2
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
   | GammaTok is his ts fs a q keep ih => intro h hq; exact ih h hq.2
   | ProvSum is his t q ih => intro h hq; exact ih h hq.2
@@ -350,12 +350,12 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D hD γ)
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain]
     rfl
@@ -553,7 +553,7 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
   | Retag hk q ih => intro hq hw; exact ih hq hw
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hq hw
     rcases ih hq.2 hw with h | h
     · refine Or.inl (fun D γ => ?_)
@@ -564,7 +564,7 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
       exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
         ((Multiset.dedup_eq_zero_iff _).mp
           ((Multiset.map_eq_zero_iff _ _).mp hc)))
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hq hw
     refine Or.inr (fun D γ _ => ?_)
     simp only [AggQueryIn.evaluatePlain]
@@ -733,8 +733,8 @@ def AggQueryIn.sizeBound : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag _ q => q.sizeBound
   | _, _, _, .Mu _ _ _ => 0
   | _, _, _, .MuSet _ _ _ => 0
-  | _, _, _, .Gamma _ _ _ q _ => q.sizeBound
-  | _, _, _, .GammaScalar _ _ _ => 1
+  | _, _, _, .Gamma _ _ _ q _ _ => q.sizeBound
+  | _, _, _, .GammaScalar _ _ _ _ => 1
   | _, _, _, .GammaNest _ _ _ _ q => q.sizeBound
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.sizeBound
   | _, _, _, .ProvSum _ _ _ q => q.sizeBound
@@ -786,13 +786,13 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
   | Retag hk q ih => intro hq D γ; exact ih hq D γ
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
       Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D γ)
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound, one_mul]
     exact Nat.succ_le_succ (Nat.zero_le _)
@@ -1028,8 +1028,8 @@ def AggQueryIn.multBound : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Retag _ q => q.multBound
   | _, _, _, .Mu _ _ _ => 0
   | _, _, _, .MuSet _ _ _ => 0
-  | _, _, _, .Gamma _ _ _ _ _ => 1
-  | _, _, _, .GammaScalar _ _ _ => 1
+  | _, _, _, .Gamma _ _ _ _ _ _ => 1
+  | _, _, _, .GammaScalar _ _ _ _ => 1
   | _, _, _, .GammaNest _ _ _ _ _ => 1
   | _, _, _, .GammaTok _ _ _ _ _ _ _ => 1
   | _, _, _, .ProvSum _ _ _ _ => 1
@@ -1088,13 +1088,13 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
   | Retag hk q ih => intro hq D hD γ u; exact ih hq D hD γ u
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
     exact Multiset.count_map_dedup_le _ _
       (fun v k => v (Fin.castAdd _ k)) (fun g => funext fun k => by
         rw [Fin.append_left]) u
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
     exact le_trans (Multiset.count_le_card u _) (le_of_eq rfl)
@@ -1781,8 +1781,8 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | Gamma is ts fs q keep ih => intro hq; exact absurd hq.1 hγ
-  | GammaScalar ts fs q ih => intro hq; exact absurd hq.1 hγ
+  | Gamma is ts fs q keep ord ih => intro hq; exact absurd hq.1 hγ
+  | GammaScalar ts fs q ord ih => intro hq; exact absurd hq.1 hγ
   | GammaNest is his p f q ih => intro hq; exact absurd hq.1 hγ
   | GammaTok is his ts fs a q keep ih => intro hq; exact absurd hq.1 hγ
   | ProvSum is his t q ih => intro hq; exact absurd hq.1 hγ

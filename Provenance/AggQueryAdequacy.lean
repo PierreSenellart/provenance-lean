@@ -235,6 +235,23 @@ theorem havingGroup_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
   · exact le_of_lt h
   · exact le_of_eq h
 
+omit [DecidableEq K] in
+/-- **The ordered reading projects to the plain ordered one**: an
+aggregation's `ORDER BY` reads the data columns, so sorting the group and
+sorting its rows agree. -/
+theorem havingGroupOrd_map_fst {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    (Having.havingGroupOrd is ord r g).map Prod.fst
+      = Relation.groupSeqOrd is ord (AnnotatedRelation.toPlain r) g := by
+  cases ord with
+  | unord => exact havingGroup_map_fst is r g
+  | byCols cols spec =>
+    show List.map (α := AnnotatedTuple T K m) Prod.fst
+        (OrderSpec.sortSeq (Tuple.key cols) Prod.fst spec
+          (Having.havingGroup is r g)) = _
+    rw [ValueFrame.sortSeq_map_fst, havingGroup_map_fst]
+    rfl
+
 /-! ## The adequacy theorem -/
 
 /-- **Data-part adequacy of the general evaluator.** Forgetting the
@@ -450,7 +467,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
         ValueFrame.windowGenRow]
       rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     -- one row on each side; the data part is the aggregate over the whole
     -- input, which is what the token collapses to
     intro hq hr d γ
@@ -465,7 +482,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       rfl
     simp only [← hview, Multiset.map_singleton]
     -- the token collapses to the aggregate over the plain group sequence
-    have hg := havingGroup_map_fst (fun k : Fin 0 => k.elim0)
+    have hg := havingGroupOrd_map_fst (fun k : Fin 0 => k.elim0) ord
       ((q.evaluate d γ).map GenRow.toAnnotated) (fun k : Fin 0 => k.elim0)
     show (Multiset.ofList [_] : Relation T n₂) = Multiset.ofList [_]
     refine congrArg (fun u => (Multiset.ofList [u] : Relation T n₂)) ?_
@@ -477,7 +494,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     -- projecting the group and then evaluating is evaluating the projection
     rw [show (Prod.fst ∘ fun p : AnnotatedTuple T K m => ((ts j).eval p.fst γ, p.snd))
           = ((fun v => (ts j).eval v γ) ∘ Prod.fst) from rfl, ← List.map_map, hg]
-  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
     intro hq hr d γ
     rw [hplain]
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
@@ -519,8 +536,8 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       show (AggValue.ofGroup (fs j) (ts j) _ γ).collapse = _
       rw [AggValue.collapse_ofGroup]
       have hg := congrArg (List.map (fun v => (ts j).eval v γ))
-        (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
-          kv.fst)
+        (havingGroupOrd_map_fst is ord
+          ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
       rw [List.map_map, hview] at hg
       exact congrArg (fs j) hg
     | some φ =>
@@ -530,8 +547,8 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       rw [AggExpr.collapse_ofGroupWhen]
       have hg := congrArg
         (fun L => (L.filter φ.keeps).map (fun v => (ts j).eval v γ))
-        (havingGroup_map_fst is ((q.evaluate d γ).map GenRow.toAnnotated)
-          kv.fst)
+        (havingGroupOrd_map_fst is ord
+          ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
       rw [hview] at hg
       exact congrArg (fs j) hg
   | @GammaNest cI m n₁ κ' is his p f q ih =>

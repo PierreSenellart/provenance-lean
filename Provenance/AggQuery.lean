@@ -556,6 +556,109 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
   | aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
   | provTerm t => Sum.inl (t.eval u γ)
 
+/-! ## An `ORDER BY` inside an aggregation
+
+SQL writes one inside the aggregate – `array_agg(x ORDER BY y)`,
+`string_agg`, the ordered-set aggregates – and a *symmetric* aggregate
+does not need it: `count` and `sum` read the same value whichever order
+their group comes in. `GroupOrder.unord` says there is no clause, and
+then the group is read in the domain's canonical order, which is what
+every aggregation of this library did before the clause existed. -/
+
+/-- **The order an aggregate reads its group in.** A clause's ties are
+broken by the row, as a window's are (`OrderSpec.readLe`), so the
+sequence is a function of the group and not of any listing of it. -/
+inductive GroupOrder (T : Type) (m : ℕ) where
+  /-- No clause: the group is read in the domain's canonical order. -/
+  | unord : GroupOrder T m
+  /-- The group is read in the clause `spec` on the columns `cols`. -/
+  | byCols {p : ℕ} (cols : Tuple (Fin m) p) (spec : OrderSpec p) :
+      GroupOrder T m
+
+/-- **The rows of a group in the order its aggregate reads them.** -/
+def Relation.groupSeqOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : Relation T m) (g : Tuple T n₁) :
+    List (Tuple T m) :=
+  match ord with
+  | .unord => Relation.groupSeq is r g
+  | .byCols cols spec =>
+      OrderSpec.sortSeq (Tuple.key cols) (id : Tuple T m → Tuple T m) spec
+        (Relation.groupSeq is r g)
+
+@[simp] theorem Relation.groupSeqOrd_unord {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (r : Relation T m) (g : Tuple T n₁) :
+    Relation.groupSeqOrd is GroupOrder.unord r g = Relation.groupSeq is r g :=
+  rfl
+
+/-- Reading a group in a clause's order is reading a listing of it: the
+rows are the same, in another order. -/
+theorem Relation.groupSeqOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : Relation T m) (g : Tuple T n₁) :
+    (Relation.groupSeqOrd is ord r g).Perm (Relation.groupSeq is r g) := by
+  cases ord with
+  | unord => exact List.Perm.refl _
+  | byCols cols spec => exact OrderSpec.sortSeq_perm _
+
+/-- **The same, cut by a `FILTER` clause** where the aggregate carries
+one: the clause cuts what the aggregate reads, and the order is the
+aggregate's own. -/
+def Relation.groupSeqOptOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : Relation T m) (g : Tuple T n₁)
+    (keep : Option (Selection T m)) : List (Tuple T m) :=
+  match keep with
+  | none => Relation.groupSeqOrd is ord r g
+  | some φ => (Relation.groupSeqOrd is ord r g).filter φ.keeps
+
+@[simp] theorem Relation.groupSeqOptOrd_unord {m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (r : Relation T m) (g : Tuple T n₁)
+    (keep : Option (Selection T m)) :
+    Relation.groupSeqOptOrd is GroupOrder.unord r g keep
+      = Relation.groupSeqOpt is r g keep := by
+  cases keep <;> rfl
+
+@[simp] theorem Relation.groupSeqOptOrd_none {m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m) (r : Relation T m)
+    (g : Tuple T n₁) :
+    Relation.groupSeqOptOrd is ord r g none = Relation.groupSeqOrd is ord r g :=
+  rfl
+
+/-- **The annotated group in the order its aggregate reads it**: the
+occurrence sequence a token is built over. The clause reads the data
+columns, so it moves no annotation between occurrences carrying
+different rows. -/
+def Having.havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    List (AnnotatedTuple T K m) :=
+  match ord with
+  | .unord => Having.havingGroup is r g
+  | .byCols cols spec =>
+      OrderSpec.sortSeq (Tuple.key cols)
+        (Prod.fst : AnnotatedTuple T K m → Tuple T m) spec
+        (Having.havingGroup is r g)
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem Having.havingGroupOrd_unord {m n₁ : ℕ}
+    (is : Tuple (Fin m) n₁) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    Having.havingGroupOrd is GroupOrder.unord r g = Having.havingGroup is r g :=
+  rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- The ordered reading is a listing of the group. -/
+theorem Having.havingGroupOrd_perm {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    (Having.havingGroupOrd is ord r g).Perm (Having.havingGroup is r g) := by
+  cases ord with
+  | unord => exact List.Perm.refl _
+  | byCols cols spec => exact OrderSpec.sortSeq_perm _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+/-- An occurrence of the group is one of its ordered reading. -/
+@[simp] theorem Having.mem_havingGroupOrd {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁)
+    (x : AnnotatedTuple T K m) :
+    x ∈ Having.havingGroupOrd is ord r g ↔ x ∈ Having.havingGroup is r g :=
+  (Having.havingGroupOrd_perm is ord r g).mem_iff
+
 /-! ## Kind-indexed queries -/
 
 /-- The all-regular kind vector. -/
@@ -747,11 +850,22 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   hypothesis about what a clause reads – the worlds it cuts are the
   occurrence's own. And it is preserved by any transport that keeps the
   data columns, which is why the rewriting can carry a clause unchanged
-  (`Selection.castToAnnotatedTuple`) with nothing to prove about it. -/
+  (`Selection.castToAnnotatedTuple`) with nothing to prove about it.
+
+  Its `ord` is the `ORDER BY` *inside* the aggregates, which SQL writes
+  as `array_agg(x ORDER BY y)`: the group is read in that clause's order
+  rather than in the domain's canonical one, and `GroupOrder.unord` – the
+  default – says there is no clause. A symmetric aggregate reads the same
+  value either way; it is for `array_agg`, `string_agg` and the
+  order-dependent picks that the clause is the aggregate's own. The
+  group's occurrence sequence, its existence factor and the rewritten
+  world's reading all follow it (`Having.havingGroupOrd`,
+  `Relation.groupSeqOrd`). -/
   | Gamma : {c m n₁ n₂ : ℕ} →
       (is : Tuple (Fin m) n₁) → (ts : Tuple (TermIn T c m) n₂) →
       (fs : Tuple (SeqAggFunc T) n₂) → AggQueryIn T c m (ColKind.allReg m) →
       (keep : Fin n₂ → Option (Selection T m) := fun _ => none) →
+      (ord : GroupOrder T m := GroupOrder.unord) →
       AggQueryIn T c (n₁ + n₂)
         (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg))
   /-- Aggregation without grouping: one output row whatever the input,
@@ -765,6 +879,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   | GammaScalar : {c m n₂ : ℕ} →
       (ts : Tuple (TermIn T c m) n₂) → (fs : Tuple (SeqAggFunc T) n₂) →
       AggQueryIn T c m (ColKind.allReg m) →
+      (ord : GroupOrder T m := GroupOrder.unord) →
       AggQueryIn T c n₂ (fun _ => ColKind.agg)
   /-- **Second-level aggregation** (`sec:aggcols`, "as values"): group by
   the key columns `is`, none of which may be an aggregate column, and
@@ -1552,13 +1667,14 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     (r₁.map (fun (u, α) =>
       (⟨u, α - (((grouped₂.val.find? (·.1 = u)).map Prod.snd).getD 0)⟩ :
         AnnotatedTuple T K _))).map GenRow.ofAnnotated
-  | _, _, _, @Gamma _ _ m n₁ n₂ is ts fs q keep, d, γ =>
+  | _, _, _, @Gamma _ _ m n₁ n₂ is ts fs q keep ord, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     -- one row per group key (the closed form is `havingSite_evaluateAnnotated`)
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
       let g : Tuple T n₁ := kv.fst
-      let U := Having.havingGroup is r g
+      -- the occurrence sequence, read in the aggregation's own order
+      let U := Having.havingGroupOrd is ord r g
       -- a filtered aggregate reads its group as an expression: the family
       -- is the whole group, so the worlds are the group's, and the clause
       -- cuts only what the aggregate reads of them. The existence guard
@@ -1569,10 +1685,12 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           | some φ =>
               AggTok.expr (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps U γ))),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, @GammaScalar _ _ m n₂ ts fs q, d, γ =>
+  | _, _, _, @GammaScalar _ _ m n₂ ts fs q ord, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
-    -- one row whatever the input; the whole of it is the occurrence sequence
-    let U := Having.havingGroup (fun k : Fin 0 => k.elim0) r (fun k : Fin 0 => k.elim0)
+    -- one row whatever the input; the whole of it is the occurrence
+    -- sequence, read in the aggregation's own order
+    let U := Having.havingGroupOrd (fun k : Fin 0 => k.elim0) ord r
+      (fun k : Fin 0 => k.elim0)
     {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j) U γ)), ⟨1, 0⟩⟩
       : GenRow T K n₂)}
   | _, _, _, @GammaNest _ _ m n₁ _κ is _his p f q, d, γ =>
@@ -1954,17 +2072,17 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
   | _, _, _, Diff q₁ q₂, d, γ =>
     let r₂ : Multiset (Tuple T _) := q₂.evaluatePlain d γ
     (q₁.evaluatePlain d γ).filter (fun t => t ∉ r₂)
-  | _, _, _, @Gamma _ _ _m n₁ n₂ is ts fs q keep, d, γ =>
+  | _, _, _, @Gamma _ _ _m n₁ n₂ is ts fs q keep ord, d, γ =>
     let r := q.evaluatePlain d γ
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g
       (fun j => (fs j)
-        ((Relation.groupSeqOpt is r g (keep j)).map
+        ((Relation.groupSeqOptOrd is ord r g (keep j)).map
           (fun v => (ts j).eval v γ))))
-  | _, _, _, @GammaScalar _ _ _m n₂ ts fs q, d, γ =>
+  | _, _, _, @GammaScalar _ _ _m n₂ ts fs q ord, d, γ =>
     let r := q.evaluatePlain d γ
     (Multiset.ofList [(fun j => (fs j)
-      ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
+      ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ))
           : Tuple T n₂)] : Relation T n₂)
   | _, _, _, @GammaNest _ _ _m n₁ _κ is _his p f q, d, γ =>
@@ -2060,7 +2178,7 @@ theorem AggQueryIn.evaluatePlain_Gamma_eq {c m n₁ n₂ : ℕ}
           ((Relation.groupSeq is (q.evaluatePlain d γ) g).map
             (fun v => (ts j).eval v γ)))) := by
   rw [AggQueryIn.evaluatePlain]
-  simp only [Relation.groupSeqOpt_none]
+  simp only [Relation.groupSeqOptOrd_none, Relation.groupSeqOrd_unord]
 
 /-- **The `Win` case of the plain evaluator, read off the relation.** -/
 theorem AggQueryIn.evaluatePlain_Win_eq {c n m p : ℕ} {κ : Fin n → ColKind}
@@ -2226,8 +2344,8 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, Alt k h q => Alt k h q.stripAgg
   | _, _, _, Mu s q₀ q₁ => Mu s q₀.stripAgg q₁.stripAgg
   | _, _, _, MuSet s q₀ q₁ => MuSet s q₀.stripAgg q₁.stripAgg
-  | _, _, _, Gamma is ts fs q keep => Gamma is ts fs q.stripAgg keep
-  | _, _, _, GammaScalar ts fs q => GammaScalar ts fs q.stripAgg
+  | _, _, _, Gamma is ts fs q keep ord => Gamma is ts fs q.stripAgg keep ord
+  | _, _, _, GammaScalar ts fs q ord => GammaScalar ts fs q.stripAgg ord
   | _, _, _, GammaNest is his p f q => GammaNest is his p f q.stripAgg
   | _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
   | _, _, _, Retag h q => Retag h q.stripAgg
@@ -2257,8 +2375,8 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.noProvSum
   | _, _, _, .Mu _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
-  | _, _, _, .Gamma _ _ _ q _ => q.noProvSum
-  | _, _, _, .GammaScalar _ _ q => q.noProvSum
+  | _, _, _, .Gamma _ _ _ q _ _ => q.noProvSum
+  | _, _, _, .GammaScalar _ _ q _ => q.noProvSum
   | _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ q => q.noProvSum
@@ -2286,8 +2404,8 @@ def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Alt _ _ _ => False
   | _, _, _, .Mu _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
   | _, _, _, .MuSet _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, .Gamma _ _ _ q _ => q.altFree
-  | _, _, _, .GammaScalar _ _ q => q.altFree
+  | _, _, _, .Gamma _ _ _ q _ _ => q.altFree
+  | _, _, _, .GammaScalar _ _ q _ => q.altFree
   | _, _, _, .GammaNest _ _ _ _ q => q.altFree
   | _, _, _, .ProvSum _ _ _ q => q.altFree
   | _, _, _, .Retag _ q => q.altFree
@@ -2523,8 +2641,8 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.noFilter
   | _, _, _, .Mu _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
   | _, _, _, .MuSet _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
-  | _, _, _, .Gamma _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
-  | _, _, _, .GammaScalar _ _ q => q.noFilter
+  | _, _, _, .Gamma _ _ _ q keep _ => (∀ j, keep j = none) ∧ q.noFilter
+  | _, _, _, .GammaScalar _ _ q _ => q.noFilter
   | _, _, _, .GammaNest _ _ _ _ q => q.noFilter
   | _, _, _, .ProvSum _ _ _ q => q.noFilter
   | _, _, _, .Retag _ q => q.noFilter
@@ -2576,8 +2694,8 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.noGammaNest
   | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
   | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
-  | _, _, _, .Gamma _ _ _ q _ => q.noGammaNest
-  | _, _, _, .GammaScalar _ _ q => q.noGammaNest
+  | _, _, _, .Gamma _ _ _ q _ _ => q.noGammaNest
+  | _, _, _, .GammaScalar _ _ q _ => q.noGammaNest
   | _, _, _, .GammaNest _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ q => q.noGammaNest
   | _, _, _, .Retag _ q => q.noGammaNest
@@ -2618,8 +2736,8 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
       (∀ (d : AnnotatedDatabase T K) γ,
           MuSetSettles (AggQueryIn.muSetStep s q₀ q₁ d γ))
         ∧ q₀.recSettles ∧ q₁.recSettles
-  | _, _, _, .Gamma _ _ _ q _ => q.recSettles
-  | _, _, _, .GammaScalar _ _ q => q.recSettles
+  | _, _, _, .Gamma _ _ _ q _ _ => q.recSettles
+  | _, _, _, .GammaScalar _ _ q _ => q.recSettles
   | _, _, _, .GammaNest _ _ _ _ q => q.recSettles
   | _, _, _, .ProvSum _ _ _ q => q.recSettles
   | _, _, _, .Retag _ q => q.recSettles
@@ -2655,8 +2773,8 @@ def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.nestInComplemented
   | _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
   | _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, .Gamma _ _ _ q _ => q.nestInComplemented
-  | _, _, _, .GammaScalar _ _ q => q.nestInComplemented
+  | _, _, _, .Gamma _ _ _ q _ _ => q.nestInComplemented
+  | _, _, _, .GammaScalar _ _ q _ => q.nestInComplemented
   | _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
   | _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
   | _, _, _, .Retag _ q => q.nestInComplemented
@@ -2684,8 +2802,8 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   | Alt k hk q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | Gamma is ts fs q keep ih => exact ih
-  | GammaScalar ts fs q ih => exact ih
+  | Gamma is ts fs q keep ord ih => exact ih
+  | GammaScalar ts fs q ord ih => exact ih
   | GammaNest is his p f q ih => exact fun h => absurd h not_false
   | ProvSum is his t q ih => exact ih
   | Retag hk q ih => exact ih
@@ -2719,8 +2837,8 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.nestOnce
   | _, _, _, .Mu _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
   | _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
-  | _, _, _, .Gamma _ _ _ q _ => q.nestOnce
-  | _, _, _, .GammaScalar _ _ q => q.nestOnce
+  | _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
+  | _, _, _, .GammaScalar _ _ q _ => q.nestOnce
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
   | _, _, _, .ProvSum _ _ _ q => q.nestOnce
   | _, _, _, .Retag _ q => q.nestOnce
@@ -2748,8 +2866,8 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | Alt a b q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | Gamma a b cc q kp ih => exact ih
-  | GammaScalar a b q ih => exact ih
+  | Gamma a b cc q kp od ih => exact ih
+  | GammaScalar a b q od ih => exact ih
   | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
@@ -2781,8 +2899,8 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.noWinExpr
   | _, _, _, .Mu _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
   | _, _, _, .MuSet _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
-  | _, _, _, .Gamma _ _ _ q _ => q.noWinExpr
-  | _, _, _, .GammaScalar _ _ q => q.noWinExpr
+  | _, _, _, .Gamma _ _ _ q _ _ => q.noWinExpr
+  | _, _, _, .GammaScalar _ _ q _ => q.noWinExpr
   | _, _, _, .GammaNest _ _ _ _ q => q.noWinExpr
   | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
   | _, _, _, .Retag _ q => q.noWinExpr
@@ -2818,8 +2936,8 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .Alt _ _ q => q.framesContainSelf
   | _, _, _, .Mu _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
   | _, _, _, .MuSet _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
-  | _, _, _, .Gamma _ _ _ q _ => q.framesContainSelf
-  | _, _, _, .GammaScalar _ _ q => q.framesContainSelf
+  | _, _, _, .Gamma _ _ _ q _ _ => q.framesContainSelf
+  | _, _, _, .GammaScalar _ _ q _ => q.framesContainSelf
   | _, _, _, .GammaNest _ _ _ _ q => q.framesContainSelf
   | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
   | _, _, _, .Retag _ q => q.framesContainSelf
@@ -2847,8 +2965,8 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Alt a b q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
-  | Gamma a b cc q kp ih => exact ih
-  | GammaScalar a b q ih => exact ih
+  | Gamma a b cc q kp od ih => exact ih
+  | GammaScalar a b q od ih => exact ih
   | GammaNest a b cc dd q ih => exact ih
   | ProvSum a b cc q ih => exact ih
   | Retag a q ih => exact ih
@@ -2979,7 +3097,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hq hn hfl d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -2989,7 +3107,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
       simp only [Fin.append_right, hfl.1 j] at ha
       rw [← Sum.inr.inj ha]
       rfl
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
@@ -3173,7 +3291,7 @@ theorem AggQueryIn.evaluate_noNested :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro hn d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -3184,7 +3302,7 @@ theorem AggQueryIn.evaluate_noNested :
       simp only [Fin.append_right] at ha
       rw [← Sum.inr.inj ha]
       cases keep j <;> rfl
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
@@ -3383,7 +3501,7 @@ theorem AggQueryIn.evaluate_conform :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
-  | Gamma is ts fs q keep ih =>
+  | Gamma is ts fs q keep ord ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
@@ -3408,7 +3526,7 @@ theorem AggQueryIn.evaluate_conform :
   | Retag h q ih =>
     intro d γ r hr k
     exact (ih d r hr k).trans (congrArg id (h k))
-  | GammaScalar ts fs q ih =>
+  | GammaScalar ts fs q ord ih =>
     -- one row, every column a token
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr

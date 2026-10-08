@@ -201,7 +201,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
     ((((q₁.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).filter
       (fun t => t ∉ r₂)).map (fun t => (fun k => Sum.inl (t k))))
-  | _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q keep, D, γ =>
+  | _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q keep ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     let keys := (r.map
@@ -211,13 +211,13 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
     -- already a selection over the composite domain
     keys.map (fun g => (fun k => Sum.inl (Fin.append g
       (fun j => (fs j)
-        ((Relation.groupSeqOpt is r g (keep j)).map
+        ((Relation.groupSeqOptOrd is ord r g (keep j)).map
           (fun v => (ts j).eval v γ))) k)))
-  | _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ ts fs q, D, γ =>
+  | _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ ts fs q ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     (Multiset.ofList [(fun j => Sum.inl ((fs j)
-      ((Relation.groupSeq (fun k : Fin 0 => k.elim0) r
+      ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ)))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
   | _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ is _his p f q, D, γ =>
@@ -306,8 +306,8 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, .Alt _ _ q => q.noGammaTok
   | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
-  | _, _, _, .Gamma _ _ _ q _ => q.noGammaTok
-  | _, _, _, .GammaScalar _ _ q => q.noGammaTok
+  | _, _, _, .Gamma _ _ _ q _ _ => q.noGammaTok
+  | _, _, _, .GammaScalar _ _ q _ => q.noGammaTok
   | _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
   | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
   | _, _, _, .Retag _ q => q.noGammaTok
@@ -330,8 +330,8 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Alt _ _ q => q.chiFree
   | _, _, _, .Mu _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, .MuSet _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
-  | _, _, _, .Gamma _ _ _ q _ => q.chiFree
-  | _, _, _, .GammaScalar _ _ q => q.chiFree
+  | _, _, _, .Gamma _ _ _ q _ _ => q.chiFree
+  | _, _, _, .GammaScalar _ _ q _ => q.chiFree
   | _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
   | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
   | _, _, _, .Retag _ q => q.chiFree
@@ -552,7 +552,7 @@ theorem AggQueryIn.evaluateRew_plain :
             Multiset.instMembership (q₂.evaluatePlain D γ) t) =>
         @Multiset.filter _ _ i (q₁.evaluatePlain D γ))
         (Subsingleton.elim _ _))
-  | @Gamma cI m n₁ n₂ is ts fs q keep ih =>
+  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
@@ -561,7 +561,7 @@ theorem AggQueryIn.evaluateRew_plain :
       @Multiset.dedup _ i (Multiset.map
         (fun u (k : Fin n₁) => u (is k)) (q.evaluatePlain D γ)))
       (Subsingleton.elim _ _)
-  | @GammaScalar cI m n₂ ts fs q ih =>
+  | @GammaScalar cI m n₂ ts fs q ord ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D γ, map_plainTuple_map_inl]
@@ -697,8 +697,8 @@ theorem AggQueryIn.rewriting_noGammaTok :
     ⟨⟨rewriting_noGammaTok q₁ hq.1,
       ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩,
      ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
@@ -728,8 +728,8 @@ theorem AggQueryIn.rewriting_noFilter :
     ⟨⟨rewriting_noFilter q₁ hq.1,
       ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩,
      ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
@@ -790,8 +790,8 @@ theorem AggQueryIn.rewriting_chiFree :
       ⟨keyJoinCond_chiFree _ _ _ _,
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨trivial, rewriting_chiFree q₂ hq.2⟩⟩⟩⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _, hq => False.elim hq
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
   | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
   | _, _, _, .Retag _ _, hq => False.elim hq
   | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq

@@ -87,8 +87,8 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
   -- different schema than the one the source query iterates
   | _, _, _, .Mu _ _ _ => False
   | _, _, _, .MuSet _ _ _ => False
-  | _, _, _, .Gamma _ _ _ _ _ => False
-  | _, _, _, .GammaScalar _ _ _ => False
+  | _, _, _, .Gamma _ _ _ _ _ _ => False
+  | _, _, _, .GammaScalar _ _ _ _ => False
   | _, _, _, .GammaNest _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ _ => False
@@ -123,8 +123,8 @@ theorem AggQueryIn.noGammaNest_of_classical :
   | _, _, _, .Alt _ _ _, hq => hq.elim
   | _, _, _, .Mu _ _ _, hq => hq.elim
   | _, _, _, .MuSet _ _ _, hq => hq.elim
-  | _, _, _, .Gamma _ _ _ _ _, hq => hq.elim
-  | _, _, _, .GammaScalar _ _ _, hq => hq.elim
+  | _, _, _, .Gamma _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, .GammaScalar _ _ _ _, hq => hq.elim
   | _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim
   | _, _, _, .ProvSum _ _ _ _, hq => hq.elim
   | _, _, _, .Retag _ _, hq => hq.elim

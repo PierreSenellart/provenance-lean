@@ -765,7 +765,7 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
       all_goals
       · intro l
         simp only [Fin.append_right, AggTok.annList_tok,
-          AggValue.annList_ofGroup]
+          AggValue.annList_ofGroup, Having.havingGroupOrd_unord]
     · rw [one_mul]
       exact toGenPred_predsem ts fs _ kv.fst ψ
 

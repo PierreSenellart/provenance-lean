@@ -437,7 +437,7 @@ theorem evaluate_GammaScalar_one {c m : ℕ} (t : TermIn T c m)
               (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
-    Matrix.cons_val_fin_one]
+    Having.havingGroupOrd_unord, Matrix.cons_val_fin_one]
 
 /-- **What a match count evaluates to**: each occurrence of the left arm,
 its annotation untouched, extended by its match token. -/

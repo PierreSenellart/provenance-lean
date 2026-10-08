@@ -774,7 +774,7 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
   simp only [AggQueryIn.evaluateRew]
   rw [← AggQueryIn.gammaRew_valid is ts fs qg hq d]
   show Multiset.map _ (AggQueryIn.evaluate (AggQueryIn.Sel _ _) d) = _
-  simp only [AggQueryIn.evaluate]
+  simp only [AggQueryIn.evaluate, Having.havingGroupOrd_unord]
   rw [ite_eq_left hφ]
   simp only [Multiset.map_map]
   refine Multiset.map_congr rfl (fun kv _ => ?_)

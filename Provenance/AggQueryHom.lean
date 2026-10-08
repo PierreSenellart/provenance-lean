@@ -580,6 +580,45 @@ theorem havingGroup_tiePerm (h : SemiringWithMonusHom K K')
       (fun hpq => hpq.elim le_of_lt le_of_eq)
 
 omit [DecidableEq K] in
+/-- **And in the order the aggregation asks for**: pushing a group
+forward and reading it in the clause's order gives a tie-block
+permutation of reading the pushed-forward group, because the clause reads
+the rows, which the pushforward keeps, and both readings are sorted by
+it. -/
+theorem havingGroupOrd_tiePerm (h : SemiringWithMonusHom K K')
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
+      ((Having.havingGroupOrd is ord r g).map
+        (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m)))
+      (Having.havingGroupOrd is ord
+        (r.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m)))
+        g) := by
+  classical
+  cases ord with
+  | unord => exact havingGroup_tiePerm h is r g
+  | byCols cols spec =>
+    have hperm : ((Having.havingGroup is r g).map
+          (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).Perm
+        (Having.havingGroup is
+          (r.map (fun p =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) := by
+      refine Multiset.coe_eq_coe.mp ?_
+      rw [← Multiset.map_coe, Having.havingGroup_coe, Having.havingGroup_coe,
+        Multiset.filter_map]
+      exact congrArg _ (Multiset.filter_congr fun p _ => Iff.rfl)
+    show TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
+      (List.map (fun p : AnnotatedTuple T K m =>
+          ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))
+        (OrderSpec.sortSeq (Tuple.key cols) Prod.fst spec
+          (Having.havingGroup is r g)))
+      (OrderSpec.sortSeq (Tuple.key cols) Prod.fst spec
+        (Having.havingGroup is (r.map (fun p =>
+          ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g))
+    rw [ValueFrame.sortSeq_mapAnn cols spec ⇑h.toRingHom]
+    exact OrderSpec.sortSeq_tiePerm hperm
+
+omit [DecidableEq K] in
 /-- The occurrence payloads of the two group tokens – base-side pushed
 forward, and hom-side – differ by a tie-block permutation on equal values:
 occurrences with equal tuple parts have equal aggregated-term values. -/
@@ -603,6 +642,32 @@ theorem ofGroup_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
     rfl
   rw [hocc₁]
   exact (havingGroup_tiePerm h is r g).map
+    (eqv' := fun p q : T × K' => p.1 = q.1)
+    (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
+    (fun hpq => congrArg (fun z => t.eval z γ) hpq)
+
+omit [DecidableEq K] in
+/-- The same, for an aggregation reading its group in a clause's order. -/
+theorem ofGroupOrd_mapAnn_tiePerm (h : SemiringWithMonusHom K K')
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    TiePerm (fun p q : T × K' => p.1 = q.1)
+      ((AggValue.ofGroup f t (Having.havingGroupOrd is ord r g) γ).mapAnn
+        ⇑h.toRingHom).occs
+      (AggValue.ofGroup f t
+        (Having.havingGroupOrd is ord
+          (r.map (fun p =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) γ).occs := by
+  have hocc₁ : ((AggValue.ofGroup f t
+        (Having.havingGroupOrd is ord r g) γ).mapAnn ⇑h.toRingHom).occs
+      = ((Having.havingGroupOrd is ord r g).map
+          (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).map
+          (fun p => (t.eval p.fst γ, p.snd)) := by
+    simp only [AggValue.ofGroup, AggValue.mapAnn, List.map_map]
+    rfl
+  rw [hocc₁]
+  exact (havingGroupOrd_tiePerm h is ord r g).map
     (eqv' := fun p q : T × K' => p.1 = q.1)
     (fun p : AnnotatedTuple T K' m => (t.eval p.fst γ, p.snd))
     (fun hpq => congrArg (fun z => t.eval z γ) hpq)
@@ -649,6 +714,24 @@ theorem havingGroup_annSum_hom (h : SemiringWithMonusHom K K')
   rw [map_list_sum h.toRingHom ((Having.havingGroup is r g).map Prod.snd),
     List.map_map]
   exact hperm.sum_eq.trans (by rw [List.map_map]; rfl)
+
+omit [DecidableEq K] in
+/-- **The group's existence factor does not read the aggregation's
+order**: it is the sum of the occurrences' annotations, and the ordered
+reading is a listing of the same occurrences. -/
+theorem havingGroupOrd_annSum_hom (h : SemiringWithMonusHom K K')
+    (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
+    (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    ((Having.havingGroupOrd is ord
+        (r.map (fun p =>
+          ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g).map
+        Prod.snd).sum
+      = h.toRingHom (((Having.havingGroupOrd is ord r g).map Prod.snd).sum) := by
+  rw [((Having.havingGroupOrd_perm is ord
+      (r.map (fun p => ((p.fst, h.toRingHom p.snd)
+        : AnnotatedTuple T K' m))) g).map Prod.snd).sum_eq,
+    ((Having.havingGroupOrd_perm is ord r g).map Prod.snd).sum_eq]
+  exact havingGroup_annSum_hom h is r g
 
 
 /-! ## The window's frame under the pushforward
@@ -1848,6 +1931,51 @@ theorem exprGroupWhen_mapAnn_equiv (h : SemiringWithMonusHom K K')
       by rw [hoccOf]; dsimp only; rw [hpq]⟩)
 
 omit [DecidableEq K] in
+/-- The same for an aggregation that reads its group in a clause's
+order: the two readings are tie-permuted (`havingGroupOrd_tiePerm`), and
+an expression's readings are blind to that. -/
+theorem exprGroupWhenOrd_mapAnn_equiv (h : SemiringWithMonusHom K K')
+    (f : SeqAggFunc T) {c : ℕ} (t : TermIn T c m) {γ : Fin c → T}
+    (keep : Tuple T m → Bool) (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : AnnotatedRelation T K m) (g : Tuple T n₁) :
+    GenValue.Equiv
+      (Sum.inr (AggTok.expr (AggExpr.ofGroupWhen f t keep
+        (Having.havingGroupOrd is ord
+          (r.map (fun p =>
+            ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g) γ))
+        : GenValue T K')
+      (Sum.inr (AggTok.expr ((AggExpr.ofGroupWhen f t keep
+        (Having.havingGroupOrd is ord r g) γ).mapAnn ⇑h.toRingHom))) := by
+  set U : List (AnnotatedTuple T K m) := Having.havingGroupOrd is ord r g
+    with hU
+  set U' : List (AnnotatedTuple T K' m) :=
+    Having.havingGroupOrd is ord
+      (r.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) g
+    with hU'
+  set occOf : AnnotatedTuple T K' m →
+      (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) :=
+    fun p => ((fun _ : Fin 1 => t.eval p.fst γ), p.snd,
+      (fun _ : Fin 1 => true), (fun _ : Fin 1 => keep p.fst)) with hoccOf
+  have hocc' : (AggExpr.ofGroupWhen f t keep U' γ).occs = U'.map occOf := rfl
+  have hoccb : ((AggExpr.ofGroupWhen f t keep U γ).mapAnn ⇑h.toRingHom).occs
+      = (U.map (fun p =>
+          ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))).map occOf := by
+    show ((AggExpr.ofGroupWhen f t keep U γ).occs.map
+        (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
+    rw [AggExpr.occs_ofGroupWhen]
+    simp only [List.map_map]
+    rfl
+  rw [AggExpr.eq_mk_of_occs hocc', AggExpr.eq_mk_of_occs hoccb]
+  refine GenValue.Equiv.of_expr_tiePerm (q := 1) _ rfl _ ?_
+  refine TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩) ?_
+  exact (havingGroupOrd_tiePerm h is ord r g).map
+    (eqv' := fun z z' : (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) =>
+      z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
+    occOf
+    (fun hpq => ⟨funext (fun _ => congrArg (fun z => t.eval z γ) hpq),
+      by rw [hoccOf]; dsimp only; rw [hpq]⟩)
+
+omit [DecidableEq K] in
 /-- **The column a filtered window builds is carried by the
 pushforward.** The frame is the same rows up to a tie-block permutation
 (`frameListOf_mapAnn_tiePerm`), the clause and the classes read the
@@ -2406,7 +2534,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     congr 1
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
-  | @GammaScalar cI mI nI₂ ts fs q ih =>
+  | @GammaScalar cI mI nI₂ ts fs q ord ih =>
     intro d γ hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2428,8 +2556,8 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
     refine Multiset.Rel.cons ?_ Multiset.Rel.zero
     refine ⟨fun k => ?_, by simp [GenAnn.finalize]⟩
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
-      (ofGroup_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0) X
-        (fun i : Fin 0 => i.elim0))⟩
+      (ofGroupOrd_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0)
+        ord X (fun i : Fin 0 => i.elim0))⟩
   | @GammaNest cI mI nI₁ κ' is his p f q ih =>
     -- one output row per key, and the keys are the columns' deterministic
     -- values, which a simulation keeps. For one key the two groups are
@@ -2520,7 +2648,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         exact map_eq_of_rel hgroup (fun r' r hs => hs.2)]
       exact (map_multiset_sum h.toRingHom _).symm
 
-  | @Gamma cI mI nI₁ nI₂ is ts fs q keep ih =>
+  | @Gamma cI mI nI₁ nI₂ is ts fs q keep ord ih =>
     intro d γ hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2580,14 +2708,15 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         cases hkj : keep j with
         | none =>
           exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
-            (ofGroup_mapAnn_tiePerm h (fs j) (ts j) is X kv.fst)⟩
+            (ofGroupOrd_mapAnn_tiePerm h (fs j) (ts j) is ord X kv.fst)⟩
         | some φ =>
           -- a filtered aggregate's column is an expression over the whole
           -- group, and the two groups are tie-permuted
-          exact exprGroupWhen_mapAnn_equiv h (fs j) (ts j) φ.keeps is X kv.fst
+          exact exprGroupWhenOrd_mapAnn_equiv h (fs j) (ts j) φ.keeps is ord X
+            kv.fst
     · dsimp only [Function.comp]
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
-        havingGroup_annSum_hom h is X kv.fst,
+        havingGroupOrd_annSum_hom h is ord X kv.fst,
         SemiringWithMonusHom.map_delta]
   | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
