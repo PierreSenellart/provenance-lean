@@ -1199,6 +1199,534 @@ theorem projWitness_unbounded_multiplicity :
   rw [count_projWitness] at hb
   omega
 
+/-! ## Generation: where one operator's plain semantics is another's
+
+The invariants above say which classes no generating set may drop. These
+are the other half of the classification: identities under which a basis
+holding one operator need not hold another, each an equivalence of plain
+semantics (`AggQueryIn.PlainEquiv`) and so blind to annotations – the
+annotated readings of the two sides of such an identity are a separate
+question, and `evaluate_winByJoin` in `Provenance.WindowPartition` is the
+one that has both.
+
+What is here: `ε` from `γ` (`dedup_plainEquiv_gamma`), the difference
+from a product with a tag aggregate (`diff_plainEquiv_notIn`), a
+selection from two differences (`sel_plainEquiv_selByDiff`), and the
+product from an apply whose right side reads no outer column
+(`apply_plainEquiv_prod`). Together they leave `{∅, Π, σ, ×, ⊎, γ}`
+generating everything but the apply and the window.
+
+Two statements of `sec:basis` are *not* here, and the gap is in the
+formalization and not in the paper. **Decorrelation** – every query is
+equivalent to one whose applies are products – the paper asserts with an
+induction sketch, so what the identities above give is the generation
+claim with the apply as a further generator. And the **window** case asks
+for an aggregation that reads its group in the clause's order, which this
+library's `γ` is not: `Relation.groupSeq` sorts a group in the domain's
+canonical order while `ValueFrame.frameListOf` reads a frame in the
+clause's (`OrderSpec.sortSeq`). The two agree for a symmetric aggregate
+(`ValueFrame.windowValue_of_perm`) and for a clause that separates
+nothing, which is the case `WindowPartition.evaluate_winByJoin` proves;
+an order-dependent window function – `first_value`, `lag`, `nth_value` –
+would need the sorted aggregation the syntax does not have. -/
+
+/-- **`ε` from `γ`**: duplicate elimination is the grouping by every
+column with no aggregate. The keys a grouping emits are the distinct rows
+of its input, and with no aggregate nothing is appended to them, so `ε`
+is in no basis that holds `γ`. -/
+theorem AggQueryIn.dedup_plainEquiv_gamma {c n : ℕ}
+    (q : AggQueryIn T c n (ColKind.allReg n)) :
+    (AggQueryIn.Dedup q).PlainEquiv
+      (AggQueryIn.Gamma (fun k : Fin n => k) (fun j : Fin 0 => j.elim0)
+        (fun j : Fin 0 => j.elim0) q) := by
+  intro D γ
+  show (q.evaluatePlain D γ).dedup
+      = Multiset.map _ (Multiset.dedup (Multiset.map _ (q.evaluatePlain D γ)))
+  rw [show (fun u : Tuple T n => (fun k => u ((fun k : Fin n => k) k)
+        : Tuple T n)) = id from rfl, Multiset.map_id]
+  refine Eq.symm (Eq.trans (Multiset.map_congr rfl (fun g _ => ?_))
+    (Multiset.map_id _))
+  exact Fin.append_nil g _
+
+/-- **A product is a decorrelated apply**: an apply whose right side
+reads no column of the left – a query of the ambient context weakened
+into the apply's, which `AggQueryIn.substMap` does – is the product. So
+`×` is in no basis that holds the apply, while the converse fails: an
+apply's right side reads the left row, and no product does. -/
+theorem AggQueryIn.apply_plainEquiv_prod {c n₁ n₂ : ℕ}
+    {κ₂ : Fin n₂ → ColKind} (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁))
+    (q₂ : AggQueryIn T c n₂ κ₂) :
+    (AggQueryIn.Apply q₁
+        (q₂.substMap (fun k : Fin c => Sum.inr (Fin.natAdd n₁ k)))).PlainEquiv
+      (AggQueryIn.Prod q₁ q₂) := by
+  intro D γ
+  show Multiset.bind (q₁.evaluatePlain D γ) (fun u =>
+      Multiset.map _ ((q₂.substMap _).evaluatePlain D (Fin.append u γ)))
+    = q₁.evaluatePlain D γ * q₂.evaluatePlain D γ
+  rw [Relation.hMul_eq_bind]
+  refine Multiset.bind_congr (fun u _ => ?_)
+  rw [AggQueryIn.evaluatePlain_substMap,
+    show substVal (fun k : Fin c => (Sum.inr (Fin.natAdd n₁ k) : T ⊕ Fin (n₁ + c)))
+        (Fin.append u γ) = γ from funext (fun k => Fin.append_right u γ k)]
+
+/-! ### The difference from a product with a tag aggregate
+
+`prop:collapse` reads the difference as SQL's `NOT IN`: a copy of a tuple
+of `q₁` survives when `q₂` holds no copy of it, and every copy survives
+or none does. The construction tags each side's rows with a constant –
+`0` on the left, `a` on the right – unites them, groups by the whole
+tuple, and reads the tags with an aggregate that detects zeros. The
+aggregate's value is `0` exactly on the tuples `q₂` does not hold, and a
+product with the keys matched keeps the copies of those tuples.
+
+What the construction asks of the aggregate is `hzero` below: it reads
+`0` on a list of zeros and nothing else. The document's `sum` has it, and
+the count-only variant of the construction – two groupings joined on
+their counts, which is what the theorem's proof uses where `sum` is not
+among the aggregates – is not formalized here. -/
+
+section Difference
+
+variable {k : ℕ}
+
+/-- The projection that tags a row with a constant: its own columns, and
+one more holding `a`. The column constructor is outside the case
+analysis, so every output column is regular by reduction. -/
+def AggQueryIn.tagCols (a : T) :
+    Tuple (ProjCol T (ColKind.allReg k)) (k + 1) :=
+  fun j => .term (Fin.lastCases (TermGIn.const a)
+    (fun i : Fin k => TermGIn.index i rfl) j)
+
+/-- **The two sides tagged and united**: every row of `q₁` with `0`,
+every row of `q₂` with `a`. -/
+def AggQueryIn.tagUnion (a : T) (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+    AggQuery T (k + 1) (ColKind.allReg (k + 1)) :=
+  .Sum (.Proj (AggQueryIn.tagCols 0) q₁) (.Proj (AggQueryIn.tagCols a) q₂)
+
+/-- **One row per distinct tuple, carrying the aggregate of the tags.** -/
+def AggQueryIn.tagAgg (a : T) (f : SeqAggFunc T)
+    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+    AggQuery T (k + 1)
+      (Fin.append (fun _ : Fin k => ColKind.reg)
+        (fun _ : Fin 1 => ColKind.agg)) :=
+  .Gamma (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last k)] ![f]
+    (AggQueryIn.tagUnion a q₁ q₂)
+
+/-- The kinds of the product the construction selects on. -/
+abbrev notInKinds (k : ℕ) : Fin (k + (k + 1)) → ColKind :=
+  Fin.append (ColKind.allReg k)
+    (Fin.append (fun _ : Fin k => ColKind.reg) (fun _ : Fin 1 => ColKind.agg))
+
+theorem notInKinds_left (k : ℕ) (i : Fin k) :
+    notInKinds k (Fin.castAdd (k + 1) i) = ColKind.reg := by
+  rw [notInKinds, Fin.append_left]
+  rfl
+
+theorem notInKinds_key (k : ℕ) (i : Fin k) :
+    notInKinds k (Fin.natAdd k (Fin.castAdd 1 i)) = ColKind.reg := by
+  rw [notInKinds, Fin.append_right, Fin.append_left]
+
+theorem notInKinds_agg (k : ℕ) :
+    notInKinds k (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) = ColKind.agg := by
+  rw [notInKinds, Fin.append_right, Fin.append_right]
+
+/-- **What the construction selects on**: the two blocks of key columns
+agree, and the tag aggregate is `0`. -/
+def AggQueryIn.notInCond : GenPred T (notInKinds k) :=
+  .and (keyJoinCond (fun i : Fin k => Fin.castAdd (k + 1) i)
+      (fun i : Fin k => Fin.natAdd k (Fin.castAdd 1 i))
+      (notInKinds_left k) (notInKinds_key k))
+    (.aggCmp (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) (notInKinds_agg k)
+      CompOp.syneq (.const 0))
+
+/-- **The difference read as a `NOT IN`**: the copies of `q₁` whose tuple
+the tag aggregate reads `0` on. -/
+def AggQueryIn.notInDiff (a : T) (f : SeqAggFunc T)
+    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+    AggQuery T k (ColKind.allReg k) :=
+  .Proj (fun i : Fin k =>
+      .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
+    (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg a f q₁ q₂)))
+
+/-- Tagging a row appends the constant to it. -/
+private theorem tagCols_eval (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
+    (AggQueryIn.tagCols (T := T) (k := k) a j).evalPlain u (fun _ => 0)
+      = (Fin.snoc u a : Tuple T (k + 1)) j := by
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [Fin.snoc_last]
+    show (ProjColIn.term (Fin.lastCases (TermGIn.const a)
+      (fun i : Fin k => TermGIn.index i rfl) (Fin.last k))).evalPlain u _ = a
+    rw [Fin.lastCases_last]
+    rfl
+  · rw [Fin.snoc_castSucc]
+    show (ProjColIn.term (Fin.lastCases (TermGIn.const a)
+      (fun i : Fin k => TermGIn.index i rfl) (Fin.castSucc i))).evalPlain u _
+        = u i
+    rw [Fin.lastCases_castSucc]
+    rfl
+
+/-- **The tagged union, row by row**: the rows of `q₁` with `0` appended
+and those of `q₂` with `a`. -/
+theorem AggQueryIn.evaluatePlain_tagUnion (a : T)
+    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) (D : Database T) :
+    (AggQueryIn.tagUnion a q₁ q₂).evaluatePlain D
+      = (q₁.evaluatePlain D).map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
+        + (q₂.evaluatePlain D).map
+            (fun u => (Fin.snoc u a : Tuple T (k + 1))) := by
+  show Multiset.map _ (q₁.evaluatePlain D)
+      + Multiset.map _ (q₂.evaluatePlain D) = _
+  exact congrArg₂ (· + ·)
+    (Multiset.map_congr rfl (fun u _ => funext (fun j => tagCols_eval 0 u j)))
+    (Multiset.map_congr rfl (fun u _ => funext (fun j => tagCols_eval a u j)))
+
+/-- **The keys the grouping emits**: the distinct tuples of the two sides
+together, the tag column being dropped by the key projection. -/
+theorem AggQueryIn.tagAgg_keys (a : T)
+    (r₁ r₂ : Multiset (Tuple T k)) :
+    ((r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
+        + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1)))).map
+      (fun v => (fun i => v (Fin.castSucc i) : Tuple T k))).dedup
+      = (r₁ + r₂).dedup := by
+  refine congrArg Multiset.dedup ?_
+  rw [Multiset.map_add, Multiset.map_map, Multiset.map_map]
+  refine congrArg₂ (· + ·) ?_ ?_
+  · exact Eq.trans (Multiset.map_congr rfl (fun u _ => funext (fun i => by
+      show (Fin.snoc u 0 : Tuple T (k + 1)) (Fin.castSucc i) = u i
+      rw [Fin.snoc_castSucc]))) (Multiset.map_id' r₁)
+  · exact Eq.trans (Multiset.map_congr rfl (fun u _ => funext (fun i => by
+      show (Fin.snoc u a : Tuple T (k + 1)) (Fin.castSucc i) = u i
+      rw [Fin.snoc_castSucc]))) (Multiset.map_id' r₂)
+
+/-- **What the tag aggregate reads on a tuple**: `0` exactly when the
+right side holds no copy of it. A copy from the left carries the tag `0`
+and one from the right carries `a`, so a zero-detecting aggregate reads
+`0` iff the group holds no copy from the right. -/
+theorem AggQueryIn.tagAgg_zero_iff (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
+    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    (r₁ r₂ : Multiset (Tuple T k)) (g : Tuple T k) :
+    f ((Relation.groupSeq (fun i : Fin k => i.castSucc)
+        (r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
+          + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1)))) g).map
+        (fun v => v (Fin.last k))) = 0
+      ↔ g ∉ r₂ := by
+  rw [hzero]
+  constructor
+  · intro h hg
+    refine ha (h a (List.mem_map.mpr ⟨Fin.snoc g a, ?_, ?_⟩))
+    · rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter]
+      refine ⟨Multiset.mem_add.mpr (Or.inr (Multiset.mem_map_of_mem _ hg)),
+        fun i => ?_⟩
+      show (Fin.snoc g a : Tuple T (k + 1)) (Fin.castSucc i) = g i
+      rw [Fin.snoc_castSucc]
+    · show (Fin.snoc g a : Tuple T (k + 1)) (Fin.last k) = a
+      rw [Fin.snoc_last]
+  · intro hg x hx
+    obtain ⟨v, hv, rfl⟩ := List.mem_map.mp hx
+    rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter] at hv
+    obtain ⟨hmem, hkey⟩ := hv
+    rcases Multiset.mem_add.mp hmem with h1 | h2
+    · obtain ⟨u, -, rfl⟩ := Multiset.mem_map.mp h1
+      show (Fin.snoc u 0 : Tuple T (k + 1)) (Fin.last k) = 0
+      rw [Fin.snoc_last]
+    · obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp h2
+      refine absurd ?_ hg
+      have hug : u = g := funext (fun i => by
+        have hi : (Fin.snoc u a : Tuple T (k + 1)) (Fin.castSucc i) = g i :=
+          hkey i
+        rwa [Fin.snoc_castSucc] at hi)
+      exact hug ▸ hu
+
+/-- Binding a one-or-no-row choice is filtering. -/
+private theorem bind_ite_singleton {α : Type} (s : Multiset α)
+    (p : α → Prop) [DecidablePred p] :
+    (s.bind (fun a => if p a then ({a} : Multiset α) else 0))
+      = s.filter p := by
+  induction s using Multiset.induction_on with
+  | empty => rfl
+  | cons a s ih => rw [Multiset.cons_bind, ih, Multiset.filter_cons]
+
+/-- **What the product with the tag aggregate keeps**: one copy of each
+copy of `r₁` whose tuple the aggregate reads `0` on. The keys are
+distinct and hold every tuple of `r₁`, so each copy of `r₁` meets
+exactly one row of the grouping. The tuple types are spelled unfolded
+here, which is what lets the rewrites through the key condition match. -/
+private theorem notIn_filter_map (r₁ : Multiset (Fin k → T))
+    (keys : Multiset (Fin k → T)) (val : (Fin k → T) → T)
+    (hnodup : keys.Nodup) (hmem : ∀ u ∈ r₁, u ∈ keys) :
+    (Multiset.filter (fun w : Fin (k + (k + 1)) → T =>
+          (∀ i : Fin k, w (Fin.castAdd (k + 1) i)
+              = w (Fin.natAdd k (Fin.castAdd 1 i)))
+            ∧ w (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) = 0)
+        (r₁.bind (fun u => (keys.map (fun g =>
+            (Fin.append g (fun _ : Fin 1 => val g) : Fin (k + 1) → T))).map
+          (fun v => (Fin.append u v : Fin (k + (k + 1)) → T))))).map
+        (fun w => (fun i => w (Fin.castAdd (k + 1) i) : Fin k → T))
+      = Multiset.filter (fun u => val u = 0) r₁ := by
+  rw [Multiset.filter_bind, Multiset.map_bind,
+    ← bind_ite_singleton r₁ (fun u => val u = 0)]
+  refine Multiset.bind_congr (fun u hu => ?_)
+  simp only [Multiset.filter_map, Multiset.map_map, Function.comp_def]
+  -- the pair's condition keeps `u` itself, and only where the aggregate
+  -- reads zero on it
+  have hiff : ∀ g : Fin k → T,
+      ((∀ i : Fin k, (Fin.append u (Fin.append g
+            (fun _ : Fin 1 => val g)) : Fin (k + (k + 1)) → T)
+              (Fin.castAdd (k + 1) i)
+          = (Fin.append u (Fin.append g (fun _ : Fin 1 => val g))
+              : Fin (k + (k + 1)) → T) (Fin.natAdd k (Fin.castAdd 1 i)))
+        ∧ (Fin.append u (Fin.append g (fun _ : Fin 1 => val g))
+            : Fin (k + (k + 1)) → T)
+              (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) = 0)
+      ↔ (g = u ∧ val u = 0) := by
+    intro g
+    constructor
+    · rintro ⟨hk, hz⟩
+      have hgu : g = u := funext (fun i => by
+        have hi := hk i
+        rw [Fin.append_left, Fin.append_right, Fin.append_left] at hi
+        exact hi.symm)
+      refine ⟨hgu, ?_⟩
+      rw [Fin.append_right, Fin.append_right] at hz
+      rw [← hgu]
+      exact hz
+    · rintro ⟨rfl, hz⟩
+      refine ⟨fun i => ?_, ?_⟩
+      · rw [Fin.append_left, Fin.append_right, Fin.append_left]
+      · rw [Fin.append_right, Fin.append_right]
+        exact hz
+  rw [Multiset.filter_congr (q := fun g : Fin k → T => g = u ∧ val u = 0)
+    (fun g _ => hiff g)]
+  by_cases hz : val u = 0
+  · rw [Multiset.filter_congr (q := fun g : Fin k → T => g = u)
+      (fun g _ => and_iff_left hz), Multiset.filter_eq',
+      Multiset.count_eq_one_of_mem hnodup (hmem u hu), Multiset.replicate_one,
+      Multiset.map_singleton, ite_eq_left hz]
+    refine congrArg (fun x => ({x} : Multiset (Fin k → T)))
+      (funext (fun i => ?_))
+    rw [Fin.append_left]
+  · rw [Multiset.filter_eq_nil.mpr (fun g _ h => hz h.2), Multiset.map_zero,
+      ite_eq_right hz]
+
+/-- **`−` from `σ`, `×`, `⊎`, `Π` and `γ`** (`prop:collapse`): the
+difference is SQL's `NOT IN`. Every copy of a tuple of `q₁` survives when
+`q₂` holds no copy of it and none survives otherwise, which is what the
+tag aggregate decides: it reads `0` exactly on the tuples `q₂` does not
+hold, and the product keeps the copies of those.
+
+The aggregate is a parameter, as it is in the paper: what the
+construction asks of it is `hzero`, that it read `0` on a list of zeros
+and on no other. The document's `sum` has it. Where the aggregates do not
+include a sum, the document's proof joins two counting groupings on their
+counts instead; that variant is not formalized here. -/
+theorem AggQueryIn.diff_plainEquiv_notIn (a : T) (ha : a ≠ 0)
+    (f : SeqAggFunc T) (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+    (AggQueryIn.Diff q₁ q₂).PlainEquiv (AggQueryIn.notInDiff a f q₁ q₂) := by
+  intro D γ
+  have hγ : γ = (fun j : Fin 0 => (0 : T)) := funext (fun j => j.elim0)
+  subst hγ
+  -- the two sides' rows, as multisets, which is what `−` reads
+  set r₁ : Multiset (Tuple T k) := q₁.evaluatePlain D with hr₁
+  set r₂ : Multiset (Tuple T k) := q₂.evaluatePlain D with hr₂
+  -- the tagged union: the rows of `q₁` with `0` and those of `q₂` with `a`
+  set tagged : Multiset (Fin (k + 1) → T) :=
+    r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
+      + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1))) with htagged
+  -- the tag of a tuple: the aggregate over the tags of its copies
+  set val : (Fin k → T) → T := fun g =>
+    f ((Relation.groupSeq (fun i : Fin k => i.castSucc) tagged g).map
+      (fun v => v (Fin.last k))) with hval
+  -- the grouping's rows: one per distinct tuple, carrying its tag
+  have hDr : (AggQueryIn.tagAgg a f q₁ q₂).evaluatePlain D
+      = ((r₁ + r₂).dedup).map (fun g =>
+          (Fin.append g (fun _ : Fin 1 => val g) : Fin (k + 1) → T)) := by
+    show Multiset.map _ (Multiset.dedup (Multiset.map _
+        ((AggQueryIn.tagUnion a q₁ q₂).evaluatePlain D))) = _
+    rw [AggQueryIn.evaluatePlain_tagUnion]
+    refine congrArg₂ Multiset.map (funext (fun g => ?_))
+      (AggQueryIn.tagAgg_keys a _ _)
+    refine congrArg (Fin.append g) (funext (fun j => ?_))
+    rw [Subsingleton.elim j 0]
+    rfl
+  -- the selection's condition, read on a row of the product
+  have hcond : ∀ w : Tuple T (k + (k + 1)),
+      (AggQueryIn.notInCond (T := T) (k := k)).holdsPlain w
+        ↔ ((∀ i : Fin k, w (Fin.castAdd (k + 1) i)
+              = w (Fin.natAdd k (Fin.castAdd 1 i)))
+            ∧ w (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) = 0) := by
+    intro w
+    rw [AggQueryIn.notInCond, GenPredIn.holdsPlain_and, keyJoinCond_holdsPlain]
+    refine and_congr Iff.rfl ?_
+    show CompOp.syneq.eval3 (w (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))))
+        ((TermGIn.const (0 : T)).evalPlain w (fun _ => 0)) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff]
+    exact Iff.rfl
+  show Multiset.filter (fun t => t ∉ r₂) r₁ = _
+  show _ = Multiset.map _ (Multiset.filter
+      (fun w => (AggQueryIn.notInCond (T := T) (k := k)).holdsPlain w)
+      (q₁.evaluatePlain D * (AggQueryIn.tagAgg a f q₁ q₂).evaluatePlain D))
+  rw [hDr, Multiset.filter_congr (fun w _ => hcond w), Relation.hMul_eq_bind]
+  refine Eq.symm (Eq.trans (notIn_filter_map r₁ ((r₁ + r₂).dedup) val
+    (Multiset.nodup_dedup _)
+    (fun u hu => Multiset.mem_dedup.mpr (Multiset.mem_add.mpr (Or.inl hu)))) ?_)
+  refine Multiset.filter_congr (fun u _ => ?_)
+  rw [hval]
+  exact AggQueryIn.tagAgg_zero_iff a ha f hzero _ _ u
+
+/-! ### A selection from the difference
+
+The other direction of the swap, which `sec:basis` states right after
+`prop:collapse`: where the comparisons are among the terms, a selection
+is a difference. Tag every row with the truth value of the predicate as a
+*value* – which is what a `CASE` expression over the comparisons gives –
+and tag every row with the constant that reads *true*. A row of the first
+is missing from the second exactly where the predicate fails, so removing
+that difference from the first leaves the rows the selection keeps.
+
+The term is a parameter here, with `hterm` saying that it reads `yes` on
+the rows the predicate keeps and nothing else. Building it from the
+predicate is the syntactic half of the statement, and is what "Ω contains
+the comparisons" asks for. -/
+
+section SelFromDiff
+
+variable {k : ℕ}
+
+/-- The projection that tags a row with the value of a term. -/
+def AggQueryIn.tagTermCols (t : TermGIn T 0 (ColKind.allReg k)) :
+    Tuple (ProjCol T (ColKind.allReg k)) (k + 1) :=
+  fun j => .term (Fin.lastCases t (fun i : Fin k => TermGIn.index i rfl) j)
+
+/-- The projection that drops a tag column. -/
+def AggQueryIn.dropTag : Tuple (ProjCol T (ColKind.allReg (k + 1))) k :=
+  fun i => .term (TermGIn.index i.castSucc rfl)
+
+/-- **A selection written with a difference**: the rows tagged `yes`,
+read as what is left of the tagged rows after removing those that the
+constant tagging does not hold. -/
+def AggQueryIn.selByDiff (yes : T) (t : TermGIn T 0 (ColKind.allReg k))
+    (q : AggQuery T k (ColKind.allReg k)) : AggQuery T k (ColKind.allReg k) :=
+  .Proj AggQueryIn.dropTag
+    (.Diff (.Proj (AggQueryIn.tagTermCols t) q)
+      (.Diff (.Proj (AggQueryIn.tagTermCols t) q)
+        (.Proj (AggQueryIn.tagTermCols (TermGIn.const yes)) q)))
+
+/-- Tagging a row with a term appends the term's value to it. -/
+private theorem tagTermCols_eval (t : TermGIn T 0 (ColKind.allReg k))
+    (u : Tuple T k) (j : Fin (k + 1)) :
+    (AggQueryIn.tagTermCols t j).evalPlain u (fun _ => 0)
+      = (Fin.snoc u (t.evalPlain u (fun _ => 0)) : Tuple T (k + 1)) j := by
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [Fin.snoc_last]
+    show (ProjColIn.term (Fin.lastCases t
+      (fun i : Fin k => TermGIn.index i rfl) (Fin.last k))).evalPlain u _
+        = t.evalPlain u (fun _ => 0)
+    rw [Fin.lastCases_last]
+    rfl
+  · rw [Fin.snoc_castSucc]
+    show (ProjColIn.term (Fin.lastCases t
+      (fun i : Fin k => TermGIn.index i rfl) (Fin.castSucc i))).evalPlain u _
+        = u i
+    rw [Fin.lastCases_castSucc]
+    rfl
+
+/-- The row map a tagging projection computes. -/
+private theorem tagTermCols_fun (t : TermGIn T 0 (ColKind.allReg k)) :
+    (fun (u : Tuple T k) (j : Fin (k + 1)) =>
+        (AggQueryIn.tagTermCols t j).evalPlain u (fun _ => 0))
+      = fun u => (Fin.snoc u (t.evalPlain u (fun _ => 0))
+          : Tuple T (k + 1)) :=
+  funext (fun u => funext (fun j => tagTermCols_eval t u j))
+
+/-- A constant term reads its constant. -/
+private theorem evalPlain_const (a : T) (u : Tuple T k) :
+    (TermGIn.const (c := 0) (κ := ColKind.allReg k) a).evalPlain u
+        (fun _ => 0) = a := rfl
+
+/-- The row map that drops a tag column. -/
+private theorem dropTag_fun :
+    (fun (w : Tuple T (k + 1)) (i : Fin k) =>
+        (AggQueryIn.dropTag (T := T) (k := k) i).evalPlain w (fun _ => 0))
+      = fun w => (fun i => w (Fin.castSucc i) : Tuple T k) := rfl
+
+/-- **`σ` from `−`** (the swap of `sec:basis`): a selection whose
+predicate is read by a term is the difference of the tagged rows with
+what the constant tagging leaves out. -/
+theorem AggQueryIn.sel_plainEquiv_selByDiff (yes : T)
+    (t : TermGIn T 0 (ColKind.allReg k)) (φ : GenPred T (ColKind.allReg k))
+    (hterm : ∀ u : Tuple T k,
+      t.evalPlain u (fun _ => 0) = yes ↔ φ.holdsPlain u)
+    (q : AggQuery T k (ColKind.allReg k)) :
+    (AggQueryIn.Sel φ q).PlainEquiv (AggQueryIn.selByDiff yes t q) := by
+  intro D γ
+  have hγ : γ = (fun j : Fin 0 => (0 : T)) := funext (fun j => j.elim0)
+  subst hγ
+  simp only [AggQueryIn.selByDiff, AggQueryIn.evaluatePlain, tagTermCols_fun,
+    dropTag_fun, evalPlain_const]
+  set r : Multiset (Tuple T k) := q.evaluatePlain D with hr
+  set tag : Tuple T k → T := fun u => t.evalPlain u (fun _ => 0) with htag
+  set tagged : Multiset (Tuple T (k + 1)) :=
+    r.map (fun u => (Fin.snoc u (tag u) : Tuple T (k + 1))) with htagged
+  set allYes : Multiset (Tuple T (k + 1)) :=
+    r.map (fun u => (Fin.snoc u yes : Tuple T (k + 1))) with hallYes
+  -- a tagged row is one of the constant-tagged ones exactly when its tag
+  -- reads `yes`
+  have hmemYes : ∀ u ∈ r,
+      ((Fin.snoc u (tag u) : Tuple T (k + 1)) ∈ allYes ↔ tag u = yes) := by
+    intro u hu
+    constructor
+    · intro hmem
+      obtain ⟨v, -, hv⟩ := Multiset.mem_map.mp hmem
+      have hlast := congrFun hv (Fin.last k)
+      simp only [Fin.snoc_last] at hlast
+      exact hlast.symm
+    · intro hy
+      rw [hy]
+      exact Multiset.mem_map_of_mem _ hu
+  -- the inner difference: the tagged rows whose tag does not read `yes`
+  have hinner : Multiset.filter (fun w => w ∉ allYes) tagged
+      = (Multiset.filter (fun u => ¬ tag u = yes) r).map
+          (fun u => (Fin.snoc u (tag u) : Tuple T (k + 1))) := by
+    rw [htagged, Multiset.filter_map]
+    exact congrArg _ (Multiset.filter_congr (fun u hu =>
+      not_congr (hmemYes u hu)))
+  -- and the outer one keeps exactly the rows whose tag reads `yes`
+  have houter : Multiset.filter (fun w => w ∉
+        (Multiset.filter (fun u => ¬ tag u = yes) r).map
+          (fun u => (Fin.snoc u (tag u) : Tuple T (k + 1)))) tagged
+      = (Multiset.filter (fun u => tag u = yes) r).map
+          (fun u => (Fin.snoc u (tag u) : Tuple T (k + 1))) := by
+    rw [htagged, Multiset.filter_map]
+    refine congrArg _ (Multiset.filter_congr (fun u hu => ?_))
+    constructor
+    · intro hnot
+      by_contra hy
+      exact hnot (Multiset.mem_map_of_mem _ (Multiset.mem_filter.mpr ⟨hu, hy⟩))
+    · intro hy hmem
+      obtain ⟨v, hv, hveq⟩ := Multiset.mem_map.mp hmem
+      have hlast := congrFun hveq (Fin.last k)
+      simp only [Fin.snoc_last] at hlast
+      exact (Multiset.mem_filter.mp hv).2 (hlast.trans hy)
+  -- the two differences, composed, keep the tagged rows the predicate keeps
+  refine Eq.trans ?_ (congrArg
+    (Multiset.map (fun (w : Tuple T (k + 1)) (i : Fin k) => w (Fin.castSucc i)))
+    (Eq.trans (congrArg (fun M => Multiset.filter (fun x => x ∉ M) tagged)
+      hinner) houter)).symm
+  rw [Multiset.map_map]
+  refine Eq.trans (Multiset.filter_congr (fun u _ => (hterm u).symm))
+    (Eq.symm (Eq.trans (Multiset.map_congr rfl (fun u _ => ?_))
+      (Multiset.map_id _)))
+  show (fun i => (Fin.snoc u (tag u) : Tuple T (k + 1)) (Fin.castSucc i)) = u
+  exact funext (fun i => by rw [Fin.snoc_castSucc])
+
+end SelFromDiff
+
+end Difference
+
+
+
+
+
 /-! ## Aggregation: the one operator that makes a row from nothing -/
 
 /-- **Without `γ`, the empty instance has an empty answer.** Every other

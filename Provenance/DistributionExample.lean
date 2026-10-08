@@ -141,7 +141,8 @@ one distinct order value before `30`. That is the whole difference
 between the two, and it is why `drank` counts values and `rank` counts
 rows. -/
 theorem rank_peers :
-    ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+    ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base
+      (winReadsReg_allReg _ _ _)).evaluatePlain
         D4).map (fun u => (u 0, u 1))
       = (([(10, 1), (10, 1), (30, 3)] : List (ℕ × ℕ)) : Multiset _) := by
   rw [AggQueryIn.evaluatePlain_rank]
@@ -149,14 +150,16 @@ theorem rank_peers :
 
 theorem denseRank_peers :
     ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord
-        base).evaluatePlain D4).map (fun u => (u 0, u 1))
+        base
+      (winReadsReg_allReg _ _ _)).evaluatePlain D4).map (fun u => (u 0, u 1))
       = (([(10, 1), (10, 1), (30, 2)] : List (ℕ × ℕ)) : Multiset _) := by
   rw [AggQueryIn.evaluatePlain_denseRank]
   decide
 
 /-! And on three distinct values the two agree, at `1, 2, 3`. -/
 theorem rank_distinct :
-    ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base).evaluatePlain
+    ((AggQueryIn.rank SeqAggFunc.count noP ![0] ord base
+      (winReadsReg_allReg _ _ _)).evaluatePlain
         D3).map (fun u => (u 0, u 1))
       = (([(10, 1), (20, 2), (30, 3)] : List (ℕ × ℕ)) : Multiset _) := by
   rw [AggQueryIn.evaluatePlain_rank]
@@ -164,7 +167,8 @@ theorem rank_distinct :
 
 theorem denseRank_distinct :
     ((AggQueryIn.denseRank SeqAggFunc.count noP ![0] ord
-        base).evaluatePlain D3).map (fun u => (u 0, u 1))
+        base
+      (winReadsReg_allReg _ _ _)).evaluatePlain D3).map (fun u => (u 0, u 1))
       = (([(10, 1), (20, 2), (30, 3)] : List (ℕ × ℕ)) : Multiset _) := by
   rw [AggQueryIn.evaluatePlain_denseRank]
   decide

@@ -676,54 +676,84 @@ section Ranks
 
 variable [ValueType T] {n m p : ℕ}
 
+/-- **The projection column that carries an input column through**: a
+regular column as a term, an aggregate column as its token, a
+provenance column as its provenance term – so the output column has the
+kind the input column has. A projection over a window keeps every column
+of its input this way, aggregate columns included, which is what a
+second window of one `SELECT` needs. -/
+def carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) : ProjCol T κ :=
+  match h : κ k with
+  | ColKind.reg => .term (TermGIn.index k h)
+  | ColKind.agg => .token k h
+  | ColKind.prov => .provTerm (TermGIn.provIndex k h)
+
+omit [ValueType T] in
+@[simp] theorem carryCol_kind {n : ℕ} (κ : Fin n → ColKind) (k : Fin n) :
+    (carryCol (T := T) κ k).kind = κ k := by
+  unfold carryCol
+  split
+  · next h => exact h.symm
+  · next h => exact h.symm
+  · next h => exact h.symm
+
+/-- Carrying a column through reads its value, whichever kind it has. -/
+@[simp] theorem evalPlain_carryCol {n : ℕ} (κ : Fin n → ColKind) (k : Fin n)
+    (u : Tuple T n) (γ : Fin 0 → T) :
+    (carryCol κ k).evalPlain u γ = u k := by
+  unfold carryCol
+  split <;> rfl
+
 /-- The projection that keeps a window's input columns and reads its
 added column through `gf`. -/
-def overWindow (n : ℕ) (gf : T → T) :
-    Tuple (ProjCol T (Fin.snoc (ColKind.allReg n) ColKind.agg)) (n + 1) :=
-  Fin.snoc (fun i => .term (TermGIn.index i.castSucc (by simp [ColKind.allReg])))
+def overWindow {n : ℕ} (κ : Fin n → ColKind) (gf : T → T) :
+    Tuple (ProjCol T (Fin.snoc κ ColKind.agg)) (n + 1) :=
+  Fin.snoc (fun i => carryCol _ i.castSucc)
     (.aggTerm (Fin.last n) (by simp) gf)
 
 omit [ValueType T] in
-@[simp] theorem overWindow_kind (n : ℕ) (gf : T → T) (j : Fin (n + 1)) :
-    (overWindow n gf j).kind
-      = (Fin.snoc (ColKind.allReg n) ColKind.agg : Fin (n + 1) → ColKind) j
-        := by
+@[simp] theorem overWindow_kind {n : ℕ} (κ : Fin n → ColKind) (gf : T → T)
+    (j : Fin (n + 1)) :
+    (overWindow (T := T) κ gf j).kind
+      = (Fin.snoc κ ColKind.agg : Fin (n + 1) → ColKind) j := by
   refine Fin.lastCases ?_ (fun i => ?_) j
   · rw [overWindow, Fin.snoc_last, Fin.snoc_last]
     rfl
-  · rw [overWindow, Fin.snoc_castSucc, Fin.snoc_castSucc]
-    rfl
+  · rw [overWindow, Fin.snoc_castSucc, carryCol_kind]
 
 /-- **`rank()`**: one plus the count of the rows the clause sorts
 strictly before the current row's peers. `cnt` is the counting
 aggregate, read over the constant term – SQL's `COUNT(*)`. -/
 def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (q : AggQuery T n (ColKind.allReg n)) :
-    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  (Proj (overWindow n (fun x => 1 + x))
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {κ : Fin n → ColKind}
+    (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) :
+    AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
+  (Proj (overWindow κ (fun x => 1 + x))
     (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
-      (winReadsReg_allReg P O _))).castKind
-      (funext (overWindow_kind n _))
+      hrr)).castKind (funext (overWindow_kind κ _))
 
 /-- **What a rank computes over plain relations**: each row of the input,
 extended by one plus the count over the rows the clause sorts strictly
 before its peers. -/
 theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
-    (rank cnt P O o q).evaluatePlain D
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) (D : Database T) :
+    (rank cnt P O o q hrr).evaluatePlain D
       = (q.evaluatePlain D).map (fun u =>
           (Fin.snoc u (1 + ValueFrame.windowValue P O o
               (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
-              (q.evaluatePlain D) u)
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u))
             : Tuple T (n + 1))) := by
   rw [rank, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain,
     AggQueryIn.evaluatePlain_Win_eq, Multiset.map_map]
   refine Multiset.map_congr rfl (fun u _ => ?_)
   funext j
-  refine Fin.lastCases ?_ (fun i => ?_) j <;>
-    simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · simp [overWindow, ProjColIn.evalPlain]
+  · simp [overWindow]
 
 /-- **`dense_rank()`**: one plus the count of the *distinct order values*
 the clause sorts strictly before the current row's peers. A dense rank
@@ -734,32 +764,37 @@ the column's, which is what `Win`'s distinct reading merges by
 is the whole key, which the value domain does not have – `TermIn` builds
 no tuple – so this is the one-column case and not the general one. -/
 def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) 1) (o : OrderSpec 1)
-    (q : AggQuery T n (ColKind.allReg n)) :
-    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  (Proj (overWindow n (fun x => 1 + x))
+    (O : Tuple (Fin n) 1) (o : OrderSpec 1) {κ : Fin n → ColKind}
+    (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0))) :
+    AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
+  (Proj (overWindow κ (fun x => 1 + x))
     (Win P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
-      (winReadsReg_allReg P O _) true)).castKind (funext (overWindow_kind n _))
+      hrr true)).castKind (funext (overWindow_kind κ _))
 
 /-- **What a dense rank computes over plain relations**: one plus the
 distinct count of the order column over the rows sorted strictly before
 the current row's peers. -/
 theorem evaluatePlain_denseRank [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) 1) (o : OrderSpec 1)
-    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
-    (denseRank cnt P O o q).evaluatePlain D
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0)))
+    (D : Database T) :
+    (denseRank cnt P O o q hrr).evaluatePlain D
       = (q.evaluatePlain D).map (fun u =>
           (Fin.snoc u (1 + ValueFrame.windowValue P O o
               (ValueFrame.rangeBefore o)
               (TermIn.index (c := 0) (O 0)) cnt.distinct
-              (q.evaluatePlain D) u)
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u))
             : Tuple T (n + 1))) := by
   rw [denseRank, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain,
     AggQueryIn.evaluatePlain_Win_eq, Multiset.map_map]
   refine Multiset.map_congr rfl (fun u _ => ?_)
   funext j
-  refine Fin.lastCases ?_ (fun i => ?_) j <;>
-    simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · simp [overWindow, ProjColIn.evalPlain]
+  · simp [overWindow]
 
 /-! ### The distribution functions
 
@@ -887,15 +922,22 @@ section Truncation
 
 variable [ValueType T] {n m p : ℕ}
 
-/-- The projection that drops the rank column a truncation filters on. -/
-def dropRank (n : ℕ) :
-    Tuple (ProjCol T (Fin.snoc (ColKind.allReg n) ColKind.agg)) n :=
-  fun i => .term (TermGIn.index i.castSucc (by simp [ColKind.allReg]))
+/-- The projection that drops the rank column a truncation filters on,
+carrying every other column of the input through – an aggregate column of
+the input, such as an earlier window's, included (`carryCol`). -/
+def dropRank {n : ℕ} (κ : Fin n → ColKind) :
+    Tuple (ProjCol T (Fin.snoc κ ColKind.agg)) n :=
+  fun i => carryCol _ i.castSucc
+
+omit [ValueType T] in
+@[simp] theorem dropRank_kind {n : ℕ} (κ : Fin n → ColKind) (i : Fin n) :
+    (dropRank (T := T) κ i).kind = κ i := by
+  rw [dropRank, carryCol_kind, Fin.snoc_castSucc]
 
 /-- The range of ranks a truncation keeps: more than `lo` rows ranked
 strictly before the row's peers, and at most `hi`. -/
-def rankRange (n : ℕ) (lo hi : T) :
-    GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+def rankRange {n : ℕ} (κ : Fin n → ColKind) (lo hi : T) :
+    GenPred T (Fin.snoc κ ColKind.agg) :=
   .aggRange (Fin.last n) (by simp) CompOp.gt (.const lo) CompOp.le (.const hi)
 
 /-- **The range a truncation filters on is one atom**, so its predicate
@@ -905,10 +947,11 @@ hypothesis on the m-semiring. Written as a conjunction of two atoms it
 would instead be the product of two sums, which is that sum only where
 `AggValue.predProvOf_mul_predProvOf` applies. -/
 theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
-    [DecidableEq K] [HasAltLinearOrder K] (n : ℕ) (lo hi : T)
+    [DecidableEq K] [HasAltLinearOrder K] {n : ℕ} (κ : Fin n → ColKind)
+    (lo hi : T)
     (u : Tuple (GenValue T K) (n + 1)) (a : AggValue T K)
     (hu : u (Fin.last n) = Sum.inr (AggTok.tok a)) :
-    (rankRange n lo hi).predsem false u
+    (rankRange κ lo hi).predsem false u
       = a.predProvOfWith (fun v =>
           (CompOp.gt.eval3 v lo).and (CompOp.le.eval3 v hi)) := by
   show (match u (Fin.last n) with
@@ -920,32 +963,37 @@ theorem predsem_rankRange {K : Type} [CommSemiringWithMonus K]
 /-- **Truncation** `λ^{P,O}_{m,c}`. -/
 def truncate [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
-    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
-  Proj (dropRank n) (Sel (rankRange n lo hi) (rank cnt P O o q))
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1)) :
+    AggQuery T n κ :=
+  (Proj (dropRank κ)
+    (Sel (rankRange κ lo hi) (rank cnt P O o q hrr))).castKind
+      (funext (dropRank_kind κ))
 
 theorem evaluatePlain_truncate [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
-    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
-    (truncate cnt P O o lo hi q).evaluatePlain D
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
+    (D : Database T) :
+    (truncate cnt P O o lo hi q hrr).evaluatePlain D
       = (q.evaluatePlain D).filter (fun u =>
-          (rankRange n lo hi).holdsPlain
+          (rankRange κ lo hi).holdsPlain
             (Fin.snoc u (1 + ValueFrame.windowValue P O o
               (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
-              (q.evaluatePlain D) u))) := by
-  rw [truncate, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain,
-    evaluatePlain_rank]
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u)))) := by
+  rw [truncate, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain,
+    AggQueryIn.evaluatePlain, evaluatePlain_rank]
   rw [Multiset.filter_map, Multiset.map_map]
   simp only [Function.comp_def]
   refine Eq.trans (Multiset.map_congr rfl (fun u _ => ?_)) (Multiset.map_id' _)
   funext j
-  show ProjColIn.evalPlain (dropRank n j) _ = _
-  rw [dropRank]
-  show (Fin.snoc u _ : Tuple T (n + 1)) j.castSucc = _
-  rw [Fin.snoc_castSucc]
+  show ProjColIn.evalPlain (dropRank κ j) _ = _
+  rw [dropRank, evalPlain_carryCol, Fin.snoc_castSucc]
 
-theorem holdsPlain_rankRange [NoNulls T] (n : ℕ) (lo hi : T)
-    (u : Tuple T (n + 1)) :
-    (rankRange n lo hi).holdsPlain u
+theorem holdsPlain_rankRange [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
+    (lo hi : T) (u : Tuple T (n + 1)) :
+    (rankRange κ lo hi).holdsPlain u
       ↔ (lo < u (Fin.last n)) ∧ (u (Fin.last n) ≤ hi) := by
   show ((CompOp.gt.eval3 (u (Fin.last n)) lo).and
       (CompOp.le.eval3 (u (Fin.last n)) hi) = Kleene.true) ↔ _
@@ -957,13 +1005,19 @@ theorem holdsPlain_rankRange [NoNulls T] (n : ℕ) (lo hi : T)
 least `lo` and at most `hi` rows ranked strictly before their peers. -/
 theorem evaluatePlain_truncate_noNulls [NoNulls T] [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo hi : T)
-    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
-    (truncate cnt P O o lo hi q).evaluatePlain D
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
+    (D : Database T) :
+    (truncate cnt P O o lo hi q hrr).evaluatePlain D
       = (q.evaluatePlain D).filter (fun u =>
           (lo < 1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
-              (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u)
+              (TermIn.const (c := 0) (1 : T)) cnt
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u))
             ∧ (1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
-              (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u ≤ hi)) := by
+              (TermIn.const (c := 0) (1 : T)) cnt
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u) ≤ hi)) := by
   rw [evaluatePlain_truncate]
   refine Multiset.filter_congr (fun u _ => ?_)
   rw [holdsPlain_rankRange, Fin.snoc_last]
@@ -971,47 +1025,55 @@ theorem evaluatePlain_truncate_noNulls [NoNulls T] [One T] (cnt : SeqAggFunc T)
 /-- The lower half of the range: at least `lo` rows ranked strictly
 before the row's peers. It is what an infinite count asks for – SQL's
 `OFFSET` with no `LIMIT`. -/
-def rankFrom (n : ℕ) (lo : T) :
-    GenPred T (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+def rankFrom {n : ℕ} (κ : Fin n → ColKind) (lo : T) :
+    GenPred T (Fin.snoc κ ColKind.agg) :=
   .aggCmp (Fin.last n) (by simp) CompOp.gt (.const lo)
 
 /-- **`SELECT DISTINCT ON (P) … ORDER BY P, O`**: one row per partition,
 the first in the clause's order, which is the truncation
 `λ^{P,O}_{0,1}` – and, with peers, the rows tied with it. -/
 def distinctOn [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
-  truncate cnt P O o 0 1 q
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {κ : Fin n → ColKind}
+    (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1)) :
+    AggQuery T n κ :=
+  truncate cnt P O o 0 1 q hrr
 
 /-- **Truncation with an infinite count**, `λ^{P,O}_{m,∞}`. -/
 def truncateFrom [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (lo : T)
-    (q : AggQuery T n (ColKind.allReg n)) : AggQuery T n (ColKind.allReg n) :=
-  Proj (dropRank n) (Sel (rankFrom n lo) (rank cnt P O o q))
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1)) :
+    AggQuery T n κ :=
+  (Proj (dropRank κ)
+    (Sel (rankFrom κ lo) (rank cnt P O o q hrr))).castKind
+      (funext (dropRank_kind κ))
 
 theorem evaluatePlain_truncateFrom [One T] (cnt : SeqAggFunc T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (lo : T)
-    (q : AggQuery T n (ColKind.allReg n)) (D : Database T) :
-    (truncateFrom cnt P O o lo q).evaluatePlain D
+    {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
+    (D : Database T) :
+    (truncateFrom cnt P O o lo q hrr).evaluatePlain D
       = (q.evaluatePlain D).filter (fun u =>
-          (rankFrom n lo).holdsPlain
+          (rankFrom κ lo).holdsPlain
             (Fin.snoc u (1 + ValueFrame.windowValue P O o
               (ValueFrame.rangeBefore o) (TermIn.const (c := 0) 1) cnt
-              (q.evaluatePlain D) u))) := by
-  rw [truncateFrom, AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain,
-    evaluatePlain_rank]
+              ((q.evaluatePlain D).map (ColKind.readTuple κ))
+              (ColKind.readTuple κ u)))) := by
+  rw [truncateFrom, AggQueryIn.evaluatePlain_castKind,
+    AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain, evaluatePlain_rank]
   rw [Multiset.filter_map, Multiset.map_map]
   simp only [Function.comp_def]
   refine Eq.trans (Multiset.map_congr rfl (fun u _ => ?_)) (Multiset.map_id' _)
   funext j
-  show ProjColIn.evalPlain (dropRank n j) _ = _
-  rw [dropRank]
-  show (Fin.snoc u _ : Tuple T (n + 1)) j.castSucc = _
-  rw [Fin.snoc_castSucc]
+  show ProjColIn.evalPlain (dropRank κ j) _ = _
+  rw [dropRank, evalPlain_carryCol, Fin.snoc_castSucc]
 
-theorem holdsPlain_rankFrom [NoNulls T] (n : ℕ) (lo : T)
+theorem holdsPlain_rankFrom [NoNulls T] {n : ℕ} (κ : Fin n → ColKind)
+    (lo : T)
     (u : Tuple T (n + 1)) :
-    (rankFrom n lo).holdsPlain u ↔ (lo < u (Fin.last n)) := by
+    (rankFrom κ lo).holdsPlain u ↔ (lo < u (Fin.last n)) := by
   show (CompOp.gt.eval3 (u (Fin.last n)) lo = Kleene.true) ↔ _
   rw [CompOp.eval3_eq_true_iff_noNulls]
   exact Iff.rfl
@@ -1019,12 +1081,15 @@ theorem holdsPlain_rankFrom [NoNulls T] (n : ℕ) (lo : T)
 /-- **What an offset with no limit keeps over plain relations.** -/
 theorem evaluatePlain_truncateFrom_noNulls [NoNulls T] [One T]
     (cnt : SeqAggFunc T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (lo : T) (q : AggQuery T n (ColKind.allReg n))
+    (o : OrderSpec p) (lo : T) {κ : Fin n → ColKind} (q : AggQuery T n κ)
+    (hrr : WinReadsReg κ P O (TermIn.const (T := T) (c := 0) 1))
     (D : Database T) :
-    (truncateFrom cnt P O o lo q).evaluatePlain D
+    (truncateFrom cnt P O o lo q hrr).evaluatePlain D
       = (q.evaluatePlain D).filter (fun u =>
           (lo < 1 + ValueFrame.windowValue P O o (ValueFrame.rangeBefore o)
-            (TermIn.const (c := 0) (1 : T)) cnt (q.evaluatePlain D) u)) := by
+            (TermIn.const (c := 0) (1 : T)) cnt
+            ((q.evaluatePlain D).map (ColKind.readTuple κ))
+            (ColKind.readTuple κ u))) := by
   rw [evaluatePlain_truncateFrom]
   refine Multiset.filter_congr (fun u _ => ?_)
   rw [holdsPlain_rankFrom, Fin.snoc_last]

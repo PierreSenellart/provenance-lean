@@ -20,22 +20,18 @@ fit.
 **What is checked.** `q1_data` gives the six candidate rows; `q1_ann` and
 `q2_ann` give their annotations as Boolean functions of the six tokens,
 compared against ProvSQL's `sr_boolexpr` at all `64` valuations; and
-`world_all`, `world_noA1`, `world_noB1` give the two window values on
-each row in three worlds, by evaluating the windows plainly on that
-world's instance.
+`world_all`, `world_noA1`, `world_noB1` give the rows the query returns
+in three worlds – both window columns and the `LIMIT` – by evaluating it
+plainly on that world's instance.
+
+**The shape is the query's own.** The two window columns are two windows
+stacked over the join, the second carrying the first one's column
+through, and the `ORDER BY … LIMIT 3` sits above both, which is where
+SQL evaluates it: a window reads its whole partition and not the
+truncated relation.
 
 **What had to be encoded differently, and why.**
 
-* The two window columns are **two queries** here. `AggQueryIn.Win` takes
-  an all-regular input, so a second window column cannot be added to a
-  relation that already holds one: `rank() OVER …, avg(…) OVER …` in one
-  `SELECT` is not in this syntax. Each window is read separately over the
-  join.
-* The `LIMIT` is taken **on the join**, before the windows, for the same
-  reason: a truncation ranks its input, and the input of a rank is
-  all-regular. It keeps the same rows here, the order reading only
-  regular columns, and in the three worlds below the partitions it leaves
-  are the ones SQL's windows read.
 * The query is spelled in the core syntax rather than through
   `AggQueryIn.leftOuter` and `AggQueryIn.truncate`: those carry
   `AggQueryIn.castKind`, and a cast along a proof is what the kernel
@@ -198,10 +194,18 @@ theorem q1_ann : ∀ v : X → Bool,
           : List ((V × V) × Bool))) : Multiset _) := by
   decide
 
-/-! ### The `ORDER BY … LIMIT 3`
+/-! ### The two window columns, and the `ORDER BY … LIMIT 3` over them
 
-`ORDER BY e.salary DESC NULLS LAST, e.id, d.dept`, keeping the first
-three rows. The truncation is spelled by hand rather than through
+`rank() OVER (PARTITION BY d.dept ORDER BY e.salary DESC)` and
+`avg(e.salary) OVER (PARTITION BY d.dept)` are two columns of one
+`SELECT`, so they are two windows stacked over the join: the second sits
+over a relation that already holds the first one's aggregate column and
+carries it through (`AggQueryIn.Win` reads the regular columns of its
+input, `ColKind.readTuple`). The `ORDER BY … LIMIT 3` then sits *above*
+both, which is where SQL evaluates it – a window reads the whole
+partition and not the truncated relation.
+
+The truncation is spelled by hand rather than through
 `AggQueryIn.truncate`: that one goes through `rank`, whose column is
 `1 + count` and whose kinds need `AggQueryIn.castKind`, and a cast along
 a proof is what the kernel cannot reduce. Counting the rows that sort
@@ -213,33 +217,57 @@ local instance : One V := ⟨WithNull.val 1⟩
 /-- The counting aggregate: how many rows the frame holds. -/
 abbrev cnt : SeqAggFunc V := fun l => WithNull.val l.length
 
+/-- SQL's `avg`: the mean of the non-null values, null over none. -/
+abbrev avgAgg : SeqAggFunc V :=
+  SeqAggFunc.sqlOf (fun l =>
+    WithNull.val (((l.map (fun x => (x : Option ℕ).getD 0)).sum) / l.length))
+
+/-- `rank() OVER (PARTITION BY d.dept ORDER BY e.salary DESC)`, as the
+count of the rows ahead – the rank is one more. Column `5`. -/
+abbrev rankWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
+  AggQueryIn.Win ![0] ![4] ![OrderCol.DESC]
+    (ValueFrame.rangeBefore ![OrderCol.DESC]) (TermIn.const 1) cnt q1
+    (winReadsReg_allReg _ _ _)
+
+/-- The kinds of the relation the second window sits over: five regular
+columns and the rank count. -/
+abbrev κ6 : Fin 6 → ColKind := Fin.snoc (ColKind.allReg 5) ColKind.agg
+
+/-- `avg(e.salary) OVER (PARTITION BY d.dept)` beside it, carrying the
+rank column through. Column `6`. -/
+abbrev bothWins : AggQueryIn V 0 7 (Fin.snoc κ6 ColKind.agg) :=
+  AggQueryIn.Win ![0] (fun k : Fin 0 => k.elim0) OrderSpec.unordered
+    ValueFrame.whole (TermIn.index 4) avgAgg rankWin
+    ⟨by decide, fun k => k.elim0, by decide⟩
+
 /-- `salary DESC NULLS LAST, id ASC, dept ASC`. -/
 abbrev ord3 : OrderSpec 3 :=
   ![{ desc := true, nullsFirst := false }, OrderCol.ASC, OrderCol.ASC]
 
 /-- The three order columns: `e.salary`, `e.id`, `d.dept`. -/
-abbrev ocols : Tuple (Fin 5) 3 := ![4, 2, 0]
+abbrev ocols : Tuple (Fin 7) 3 := ![4, 2, 0]
 
-/-- How many rows sort strictly ahead of a row's peers: `rank - 1`. -/
-abbrev aheadQ : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
+/-- The kinds of the windowed relation: five regular columns and the two
+window columns. -/
+abbrev κ7 : Fin 7 → ColKind := Fin.snoc κ6 ColKind.agg
+
+/-- How many rows sort strictly ahead of a row's peers, over the
+windowed relation: `rank - 1` in the total order the `ORDER BY` names. -/
+abbrev aheadQ : AggQueryIn V 0 8 (Fin.snoc κ7 ColKind.agg) :=
   AggQueryIn.Win (fun k : Fin 0 => k.elim0) ocols ord3
-    (ValueFrame.rangeBefore ord3) (TermIn.const 1) cnt q1
-    (winReadsReg_allReg _ _ _)
+    (ValueFrame.rangeBefore ord3) (TermIn.const 1) cnt bothWins
+    ⟨fun k => k.elim0, by decide, by decide⟩
 
 /-- `LIMIT 3`: at most two rows ahead. -/
-abbrev keep3 : GenPred V (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
-  GenPredIn.aggCmp (Fin.last 5) (Fin.snoc_last _ _) CompOp.le
+abbrev keep3 : GenPred V (Fin.snoc κ7 ColKind.agg) :=
+  GenPredIn.aggCmp (Fin.last 7) (Fin.snoc_last _ _) CompOp.le
     (TermGIn.const (WithNull.val 2))
 
-/-- Dropping the counting column again. -/
-abbrev dropCount :
-    Tuple (ProjColIn V 0 (Fin.snoc (ColKind.allReg 5) ColKind.agg)) 5 :=
-  fun j => ProjColIn.term (TermGIn.index j.castSucc (by
-    rw [Fin.snoc_castSucc]; rfl))
-
-/-- The whole query but for its output columns. -/
-abbrev q2 : AggQuery V 5 (ColKind.allReg 5) :=
-  AggQueryIn.Proj dropCount (AggQueryIn.Sel keep3 aheadQ)
+/-- The whole query: the join, the two window columns, the `LIMIT`, and
+the counting column dropped again – the two window columns carried
+through by `AggQueryIn.dropRank`. -/
+abbrev q2 := AggQueryIn.Proj (AggQueryIn.dropRank κ7)
+  (AggQueryIn.Sel keep3 aheadQ)
 
 set_option maxHeartbeats 4000000 in
 open WithNull in
@@ -247,7 +275,9 @@ open WithNull in
 each with the annotation ProvSQL computes – equal as Boolean functions of
 the six tokens over all 64 valuations. The `LIMIT` gate is vacuous on the
 three matches and on the Accounting and Bakery padded rows, and cuts the
-Catering row exactly in the worlds where three rows sort ahead of it. -/
+Catering row exactly in the worlds where three rows sort ahead of it.
+The windows change no annotation, so these are `q1_ann`'s annotations
+with that one gate. -/
 theorem q2_ann : ∀ v : X → Bool,
     (q2.evaluateAnnotated db).map (fun p => ((p.1 0, p.1 2), p.2 v))
       = ((([((val 2, val 201), v dB && v tb1),
@@ -259,32 +289,13 @@ theorem q2_ann : ∀ v : X → Bool,
           : List ((V × V) × Bool))) : Multiset _) := by
   decide
 
-/-! ### The two window columns, world by world
+/-! ### The query's rows, world by world
 
-`rank() OVER (PARTITION BY d.dept ORDER BY e.salary DESC)` and
-`avg(e.salary) OVER (PARTITION BY d.dept)`. They are **two separate
-queries** here: a window takes an all-regular input, so a second window
-column cannot be added to a relation that already has one, and the two
-cannot be put side by side in this syntax. Each is read in a world by
-evaluating it plainly on that world's instance
-(`AnnotatedDatabase.randomWorld`), which is SQL on that sub-instance. -/
-
-/-- SQL's `avg`: the mean of the non-null values, null over none. -/
-abbrev avgAgg : SeqAggFunc V :=
-  SeqAggFunc.sqlOf (fun l =>
-    WithNull.val (((l.map (fun x => (x : Option ℕ).getD 0)).sum) / l.length))
-
-/-- `rank() OVER (PARTITION BY d.dept ORDER BY e.salary DESC)`, as the
-count of the rows ahead; the rank is one more. -/
-abbrev rankWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
-  AggQueryIn.Win ![0] ![4] ![OrderCol.DESC]
-    (ValueFrame.rangeBefore ![OrderCol.DESC]) (TermIn.const 1) cnt q1
-    (winReadsReg_allReg _ _ _)
-
-/-- `avg(e.salary) OVER (PARTITION BY d.dept)`. -/
-abbrev avgWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
-  AggQueryIn.Win ![0] (fun k : Fin 0 => k.elim0) OrderSpec.unordered
-    ValueFrame.whole (TermIn.index 4) avgAgg q1 (winReadsReg_allReg _ _ _)
+Each world is read by evaluating the query plainly on that world's
+instance (`AnnotatedDatabase.randomWorld`), which is SQL on that
+sub-instance: the join, both window columns at once, and the three rows
+the `LIMIT` keeps. The rank is `1 +` the counting column, as `rank`
+has it. -/
 
 /-- Every token true. -/
 abbrev vAll : X → Bool := fun _ => true
@@ -297,49 +308,38 @@ abbrev vNoB1 : X → Bool := fun i => i ≠ tb1
 
 open WithNull in
 /-- **All six tokens true**: the three employees with SQL's rank and
-average, and Catering's padded row – which the `LIMIT` cuts, as `q2_ann`
-shows, and whose average is null. -/
+average, and the Catering padded row cut by the `LIMIT` – three rows,
+each `(e.id, rank, avg)`. -/
 theorem world_all :
-    ((rankWin.evaluatePlain (AnnotatedDatabase.randomWorld vAll db)).map
-        (fun u => (u 2, 1 + u 5)),
-      (avgWin.evaluatePlain (AnnotatedDatabase.randomWorld vAll db)).map (fun u => (u 2, u 5)))
-      = (((([(val 201, val 1), (val 101, val 1), (val 102, val 2),
-              (nil, val 1)]
-            : List (V × V))) : Multiset _),
-         ((([(val 201, val 120), (val 101, val 95), (val 102, val 95),
-              (nil, nil)]
-            : List (V × V))) : Multiset _)) := by
+    (q2.evaluatePlain (AnnotatedDatabase.randomWorld vAll db)).map
+        (fun u => (u 2, 1 + u 5, u 6))
+      = ((([(val 201, val 1, val 120), (val 101, val 1, val 95),
+            (val 102, val 2, val 95)]
+          : List (V × V × V))) : Multiset _) := by
   decide
 
 open WithNull in
 /-- **`a1` absent**: Accounting is down to `a2`, whose average is its own
-salary, and Catering's padded row appears. -/
+salary, and Catering's padded row is kept – three rows again. -/
 theorem world_noA1 :
-    ((rankWin.evaluatePlain (AnnotatedDatabase.randomWorld vNoA1 db)).map
-        (fun u => (u 2, 1 + u 5)),
-      (avgWin.evaluatePlain (AnnotatedDatabase.randomWorld vNoA1 db)).map
-        (fun u => (u 2, u 5)))
-      = (((([(val 201, val 1), (val 102, val 1), (nil, val 1)]
-            : List (V × V))) : Multiset _),
-         ((([(val 201, val 120), (val 102, val 90), (nil, nil)]
-            : List (V × V))) : Multiset _)) := by
+    (q2.evaluatePlain (AnnotatedDatabase.randomWorld vNoA1 db)).map
+        (fun u => (u 2, 1 + u 5, u 6))
+      = ((([(val 201, val 1, val 120), (val 102, val 1, val 90),
+            (nil, val 1, nil)]
+          : List (V × V × V))) : Multiset _) := by
   decide
 
 open WithNull in
 /-- **`b1` absent**: Bakery's padded row appears, and its average is null
 – the partition holds one row and that row's salary is null. ProvSQL
 prints `NaN` there, which it takes for a display artefact; the semantics
-says null. Catering's padded row is present too and the `LIMIT` cuts it,
-as `q2_ann` shows. -/
+says null. -/
 theorem world_noB1 :
-    ((rankWin.evaluatePlain (AnnotatedDatabase.randomWorld vNoB1 db)).map
-        (fun u => (u 2, 1 + u 5)),
-      (avgWin.evaluatePlain (AnnotatedDatabase.randomWorld vNoB1 db)).map
-        (fun u => (u 2, u 5)))
-      = (((([(val 101, val 1), (val 102, val 2), (nil, val 1), (nil, val 1)]
-            : List (V × V))) : Multiset _),
-         ((([(val 101, val 95), (val 102, val 95), (nil, nil), (nil, nil)]
-            : List (V × V))) : Multiset _)) := by
+    (q2.evaluatePlain (AnnotatedDatabase.randomWorld vNoB1 db)).map
+        (fun u => (u 2, 1 + u 5, u 6))
+      = ((([(val 101, val 1, val 95), (val 102, val 2, val 95),
+            (nil, val 1, nil)]
+          : List (V × V × V))) : Multiset _) := by
   decide
 
 end ProvsqlExample
