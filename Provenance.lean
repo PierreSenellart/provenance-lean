@@ -918,10 +918,11 @@ proven engine several general results reuse internally.
   is all the semantics admits, and visible to one the semantics refuses.
   The fence is therefore determinacy itself, quantified over the
   instance as `AggQueryIn.recSettles` is, or an all-regular input
-  (`ValueFrame.windowValue_readTuple_of_det`, with
-  `windowValue_readTuple` the symmetric case), and it still excludes a
-  `FILTER` clause – a clause being a selection on the whole row, which
-  nothing bars from comparing an aggregate column. What the theorem leaves behind is
+  (`ValueFrame.windowValueOpt_readTuple_of_det`, with
+  `windowValue_readTuple` the symmetric unfiltered case), and a `FILTER`
+  clause is carried through on the condition that it read the
+  occurrence's regular columns, which is what `sec:agg` says a clause
+  does. What the theorem leaves behind is
   `AggQueryIn.SwapReady`, which is what the two swaps of the basis ask
   for
 - `Provenance.Determinacy` – **the listing an aggregate reads, and the

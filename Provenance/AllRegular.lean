@@ -38,12 +38,13 @@ under determinacy every listing the clause allows gives one value.
 Re-typing changes the listing, since an aggregate column read as a value
 enters the tie-break, but only *inside* a block of peers, so a
 determinate window reads the same value either way
-(`ValueFrame.windowValue_readTuple_of_det`). That is what
+(`ValueFrame.windowValueOpt_readTuple_of_det`). That is what
 `AggQueryIn.Retypable` asks of a window – determinacy on every
 instance, quantified as `AggQueryIn.recSettles` is, or an all-regular
 input where no column moves – and it is the document's condition rather
-than an approximation of it. What it still excludes is a `FILTER`
-clause, for a reason of its own.
+than an approximation of it. A `FILTER` clause is asked to read the
+occurrence's regular columns, as `sec:agg` says a clause does, and is
+then carried through with nothing further to prove.
 
 What this is for: the swaps of `sec:basis` – a selection written with a
 difference, a product written with an apply – are stated over queries
@@ -388,10 +389,10 @@ rows, it is quantified over the instance here, in the manner of
 A query the condition refuses does tell the two readings apart: over the
 rows `(2,5)`, `(2,6)`, `(1,7)` whose first column is an aggregate one,
 with no `ORDER BY`, so that all three are peers, `first_value` of the
-second column reads `5` before the re-typing and `7` after. The clause
-is excluded for a different reason, and not by determinacy: a `FILTER`
-is a `Selection` on the whole row, which nothing here bars from
-comparing an aggregate column. -/
+second column reads `5` before the re-typing and `7` after. A `FILTER`
+clause is no longer excluded but asked to read the occurrence's regular
+columns, which is what `sec:agg` says a clause does: its truth is then
+unchanged by the nulling, so it keeps the same rows on both sides. -/
 def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -419,7 +420,9 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
                   ∨ Relation.rowsAgree (q.readRows D γ)
                       (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
                       (fun y => t.eval y γ))
-              ∧ keep = none))
+              ∧ ∀ y : Tuple T n,
+                  Selection.keepsOpt keep (ColKind.readTuple κ' y)
+                    = Selection.keepsOpt keep y))
         ∧ q.Retypable
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
 
@@ -652,35 +655,42 @@ theorem ValueFrame.windowValue_readTuple {c n m p : ℕ} {κ : Fin n → ColKind
   exact TermIn.eval_readTuple t hreg v γ
 
 /-- **A determinate window reads the same value before and after the
-nulling**, symmetric or not: the two listings of the frame are sorted by
-the clause's keys and differ only inside a block of peers, where the
-term does not look (`OrderSpec.map_eq_of_keySorted`). This is the
-document's own condition on an aggregation, and it is what
-`AggQueryIn.Retypable` asks of a window over aggregate columns. -/
-theorem ValueFrame.windowValue_readTuple_of_det {c : ℕ} {κ : Fin n → ColKind}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
-    (hrr : WinReadsReg κ P O t) (R : Multiset (Tuple T n))
-    {u : Tuple T n} (hu : u ∈ R) (γ : Fin c → T)
-    (hdet : Relation.rowsAgree (R.map (ColKind.readTuple κ))
-      (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
-      (fun y => t.eval y γ)) :
-    ValueFrame.windowValue P O o w t f (R.map (ColKind.readTuple κ))
+nulling**, symmetric or not, and with a `FILTER` clause or without: the
+two listings of the frame are sorted by the clause's keys and differ
+only inside a block of peers, where the term does not look
+(`OrderSpec.map_eq_of_keySorted`), and a clause that reads the
+occurrence's regular columns keeps the same rows on both sides. The
+hypothesis is the document's own condition on an aggregation – the
+aggregate reads its frame as a bag, or the term it aggregates is
+constant on the rows the clause leaves tied. -/
+theorem ValueFrame.windowValueOpt_readTuple_of_det {c : ℕ}
+    {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    {f : SeqAggFunc T} (keep : Option (Selection T n))
+    (hrr : WinReadsReg κ P O t)
+    (hkeep : ∀ y : Tuple T n,
+      Selection.keepsOpt keep (ColKind.readTuple κ y)
+        = Selection.keepsOpt keep y)
+    (R : Multiset (Tuple T n)) {u : Tuple T n} (hu : u ∈ R) (γ : Fin c → T)
+    (hsym : f.Symmetric
+      ∨ Relation.rowsAgree (R.map (ColKind.readTuple κ))
+          (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
+          (fun y => t.eval y γ)) :
+    ValueFrame.windowValueOpt P O o w t f keep (R.map (ColKind.readTuple κ))
         (ColKind.readTuple κ u) γ
-      = ValueFrame.windowValue P O o w t f R u γ := by
+      = ValueFrame.windowValueOpt P O o w t f keep R u γ := by
   obtain ⟨hP, hO, hreg⟩ := hrr
-  unfold ValueFrame.windowValue
-  refine congrArg f ?_
   set A : List (Tuple T n) :=
     ValueFrame.frameListOf (α := Tuple T n) id P O o w R u with hA
   set B : List (Tuple T n) :=
     ValueFrame.frameListOf (α := Tuple T n) id P O o w
       (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u) with hB
+  -- the term reads the same value before and after the nulling
   have hAmap : A.map (fun v => t.eval v γ)
       = (A.map (ColKind.readTuple κ)).map (fun v => t.eval v γ) := by
     rw [List.map_map]
     exact List.map_congr_left (fun v _ => (TermIn.eval_readTuple t hreg v γ).symm)
-  rw [hAmap]
+  -- and the two listings are listings of one bag, sorted by the clause's keys
   have hperm : B.Perm (A.map (ColKind.readTuple κ)) := by
     refine Multiset.coe_eq_coe.mp ?_
     rw [hB, ValueFrame.frameListOf_coe, ← Multiset.map_coe, hA,
@@ -697,17 +707,47 @@ theorem ValueFrame.windowValue_readTuple_of_det {c : ℕ} {κ : Fin n → ColKin
     refine (OrderSpec.sortSeq_sorted _).imp (fun {x y} h => ?_)
     rw [Tuple.key_readTuple O hO, Tuple.key_readTuple O hO]
     exact OrderSpec.le_of_readLe (val := (id : Tuple T n → Tuple T n)) h
-  refine OrderSpec.map_eq_of_keySorted (Tuple.key O) o (fun v => t.eval v γ)
-    (S := fun y => y ∈ R.map (ColKind.readTuple κ)) hdet B
-    (A.map (ColKind.readTuple κ)) ?_ hperm hkeyB hkeyA
-  intro y hy
-  rw [hB] at hy
-  exact ValueFrame.mem_of_mem_frameOf (α := Tuple T n) id P O w
-    (R.map (ColKind.readTuple κ)) (Multiset.mem_map_of_mem _ hu)
-    (show y ∈ ValueFrame.frameOf (α := Tuple T n) id P O w
-        (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u) from by
-      rw [← ValueFrame.frameListOf_coe (α := Tuple T n) id P O o w]
-      exact Multiset.mem_coe.mpr hy)
+  have hmemB : ∀ y ∈ B, y ∈ R.map (ColKind.readTuple κ) := by
+    intro y hy
+    rw [hB] at hy
+    exact ValueFrame.mem_of_mem_frameOf (α := Tuple T n) id P O w
+      (R.map (ColKind.readTuple κ)) (Multiset.mem_map_of_mem _ hu)
+      (show y ∈ ValueFrame.frameOf (α := Tuple T n) id P O w
+          (R.map (ColKind.readTuple κ)) (ColKind.readTuple κ u) from by
+        rw [← ValueFrame.frameListOf_coe (α := Tuple T n) id P O o w]
+        exact Multiset.mem_coe.mpr hy)
+  cases keep with
+  | none =>
+    rw [ValueFrame.windowValueOpt_none, ValueFrame.windowValueOpt_none]
+    unfold ValueFrame.windowValue
+    rw [← hB, ← hA, hAmap]
+    rcases hsym with hs | hdet
+    · exact hs (hperm.map _)
+    · exact congrArg f (OrderSpec.map_eq_of_keySorted (Tuple.key O) o
+        (fun v => t.eval v γ)
+        (S := fun y => y ∈ R.map (ColKind.readTuple κ)) hdet B
+        (A.map (ColKind.readTuple κ)) hmemB hperm hkeyB hkeyA)
+  | some φ =>
+    rw [ValueFrame.windowValueOpt_some, ValueFrame.windowValueOpt_some]
+    unfold ValueFrame.windowValueWhen
+    rw [← hB, ← hA]
+    have hAfil : (A.filter φ.keeps).map (fun v => t.eval v γ)
+        = ((A.map (ColKind.readTuple κ)).filter φ.keeps).map
+            (fun v => t.eval v γ) := by
+      rw [List.filter_map, show (φ.keeps ∘ ColKind.readTuple κ) = φ.keeps from
+        funext (fun y => hkeep y), List.map_map]
+      exact List.map_congr_left (fun v _ =>
+        (TermIn.eval_readTuple t hreg v γ).symm)
+    rw [hAfil]
+    rcases hsym with hs | hdet
+    · exact hs ((hperm.filter φ.keeps).map _)
+    · exact congrArg f (OrderSpec.map_eq_of_keySorted (Tuple.key O) o
+        (fun v => t.eval v γ)
+        (S := fun y => y ∈ R.map (ColKind.readTuple κ)) hdet
+        (B.filter φ.keeps) ((A.map (ColKind.readTuple κ)).filter φ.keeps)
+        (fun y hy => hmemB y (List.mem_of_mem_filter hy))
+        (hperm.filter φ.keeps) (hkeyB.sublist List.filter_sublist)
+        (hkeyA.sublist List.filter_sublist))
 
 /-! ## Every query is one whose columns are all values -/
 
@@ -895,10 +935,9 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
         simp only [AggQueryIn.evaluatePlain]
         rw [he' D γ]
         rfl
-    · subst hkeep
-      obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
+    · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
       refine ⟨(AggQueryIn.Win P' O o w t fn q' (winReadsReg_allReg P' O t) dist
-        none).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
+        keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
       · rw [AggQueryIn.usesOnly_allRegOf]
         exact ⟨hq.1, hu'⟩
       · rw [AggQueryIn.overSchema_allRegOf]
@@ -908,14 +947,14 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
       · rw [AggQueryIn.evaluatePlain_allRegOf]
         simp only [AggQueryIn.evaluatePlain]
         rw [he' D γ]
-        simp only [ColKind.readTuple_allReg, Multiset.map_id',
-          ValueFrame.windowValueOpt_none]
+        simp only [ColKind.readTuple_allReg, Multiset.map_id']
         refine Multiset.map_congr rfl (fun y hy => ?_)
         refine congrArg (Fin.snoc (α := fun _ => T) y) ?_
+        refine ValueFrame.windowValueOpt_readTuple_of_det P' O o w t keep hrr
+          hkeep _ hy γ ?_
         rcases hsym D γ with hs | hdet
-        · exact ValueFrame.windowValue_readTuple P' O o w t hs hrr _ hy γ
-        · refine ValueFrame.windowValue_readTuple_of_det P' O o w t _ hrr _ hy γ
-            ?_
+        · exact Or.inl hs
+        · refine Or.inr ?_
           rw [← he' D γ]
           exact hdet
   | WinExpr P' O o ws ts fs g q keeps ih =>
