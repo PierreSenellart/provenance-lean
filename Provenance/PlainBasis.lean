@@ -56,9 +56,14 @@ inductive OpKind where
 
 /-- **The classes a query uses are among `S`.** A relation leaf is in no
 class, every operator is in its own, and `Alt` and `Retag` are in none,
-being transparent to the plain semantics. The two recursions are `False`:
-this predicate carries the scope of the classification as well, the
-recursions being outside it. -/
+being transparent to the plain semantics.
+
+Four operators are `False`: this predicate carries the scope of the
+classification as well, and the two recursions, the token-building
+grouping and the provenance sum are outside it. The last two belong to
+the rewritten world – they are what ProvSQL's plans build, not what a
+source query is written with – so a classification of the source
+language has nothing to say about them. -/
 def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -81,8 +86,8 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .Gamma _ _ _ q _ _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaScalar _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaNest _ _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
-  | _, _, _, .ProvSum _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => OpKind.win ∈ S ∧ q.usesOnly S
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => OpKind.win ∈ S ∧ q.usesOnly S
 
@@ -247,8 +252,8 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | Gamma is ts fs q keep ord ih => intro h hq; exact ih h hq.2
   | GammaScalar ts fs q ord ih => intro h hq; exact ih h hq.2
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
-  | GammaTok is his ts fs a q keep ih => intro h hq; exact ih h hq.2
-  | ProvSum is his t q ih => intro h hq; exact ih h hq.2
+  | GammaTok is his ts fs a q keep ih => intro _ hq; exact hq.elim
+  | ProvSum is his t q ih => intro _ hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih => intro h hq; exact ih h hq.2
   | WinExpr P O o ws ts fs g q keeps ih => intro h hq; exact ih h hq.2
 
@@ -364,16 +369,8 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D hD γ)
-  | GammaTok is his ts fs a q keep ih =>
-    intro hq D hD γ
-    simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
-    exact le_trans (le_trans (Multiset.card_dedup_le _)
-      (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D hD γ)
-  | ProvSum is his t q ih =>
-    intro hq D hD γ
-    simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
-    exact le_trans (le_trans (Multiset.card_dedup_le _)
-      (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D hD γ)
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
@@ -580,28 +577,8 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
       exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
         ((Multiset.dedup_eq_zero_iff _).mp
           ((Multiset.map_eq_zero_iff _ _).mp hc)))
-  | GammaTok is his ts fs a q keep ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
-        ((Multiset.dedup_eq_zero_iff _).mp
-          ((Multiset.map_eq_zero_iff _ _).mp hc)))
-  | ProvSum is his t q ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
-        ((Multiset.dedup_eq_zero_iff _).mp
-          ((Multiset.map_eq_zero_iff _ _).mp hc)))
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq hw
     rcases ih hq.2 hw with h | h
@@ -802,18 +779,8 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
       Multiset.card_map]
     exact le_trans (le_trans (Multiset.card_dedup_le _)
       (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D γ)
-  | GammaTok is his ts fs a q keep ih =>
-    intro hq D γ
-    simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
-      Multiset.card_map]
-    exact le_trans (le_trans (Multiset.card_dedup_le _)
-      (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D γ)
-  | ProvSum is his t q ih =>
-    intro hq D γ
-    simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
-      Multiset.card_map]
-    exact le_trans (le_trans (Multiset.card_dedup_le _)
-      (le_of_eq (Multiset.card_map _ _))) (ih hq.2 D γ)
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
@@ -1104,18 +1071,8 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
     exact Multiset.count_map_dedup_le _ _
       (fun v k => v (Fin.castAdd _ k)) (fun g => funext fun k => by
         rw [Fin.append_left]) u
-  | GammaTok is his ts fs a q keep ih =>
-    intro hq D hD γ u
-    simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
-    exact Multiset.count_map_dedup_le _ _
-      (fun v k => v (Fin.castAdd 1 (Fin.castAdd _ k)))
-      (fun g => funext fun k => by rw [Fin.append_left, Fin.append_left]) u
-  | ProvSum is his t q ih =>
-    intro hq D hD γ u
-    simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
-    exact Multiset.count_map_dedup_le _ _
-      (fun v k => v (Fin.castAdd _ k)) (fun g => funext fun k => by
-        rw [Fin.append_left]) u
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
@@ -1784,8 +1741,8 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
   | Gamma is ts fs q keep ord ih => intro hq; exact absurd hq.1 hγ
   | GammaScalar ts fs q ord ih => intro hq; exact absurd hq.1 hγ
   | GammaNest is his p f q ih => intro hq; exact absurd hq.1 hγ
-  | GammaTok is his ts fs a q keep ih => intro hq; exact absurd hq.1 hγ
-  | ProvSum is his t q ih => intro hq; exact absurd hq.1 hγ
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain]

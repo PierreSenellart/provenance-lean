@@ -38,6 +38,9 @@ import Provenance.DerivedAnn
 /- Which operators a query cannot do without -/
 import Provenance.PlainBasis
 
+/- An apply read as a product -/
+import Provenance.Decorrelate
+
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
 
@@ -823,6 +826,51 @@ proven engine several general results reuse internally.
   antijoin by `𝟙 ⊖` that sum (`evaluateAnnotated_antijoin`, over any
   `K`) – the comparison being read in the scalar convention, so that no
   pending group factor is superseded
+- `Provenance.PlainBasis` – **which operators a query cannot do without**:
+  `OpKind` names the classes an operator belongs to, `AggQueryIn.usesOnly`
+  says a query stays inside a set of them, and `PlainEquiv` is agreement
+  of the plain semantics on every instance. Six invariants bound a
+  generating set from below, each with a query that breaks it: a query
+  over the empty schema that uses no empty relation is impossible
+  (`usesEmpty_of_overSchema_empty`), a projection-free query over
+  duplicate-free relations has bounded multiplicities
+  (`count_le_multBound`), a query with neither selection nor difference is
+  empty on every instance or non-empty on every instance whose relations
+  are all non-empty (`zero_or_ne_zero_of_noSelDiff`), a query with no
+  product and no apply has a size linear in the instance
+  (`card_le_sizeBound`), a union-free query over relations of at most one
+  row has at most one row (`card_le_one_of_thin`), and an
+  aggregation-free query is empty on the all-empty instance
+  (`evaluatePlain_eq_zero_of_allEmpty`). Four operators are deliberately outside
+  the classification – the two recursions, which the predicate reads as
+  `False`, and `GammaTok` and `ProvSum`, which belong to the rewritten
+  world rather than to the language a source query is written in. The
+  identities that generate the rest are proved as `PlainEquiv`s:
+  duplicate elimination from a grouping (`dedup_plainEquiv_gamma`), the
+  difference from counts over a tagged union (`diff_plainEquiv_notIn`), a
+  selection from two differences (`sel_plainEquiv_selByDiff`), and the
+  apply from a product where its right side reads no outer column
+  (`apply_plainEquiv_prod`)
+- `Provenance.Decorrelate` – **an apply read as a product**: the
+  construction of Galindo-Legaria and Joshi, proved rather than cited.
+  Given a *parameter relation* `P` whose rows are pairwise distinct, a
+  query reading `P`'s columns as parameters is turned into a closed query
+  over the parameters and its own columns together, whose rows are the
+  *slices* `Relation.slices P f = ⊎_{v ∈ P} {v} × f v`
+  (`AggQueryIn.HasDecorrelation`). Each operator carries the parameters
+  along – a selection reads them as columns (`GenPredIn.lift`), a
+  grouping takes them into its key (`groupKey`), a window into its
+  partition (`winPart`), with the clause's order and its `FILTER`
+  shifted over the block (`GroupOrder.lift`, `Selection.shift`) – and the
+  apply itself recurses, with duplicate elimination of its left side's
+  decorrelation as the new parameter relation, its two blocks swapped
+  into the order the right side reads its context in
+  (`Relation.swapBlocks`), joined back on those columns so that the
+  multiplicities duplicate elimination dropped are restored
+  (`Relation.applyJoin_slices`). `hasDecorrelation_of_usesOnly` assembles
+  the cases, and `exists_applyFree_plainEquiv` is the closed-query
+  corollary, over the unit as the parameter relation: every query of the
+  fragment is plain-equivalent to one with no apply
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
