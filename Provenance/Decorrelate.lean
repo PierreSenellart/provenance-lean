@@ -539,15 +539,6 @@ def AggQueryIn.HasDecorrelation {c k : ℕ} {κ : Fin k → ColKind}
   ∃ q' : AggQueryIn T 0 (c + k) (ColKind.liftKinds c κ),
     q'.usesOnly basisOps ∧ AggQueryIn.DecorrelatesTo P q q'
 
-omit [ValueType T] in
-/-- Transporting a query along an equality of kind vectors changes no
-operator, so it changes nothing `usesOnly` sees. -/
-@[simp] theorem AggQueryIn.usesOnly_castKind {c n : ℕ}
-    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ)
-    (S : Set OpKind) : (q.castKind h).usesOnly S ↔ q.usesOnly S := by
-  cases h
-  exact Iff.rfl
-
 /-! ### The leaves -/
 
 /-- **A relation reference** is the product of the parameters with it:
@@ -1405,14 +1396,6 @@ theorem Relation.groupSeq_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
     (Relation.filter_paramsOf_slices P hP f hv)
   show (∀ j, u (Fin.castAdd m j) = v j) ↔ Relation.paramsOf u = v
   exact ⟨fun h => funext h, fun h j => congrFun h j⟩
-
-/-- A group with no key columns is the whole relation, sorted. -/
-@[simp] theorem Relation.groupSeq_emptyKey {m : ℕ}
-    (r : Multiset (Tuple T m)) :
-    Relation.groupSeq (fun k : Fin 0 => k.elim0) r
-        (fun k : Fin 0 => k.elim0) = sortList r := by
-  unfold Relation.groupSeq
-  rw [Multiset.filter_eq_self.mpr (fun u _ => fun k => k.elim0)]
 
 /-- **The parameter rows the slices reach** are those with a non-empty
 slice, each once. -/

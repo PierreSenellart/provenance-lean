@@ -848,9 +848,18 @@ proven engine several general results reuse internally.
   identities that generate the rest are proved as `PlainEquiv`s:
   duplicate elimination from a grouping (`dedup_plainEquiv_gamma`), the
   difference from counts over a tagged union (`diff_plainEquiv_notIn`), a
-  selection from two differences (`sel_plainEquiv_selByDiff`), and the
-  apply from a product where its right side reads no outer column
-  (`apply_plainEquiv_prod`)
+  selection from two differences (`sel_plainEquiv_selByDiff`), the apply
+  from a product where its right side reads no outer column
+  (`apply_plainEquiv_prod`), and a window from an apply of a scalar
+  aggregation (`plainEquiv_winByApply`). Two of them build their own
+  syntax: `GenPredIn.polTerm` reads a predicate whose atoms are
+  comparisons as a `CASE` expression over the same comparisons – the
+  term the selection-from-difference needs, with both polarities, since
+  in Kleene's logic a negation holds where its argument is *false* – and
+  `winByApply` writes the window's frame as a selection against the
+  current row, which the apply supplies as outer columns. The window's
+  frame is asked to contain its current row, which is the hypothesis of
+  `prop:winderived` and not of the decorrelation
 - `Provenance.Decorrelate` – **an apply read as a product**: the
   construction of Galindo-Legaria and Joshi, proved rather than cited.
   Given a *parameter relation* `P` whose rows are pairwise distinct, a

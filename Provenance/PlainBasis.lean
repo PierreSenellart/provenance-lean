@@ -91,6 +91,57 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => OpKind.win ∈ S ∧ q.usesOnly S
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => OpKind.win ∈ S ∧ q.usesOnly S
 
+omit [ValueType T] in
+/-- Transporting a query along an equality of kind vectors changes no
+operator, so it changes nothing `usesOnly` sees. -/
+@[simp] theorem AggQueryIn.usesOnly_castKind {c n : ℕ}
+    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ)
+    (S : Set OpKind) : (q.castKind h).usesOnly S ↔ q.usesOnly S := by
+  cases h
+  exact Iff.rfl
+
+omit [ValueType T] in
+/-- **Substituting the outer columns changes no operator**, so it changes
+nothing `usesOnly` sees. This is what carries the classification through
+the apply, whose right side is read under a substitution. -/
+theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).usesOnly S ↔ q.usesOnly S := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    show (AggQueryIn.castKind _ (AggQueryIn.Proj
+      (fun j => (ps j).substMap θ) (q.substMap θ))).usesOnly S ↔ _
+    rw [AggQueryIn.usesOnly_castKind]
+    exact and_congr Iff.rfl (ih θ)
+  | Sel φ q ih => exact fun θ => and_congr Iff.rfl (ih θ)
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ _))
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
+  | Dedup q ih => exact fun θ => and_congr Iff.rfl (ih θ)
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
+  | Alt k h q ih => exact fun θ => ih θ
+  | Retag h q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
+  | Gamma is ts fs q keep ord ih =>
+    exact fun θ => and_congr Iff.rfl (ih θ)
+  | GammaScalar ts fs q ord ih => exact fun θ => and_congr Iff.rfl (ih θ)
+  | GammaNest is his pc f q ih => exact fun θ => and_congr Iff.rfl (ih θ)
+  | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
+  | ProvSum is his t q ih => exact fun θ => Iff.rfl
+  | Win P O o w t f q hrr dist keep ih =>
+    exact fun θ => and_congr Iff.rfl (ih θ)
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    exact fun θ => and_congr Iff.rfl (ih θ)
+
 /-- **Expressibility**: two queries of the same arity are equivalent when
 their plain semantics agree on every instance. -/
 def AggQueryIn.PlainEquiv {c n : ℕ} {κ κ' : Fin n → ColKind}
@@ -1540,10 +1591,13 @@ and tag every row with the constant that reads *true*. A row of the first
 is missing from the second exactly where the predicate fails, so removing
 that difference from the first leaves the rows the selection keeps.
 
-The term is a parameter here, with `hterm` saying that it reads `yes` on
-the rows the predicate keeps and nothing else. Building it from the
-predicate is the syntactic half of the statement, and is what "Ω contains
-the comparisons" asks for. -/
+The term is a parameter of the general statement, with `hterm` saying
+that it reads `yes` on the rows the predicate keeps and nothing else;
+`GenPredIn.polTerm` builds it from the predicate – which is what "Ω
+contains the comparisons" asks for – and
+`sel_plainEquiv_selByDiff_polTerm` is the identity with no hypothesis on
+the term left. An aggregate atom is excluded: its value is a provenance
+and not a truth value. -/
 
 section SelFromDiff
 
@@ -1605,6 +1659,118 @@ private theorem dropTag_fun :
     (fun (w : Tuple T (k + 1)) (i : Fin k) =>
         (AggQueryIn.dropTag (T := T) (k := k) i).evalPlain w (fun _ => 0))
       = fun w => (fun i => w (Fin.castSucc i) : Tuple T k) := rfl
+
+/-- **The predicate read as a term**: a `CASE` expression over the same
+comparisons, reading `yes` exactly where the predicate is true
+(`pol = true`) or exactly where it is *false* (`pol = false`), and `0`
+elsewhere.
+
+Both polarities are needed because the logic is Kleene's: a negation
+holds where its argument is false, which is not where its argument fails
+to hold, so a term reading only truth cannot carry a negation. Reading
+the two together, a negation is a change of polarity, and the
+comparisons change with it (`CompOp.negate`). -/
+def GenPredIn.polTerm {c n : ℕ} {κ : Fin n → ColKind} (yes : T) (pol : Bool) :
+    GenPredIn T c κ → TermGIn T c κ
+  | .cmp op t₁ t₂ =>
+      .caseWhen (match pol with | true => op | false => op.negate) t₁ t₂
+        (.const yes) (.const 0)
+  | .aggCmp _ _ _ _ => .const 0
+  | .aggRange _ _ _ _ _ _ => .const 0
+  | .and φ ψ =>
+      match pol with
+      | true => .caseWhen CompOp.syneq (φ.polTerm yes true) (.const yes)
+          (ψ.polTerm yes true) (.const 0)
+      | false => .caseWhen CompOp.syneq (φ.polTerm yes false) (.const yes)
+          (.const yes) (ψ.polTerm yes false)
+  | .or φ ψ =>
+      match pol with
+      | true => .caseWhen CompOp.syneq (φ.polTerm yes true) (.const yes)
+          (.const yes) (ψ.polTerm yes true)
+      | false => .caseWhen CompOp.syneq (φ.polTerm yes false) (.const yes)
+          (ψ.polTerm yes false) (.const 0)
+  | .not φ => φ.polTerm yes (!pol)
+
+/-- A guard comparing such a term against `yes` tests the condition the
+term reads: the two values it takes are told apart by `≐`, which is never
+unknown. -/
+private theorem syneq_guard {yes : T} (hyes : yes ≠ 0) {P : Prop}
+    [Decidable P] (x y : T) :
+    (if CompOp.syneq.eval3 (if P then yes else (0 : T)) yes = Kleene.true
+      then x else y) = if P then x else y := by
+  by_cases h : P
+  · rw [ite_eq_left h, ite_eq_left h]
+    exact ite_eq_left ((CompOp.syneq_eval3_eq_true_iff yes yes).mpr rfl)
+  · rw [ite_eq_right h, ite_eq_right h]
+    refine ite_eq_right (fun hc => hyes ?_)
+    exact ((CompOp.syneq_eval3_eq_true_iff (0 : T) yes).mp hc).symm
+
+/-- **What the term reads**: `yes` exactly on the rows where the
+predicate takes the truth value the polarity asks for, and `0` on the
+others. An aggregate atom is excluded – its value is a provenance and not
+a truth value, which is what `hasAggAtom` fences off. -/
+theorem GenPredIn.evalPlain_polTerm {c n : ℕ} {κ : Fin n → ColKind}
+    {yes : T} (hyes : yes ≠ 0) :
+    ∀ (φ : GenPredIn T c κ), φ.hasAggAtom = false → ∀ (pol : Bool)
+      (u : Tuple T n) (γ : Fin c → T),
+      (φ.polTerm yes pol).evalPlain u γ
+        = if φ.evalPlain3 u γ = Kleene.ofBool pol then yes else 0 := by
+  intro φ
+  induction φ with
+  | cmp op t₁ t₂ =>
+    intro _ pol u γ
+    cases pol with
+    | true => rfl
+    | false =>
+      show (if op.negate.eval3 (t₁.evalPlain u γ) (t₂.evalPlain u γ)
+          = Kleene.true then yes else (0 : T)) = _
+      rw [CompOp.negate_eval3]
+      cases h : op.eval3 (t₁.evalPlain u γ) (t₂.evalPlain u γ) <;>
+        simp [GenPredIn.evalPlain3, Kleene.not, Kleene.ofBool, h]
+  | aggCmp k hk op t => exact fun hag => Bool.noConfusion hag
+  | aggRange k hk op₁ t₁ op₂ t₂ => exact fun hag => Bool.noConfusion hag
+  | and φ ψ ihφ ihψ =>
+    intro hag pol u γ
+    obtain ⟨h₁, h₂⟩ := Bool.or_eq_false_iff.mp hag
+    cases pol with
+    | true =>
+      show (if CompOp.syneq.eval3 ((φ.polTerm yes true).evalPlain u γ) yes
+          = Kleene.true then (ψ.polTerm yes true).evalPlain u γ
+          else (0 : T)) = _
+      rw [ihφ h₁ true u γ, syneq_guard hyes, ihψ h₂ true u γ]
+      cases hφ : φ.evalPlain3 u γ <;> cases hψ : ψ.evalPlain3 u γ <;>
+        simp [GenPredIn.evalPlain3, Kleene.and, Kleene.ofBool, hφ, hψ]
+    | false =>
+      show (if CompOp.syneq.eval3 ((φ.polTerm yes false).evalPlain u γ) yes
+          = Kleene.true then yes
+          else (ψ.polTerm yes false).evalPlain u γ) = _
+      rw [ihφ h₁ false u γ, syneq_guard hyes, ihψ h₂ false u γ]
+      cases hφ : φ.evalPlain3 u γ <;> cases hψ : ψ.evalPlain3 u γ <;>
+        simp [GenPredIn.evalPlain3, Kleene.and, Kleene.ofBool, hφ, hψ]
+  | or φ ψ ihφ ihψ =>
+    intro hag pol u γ
+    obtain ⟨h₁, h₂⟩ := Bool.or_eq_false_iff.mp hag
+    cases pol with
+    | true =>
+      show (if CompOp.syneq.eval3 ((φ.polTerm yes true).evalPlain u γ) yes
+          = Kleene.true then yes
+          else (ψ.polTerm yes true).evalPlain u γ) = _
+      rw [ihφ h₁ true u γ, syneq_guard hyes, ihψ h₂ true u γ]
+      cases hφ : φ.evalPlain3 u γ <;> cases hψ : ψ.evalPlain3 u γ <;>
+        simp [GenPredIn.evalPlain3, Kleene.or, Kleene.ofBool, hφ, hψ]
+    | false =>
+      show (if CompOp.syneq.eval3 ((φ.polTerm yes false).evalPlain u γ) yes
+          = Kleene.true then (ψ.polTerm yes false).evalPlain u γ
+          else (0 : T)) = _
+      rw [ihφ h₁ false u γ, syneq_guard hyes, ihψ h₂ false u γ]
+      cases hφ : φ.evalPlain3 u γ <;> cases hψ : ψ.evalPlain3 u γ <;>
+        simp [GenPredIn.evalPlain3, Kleene.or, Kleene.ofBool, hφ, hψ]
+  | not φ ih =>
+    intro hag pol u γ
+    show (φ.polTerm yes (!pol)).evalPlain u γ = _
+    rw [ih hag (!pol) u γ]
+    cases pol <;> cases hφ : φ.evalPlain3 u γ <;>
+      simp [GenPredIn.evalPlain3, Kleene.not, Kleene.ofBool, hφ]
 
 /-- **`σ` from `−`** (the swap of `sec:basis`): a selection whose
 predicate is read by a term is the difference of the tagged rows with
@@ -1676,6 +1842,25 @@ theorem AggQueryIn.sel_plainEquiv_selByDiff (yes : T)
   show (fun i => (Fin.snoc u (tag u) : Tuple T (k + 1)) (Fin.castSucc i)) = u
   exact funext (fun i => by rw [Fin.snoc_castSucc])
 
+/-- **`σ` from `−`, with the term built from the predicate.** Where the
+predicate's atoms are comparisons, the `CASE` expression over them reads
+`yes` exactly on the rows it keeps, so the selection is a difference and
+nothing is asked of `Ω` beyond the comparisons it already has. -/
+theorem AggQueryIn.sel_plainEquiv_selByDiff_polTerm (yes : T) (hyes : yes ≠ 0)
+    (φ : GenPred T (ColKind.allReg k)) (hφ : φ.hasAggAtom = false)
+    (q : AggQuery T k (ColKind.allReg k)) :
+    (AggQueryIn.Sel φ q).PlainEquiv
+      (AggQueryIn.selByDiff yes (φ.polTerm yes true) q) := by
+  refine AggQueryIn.sel_plainEquiv_selByDiff yes _ φ (fun u => ?_) q
+  rw [GenPredIn.evalPlain_polTerm hyes φ hφ true u (fun _ => 0)]
+  by_cases h : φ.holdsPlain u
+  · rw [ite_eq_left (show φ.evalPlain3 u (fun _ => 0) = Kleene.ofBool true
+      from h)]
+    exact ⟨fun _ => h, fun _ => rfl⟩
+  · rw [ite_eq_right (show ¬ (φ.evalPlain3 u (fun _ => 0)
+      = Kleene.ofBool true) from h)]
+    exact ⟨fun h0 => absurd h0.symm hyes, fun hc => absurd hc h⟩
+
 end SelFromDiff
 
 end Difference
@@ -1683,6 +1868,249 @@ end Difference
 
 
 
+
+/-! ### A window from an apply
+
+`prop:winderived`: a window whose frame contains its current row exactly
+when it contains its peers is an apply – the query with, for each of its
+rows, a scalar aggregation over the rows that row's frame holds. The
+frame condition is read as a selection comparing the row's keys against
+the *current* row's, which the apply supplies as outer columns, and the
+aggregation reads its group in the window's own order, which is what the
+grouping's `ORDER BY` is for.
+
+Two things are parameters. The frame condition `ρ` is an arbitrary
+relation on order values in the library's encoding, so the predicate
+reading it is given, with `hρ` saying that it reads it: in SQL it is a
+frame clause, and there the predicate *is* the clause. And the frame is
+asked to contain its current row (`ValueFrame.ContainsSelf`): `EXCLUDE
+CURRENT ROW` and `EXCLUDE TIES` have no such reading, the group a scalar
+aggregation reads being determined by the rows and not by the
+occurrence. -/
+
+section WinDerived
+
+variable {n m p : ℕ}
+
+/-- **The empty context, as a substitution**: it weakens a closed query
+or a closed term into one that reads outer columns and ignores them. -/
+def weakenOuter (T : Type) (d : ℕ) : Fin 0 → T ⊕ Fin d := fun k => k.elim0
+
+/-- A closed reading is the reading under any valuation, there being no
+outer column to read. -/
+@[simp] theorem substVal_weakenOuter (d : ℕ) (γ : Fin d → T) :
+    substVal (weakenOuter T d) γ = (fun _ : Fin 0 => (0 : T)) :=
+  funext (fun k => k.elim0)
+
+/-- A conjunction holds where both sides do, in any context. -/
+private theorem holdsPlain_and_iff {c n' : ℕ} {κ : Fin n' → ColKind}
+    (φ ψ : GenPredIn T c κ) (u : Tuple T n') (γ : Fin c → T) :
+    (GenPredIn.and φ ψ).holdsPlain u γ
+      ↔ (φ.holdsPlain u γ ∧ ψ.holdsPlain u γ) :=
+  Kleene.and_eq_true_iff _ _
+
+/-- A conjunction over a list holds where every conjunct does, in any
+context. -/
+private theorem holdsPlain_foldr_and' {c n' : ℕ} {κ : Fin n' → ColKind}
+    {α : Type} (f : α → GenPredIn T c κ) (base : GenPredIn T c κ)
+    (u : Tuple T n') (γ : Fin c → T) : ∀ l : List α,
+    (((l.map f).foldr GenPredIn.and base).holdsPlain u γ)
+      ↔ (∀ x ∈ l, (f x).holdsPlain u γ) ∧ base.holdsPlain u γ := by
+  intro l
+  induction l with
+  | nil => exact ⟨fun h => ⟨fun x hx => absurd hx (List.not_mem_nil), h⟩,
+      fun h => h.2⟩
+  | cons hd tl ih =>
+    rw [List.map_cons, List.foldr_cons, holdsPlain_and_iff, ih]
+    constructor
+    · rintro ⟨hhd, hall, hb⟩
+      refine ⟨fun x hx => ?_, hb⟩
+      rcases List.mem_cons.mp hx with rfl | ht
+      · exact hhd
+      · exact hall x ht
+    · rintro ⟨hall, hb⟩
+      exact ⟨hall hd List.mem_cons_self, fun x hx =>
+        hall x (List.mem_cons_of_mem hd hx), hb⟩
+
+/-- **The key comparison against the outer columns**: the row's columns
+`cols` are compared with the row the apply is reading, which it supplies
+at the outer positions `outs`. As in a join the comparison is `IS NOT
+DISTINCT FROM`, the syntactic equality a window partitions by. -/
+def outerKeyCond {c n' m' : ℕ} {κ : Fin n' → ColKind}
+    (cols : Tuple (Fin n') m') (h : ∀ k, κ (cols k) = ColKind.reg)
+    (outs : Tuple (Fin c) m') : GenPredIn T c κ :=
+  ((List.finRange m').map (fun k =>
+    GenPredIn.cmp CompOp.syneq (TermGIn.index (cols k) (h k))
+      (TermGIn.outer (outs k)))).foldr GenPredIn.and
+    (GenPredIn.cmp CompOp.syneq (TermGIn.const 0) (TermGIn.const 0))
+
+/-- It holds exactly where the two keys agree. -/
+theorem outerKeyCond_holdsPlain {c n' m' : ℕ} {κ : Fin n' → ColKind}
+    (cols : Tuple (Fin n') m') (h : ∀ k, κ (cols k) = ColKind.reg)
+    (outs : Tuple (Fin c) m') (u : Tuple T n') (γ : Fin c → T) :
+    (outerKeyCond cols h outs).holdsPlain u γ
+      ↔ ∀ k, u (cols k) = γ (outs k) := by
+  have hatom : ∀ k, (GenPredIn.cmp (c := c) (κ := κ) CompOp.syneq
+      (TermGIn.index (cols k) (h k)) (TermGIn.outer (outs k))).holdsPlain u γ
+        ↔ u (cols k) = γ (outs k) := by
+    intro k
+    show CompOp.syneq.eval3 (u (cols k)) (γ (outs k)) = Kleene.true ↔ _
+    rw [CompOp.syneq_eval3_eq_true_iff]
+  unfold outerKeyCond
+  rw [holdsPlain_foldr_and']
+  constructor
+  · rintro ⟨hall, -⟩ k
+    exact (hatom k).mp (hall k (List.mem_finRange k))
+  · intro hk
+    refine ⟨fun k _ => (hatom k).mpr (hk k), ?_⟩
+    show CompOp.syneq.eval3 (0 : T) 0 = Kleene.true
+    rw [CompOp.syneq_eval3_eq_true_iff]
+
+/-- A group with no key columns is the whole relation, sorted. -/
+@[simp] theorem Relation.groupSeq_emptyKey {m : ℕ}
+    (r : Multiset (Tuple T m)) :
+    Relation.groupSeq (fun k : Fin 0 => k.elim0) r
+        (fun k : Fin 0 => k.elim0) = sortList r := by
+  unfold Relation.groupSeq
+  rw [Multiset.filter_eq_self.mpr (fun u _ => fun k => k.elim0)]
+
+/-- A scalar aggregation with one aggregate has one row, holding it. -/
+private theorem gammaScalar_one {c m' : ℕ} (t' : TermIn T c m')
+    (f : SeqAggFunc T) (q' : AggQueryIn T c m' (ColKind.allReg m'))
+    (ord : GroupOrder T m') (D : Database T) (γ : Fin c → T) :
+    (AggQueryIn.GammaScalar ![t'] ![f] q' ord).evaluatePlain D γ
+      = ({fun _ : Fin 1 => f ((Relation.groupSeqOrd
+          (fun k : Fin 0 => k.elim0) ord (q'.evaluatePlain D γ)
+          (fun k : Fin 0 => k.elim0)).map (fun v => t'.eval v γ))}
+        : Multiset (Tuple T 1)) := by
+  show (Multiset.ofList [(fun j => (![f] j)
+      ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord
+        (q'.evaluatePlain D γ) (fun k : Fin 0 => k.elim0)).map
+          (fun v => (![t'] j).eval v γ)) : Tuple T 1)]
+      : Multiset (Tuple T 1)) = _
+  refine congrArg (fun x : Tuple T 1 => ({x} : Multiset (Tuple T 1))) ?_
+  funext j
+  obtain rfl : j = 0 := Fin.eq_zero j
+  rfl
+
+omit [ValueType T] in
+/-- The apply's columns are the query's and the aggregate, as a window's
+are. -/
+theorem winApplyKinds (n : ℕ) :
+    Fin.append (ColKind.allReg n) (fun _ : Fin 1 => ColKind.agg)
+      = Fin.snoc (ColKind.allReg n) ColKind.agg := by
+  funext j
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [Fin.snoc_last,
+      show (Fin.last n) = Fin.natAdd n (0 : Fin 1) from rfl, Fin.append_right]
+  · rw [Fin.snoc_castSucc,
+      show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
+
+/-- **A window written with an apply and a scalar aggregation**: for each
+row of the query, the term aggregated over the rows that row's frame
+holds, read in the window's own order. -/
+def winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ψ : GenPredIn T n (ColKind.allReg n)) (t : Term T n) (f : SeqAggFunc T)
+    (q : AggQuery T n (ColKind.allReg n)) :
+    AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  AggQueryIn.castKind (winApplyKinds n)
+    (AggQueryIn.Apply q
+      (AggQueryIn.GammaScalar ![t.substMap (weakenOuter T n)] ![f]
+        (AggQueryIn.Sel (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ)
+          (q.substMap (weakenOuter T n)))
+        (GroupOrder.byCols O o)))
+
+/-- **A window is an apply of a scalar aggregation** (`prop:winderived`),
+over plain relations: the rows the selection keeps are the current row's
+frame, the clause reads them in the order the window reads them, and the
+aggregate is then the window's value. -/
+theorem evaluatePlain_winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf)
+    (ψ : GenPredIn T n (ColKind.allReg n))
+    (hρ : ∀ y u : Tuple T n, ψ.holdsPlain y u
+      ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
+    (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
+    (D : Database T) :
+    (winByApply P O o ψ t f q).evaluatePlain D
+      = (AggQueryIn.Win P O o w t f q
+          (winReadsReg_allReg P O t)).evaluatePlain D := by
+  classical
+  rw [winByApply, AggQueryIn.evaluatePlain_castKind,
+    AggQueryIn.evaluatePlain_Apply, AggQueryIn.evaluatePlain_Win_eq]
+  simp only [ColKind.readTuple_allReg, Multiset.map_id', Bool.false_eq_true,
+    ite_false]
+  refine Eq.trans (Multiset.bind_congr (fun u hu => ?_))
+    (Multiset.bind_singleton (s := q.evaluatePlain D) (fun u =>
+      (Fin.snoc u (ValueFrame.windowValue P O o w t f (q.evaluatePlain D) u)
+        : Tuple T (n + 1))))
+  -- the rows the selection keeps are the row's own frame
+  have hframe : (AggQueryIn.Sel
+        (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ)
+        (q.substMap (weakenOuter T n))).evaluatePlain D u
+      = ValueFrame.frameOf (α := Tuple T n) id P O w
+        (q.evaluatePlain D) u := by
+    show Multiset.filter (fun y : Tuple T n =>
+        (GenPredIn.and (outerKeyCond P (fun _ => rfl) P) ψ).holdsPlain y u)
+        ((q.substMap (weakenOuter T n)).evaluatePlain D u) = _
+    rw [AggQueryIn.evaluatePlain_substMap, substVal_weakenOuter,
+      ValueFrame.frameOf_of_containsSelf _ _ _ hc _ hu]
+    refine Multiset.filter_congr (fun y _ => ?_)
+    rw [holdsPlain_and_iff, outerKeyCond_holdsPlain, hρ y u]
+    refine and_congr ?_ Iff.rfl
+    exact ⟨fun hk => funext (fun k => hk k), fun hk k => congrFun hk k⟩
+  rw [gammaScalar_one, hframe, Multiset.map_singleton]
+  refine congrArg (fun x : Tuple T (n + 1) => ({x} : Multiset (Tuple T (n + 1))))
+    ?_
+  funext j
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [Fin.snoc_last,
+      show (Fin.last n) = Fin.natAdd n (0 : Fin 1) from rfl, Fin.append_right]
+    -- the aggregate is the window's value: the same rows, in the same order
+    unfold ValueFrame.windowValue ValueFrame.frameListOf
+    refine congrArg f ?_
+    rw [show Relation.groupSeqOrd (fun k : Fin 0 => k.elim0)
+          (GroupOrder.byCols O o)
+          (ValueFrame.frameOf (α := Tuple T n) id P O w (q.evaluatePlain D) u)
+          (fun k : Fin 0 => k.elim0)
+        = OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
+          (sortList (ValueFrame.frameOf (α := Tuple T n) id P O w
+            (q.evaluatePlain D) u)) from by
+      show OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
+          (Relation.groupSeq (fun k : Fin 0 => k.elim0) _
+            (fun k : Fin 0 => k.elim0)) = _
+      rw [Relation.groupSeq_emptyKey]]
+    refine List.map_congr_left (fun v _ => ?_)
+    rw [TermIn.eval_substMap, substVal_weakenOuter]
+  · rw [Fin.snoc_castSucc,
+      show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
+
+/-- **The derived form uses no window**: an apply, a scalar aggregation
+and a selection, which is what the generation half of `thm:plainbasis`
+asks of it. The apply then goes by the decorrelation. -/
+theorem usesOnly_winByApply {S : Set OpKind} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ψ : GenPredIn T n (ColKind.allReg n)) (t : Term T n) (f : SeqAggFunc T)
+    {q : AggQuery T n (ColKind.allReg n)} (ha : OpKind.apply ∈ S)
+    (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S) (hq : q.usesOnly S) :
+    (winByApply P O o ψ t f q).usesOnly S := by
+  rw [winByApply, AggQueryIn.usesOnly_castKind]
+  exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap q _).mpr hq⟩
+
+/-- **A window is expressible without one** (`prop:winderived`), as the
+equivalence of queries the classification uses. -/
+theorem plainEquiv_winByApply (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) {w : ValueFrame T p} (hc : w.ContainsSelf)
+    (ψ : GenPredIn T n (ColKind.allReg n))
+    (hρ : ∀ y u : Tuple T n, ψ.holdsPlain y u
+      ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
+    (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n)) :
+    (AggQueryIn.Win P O o w t f q
+        (winReadsReg_allReg P O t)).PlainEquiv (winByApply P O o ψ t f q) := by
+  intro D γ
+  rw [show γ = (fun j : Fin 0 => (0 : T)) from funext (fun j => j.elim0)]
+  exact (evaluatePlain_winByApply P O o hc ψ hρ t f q D).symm
+
+end WinDerived
 
 /-! ## Aggregation: the one operator that makes a row from nothing -/
 
