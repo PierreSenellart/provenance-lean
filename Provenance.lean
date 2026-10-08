@@ -35,6 +35,9 @@ import Provenance.AggQuerySubst
 import Provenance.Derived
 import Provenance.DerivedAnn
 
+/- The listing an aggregate reads, and the query that is refused -/
+import Provenance.Determinacy
+
 /- Which operators a query cannot do without -/
 import Provenance.PlainBasis
 
@@ -920,6 +923,25 @@ proven engine several general results reuse internally.
   comparing an aggregate column. What the theorem leaves behind is
   `AggQueryIn.SwapReady`, which is what the two swaps of the basis ask
   for
+- `Provenance.Determinacy` – **the listing an aggregate reads, and the
+  query that is refused**: an aggregate reads its group, or a window's
+  frame, as a sequence that its clause only partly fixes, and the
+  document admits a query only where the listing cannot matter – each
+  aggregate symmetric, or its term constant on the rows the clause
+  ties. `ValueFrame.windowValue_eq_of_listing` and
+  `Relation.groupSeqOrd_map_eq_of_listing` say the listing is then
+  invisible (off `List.map_eq_of_pairwise_of_symm`, two sorted listings
+  of one bag reading alike, and `OrderSpec.peer_of_readLe`, mutual
+  comparability being peerhood); `AggQueryIn.DeterminateOn` is the
+  condition, quantified over the instance as `recSettles` is; and
+  `AggQueryIn.evaluateChecked` is the evaluator that answers where it
+  holds and refuses where it does not, with
+  `windowValue_eq_of_listing_of_determinateOn` and
+  `gammaAgg_eq_of_listing_of_determinateOn` saying what its answer
+  means. `AggQueryIn.evaluatePlain` is unchanged and keeps its own
+  listing – one the condition admits – which is why no result of the
+  metatheory asks for determinacy: each relates two readings of one
+  listing
 - `Provenance.BasisAssembly` – **the basis, assembled**: the generation
   half of `thm:plainbasis`, as three passes over the syntax.
   `AggQueryIn.exists_winFree` replaces every window by an apply of a
