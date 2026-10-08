@@ -140,6 +140,9 @@ import Provenance.Semirings.Why
 /- Frozen restatements of the claims of published papers -/
 import Provenance.Papers.Icde2026
 
+/- A worked query checked against ProvSQL's own answer -/
+import Provenance.ProvsqlExample
+
 /- Example -/
 import Provenance.DistributionExample
 import Provenance.NestedExample

@@ -125,10 +125,9 @@ def World.kept (W : World T K) : Multiset (WorldOcc T K) :=
   W.occs.filter (fun d => d.present = true)
 
 /-- **Admissibility, with the coherence condition as a parameter.**
-`extra` is the clause that was once open – whether a world is barred from
-meeting the family of an inner value it does not read. It is **settled**
-(2026-10-07): the reading is `IsWorld`, `extra` vacuous, and the
-alternative is not a convention but wrong.
+`extra` is the clause asking whether a world is barred from meeting the
+family of an inner value it does not read. The reading is `IsWorld`,
+`extra` vacuous: barring it is not a convention but wrong.
 
 Why: the world a valuation realizes sets an occurrence present exactly
 when the valuation makes its *outer* annotation true, and keeps the inner
@@ -152,7 +151,7 @@ def World.IsWorldWith (W : World T K) (a : NestedValue T K)
     ∧ (∀ d ∈ W.occs, d.present = true → d.occ.1.IsWorld d.sub)
     ∧ extra W
 
-/-- **The worlds the document commits to**: the outer family met unless
+/-- **The worlds a nested value admits**: the outer family met unless
 the reading is scalar, and, of each inner expression *the world reads*,
 the family of each of its grouped leaves met – which is that
 expression's own world condition (`AggExpr.IsWorld`). -/
@@ -561,9 +560,9 @@ omit [ValueType T] in
 /-- **The annotation of a nested world splits over its occurrences**,
 where `K` is complemented: each occurrence contributes its own outer
 annotation, or the complement of it where the world drops it, times its
-inner family's own world annotation. The document's one global monus over
-both levels and this per-occurrence form agree exactly there – it is
-`sec:prelim`'s law, the form a family split into parts uses – and the
+inner family's own world annotation. One global monus over both levels
+and this per-occurrence form agree exactly there, by the law a family
+split into parts uses, and the
 split is what makes a nested reading a function of what its occurrences
 read, rather than of their families position by position. -/
 theorem World.ann_split (hc : complemented K) (W : World T K) :
@@ -675,8 +674,8 @@ theorem World.exists_ann_eq_mul {W : World T K} {d : WorldOcc T K}
 end Annotation
 
 omit [ValueType T] in
-/-- A world of the document's reading is one of the coherent reading's
-as soon as it keeps no inner occurrence it does not read. -/
+/-- A world of the nested reading is one of the coherent reading's as
+soon as it keeps no inner occurrence it does not read. -/
 theorem World.isWorld_of_isWorldCoherent {a : NestedValue T K}
     {W : World T K} (h : W.IsWorldCoherent a) : W.IsWorld a :=
   ⟨h.1, h.2.1, trivial⟩
@@ -1461,9 +1460,9 @@ Each reading delegates: to `AggValue` on an ordinary token, to
 set – and to `AggExpr`
 on an expression, whose worlds are the subfamilies of the shared family
 meeting every grouped leaf. So the *definitions* cover all three kinds;
-what the metatheory has not yet proved beyond an ordinary token it
-excludes with `AggTok.isTok`, which is a statement about the proofs and
-no longer about the definitions. -/
+what the metatheory proves beyond an ordinary token it fences with
+`AggTok.isTok`, which is a statement about the proofs and not about the
+definitions. -/
 
 variable [CommSemiringWithMonus K] [DecidableEq K]
 

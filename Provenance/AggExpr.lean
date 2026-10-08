@@ -982,8 +982,8 @@ def _root_.AggValue.postcomp (gf : T → T) (a : AggValue T K) : AggValue T K :=
 @[simp] theorem _root_.AggValue.collapse_postcomp (gf : T → T) (a : AggValue T K) :
     (a.postcomp gf).collapse = gf a.collapse := rfl
 
-/-- The unary aggregate expression `gf(a)`, with `gf` where the document
-puts it. -/
+/-- The unary aggregate expression `gf(a)`: one leaf, read through
+`gf`. -/
 def ofUnary (gf : T → T) (a : AggValue T K) : AggExpr T K where
   arity := 1
   occs := a.occs.map
@@ -1357,7 +1357,7 @@ theorem isWorld_ofUnary (gf : T → T) (a : AggValue T K)
     (ofValue (a.postcomp gf)).IsWorld W ↔ (ofUnary gf a).IsWorld W := Iff.rfl
 
 /-- **The unary expression and the post-composed token are one reading.**
-`ofUnary` is the aggregate expression `gf(a)` of the document and
+`ofUnary` is the aggregate expression `gf(a)` and
 `AggValue.postcomp` is what a term over one aggregate column builds; they
 have the same worlds and the same value in each, so a comparison against
 either has the same predicate provenance. This is the sense in which

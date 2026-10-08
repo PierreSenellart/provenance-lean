@@ -38,7 +38,8 @@ The tropical semiring is used as a provenance semiring in
 
 Note: [Geerts & Poggi, *On database query languages for K-relations*, Example 4][geerts2010database]
 claims that the tropical semiring cannot be extended to an m-semiring. That claim is
-incorrect: the paper gives a wrong definition of the monus operator.
+incorrect: [Geerts & Poggi][geerts2010database] give a wrong definition of the monus
+operator.
 
 ## References
 

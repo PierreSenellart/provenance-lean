@@ -402,8 +402,8 @@ the product of the two atoms' provenances, which is the range's own
 `⊕`-sum only where `AggValue.predProvOf_mul_predProvOf` applies.
 
 What the emitted term denotes and what an evaluator computes from it are
-two questions, and ProvSQL answers the second one outside the circuit
-(confirmed against the implementation, 2026-10-05). Its gate is
+two questions, and ProvSQL answers the second one outside the circuit,
+as its implementation shows. Its gate is
 `gate_cmp`, two wires and one operator, with no range form, and the
 rewriter turns `∧` into `provenance_times` and `∨` into
 `provenance_plus` over one gate per atom – which is exactly the algebra

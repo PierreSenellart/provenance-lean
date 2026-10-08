@@ -347,8 +347,7 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
       .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
 termination_by structural q
 
-/-- Close a query: give every outer column a value. This is the
-document's `q[u]`. -/
+/-- Close a query: give every outer column a value, written `q[u]`. -/
 abbrev AggQueryIn.subst {c n : ℕ} {κ : Fin n → ColKind} (u : Fin c → T)
     (q : AggQueryIn T c n κ) : AggQuery T n κ :=
   q.substMap (fun k => Sum.inl (u k))
@@ -718,7 +717,7 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, ValueFrame.exprOfWhen_substMap]
     rw [ih θ dB γ]
 
-/-! ## Closing a query: the document's `q[u]` -/
+/-! ## Closing a query: `q[u]` -/
 
 /-- Evaluating a closed instance is evaluating under the values it was
 closed with. -/
@@ -741,7 +740,7 @@ theorem AggQueryIn.evaluateAnnotated_subst {c n : ℕ} {κ : Fin n → ColKind}
   congrArg (Multiset.map GenRow.toAnnotated)
     (AggQueryIn.evaluate_subst u q d)
 
-/-- **The apply, as the document writes it**: each row `u` of the left
+/-- **The apply as a substitution**: each row `u` of the left
 side is paired with each row of the *closed* query `q₂[u]`, and the
 annotations are multiplied. This is the clause
 `⟨q₁ ⋈ᴬ q₂⟩ = {(u, v, α₁ ⊗ α₂) ∣ (u, α₁) ∈ ⟨q₁⟩, (v, α₂) ∈ ⟨q₂[u]⟩}`;

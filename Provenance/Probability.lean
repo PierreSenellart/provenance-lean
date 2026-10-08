@@ -30,7 +30,8 @@ of probabilities (with values in `[0, 1]`), we extend `Pr` to:
 * a probability of a Boolean function `f : BoolFunc X`, defined as the sum of
   `Pr(v)` over satisfying valuations: `Pr(f) = ∑_{v ⊨ f} Pr(v)`.
 
-This is the foundation for Theorem 12 of the paper (intensional
+This is the foundation for Theorem 12 of [Sen, Maniu &
+Senellart][sen2026provsql] (intensional
 probabilistic query evaluation correctness), proved below as
 `ProbAssignment.theorem_12`: for any non-aggregation query `q`, any
 `BoolFunc X`-instance `Î` and any tuple `t`,
@@ -236,7 +237,8 @@ instance instMembershipAnnotatedRelation {T K : Type} {n : ℕ} :
 
 /-! ## Random worlds and the disjunctive tuple annotation
 
-We now move toward Theorem 12 of the paper. Two pieces of infrastructure are
+We now move toward Theorem 12 of [Sen, Maniu & Senellart][sen2026provsql].
+Two pieces of infrastructure are
 needed: the **random world** of a `BoolFunc X`-annotated relation under a
 valuation `v : X → Bool` (the plain relation containing exactly the data
 parts of the annotated tuples whose annotation evaluates to `true` at `v`),
@@ -248,8 +250,8 @@ variable {T : Type} [ValueType T]
 /-- The disjunctive tuple annotation `tupleAnnotation r t = ⋁_{(t,α) ∈ r} α`:
 the OR over the annotations of all annotated tuples in `r` whose data part
 equals `t`. In the m-semiring `BoolFunc X`, multiset sum is pointwise OR, so
-this is exactly the disjunction the paper writes inside `Pr(·)` on the
-right-hand side of Theorem 12. -/
+this is exactly the disjunction [Sen, Maniu & Senellart][sen2026provsql]
+write inside `Pr(·)` on the right-hand side of Theorem 12. -/
 def tupleAnnotation (r : AnnotatedRelation T (BoolFunc X) n) (t : Tuple T n) :
     BoolFunc X :=
   (Multiset.map Prod.snd

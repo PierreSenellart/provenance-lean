@@ -829,11 +829,11 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   single-frame window's.
 
   **Why this is an operator and not a projection, here.** It is a
-  primitive of *this* syntax and not of the semantics. The document's
-  aggregate value is `⟨f, t, U⟩`, carrying the occurrence sequence
-  itself, so a projection forming a term over two window columns already
-  denotes the right aggregate expression over `U₁ ∪ U₂` and nothing has
-  to be reconstructed. `AggValue` keeps a *value* per occurrence instead
+  primitive of *this* syntax and not of the semantics. An aggregate
+  value read as `⟨f, t, U⟩`, carrying the occurrence sequence itself,
+  makes a projection forming a term over two window columns denote the
+  right aggregate expression over `U₁ ∪ U₂` already, with nothing to
+  reconstruct. `AggValue` keeps a *value* per occurrence instead
   of `U` (the term is applied when the token is built), so two finished
   columns can no longer be related, and the sharing has to be recorded
   where it is still known. `AggExpr.occs` does record it – the value
@@ -2456,8 +2456,8 @@ recursive reference occur in the body buys.
 
 It is asked at *every* database, because a nested recursion is evaluated
 at the databases its enclosing rounds produce. A query with no recursion
-satisfies it with no content
-(`AggQueryIn.recSettles_of_noRecursion`). -/
+satisfies it with no content, every clause but the two recursions asking
+only what its subqueries ask. -/
 def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True

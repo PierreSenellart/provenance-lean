@@ -725,9 +725,9 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
     simp [overWindow, ProjColIn.evalPlain, TermGIn.evalPlain]
 
 /-- **`dense_rank()`**: one plus the count of the *distinct order values*
-the clause sorts strictly before the current row's peers. The paper's
-`drank` counts `O` read as a single row value, so that every class of
-peers counts once; here the order is a single column and that value is
+the clause sorts strictly before the current row's peers. A dense rank
+counts `O` read as a single row value, so that every class of peers
+counts once; here the order is a single column and that value is
 the column's, which is what `Win`'s distinct reading merges by
 (`AggValue.mergeByValue`). A multi-column order needs a term whose value
 is the whole key, which the value domain does not have – `TermIn` builds
@@ -1149,7 +1149,7 @@ end GroupingSets
 each group. It is an abbreviation: deduplicate the key columns together
 with `t`, then aggregate the added column. Over annotated relations that
 is what gives each distinct value one occurrence, annotated by the `⊕` of
-the occurrences it stands for – the reading of the paper – and the group,
+the occurrences it stands for, and the group,
 its key and its existence factor are those of the deduplicated projection,
 which are those of the input.
 

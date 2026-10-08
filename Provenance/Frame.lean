@@ -810,11 +810,11 @@ theorem token_eq_tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
 The operator's clause is read by `exprWhen` below, which keeps the frame
 whole and cuts what the leaf reads of it. The *token* here – the frame
 cut down to the occurrences the clause keeps, read in the scalar
-convention – is what that reading was before
-`HavingQueryCounterexamples.chain_count_zero_when_ne`: with the family
-cut, the world holding only rejected rows is gone, and then a clause that
-keeps everything no longer reads as no clause. It remains as the
-machinery the expression's readings run on – the frame restriction
+convention – is the cut-family reading that
+`HavingQueryCounterexamples.chain_count_zero_when_ne` refutes: with the
+family cut, the world holding only rejected rows is gone, and then a
+clause that keeps everything does not read as no clause. It remains as
+the machinery the expression's readings run on – the frame restriction
 (`tokenOfWhen_filter_agg`) and the merge (`tokenOfDistWhen_specialize`)
 are proved of it – and no operator builds one. -/
 

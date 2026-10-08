@@ -22,8 +22,8 @@ commutative m-semirings that are absorptive and whose `⊗` distributes over
 annotated databases** (not merely of the underlying algebraic identities),
 that both hypotheses are needed. All facts are checked by `decide`.
 
-Since 2026-10-05 it also witnesses, at that same level, that the
-`EXCEPT` spelling of `WHERE NOT EXISTS` is not the antijoin
+It also witnesses, at that same level, that the `EXCEPT` spelling of
+`WHERE NOT EXISTS` is not the antijoin
 (`ChainFive.antijoin_query_ne_except`, beside the algebraic
 `ChainFive.antijoin_ne_difference`). An operator-level witness and a
 query-level one are different statements, not two presentations of one:
@@ -393,7 +393,7 @@ theorem natRangeToken_mul_ne_and :
         * natRangeToken.predProvOf CompOp.le 1
       ≠ natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 := by decide
 
-/-- The joint reading is the one the paper's truncation asks for. -/
+/-- The joint reading is the one a truncation asks for. -/
 theorem natRangeToken_and :
     natRangeToken.predProvOfAnd CompOp.gt 0 CompOp.le 1 = 2 := by decide
 
@@ -1059,8 +1059,8 @@ A window's clause cuts what its leaf reads of the frame, exactly as a
 grouping's does, so the readings below are the window's counterpart of
 the three above. The last pair records the choice `DISTINCT` forces: the
 classes of the kept part carry the `⊕` of their occurrences, which is
-what a `DISTINCT` aggregate *is* (the document defines it through `ε`),
-and not a deduplication inside each world. The two differ, and `ℕ` shows
+what a `DISTINCT` aggregate *is*, being defined through `ε`, and not a
+deduplication inside each world. The two differ, and `ℕ` shows
 it. -/
 
 /-- The family a filtered window builds over a frame of two rows, the
@@ -1133,8 +1133,7 @@ theorem natWinUnmerged_one : natWinUnmerged.predProvWith testEq1 = 1 := by
   decide
 
 /-- So the two readings of a `DISTINCT` aggregate are different
-provenances – `2` against `𝟙` – and the merge is the one the document's
-`ε` defines. -/
+provenances – `2` against `𝟙` – and the merge is the one `ε` defines. -/
 theorem natWinDistinct_ne_unmerged :
     natWinDistinct.predProvWith testEq1
       ≠ natWinUnmerged.predProvWith testEq1 := by decide
@@ -1295,9 +1294,9 @@ theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K]
     (α₀ α₁ β₀ β₁ : K) :
     (incoherentWorld α₀ α₁ β₀ β₁).IsWorldOf (nestOf α₀ α₁ β₀ β₁) := rfl
 
-/-- **It is one of the worlds the document admits** – the first
-occurrence is kept with its inner family met – and it is barred by the
-coherent reading, which is what makes it the world at issue. -/
+/-- **It is a world of the nested reading** – an occurrence is kept with
+its inner family met – and it is barred by the coherent reading, which is
+what makes it the world at issue. -/
 theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
     (α₀ α₁ β₀ β₁ : K) :
     (incoherentWorld α₀ α₁ β₀ β₁).IsWorld (nestOf α₀ α₁ β₀ β₁)
@@ -1358,9 +1357,9 @@ multiplication is not `⊗` of any provenance reading – which is what the
 counterexample needs them not to be. -/
 
 /-- The non-negative reals with truncated subtraction: an m-semiring,
-with the indicator `δ`. The document's witness is `ℚ≥0`; the
-phenomenon is the same and `ℝ≥0` is the carrier this development already
-has at hand (Viterbi's), so the law is refuted over it. -/
+with the indicator `δ`. The non-negative rationals refute the law just as
+well; `ℝ≥0` is the carrier this development already has at hand
+(Viterbi's), so the law is refuted over it. -/
 noncomputable instance NNReal.instSemiringWithMonus :
     SemiringWithMonus NNReal :=
   { (inferInstance : Semiring NNReal), (inferInstance : PartialOrder NNReal),
