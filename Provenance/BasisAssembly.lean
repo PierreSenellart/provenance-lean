@@ -551,13 +551,19 @@ This is the form the classification needs for the `∅` and `σ`/`−` rows;
 the three passes give the equivalence on *every* instance, which is
 stronger than `AggQueryIn.PlainEquivOn` asks. The query produced has
 regular columns throughout, which is what the swaps need and what the
-plain semantics has anyway. -/
+plain semantics has anyway. It is also asked to be **defined
+everywhere** (`AggQueryIn.SettlesAt`), as the query it stands for is: a
+set of classes holding a recursion could otherwise stand in for a total
+query with one whose rounds never settle, and whose value is then
+nothing the semantics says. -/
 def GeneratesOn (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
     Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainOps → q.WinsDerivable →
       ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q.PlainEquiv q'
+        q'.overSchema sch ∧ q'.usesOnly S
+          ∧ (∀ (D : Database T) (γ : Fin 0 → T), q'.SettlesAt D γ)
+          ∧ q.PlainEquiv q'
 
 /-- The schema of the binary relation the projection witness reads. -/
 def schemaS : Schema := fun s => if s = "S" then some 2 else none
@@ -575,7 +581,10 @@ theorem basisOps_generatesOn (cnt : SeqAggFunc T)
       AggQueryIn.exists_allReg (S := basisOps) (sch := sch)
         (by simp [basisOps]) (by simp [basisOps]) q₃ hu₃
         (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
-    exact ⟨q', hs', hu', fun D γ => (he₃ D γ).trans (he' D γ)⟩
+    exact ⟨q', hs', hu',
+      AggQueryIn.settlesAt_of_usesOnly (by simp [basisOps])
+        (by simp [basisOps]) q' hu',
+      fun D γ => (he₃ D γ).trans (he' D γ)⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisOps_generatesOn_nat (sch : Schema) :
@@ -669,7 +678,7 @@ theorem union_mem_of_generatesOn {S : Set OpKind} {sch : Schema}
     (hS : GeneratesOn T sch S) : OpKind.union ∈ S := by
   by_contra hu
   set u : Tuple T 0 := fun j => j.elim0 with hu0
-  obtain ⟨q', -, hu', he⟩ := hS (AggQueryIn.values [u, u] (by simp))
+  obtain ⟨q', -, hu', -, he⟩ := hS (AggQueryIn.values [u, u] (by simp))
     (show (AggQueryIn.Sum (AggQueryIn.rowOf u)
         (AggQueryIn.rowOf u)).overSchema sch from
       ⟨by rw [AggQueryIn.rowOf, AggQueryIn.overSchema_castKind]
@@ -700,7 +709,7 @@ answer, and the unit has a row there. -/
 theorem gamma_mem_of_generatesOn {S : Set OpKind} {sch : Schema}
     (hS : GeneratesOn T sch S) : OpKind.gamma ∈ S := by
   by_contra hg
-  obtain ⟨q', -, hu', he⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+  obtain ⟨q', -, hu', -, he⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
     AggQueryIn.overSchema_unit
     (usesOnly_unit (by simp [plainOps, basisDD, basisOps])
       (by simp [plainOps, basisDD, basisOps]))
@@ -717,7 +726,7 @@ theorem proj_mem_of_generatesOn {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S)
     (hS : GeneratesOn ℕ schemaS S) : OpKind.proj ∈ S := by
   by_contra hp
-  obtain ⟨q', -, hu', he⟩ := hS projWitness (by rfl)
+  obtain ⟨q', -, hu', -, he⟩ := hS projWitness (by rfl)
     ⟨⟨by simp [plainOps, basisDD, basisOps], fun j => by
       have hj : j = 0 := Subsingleton.elim _ _
       subst hj
@@ -736,7 +745,7 @@ theorem prod_or_apply_mem_of_generatesOn {S : Set OpKind}
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h
   obtain ⟨hp, ha⟩ := not_or.mp h
-  obtain ⟨q', -, hu', he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
+  obtain ⟨q', -, hu', -, he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
     ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
     ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
@@ -766,31 +775,31 @@ A recursion is no way round it: the name it binds is declared to its
 of a recursion over the empty schema has `∅` for its only leaf. -/
 theorem empty_mem_of_generatesOn {S : Set OpKind}
     (hS : GeneratesOn T Schema.empty S) : OpKind.empty ∈ S := by
-  obtain ⟨q', hsch, hu', -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+  obtain ⟨q', hsch, hu', -, -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
     AggQueryIn.overSchema_unit
     (usesOnly_unit (by simp [plainOps, basisDD, basisOps])
       (by simp [plainOps, basisDD, basisOps]))
     winsDerivable_unit
   exact AggQueryIn.usesEmpty_of_overSchema_empty q' hsch hu'
 
-/-- **One of `σ` and `−` is necessary**: without both, a query over the
-schema is empty on every instance or non-empty on every full one, and a
-selection on a value is neither – it keeps the row of one full instance
-and drops the row of another. -/
+/-- **One of `σ` and `−` is necessary**, the recursions included: without
+both, a query over the schema is empty on every instance or non-empty on
+every full one wherever it is defined, and a selection on a value is
+neither – it keeps the row of one full instance and drops the row of
+another. -/
 theorem sel_or_diff_mem_of_generatesOn {S : Set OpKind}
-    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S)
     (hS : GeneratesOn ℕ schemaR S) :
     OpKind.sel ∈ S ∨ OpKind.diff ∈ S := by
   by_contra h
   obtain ⟨hsel, hdiff⟩ := not_or.mp h
-  obtain ⟨q', hsch, hu', he⟩ := hS selWitness (by rfl)
+  obtain ⟨q', hsch, hu', hset, he⟩ := hS selWitness (by rfl)
     ⟨by simp [plainOps, basisDD, basisOps], trivial⟩ trivial
   refine selWitness_breaks ?_
-  rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff hmb hms q' hu'
-    hsch with
+  rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff q' hu' hsch with
     h0 | h1
-  · exact Or.inl (fun D γ => (he D γ).trans (h0 D γ))
-  · exact Or.inr (fun D γ hfull hc => h1 D γ hfull ((he D γ).symm.trans hc))
+  · exact Or.inl (fun D γ => (he D γ).trans (h0 D γ (hset D γ)))
+  · exact Or.inr (fun D γ hfull hc =>
+      h1 D γ hfull (hset D γ) ((he D γ).symm.trans hc))
 
 /-! ## The swaps: a selection as a difference, a product as an apply
 
@@ -1153,7 +1162,9 @@ theorem basisDiffOps_generatesOn (cnt : SeqAggFunc T)
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisDiffOps_plainEquiv cnt hcnt q hq hd hqs
-    exact ⟨q', hs', hu', he'⟩
+    exact ⟨q', hs', hu',
+      AggQueryIn.settlesAt_of_usesOnly (by simp [basisDiffOps])
+        (by simp [basisDiffOps]) q' hu', he'⟩
 
 /-- **`{∅, Π, σ, apply, ⊎, γ}` generates, over a schema.** -/
 theorem basisApplyOps_generatesOn (cnt : SeqAggFunc T)
@@ -1162,7 +1173,9 @@ theorem basisApplyOps_generatesOn (cnt : SeqAggFunc T)
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisApplyOps_plainEquiv cnt hcnt q hq hd hqs
-    exact ⟨q', hs', hu', he'⟩
+    exact ⟨q', hs', hu',
+      AggQueryIn.settlesAt_of_usesOnly (by simp [basisApplyOps])
+        (by simp [basisApplyOps]) q' hu', he'⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisDiffOps_generatesOn_nat (sch : Schema) :
@@ -1277,7 +1290,9 @@ theorem basisApplyDiffOps_generatesOn (cnt : SeqAggFunc T)
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisApplyDiffOps_plainEquiv cnt hcnt q hq hd hqs
-    exact ⟨q', hs', hu', he'⟩
+    exact ⟨q', hs', hu',
+      AggQueryIn.settlesAt_of_usesOnly (by simp [basisApplyDiffOps])
+        (by simp [basisApplyDiffOps]) q' hu', he'⟩
 
 /-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisApplyDiffOps_generatesOn_nat (sch : Schema) :

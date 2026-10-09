@@ -489,12 +489,12 @@ diamonds – `4n + 1` rows, none of them duplicated – the sink has `2ⁿ` of
 them, which no polynomial in the size of the instance bounds. Every
 other operator of the minimal signature keeps the result polynomial. -/
 theorem chainWitness_no_polynomial_bound :
-    ¬ ∃ c k : ℕ, ∀ D : Database ℕ,
-      Multiset.card (chainWitness.evaluatePlain D (fun j => j.elim0))
-        ≤ c * (D.size + 1) ^ k := by
+    ¬ ∃ c k : ℕ, ∀ n : ℕ,
+      Multiset.card (chainWitness.evaluatePlain (dChain n) (fun j => j.elim0))
+        ≤ c * ((dChain n).size + 1) ^ k := by
   rintro ⟨c, k, h⟩
   obtain ⟨n, hn⟩ := exists_lt_two_pow c k
-  have hb := h (dChain n)
+  have hb := h n
   rw [size_dChain, show 4 * n + 1 + 1 = 4 * n + 2 from by omega] at hb
   exact absurd (le_trans (le_card_chainWitness n) hb) (not_le.mpr hn)
 
@@ -1915,13 +1915,39 @@ theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
 def plainRecOps : Set OpKind :=
   insert OpKind.muBag (insert OpKind.muSet plainOps)
 
-/-- **A generating set of the whole algebra**, over a schema. -/
+/-- **A generating set of the whole algebra**, over a schema: every query
+of the algebra over `sch` with derivable windows is matched by one using
+only the classes of `S`, which is **defined wherever the query is and
+agrees with it there** (`AggQueryIn.SettlesAt`). A query of the whole
+algebra is a partial function of the instance, so this is what
+equivalence means for it; nothing is asked where the query is undefined.
+On a query of the plain fragment, which is defined everywhere, it is
+`GeneratesOn` (`generatesOn_of_generatesOnRec`). -/
 def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
     Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.WinsDerivable →
       ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q.PlainEquiv q'
+        q'.overSchema sch ∧ q'.usesOnly S
+          ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
+            q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+
+/-- **A generating set of the whole algebra generates the plain
+fragment**, whose queries are defined everywhere: so every row proved
+against `GeneratesOn` holds of a generating set of the whole algebra. -/
+theorem generatesOn_of_generatesOnRec {sch : Schema} {S : Set OpKind}
+    (hS : GeneratesOnRec T sch S) : GeneratesOn T sch S := by
+  intro n κ q hqs hq hd
+  have hset : ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ :=
+    AggQueryIn.settlesAt_of_usesOnly
+      (by simp [plainOps, basisDD, basisOps])
+      (by simp [plainOps, basisDD, basisOps]) q hq
+  obtain ⟨q', hs', hu', he⟩ := hS q hqs
+    (AggQueryIn.usesOnly_mono
+      (fun x hx => by simp only [plainRecOps]; exact
+        Set.mem_insert_of_mem _ (Set.mem_insert_of_mem _ hx)) q hq) hd
+  exact ⟨q', hs', hu', fun D γ => (he D γ (hset D γ)).1,
+    fun D γ => (he D γ (hset D γ)).2⟩
 
 theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
   refine ⟨rfl, rfl, ?_⟩
@@ -1936,6 +1962,29 @@ theorem usesOnly_chainWitness : chainWitness.usesOnly plainRecOps := by
 theorem winsDerivable_chainWitness : chainWitness.WinsDerivable :=
   ⟨trivial, trivial, trivial⟩
 
+/-- The base of the witness is the source. -/
+theorem evaluatePlain_chainBase (n : ℕ) :
+    (AggQueryIn.Rel (T := ℕ) (c := 0) 1 "S").evaluatePlain (dChain n)
+      (fun j => j.elim0) = ({node 0} : Multiset (Tuple ℕ 1)) := by
+  show (match (dChain n).find 1 "S" with
+    | none => (0 : Multiset (Tuple ℕ 1)) | some r => r) = _
+  rw [find_dChain_S]
+
+/-- **The witness is defined on every chain**: its rounds end. -/
+theorem settlesAt_chainWitness (n : ℕ) :
+    chainWitness.SettlesAt (dChain n) (fun j => j.elim0) := by
+  refine ⟨trivial, chainStep_zero n, ?_, fun _ => ?_⟩
+  · show MuSettles (chainStep n) ((AggQueryIn.Rel (T := ℕ) (c := 0) 1
+      "S").evaluatePlain (dChain n) (fun j => j.elim0))
+    rw [evaluatePlain_chainBase]
+    exact muSettles_chain n
+  · exact AggQueryIn.settlesAt_of_usesOnly (S := plainOps)
+      (by simp [plainOps, basisDD, basisOps])
+      (by simp [plainOps, basisDD, basisOps]) reachStep
+      ⟨⟨by simp [plainOps, basisDD, basisOps], fun _ => rfl⟩,
+        by simp [plainOps, basisDD, basisOps],
+        by simp [plainOps, basisDD, basisOps], trivial, trivial⟩ _ _
+
 /-- **A basis of the whole algebra holds a recursion operator**
 (`tab:basisclasses`'s `μ^⊎` row, in the form the invariant proved here
 gives): without both, every answer is polynomial in the instance, and
@@ -1949,9 +1998,9 @@ theorem muBag_or_muSet_mem_of_generatesOnRec {S : Set OpKind}
     usesOnly_chainWitness winsDerivable_chainWitness
   obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound q'
     (AggQueryIn.noRec_of_usesOnly hmb hms q' hu')
-  refine chainWitness_no_polynomial_bound ⟨b, k, fun D => ?_⟩
-  rw [he D (fun j => j.elim0)]
-  exact hb D (fun j => j.elim0)
+  refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
+  rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
+  exact hb (dChain n) (fun j => j.elim0)
 
 /-! ## How a recursive term may read the recursive relation
 

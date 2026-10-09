@@ -971,7 +971,13 @@ proven engine several general results reuse internally.
   `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
   `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
   `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`, each
-  over the schema its witness lives on.
+  over the schema its witness lives on. The last holds of the whole
+  algebra: `AggQueryIn.NonzeroOn`, the dichotomy relative to a set of
+  names forced empty, is what carries it through a set recursion, and
+  `AggQueryIn.SettlesAt` – the recursions settle at this instance – is
+  the one hypothesis a statement about a recursion's value needs.
+  `GeneratesOn` asks the query it produces to settle everywhere, as the
+  plain query it stands for does.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its
   input is all-regular, a predicate of the language holds exactly where
@@ -1030,7 +1036,10 @@ proven engine several general results reuse internally.
   (the entry node of diamond `i` carrying `2ⁱ` copies, one per path),
   `muSettles_chain` says the rounds end, `count_chainWitness` gives the
   sink `2ⁿ` copies, and `chainWitness_no_polynomial_bound` is the row:
-  no `c · (n+1)^k` bounds that. The signature the row is stated in is
+  no `c · (n+1)^k` bounds that. `GeneratesOnRec` is generation over the
+  whole algebra, where a query is a partial function of the instance:
+  the query produced settles and agrees wherever the given one settles.
+  The signature the row is stated in is
   `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join

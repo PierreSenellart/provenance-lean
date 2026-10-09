@@ -700,6 +700,168 @@ theorem AggQueryIn.card_values_two {k : ℕ} (u : Tuple T k) (D : Database T)
   rw [AggQueryIn.evaluatePlain_values [u, u] (by simp) D γ]
   rfl
 
+/-! ## Where a query is defined
+
+A recursion means the value its rounds settle at and nothing where they
+do not, so a query with a recursion is a partial function of the
+instance. `SettlesAt` says the evaluation at one instance runs only
+recursions that settle: at `Mu`, the round function vanishes on the
+empty round and the rounds from the base reach an empty one; at `MuSet`,
+the iterations from `0` repeat; and the subqueries settle at the
+instances the evaluation reads them at – a body at every round, an
+apply's right side at every row of its left. This is
+`AggQueryIn.recSettles` taken instance by instance and in the plain
+semantics: that predicate asks every instance, which a nested recursion
+needs, but a result about a *class* of queries has to speak of the
+instances where a query is defined, since a recursion that is total is
+the exception (the body reads the recursive name under a product with an
+instance relation, and a cycle in that relation keeps the rounds going).
+A query with no recursion settles everywhere. -/
+
+/-- **The recursions settle at an instance.** -/
+def AggQueryIn.SettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Database T → (Fin c → T) → Prop
+  | _, _, _, .Rel _ _, _, _ => True
+  | _, _, _, .Empty, _, _ => True
+  | _, _, _, .Proj _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, .Sel _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, .Prod q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
+  | _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ q₁ q₂, D, γ =>
+      q₁.SettlesAt D γ
+        ∧ ∀ u : Tuple T n₁, Multiset.Mem (q₁.evaluatePlain D γ) u →
+            q₂.SettlesAt D (Fin.append u γ)
+  | _, _, _, .Sum q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
+  | _, _, _, .Dedup q, D, γ => q.SettlesAt D γ
+  | _, _, _, .Diff q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
+  | _, _, _, .Alt _ _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, .Retag _ q, D, γ => q.SettlesAt D γ
+  | _, n, _, .Mu s q₀ q₁, D, γ =>
+      q₀.SettlesAt D γ
+        ∧ q₁.evaluatePlain (D.assign s (0 : Relation T n)) γ = 0
+        ∧ MuSettles (fun X => q₁.evaluatePlain (D.assign s X) γ)
+            (q₀.evaluatePlain D γ)
+        ∧ ∀ k : ℕ, q₁.SettlesAt
+            (D.assign s ((fun X => q₁.evaluatePlain (D.assign s X) γ)^[k]
+              (q₀.evaluatePlain D γ))) γ
+  | _, _, _, .MuSet s q₀ q₁, D, γ =>
+      MuSetSettles (fun X => (q₀.evaluatePlain (D.assign s X) γ
+          + q₁.evaluatePlain (D.assign s X) γ).dedup)
+        ∧ ∀ k : ℕ,
+          q₀.SettlesAt (D.assign s (muIter (fun X =>
+            (q₀.evaluatePlain (D.assign s X) γ
+              + q₁.evaluatePlain (D.assign s X) γ).dedup) k)) γ
+          ∧ q₁.SettlesAt (D.assign s (muIter (fun X =>
+            (q₀.evaluatePlain (D.assign s X) γ
+              + q₁.evaluatePlain (D.assign s X) γ).dedup) k)) γ
+  | _, _, _, .Gamma _ _ _ q _ _, D, γ => q.SettlesAt D γ
+  | _, _, _, .GammaScalar _ _ q _, D, γ => q.SettlesAt D γ
+  | _, _, _, .GammaNest _ _ _ _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, .GammaTok _ _ _ _ _ q _, D, γ => q.SettlesAt D γ
+  | _, _, _, .ProvSum _ _ _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _, D, γ => q.SettlesAt D γ
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D, γ => q.SettlesAt D γ
+
+/-- **A query with no recursion settles everywhere.** -/
+theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ _ _ => trivial
+  | Empty => exact fun _ _ _ => trivial
+  | Proj ps q ih => exact fun hq D γ => ih hq.2 D γ
+  | Sel φ q ih => exact fun hq D γ => ih hq.2 D γ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, ih₂ hq.2.2 D γ⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, fun u _ => ih₂ hq.2.2 D _⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, ih₂ hq.2.2 D γ⟩
+  | Dedup q ih => exact fun hq D γ => ih hq.2 D γ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, ih₂ hq.2.2 D γ⟩
+  | Alt k hk q ih => exact fun hq D γ => ih hq D γ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
+  | Gamma is ts fs q keep ord ih => exact fun hq D γ => ih hq.2 D γ
+  | GammaScalar ts fs q ord ih => exact fun hq D γ => ih hq.2 D γ
+  | GammaNest is his p f q ih => exact fun hq D γ => ih hq.2 D γ
+  | ProvSum is his t q ih => exact fun hq => hq.elim
+  | Retag hk q ih => exact fun hq D γ => ih hq D γ
+  | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
+  | Win P O o w t f q hrr dist keep ih => exact fun hq D γ => ih hq.2 D γ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hq D γ => ih hq.2 D γ
+
+/-! ### What the two fixpoints are when their rounds vanish or do not -/
+
+/-- The sum of the rounds from the empty relation is empty when a round
+from it is. -/
+theorem muSum_zero_of_step_zero {α : Type}
+    {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
+    ∀ b : ℕ, muSum step b 0 = 0 := by
+  intro b
+  induction b with
+  | zero => rfl
+  | succ b ih =>
+    show (0 : Multiset α) + muSum step b (step 0) = 0
+    rw [h0, ih, add_zero]
+
+/-- So is the value the duplicate-preserving recursion settles at. -/
+theorem muSumFix_zero_of_step_zero {α : Type}
+    {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
+    muSumFix step 0 = 0 :=
+  muSum_zero_of_step_zero h0 _
+
+/-- A set recursion whose first round is empty settles there. -/
+theorem muFix_zero_of_step_zero {α : Type}
+    {step : Multiset α → Multiset α} (h0 : step 0 = 0) : muFix step = 0 := by
+  have hmem : (0 : ℕ) ∈ {j | step^[j + 1] 0 = step^[j] 0} := by
+    show step^[1] 0 = step^[0] 0
+    simpa using h0
+  rw [muFix, muFixIdx, Nat.le_antisymm (Nat.sInf_le hmem) (Nat.zero_le _)]
+  rfl
+
+/-- The sum of the rounds holds the base. -/
+theorem card_le_card_muSum {α : Type} (step : Multiset α → Multiset α)
+    (b : ℕ) (M : Multiset α) :
+    Multiset.card M ≤ Multiset.card (muSum step b M) := by
+  cases b with
+  | zero => exact le_refl _
+  | succ b =>
+    show Multiset.card M ≤ Multiset.card (M + muSum step b (step M))
+    rw [Multiset.card_add]
+    exact Nat.le_add_right _ _
+
+/-- **A duplicate-preserving recursion from a non-empty base is
+non-empty**, settling or not: the base is one of the summands. -/
+theorem muSumFix_ne_zero {α : Type} (step : Multiset α → Multiset α)
+    {M : Multiset α} (hM : M ≠ 0) : muSumFix step M ≠ 0 := by
+  intro h
+  have hc := card_le_card_muSum step (muRounds step M) M
+  rw [muSumFix] at h
+  rw [h, Multiset.card_zero, Nat.le_zero, Multiset.card_eq_zero] at hc
+  exact hM hc
+
+/-- **A set recursion that settles, whose first round is non-empty and
+whose rounds keep a non-empty round non-empty, settles at a non-empty
+value.** -/
+theorem muFix_ne_zero_of_settles {α : Type} {step : Multiset α → Multiset α}
+    (hs : MuSetSettles step) (h0 : step 0 ≠ 0)
+    (hstep : ∀ k, muIter step k ≠ 0 → step (muIter step k) ≠ 0) :
+    muFix step ≠ 0 := by
+  obtain ⟨j, hj⟩ := hs
+  have hfix : step (muIter step j) = muIter step j := by
+    rw [muIter_eq_iterate]
+    rw [Function.iterate_succ_apply'] at hj
+    exact hj
+  rw [muFix_eq_of_fix hfix]
+  have hpos : ∀ k, muIter step (k + 1) ≠ 0 := by
+    intro k
+    induction k with
+    | zero => exact h0
+    | succ k ih => exact hstep (k + 1) ih
+  cases j with
+  | zero => exact absurd hj h0
+  | succ j => exact hpos j
+
 /-! ## Selection and difference: the two operators that can lose a row
 
 Without `σ` and `−`, a query is either empty on every instance of its
@@ -707,7 +869,24 @@ schema, or non-empty on every instance of it whose relations are all
 non-empty: nothing else can turn rows away. The disjunction is uniform in
 the outer context, which is what the apply needs – without a selection
 the outer row enters its right side only through terms, and a term
-decides no row's presence. -/
+decides no row's presence.
+
+The two recursions keep the invariant, under the one hypothesis that
+makes them mean anything (`SettlesAt`), but not by an induction on the
+disjunction alone: whether `μ^∪R.(q₀, q₁)` is empty depends on whether
+`q₁` is empty at the instance binding `R` to the **empty** relation, which
+is not a full instance of the body's schema, so the body's disjunction
+says nothing about it. What the induction carries instead is the
+disjunction relative to a set `E` of names forced empty
+(`AggQueryIn.NonzeroOn`): `q` is non-empty on every instance that is full
+off `E`, or empty on every instance that is empty on `E`. At a set
+recursion, the first round reads the body with the recursive name in
+`E`, and the later rounds read it with the name out of `E` – which the
+body's condition at the larger set implies (`NonzeroOn.mono`), the
+condition being antitone in `E`. At a bag recursion the base is a
+summand of the answer, so the base decides; the rounds from an empty base
+vanish because the round function vanishes on the empty round, which is
+what `SettlesAt` asks there. -/
 
 /-- An instance of the schema no relation of which is empty. -/
 def Database.Full (sch : Schema) (D : Database T) : Prop :=
@@ -719,6 +898,175 @@ omit [ValueType T] in
 theorem Database.Full.conforms {sch : Schema} {D : Database T}
     (h : Database.Full sch D) : Database.Conforms sch D :=
   fun s k hk => let ⟨r, hr, _⟩ := h s k hk; ⟨r, hr⟩
+
+/-- **An instance full off a set of names**: every relation the schema
+declares under a name outside `E` is bound and non-empty. `Full` is the
+case `E = ∅`. -/
+def Database.FullOff (sch : Schema) (E : Set String) (D : Database T) :
+    Prop :=
+  ∀ (s : String) (k : ℕ), sch s = some k → s ∉ E →
+    ∃ r : Relation T k, D.find k s = some r ∧ r ≠ 0
+
+/-- **An instance empty on a set of names**: whatever is bound under a
+name of `E`, at the arity the schema declares it, is the empty
+relation. -/
+def Database.EmptyOn (sch : Schema) (E : Set String) (D : Database T) :
+    Prop :=
+  ∀ (s : String) (k : ℕ) (r : Relation T k), sch s = some k → s ∈ E →
+    D.find k s = some r → r = 0
+
+omit [ValueType T] in
+theorem Database.Full.fullOff {sch : Schema} {D : Database T}
+    (h : Database.Full sch D) (E : Set String) : Database.FullOff sch E D :=
+  fun s k hk _ => h s k hk
+
+omit [ValueType T] in
+theorem Database.emptyOn_empty (sch : Schema) (D : Database T) :
+    Database.EmptyOn sch (∅ : Set String) D :=
+  fun _ _ _ _ h _ => h.elim
+
+omit [ValueType T] in
+/-- Binding a name the schema does not declare keeps an instance full off
+`E`. -/
+theorem Database.FullOff.assign_of_none {sch : Schema} {E : Set String}
+    {D : Database T} (h : Database.FullOff sch E D) {s : String}
+    (hs : sch s = none) {m : ℕ} (X : Relation T m) :
+    Database.FullOff sch E (D.assign s X) := by
+  intro t k ht hE
+  have hne : t ≠ s := fun h' => by rw [h', hs] at ht; cases ht
+  rw [Database.find_assign_of_ne s t X D (fun h' => hne h'.2)]
+  exact h t k ht hE
+
+omit [ValueType T] in
+/-- Binding a name the schema does not declare to a non-empty relation
+gives an instance of the extended schema, full off `E` less that name. -/
+theorem Database.FullOff.assign_update {sch : Schema} {E : Set String}
+    {D : Database T} (h : Database.FullOff sch E D) {s : String}
+    (hs : sch s = none) {m : ℕ} {X : Relation T m} (hX : X ≠ 0) :
+    Database.FullOff (sch.update s m) (E \ {s}) (D.assign s X) := by
+  intro t k ht hE
+  by_cases hts : t = s
+  · subst hts
+    have hk : k = m := by
+      simp only [Schema.update, ite_true] at ht
+      exact (Option.some.inj ht).symm
+    subst hk
+    exact ⟨X, Database.find_assign t X D, hX⟩
+  · have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+    rw [Database.find_assign_of_ne s t X D (fun h' => hts h'.2)]
+    exact h t k ht' (fun hE' => hE ⟨hE', hts⟩)
+
+omit [ValueType T] in
+/-- Binding a name to the empty relation gives an instance of the
+extended schema, full off `E` with that name. -/
+theorem Database.FullOff.assign_update_zero {sch : Schema} {E : Set String}
+    {D : Database T} (h : Database.FullOff sch E D) {s : String} (m : ℕ) :
+    Database.FullOff (sch.update s m) (insert s E)
+      (D.assign s (0 : Relation T m)) := by
+  intro t k ht hE
+  have hts : t ≠ s := fun h' => hE (h' ▸ Set.mem_insert s E)
+  have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+  rw [Database.find_assign_of_ne s t _ D (fun h' => hts h'.2)]
+  exact h t k ht' (fun hE' => hE (Set.mem_insert_of_mem s hE'))
+
+omit [ValueType T] in
+/-- Binding a name the schema does not declare keeps an instance empty on
+`E`. -/
+theorem Database.EmptyOn.assign_of_none {sch : Schema} {E : Set String}
+    {D : Database T} (h : Database.EmptyOn sch E D) {s : String}
+    (hs : sch s = none) {m : ℕ} (X : Relation T m) :
+    Database.EmptyOn sch E (D.assign s X) := by
+  intro t k r ht hE hf
+  have hne : t ≠ s := fun h' => by rw [h', hs] at ht; cases ht
+  rw [Database.find_assign_of_ne s t X D (fun h' => hne h'.2)] at hf
+  exact h t k r ht hE hf
+
+omit [ValueType T] in
+/-- Binding a name to the empty relation gives an instance of the
+extended schema, empty on `E` with that name. -/
+theorem Database.EmptyOn.assign_update_zero {sch : Schema} {E : Set String}
+    {D : Database T} (h : Database.EmptyOn sch E D) {s : String}
+    (hs : sch s = none) (m : ℕ) :
+    Database.EmptyOn (sch.update s m) (insert s E)
+      (D.assign s (0 : Relation T m)) := by
+  intro t k r ht hE hf
+  by_cases hts : t = s
+  · subst hts
+    have hk : k = m := by
+      simp only [Schema.update, ite_true] at ht
+      exact (Option.some.inj ht).symm
+    subst hk
+    rw [Database.find_assign] at hf
+    exact (Option.some.inj hf).symm
+  · have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+    rw [Database.find_assign_of_ne s t _ D (fun h' => hts h'.2)] at hf
+    exact h t k r ht' ((Set.mem_insert_iff.mp hE).resolve_left hts) hf
+
+/-- **Where a query without `σ` and `−` is non-empty**, read off its
+syntax relative to a set `E` of names forced empty: a relation name is
+non-empty unless it is in `E`; `∅` never; the one-input operators and
+the aggregations inherit, the scalar aggregation always; a product and an
+apply need both sides, a union one; a bag recursion is its base; a set
+recursion is its base or its body at the instance binding the recursive
+name to the empty relation. The two lemmas below say that this is right:
+`q.NonzeroOn E` makes `q` non-empty on every instance full off `E`, and
+its negation makes `q` empty on every instance empty on `E`. The
+selection, the difference and the two operators of the rewritten world
+get the value that keeps the lemmas uniform; they are never reached. -/
+def AggQueryIn.NonzeroOn (E : Set String) : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ s => s ∉ E
+  | _, _, _, .Empty => False
+  | _, _, _, .Proj _ q => q.NonzeroOn E
+  | _, _, _, .Sel _ q => q.NonzeroOn E
+  | _, _, _, .Prod q₁ q₂ => q₁.NonzeroOn E ∧ q₂.NonzeroOn E
+  | _, _, _, .Apply q₁ q₂ => q₁.NonzeroOn E ∧ q₂.NonzeroOn E
+  | _, _, _, .Sum q₁ q₂ => q₁.NonzeroOn E ∨ q₂.NonzeroOn E
+  | _, _, _, .Dedup q => q.NonzeroOn E
+  | _, _, _, .Diff q₁ _ => q₁.NonzeroOn E
+  | _, _, _, .Alt _ _ q => q.NonzeroOn E
+  | _, _, _, .Retag _ q => q.NonzeroOn E
+  | _, _, _, .Mu _ q₀ _ => q₀.NonzeroOn E
+  | _, _, _, .MuSet s q₀ q₁ => q₀.NonzeroOn E ∨ q₁.NonzeroOn (insert s E)
+  | _, _, _, .Gamma _ _ _ q _ _ => q.NonzeroOn E
+  | _, _, _, .GammaScalar _ _ _ _ => True
+  | _, _, _, .GammaNest _ _ _ _ q => q.NonzeroOn E
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.NonzeroOn E
+  | _, _, _, .ProvSum _ _ _ q => q.NonzeroOn E
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.NonzeroOn E
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.NonzeroOn E
+
+omit [ValueType T] in
+/-- **The condition is antitone in the names forced empty.** -/
+theorem AggQueryIn.NonzeroOn.mono :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+      {E E' : Set String}, E ⊆ E' → q.NonzeroOn E' → q.NonzeroOn E := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun hE h hs => h (hE hs)
+  | Empty => exact fun _ h => h
+  | Proj ps q ih => exact fun hE h => ih hE h
+  | Sel φ q ih => exact fun hE h => ih hE h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun hE h => ⟨ih₁ hE h.1, ih₂ hE h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun hE h => ⟨ih₁ hE h.1, ih₂ hE h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact fun hE h => h.elim (fun h => Or.inl (ih₁ hE h))
+      (fun h => Or.inr (ih₂ hE h))
+  | Dedup q ih => exact fun hE h => ih hE h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hE h => ih₁ hE h
+  | Alt k hk q ih => exact fun hE h => ih hE h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hE h => ih₀ hE h
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    exact fun hE h => h.elim (fun h => Or.inl (ih₀ hE h))
+      (fun h => Or.inr (ih₁ (Set.insert_subset_insert hE) h))
+  | Gamma is ts fs q keep ord ih => exact fun hE h => ih hE h
+  | GammaScalar ts fs q ord ih => exact fun _ _ => trivial
+  | GammaNest is his p f q ih => exact fun hE h => ih hE h
+  | ProvSum is his t q ih => exact fun hE h => ih hE h
+  | Retag hk q ih => exact fun hE h => ih hE h
+  | GammaTok is his ts fs a q keep ih => exact fun hE h => ih hE h
+  | Win P O o w t f q hrr dist keep ih => exact fun hE h => ih hE h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hE h => ih hE h
 
 /-- A family stands for no row exactly when it indexes none. -/
 theorem OccFam.toMultiset_eq_zero_iff {α : Type} (r : OccFam α) :
@@ -753,164 +1101,294 @@ theorem Multiset.dedup_eq_zero_iff {α : Type} [DecidableEq α]
     exact Multiset.notMem_zero a hz
   · intro h; rw [h]; rfl
 
-/-- **Without `σ` and `−`, a query is empty everywhere or non-empty on
-every full instance.** -/
-theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
-    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S)
-    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) {sch : Schema} :
+omit [ValueType T] in
+/-- A sum is empty only if both summands are. -/
+theorem Multiset.left_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
+    (h : s + t = 0) : s = 0 := by
+  have hc := Multiset.card_add s t
+  rw [h, Multiset.card_zero] at hc
+  exact Multiset.card_eq_zero.mp (by omega)
+
+omit [ValueType T] in
+theorem Multiset.right_eq_zero_of_add_eq_zero {α : Type} {s t : Multiset α}
+    (h : s + t = 0) : t = 0 := by
+  have hc := Multiset.card_add s t
+  rw [h, Multiset.card_zero] at hc
+  exact Multiset.card_eq_zero.mp (by omega)
+
+/-- **Without `σ` and `−`, a query that is not `NonzeroOn E` is empty on
+every instance empty on `E`** where it is defined. -/
+theorem AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn {S : Set OpKind}
+    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.usesOnly S → q.overSchema sch →
-      (∀ (D : Database T) (γ : Fin c → T), q.evaluatePlain D γ = 0)
-        ∨ (∀ (D : Database T) (γ : Fin c → T), Database.Full sch D →
-            q.evaluatePlain D γ ≠ 0) := by
+      q.usesOnly S → ∀ (sch : Schema) (E : Set String), q.overSchema sch →
+      ¬ q.NonzeroOn E →
+      ∀ (D : Database T) (γ : Fin c → T), Database.EmptyOn sch E D →
+        q.SettlesAt D γ → q.evaluatePlain D γ = 0 := by
   intro c n κ q
   induction q with
   | Rel n s =>
-    intro _ hw
-    refine Or.inr (fun D γ hD => ?_)
-    obtain ⟨r, hr, hne⟩ := hD s n hw
-    simp only [AggQueryIn.evaluatePlain, hr]
-    exact hne
-  | Empty => exact fun _ _ => Or.inl (fun D γ => rfl)
+    intro _ sch E hw hnz D γ hD _
+    have hs : s ∈ E := not_not.mp hnz
+    show (match D.find n s with
+      | none => (0 : Multiset (Tuple T n)) | some r => r) = 0
+    cases hf : D.find n s with
+    | none => rfl
+    | some r => exact hD s n r hw hs hf
+  | Empty => exact fun _ _ _ _ _ _ _ _ _ => rfl
   | Proj ps q ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp hc)
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain, ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
   | Sel φ q ih => intro hq; exact absurd hq.1 hsel
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hw
-    rcases ih₁ hq.2.1 hw.1 with h₁ | h₁
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      refine Multiset.card_eq_zero.mp ?_
-      rw [Relation.card_hMul, h₁ D γ, Multiset.card_zero, Nat.zero_mul]
-    · rcases ih₂ hq.2.2 hw.2 with h₂ | h₂
-      · refine Or.inl (fun D γ => ?_)
-        simp only [AggQueryIn.evaluatePlain]
-        refine Multiset.card_eq_zero.mp ?_
-        rw [Relation.card_hMul, h₂ D γ, Multiset.card_zero, Nat.mul_zero]
-      · refine Or.inr (fun D γ hD hc => ?_)
-        simp only [AggQueryIn.evaluatePlain] at hc
-        have h0 : Multiset.card (q₁.evaluatePlain D γ)
-            * Multiset.card (q₂.evaluatePlain D γ) = 0 := by
-          rw [← Relation.card_hMul]
-          exact Multiset.card_eq_zero.mpr hc
-        rcases Nat.mul_eq_zero.mp h0 with hz | hz
-        · exact h₁ D γ hD (Multiset.card_eq_zero.mp hz)
-        · exact h₂ D γ hD (Multiset.card_eq_zero.mp hz)
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    refine Multiset.card_eq_zero.mp ?_
+    rw [Relation.card_hMul]
+    rcases not_and_or.mp hnz with h | h
+    · rw [ih₁ hq.2.1 sch E hw.1 h D γ hD hs.1, Multiset.card_zero, Nat.zero_mul]
+    · rw [ih₂ hq.2.2 sch E hw.2 h D γ hD hs.2, Multiset.card_zero, Nat.mul_zero]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hw
-    rcases ih₁ hq.2.1 hw.1 with h₁ | h₁
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h₁ D γ]
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    rcases not_and_or.mp hnz with h | h
+    · rw [ih₁ hq.2.1 sch E hw.1 h D γ hD hs.1]
       rfl
-    · rcases ih₂ hq.2.2 hw.2 with h₂ | h₂
-      · refine Or.inl (fun D γ => ?_)
-        simp only [AggQueryIn.evaluatePlain]
-        refine Multiset.eq_zero_of_forall_notMem (fun v hv => ?_)
-        obtain ⟨u, -, hv'⟩ := Multiset.mem_bind.mp hv
-        obtain ⟨w, hw', -⟩ := Multiset.mem_map.mp hv'
-        exact absurd (h₂ D (Fin.append u γ)) (fun hc => by
-          rw [hc] at hw'; exact Multiset.notMem_zero w hw')
-      · refine Or.inr (fun D γ hD hc => ?_)
-        simp only [AggQueryIn.evaluatePlain] at hc
-        rw [← Multiset.card_eq_zero, Multiset.card_bind] at hc
-        obtain ⟨u, hu⟩ := Multiset.exists_mem_of_ne_zero (h₁ D γ hD)
-        have hzero := (Multiset.sum_eq_zero_iff.mp hc) _
-          (Multiset.mem_map.mpr ⟨u, hu, rfl⟩)
-        refine h₂ D (Fin.append u γ) hD (Multiset.card_eq_zero.mp ?_)
-        simpa only [Function.comp_apply, Multiset.card_map] using hzero
+    · refine Multiset.eq_zero_of_forall_notMem (fun v hv => ?_)
+      obtain ⟨u, hu, hv'⟩ := Multiset.mem_bind.mp hv
+      obtain ⟨w, hw', -⟩ := Multiset.mem_map.mp hv'
+      rw [ih₂ hq.2.2 sch E hw.2 h D (Fin.append u γ) hD (hs.2 u hu)] at hw'
+      exact Multiset.notMem_zero w hw'
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hw
-    rcases ih₁ hq.2.1 hw.1 with h₁ | h₁
-    · rcases ih₂ hq.2.2 hw.2 with h₂ | h₂
-      · refine Or.inl (fun D γ => ?_)
-        simp only [AggQueryIn.evaluatePlain, h₁ D γ, h₂ D γ]
-        rfl
-      · refine Or.inr (fun D γ hD hc => ?_)
-        simp only [AggQueryIn.evaluatePlain] at hc
-        refine h₂ D γ hD (Multiset.card_eq_zero.mp ?_)
-        have hsum := Multiset.card_add (q₁.evaluatePlain D γ)
-          (q₂.evaluatePlain D γ)
-        rw [hc, Multiset.card_zero] at hsum
-        omega
-    · refine Or.inr (fun D γ hD hc => ?_)
-      simp only [AggQueryIn.evaluatePlain] at hc
-      refine h₁ D γ hD (Multiset.card_eq_zero.mp ?_)
-      have hsum := Multiset.card_add (q₁.evaluatePlain D γ)
-        (q₂.evaluatePlain D γ)
-      rw [hc, Multiset.card_zero] at hsum
-      omega
+    intro hq sch E hw hnz D γ hD hs
+    obtain ⟨h₁, h₂⟩ := not_or.mp hnz
+    simp only [AggQueryIn.evaluatePlain, ih₁ hq.2.1 sch E hw.1 h₁ D γ hD hs.1,
+      ih₂ hq.2.2 sch E hw.2 h₂ D γ hD hs.2]
+    rfl
   | Dedup q ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.dedup_eq_zero_iff _).mp hc)
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain, ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
   | Diff q₁ q₂ ih₁ ih₂ => intro hq; exact absurd hq.1 hdiff
-  | Alt k hk q ih => intro hq hw; exact ih hq hw
-  | Retag hk q ih => intro hq hw; exact ih hq hw
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
+  | Alt k hk q ih =>
+    intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
+  | Retag hk q ih =>
+    intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    rw [ih₀ hq.2.1 sch E hw.2.1 hnz D γ hD hs.1]
+    exact muSumFix_zero_of_step_zero hs.2.1
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro hq sch E hw hnz D γ hD hs
+    obtain ⟨h₀, h₁⟩ := not_or.mp hnz
+    simp only [AggQueryIn.evaluatePlain]
+    refine muFix_zero_of_step_zero ?_
+    show (q₀.evaluatePlain (D.assign s 0) γ
+      + q₁.evaluatePlain (D.assign s 0) γ).dedup = 0
+    rw [ih₀ hq.2.1 sch E hw.2.1 h₀ (D.assign s 0) γ (hD.assign_of_none hw.1 _)
+        (hs.2 0).1,
+      ih₁ hq.2.2 (sch.update s _) (insert s E) hw.2.2 h₁ (D.assign s 0) γ
+        (hD.assign_update_zero hw.1 _) (hs.2 0).2]
+    rfl
   | Gamma is ts fs q keep ord ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain, ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
+  | GammaScalar ts fs q ord ih => intro _ _ _ _ hnz; exact absurd trivial hnz
+  | GammaNest is his p f q ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain, ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
+  | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
+  | ProvSum is his t q ih => intro hq; exact hq.elim
+  | Win P O o w t f q hrr dist keep ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    rw [ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    rw [ih hq.2 sch E hw hnz D γ hD hs]
+    rfl
+
+/-- The set recursion's case of the theorem below, with the base's and
+the body's cases as hypotheses: the first round is non-empty because the
+base is, or the body is at the instance binding the name to the empty
+relation; every later round is non-empty because the base is, or the
+body is at the instance binding the name to the previous round, the
+body's condition at the smaller set of names forced empty following from
+its condition at the larger. -/
+private theorem AggQueryIn.evaluatePlain_ne_zero_muSet {c n : ℕ} (s : String)
+    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n))
+    (ih₀ : ∀ (sch : Schema) (E : Set String), q₀.overSchema sch →
+      q₀.NonzeroOn E → ∀ (D : Database T) (γ : Fin c → T),
+      Database.FullOff sch E D → q₀.SettlesAt D γ → q₀.evaluatePlain D γ ≠ 0)
+    (ih₁ : ∀ (sch : Schema) (E : Set String), q₁.overSchema sch →
+      q₁.NonzeroOn E → ∀ (D : Database T) (γ : Fin c → T),
+      Database.FullOff sch E D → q₁.SettlesAt D γ → q₁.evaluatePlain D γ ≠ 0)
+    (sch : Schema) (E : Set String)
+    (hw : (AggQueryIn.MuSet s q₀ q₁).overSchema sch)
+    (hnz : (AggQueryIn.MuSet s q₀ q₁).NonzeroOn E)
+    (D : Database T) (γ : Fin c → T) (hD : Database.FullOff sch E D)
+    (hs : (AggQueryIn.MuSet s q₀ q₁).SettlesAt D γ) :
+    (AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ ≠ 0 := by
+  simp only [AggQueryIn.evaluatePlain]
+  -- A round is non-empty when the base is, or when the body is at it.
+  have hround : ∀ (X : Relation T n), Database.FullOff sch E (D.assign s X) →
+      (q₀.NonzeroOn E ∨ (X ≠ 0 ∧ q₁.NonzeroOn (E \ {s}))) →
+      q₀.SettlesAt (D.assign s X) γ → q₁.SettlesAt (D.assign s X) γ →
+      (q₀.evaluatePlain (D.assign s X) γ
+        + q₁.evaluatePlain (D.assign s X) γ).dedup ≠ 0 := by
+    intro X hDX h hs₀ hs₁ hc
+    rw [Multiset.dedup_eq_zero_iff] at hc
+    rcases h with h | ⟨hX, h⟩
+    · exact ih₀ sch E hw.2.1 h _ γ hDX hs₀
+        (Multiset.left_eq_zero_of_add_eq_zero hc)
+    · exact ih₁ (sch.update s n) (E \ {s}) hw.2.2 h _ γ
+        (hD.assign_update hw.1 hX) hs₁
+        (Multiset.right_eq_zero_of_add_eq_zero hc)
+  refine muFix_ne_zero_of_settles hs.1 ?_ ?_
+  · -- The first round.
+    show (q₀.evaluatePlain (D.assign s 0) γ
+      + q₁.evaluatePlain (D.assign s 0) γ).dedup ≠ 0
+    intro hc
+    rw [Multiset.dedup_eq_zero_iff] at hc
+    rcases hnz with h | h
+    · exact ih₀ sch E hw.2.1 h _ γ (hD.assign_of_none hw.1 _)
+        (hs.2 0).1 (Multiset.left_eq_zero_of_add_eq_zero hc)
+    · exact ih₁ (sch.update s n) (insert s E) hw.2.2 h _ γ
+        (hD.assign_update_zero _) (hs.2 0).2
+        (Multiset.right_eq_zero_of_add_eq_zero hc)
+  · -- Every later round, from a non-empty one.
+    intro k hk
+    refine hround _ (hD.assign_of_none hw.1 _) ?_ (hs.2 k).1 (hs.2 k).2
+    rcases hnz with h | h
+    · exact Or.inl h
+    · exact Or.inr ⟨hk, AggQueryIn.NonzeroOn.mono q₁
+        (Set.sdiff_subset.trans (Set.subset_insert s E)) h⟩
+
+/-- **Without `σ` and `−`, a query that is `NonzeroOn E` is non-empty on
+every instance full off `E`** where it is defined. -/
+theorem AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn {S : Set OpKind}
+    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → ∀ (sch : Schema) (E : Set String), q.overSchema sch →
+      q.NonzeroOn E →
+      ∀ (D : Database T) (γ : Fin c → T), Database.FullOff sch E D →
+        q.SettlesAt D γ → q.evaluatePlain D γ ≠ 0 := by
+  intro c n κ q
+  induction q with
+  | Rel n s =>
+    intro _ sch E hw hnz D γ hD _
+    obtain ⟨r, hr, hne⟩ := hD s n hw hnz
+    simp only [AggQueryIn.evaluatePlain, hr]
+    exact hne
+  | Empty => exact fun _ _ _ _ h => h.elim
+  | Proj ps q ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    exact fun hc => ih hq.2 sch E hw hnz D γ hD hs
+      ((Multiset.map_eq_zero_iff _ _).mp hc)
+  | Sel φ q ih => intro hq; exact absurd hq.1 hsel
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro hq sch E hw hnz D γ hD hs hc
+    simp only [AggQueryIn.evaluatePlain] at hc
+    have h0 : Multiset.card (q₁.evaluatePlain D γ)
+        * Multiset.card (q₂.evaluatePlain D γ) = 0 := by
+      rw [← Relation.card_hMul]
+      exact Multiset.card_eq_zero.mpr hc
+    rcases Nat.mul_eq_zero.mp h0 with hz | hz
+    · exact ih₁ hq.2.1 sch E hw.1 hnz.1 D γ hD hs.1 (Multiset.card_eq_zero.mp hz)
+    · exact ih₂ hq.2.2 sch E hw.2 hnz.2 D γ hD hs.2 (Multiset.card_eq_zero.mp hz)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro hq sch E hw hnz D γ hD hs hc
+    simp only [AggQueryIn.evaluatePlain] at hc
+    rw [← Multiset.card_eq_zero, Multiset.card_bind] at hc
+    obtain ⟨u, hu⟩ := Multiset.exists_mem_of_ne_zero
+      (ih₁ hq.2.1 sch E hw.1 hnz.1 D γ hD hs.1)
+    have hzero := (Multiset.sum_eq_zero_iff.mp hc) _
+      (Multiset.mem_map.mpr ⟨u, hu, rfl⟩)
+    refine ih₂ hq.2.2 sch E hw.2 hnz.2 D (Fin.append u γ)
+      (fun t k ht hE => hD t k ht hE) (hs.2 u hu) (Multiset.card_eq_zero.mp ?_)
+    simpa only [Function.comp_apply, Multiset.card_map] using hzero
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hq sch E hw hnz D γ hD hs hc
+    simp only [AggQueryIn.evaluatePlain] at hc
+    rcases hnz with h | h
+    · exact ih₁ hq.2.1 sch E hw.1 h D γ hD hs.1
+        (Multiset.left_eq_zero_of_add_eq_zero hc)
+    · exact ih₂ hq.2.2 sch E hw.2 h D γ hD hs.2
+        (Multiset.right_eq_zero_of_add_eq_zero hc)
+  | Dedup q ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    exact fun hc => ih hq.2 sch E hw hnz D γ hD hs
+      ((Multiset.dedup_eq_zero_iff _).mp hc)
+  | Diff q₁ q₂ ih₁ ih₂ => intro hq; exact absurd hq.1 hdiff
+  | Alt k hk q ih =>
+    intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
+  | Retag hk q ih =>
+    intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    exact muSumFix_ne_zero _ (ih₀ hq.2.1 sch E hw.2.1 hnz D γ hD hs.1)
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro hq sch E hw hnz D γ hD hs
+    exact AggQueryIn.evaluatePlain_ne_zero_muSet s q₀ q₁ (ih₀ hq.2.1)
+      (ih₁ hq.2.2) sch E hw hnz D γ hD hs
+  | Gamma is ts fs q keep ord ih =>
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    exact fun hc => ih hq.2 sch E hw hnz D γ hD hs
+      ((Multiset.map_eq_zero_iff _ _).mp
         ((Multiset.dedup_eq_zero_iff _).mp
           ((Multiset.map_eq_zero_iff _ _).mp hc)))
   | GammaScalar ts fs q ord ih =>
-    intro hq hw
-    refine Or.inr (fun D γ _ => ?_)
+    intro _ _ _ _ _ D γ _ _
     simp only [AggQueryIn.evaluatePlain]
     exact fun hc => absurd (congrArg Multiset.card hc) (by simp)
   | GammaNest is his p f q ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain, h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      exact fun hc => h D γ hD ((Multiset.map_eq_zero_iff _ _).mp
+    intro hq sch E hw hnz D γ hD hs
+    simp only [AggQueryIn.evaluatePlain]
+    exact fun hc => ih hq.2 sch E hw hnz D γ hD hs
+      ((Multiset.map_eq_zero_iff _ _).mp
         ((Multiset.dedup_eq_zero_iff _).mp
           ((Multiset.map_eq_zero_iff _ _).mp hc)))
   | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
   | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      rw [h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD hc => ?_)
-      simp only [AggQueryIn.evaluatePlain] at hc
-      exact h D γ hD ((Multiset.map_eq_zero_iff _ _).mp hc)
+    intro hq sch E hw hnz D γ hD hs hc
+    simp only [AggQueryIn.evaluatePlain] at hc
+    exact ih hq.2 sch E hw hnz D γ hD hs ((Multiset.map_eq_zero_iff _ _).mp hc)
   | WinExpr P O o ws ts fs g q keeps ih =>
-    intro hq hw
-    rcases ih hq.2 hw with h | h
-    · refine Or.inl (fun D γ => ?_)
-      simp only [AggQueryIn.evaluatePlain]
-      rw [h D γ]
-      rfl
-    · refine Or.inr (fun D γ hD hc => ?_)
-      simp only [AggQueryIn.evaluatePlain] at hc
-      refine h D γ hD (Multiset.card_eq_zero.mp ?_)
-      exact (OccFam.size_ofSorted (q.evaluatePlain D γ)).symm.trans
-        (OccFam.size_eq_zero_of_mk_toMultiset _ _ hc)
+    intro hq sch E hw hnz D γ hD hs hc
+    simp only [AggQueryIn.evaluatePlain] at hc
+    refine ih hq.2 sch E hw hnz D γ hD hs (Multiset.card_eq_zero.mp ?_)
+    exact (OccFam.size_ofSorted (q.evaluatePlain D γ)).symm.trans
+      (OccFam.size_eq_zero_of_mk_toMultiset _ _ hc)
+
+/-- **Without `σ` and `−`, a query is empty everywhere or non-empty on
+every full instance**, wherever it is defined – the recursions included,
+`NonzeroOn ∅` deciding which. -/
+theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
+    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) {sch : Schema}
+    {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    (hq : q.usesOnly S) (hw : q.overSchema sch) :
+    (∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+        q.evaluatePlain D γ = 0)
+      ∨ (∀ (D : Database T) (γ : Fin c → T), Database.Full sch D →
+          q.SettlesAt D γ → q.evaluatePlain D γ ≠ 0) := by
+  rcases Classical.em (q.NonzeroOn ∅) with h | h
+  · exact Or.inr (fun D γ hD hs =>
+      AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn hsel hdiff q hq sch ∅ hw h
+        D γ (hD.fullOff ∅) hs)
+  · exact Or.inl (fun D γ hs =>
+      AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn hsel hdiff q hq sch ∅
+        hw h D γ (Database.emptyOn_empty sch D) hs)
 
 /-- The schema of one unary relation, for the witnesses below. -/
 def schemaR : Schema := fun s => if s = "R" then some 1 else none
@@ -3509,30 +3987,6 @@ end WinDerived
 
 /-! ## Aggregation: the one operator that makes a row from nothing -/
 
-/-- **Without `γ`, the empty instance has an empty answer.** Every other
-operator maps the empty relation to an empty relation: a projection and a
-window map it row by row, a selection filters it, a product and an apply
-read one row of each side, a union adds, duplicate elimination and
-difference only remove. Aggregation is the exception, the scalar form
-emitting its row whatever its input. -/
-private theorem muSum_zero_of_step_zero {α : Type}
-    {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
-    ∀ b : ℕ, muSum step b 0 = 0 := by
-  intro b
-  induction b with
-  | zero => rfl
-  | succ b ih =>
-    show (0 : Multiset α) + muSum step b (step 0) = 0
-    rw [h0, ih, add_zero]
-
-private theorem muFix_zero_of_step_zero {α : Type}
-    {step : Multiset α → Multiset α} (h0 : step 0 = 0) : muFix step = 0 := by
-  have hmem : (0 : ℕ) ∈ {j | step^[j + 1] 0 = step^[j] 0} := by
-    show step^[1] 0 = step^[0] 0
-    simpa using h0
-  rw [muFix, muFixIdx, Nat.le_antisymm (Nat.sInf_le hmem) (Nat.zero_le _)]
-  rfl
-
 omit [ValueType T] in
 /-- The instance with a name bound to the empty relation is still
 empty. -/
@@ -3546,6 +4000,12 @@ private theorem allEmpty_assign {D : Database T} (hD : D.allEmpty)
   · rw [Database.find_assign_of_ne s s' _ D hc] at hf
     exact hD k s' r hf
 
+/-- **Without `γ`, the empty instance has an empty answer.** Every other
+operator maps the empty relation to an empty relation: a projection and a
+window map it row by row, a selection filters it, a product and an apply
+read one row of each side, a union adds, duplicate elimination and
+difference only remove. Aggregation is the exception, the scalar form
+emitting its row whatever its input. -/
 theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     (hγ : OpKind.gamma ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
