@@ -406,6 +406,144 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | Win P O o w t f q hrr dist keep ih => intro h hq; exact ih h hq.2
   | WinExpr P O o ws ts fs g q keeps ih => intro h hq; exact ih h hq.2
 
+/-! ## The signature: which functions and which aggregates
+
+`sec:prelim`'s signature `𝒜(Ω, Θ)` is a parameter of the *language* and
+not of the semantics: `Ω` says which functions a term may apply to
+values, `Θ` which aggregate functions are available. The classification's
+rows for `win` and for `μ^⊎` are the two that depend on it – they hold in
+the **minimal signature** `𝒜(∅, {count})`, where a term is a column or a
+constant and the only aggregate is a count – so the predicates below are
+what those rows are stated against. The other rows hold for every `Ω` and
+every `Θ` containing a count, and the generation half is stated over
+every signature, aggregates being arbitrary function parameters of the
+syntax: that is why `AggQueryIn.exists_basisOps_plainEquiv` asks only for
+a counting aggregate and nothing else.
+
+`Ω = ∅` cannot be arranged by instantiating a parameter – the
+vocabulary `+`, `-`, `*`, `CASE` and `COALESCE` is built into `TermIn` –
+so it is a predicate on terms (`noFun`). `Θ` is a set the aggregates are
+asked to belong to. -/
+
+/-- **A term that applies no function to values**: a column, an outer
+column, or a constant. `Ω = ∅` of the minimal signature. -/
+def TermIn.noFun {c k : ℕ} : TermIn T c k → Bool
+  | .const _ => true
+  | .outer _ => true
+  | .index _ => true
+  | .add _ _ => false
+  | .sub _ _ => false
+  | .mul _ _ => false
+  | .caseWhen _ _ _ _ _ => false
+  | .coalesce _ _ => false
+
+/-- The same over the kind-indexed terms. A gate term – a comparison
+read as a value (`cmpAgg`, `chiGate`) – is a function on values too, and
+belongs to the rewritten world besides. -/
+def TermGIn.noFun {c k : ℕ} {κ : Fin k → ColKind} : TermGIn T c κ → Bool
+  | .const _ => true
+  | .outer _ => true
+  | .index _ _ => true
+  | .provIndex _ _ => true
+  | .cmpAgg _ _ _ _ => false
+  | .chiGate _ _ _ => false
+  | .add _ _ => false
+  | .sub _ _ => false
+  | .mul _ _ => false
+  | .caseWhen _ _ _ _ _ => false
+  | .coalesce _ _ => false
+
+/-- A classical term reads no function either. -/
+def BoolTerm.noFun {k : ℕ} (b : BoolTerm T k) : Bool :=
+  (b.args).1.noFun && (b.args).2.noFun
+
+/-- And a classical selection: the comparisons are the signature's
+predicates, which the minimal signature keeps; what it asks is that
+their arguments be columns and constants. -/
+def Selection.noFun {k : ℕ} : Selection T k → Bool
+  | .BT b => b.noFun
+  | .Not φ => φ.noFun
+  | .And φ ψ => φ.noFun && ψ.noFun
+  | .Or φ ψ => φ.noFun && ψ.noFun
+  | .True => true
+
+/-- A clause, or none. -/
+def Selection.noFunOpt {k : ℕ} : Option (Selection T k) → Bool
+  | none => true
+  | some φ => φ.noFun
+
+/-- A predicate of the general syntax: its comparisons are the
+signature's own, so what is asked is of their terms. -/
+def GenPredIn.noFun {c k : ℕ} {κ : Fin k → ColKind} :
+    GenPredIn T c κ → Bool
+  | .cmp _ t₁ t₂ => t₁.noFun && t₂.noFun
+  | .aggCmp _ _ _ t => t.noFun
+  | .aggRange _ _ _ t₁ _ t₂ => t₁.noFun && t₂.noFun
+  | .and φ ψ => φ.noFun && ψ.noFun
+  | .or φ ψ => φ.noFun && ψ.noFun
+  | .not φ => φ.noFun
+
+/-- An output column: a term of the signature, a token column carried
+through, or a term over an aggregate column. The rewritten world's
+column, which applies an arbitrary function, is in no signature. -/
+def ProjColIn.noFun {c k : ℕ} {κ : Fin k → ColKind} :
+    ProjColIn T c κ → Bool
+  | .term t => t.noFun
+  | .token _ _ => true
+  | .aggTerm _ _ _ => false
+  | .aggTermOf _ _ t => t.noFun
+  | .provTerm t => t.noFun
+
+/-- **The query is in the signature `𝒜(Ω, Θ)`**, for `Ω` read as
+`noFun` – no function on values – and `Θ` the aggregates it may use. A
+second-level aggregation reads its group as a bag, so its outer
+aggregate is asked to be a symmetric member of `Θ` read that way
+(`SeqAggFunc.onBag`). -/
+def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
+    {κ : Fin n → ColKind} → AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj ps q =>
+      (∀ j, (ps j).noFun = true) ∧ q.inSig Θ
+  | _, _, _, .Sel φ q => φ.noFun = true ∧ q.inSig Θ
+  | _, _, _, .Prod q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
+  | _, _, _, .Apply q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
+  | _, _, _, .Sum q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
+  | _, _, _, .Dedup q => q.inSig Θ
+  | _, _, _, .Diff q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
+  | _, _, _, .Alt _ _ q => q.inSig Θ
+  | _, _, _, .Mu _ q₀ q₁ => q₀.inSig Θ ∧ q₁.inSig Θ
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.inSig Θ ∧ q₁.inSig Θ
+  | _, _, _, .Gamma _ ts fs q keep _ =>
+      (∀ j, (ts j).noFun = true) ∧ (∀ j, fs j ∈ Θ)
+        ∧ (∀ j, Selection.noFunOpt (keep j) = true) ∧ q.inSig Θ
+  | _, _, _, .GammaScalar ts fs q _ =>
+      (∀ j, (ts j).noFun = true) ∧ (∀ j, fs j ∈ Θ) ∧ q.inSig Θ
+  | _, _, _, .GammaNest _ _ p f q =>
+      p.noFun = true
+        ∧ (∃ (g : SeqAggFunc T) (hg : g.Symmetric),
+            g ∈ Θ ∧ f = SeqAggFunc.onBag g hg)
+        ∧ q.inSig Θ
+  | _, _, _, .ProvSum _ _ t q => t.noFun = true ∧ q.inSig Θ
+  | _, _, _, .Retag _ q => q.inSig Θ
+  | _, _, _, .GammaTok _ _ ts fs a q keep =>
+      (∀ j, (ts j).noFun = true) ∧ (∀ j, fs j ∈ Θ) ∧ a.noFun = true
+        ∧ (∀ j, Selection.noFunOpt (keep j) = true) ∧ q.inSig Θ
+  | _, _, _, .Win _ _ _ _ t f q _ dist keep =>
+      t.noFun = true ∧ (if dist then f.distinct ∈ Θ else f ∈ Θ)
+        ∧ Selection.noFunOpt keep = true ∧ q.inSig Θ
+  | _, _, _, .WinExpr _ _ _ _ ts fs _ q keeps =>
+      (∀ l, (ts l).noFun = true) ∧ (∀ l, fs l ∈ Θ)
+        ∧ (∀ l, Selection.noFunOpt (keeps l) = true) ∧ q.inSig Θ
+
+/-- **The minimal signature** `𝒜(∅, {count})`: no function on values,
+and one counting aggregate. The aggregate is a parameter with
+`SeqAggFunc.Counts` as its specification, as everywhere else in this
+file – `count` is a function of the value domain and not a fixed one. -/
+def AggQueryIn.inMinimalSig {c n : ℕ} {κ : Fin n → ColKind}
+    (cnt : SeqAggFunc T) (q : AggQueryIn T c n κ) : Prop :=
+  q.inSig {cnt}
+
 /-! ## Counting rows: two facts the invariants run on -/
 
 /-- The length of a family's canonical indexing is the relation's size. -/

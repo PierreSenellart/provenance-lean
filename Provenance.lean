@@ -49,6 +49,7 @@ import Provenance.AllRegular
 
 /- The basis, assembled -/
 import Provenance.BasisAssembly
+import Provenance.RecursionBasis
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1008,7 +1009,29 @@ proven engine several general results reuse internally.
   the columns re-type is part of `AggQueryIn.usesOnly`, which reads a
   column over an aggregate column as a *term* (`ProjColIn.aggTermOf`)
   and refuses the rewritten world's arbitrary function, as it refuses
-  `GammaTok` and `ProvSum`
+  `GammaTok` and `ProvSum`.
+  **The basis that holds `win`** is
+  `AggQueryIn.exists_basisWinOps_plainEquiv` over
+  `{∅, Π, σ, ×, ⊎, γ, win}`, two passes and no hypothesis about windows
+  at all: nothing has to rewrite one, the decorrelation carrying a
+  window of every frame and the third pass keeping it. That is the basis
+  `thm:plainbasis` states, the window class being necessary (`EXCLUDE
+  CURRENT ROW`); the six-class statements are the stronger claim, about
+  the windows `prop:winderived` reaches
+- `Provenance.RecursionBasis` – **the recursions in the
+  classification**: the row of `μ^⊎`, which in the minimal signature is
+  in every basis because a bag recursion counts the *derivations* of a
+  tuple. The witness is a chain of `n` diamonds – `diamondEdges`, `4n`
+  distinct edges over `dChain n`, an instance of `4n + 1` rows with no
+  duplicate – and the query `μ^⊎R.(S, Π_{#3}(σ_{#1=#2}(R × E)))`
+  (`chainWitness`). `evaluatePlain_reachStep` reads one round as the
+  successors of the previous one, `chainStep_iterate_even` and
+  `chainStep_iterate_odd` compute the rounds as the layers of the graph
+  (the entry node of diamond `i` carrying `2ⁱ` copies, one per path),
+  `muSettles_chain` says the rounds end, `count_chainWitness` gives the
+  sink `2ⁿ` copies, and `chainWitness_no_polynomial_bound` is the row:
+  no `c · (n+1)^k` bounds that. The signature the row is stated in is
+  `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
