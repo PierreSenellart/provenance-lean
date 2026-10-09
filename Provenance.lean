@@ -992,22 +992,23 @@ proven engine several general results reuse internally.
   `AggQueryIn.exists_selFree` and `AggQueryIn.exists_prodFree`, which
   ask `AggQueryIn.SwapReady` of their input: a selection's input and a
   product's left factor with regular columns, which
-  `Provenance.AllRegular` provides. Composing them gives the two
+  `Provenance.AllRegular` provides. Composing them gives the three
   **alternative bases**: `AggQueryIn.exists_basisDiffOps_plainEquiv`
-  over `{∅, Π, ×, ⊎, γ, −}` and
+  over `{∅, Π, ×, ⊎, γ, −}`,
   `AggQueryIn.exists_basisApplyOps_plainEquiv` over
-  `{∅, Π, σ, apply, ⊎, γ}`, each the three passes, then the re-typing,
-  then the swap, with `basisDiffOps_generatesOn` and
-  `basisApplyOps_generatesOn` their `GeneratesOn` forms. The property
-  that makes the composition work is `AggQueryIn.NoAggTerm` – no
-  projection column post-composing an aggregate column – which the three
-  passes and the decorrelation *preserve*, each carrying the
-  preservation as an implication in its conclusion so that the six-class
-  statement asks nothing extra; the re-typing's condition on windows is
-  vacuous there, the first pass having replaced every window by an apply
-  (`AggQueryIn.retypable_of_noAggTerm`). So `NoAggTerm` of the source is
-  the one hypothesis the alternative bases carry beyond the six, and
-  `GeneratesOn` asks it
+  `{∅, Π, σ, apply, ⊎, γ}` and – both swaps at once –
+  `AggQueryIn.exists_basisApplyDiffOps_plainEquiv` over
+  `{∅, Π, apply, ⊎, γ, −}`, each the three passes, then the re-typing,
+  then the swap or swaps, with `basisDiffOps_generatesOn`,
+  `basisApplyOps_generatesOn` and `basisApplyDiffOps_generatesOn` their
+  `GeneratesOn` forms. What lets the two swaps compose is
+  `AggQueryIn.swapReady_selByDiff`: the difference a selection becomes
+  introduces neither a product nor a selection. None of the three asks
+  anything of its input beyond what the six-class statement asks – that
+  the columns re-type is part of `AggQueryIn.usesOnly`, which reads a
+  column over an aggregate column as a *term* (`ProjColIn.aggTermOf`)
+  and refuses the rewritten world's arbitrary function, as it refuses
+  `GammaTok` and `ProvSum`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

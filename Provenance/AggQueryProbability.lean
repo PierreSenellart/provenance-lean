@@ -1490,6 +1490,16 @@ theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
         exact (Sum.inr.inj this).symm
       rw [hax, AggTok.Realized_postcomp]
       exact hrow k x hu
+  | aggTermOf k hk gf =>
+    cases hu : u k with
+    | inl w => exact absurd ha (by simp [ProjColIn.eval, hu])
+    | inr x =>
+      have hax : a = x.postcomp gf.unary := by
+        have := ha
+        simp only [ProjColIn.eval, hu, Sum.map_inr] at this
+        exact (Sum.inr.inj this).symm
+      rw [hax, AggTok.Realized_postcomp]
+      exact hrow k x hu
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **The world a valuation cuts out of an embedded token is the one it
@@ -1612,6 +1622,24 @@ theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
       | nest b => exact absurd (hnn k (AggTok.nest b) hu) (by simp)
       | expr e =>
         show (e.postcomp gf).specialize (fun α => α v) = _
+        rw [AggExpr.specialize, AggExpr.valOn_postcomp]
+        rfl
+  | aggTermOf k hk gf =>
+    show (GenValue.innerValue (Sum.map gf.unary (AggTok.postcomp gf.unary) (u k))).specialize
+        (fun α => α v)
+      = gf.unary (GenValue.specializeAt v (u k))
+    cases hu : u k with
+    | inl w => exact NestedValue.specialize_constInner (gf.unary w) v
+    | inr x =>
+      cases x with
+      | tok a =>
+        show (AggExpr.ofValue (AggValue.postcomp gf.unary a)).specialize
+            (fun α => α v) = _
+        rw [AggExpr.specialize_ofValue]
+        rfl
+      | nest b => exact absurd (hnn k (AggTok.nest b) hu) (by simp)
+      | expr e =>
+        show (e.postcomp gf.unary).specialize (fun α => α v) = _
         rw [AggExpr.specialize, AggExpr.valOn_postcomp]
         rfl
 
@@ -1743,6 +1771,30 @@ theorem AggQueryIn.evaluate_guarded :
         | tok a₀ => exact ih d r₀ hr₀ v hfin₀ k (AggTok.tok a₀) hu
         | nest a₀ =>
           exact (AggTok.Realized_postcomp gf (AggTok.nest a₀) v).mpr
+            (ih d r₀ hr₀ v hfin₀ k (AggTok.nest a₀) hu)
+        | expr a₀ =>
+          -- reading through a function moves neither the family nor the
+          -- conventions, so the worlds are the expression's own
+          exact ih d r₀ hr₀ v hfin₀ k (AggTok.expr a₀) hu
+    | aggTermOf k hk gf =>
+      -- reading a token through a function changes neither its
+      -- occurrences nor its convention, so the guard is the token's
+      rw [hp] at ha'
+      replace ha' : Sum.map gf.unary (AggTok.postcomp gf.unary) (r₀.fst k)
+          = Sum.inr a := ha'
+      cases hu : r₀.fst k with
+      | inl w =>
+        rw [hu] at ha'
+        exact absurd ha' (by simp)
+      | inr a₀ =>
+        have hha : a = a₀.postcomp gf.unary := by
+          rw [hu] at ha'
+          exact (Sum.inr.inj ha').symm
+        subst hha
+        cases a₀ with
+        | tok a₀ => exact ih d r₀ hr₀ v hfin₀ k (AggTok.tok a₀) hu
+        | nest a₀ =>
+          exact (AggTok.Realized_postcomp gf.unary (AggTok.nest a₀) v).mpr
             (ih d r₀ hr₀ v hfin₀ k (AggTok.nest a₀) hu)
         | expr a₀ =>
           -- reading through a function moves neither the family nor the
@@ -2214,6 +2266,12 @@ private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
   | aggTerm k hk gf =>
     show GenValue.specializeAt v (Sum.map gf (AggTok.postcomp gf) (u k))
       = gf (GenValue.specializeAt v (u k))
+    cases u k with
+    | inl w => rfl
+    | inr x => cases x <;> rfl
+  | aggTermOf k hk gf =>
+    show GenValue.specializeAt v (Sum.map gf.unary (AggTok.postcomp gf.unary) (u k))
+      = gf.unary (GenValue.specializeAt v (u k))
     cases u k with
     | inl w => rfl
     | inr x => cases x <;> rfl

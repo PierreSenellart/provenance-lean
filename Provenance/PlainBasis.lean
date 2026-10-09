@@ -68,7 +68,8 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
   | _, _, _, .Empty => OpKind.empty ∈ S
-  | _, _, _, .Proj _ q => OpKind.proj ∈ S ∧ q.usesOnly S
+  | _, _, _, .Proj ps q =>
+      (OpKind.proj ∈ S ∧ ∀ j, (ps j).sourceCol = true) ∧ q.usesOnly S
   | _, _, _, .Sel _ q => OpKind.sel ∈ S ∧ q.usesOnly S
   | _, _, _, .Prod q₁ q₂ =>
       OpKind.prod ∈ S ∧ q₁.usesOnly S ∧ q₂.usesOnly S
@@ -85,7 +86,8 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, .MuSet _ _ _ => False
   | _, _, _, .Gamma _ _ _ q _ _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaScalar _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
-  | _, _, _, .GammaNest _ _ _ _ q => OpKind.gamma ∈ S ∧ q.usesOnly S
+  | _, _, _, .GammaNest _ _ p _ q =>
+      (OpKind.gamma ∈ S ∧ p.sourceCol = true) ∧ q.usesOnly S
   | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => OpKind.win ∈ S ∧ q.usesOnly S
@@ -116,7 +118,8 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
     show (AggQueryIn.castKind _ (AggQueryIn.Proj
       (fun j => (ps j).substMap θ) (q.substMap θ))).usesOnly S ↔ _
     rw [AggQueryIn.usesOnly_castKind]
-    exact and_congr Iff.rfl (ih θ)
+    exact and_congr (and_congr Iff.rfl (forall_congr' (fun j => by
+      rw [ProjColIn.sourceCol_substMap]))) (ih θ)
   | Sel φ q ih => exact fun θ => and_congr Iff.rfl (ih θ)
   | Prod q₁ q₂ ih₁ ih₂ =>
     exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
@@ -134,7 +137,10 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
   | Gamma is ts fs q keep ord ih =>
     exact fun θ => and_congr Iff.rfl (ih θ)
   | GammaScalar ts fs q ord ih => exact fun θ => and_congr Iff.rfl (ih θ)
-  | GammaNest is his pc f q ih => exact fun θ => and_congr Iff.rfl (ih θ)
+  | GammaNest is his pc f q ih =>
+    intro d θ
+    exact and_congr (and_congr Iff.rfl (by rw [ProjColIn.sourceCol_substMap]))
+      (ih θ)
   | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
   | ProvSum is his t q ih => exact fun θ => Iff.rfl
   | Win P O o w t f q hrr dist keep ih =>
@@ -142,63 +148,15 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
   | WinExpr P O o ws ts fs g q keeps ih =>
     exact fun θ => and_congr Iff.rfl (ih θ)
 
-/-! ## No column post-composes an aggregate one
-
-An aggregate column may be read as a key (`AggQueryIn.Alt`), compared by
-a predicate, or carried through as the token it is; each of those
-readings has an exact counterpart on a regular column. The one reading
-that has none is `ProjColIn.aggTerm`, which applies an arbitrary
-function of the domain to the column: the term language applies no such
-function, so a query that has one cannot be read column by column as a
-query on values. The predicate below says a query has none, and it is
-what `AggQueryIn.exists_allReg` of `Provenance.AllRegular` asks of its
-input, carried here because both the decorrelation and the assembly have
-to thread it through their constructions. -/
-
 omit [ValueType T] in
-/-- A projection column that applies no function to an aggregate one. -/
-def ProjColIn.noAggTerm {c n : ℕ} {κ : Fin n → ColKind} :
-    ProjColIn T c κ → Bool
-  | .term _ => true
-  | .token _ _ => true
-  | .aggTerm _ _ _ => false
-  | .provTerm _ => true
-
-/-- **No projection of the query applies a function to an aggregate
-column**, and no second-level aggregation aggregates one. Every other
-operator only passes the condition to its children – a window included,
-which has its own reason to restrict the re-typing
-(`AggQueryIn.Retypable`). -/
-def AggQueryIn.NoAggTerm : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj ps q => (∀ j, (ps j).noAggTerm = true) ∧ q.NoAggTerm
-  | _, _, _, .Sel _ q => q.NoAggTerm
-  | _, _, _, .Prod q₁ q₂ => q₁.NoAggTerm ∧ q₂.NoAggTerm
-  | _, _, _, .Apply q₁ q₂ => q₁.NoAggTerm ∧ q₂.NoAggTerm
-  | _, _, _, .Sum q₁ q₂ => q₁.NoAggTerm ∧ q₂.NoAggTerm
-  | _, _, _, .Dedup q => q.NoAggTerm
-  | _, _, _, .Diff q₁ q₂ => q₁.NoAggTerm ∧ q₂.NoAggTerm
-  | _, _, _, .Alt _ _ q => q.NoAggTerm
-  | _, _, _, .Mu _ q₀ q₁ => q₀.NoAggTerm ∧ q₁.NoAggTerm
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.NoAggTerm ∧ q₁.NoAggTerm
-  | _, _, _, .Gamma _ _ _ q _ _ => q.NoAggTerm
-  | _, _, _, .GammaScalar _ _ q _ => q.NoAggTerm
-  | _, _, _, .GammaNest _ _ p _ q => p.noAggTerm = true ∧ q.NoAggTerm
-  | _, _, _, .ProvSum _ _ _ q => q.NoAggTerm
-  | _, _, _, .Retag _ q => q.NoAggTerm
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.NoAggTerm
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.NoAggTerm
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.NoAggTerm
-
-omit [ValueType T] in
-omit [ValueType T] in
-/-- Carrying an input column through applies no function to it. -/
-@[simp] theorem AggQueryIn.noAggTerm_carryCol {n : ℕ} (κ : Fin n → ColKind)
-    (k : Fin n) : (AggQueryIn.carryCol (T := T) κ k).noAggTerm = true := by
+/-- Carrying an input column through is a column the source language
+writes. -/
+@[simp] theorem AggQueryIn.sourceCol_carryCol {n : ℕ} (κ : Fin n → ColKind)
+    (k : Fin n) : (AggQueryIn.carryCol (T := T) κ k).sourceCol = true := by
   unfold AggQueryIn.carryCol
   split <;> rfl
+
+/-! ## Monotonicity of the classification -/
 
 omit [ValueType T] in
 /-- **The classification is monotone in the class set**: a query using
@@ -210,7 +168,7 @@ theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
   induction q with
   | Rel n s => exact fun _ => trivial
   | Empty => exact fun h => hSS h
-  | Proj ps q ih => exact fun h => ⟨hSS h.1, ih h.2⟩
+  | Proj ps q ih => exact fun h => ⟨⟨hSS h.1.1, h.1.2⟩, ih h.2⟩
   | Sel φ q ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨hSS h.1, ih₁ h.2.1, ih₂ h.2.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨hSS h.1, ih₁ h.2.1, ih₂ h.2.2⟩
@@ -223,60 +181,11 @@ theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
   | Gamma is ts fs q keep ord ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | GammaScalar ts fs q ord ih => exact fun h => ⟨hSS h.1, ih h.2⟩
-  | GammaNest is his pc f q ih => exact fun h => ⟨hSS h.1, ih h.2⟩
+  | GammaNest is his pc f q ih => exact fun h => ⟨⟨hSS h.1.1, h.1.2⟩, ih h.2⟩
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | Win P O o w t f q hrr dist keep ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ⟨hSS h.1, ih h.2⟩
-
-omit [ValueType T] in
-@[simp] theorem AggQueryIn.noAggTerm_castKind {c n : ℕ}
-    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ) :
-    (q.castKind h).NoAggTerm ↔ q.NoAggTerm := by
-  cases h
-  exact Iff.rfl
-
-omit [ValueType T] in
-/-- The substitution does not change which columns apply a function. -/
-@[simp] theorem ProjColIn.noAggTerm_substMap {c d n : ℕ}
-    {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d) (pc : ProjColIn T c κ) :
-    (pc.substMap θ).noAggTerm = pc.noAggTerm := by
-  cases pc <;> rfl
-
-omit [ValueType T] in
-theorem AggQueryIn.noAggTerm_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
-      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).NoAggTerm ↔ q.NoAggTerm := by
-  intro c n κ q
-  induction q with
-  | Rel n s => exact fun θ => Iff.rfl
-  | Empty => exact fun θ => Iff.rfl
-  | Proj ps q ih =>
-    intro d θ
-    show (AggQueryIn.castKind _ (AggQueryIn.Proj
-      (fun j => (ps j).substMap θ) (q.substMap θ))).NoAggTerm ↔ _
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact and_congr (forall_congr' (fun j =>
-      by rw [ProjColIn.noAggTerm_substMap])) (ih θ)
-  | Sel φ q ih => exact fun θ => ih θ
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Dedup q ih => exact fun θ => ih θ
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k h q ih => exact fun θ => ih θ
-  | Retag h q ih => exact fun θ => ih θ
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
-  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
-  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
-  | GammaNest is his pc f q ih =>
-    intro d θ
-    exact and_congr (by rw [ProjColIn.noAggTerm_substMap]) (ih θ)
-  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
-  | ProvSum is his t q ih => exact fun θ => ih θ
-  | Win P O o w t f q hrr dist keep ih => exact fun θ => ih θ
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
 
 /-- **Expressibility**: two queries of the same arity are equivalent when
 their plain semantics agree on every instance. -/
@@ -1260,7 +1169,7 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
     | some rn =>
       exact Multiset.nodup_iff_count_le_one.mp (hD n s rn hf) u
   | Empty => intro _ D hD γ u; exact Nat.zero_le 0
-  | Proj ps q ih => intro hq; exact absurd hq.1 hpr
+  | Proj ps q ih => intro hq; exact absurd hq.1.1 hpr
   | Sel φ q ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
@@ -1545,13 +1454,6 @@ def AggQueryIn.notInDiff (a : T) (f : SeqAggFunc T)
       .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
     (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg a f q₁ q₂)))
 
-/-- The tagged-union difference applies no function to an aggregate
-column: its columns are terms and its aggregate is a scalar one. -/
-theorem AggQueryIn.noAggTerm_notInDiff (a : T) (f : SeqAggFunc T)
-    {q₁ q₂ : AggQuery T k (ColKind.allReg k)} (h₁ : q₁.NoAggTerm)
-    (h₂ : q₂.NoAggTerm) : (AggQueryIn.notInDiff a f q₁ q₂).NoAggTerm :=
-  ⟨fun _ => rfl, h₁, ⟨fun _ => rfl, h₁⟩, ⟨fun _ => rfl, h₂⟩⟩
-
 /-- **What the `NOT IN` form uses**: a projection, a selection, a
 product, an aggregation and a union – the basis classes, which is the
 point of the identity. -/
@@ -1560,7 +1462,8 @@ theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind} (a : T)
     (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S) (hx : OpKind.prod ∈ S)
     (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S) (h₁ : q₁.usesOnly S)
     (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiff a f q₁ q₂).usesOnly S :=
-  ⟨hp, hs, hx, h₁, hg, hu, ⟨hp, h₁⟩, ⟨hp, h₂⟩⟩
+  ⟨⟨hp, fun _ => rfl⟩, hs, hx, h₁, hg, hu, ⟨⟨hp, fun _ => rfl⟩, h₁⟩,
+    ⟨⟨hp, fun _ => rfl⟩, h₂⟩⟩
 
 /-- **The `NOT IN` form names the relations its two sides name.** -/
 theorem AggQueryIn.overSchema_notInDiff {sch : Schema} (a : T)
@@ -1992,7 +1895,8 @@ theorem AggQueryIn.usesOnly_selByDiff {S : Set OpKind} (yes : T)
     (t : TermGIn T 0 (ColKind.allReg k)) {q : AggQuery T k (ColKind.allReg k)}
     (hp : OpKind.proj ∈ S) (hd : OpKind.diff ∈ S) (hq : q.usesOnly S) :
     (AggQueryIn.selByDiff yes t q).usesOnly S :=
-  ⟨hp, hd, ⟨hp, hq⟩, hd, ⟨hp, hq⟩, ⟨hp, hq⟩⟩
+  ⟨⟨hp, fun _ => rfl⟩, hd, ⟨⟨hp, fun _ => rfl⟩, hq⟩, hd,
+    ⟨⟨hp, fun _ => rfl⟩, hq⟩, ⟨⟨hp, fun _ => rfl⟩, hq⟩⟩
 
 omit [ValueType T] in
 /-- And it names the relations the query names. -/
@@ -3101,16 +3005,6 @@ theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
   rw [winByApply, AggQueryIn.usesOnly_castKind]
   exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap q _).mpr hq⟩
 
-/-- The derived window applies no function to an aggregate column: it
-copies the query twice and aggregates a term. -/
-theorem noAggTerm_winByApply {c : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
-    (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
-    (hq : q.NoAggTerm) : (winByApply P O o ψ t f q).NoAggTerm := by
-  rw [winByApply, AggQueryIn.noAggTerm_castKind]
-  exact ⟨hq, (AggQueryIn.noAggTerm_substMap q _).mpr hq⟩
-
 /-- **The derived form names the relations the window names.** -/
 theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
@@ -3192,7 +3086,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
   | Gamma is ts fs q keep ord ih => intro hq; exact absurd hq.1 hγ
   | GammaScalar ts fs q ord ih => intro hq; exact absurd hq.1 hγ
-  | GammaNest is his p f q ih => intro hq; exact absurd hq.1 hγ
+  | GammaNest is his p f q ih => intro hq; exact absurd hq.1.1 hγ
   | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
   | ProvSum is his t q ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>

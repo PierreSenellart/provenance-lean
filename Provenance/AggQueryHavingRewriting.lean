@@ -83,6 +83,7 @@ def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
   | .term t => Sum.inl (t.evalRew u γ)
   | .token k _ => u k
   | .aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
+  | .aggTermOf k _ t => Sum.map t.unary (AggTok.postcomp t.unary) (u k)
   | .provTerm t => Sum.inl (t.evalRew u γ)
 
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
@@ -383,6 +384,7 @@ theorem ProjColIn.evalRew_inl {c n : ℕ} {κ : Fin n → ColKind}
   | term t => exact congrArg Sum.inl (t.evalRew_inl hp u)
   | token k h => rfl
   | aggTerm k h gf => rfl
+  | aggTermOf k h gf => rfl
   | provTerm t => exact congrArg Sum.inl (t.evalRew_inl hp u)
 
 /-- Gate-free predicates on `inl`-embedded rows hold as their plain

@@ -196,13 +196,15 @@ def ProjColIn.lift {c k : ℕ} {κ : Fin k → ColKind} :
   | .token i h => .token (Fin.natAdd c i) ((ColKind.liftKinds_col c κ i).trans h)
   | .aggTerm i h gf =>
       .aggTerm (Fin.natAdd c i) ((ColKind.liftKinds_col c κ i).trans h) gf
+  | .aggTermOf i h gf =>
+      .aggTermOf (Fin.natAdd c i) ((ColKind.liftKinds_col c κ i).trans h) gf
   | .provTerm t => .provTerm t.lift
 
 omit [ValueType T] in
-/-- Lifting a column over the parameters does not change whether it
-applies a function to an aggregate column. -/
-@[simp] theorem ProjColIn.noAggTerm_lift {c k : ℕ} {κ : Fin k → ColKind}
-    (pc : ProjColIn T c κ) : pc.lift.noAggTerm = pc.noAggTerm := by
+/-- Lifting a column over the parameters does not turn a source column
+into the rewritten world's. -/
+@[simp] theorem ProjColIn.sourceCol_lift {c k : ℕ} {κ : Fin k → ColKind}
+    (pc : ProjColIn T c κ) : pc.lift.sourceCol = pc.sourceCol := by
   cases pc <;> rfl
 
 omit [ValueType T] in
@@ -223,6 +225,10 @@ theorem ProjColIn.evalPlain_lift {c k : ℕ} {κ : Fin k → ColKind}
     rw [Fin.append_right]
   | aggTerm i h gf =>
     show gf ((Fin.append v w : Tuple T (c + k)) (Fin.natAdd c i)) = gf (w i)
+    rw [Fin.append_right]
+  | aggTermOf i h gf =>
+    show gf.unary ((Fin.append v w : Tuple T (c + k)) (Fin.natAdd c i))
+      = gf.unary (w i)
     rw [Fin.append_right]
   | provTerm t => exact TermGIn.evalPlain_lift t v w
 
@@ -563,9 +569,7 @@ def AggQueryIn.HasDecorrelation {c k : ℕ} {κ : Fin k → ColKind}
     (S : Set OpKind) (sch : Schema) (P : AggQuery T c (ColKind.allReg c))
     (q : AggQueryIn T c k κ) : Prop :=
   ∃ q' : AggQueryIn T 0 (c + k) (ColKind.liftKinds c κ),
-    q'.usesOnly S ∧ q'.overSchema sch
-      ∧ (P.NoAggTerm → q.NoAggTerm → q'.NoAggTerm)
-      ∧ AggQueryIn.DecorrelatesTo P q q'
+    q'.usesOnly S ∧ q'.overSchema sch ∧ AggQueryIn.DecorrelatesTo P q q'
 
 /-! ### The leaves -/
 
@@ -577,8 +581,7 @@ theorem AggQueryIn.hasDecorrelation_rel {c n : ℕ} {S : Set OpKind} {sch : Sche
     (hPs : P.overSchema sch) (s : String) (hs : sch s = some n) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Rel n s) := by
   refine ⟨AggQueryIn.Prod P (AggQueryIn.Rel n s),
-    ⟨hS (by simp [decorrOps]), hP, trivial⟩, ⟨hPs, hs⟩,
-    fun hPn _ => ⟨hPn, trivial⟩, fun D => ?_⟩
+    ⟨hS (by simp [decorrOps]), hP, trivial⟩, ⟨hPs, hs⟩, fun D => ?_⟩
   show (P.evaluatePlain D * (AggQueryIn.Rel n s).evaluatePlain D) = _
   rw [Relation.hMul_eq_bind]
   rfl
@@ -591,7 +594,7 @@ theorem AggQueryIn.hasDecorrelation_empty {c : ℕ} {S : Set OpKind} {sch : Sche
     AggQueryIn.HasDecorrelation S sch P AggQueryIn.Empty := by
   refine ⟨AggQueryIn.Prod P AggQueryIn.Empty,
     ⟨hS (by simp [decorrOps]), hP, hS (by simp [decorrOps])⟩,
-    ⟨hPs, trivial⟩, fun hPn _ => ⟨hPn, trivial⟩, fun D => ?_⟩
+    ⟨hPs, trivial⟩, fun D => ?_⟩
   show (P.evaluatePlain D * AggQueryIn.Empty.evaluatePlain D) = _
   rw [Relation.hMul_eq_bind]
   rfl
@@ -605,10 +608,10 @@ theorem AggQueryIn.hasDecorrelation_sum {c k : ℕ} {κ : Fin k → ColKind} {S 
     (h₁ : AggQueryIn.HasDecorrelation S sch P q₁)
     (h₂ : AggQueryIn.HasDecorrelation S sch P q₂) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Sum q₁ q₂) := by
-  obtain ⟨q₁', hu₁, hos₁, hn₁, hd₁⟩ := h₁
-  obtain ⟨q₂', hu₂, hos₂, hn₂, hd₂⟩ := h₂
+  obtain ⟨q₁', hu₁, hos₁, hd₁⟩ := h₁
+  obtain ⟨q₂', hu₂, hos₂, hd₂⟩ := h₂
   refine ⟨AggQueryIn.Sum q₁' q₂', ⟨hS (by simp [decorrOps]), hu₁, hu₂⟩,
-    ⟨hos₁, hos₂⟩, fun hPn hn => ⟨hn₁ hPn hn.1, hn₂ hPn hn.2⟩, fun D => ?_⟩
+    ⟨hos₁, hos₂⟩, fun D => ?_⟩
   show q₁'.evaluatePlain D + q₂'.evaluatePlain D = _
   rw [hd₁, hd₂, ← Relation.slices_add]
   rfl
@@ -622,9 +625,8 @@ theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {S 
     (φ : GenPredIn T c κ) (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Sel φ q) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
-  refine ⟨AggQueryIn.Sel φ.lift q', ⟨hS (by simp [decorrOps]), hu⟩, hos,
-    fun hPn hq => hn hPn hq, fun D => ?_⟩
+  obtain ⟨q', hu, hos, hd⟩ := h
+  refine ⟨AggQueryIn.Sel φ.lift q', ⟨hS (by simp [decorrOps]), hu⟩, hos, fun D => ?_⟩
   show Multiset.filter (fun u => φ.lift.holdsPlain u) (q'.evaluatePlain D) = _
   rw [hd, Relation.slices_filter]
   refine Multiset.bind_congr (fun v _ => ?_)
@@ -642,17 +644,14 @@ theorem AggQueryIn.hasDecorrelation_dedup {c k : ℕ} {S : Set OpKind} {sch : Sc
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Dedup q) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   refine ⟨((AggQueryIn.Dedup
       (q'.castKind (AggQueryIn.append_allReg c k))).castKind
-      (AggQueryIn.append_allReg c k).symm), ?_, ?_, ?_, fun D => ?_⟩
+      (AggQueryIn.append_allReg c k).symm), ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
     exact ⟨hS (by simp [decorrOps]), (AggQueryIn.usesOnly_castKind _ _ _).mpr hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact (AggQueryIn.overSchema_castKind _ _).mpr hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact (AggQueryIn.noAggTerm_castKind _ _).mpr (hn hPn hq)
   rw [AggQueryIn.evaluatePlain_castKind]
   show (AggQueryIn.evaluatePlain (q'.castKind _) D).dedup = _
   rw [AggQueryIn.evaluatePlain_castKind, hd, Relation.slices_dedup _ (hnd D)]
@@ -669,21 +668,17 @@ theorem AggQueryIn.hasDecorrelation_diff {c k : ℕ} {S : Set OpKind} {sch : Sch
     (h₂ : AggQueryIn.HasDecorrelation S sch P q₂) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Diff q₁ q₂) := by
   classical
-  obtain ⟨q₁', hu₁, hos₁, hn₁, hd₁⟩ := h₁
-  obtain ⟨q₂', hu₂, hos₂, hn₂, hd₂⟩ := h₂
+  obtain ⟨q₁', hu₁, hos₁, hd₁⟩ := h₁
+  obtain ⟨q₂', hu₂, hos₂, hd₂⟩ := h₂
   refine ⟨((AggQueryIn.Diff (q₁'.castKind (AggQueryIn.append_allReg c k))
       (q₂'.castKind (AggQueryIn.append_allReg c k))).castKind
-      (AggQueryIn.append_allReg c k).symm), ?_, ?_, ?_, fun D => ?_⟩
+      (AggQueryIn.append_allReg c k).symm), ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
     exact ⟨hS (by simp [decorrOps]), (AggQueryIn.usesOnly_castKind _ _ _).mpr hu₁,
       (AggQueryIn.usesOnly_castKind _ _ _).mpr hu₂⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact ⟨(AggQueryIn.overSchema_castKind _ _).mpr hos₁,
       (AggQueryIn.overSchema_castKind _ _).mpr hos₂⟩
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨(AggQueryIn.noAggTerm_castKind _ _).mpr (hn₁ hPn hq.1),
-      (AggQueryIn.noAggTerm_castKind _ _).mpr (hn₂ hPn hq.2)⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   set A : Multiset (Tuple T (c + k)) :=
     AggQueryIn.evaluatePlain (q₁'.castKind (AggQueryIn.append_allReg c k)) D
@@ -712,10 +707,10 @@ lifted: a column that read a parameter reads the column holding it. -/
 theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} {q : AggQueryIn T c k κ}
-    (ps : Tuple (ProjColIn T c κ) m)
+    (ps : Tuple (ProjColIn T c κ) m) (hps : ∀ j, (ps j).sourceCol = true)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Proj ps q) := by
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   -- the parameters as themselves, then the lifted columns
   set cols : Tuple (ProjCol T (ColKind.liftKinds c κ)) (c + m) :=
     Fin.append
@@ -736,21 +731,18 @@ theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} 
             (Fin.natAdd c i)
       rw [hcols, Fin.append_right, Fin.append_right]
       exact ProjColIn.kind_lift (ps i)
-  refine ⟨(AggQueryIn.Proj cols q').castKind hkinds, ?_, ?_, ?_, fun D => ?_⟩
+  refine ⟨(AggQueryIn.Proj cols q').castKind hkinds, ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hu⟩
-  · rw [AggQueryIn.overSchema_castKind]
-    exact hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    refine ⟨fun j => ?_, hn hPn hq.2⟩
+    refine ⟨⟨hS (by simp [decorrOps]), fun j => ?_⟩, hu⟩
     refine Fin.addCases (fun jp => ?_) (fun i => ?_) j
-    · show (cols (Fin.castAdd m jp)).noAggTerm = true
+    · show (cols (Fin.castAdd m jp)).sourceCol = true
       rw [hcols, Fin.append_left]
       rfl
-    · show (cols (Fin.natAdd c i)).noAggTerm = true
-      rw [hcols, Fin.append_right, ProjColIn.noAggTerm_lift]
-      exact hq.1 i
+    · show (cols (Fin.natAdd c i)).sourceCol = true
+      rw [hcols, Fin.append_right, ProjColIn.sourceCol_lift]
+      exact hps i
+  · rw [AggQueryIn.overSchema_castKind]
+    exact hos
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j => (cols j).evalPlain u (fun _ => 0)))
       (q'.evaluatePlain D) = _
@@ -796,8 +788,8 @@ theorem AggQueryIn.hasDecorrelation_prod {c k₁ k₂ : ℕ} {S : Set OpKind} {s
     (h₂ : AggQueryIn.HasDecorrelation S sch P q₂) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Prod q₁ q₂) := by
   classical
-  obtain ⟨q₁', hu₁, hos₁, hn₁, hd₁⟩ := h₁
-  obtain ⟨q₂', hu₂, hos₂, hn₂, hd₂⟩ := h₂
+  obtain ⟨q₁', hu₁, hos₁, hd₁⟩ := h₁
+  obtain ⟨q₂', hu₂, hos₂, hd₂⟩ := h₂
   -- the kinds of the product, and where each column of the join reads
   set κp : Fin ((c + k₁) + (c + k₂)) → ColKind :=
     Fin.append (ColKind.liftKinds c κ₁) (ColKind.liftKinds c κ₂) with hκp
@@ -833,16 +825,13 @@ theorem AggQueryIn.hasDecorrelation_prod {c k₁ k₂ : ℕ} {S : Set OpKind} {s
           hleft hright)
         (AggQueryIn.Prod q₁' q₂'))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κp _).trans (hsrc j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hS (by simp [decorrOps]),
-      ⟨hS (by simp [decorrOps]), hu₁, hu₂⟩⟩
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
+      hS (by simp [decorrOps]), ⟨hS (by simp [decorrOps]), hu₁, hu₂⟩⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact ⟨hos₁, hos₂⟩
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _, hn₁ hPn hq.1,
-      hn₂ hPn hq.2⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κp (joinSrc c k₁ k₂ j)).evalPlain u (fun _ => 0)))
@@ -896,7 +885,7 @@ theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Sc
     (hbase : ∀ i, (κ i).base = (κ' i).base) {q : AggQueryIn T c k κ}
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Retag hbase q) := by
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   have hlift : ∀ j, (ColKind.liftKinds c κ j).base
       = (ColKind.liftKinds c κ' j).base := by
     intro j
@@ -908,7 +897,7 @@ theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Sc
         = (Fin.append (ColKind.allReg c) κ' (Fin.natAdd c i)).base
       rw [Fin.append_right, Fin.append_right]
       exact hbase i
-  exact ⟨AggQueryIn.Retag hlift q', hu, hos, hn, hd⟩
+  exact ⟨AggQueryIn.Retag hlift q', hu, hos, hd⟩
 
 /-- **The alternatives reading of an aggregate column** likewise: it
 reads the column as a key and changes no row of the plain semantics. -/
@@ -918,7 +907,7 @@ theorem AggQueryIn.hasDecorrelation_alt {c k : ℕ} {κ : Fin k → ColKind} {S 
     (hi : κ i = ColKind.agg) {q : AggQueryIn T c k κ}
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Alt i hi q) := by
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   have hagg : ColKind.liftKinds c κ (Fin.natAdd c i) = ColKind.agg :=
     (ColKind.liftKinds_col c κ i).trans hi
   have hkinds : Function.update (ColKind.liftKinds c κ) (Fin.natAdd c i)
@@ -943,7 +932,6 @@ theorem AggQueryIn.hasDecorrelation_alt {c k : ℕ} {κ : Fin k → ColKind} {S 
   exact ⟨(AggQueryIn.Alt (Fin.natAdd c i) hagg q').castKind hkinds,
     (AggQueryIn.usesOnly_castKind _ _ _).mpr hu,
     (AggQueryIn.overSchema_castKind _ _).mpr hos,
-    fun hPn hq => (AggQueryIn.noAggTerm_castKind _ _).mpr (hn hPn hq),
     fun D => by
       rw [AggQueryIn.evaluatePlain_castKind]
       exact hd D⟩
@@ -1356,7 +1344,7 @@ theorem AggQueryIn.hasDecorrelation_gamma {c m n₁ n₂ : ℕ} {S : Set OpKind}
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Gamma is ts fs q keep ord) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   set κg : Fin ((c + n₁) + n₂) → ColKind :=
     Fin.append (fun _ : Fin (c + n₁) => ColKind.reg)
       (fun _ : Fin n₂ => ColKind.agg) with hκg
@@ -1380,16 +1368,13 @@ theorem AggQueryIn.hasDecorrelation_gamma {c m n₁ n₂ : ℕ} {S : Set OpKind}
         (q'.castKind (AggQueryIn.append_allReg c m))
         (fun j => (keep j).map (Selection.shift c)) (ord.lift c))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κg _).trans (hsrc j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hg,
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩, hg,
       (AggQueryIn.usesOnly_castKind _ _ _).mpr hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact (AggQueryIn.overSchema_castKind _ _).mpr hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _,
-      (AggQueryIn.noAggTerm_castKind _ _).mpr (hn hPn hq)⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   -- the keys are the slices of the input's keys, and the group at each
   -- one is that slice's group
@@ -1585,7 +1570,7 @@ theorem AggQueryIn.hasDecorrelation_gammaScalar {c m n₂ : ℕ} {S : Set OpKind
     {q : AggQueryIn T c m (ColKind.allReg m)} (ord : GroupOrder T m)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaScalar ts fs q ord) := by
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   -- the parameters of the decorrelated rows, as a query
   set paramCols : Tuple (ProjCol T (ColKind.liftKinds c (ColKind.allReg m))) c :=
     fun j => ProjColIn.term (TermGIn.index (Fin.castAdd m j)
@@ -1601,25 +1586,17 @@ theorem AggQueryIn.hasDecorrelation_gammaScalar {c m n₂ : ℕ} {S : Set OpKind
         (q'.castKind (AggQueryIn.append_allReg c m)) (fun _ => none)
         (ord.lift c))
       (AggQueryIn.Gamma (fun j : Fin c => j) (fun _ => TermIn.const 0)
-        (fun j => fun _ => fs j []) missing), ?_, ?_, ?_, fun D => ?_⟩
+        (fun j => fun _ => fs j []) missing), ?_, ?_, fun D => ?_⟩
   · refine ⟨hS (by simp [decorrOps]), ⟨hg, ?_⟩, ⟨hg, ?_⟩⟩
     · exact (AggQueryIn.usesOnly_castKind _ _ _).mpr hu
     · refine ⟨hS (by simp [decorrOps]), hPu, ?_⟩
       rw [hreached, AggQueryIn.usesOnly_castKind]
-      exact ⟨hS (by simp [decorrOps]), hu⟩
+      exact ⟨⟨hS (by simp [decorrOps]), fun j => by rw [hpc]; rfl⟩, hu⟩
   · refine ⟨(AggQueryIn.overSchema_castKind _ _).mpr hos, ?_⟩
     rw [hmissing]
     refine ⟨hPs, ?_⟩
     rw [hreached, AggQueryIn.overSchema_castKind]
     exact hos
-  · intro hPn hq
-    refine ⟨(AggQueryIn.noAggTerm_castKind _ _).mpr (hn hPn hq), ?_⟩
-    rw [hmissing]
-    refine ⟨hPn, ?_⟩
-    rw [hreached, AggQueryIn.noAggTerm_castKind]
-    refine ⟨fun j => ?_, hn hPn hq⟩
-    rw [hpc]
-    rfl
   -- the slices, as a function into multisets: what the lemmas read
   set Pr : Multiset (Tuple T c) := P.evaluatePlain D with hPr
   set f : Tuple T c → Multiset (Tuple T m) := fun v => q.evaluatePlain D v
@@ -2017,7 +1994,7 @@ theorem AggQueryIn.hasDecorrelation_win {c n mp p : ℕ} {κ : Fin n → ColKind
     AggQueryIn.HasDecorrelation S sch P
       (AggQueryIn.Win P' O o w t f q hrr dist keep) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
     Fin.snoc (ColKind.liftKinds c κ) ColKind.agg with hκw
   have hsrc : ∀ j, κw (winSrc c n j)
@@ -2028,14 +2005,12 @@ theorem AggQueryIn.hasDecorrelation_win {c n mp p : ℕ} {κ : Fin n → ColKind
         (winReadsReg_lift hrr) dist
         (keep.map (Selection.shift c)))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κw _).trans (hsrc j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hw, hu⟩
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩, hw, hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _, hn hPn hq⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κw (winSrc c n j)).evalPlain u (fun _ => 0)))
@@ -2103,7 +2078,7 @@ theorem AggQueryIn.hasDecorrelation_winExpr {c n mp p na : ℕ} {S : Set OpKind}
     AggQueryIn.HasDecorrelation S sch P
       (AggQueryIn.WinExpr P' O o ws ts fs g q keeps) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
     Fin.snoc (ColKind.allReg (c + n)) ColKind.agg with hκw
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κw (winSrc c n j))
@@ -2113,16 +2088,13 @@ theorem AggQueryIn.hasDecorrelation_winExpr {c n mp p na : ℕ} {S : Set OpKind}
       (funext (fun j => (AggQueryIn.carryCol_kind κw _).trans
         (ColKind.snoc_winSrc (ColKind.allReg n)
           (AggQueryIn.append_allReg c n).symm j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hw,
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩, hw,
       (AggQueryIn.usesOnly_castKind _ _ _).mpr hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact (AggQueryIn.overSchema_castKind _ _).mpr hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _,
-      (AggQueryIn.noAggTerm_castKind _ _).mpr (hn hPn hq)⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κw (winSrc c n j)).evalPlain u (fun _ => 0)))
@@ -2234,11 +2206,11 @@ theorem AggQueryIn.hasDecorrelation_gammaNest {c m n₁ : ℕ} {S : Set OpKind} 
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
     (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (pc : ProjColIn T c κ) (f : Multiset T → T)
-    {q : AggQueryIn T c m κ}
+    {q : AggQueryIn T c m κ} (hpc : pc.sourceCol = true)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaNest is his pc f q) := by
   classical
-  obtain ⟨q', hu, hos, hn, hd⟩ := h
+  obtain ⟨q', hu, hos, hd⟩ := h
   have his' : ∀ k, ColKind.liftKinds c κ (groupKey c is k) ≠ ColKind.agg := by
     intro k
     refine Fin.addCases (fun jp => ?_) (fun i => ?_) k
@@ -2270,16 +2242,13 @@ theorem AggQueryIn.hasDecorrelation_gammaNest {c m n₁ : ℕ} {S : Set OpKind} 
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κn (gammaSrc c n₁ 1 j))
       (AggQueryIn.GammaNest (groupKey c is) his' pc.lift f q')).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κn _).trans (hsrc j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hg, hu⟩
+    refine ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
+      ⟨hg, by rw [ProjColIn.sourceCol_lift]; exact hpc⟩, hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact hos
-  · intro hPn hq
-    rw [AggQueryIn.noAggTerm_castKind]
-    refine ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _, ?_, hn hPn hq.2⟩
-    rw [ProjColIn.noAggTerm_lift]
-    exact hq.1
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κn (gammaSrc c n₁ 1 j)).evalPlain u (fun _ => 0)))
@@ -2541,7 +2510,7 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
       AggQueryIn.HasDecorrelation S sch P₂ q₂) :
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Apply q₁ q₂) := by
   classical
-  obtain ⟨A, huA, hosA, hnA, hdA⟩ := h₁
+  obtain ⟨A, huA, hosA, hdA⟩ := h₁
   -- the parameter relation of the right side: the distinct pairs the
   -- left side offers, in the order the right side reads its context
   have hswapKind : ∀ j : Fin (n₁ + c),
@@ -2567,7 +2536,9 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
       rfl))
   have hP₂uses : P₂.usesOnly S := by
     rw [hP₂def, AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hS (by simp [decorrOps]),
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
+      hS (by simp [decorrOps]),
       (AggQueryIn.usesOnly_castKind _ _ _).mpr huA⟩
   have hP₂sch : P₂.overSchema sch := by
     rw [hP₂def, AggQueryIn.overSchema_castKind]
@@ -2576,7 +2547,7 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
     intro D
     rw [hP₂eval]
     exact (Multiset.nodup_dedup _).map Relation.swapBlocks_injective
-  obtain ⟨B, huB, hosB, hnB, hdB⟩ := h₂ P₂ hP₂uses hP₂sch hP₂nd
+  obtain ⟨B, huB, hosB, hdB⟩ := h₂ P₂ hP₂uses hP₂sch hP₂nd
   -- the join: the left side's columns against the right side's
   -- parameters
   set κa : Fin ((c + n₁) + ((n₁ + c) + n₂)) → ColKind :=
@@ -2618,20 +2589,13 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
           hposL hposR)
         (AggQueryIn.Prod A B))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κa _).trans (hsrc j))),
-    ?_, ?_, ?_, fun D => ?_⟩
+    ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hS (by simp [decorrOps]),
-      ⟨hS (by simp [decorrOps]), huA, huB⟩⟩
+    exact ⟨⟨hS (by simp [decorrOps]),
+        fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
+      hS (by simp [decorrOps]), ⟨hS (by simp [decorrOps]), huA, huB⟩⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact ⟨hosA, hosB⟩
-  · intro hPn hq
-    have hP₂nat : P₂.NoAggTerm := by
-      rw [hP₂def, AggQueryIn.noAggTerm_castKind]
-      exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _,
-        (AggQueryIn.noAggTerm_castKind _ _).mpr (hnA hPn hq.1)⟩
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun j => AggQueryIn.noAggTerm_carryCol _ _, hnA hPn hq.1,
-      hnB hP₂nat hq.2⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κa (applySrc c n₁ n₂ j)).evalPlain u (fun _ => 0)))
@@ -2696,7 +2660,8 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
       AggQueryIn.hasDecorrelation_empty hS P hPu hPs
   | Proj ps q ih =>
     exact fun hq hqs P hPu hPs hnd =>
-      AggQueryIn.hasDecorrelation_proj hS ps (ih hq.2 hqs P hPu hPs hnd)
+      AggQueryIn.hasDecorrelation_proj hS ps hq.1.2
+        (ih hq.2 hqs P hPu hPs hnd)
   | Sel φ q ih =>
     exact fun hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_sel hS φ (ih hq.2 hqs P hPu hPs hnd)
@@ -2740,7 +2705,7 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
   | GammaNest is his pc f q ih =>
     exact fun hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_gammaNest hS
-        (mem_of_mem_insert_apply (by decide) hq.1) hnd is his pc f
+        (mem_of_mem_insert_apply (by decide) hq.1.1) hnd is his pc f hq.1.2
         (ih hq.2 hqs P hPu hPs hnd)
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
@@ -2773,8 +2738,7 @@ theorem AggQueryIn.exists_applyFree_plainEquiv {S : Set OpKind} {sch : Schema}
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hq : q.usesOnly (insert OpKind.apply S)) (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n κ,
-      q'.usesOnly S ∧ q'.overSchema sch ∧ (q.NoAggTerm → q'.NoAggTerm)
-        ∧ q.PlainEquiv q' := by
+      q'.usesOnly S ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   classical
   set v₀ : Tuple T 0 := fun j => j.elim0 with hv₀
   have hunit : (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).usesOnly
@@ -2788,11 +2752,7 @@ theorem AggQueryIn.exists_applyFree_plainEquiv {S : Set OpKind} {sch : Schema}
     intro D
     rw [evaluatePlain_unit D (fun _ => 0) v₀]
     exact Multiset.nodup_singleton v₀
-  have hunitn : (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).NoAggTerm := by
-    unfold AggQueryIn.unit
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact trivial
-  obtain ⟨q'', hu, hos, hn, hd⟩ := AggQueryIn.hasDecorrelation_of_usesOnly hS q
+  obtain ⟨q'', hu, hos, hd⟩ := AggQueryIn.hasDecorrelation_of_usesOnly hS q
     hq hqs AggQueryIn.unit hunit AggQueryIn.overSchema_unit hnd
   have hkind : ∀ i : Fin n,
       (AggQueryIn.carryCol (T := T) (ColKind.liftKinds 0 κ)
@@ -2800,14 +2760,12 @@ theorem AggQueryIn.exists_applyFree_plainEquiv {S : Set OpKind} {sch : Schema}
     fun i => (AggQueryIn.carryCol_kind _ _).trans (ColKind.liftKinds_col 0 κ i)
   refine ⟨(AggQueryIn.Proj (fun i => AggQueryIn.carryCol
       (ColKind.liftKinds 0 κ) (Fin.natAdd 0 i)) q'').castKind
-      (funext hkind), ?_, ?_, ?_, fun D γ => ?_⟩
+      (funext hkind), ?_, ?_, fun D γ => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
-    exact ⟨hS (by simp [decorrOps]), hu⟩
+    exact ⟨⟨hS (by simp [decorrOps]),
+      fun i => AggQueryIn.sourceCol_carryCol _ _⟩, hu⟩
   · rw [AggQueryIn.overSchema_castKind]
     exact hos
-  · intro hqn
-    rw [AggQueryIn.noAggTerm_castKind]
-    exact ⟨fun i => AggQueryIn.noAggTerm_carryCol _ _, hn hunitn hqn⟩
   -- a closed query reads no outer column, so the valuation is the empty one
   rw [show γ = (fun _ => 0 : Fin 0 → T) from funext (fun j => j.elim0),
     AggQueryIn.evaluatePlain_castKind]

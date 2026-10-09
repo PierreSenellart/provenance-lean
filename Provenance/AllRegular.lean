@@ -155,14 +155,17 @@ theorem GenPredIn.holdsPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
   | not φ ih => rw [GenPredIn.toReg, GenPredIn.hasAggAtom, ih]
 
 /-- **A projection column read as a regular one.** A column read as a
-token is the column; a provenance column is the value it holds. The
-post-composing reading has no counterpart, and is sent to a constant –
-which is why the lemma below asks `noAggTerm`. -/
+token is the column; a provenance column is the value it holds; a term
+over an aggregate column is the same term over that column read as a
+regular one (`TermIn.atCol`). Only the rewritten world's column, which
+carries an arbitrary function, has no counterpart, and is sent to a
+constant – which is why the lemma below asks `sourceCol`. -/
 def ProjColIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T c κ → ProjColIn T c (ColKind.allReg n)
   | .term t => .term t.toReg
   | .token k _ => .term (.index k rfl)
   | .aggTerm _ _ _ => .term (.const 0)
+  | .aggTermOf k _ t => .term (t.atCol k rfl)
   | .provTerm t => .term t.toReg
 
 /-- Every column it builds is regular. -/
@@ -173,12 +176,13 @@ def ProjColIn.toReg {c n : ℕ} {κ : Fin n → ColKind} :
 /-- It reads what the column reads, where that has a regular
 counterpart. -/
 theorem ProjColIn.evalPlain_toReg {c n : ℕ} {κ : Fin n → ColKind}
-    (p : ProjColIn T c κ) (hp : p.noAggTerm = true) (u : Tuple T n)
+    (p : ProjColIn T c κ) (hp : p.sourceCol = true) (u : Tuple T n)
     (γ : Fin c → T) : (p.toReg).evalPlain u γ = p.evalPlain u γ := by
   cases p with
   | term t => exact TermGIn.evalPlain_toReg t u γ
   | token k h => rfl
-  | aggTerm k h gf => exact absurd hp (by simp [ProjColIn.noAggTerm])
+  | aggTerm k h gf => exact absurd hp (by simp [ProjColIn.sourceCol])
+  | aggTermOf k h t => exact TermIn.evalPlain_atCol k rfl u γ t
   | provTerm t => exact TermGIn.evalPlain_toReg t u γ
 
 /-! ## Reading a query's own columns as values
@@ -397,7 +401,7 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
   | _, _, _, .Empty => True
-  | _, _, _, .Proj ps q => (∀ j, (ps j).noAggTerm = true) ∧ q.Retypable
+  | _, _, _, .Proj _ q => q.Retypable
   | _, _, _, .Sel _ q => q.Retypable
   | _, _, _, .Prod q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
   | _, _, _, .Apply q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
@@ -409,7 +413,7 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .MuSet _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
   | _, _, _, .Gamma _ _ _ q _ _ => q.Retypable
   | _, _, _, .GammaScalar _ _ q _ => q.Retypable
-  | _, _, _, .GammaNest _ _ p _ q => p.noAggTerm = true ∧ q.Retypable
+  | _, _, _, .GammaNest _ _ _ _ q => q.Retypable
   | _, _, _, .ProvSum _ _ _ q => q.Retypable
   | _, _, _, .Retag _ q => q.Retypable
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
@@ -426,43 +430,44 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
         ∧ q.Retypable
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
 
-/-- **A window-free query with no `aggTerm` column is re-typable.** The
-window is the only case where `AggQueryIn.Retypable` asks more than
-`AggQueryIn.NoAggTerm`, so a query whose classes exclude the window
-satisfies the one as soon as it satisfies the other. This is what lets
-the three passes of `Provenance.BasisAssembly` thread the structural
-condition alone: the first of them replaces every window by an apply of
-a scalar aggregation, and after it the window case is vacuous. -/
-theorem AggQueryIn.retypable_of_noAggTerm {S : Set OpKind}
+/-- **A window-free query is re-typable.** The window is the only thing
+`AggQueryIn.Retypable` asks about, every column of the source language
+re-typing on its own (a column reading an aggregate column reads it
+through a term, `ProjColIn.aggTermOf`, and `AggQueryIn.usesOnly` refuses
+the rewritten world's arbitrary function). So a query whose classes
+exclude the window is re-typable outright – which is the case the three
+passes of `Provenance.BasisAssembly` are in, the first of them replacing
+every window by an apply of a scalar aggregation. -/
+theorem AggQueryIn.retypable_of_usesOnly {S : Set OpKind}
     (hw : OpKind.win ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.usesOnly S → q.NoAggTerm → q.Retypable := by
+      q.usesOnly S → q.Retypable := by
   intro c n κ q
   induction q with
-  | Rel n s => exact fun _ _ => trivial
-  | Empty => exact fun _ _ => trivial
-  | Proj ps q ih => exact fun hq hn => ⟨hn.1, ih hq.2 hn.2⟩
-  | Sel φ q ih => exact fun hq hn => ih hq.2 hn
+  | Rel n s => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
+  | Proj ps q ih => exact fun hq => ih hq.2
+  | Sel φ q ih => exact fun hq => ih hq.2
   | Prod q₁ q₂ ih₁ ih₂ =>
-    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+    exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
-    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
+    exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Sum q₁ q₂ ih₁ ih₂ =>
-    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
-  | Dedup q ih => exact fun hq hn => ih hq.2 hn
+    exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ =>
-    exact fun hq hn => ⟨ih₁ hq.2.1 hn.1, ih₂ hq.2.2 hn.2⟩
-  | Alt k h q ih => exact fun hq hn => ih hq hn
-  | Retag h q ih => exact fun hq hn => ih hq hn
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
-  | Gamma is ts fs q keep ord ih => exact fun hq hn => ih hq.2 hn
-  | GammaScalar ts fs q ord ih => exact fun hq hn => ih hq.2 hn
-  | GammaNest is his pc f q ih => exact fun hq hn => ⟨hn.1, ih hq.2 hn.2⟩
-  | GammaTok is his ts fs a q keep ih => exact fun hq _ => hq.elim
-  | ProvSum is his t q ih => exact fun hq _ => hq.elim
-  | Win P O o w t f q hrr dist keep ih => exact fun hq _ => absurd hq.1 hw
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun hq _ => absurd hq.1 hw
+    exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Alt k h q ih => exact fun hq => ih hq
+  | Retag h q ih => exact fun hq => ih hq
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2
+  | GammaScalar ts fs q ord ih => exact fun hq => ih hq.2
+  | GammaNest is his pc f q ih => exact fun hq => ih hq.2
+  | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
+  | ProvSum is his t q ih => exact fun hq => hq.elim
+  | Win P O o w t f q hrr dist keep ih => exact fun hq => absurd hq.1 hw
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hq => absurd hq.1 hw
 
 /-- **What the swaps of `sec:basis` ask of a query**: the input of every
 selection has regular columns and its predicate has no aggregate atom
@@ -776,12 +781,14 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
       fun _ _ => rfl⟩
   | Proj ps q ih =>
     intro hq hnt hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt.2 hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
     refine ⟨(AggQueryIn.Proj (fun j => (ps j).toReg) q').castKind
         (funext (fun j => ProjColIn.kind_toReg (ps j))), ?_, ?_, ?_,
       fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_castKind]
-      exact ⟨hq.1, hu'⟩
+      exact ⟨⟨hq.1.1, fun j => by
+        rw [show ((ps j).toReg).sourceCol = true from by
+          cases (ps j) <;> rfl]⟩, hu'⟩
     · rw [AggQueryIn.overSchema_castKind]
       exact hs'
     · rw [AggQueryIn.swapReady_castKind]
@@ -790,7 +797,7 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
       simp only [AggQueryIn.evaluatePlain]
       rw [he' D γ]
       refine Multiset.map_congr rfl (fun u _ => funext (fun j => ?_))
-      exact (ProjColIn.evalPlain_toReg (ps j) (hnt.1 j) u γ).symm
+      exact (ProjColIn.evalPlain_toReg (ps j) (hq.1.2 j) u γ).symm
   | Sel φ q ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
@@ -895,11 +902,12 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
       rw [he' D γ]
   | GammaNest is his pc fn q ih =>
     intro hq hnt hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt.2 hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
     refine ⟨(AggQueryIn.GammaNest is (fun k hc => ColKind.noConfusion hc)
       pc.toReg fn q').allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
-      exact ⟨hq.1, hu'⟩
+      exact ⟨⟨hq.1.1, by rw [show (pc.toReg).sourceCol = true from by
+        cases pc <;> rfl]⟩, hu'⟩
     · rw [AggQueryIn.overSchema_allRegOf]
       exact hs'
     · rw [AggQueryIn.swapReady_allRegOf]
@@ -913,7 +921,7 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
       · rw [Fin.append_left, Fin.append_left]
       · rw [Fin.append_right, Fin.append_right]
         refine congrArg fn (Multiset.map_congr rfl (fun u _ => ?_))
-        exact (ProjColIn.evalPlain_toReg pc hnt.1 u γ).symm
+        exact (ProjColIn.evalPlain_toReg pc hq.1.2 u γ).symm
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | Win P' O o w t fn q hrr dist keep ih =>

@@ -79,6 +79,12 @@ theorem ProjColIn.collapseSum_eval {c n : ℕ} {κ : Fin n → ColKind}
     cases h : u k with
     | inl v => rfl
     | inr x => cases x <;> rfl
+  | aggTermOf k h gf =>
+    show AggValue.collapseSum (Sum.map gf.unary (AggTok.postcomp gf.unary) (u k))
+      = gf.unary (AggValue.collapseSum (u k))
+    cases h : u k with
+    | inl v => rfl
+    | inr x => cases x <;> rfl
   | provTerm t =>
     show AggValue.collapseSum (Sum.inl (t.eval u γ)) = _
     rw [ProjColIn.evalPlain, ← TermGIn.eval_eq_evalPlain]

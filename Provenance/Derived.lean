@@ -705,14 +705,15 @@ omit [ValueType T] in
   split <;> rfl
 
 /-- The projection that keeps a window's input columns and reads its
-added column through `gf`. -/
-def overWindow {n : ℕ} (κ : Fin n → ColKind) (gf : T → T) :
+added column through a term. -/
+def overWindow {n : ℕ} (κ : Fin n → ColKind) (gf : TermIn T 1 0) :
     Tuple (ProjCol T (Fin.snoc κ ColKind.agg)) (n + 1) :=
   Fin.snoc (fun i => carryCol _ i.castSucc)
-    (.aggTerm (Fin.last n) (by simp) gf)
+    (.aggTermOf (Fin.last n) (by simp) gf)
 
 omit [ValueType T] in
-@[simp] theorem overWindow_kind {n : ℕ} (κ : Fin n → ColKind) (gf : T → T)
+@[simp] theorem overWindow_kind {n : ℕ} (κ : Fin n → ColKind)
+    (gf : TermIn T 1 0)
     (j : Fin (n + 1)) :
     (overWindow (T := T) κ gf j).kind
       = (Fin.snoc κ ColKind.agg : Fin (n + 1) → ColKind) j := by
@@ -729,7 +730,7 @@ def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
-  (Proj (overWindow κ (fun x => 1 + x))
+  (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
     (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
       hrr)).castKind (funext (overWindow_kind κ _))
 
@@ -752,7 +753,7 @@ theorem evaluatePlain_rank [One T] (cnt : SeqAggFunc T)
   refine Multiset.map_congr rfl (fun u _ => ?_)
   funext j
   refine Fin.lastCases ?_ (fun i => ?_) j
-  · simp [overWindow, ProjColIn.evalPlain]
+  · simp [overWindow, ProjColIn.evalPlain, TermIn.unary, TermIn.eval]
   · simp [overWindow]
 
 /-- **`dense_rank()`**: one plus the count of the *distinct order values*
@@ -768,7 +769,7 @@ def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (q : AggQuery T n κ)
     (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0))) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
-  (Proj (overWindow κ (fun x => 1 + x))
+  (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
     (Win P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
       hrr true)).castKind (funext (overWindow_kind κ _))
 
@@ -793,7 +794,7 @@ theorem evaluatePlain_denseRank [One T] (cnt : SeqAggFunc T)
   refine Multiset.map_congr rfl (fun u _ => ?_)
   funext j
   refine Fin.lastCases ?_ (fun i => ?_) j
-  · simp [overWindow, ProjColIn.evalPlain]
+  · simp [overWindow, ProjColIn.evalPlain, TermIn.unary, TermIn.eval]
   · simp [overWindow]
 
 /-! ### The distribution functions

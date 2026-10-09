@@ -294,6 +294,7 @@ def ProjColIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | .term t => .term (t.substMap θ)
   | .token k h => .token k h
   | .aggTerm k h gf => .aggTerm k h gf
+  | .aggTermOf k h gf => .aggTermOf k h gf
   | .provTerm t => .provTerm (t.substMap θ)
 
 omit [ValueType T] in
@@ -304,6 +305,15 @@ omit [ValueType T] in
   cases p <;> rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- The substitution does not turn a source column into the rewritten
+world's. -/
+@[simp] theorem ProjColIn.sourceCol_substMap {c d n : ℕ}
+    {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ) :
+    (p.substMap θ).sourceCol = p.sourceCol := by
+  cases p <;> rfl
+
 theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
@@ -312,6 +322,7 @@ theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | term t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
   | token k h => rfl
   | aggTerm k h gf => rfl
+  | aggTermOf k h gf => rfl
   | provTerm t => exact congrArg Sum.inl (TermGIn.eval_substMap θ t u γ)
 
 theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
@@ -322,6 +333,7 @@ theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
   | term t => exact TermGIn.evalPlain_substMap θ t u γ
   | token k h => rfl
   | aggTerm k h gf => rfl
+  | aggTermOf k h gf => rfl
   | provTerm t => exact TermGIn.evalPlain_substMap θ t u γ
 
 /-! ## Substitution on queries -/

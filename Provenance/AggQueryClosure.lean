@@ -173,6 +173,11 @@ def ProjColIn.castRew {n : ℕ} {κ : Fin n → ColKind} :
   | .aggTerm k h gf =>
       .aggTerm (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
         (Sum.map gf id)
+  -- a source column's term becomes the rewritten world's function, which
+  -- no term of the composite domain is: it acts on the data arm only
+  | .aggTermOf k h t =>
+      .aggTerm (Fin.castAdd 1 k) ((ColKind.rewKindsOf_castAdd κ k).trans h)
+        (Sum.map t.unary id)
   | .provTerm t => .provTerm t.castRew
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -256,6 +261,15 @@ theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     show Sum.map (Sum.map gf id) (AggTok.postcomp (Sum.map gf id))
         (r.toCompositeRow (Fin.castAdd 1 k))
       = GenValue.toComposite (Sum.map gf (AggTok.postcomp gf) (r.fst k))
+    rw [GenRow.toCompositeRow_castAdd]
+    cases r.fst k with
+    | inl v => rfl
+    | inr x => cases x <;> rfl
+  | aggTermOf k h t =>
+    show Sum.map (Sum.map t.unary id) (AggTok.postcomp (Sum.map t.unary id))
+        (r.toCompositeRow (Fin.castAdd 1 k))
+      = GenValue.toComposite
+          (Sum.map t.unary (AggTok.postcomp t.unary) (r.fst k))
     rw [GenRow.toCompositeRow_castAdd]
     cases r.fst k with
     | inl v => rfl

@@ -2070,6 +2070,32 @@ theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
           (Sum.inr ((x.postcomp gf).mapAnn ⇑h.toRingHom))
         rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf x]
         exact hk'.postcomp gf
+  | aggTermOf k hk gf =>
+    -- reading an aggregate column through a function leaves its
+    -- family and its convention alone, so the simulation carries
+    -- over (`GenValue.Equiv.postcomp`)
+    simp only [ProjColIn.eval]
+    have hk' := hcol k
+    cases hx' : r'.fst k with
+    | inl v' =>
+      cases hx : r.fst k with
+      | inl v =>
+        rw [hx', hx] at hk'
+        exact congrArg gf.unary hk'
+      | inr a =>
+        rw [hx', hx] at hk'
+        exact absurd hk' GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      cases hx : r.fst k with
+      | inl v =>
+        rw [hx', hx] at hk'
+        exact absurd hk' GenValue.Equiv.not_inr_inl
+      | inr x =>
+        rw [hx', hx] at hk'
+        show GenValue.Equiv (Sum.inr (x'.postcomp gf.unary))
+          (Sum.inr ((x.postcomp gf.unary).mapAnn ⇑h.toRingHom))
+        rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf.unary x]
+        exact hk'.postcomp gf.unary
 
 
 /-- **Row-wise simulation.** Evaluating the transported query on the

@@ -521,6 +521,29 @@ end GenPredIn
 
 /-! ## Projection columns -/
 
+/-- **The function a term over one variable computes.** A column that
+reads an aggregate column reads it through a term, as `sec:aggexpr` has
+it – "`g` is the function the term computes" – and this is that
+function. -/
+def TermIn.unary (t : TermIn T 1 0) : T → T :=
+  fun x => t.eval (fun j => j.elim0) (fun _ => x)
+
+/-- **A unary term reading a column**: the same term with the column in
+place of its variable. It is how a term over an aggregate column re-types
+– read on the column as a regular one – and `TermIn.evalPlain_atCol`
+says the two compute the same value. -/
+def TermIn.atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k)
+    (h : κ i = ColKind.reg) : TermIn T 1 0 → TermGIn T c κ
+  | .const a => .const a
+  | .outer _ => .index i h
+  | .index j => j.elim0
+  | .add t₁ t₂ => .add (t₁.atCol i h) (t₂.atCol i h)
+  | .sub t₁ t₂ => .sub (t₁.atCol i h) (t₂.atCol i h)
+  | .mul t₁ t₂ => .mul (t₁.atCol i h) (t₂.atCol i h)
+  | .caseWhen op t₁ t₂ t₃ t₄ =>
+      .caseWhen op (t₁.atCol i h) (t₂.atCol i h) (t₃.atCol i h) (t₄.atCol i h)
+  | .coalesce t₁ t₂ => .coalesce (t₁.atCol i h) (t₂.atCol i h)
+
 /-- One output column of a generalized projection: a regular term over
 the regular input columns, or a verbatim copy of a token column (no
 arithmetic over tokens: the normal form). -/
@@ -534,7 +557,30 @@ inductive ProjColIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
   and the ranks produce. Only the value of `gf` in each world is used,
   so any deterministic function of SQL can be one. -/
   | aggTerm : (k : Fin n) → κ k = ColKind.agg → (T → T) → ProjColIn T c κ
+  /-- **A term over one aggregate column**, which is the shape the source
+  language has: the column the term names, read through a term of the
+  language, `TermIn.unary` being the function it computes. `sec:aggexpr`
+  reads such a column as "a term that mentions a column of aggregate
+  kind", with `g` the function the term computes, so this is the
+  document's column and `aggTerm` is wider. Being a term, it re-types
+  like any other column: the same term reads a regular column. -/
+  | aggTermOf : (k : Fin n) → κ k = ColKind.agg → TermIn T 1 0 →
+      ProjColIn T c κ
   | provTerm : TermGIn T c κ → ProjColIn T c κ
+
+/-- **Whether a column is one the source language writes.** Every column
+is, except the one carrying an arbitrary function of an aggregate column:
+that one belongs to the rewritten world, where the cast of a column has
+to act on the data arm of a composite value and leave the annotation arm
+alone. `AggQueryIn.usesOnly` asks for it, as it asks a query to be free
+of the other operators of that world. -/
+def ProjColIn.sourceCol {c : ℕ} {κ : Fin n → ColKind} :
+    ProjColIn T c κ → Bool
+  | .term _ => true
+  | .token _ _ => true
+  | .aggTerm _ _ _ => false
+  | .aggTermOf _ _ _ => true
+  | .provTerm _ => true
 
 /-- A projection column of a closed query. -/
 abbrev ProjCol (T : Type) {n : ℕ} (κ : Fin n → ColKind) := ProjColIn T 0 κ
@@ -544,6 +590,7 @@ def ProjColIn.kind {c : ℕ} {κ : Fin n → ColKind} : ProjColIn T c κ → Col
   | term _ => ColKind.reg
   | token _ _ => ColKind.agg
   | aggTerm _ _ _ => ColKind.agg
+  | aggTermOf _ _ _ => ColKind.agg
   | provTerm _ => ColKind.prov
 
 /-- Evaluation of a projection column on a lifted tuple. -/
@@ -554,6 +601,7 @@ def ProjColIn.eval {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ)
   | term t => Sum.inl (t.eval u γ)
   | token k _ => u k
   | aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
+  | aggTermOf k _ t => Sum.map t.unary (AggTok.postcomp t.unary) (u k)
   | provTerm t => Sum.inl (t.eval u γ)
 
 /-! ## An `ORDER BY` inside an aggregation
@@ -1267,6 +1315,28 @@ def TermGIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (t : TermGIn T c κ)
     if ValueType.isNull (t₁.evalPlain u γ) then t₂.evalPlain u γ
     else t₁.evalPlain u γ
 
+theorem TermIn.evalPlain_atCol {c k : ℕ} {κ : Fin k → ColKind} (i : Fin k)
+    (h : κ i = ColKind.reg) (u : Tuple T k) (γ : Fin c → T) :
+    ∀ t : TermIn T 1 0, (t.atCol i h).evalPlain u γ = t.unary (u i)
+  | .const a => rfl
+  | .outer _ => rfl
+  | .index j => j.elim0
+  | .add t₁ t₂ => congrArg₂ (fun a b : T => a + b)
+      (evalPlain_atCol i h u γ t₁) (evalPlain_atCol i h u γ t₂)
+  | .sub t₁ t₂ => congrArg₂ (fun a b : T => a - b)
+      (evalPlain_atCol i h u γ t₁) (evalPlain_atCol i h u γ t₂)
+  | .mul t₁ t₂ => congrArg₂ (fun a b : T => a * b)
+      (evalPlain_atCol i h u γ t₁) (evalPlain_atCol i h u γ t₂)
+  | .caseWhen op t₁ t₂ t₃ t₄ => by
+    show (if (op.eval3 _ _) = Kleene.true then _ else _) = _
+    rw [evalPlain_atCol i h u γ t₁, evalPlain_atCol i h u γ t₂,
+      evalPlain_atCol i h u γ t₃, evalPlain_atCol i h u γ t₄]
+    rfl
+  | .coalesce t₁ t₂ => by
+    show (if ValueType.isNull _ then _ else _) = _
+    rw [evalPlain_atCol i h u γ t₁, evalPlain_atCol i h u γ t₂]
+    rfl
+
 /-- **A term over regular columns read as a general term**: the same term,
 the kind index witnessing that every column it reads is regular. It is
 what a projection needs to carry a term of the aggregation grammar, whose
@@ -1353,7 +1423,7 @@ def GenPredIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
 def ProjColIn.chiFree {T' : Type} {c : ℕ} {κ : Fin n → ColKind} :
     ProjColIn T' c κ → Prop
   | .term t | .provTerm t => t.chiFree
-  | .token _ _ | .aggTerm _ _ _ => True
+  | .token _ _ | .aggTerm _ _ _ | .aggTermOf _ _ _ => True
 
 /-! ## The rounds of a recursion
 
@@ -2050,6 +2120,7 @@ def ProjColIn.evalPlain {c : ℕ} {κ : Fin n → ColKind} (p : ProjColIn T c κ
   | .term t => t.evalPlain u γ
   | .token k _ => u k
   | .aggTerm k _ gf => gf (u k)
+  | .aggTermOf k _ t => t.unary (u k)
   | .provTerm t => t.evalPlain u γ
 
 /-- The value a window's added column takes on a row of a plain relation:
@@ -3087,6 +3158,16 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isTok_postcomp]
         exact ih hq hn hfl d r₀ hr₀ k x hu
+    | aggTermOf k hk gf =>
+      cases hu : r₀.fst k with
+      | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu])
+      | inr x =>
+        have hax : a = x.postcomp gf.unary := by
+          have := ha
+          simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
+          exact (Sum.inr.inj this).symm
+        rw [hax, AggTok.isTok_postcomp]
+        exact ih hq hn hfl d r₀ hr₀ k x hu
   | Sel φ q ih =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -3276,6 +3357,16 @@ theorem AggQueryIn.evaluate_noNested :
       | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu])
       | inr x =>
         have hax : a = x.postcomp gf := by
+          have := ha
+          simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
+          exact (Sum.inr.inj this).symm
+        rw [hax, AggTok.isNested_postcomp]
+        exact ih hn d r₀ hr₀ k x hu
+    | aggTermOf k hk gf =>
+      cases hu : r₀.fst k with
+      | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu])
+      | inr x =>
+        have hax : a = x.postcomp gf.unary := by
           have := ha
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
@@ -3471,6 +3562,15 @@ theorem AggQueryIn.evaluate_conform :
         exact absurd this (by simp [GenValue.kindOf, ColKind.base])
       | inr a => rfl
     | aggTerm k hk gf =>
+      have := ih d r₀ hr₀ k
+      rw [hk] at this
+      simp only [ProjColIn.eval, hp, ProjColIn.kind]
+      cases hu : r₀.fst k with
+      | inl v =>
+        rw [hu] at this
+        exact absurd this (by simp [GenValue.kindOf, ColKind.base])
+      | inr a => rfl
+    | aggTermOf k hk gf =>
       have := ih d r₀ hr₀ k
       rw [hk] at this
       simp only [ProjColIn.eval, hp, ProjColIn.kind]
