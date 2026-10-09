@@ -1087,3 +1087,82 @@ theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
     exact t.eval_mem_of_noFun h hc (fun i => i.elim0) (fun i => i.elim0)
       (fun _ => u j) (fun _ => hu j)
   | provTerm t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
+
+/-- **The constants the query may put in its result lie in `V`.** Only a
+projection's columns are asked: the terms an aggregate reads feed a
+count, whose value is a function of *how many* values it reads and not
+of which, so their constants do not reach the result. -/
+def AggQueryIn.constsIn (V : Finset T) : {c n : ℕ} →
+    {κ : Fin n → ColKind} → AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj ps q =>
+      (∀ j, (ps j).constsIn V) ∧ q.constsIn V
+  | _, _, _, .Sel _ q => q.constsIn V
+  | _, _, _, .Prod q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
+  | _, _, _, .Apply q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
+  | _, _, _, .Sum q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
+  | _, _, _, .Dedup q => q.constsIn V
+  | _, _, _, .Diff q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
+  | _, _, _, .Alt _ _ q => q.constsIn V
+  | _, _, _, .Mu _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
+  | _, _, _, .Gamma _ _ _ q _ _ => q.constsIn V
+  | _, _, _, .GammaScalar _ _ q _ => q.constsIn V
+  | _, _, _, .GammaNest _ _ _ _ q => q.constsIn V
+  | _, _, _, .ProvSum _ _ _ q => q.constsIn V
+  | _, _, _, .Retag _ q => q.constsIn V
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.constsIn V
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.constsIn V
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.constsIn V
+
+/-- **A group is no larger than its relation**, clause and `ORDER BY`
+included: both read a listing of a part of it. -/
+theorem length_groupSeqOptOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
+    (ord : GroupOrder T m) (r : Multiset (Tuple T m)) (g : Tuple T n₁)
+    (keep : Option (Selection T m)) :
+    (Relation.groupSeqOptOrd is ord r g keep).length ≤ Multiset.card r := by
+  have hbase : (Relation.groupSeq is r g).length ≤ Multiset.card r := by
+    rw [Relation.groupSeq, length_sortList]
+    exact Multiset.card_le_card (Multiset.filter_le _ _)
+  have hord : (Relation.groupSeqOrd is ord r g).length ≤ Multiset.card r :=
+    le_trans (le_of_eq (Relation.groupSeqOrd_perm is ord r g).length_eq) hbase
+  cases keep with
+  | none => exact hord
+  | some φ => exact le_trans (List.length_filter_le _ _) hord
+
+/-- Erasing a row leaves no more. The decidable equality is an explicit
+argument: the frame machinery's comes from the domain's order, where
+instance search finds the pointwise one. -/
+private theorem card_erase_le' {α : Type} (i : DecidableEq α)
+    (s : Multiset α) (a : α) :
+    Multiset.card (@Multiset.erase α i s a) ≤ Multiset.card s :=
+  Multiset.card_le_card (@Multiset.erase_le α i a s)
+
+/-- And consing it back adds at most one. -/
+private theorem card_cons_erase_le {α : Type} (i : DecidableEq α)
+    (s : Multiset α) (a : α) :
+    Multiset.card (a ::ₘ @Multiset.erase α i s a) ≤ Multiset.card s + 1 := by
+  rw [Multiset.card_cons]
+  exact Nat.add_le_add_right (card_erase_le' i s a) 1
+
+/-- **And a frame is no larger than its relation and the current row.**
+The row itself is in its frame or not, which is the `+ 1`. -/
+theorem length_frameListOf_le {n m p : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (X : Multiset (Tuple T n)) (x : Tuple T n) :
+    (ValueFrame.frameListOf (α := Tuple T n) id P O o w X x).length
+      ≤ Multiset.card X + 1 := by
+  rw [ValueFrame.frameListOf]
+  refine le_trans (le_of_eq (OrderSpec.sortSeq_perm _).length_eq) ?_
+  rw [length_sortList]
+  unfold ValueFrame.frameOf
+  by_cases hs : w.s (Tuple.key O (id x)) = true
+  · rw [ite_eq_left hs]
+    refine le_trans (card_cons_erase_le _ _ x) ?_
+    exact Nat.add_le_add_right
+      (Multiset.card_le_card (Multiset.filter_le _ X)) 1
+  · rw [ite_eq_right hs]
+    refine le_trans (card_erase_le' _ _ x) ?_
+    exact le_trans (Multiset.card_le_card (Multiset.filter_le _ X))
+      (Nat.le_succ _)
