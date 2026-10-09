@@ -720,124 +720,6 @@ theorem countVals_subset {g : ℕ → T} {m m' : ℕ} (h : m ≤ m') :
   Finset.image_subset_image (fun i hi => Finset.mem_range.mpr
     (by have := Finset.mem_range.mp hi; omega))
 
-/-! ### The constants a query may put in its result -/
-
-/-- The constants of a term lie in `V`. -/
-def TermIn.constsIn {c k : ℕ} (V : Finset T) : TermIn T c k → Prop
-  | .const a => a ∈ V
-  | .outer _ => True
-  | .index _ => True
-  | .add t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .sub t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .mul t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .caseWhen _ t₁ t₂ t₃ t₄ =>
-      t₁.constsIn V ∧ t₂.constsIn V ∧ t₃.constsIn V ∧ t₄.constsIn V
-  | .coalesce t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-
-/-- And of a kind-indexed term. -/
-def TermGIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
-    TermGIn T c κ → Prop
-  | .const a => a ∈ V
-  | .outer _ => True
-  | .index _ _ => True
-  | .provIndex _ _ => True
-  | .cmpAgg _ _ _ t => t.constsIn V
-  | .chiGate _ t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .add t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .sub t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .mul t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-  | .caseWhen _ t₁ t₂ t₃ t₄ =>
-      t₁.constsIn V ∧ t₂.constsIn V ∧ t₃.constsIn V ∧ t₄.constsIn V
-  | .coalesce t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
-
-/-- And of an output column. -/
-def ProjColIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
-    ProjColIn T c κ → Prop
-  | .term t => t.constsIn V
-  | .token _ _ => True
-  | .aggTerm _ _ _ => True
-  | .aggTermOf _ _ t => t.constsIn V
-  | .provTerm t => t.constsIn V
-
-/-- **A term of the minimal signature reads a value it was given.** -/
-theorem TermIn.eval_mem_of_noFun {c k : ℕ} {V : Finset T} (t : TermIn T c k)
-    (h : t.noFun = true) (hc : t.constsIn V) (u : Tuple T k)
-    (hu : ∀ j, u j ∈ V) (γ : Fin c → T) (hγ : ∀ j, γ j ∈ V) :
-    t.eval u γ ∈ V := by
-  cases t with
-  | const a => exact hc
-  | outer j => exact hγ j
-  | index j => exact hu j
-  | add _ _ => exact absurd h (by simp [TermIn.noFun])
-  | sub _ _ => exact absurd h (by simp [TermIn.noFun])
-  | mul _ _ => exact absurd h (by simp [TermIn.noFun])
-  | caseWhen _ _ _ _ _ => exact absurd h (by simp [TermIn.noFun])
-  | coalesce _ _ => exact absurd h (by simp [TermIn.noFun])
-
-/-- The same for a kind-indexed term. -/
-theorem TermGIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
-    {V : Finset T} (t : TermGIn T c κ) (h : t.noFun = true)
-    (hc : t.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
-    (hγ : ∀ j, γ j ∈ V) : t.evalPlain u γ ∈ V := by
-  cases t with
-  | const a => exact hc
-  | outer j => exact hγ j
-  | index j hj => exact hu j
-  | provIndex j hj => exact hu j
-  | cmpAgg _ _ _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | chiGate _ _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | add _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | sub _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | mul _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | caseWhen _ _ _ _ _ => exact absurd h (by simp [TermGIn.noFun])
-  | coalesce _ _ => exact absurd h (by simp [TermGIn.noFun])
-
-/-- **And an output column of the minimal signature.** A column read over
-an aggregate column is a term of one variable there, so it is that
-column or a constant. -/
-theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
-    {V : Finset T} (p : ProjColIn T c κ) (h : p.noFun = true)
-    (hc : p.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
-    (hγ : ∀ j, γ j ∈ V) : p.evalPlain u γ ∈ V := by
-  cases p with
-  | term t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
-  | token j hj => exact hu j
-  | aggTerm j hj gf => exact absurd h (by simp [ProjColIn.noFun])
-  | aggTermOf j hj t =>
-    show t.unary (u j) ∈ V
-    rw [TermIn.unary]
-    exact t.eval_mem_of_noFun h hc (fun i => i.elim0) (fun i => i.elim0)
-      (fun _ => u j) (fun _ => hu j)
-  | provTerm t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
-
-/-- **The constants the query may put in its result lie in `V`.** Only a
-projection's columns are asked: the terms an aggregate reads feed a
-count, whose value is a function of *how many* values it reads and not
-of which, so their constants do not reach the result. -/
-def AggQueryIn.constsIn (V : Finset T) : {c n : ℕ} →
-    {κ : Fin n → ColKind} → AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj ps q =>
-      (∀ j, (ps j).constsIn V) ∧ q.constsIn V
-  | _, _, _, .Sel _ q => q.constsIn V
-  | _, _, _, .Prod q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
-  | _, _, _, .Apply q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
-  | _, _, _, .Sum q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
-  | _, _, _, .Dedup q => q.constsIn V
-  | _, _, _, .Diff q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
-  | _, _, _, .Alt _ _ q => q.constsIn V
-  | _, _, _, .Mu _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
-  | _, _, _, .Gamma _ _ _ q _ _ => q.constsIn V
-  | _, _, _, .GammaScalar _ _ q _ => q.constsIn V
-  | _, _, _, .GammaNest _ _ _ _ q => q.constsIn V
-  | _, _, _, .ProvSum _ _ _ q => q.constsIn V
-  | _, _, _, .Retag _ q => q.constsIn V
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.constsIn V
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.constsIn V
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.constsIn V
-
 /-- **A group is no larger than its relation**, clause and `ORDER BY`
 included: both read a listing of a part of it. -/
 theorem length_groupSeqOptOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁)
@@ -1655,6 +1537,45 @@ def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
           ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
             q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
 
+/-- **A generating set of the whole algebra in a signature**: as
+`GeneratesOnRec`, for the queries of the signature `𝒜(∅, Θ)` – no
+function on values, aggregates in `Θ` – and producing queries of it.
+This is the form the rows that depend on the signature are stated
+against, the product row being one: a recursive term that may apply a
+function to values runs as many rounds as the instance wants. -/
+def GeneratesOnRecSig (T : Type) [ValueType T] (sch : Schema)
+    (Θ : Set (SeqAggFunc T)) (S : Set OpKind) : Prop :=
+  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
+    q.overSchema sch → q.usesOnly plainRecOps → q.recRestricted → q.inSig Θ →
+      q.WinsDerivable →
+      ∃ q' : AggQuery T n (ColKind.allReg n),
+        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.recRestricted ∧ q'.inSig Θ
+          ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
+            q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+
+/-- **One of `×` and the apply is in every basis of the whole algebra in
+a signature without functions on values**: there a recursive term reads
+the previous round row by row, so a recursion's answer stays linear in
+the instance, and a relation joined with itself is quadratic. -/
+theorem prod_or_apply_mem_of_generatesOnRecSig {Θ : Set (SeqAggFunc ℕ)}
+    {S : Set OpKind} (hS : GeneratesOnRecSig ℕ schemaR Θ S) :
+    OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
+  by_contra h
+  obtain ⟨hp, ha⟩ := not_or.mp h
+  have hset : ∀ (D : Database ℕ) (γ : Fin 0 → ℕ), prodWitness.SettlesAt D γ :=
+    AggQueryIn.settlesAt_of_usesOnly (S := plainOps)
+      (by simp [plainOps, basisDD, basisOps])
+      (by simp [plainOps, basisDD, basisOps]) prodWitness
+      ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
+  obtain ⟨q', -, hu', hr', hsig', he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
+    ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, trivial⟩
+    ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
+  refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
+  rw [(he D (fun j => j.elim0) (hset D _)).2]
+  exact AggQueryIn.card_le_sizeBound hp ha q' hu' hr'
+    (AggQueryIn.recNoFun_of_inSig q' hsig') D (fun j => j.elim0)
+    (he D (fun j => j.elim0) (hset D _)).1
+
 /-- **A generating set of the whole algebra generates the plain
 fragment**, whose queries are defined everywhere: so every row proved
 against `GeneratesOn` holds of a generating set of the whole algebra. -/
@@ -1693,7 +1614,7 @@ and its body reads `R` once, under a projection, a selection and a
 product. -/
 theorem recRestricted_chainWitness : chainWitness.recRestricted :=
   ⟨show "S" ≠ "R" by decide, ⟨rfl, Or.inl ⟨rfl, show "E" ≠ "R" by decide⟩⟩,
-    trivial⟩
+    trivial, ⟨trivial, trivial⟩⟩
 
 /-- The base of the witness is the source. -/
 theorem evaluatePlain_chainBase (n : ℕ) :

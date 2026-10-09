@@ -743,20 +743,23 @@ theorem proj_mem_of_generatesOn {S : Set OpKind}
 
 /-- **One of `×` and the apply is necessary**: without both, an answer
 is linear in the instance, and a relation joined with itself is
-quadratic. -/
+quadratic. This is the recursion-free form; with the recursions the row
+is about a signature without functions on values, and is
+`prod_or_apply_mem_of_generatesOnRecSig`. -/
 theorem prod_or_apply_mem_of_generatesOn {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S)
     (hS : GeneratesOn ℕ schemaR S) :
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h
   obtain ⟨hp, ha⟩ := not_or.mp h
-  obtain ⟨q', -, hu', -, -, he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
+  obtain ⟨q', -, hu', hr', hset, he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
     ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
     ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
   rw [he D (fun j => j.elim0)]
-  exact AggQueryIn.card_le_sizeBound hp ha hmb hms q' hu' D
-    (fun j => j.elim0)
+  exact AggQueryIn.card_le_sizeBound hp ha q' hu' hr'
+    (AggQueryIn.recNoFun_of_usesOnly hmb hms q' hu') D (fun j => j.elim0)
+    (hset D _)
 
 /-! ## The two rows that are about the schema
 

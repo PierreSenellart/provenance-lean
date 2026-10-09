@@ -971,18 +971,23 @@ proven engine several general results reuse internally.
   `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
   `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
   `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`, each
-  over the schema its witness lives on. Two of them hold of the whole
+  over the schema its witness lives on. Three of them hold of the whole
   algebra: for `σ`/`−`, `AggQueryIn.NonzeroOn`, the dichotomy relative
   to a set of names forced empty, is what carries the invariant through
   a set recursion; for `Π`, `AggQueryIn.affine_of_recOnce` says that a
   recursive term without a projection reads the recursive relation
-  tuple by tuple, so a bag recursion settles only at its base. In both,
-  `AggQueryIn.SettlesAt` – the recursions settle at this instance – is
-  the one hypothesis a statement about a recursion's value needs, and
-  `AggQueryIn.recRestricted` is `sec:plain`'s restriction on a
-  recursive term. `GeneratesOn` asks the query it produces to be of the
-  algebra and to settle everywhere, as the plain query it stands for
-  does.
+  tuple by tuple, so a bag recursion settles only at its base; for
+  `×`/apply, `AggQueryIn.pointwise_of_recOnce` says that without them a
+  recursive term maps each row to at most one row, and in a signature
+  without functions on values (`AggQueryIn.recNoFun`) the orbit of a row
+  stays in a box of a size the query fixes (`rowBox`, `recBound`), so
+  the rounds a recursion can run are bounded (`optIter_exists_lt`,
+  `optIter_ne_none`). In all three, `AggQueryIn.SettlesAt` – the
+  recursions settle at this instance – is the one hypothesis a statement
+  about a recursion's value needs, and `AggQueryIn.recRestricted` is
+  `sec:plain`'s restriction on a recursive term. `GeneratesOn` asks the
+  query it produces to be of the algebra and to settle everywhere, as
+  the plain query it stands for does.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its
   input is all-regular, a predicate of the language holds exactly where
@@ -1043,7 +1048,10 @@ proven engine several general results reuse internally.
   sink `2ⁿ` copies, and `chainWitness_no_polynomial_bound` is the row:
   no `c · (n+1)^k` bounds that. `GeneratesOnRec` is generation over the
   whole algebra, where a query is a partial function of the instance:
-  the query produced settles and agrees wherever the given one settles.
+  the query produced settles and agrees wherever the given one settles;
+  `GeneratesOnRecSig` is the same within a signature, and
+  `prod_or_apply_mem_of_generatesOnRecSig` is the product row against
+  it.
   The signature the row is stated in is
   `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
