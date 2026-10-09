@@ -1952,3 +1952,124 @@ theorem muBag_or_muSet_mem_of_generatesOnRec {S : Set OpKind}
   refine chainWitness_no_polynomial_bound ⟨b, k, fun D => ?_⟩
   rw [he D (fun j => j.elim0)]
   exact hb D (fun j => j.elim0)
+
+/-! ## How a recursive term may read the recursive relation
+
+`sec:plain` restricts a recursion: in `μR.(q₀, q₁)` the base `q₀` does
+not read `R`, and in the body `q₁` the name `R` occurs **once**, and only
+under a projection, a selection on regular columns, either side of a
+product, the left side of an apply, or a union. That is narrower than the
+Lean's syntax, which lets a recursion be written with the name anywhere,
+and narrower than `AggQueryIn.recGuarded` – which only keeps `R` out of
+an aggregation, a window, a duplicate elimination and a difference. The
+rows of `tab:basisclasses` that survive a recursion are stated against
+this restriction (relayed by the semantics session, 2026-10-09), so it is
+what a result about the whole algebra asks of a query.
+
+What it gives for free is `recGuarded_of_recOnce`: the operators a
+recursive term may read `R` under are none of the four the weaker
+restriction keeps it out of, so everything proved there applies. What it
+does **not** give is one storey of recursion – the *other* side of a
+product, and an apply's right side, are arbitrary queries that do not
+read `R`, and either may be a recursion of its own. So a body is not
+recursion-free, and the value analysis has to reach those sub-recursions
+through the outer induction rather than through
+`AggQueryIn.exists_valsIn_assign`, which asks `noRec` of what it
+aggregates.
+
+`Alt` and `Retag` are on the list here though the document does not name
+them: they are the kind discipline's two operators, identities on plain
+relations, so they move no value and read no column.
+-/
+
+/-- **The name occurs once, and only where a recursive term may read
+it.** -/
+def AggQueryIn.recOnce (s : String) : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ s' => s' = s
+  | _, _, _, .Empty => False
+  | _, _, _, .Proj _ q => q.recOnce s
+  | _, _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.recOnce s
+  | _, _, _, .Prod q₁ q₂ =>
+      (q₁.recOnce s ∧ q₂.noMention s) ∨ (q₁.noMention s ∧ q₂.recOnce s)
+  | _, _, _, .Apply q₁ q₂ => q₁.recOnce s ∧ q₂.noMention s
+  | _, _, _, .Sum q₁ q₂ =>
+      (q₁.recOnce s ∧ q₂.noMention s) ∨ (q₁.noMention s ∧ q₂.recOnce s)
+  | _, _, _, .Alt _ _ q => q.recOnce s
+  | _, _, _, .Retag _ q => q.recOnce s
+  | _, _, _, .Dedup _ => False
+  | _, _, _, .Diff _ _ => False
+  | _, _, _, .Mu _ _ _ => False
+  | _, _, _, .MuSet _ _ _ => False
+  | _, _, _, .Gamma _ _ _ _ _ _ => False
+  | _, _, _, .GammaScalar _ _ _ _ => False
+  | _, _, _, .GammaNest _ _ _ _ _ => False
+  | _, _, _, .ProvSum _ _ _ _ => False
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
+
+omit [ValueType T] in
+/-- **A term that reads the relation where it may is guarded**: the
+operators it may read it under are none of the four `recGuarded` keeps it
+out of. -/
+theorem AggQueryIn.recGuarded_of_recOnce {s : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.recOnce s → q.recGuarded s := by
+  intro c n κ q
+  induction q with
+  | Rel n s' => exact fun _ => trivial
+  | Empty => exact fun h => h.elim
+  | Proj ps q ih => exact ih
+  | Sel φ q ih => exact fun h => ih h.2
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩)
+    · exact ⟨ih₁ h₁, AggQueryIn.recGuarded_of_noMention q₂ h₂⟩
+    · exact ⟨AggQueryIn.recGuarded_of_noMention q₁ h₁, ih₂ h₂⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun h => ⟨ih₁ h.1, AggQueryIn.recGuarded_of_noMention q₂ h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩)
+    · exact ⟨ih₁ h₁, AggQueryIn.recGuarded_of_noMention q₂ h₂⟩
+    · exact ⟨AggQueryIn.recGuarded_of_noMention q₁ h₁, ih₂ h₂⟩
+  | Dedup q ih => exact fun h => h.elim
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
+  | Alt k hk q ih => exact ih
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
+  | Gamma is ts fs q keep ord ih => exact fun h => h.elim
+  | GammaScalar ts fs q ord ih => exact fun h => h.elim
+  | GammaNest is his p f q ih => exact fun h => h.elim
+  | ProvSum is his t q ih => exact fun h => h.elim
+  | Retag hk q ih => exact ih
+  | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
+  | Win P O o w t f q hrr dist keep ih => exact fun h => h.elim
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
+
+/-- **Every recursion of the query is one the algebra admits**: its base
+does not read the recursive relation, and its body reads it once and only
+where it may. -/
+def AggQueryIn.recRestricted : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj _ q => q.recRestricted
+  | _, _, _, .Sel _ q => q.recRestricted
+  | _, _, _, .Prod q₁ q₂ => q₁.recRestricted ∧ q₂.recRestricted
+  | _, _, _, .Apply q₁ q₂ => q₁.recRestricted ∧ q₂.recRestricted
+  | _, _, _, .Sum q₁ q₂ => q₁.recRestricted ∧ q₂.recRestricted
+  | _, _, _, .Dedup q => q.recRestricted
+  | _, _, _, .Diff q₁ q₂ => q₁.recRestricted ∧ q₂.recRestricted
+  | _, _, _, .Alt _ _ q => q.recRestricted
+  | _, _, _, .Mu s q₀ q₁ =>
+      q₀.noMention s ∧ q₁.recOnce s ∧ q₀.recRestricted
+  | _, _, _, .MuSet s q₀ q₁ =>
+      q₀.noMention s ∧ q₁.recOnce s ∧ q₀.recRestricted
+  | _, _, _, .Gamma _ _ _ q _ _ => q.recRestricted
+  | _, _, _, .GammaScalar _ _ q _ => q.recRestricted
+  | _, _, _, .GammaNest _ _ _ _ q => q.recRestricted
+  | _, _, _, .ProvSum _ _ _ q => q.recRestricted
+  | _, _, _, .Retag _ q => q.recRestricted
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.recRestricted
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recRestricted
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recRestricted
