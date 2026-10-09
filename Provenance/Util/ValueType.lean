@@ -24,6 +24,15 @@ class ValueType (T : Type) extends Zero T, AddCommSemigroup T, Sub T, Mul T, Lin
   nonzero_ne_zero : nonzero ≠ 0
   /-- And it is not the null. -/
   isNull_nonzero : isNull nonzero = false := by rfl
+  /-- **The domain's null, named.** SQL's `NULL` is one value of the
+  domain, so `isNull` recognizes at most one value and a query may compare
+  against it: `IS NULL` is `IS NOT DISTINCT FROM` that value. A domain
+  without a null – `ℕ`, `String` – answers `none`, which is the default. -/
+  nullVal : Option T := none
+  /-- `isNull` recognizes exactly that value. -/
+  isNull_iff_nullVal : ∀ a : T, isNull a = true ↔ nullVal = some a := by
+    intro a
+    simp
 
 /-- A value domain in which nothing is null. The three-valued semantics
 agrees with the two-valued one there, which is why every statement proved
@@ -33,6 +42,37 @@ class NoNulls (T : Type) [ValueType T] : Prop where
   isNull_eq_false : ∀ a : T, ValueType.isNull a = false
 
 export NoNulls (isNull_eq_false)
+
+namespace ValueType
+
+variable {T : Type} [ValueType T]
+
+/-- **A domain that names no null has none.** -/
+theorem isNull_eq_false_of_nullVal_none
+    (h : (ValueType.nullVal : Option T) = none) (a : T) :
+    ValueType.isNull a = false := by
+  rcases hb : ValueType.isNull a with _ | _
+  · rfl
+  · exact absurd ((ValueType.isNull_iff_nullVal a).mp hb) (by rw [h]; simp)
+
+/-- A domain that names no null is a domain with no null. -/
+theorem noNulls_of_nullVal_none
+    (h : (ValueType.nullVal : Option T) = none) : NoNulls T :=
+  ⟨isNull_eq_false_of_nullVal_none h⟩
+
+/-- **The named value is null.** -/
+theorem isNull_nullVal {ν : T} (h : (ValueType.nullVal : Option T) = some ν) :
+    ValueType.isNull ν = true :=
+  (ValueType.isNull_iff_nullVal ν).mpr h
+
+/-- **And it is the only one**, which is what lets a comparison against it
+read `IS NULL`. -/
+theorem eq_nullVal_of_isNull {ν a : T}
+    (h : (ValueType.nullVal : Option T) = some ν)
+    (ha : ValueType.isNull a = true) : a = ν :=
+  Option.some.inj (((ValueType.isNull_iff_nullVal a).mp ha).symm.trans h)
+
+end ValueType
 
 instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (V⊕K) where
   zero := Sum.inr 0
@@ -49,6 +89,24 @@ instance [ValueType V] [HasAltLinearOrder K] [SemiringWithMonus K] : ValueType (
   isNull a := match a with
   | Sum.inl v => ValueType.isNull v
   | Sum.inr _ => false
+  nullVal := (ValueType.nullVal : Option V).map Sum.inl
+  isNull_iff_nullVal a := by
+    cases a with
+    | inl v =>
+      show ValueType.isNull v = true ↔ _
+      rw [ValueType.isNull_iff_nullVal v]
+      constructor
+      · intro h; rw [h]; rfl
+      · intro h
+        obtain ⟨w, hw, hwv⟩ := Option.map_eq_some_iff.mp h
+        rw [hw, Sum.inl.inj hwv]
+    | inr k =>
+      show (false : Bool) = true ↔ _
+      constructor
+      · exact fun h => absurd h (by simp)
+      · intro h
+        obtain ⟨w, -, hwv⟩ := Option.map_eq_some_iff.mp h
+        exact absurd hwv (by simp)
 
   add a b := match a,b with
   | Sum.inl a', Sum.inl b' => Sum.inl (a'+b')

@@ -576,6 +576,26 @@ theorem counts_counting {V : Type} [ValueType V] {cnt : SeqAggFunc V}
     rw [hz, List.filter_eq_nil_iff]
     exact ⟨fun h x hx => by simpa using h x hx, fun h x hx => by simpa using h x hx⟩
 
+/-- **Over a domain with no null a plain count counts.** The counting
+policy has nothing to drop there, so an aggregate that is never null and
+is zero only over the empty sequence is a count as it stands. -/
+theorem counts_of_noNulls {V : Type} [ValueType V] [NoNulls V]
+    {cnt : SeqAggFunc V} (hnn : ∀ L : List V, ValueType.isNull (cnt L) = false)
+    (hz : ∀ L : List V, cnt L = 0 ↔ L = []) : Counts cnt where
+  not_null := hnn
+  eq_zero L := by
+    rw [hz]
+    constructor
+    · intro h x hx
+      rw [h] at hx
+      exact (List.not_mem_nil hx).elim
+    · intro h
+      cases L with
+      | nil => rfl
+      | cons x xs =>
+        exact Bool.noConfusion
+          ((isNull_eq_false x).symm.trans (h x (List.mem_cons_self ..)))
+
 /-! ### Which aggregates read their input as a multiset
 
 The interface is a function on *sequences*, so an aggregate may depend on
