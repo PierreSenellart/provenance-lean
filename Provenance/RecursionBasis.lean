@@ -1728,3 +1728,139 @@ theorem AggQueryIn.exists_valsIn_assign {cnt : SeqAggFunc T} {g : ℕ → T}
       exact le_trans (List.length_filter_le _ _)
         (le_trans (length_frameListOf_le P O o w _ _)
           (Nat.add_le_add_right (le_of_eq (Multiset.card_map _ _)) 1))
+
+/-! ### The values the instance holds, as a set of polynomial size
+
+The card of a set recursion's fixpoint is `|V|ⁿ` for the set `V` its
+rounds close on, so the invariant needs `V` *built* and not quantified
+over: a universally quantified set can be arbitrarily large, and a set
+asked to contain the counts over its own size cannot exist. The set is
+the instance's values at the arities the query reads, the query's
+constants, and the counts up to the bound – and it is the **count bound
+that grows** from one level of recursion to the next, which is what
+keeps the construction from circling.
+-/
+
+/-- The values of a tuple. -/
+def Tuple.valsL {k : ℕ} (u : Tuple T k) : List T := (List.finRange k).map u
+
+omit [ValueType T] in
+theorem Tuple.mem_valsL {k : ℕ} (u : Tuple T k) (j : Fin k) :
+    u j ∈ u.valsL :=
+  List.mem_map.mpr ⟨j, List.mem_finRange j, rfl⟩
+
+omit [ValueType T] in
+theorem Tuple.length_valsL {k : ℕ} (u : Tuple T k) : u.valsL.length = k := by
+  rw [Tuple.valsL, List.length_map, List.length_finRange]
+
+/-- The values of a relation, as a bag. -/
+def Relation.valsM {k : ℕ} (r : Multiset (Tuple T k)) : Multiset T :=
+  r.bind (fun u => (u.valsL : Multiset T))
+
+omit [ValueType T] in
+theorem Relation.card_valsM {k : ℕ} (r : Multiset (Tuple T k)) :
+    Multiset.card (Relation.valsM r) = Multiset.card r * k := by
+  rw [Relation.valsM, Multiset.card_bind]
+  have hmap : (Multiset.map
+      (Multiset.card ∘ fun u : Tuple T k => (u.valsL : Multiset T)) r)
+      = r.map (fun _ => k) :=
+    Multiset.map_congr rfl (fun u _ => by
+      show Multiset.card ((u.valsL : Multiset T)) = k
+      rw [Multiset.coe_card, Tuple.length_valsL])
+  rw [hmap, Multiset.map_const', Multiset.sum_replicate, smul_eq_mul]
+
+omit [ValueType T] in
+theorem Relation.mem_valsM {k : ℕ} {r : Multiset (Tuple T k)} {u : Tuple T k}
+    (hu : u ∈ r) (j : Fin k) : u j ∈ Relation.valsM r :=
+  Multiset.mem_bind.mpr ⟨u, hu, Multiset.mem_coe.mpr (Tuple.mem_valsL u j)⟩
+
+/-- The values an instance holds in its relations of arity at most `A`. -/
+def Database.instValsM (A : ℕ) : Database T → Multiset T
+  | [] => 0
+  | (_, ⟨m, M⟩) :: tl =>
+      (if m ≤ A then Relation.valsM M else 0) + Database.instValsM A tl
+
+/-- And as a set. -/
+def Database.instVals (A : ℕ) (D : Database T) : Finset T :=
+  (Database.instValsM A D).toFinset
+
+/-- **It has at most `A · n` values** over an instance of `n` rows: the
+relations' sizes add up to `n`, and each row holds at most `A` of
+them. -/
+theorem Database.card_instVals_le (A : ℕ) (D : Database T) :
+    (Database.instVals A D).card ≤ A * D.size := by
+  refine le_trans (Multiset.toFinset_card_le _) ?_
+  induction D with
+  | nil => exact Nat.zero_le _
+  | cons e tl ih =>
+    obtain ⟨s, m, M⟩ := e
+    rw [Database.instValsM, Database.size, List.map_cons, List.sum_cons,
+      Multiset.card_add, Nat.mul_add]
+    refine Nat.add_le_add ?_ ih
+    by_cases hm : m ≤ A
+    · rw [ite_eq_left hm, Relation.card_valsM, Nat.mul_comm]
+      exact Nat.mul_le_mul_right _ hm
+    · rw [ite_eq_right hm]
+      exact Nat.zero_le _
+
+/-- **And it holds the values of every relation the query may read.** -/
+theorem Database.valsIn_instVals (A : ℕ) :
+    ∀ (D : Database T) {k : ℕ} {s : String} {r : Relation T k}, k ≤ A →
+      D.find k s = some r → Relation.valsIn r (Database.instVals A D)
+  | [], k, s, r, _, h => absurd h (fun hc =>
+      Option.some_ne_none r ((show (none : Option (Relation T k)) = some r
+        from hc).symm))
+  | (s', ⟨m, M⟩) :: tl, k, s, r, hk, h => by
+    by_cases hc : k = m ∧ s = s'
+    · obtain ⟨rfl, rfl⟩ := hc
+      have h' : Database.find k s ((s, ⟨k, M⟩) :: tl) = some M := by
+        show Database.find.f k s ((s, ⟨k, M⟩) :: tl) = some M
+        rw [Database.find.f, dite_eq_left ⟨rfl, rfl⟩]
+        rfl
+      rw [h'] at h
+      obtain rfl : r = M := (Option.some.inj h).symm
+      intro u hu j
+      refine Multiset.mem_toFinset.mpr ?_
+      show u j ∈ (if k ≤ A then Relation.valsM r else 0)
+        + Database.instValsM A tl
+      rw [ite_eq_left hk]
+      exact Multiset.mem_add.mpr (Or.inl (Relation.mem_valsM hu j))
+    · have htl : Database.find k s tl = some r := by
+        have hstep : Database.find k s ((s', ⟨m, M⟩) :: tl)
+            = Database.find k s tl := by
+          show Database.find.f k s ((s', ⟨m, M⟩) :: tl)
+            = Database.find.f k s tl
+          rw [Database.find.f, dite_eq_right hc]
+        rw [hstep] at h
+        exact h
+      intro u hu j
+      refine Multiset.mem_toFinset.mpr ?_
+      show u j ∈ (if m ≤ A then Relation.valsM M else 0)
+        + Database.instValsM A tl
+      refine Multiset.mem_add.mpr (Or.inr ?_)
+      exact Multiset.mem_toFinset.mp
+        (Database.valsIn_instVals A tl hk htl u hu j)
+
+/-- **The arities the query reads are at most `A`.** -/
+def AggQueryIn.aritiesLe (A : ℕ) : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel k _ => k ≤ A
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj _ q => q.aritiesLe A
+  | _, _, _, .Sel _ q => q.aritiesLe A
+  | _, _, _, .Prod q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
+  | _, _, _, .Apply q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
+  | _, _, _, .Sum q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
+  | _, _, _, .Dedup q => q.aritiesLe A
+  | _, _, _, .Diff q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
+  | _, _, _, .Alt _ _ q => q.aritiesLe A
+  | _, _, _, .Mu _ q₀ q₁ => q₀.aritiesLe A ∧ q₁.aritiesLe A
+  | _, _, _, .MuSet _ q₀ q₁ => q₀.aritiesLe A ∧ q₁.aritiesLe A
+  | _, _, _, .Gamma _ _ _ q _ _ => q.aritiesLe A
+  | _, _, _, .GammaScalar _ _ q _ => q.aritiesLe A
+  | _, _, _, .GammaNest _ _ _ _ q => q.aritiesLe A
+  | _, _, _, .ProvSum _ _ _ q => q.aritiesLe A
+  | _, _, _, .Retag _ q => q.aritiesLe A
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.aritiesLe A
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.aritiesLe A
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.aritiesLe A
