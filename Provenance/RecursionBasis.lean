@@ -955,3 +955,135 @@ theorem AggQueryIn.recGuarded_of_noMention {s : String} :
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq
   | Win P O o w t f q hrr dist keep ih => exact fun hq => hq
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hq => hq
+
+/-! ## What the values of a result can be
+
+`tab:basisclasses`'s `μ^⊎` row reads the *values* of a result, not only
+its size: in the minimal signature a value is one of the instance, a
+constant of the query, or a count, and a count is bounded by the size of
+what it counts. That is what bounds a **set** recursion, whose fixpoint
+has no bound in terms of its arguments': a duplicate-free relation of
+arity `k` over `|V|` values has at most `|V|^k` rows.
+-/
+
+/-- Every value of the relation lies in `V`. The argument is spelled as
+a multiset and not as a `Relation`, which is an opaque `def` that
+instance search for `∈` and `≤` cannot see through. -/
+def Relation.valsIn {n : ℕ} (r : Multiset (Tuple T n)) (V : Finset T) :
+    Prop :=
+  ∀ u ∈ r, ∀ j, u j ∈ V
+
+omit [ValueType T] in
+theorem Relation.valsIn_of_le {n : ℕ} {r r' : Multiset (Tuple T n)}
+    {V : Finset T} (h : r ≤ r') (hr' : Relation.valsIn r' V) :
+    Relation.valsIn r V :=
+  fun u hu j => hr' u (Multiset.mem_of_le h hu) j
+
+/-- **An aggregate that is a count**: its value is a function of the
+number of non-null values it reads, which is what the minimal signature
+has in place of an arbitrary aggregate. -/
+def SeqAggFunc.IsCount (cnt : SeqAggFunc T) : Prop :=
+  ∃ g : ℕ → T,
+    ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x))
+
+/-- The values a count can take over a sequence of at most `m` values. -/
+def countVals (g : ℕ → T) (m : ℕ) : Finset T := (Finset.range (m + 1)).image g
+
+theorem mem_countVals {g : ℕ → T} {m : ℕ} {i : ℕ} (h : i ≤ m) :
+    g i ∈ countVals g m :=
+  Finset.mem_image.mpr ⟨i, Finset.mem_range.mpr (by omega), rfl⟩
+
+theorem countVals_subset {g : ℕ → T} {m m' : ℕ} (h : m ≤ m') :
+    countVals g m ⊆ countVals g m' :=
+  Finset.image_subset_image (fun i hi => Finset.mem_range.mpr
+    (by have := Finset.mem_range.mp hi; omega))
+
+/-! ### The constants a query may put in its result -/
+
+/-- The constants of a term lie in `V`. -/
+def TermIn.constsIn {c k : ℕ} (V : Finset T) : TermIn T c k → Prop
+  | .const a => a ∈ V
+  | .outer _ => True
+  | .index _ => True
+  | .add t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .sub t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .mul t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .caseWhen _ t₁ t₂ t₃ t₄ =>
+      t₁.constsIn V ∧ t₂.constsIn V ∧ t₃.constsIn V ∧ t₄.constsIn V
+  | .coalesce t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+
+/-- And of a kind-indexed term. -/
+def TermGIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
+    TermGIn T c κ → Prop
+  | .const a => a ∈ V
+  | .outer _ => True
+  | .index _ _ => True
+  | .provIndex _ _ => True
+  | .cmpAgg _ _ _ t => t.constsIn V
+  | .chiGate _ t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .add t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .sub t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .mul t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+  | .caseWhen _ t₁ t₂ t₃ t₄ =>
+      t₁.constsIn V ∧ t₂.constsIn V ∧ t₃.constsIn V ∧ t₄.constsIn V
+  | .coalesce t₁ t₂ => t₁.constsIn V ∧ t₂.constsIn V
+
+/-- And of an output column. -/
+def ProjColIn.constsIn {c k : ℕ} {κ : Fin k → ColKind} (V : Finset T) :
+    ProjColIn T c κ → Prop
+  | .term t => t.constsIn V
+  | .token _ _ => True
+  | .aggTerm _ _ _ => True
+  | .aggTermOf _ _ t => t.constsIn V
+  | .provTerm t => t.constsIn V
+
+/-- **A term of the minimal signature reads a value it was given.** -/
+theorem TermIn.eval_mem_of_noFun {c k : ℕ} {V : Finset T} (t : TermIn T c k)
+    (h : t.noFun = true) (hc : t.constsIn V) (u : Tuple T k)
+    (hu : ∀ j, u j ∈ V) (γ : Fin c → T) (hγ : ∀ j, γ j ∈ V) :
+    t.eval u γ ∈ V := by
+  cases t with
+  | const a => exact hc
+  | outer j => exact hγ j
+  | index j => exact hu j
+  | add _ _ => exact absurd h (by simp [TermIn.noFun])
+  | sub _ _ => exact absurd h (by simp [TermIn.noFun])
+  | mul _ _ => exact absurd h (by simp [TermIn.noFun])
+  | caseWhen _ _ _ _ _ => exact absurd h (by simp [TermIn.noFun])
+  | coalesce _ _ => exact absurd h (by simp [TermIn.noFun])
+
+/-- The same for a kind-indexed term. -/
+theorem TermGIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
+    {V : Finset T} (t : TermGIn T c κ) (h : t.noFun = true)
+    (hc : t.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
+    (hγ : ∀ j, γ j ∈ V) : t.evalPlain u γ ∈ V := by
+  cases t with
+  | const a => exact hc
+  | outer j => exact hγ j
+  | index j hj => exact hu j
+  | provIndex j hj => exact hu j
+  | cmpAgg _ _ _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | chiGate _ _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | add _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | sub _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | mul _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | caseWhen _ _ _ _ _ => exact absurd h (by simp [TermGIn.noFun])
+  | coalesce _ _ => exact absurd h (by simp [TermGIn.noFun])
+
+/-- **And an output column of the minimal signature.** A column read over
+an aggregate column is a term of one variable there, so it is that
+column or a constant. -/
+theorem ProjColIn.evalPlain_mem_of_noFun {c k : ℕ} {κ : Fin k → ColKind}
+    {V : Finset T} (p : ProjColIn T c κ) (h : p.noFun = true)
+    (hc : p.constsIn V) (u : Tuple T k) (hu : ∀ j, u j ∈ V) (γ : Fin c → T)
+    (hγ : ∀ j, γ j ∈ V) : p.evalPlain u γ ∈ V := by
+  cases p with
+  | term t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
+  | token j hj => exact hu j
+  | aggTerm j hj gf => exact absurd h (by simp [ProjColIn.noFun])
+  | aggTermOf j hj t =>
+    show t.unary (u j) ∈ V
+    rw [TermIn.unary]
+    exact t.eval_mem_of_noFun h hc (fun i => i.elim0) (fun i => i.elim0)
+      (fun _ => u j) (fun _ => hu j)
+  | provTerm t => exact t.evalPlain_mem_of_noFun h hc u hu γ hγ
