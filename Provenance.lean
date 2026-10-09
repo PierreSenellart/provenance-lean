@@ -842,7 +842,7 @@ proven engine several general results reuse internally.
   of the plain semantics on every instance. Six invariants bound a
   generating set from below, each with a query that breaks it: a query
   over the empty schema that uses no empty relation is impossible
-  (`usesEmpty_or_muSet_of_overSchema_empty`), a projection-free query over
+  (`usesEmpty_of_overSchema_empty`), a projection-free query over
   duplicate-free relations has bounded multiplicities
   (`count_le_multBound`), a query with neither selection nor difference is
   empty on every instance or non-empty on every instance whose relations
@@ -970,8 +970,7 @@ proven engine several general results reuse internally.
   does not declare reading the empty relation. The six rows are
   `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
   `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
-  `empty_or_muSet_mem_of_generatesOn` and
-  `sel_or_diff_mem_of_generatesOn`, each
+  `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`, each
   over the schema its witness lives on.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its

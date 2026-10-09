@@ -267,7 +267,7 @@ def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, n, _, .Mu s q₀ q₁ =>
       sch s = none ∧ q₀.overSchema sch ∧ q₁.overSchema (sch.update s n)
   | _, n, _, .MuSet s q₀ q₁ =>
-      sch s = none ∧ q₀.overSchema (sch.update s n)
+      sch s = none ∧ q₀.overSchema sch
         ∧ q₁.overSchema (sch.update s n)
   | _, _, _, .Gamma _ _ _ q _ _ => q.overSchema sch
   | _, _, _, .GammaScalar _ _ q _ => q.overSchema sch
@@ -375,7 +375,7 @@ theorem AggQueryIn.overSchema_substMap :
       (and_congr (ih₀ θ sch) (ih₁ θ (Schema.update sch s _)))
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     exact fun θ sch => and_congr Iff.rfl
-      (and_congr (ih₀ θ (Schema.update sch s _)) (ih₁ θ (Schema.update sch s _)))
+      (and_congr (ih₀ θ sch) (ih₁ θ (Schema.update sch s _)))
   | Gamma is ts fs q keep ord ih => exact fun θ sch => ih θ sch
   | GammaScalar ts fs q ord ih => exact fun θ sch => ih θ sch
   | GammaNest is his pc f q ih => exact fun θ sch => ih θ sch
@@ -393,17 +393,16 @@ the genericity reading of the `∅` row asks: the language is to be defined
 for every schema, the empty one included. It is *not* that the unit
 relation needs `∅`: with any name in the schema, `γ_∅[](R)` is the unit,
 whatever `R` holds. -/
-theorem AggQueryIn.usesEmpty_or_muSet_of_overSchema_empty {S : Set OpKind} :
+theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.overSchema Schema.empty → q.usesOnly S →
-      OpKind.empty ∈ S ∨ OpKind.muSet ∈ S := by
+      q.overSchema Schema.empty → q.usesOnly S → OpKind.empty ∈ S := by
   intro c n κ q
   induction q with
   | Rel n s =>
     intro h _
     have hnone : (none : Option ℕ) = some n := h
     exact (Option.some_ne_none n hnone.symm).elim
-  | Empty => intro _ h; exact Or.inl h
+  | Empty => intro _ h; exact h
   | Proj ps q ih => intro h hq; exact ih h hq.2
   | Sel φ q ih => intro h hq; exact ih h hq.2
   | Prod q₁ q₂ ih₁ ih₂ => intro h hq; exact ih₁ h.1 hq.2.1
@@ -414,7 +413,7 @@ theorem AggQueryIn.usesEmpty_or_muSet_of_overSchema_empty {S : Set OpKind} :
   | Alt k hk q ih => intro h hq; exact ih h hq
   | Retag hk q ih => intro h hq; exact ih h hq
   | Mu s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact Or.inr hq.1
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
   | Gamma is ts fs q keep ord ih => intro h hq; exact ih h hq.2
   | GammaScalar ts fs q ord ih => intro h hq; exact ih h hq.2
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
