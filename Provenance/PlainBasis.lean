@@ -1380,16 +1380,18 @@ theorem AggQueryIn.apply_plainEquiv_prod {c n₁ n₂ : ℕ}
 `prop:collapse` reads the difference as SQL's `NOT IN`: a copy of a tuple
 of `q₁` survives when `q₂` holds no copy of it, and every copy survives
 or none does. The construction tags each side's rows with a constant –
-`0` on the left, `a` on the right – unites them, groups by the whole
-tuple, and reads the tags with an aggregate that detects zeros. The
-aggregate's value is `0` exactly on the tuples `q₂` does not hold, and a
-product with the keys matched keeps the copies of those tuples.
+`0` on the left, the domain's non-zero value on the right – unites them,
+groups by the whole tuple, and counts the tags carrying that value. The
+count is `0` exactly on the tuples `q₂` does not hold, and a product
+with the keys matched keeps the copies of those tuples.
 
-What the construction asks of the aggregate is `hzero` below: it reads
-`0` on a list of zeros and nothing else. The document's `sum` has it, and
-the count-only variant of the construction – two groupings joined on
-their counts, which is what the theorem's proof uses where `sum` is not
-among the aggregates – is not formalized here. -/
+The aggregate is a *count*: the grouping's one aggregate counts, through
+a `FILTER` clause, the rows carrying the right side's tag. So what the
+construction asks of it is `SeqAggFunc.Counts` – SQL's `count(e)`, which
+`sec:basis` assumes among the aggregates – and nothing about a sum. The
+tag it keys on is the value domain's own non-zero value
+(`ValueType.nonzero`), so the construction asks nothing of the domain
+either. -/
 
 section Difference
 
@@ -1404,19 +1406,28 @@ def AggQueryIn.tagCols (a : T) :
     (fun i : Fin k => TermGIn.index i rfl) j)
 
 /-- **The two sides tagged and united**: every row of `q₁` with `0`,
-every row of `q₂` with `a`. -/
-def AggQueryIn.tagUnion (a : T) (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+every row of `q₂` with the domain's non-zero value. -/
+def AggQueryIn.tagUnion (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
     AggQuery T (k + 1) (ColKind.allReg (k + 1)) :=
-  .Sum (.Proj (AggQueryIn.tagCols 0) q₁) (.Proj (AggQueryIn.tagCols a) q₂)
+  .Sum (.Proj (AggQueryIn.tagCols 0) q₁)
+    (.Proj (AggQueryIn.tagCols ValueType.nonzero) q₂)
 
-/-- **One row per distinct tuple, carrying the aggregate of the tags.** -/
-def AggQueryIn.tagAgg (a : T) (f : SeqAggFunc T)
+/-- **The clause that keeps the right side's rows**: the ones whose tag
+column holds the non-zero value. It is an `IS NOT DISTINCT FROM`, so it
+is never unknown, and it reads a regular column as a `FILTER` clause
+must. -/
+def AggQueryIn.rightTag : Selection T (k + 1) :=
+  .BT (.SYNEQ (TermIn.index (Fin.last k)) (TermIn.const ValueType.nonzero))
+
+/-- **One row per distinct tuple, carrying the count of the right side's
+copies of it.** -/
+def AggQueryIn.tagAgg (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
     AggQuery T (k + 1)
       (Fin.append (fun _ : Fin k => ColKind.reg)
         (fun _ : Fin 1 => ColKind.agg)) :=
-  .Gamma (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last k)] ![f]
-    (AggQueryIn.tagUnion a q₁ q₂)
+  .Gamma (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last k)] ![cnt]
+    (AggQueryIn.tagUnion q₁ q₂) ![some AggQueryIn.rightTag]
 
 /-- The kinds of the product the construction selects on. -/
 abbrev notInKinds (k : ℕ) : Fin (k + (k + 1)) → ColKind :=
@@ -1437,7 +1448,7 @@ theorem notInKinds_agg (k : ℕ) :
   rw [notInKinds, Fin.append_right, Fin.append_right]
 
 /-- **What the construction selects on**: the two blocks of key columns
-agree, and the tag aggregate is `0`. -/
+agree, and the tag count is `0`. -/
 def AggQueryIn.notInCond : GenPred T (notInKinds k) :=
   .and (keyJoinCond (fun i : Fin k => Fin.castAdd (k + 1) i)
       (fun i : Fin k => Fin.natAdd k (Fin.castAdd 1 i))
@@ -1446,30 +1457,30 @@ def AggQueryIn.notInCond : GenPred T (notInKinds k) :=
       CompOp.syneq (.const 0))
 
 /-- **The difference read as a `NOT IN`**: the copies of `q₁` whose tuple
-the tag aggregate reads `0` on. -/
-def AggQueryIn.notInDiff (a : T) (f : SeqAggFunc T)
+the tag count reads `0` on. -/
+def AggQueryIn.notInDiff (cnt : SeqAggFunc T)
     (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
     AggQuery T k (ColKind.allReg k) :=
   .Proj (fun i : Fin k =>
       .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
-    (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg a f q₁ q₂)))
+    (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg cnt q₁ q₂)))
 
 /-- **What the `NOT IN` form uses**: a projection, a selection, a
 product, an aggregation and a union – the basis classes, which is the
 point of the identity. -/
-theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind} (a : T)
-    (f : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
+theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
+    (cnt : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
     (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S) (hx : OpKind.prod ∈ S)
     (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S) (h₁ : q₁.usesOnly S)
-    (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiff a f q₁ q₂).usesOnly S :=
+    (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiff cnt q₁ q₂).usesOnly S :=
   ⟨⟨hp, fun _ => rfl⟩, hs, hx, h₁, hg, hu, ⟨⟨hp, fun _ => rfl⟩, h₁⟩,
     ⟨⟨hp, fun _ => rfl⟩, h₂⟩⟩
 
 /-- **The `NOT IN` form names the relations its two sides name.** -/
-theorem AggQueryIn.overSchema_notInDiff {sch : Schema} (a : T)
-    (f : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
+theorem AggQueryIn.overSchema_notInDiff {sch : Schema}
+    (cnt : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
-    (AggQueryIn.notInDiff a f q₁ q₂).overSchema sch :=
+    (AggQueryIn.notInDiff cnt q₁ q₂).overSchema sch :=
   ⟨h₁, h₁, h₂⟩
 
 /-- Tagging a row appends the constant to it. -/
@@ -1491,24 +1502,26 @@ private theorem tagCols_eval (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
 
 /-- **The tagged union, row by row**: the rows of `q₁` with `0` appended
 and those of `q₂` with `a`. -/
-theorem AggQueryIn.evaluatePlain_tagUnion (a : T)
+theorem AggQueryIn.evaluatePlain_tagUnion
     (q₁ q₂ : AggQuery T k (ColKind.allReg k)) (D : Database T) :
-    (AggQueryIn.tagUnion a q₁ q₂).evaluatePlain D
+    (AggQueryIn.tagUnion q₁ q₂).evaluatePlain D
       = (q₁.evaluatePlain D).map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
         + (q₂.evaluatePlain D).map
-            (fun u => (Fin.snoc u a : Tuple T (k + 1))) := by
+            (fun u => (Fin.snoc u ValueType.nonzero
+              : Tuple T (k + 1))) := by
   show Multiset.map _ (q₁.evaluatePlain D)
       + Multiset.map _ (q₂.evaluatePlain D) = _
   exact congrArg₂ (· + ·)
     (Multiset.map_congr rfl (fun u _ => funext (fun j => tagCols_eval 0 u j)))
-    (Multiset.map_congr rfl (fun u _ => funext (fun j => tagCols_eval a u j)))
+    (Multiset.map_congr rfl (fun u _ =>
+      funext (fun j => tagCols_eval ValueType.nonzero u j)))
 
 /-- **The keys the grouping emits**: the distinct tuples of the two sides
 together, the tag column being dropped by the key projection. -/
-theorem AggQueryIn.tagAgg_keys (a : T)
-    (r₁ r₂ : Multiset (Tuple T k)) :
+theorem AggQueryIn.tagAgg_keys (r₁ r₂ : Multiset (Tuple T k)) :
     ((r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
-        + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1)))).map
+        + r₂.map (fun u => (Fin.snoc u ValueType.nonzero
+            : Tuple T (k + 1)))).map
       (fun v => (fun i => v (Fin.castSucc i) : Tuple T k))).dedup
       = (r₁ + r₂).dedup := by
   refine congrArg Multiset.dedup ?_
@@ -1518,45 +1531,75 @@ theorem AggQueryIn.tagAgg_keys (a : T)
       show (Fin.snoc u 0 : Tuple T (k + 1)) (Fin.castSucc i) = u i
       rw [Fin.snoc_castSucc]))) (Multiset.map_id' r₁)
   · exact Eq.trans (Multiset.map_congr rfl (fun u _ => funext (fun i => by
-      show (Fin.snoc u a : Tuple T (k + 1)) (Fin.castSucc i) = u i
+      show (Fin.snoc u ValueType.nonzero : Tuple T (k + 1)) (Fin.castSucc i)
+          = u i
       rw [Fin.snoc_castSucc]))) (Multiset.map_id' r₂)
 
-/-- **What the tag aggregate reads on a tuple**: `0` exactly when the
-right side holds no copy of it. A copy from the left carries the tag `0`
-and one from the right carries `a`, so a zero-detecting aggregate reads
-`0` iff the group holds no copy from the right. -/
-theorem AggQueryIn.tagAgg_zero_iff (a : T) (ha : a ≠ 0) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
-    (r₁ r₂ : Multiset (Tuple T k)) (g : Tuple T k) :
-    f ((Relation.groupSeq (fun i : Fin k => i.castSucc)
+/-- **The rows the clause keeps**: those whose tag column holds the
+non-zero value. -/
+theorem AggQueryIn.rightTag_keeps (v : Tuple T (k + 1)) :
+    (AggQueryIn.rightTag (T := T) (k := k)).keeps v = true
+      ↔ v (Fin.last k) = ValueType.nonzero := by
+  rw [Selection.keeps, decide_eq_true_eq]
+  show CompOp.syneq.eval3 ((TermIn.index (Fin.last k) : Term T (k + 1)).eval v)
+      ((TermIn.const ValueType.nonzero : Term T (k + 1)).eval v)
+    = Kleene.true ↔ _
+  rw [CompOp.syneq_eval3_eq_true_iff]
+  exact Iff.rfl
+
+/-- **What the tag count reads on a tuple**: `0` exactly when the right
+side holds no copy of it. The clause keeps the copies carrying the right
+side's tag, and the term it counts is that tag, which is a value and not
+a null – so the count is `0` exactly when the clause keeps nothing. -/
+theorem AggQueryIn.tagAgg_zero_iff (cnt : SeqAggFunc T)
+    (hc : SeqAggFunc.Counts cnt) (r₁ r₂ : Multiset (Tuple T k))
+    (g : Tuple T k) :
+    cnt (((Relation.groupSeq (fun i : Fin k => i.castSucc)
         (r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
-          + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1)))) g).map
+          + r₂.map (fun u => (Fin.snoc u ValueType.nonzero
+              : Tuple T (k + 1)))) g).filter
+        (AggQueryIn.rightTag (T := T) (k := k)).keeps).map
         (fun v => v (Fin.last k))) = 0
       ↔ g ∉ r₂ := by
-  rw [hzero]
+  rw [hc.eq_zero]
   constructor
   · intro h hg
-    refine ha (h a (List.mem_map.mpr ⟨Fin.snoc g a, ?_, ?_⟩))
-    · rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter]
-      refine ⟨Multiset.mem_add.mpr (Or.inr (Multiset.mem_map_of_mem _ hg)),
-        fun i => ?_⟩
-      show (Fin.snoc g a : Tuple T (k + 1)) (Fin.castSucc i) = g i
-      rw [Fin.snoc_castSucc]
-    · show (Fin.snoc g a : Tuple T (k + 1)) (Fin.last k) = a
-      rw [Fin.snoc_last]
+    have hnn : ValueType.isNull (ValueType.nonzero : T) = true := by
+      refine h _ (List.mem_map.mpr
+        ⟨(Fin.snoc g ValueType.nonzero : Tuple T (k + 1)), ?_, ?_⟩)
+      · rw [List.mem_filter]
+        refine ⟨?_, ?_⟩
+        · rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter]
+          refine ⟨Multiset.mem_add.mpr (Or.inr (Multiset.mem_map_of_mem _ hg)),
+            fun i => ?_⟩
+          show (Fin.snoc g ValueType.nonzero : Tuple T (k + 1))
+              (Fin.castSucc i) = g i
+          rw [Fin.snoc_castSucc]
+        · rw [AggQueryIn.rightTag_keeps]
+          show (Fin.snoc g ValueType.nonzero : Tuple T (k + 1)) (Fin.last k)
+              = ValueType.nonzero
+          rw [Fin.snoc_last]
+      · show (Fin.snoc g ValueType.nonzero : Tuple T (k + 1)) (Fin.last k)
+            = ValueType.nonzero
+        rw [Fin.snoc_last]
+    rw [ValueType.isNull_nonzero] at hnn
+    exact Bool.noConfusion hnn
   · intro hg x hx
     obtain ⟨v, hv, rfl⟩ := List.mem_map.mp hx
+    rw [List.mem_filter] at hv
+    obtain ⟨hv, hkeep⟩ := hv
+    rw [AggQueryIn.rightTag_keeps] at hkeep
     rw [Relation.groupSeq, mem_sortList, Multiset.mem_filter] at hv
     obtain ⟨hmem, hkey⟩ := hv
     rcases Multiset.mem_add.mp hmem with h1 | h2
     · obtain ⟨u, -, rfl⟩ := Multiset.mem_map.mp h1
-      show (Fin.snoc u 0 : Tuple T (k + 1)) (Fin.last k) = 0
-      rw [Fin.snoc_last]
+      refine absurd ?_ (ValueType.nonzero_ne_zero (T := T))
+      rw [← hkeep, Fin.snoc_last]
     · obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp h2
       refine absurd ?_ hg
       have hug : u = g := funext (fun i => by
-        have hi : (Fin.snoc u a : Tuple T (k + 1)) (Fin.castSucc i) = g i :=
-          hkey i
+        have hi : (Fin.snoc u ValueType.nonzero : Tuple T (k + 1))
+            (Fin.castSucc i) = g i := hkey i
         rwa [Fin.snoc_castSucc] at hi)
       exact hug ▸ hu
 
@@ -1569,7 +1612,7 @@ private theorem bind_ite_singleton {α : Type} (s : Multiset α)
   | empty => rfl
   | cons a s ih => rw [Multiset.cons_bind, ih, Multiset.filter_cons]
 
-/-- **What the product with the tag aggregate keeps**: one copy of each
+/-- **What the product with the tag count keeps**: one copy of each
 copy of `r₁` whose tuple the aggregate reads `0` on. The keys are
 distinct and hold every tuple of `r₁`, so each copy of `r₁` meets
 exactly one row of the grouping. The tuple types are spelled unfolded
@@ -1637,15 +1680,14 @@ difference is SQL's `NOT IN`. Every copy of a tuple of `q₁` survives when
 tag aggregate decides: it reads `0` exactly on the tuples `q₂` does not
 hold, and the product keeps the copies of those.
 
-The aggregate is a parameter, as it is in the paper: what the
-construction asks of it is `hzero`, that it read `0` on a list of zeros
-and on no other. The document's `sum` has it. Where the aggregates do not
-include a sum, the document's proof joins two counting groupings on their
-counts instead; that variant is not formalized here. -/
-theorem AggQueryIn.diff_plainEquiv_notIn (a : T) (ha : a ≠ 0)
-    (f : SeqAggFunc T) (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+The aggregate is a parameter, and what the construction asks of it is
+`SeqAggFunc.Counts`: it counts the rows a `FILTER` clause keeps, which
+are the copies carrying the right side's tag. So the only aggregate the
+identity needs is SQL's `count`. -/
+theorem AggQueryIn.diff_plainEquiv_notIn (cnt : SeqAggFunc T)
+    (hc : SeqAggFunc.Counts cnt)
     (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
-    (AggQueryIn.Diff q₁ q₂).PlainEquiv (AggQueryIn.notInDiff a f q₁ q₂) := by
+    (AggQueryIn.Diff q₁ q₂).PlainEquiv (AggQueryIn.notInDiff cnt q₁ q₂) := by
   intro D γ
   have hγ : γ = (fun j : Fin 0 => (0 : T)) := funext (fun j => j.elim0)
   subst hγ
@@ -1655,20 +1697,22 @@ theorem AggQueryIn.diff_plainEquiv_notIn (a : T) (ha : a ≠ 0)
   -- the tagged union: the rows of `q₁` with `0` and those of `q₂` with `a`
   set tagged : Multiset (Fin (k + 1) → T) :=
     r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
-      + r₂.map (fun u => (Fin.snoc u a : Tuple T (k + 1))) with htagged
-  -- the tag of a tuple: the aggregate over the tags of its copies
+      + r₂.map (fun u => (Fin.snoc u ValueType.nonzero
+          : Tuple T (k + 1))) with htagged
+  -- the tag of a tuple: the count of the tags the clause keeps
   set val : (Fin k → T) → T := fun g =>
-    f ((Relation.groupSeq (fun i : Fin k => i.castSucc) tagged g).map
+    cnt (((Relation.groupSeq (fun i : Fin k => i.castSucc) tagged g).filter
+      (AggQueryIn.rightTag (T := T) (k := k)).keeps).map
       (fun v => v (Fin.last k))) with hval
   -- the grouping's rows: one per distinct tuple, carrying its tag
-  have hDr : (AggQueryIn.tagAgg a f q₁ q₂).evaluatePlain D
+  have hDr : (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D
       = ((r₁ + r₂).dedup).map (fun g =>
           (Fin.append g (fun _ : Fin 1 => val g) : Fin (k + 1) → T)) := by
     show Multiset.map _ (Multiset.dedup (Multiset.map _
-        ((AggQueryIn.tagUnion a q₁ q₂).evaluatePlain D))) = _
+        ((AggQueryIn.tagUnion q₁ q₂).evaluatePlain D))) = _
     rw [AggQueryIn.evaluatePlain_tagUnion]
     refine congrArg₂ Multiset.map (funext (fun g => ?_))
-      (AggQueryIn.tagAgg_keys a _ _)
+      (AggQueryIn.tagAgg_keys _ _)
     refine congrArg (Fin.append g) (funext (fun j => ?_))
     rw [Subsingleton.elim j 0]
     rfl
@@ -1688,14 +1732,14 @@ theorem AggQueryIn.diff_plainEquiv_notIn (a : T) (ha : a ≠ 0)
   show Multiset.filter (fun t => t ∉ r₂) r₁ = _
   show _ = Multiset.map _ (Multiset.filter
       (fun w => (AggQueryIn.notInCond (T := T) (k := k)).holdsPlain w)
-      (q₁.evaluatePlain D * (AggQueryIn.tagAgg a f q₁ q₂).evaluatePlain D))
+      (q₁.evaluatePlain D * (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D))
   rw [hDr, Multiset.filter_congr (fun w _ => hcond w), Relation.hMul_eq_bind]
   refine Eq.symm (Eq.trans (notIn_filter_map r₁ ((r₁ + r₂).dedup) val
     (Multiset.nodup_dedup _)
     (fun u hu => Multiset.mem_dedup.mpr (Multiset.mem_add.mpr (Or.inl hu)))) ?_)
   refine Multiset.filter_congr (fun u _ => ?_)
   rw [hval]
-  exact AggQueryIn.tagAgg_zero_iff a ha f hzero _ _ u
+  exact AggQueryIn.tagAgg_zero_iff cnt hc _ _ u
 
 /-! ### A selection from the difference
 
@@ -2162,20 +2206,64 @@ omit [ValueType T] in
     rw [Fin.append_right])
 
 /-- **A window written with an apply and a scalar aggregation**: for each
-row of the query, the term aggregated over the rows that row's frame
-holds, read in the window's own order. -/
-def winByApply {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+row of `q`, the term aggregated over the rows of `qf` that row's frame
+holds, read in the window's own order.
+
+The two relations are the same one where the window's input is all
+regular. They part where it is not: a window reads what
+`ColKind.readTuple` leaves of each row, so the rows the frame holds are
+*that* reading of the input, while the rows the apply emits are the
+input's own. -/
+def winByApplyOn {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (t : TermIn T c n) (f : SeqAggFunc T)
-    (q : AggQueryIn T c n (ColKind.allReg n)) :
+    (q qf : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   AggQueryIn.castKind (winApplyKinds n)
     (AggQueryIn.Apply q
       (AggQueryIn.GammaScalar ![t.substMap (applyOuter T c n)] ![f]
         (AggQueryIn.Sel (GenPredIn.and
             (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
-          (q.substMap (applyOuter T c n)))
+          (qf.substMap (applyOuter T c n)))
         (GroupOrder.byCols O o)))
+
+/-- The same over an all-regular input, where the frame reads the input
+itself. -/
+def winByApply {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
+    (t : TermIn T c n) (f : SeqAggFunc T)
+    (q : AggQueryIn T c n (ColKind.allReg n)) :
+    AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
+  winByApplyOn P O o ψ t f q q
+
+/-- **The nulling of the aggregate columns, as a projection**: what a
+window reads of its input (`ColKind.readTuple`), written in the language
+over an input whose columns have been re-typed to regular. -/
+def nullCols {c k : ℕ} (κ : Fin k → ColKind) :
+    Tuple (ProjColIn T c (ColKind.allReg k)) k :=
+  fun j => if (κ j).base = ColKind.agg then .term (.const 0)
+    else .term (.index j rfl)
+
+theorem evalPlain_nullCols {c k : ℕ} (κ : Fin k → ColKind) (u : Tuple T k)
+    (γ : Fin c → T) :
+    (fun j => (nullCols (T := T) (c := c) κ j).evalPlain u γ)
+      = ColKind.readTuple κ u := by
+  funext j
+  show (if (κ j).base = ColKind.agg then
+      (ProjColIn.term (TermGIn.const 0) : ProjColIn T c (ColKind.allReg k))
+    else .term (.index j rfl)).evalPlain u γ = _
+  show _ = match (κ j).base with
+    | ColKind.agg => (0 : T)
+    | _ => u j
+  cases h : (κ j).base <;> rfl
+
+/-- **And the rows of the nulled projection are the nulled rows.** -/
+theorem evaluatePlain_proj_nullCols {c k : ℕ} (κ : Fin k → ColKind)
+    (q : AggQueryIn T c k (ColKind.allReg k)) (D : Database T)
+    (γ : Fin c → T) :
+    (AggQueryIn.Proj (nullCols κ) q).evaluatePlain D γ
+      = (q.evaluatePlain D γ).map (ColKind.readTuple κ) :=
+  Multiset.map_congr rfl (fun u _ => evalPlain_nullCols κ u γ)
 
 /-- **What a window's `FILTER` clause keeps**, clause or no clause: with
 none, every row of the frame. -/
@@ -2704,7 +2792,7 @@ theorem exists_framePred_whole {c : ℕ} (O : Tuple (Fin n) p)
   rw [holdsPlain_clausePredOpt]
   exact (and_iff_right rfl).symm
 
-theorem exists_framePred_rangeUpTo [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeUpTo_noNulls [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
       ∀ (y u : Tuple T n) (γ : Fin c → T),
@@ -2723,7 +2811,7 @@ theorem exists_framePred_rangeUpTo [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
   · rfl
   · exact funext (fun j => Fin.append_left u γ (O j))
 
-theorem exists_framePred_rangeBefore [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeBefore_noNulls [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
       ∀ (y u : Tuple T n) (γ : Fin c → T),
@@ -2755,7 +2843,7 @@ null placement of the clause is read by `IS NOT DISTINCT FROM ν` tests:
 `ν` is asked to be a null and the only one, which is SQL's `NULL`. This
 is what replaces the `NoNulls` hypothesis for a clause whose columns may
 be null. -/
-theorem exists_framePred_rangeUpTo_of_null {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeUpTo_of_null {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) {ν : T}
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) :
@@ -2780,7 +2868,7 @@ theorem exists_framePred_rangeUpTo_of_null {c : ℕ} (O : Tuple (Fin n) p)
   · rfl
   · exact funext (fun j => Fin.append_left u γ (O j))
 
-theorem exists_framePred_rangeBefore_of_null {c : ℕ} (O : Tuple (Fin n) p)
+private theorem exists_framePred_rangeBefore_of_null {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) {ν : T}
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) :
@@ -2812,6 +2900,173 @@ theorem exists_framePred_rangeBefore_of_null {c : ℕ} (O : Tuple (Fin n) p)
     cases hle : OrderSpec.le o (Tuple.key O u) (Tuple.key O y)
     · rfl
     · rw [hle] at h; exact absurd h (by simp)⟩
+
+/-- **The tautology** as a predicate of the language: `IS NOT DISTINCT
+FROM` between two equal constants. -/
+def truePred {c k : ℕ} : GenPredIn T c (ColKind.allReg k) :=
+  .cmp CompOp.syneq (.const 0) (.const 0)
+
+theorem holdsPlain_truePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
+    (truePred : GenPredIn T c (ColKind.allReg k)).holdsPlain y γ := by
+  show CompOp.syneq.eval3 (0 : T) 0 = Kleene.true
+  rw [CompOp.syneq_eval3_eq_true_iff]
+
+/-- **And its opposite**, which the value domain's own non-zero value
+makes available: the base case of a disjunction over no condition. -/
+def falsePred {c k : ℕ} : GenPredIn T c (ColKind.allReg k) :=
+  .cmp CompOp.syneq (.const 0) (.const ValueType.nonzero)
+
+theorem holdsPlain_falsePred {c k : ℕ} (y : Tuple T k) (γ : Fin c → T) :
+    ¬ (falsePred : GenPredIn T c (ColKind.allReg k)).holdsPlain y γ := by
+  show ¬ (CompOp.syneq.eval3 (0 : T) ValueType.nonzero = Kleene.true)
+  rw [CompOp.syneq_eval3_eq_true_iff]
+  exact fun h => ValueType.nonzero_ne_zero h.symm
+
+/-! #### The two `RANGE` frames, with no hypothesis on the domain
+
+`ValueType` names the domain's null (`ValueType.nullVal`), so the two
+readings above are the two cases of one lemma: a domain naming no null
+has none, and a domain naming one has it as its only null, which is what
+the `IS NOT DISTINCT FROM ν` tests need. Nothing is left for a caller to
+supply. -/
+
+/-- **`RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` is a
+predicate.** -/
+theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (keep : Option (Selection T n)) :
+    ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ∀ (y u : Tuple T n) (γ : Fin c → T),
+        ψ.holdsPlain y (Fin.append u γ)
+          ↔ ((ValueFrame.rangeUpTo o).ρ (Tuple.key O y)
+              (Tuple.key O u) = true ∧ Selection.keepsOpt keep y = true) := by
+  cases h : (ValueType.nullVal : Option T) with
+  | none =>
+    have : NoNulls T := ValueType.noNulls_of_nullVal_none h
+    exact exists_framePred_rangeUpTo_noNulls O o keep
+  | some ν =>
+    exact exists_framePred_rangeUpTo_of_null O o keep
+      (ValueType.isNull_nullVal h)
+      (fun a ha => ValueType.eq_nullVal_of_isNull h ha)
+
+/-- **And the same frame excluding the current row's peers.** -/
+theorem exists_framePred_rangeBefore {c : ℕ} (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (keep : Option (Selection T n)) :
+    ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ∀ (y u : Tuple T n) (γ : Fin c → T),
+        ψ.holdsPlain y (Fin.append u γ)
+          ↔ ((ValueFrame.rangeBefore o).ρ (Tuple.key O y)
+              (Tuple.key O u) = true ∧ Selection.keepsOpt keep y = true) := by
+  cases h : (ValueType.nullVal : Option T) with
+  | none =>
+    have : NoNulls T := ValueType.noNulls_of_nullVal_none h
+    exact exists_framePred_rangeBefore_noNulls O o keep
+  | some ν =>
+    exact exists_framePred_rangeBefore_of_null O o keep
+      (ValueType.isNull_nullVal h)
+      (fun a ha => ValueType.eq_nullVal_of_isNull h ha)
+
+/-! #### Every frame condition is a predicate of the language
+
+A frame *is* a condition on the order values (`FrameCond`), so the
+predicate `prop:winderived` spells it out with is not something a caller
+has to supply: it is read off the condition. The two strict cases are
+conditions of the language and not negations, and reading the clause
+backwards is what turns `at or before` into `at or after`
+(`OrderSpec.le_reverse`), so the four comparisons are the two lemmas
+above at `o` and at `o.reverse`. The `EXCLUDE` modifiers and the union of
+the frames of a multi-frame window are the Boolean cases, where the
+reading of a conjunction and of a disjunction are the conjunction and the
+disjunction of the readings – Kleene's logic agreeing with the two-valued
+one on *truth*, which is what a selection keeps a row by. -/
+
+/-- A disjunction over a list of conditions, each of which is a
+predicate. -/
+private theorem exists_anyPred {c : ℕ} {β : Type} (O : Tuple (Fin n) p)
+    (f : β → Tuple T p → Tuple T p → Bool)
+    (hf : ∀ b : β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ∀ (y u : Tuple T n) (γ : Fin c → T),
+        ψ.holdsPlain y (Fin.append u γ)
+          ↔ f b (Tuple.key O y) (Tuple.key O u) = true) :
+    ∀ L : List β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ∀ (y u : Tuple T n) (γ : Fin c → T),
+        ψ.holdsPlain y (Fin.append u γ)
+          ↔ L.any (fun b => f b (Tuple.key O y) (Tuple.key O u)) = true := by
+  intro L
+  induction L with
+  | nil =>
+    refine ⟨falsePred, fun y u γ => ?_⟩
+    exact ⟨fun h => absurd h (holdsPlain_falsePred y _),
+      fun h => absurd h (by simp)⟩
+  | cons b L ih =>
+    obtain ⟨ψ₁, hψ₁⟩ := hf b
+    obtain ⟨ψ₂, hψ₂⟩ := ih
+    refine ⟨GenPredIn.or ψ₁ ψ₂, fun y u γ => ?_⟩
+    rw [holdsPlain_or_iff, hψ₁, hψ₂, List.any_cons]
+    simp
+
+/-- **Every frame condition is a predicate of the query language.** -/
+theorem FrameCond.exists_condPred {c : ℕ} (O : Tuple (Fin n) p) :
+    ∀ fc : FrameCond p,
+      ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+        ∀ (y u : Tuple T n) (γ : Fin c → T),
+          ψ.holdsPlain y (Fin.append u γ)
+            ↔ fc.holds (Tuple.key O y) (Tuple.key O u) = true := by
+  intro fc
+  induction fc with
+  | whole =>
+    exact ⟨truePred, fun y u γ =>
+      ⟨fun _ => rfl, fun _ => holdsPlain_truePred y _⟩⟩
+  | le o =>
+    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o (none : Option (Selection T n))
+    exact ⟨ψ, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+  | lt o =>
+    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeBefore (c := c) O o (none : Option (Selection T n))
+    exact ⟨ψ, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+  | ge o =>
+    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o.reverse
+      (none : Option (Selection T n))
+    refine ⟨ψ, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    show OrderSpec.le o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
+    rw [OrderSpec.le_reverse]
+    exact Iff.rfl
+  | gt o =>
+    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeBefore (c := c) O o.reverse
+      (none : Option (Selection T n))
+    refine ⟨ψ, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    show OrderSpec.lt o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
+    rw [OrderSpec.lt_reverse]
+    exact Iff.rfl
+  | and a b iha ihb =>
+    obtain ⟨ψ₁, hψ₁⟩ := iha
+    obtain ⟨ψ₂, hψ₂⟩ := ihb
+    refine ⟨GenPredIn.and ψ₁ ψ₂, fun y u γ => ?_⟩
+    rw [holdsPlain_and_iff, hψ₁, hψ₂]
+    show _ ↔ (_ && _) = true
+    rw [Bool.and_eq_true]
+  | or a b iha ihb =>
+    obtain ⟨ψ₁, hψ₁⟩ := iha
+    obtain ⟨ψ₂, hψ₂⟩ := ihb
+    refine ⟨GenPredIn.or ψ₁ ψ₂, fun y u γ => ?_⟩
+    rw [holdsPlain_or_iff, hψ₁, hψ₂]
+    show _ ↔ (_ || _) = true
+    rw [Bool.or_eq_true]
+  | orAll cs ih =>
+    exact exists_anyPred O (fun j => (cs j).holds) ih _
+
+/-- **A frame and a `FILTER` clause are a predicate of the language**:
+what `prop:winderived` spells a window's frame out with, for every frame
+the syntax can name and every clause. -/
+theorem ValueFrame.exists_framePred {c : ℕ} (O : Tuple (Fin n) p)
+    (w : ValueFrame T p) (keep : Option (Selection T n)) :
+    ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ∀ (y u : Tuple T n) (γ : Fin c → T),
+        ψ.holdsPlain y (Fin.append u γ)
+          ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
+              ∧ Selection.keepsOpt keep y = true) := by
+  obtain ⟨ψ, hψ⟩ := FrameCond.exists_condPred (T := T) (c := c) O w.cond
+  refine ⟨GenPredIn.and ψ (clausePredOpt keep), fun y u γ => ?_⟩
+  rw [holdsPlain_and_iff, holdsPlain_clausePredOpt, hψ]
+  exact Iff.rfl
 
 /-- **The group of the clause-kept frame reads what the filtered window
 reads.** Both are sorted by the window's clause, and cutting a sorted
@@ -2859,7 +3114,8 @@ reads them, and a `DISTINCT` window is the same with `f^distinct` as the
 aggregate. The selection's predicate therefore has to hold exactly where
 the frame condition holds *and* the clause keeps the row, which is a
 conjunction of two predicates of the language. -/
-theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
+theorem evaluatePlain_winByApplyOn {c : ℕ} {κ' : Fin n → ColKind}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
@@ -2868,49 +3124,63 @@ theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
       ψ.holdsPlain y (Fin.append u γ)
         ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
             ∧ Selection.keepsOpt keep y = true))
-    (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
-    (γ : Fin c → T) :
-    (winByApply P O o ψ t (if dist then f.distinct else f) q).evaluatePlain D γ
-      = (AggQueryIn.Win P O o w t f q (winReadsReg_allReg P O t) dist
-          keep).evaluatePlain D γ := by
-  rw [winByApply, AggQueryIn.evaluatePlain_castKind]
+    (hrr : WinReadsReg κ' P O t) (qo : AggQueryIn T c n κ')
+    (q qf : AggQueryIn T c n (ColKind.allReg n))
+    (hq : ∀ (D : Database T) (γ : Fin c → T),
+      q.evaluatePlain D γ = qo.evaluatePlain D γ)
+    (hqf : ∀ (D : Database T) (γ : Fin c → T),
+      qf.evaluatePlain D γ
+        = (qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+    (D : Database T) (γ : Fin c → T) :
+    (winByApplyOn P O o ψ t (if dist then f.distinct else f) q
+        qf).evaluatePlain D γ
+      = (AggQueryIn.Win P O o w t f qo hrr dist keep).evaluatePlain D γ := by
+  rw [winByApplyOn, AggQueryIn.evaluatePlain_castKind]
   show (q.evaluatePlain D γ).bind (fun u =>
       ((AggQueryIn.GammaScalar ![t.substMap (applyOuter T c n)]
         ![if dist then f.distinct else f]
         (AggQueryIn.Sel (GenPredIn.and
             (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
-          (q.substMap (applyOuter T c n)))
+          (qf.substMap (applyOuter T c n)))
         (GroupOrder.byCols O o)).evaluatePlain D
           (Fin.append u γ)).map (fun v => (Fin.append u v : Tuple T (n + 1))))
-    = (q.evaluatePlain D γ).map (fun u : Tuple T n =>
+    = (qo.evaluatePlain D γ).map (fun u : Tuple T n =>
       (Fin.snoc u (ValueFrame.windowValueOpt P O o w t
         (if dist then f.distinct else f) keep
-        ((q.evaluatePlain D γ).map (ColKind.readTuple (ColKind.allReg n)))
-        (ColKind.readTuple (ColKind.allReg n) u) γ) : Tuple T (n + 1)))
-  simp only [ColKind.readTuple_allReg, Multiset.map_id']
+        ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+        (ColKind.readTuple κ' u) γ) : Tuple T (n + 1)))
+  rw [hq D γ]
   refine Eq.trans (Multiset.bind_congr (fun u hu => ?_))
-    (Multiset.bind_singleton (s := q.evaluatePlain D γ) (fun u =>
+    (Multiset.bind_singleton (s := qo.evaluatePlain D γ) (fun u =>
       (Fin.snoc u (ValueFrame.windowValueOpt P O o w t
         (if dist then f.distinct else f) keep
-        (q.evaluatePlain D γ) u γ) : Tuple T (n + 1))))
+        ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+        (ColKind.readTuple κ' u) γ) : Tuple T (n + 1))))
   -- the rows the selection keeps are the frame's rows the clause keeps
   have hframe : (AggQueryIn.Sel
         (GenPredIn.and
           (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
-        (q.substMap (applyOuter T c n))).evaluatePlain D (Fin.append u γ)
+        (qf.substMap (applyOuter T c n))).evaluatePlain D (Fin.append u γ)
       = Multiset.filter (fun y : Tuple T n =>
           Selection.keepsOpt keep y = true)
         (ValueFrame.frameOf (α := Tuple T n) id P O w
-          (q.evaluatePlain D γ) u) := by
+          ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+            (ColKind.readTuple κ' u)) := by
     show Multiset.filter (fun y : Tuple T n =>
         (GenPredIn.and
           (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k)))
           ψ).holdsPlain y (Fin.append u γ))
-        ((q.substMap (applyOuter T c n)).evaluatePlain D (Fin.append u γ)) = _
-    rw [AggQueryIn.evaluatePlain_substMap, substVal_applyOuter,
-      ValueFrame.frameOf_of_containsSelf _ _ _ hc _ hu, Multiset.filter_filter]
+        ((qf.substMap (applyOuter T c n)).evaluatePlain D (Fin.append u γ)) = _
+    rw [AggQueryIn.evaluatePlain_substMap, substVal_applyOuter, hqf D γ,
+      ValueFrame.frameOf_of_containsSelf _ _ _ hc _
+        (Multiset.mem_map_of_mem (ColKind.readTuple κ') hu),
+      Multiset.filter_filter]
     refine Multiset.filter_congr (fun y _ => ?_)
-    rw [holdsPlain_and_iff, outerKeyCond_holdsPlain, hρ y u γ]
+    rw [holdsPlain_and_iff, outerKeyCond_holdsPlain, hρ y u γ,
+      show Tuple.key P (id (ColKind.readTuple κ' u)) = Tuple.key P u from
+        Tuple.key_readTuple P hrr.1 u,
+      show Tuple.key O (id (ColKind.readTuple κ' u)) = Tuple.key O u from
+        Tuple.key_readTuple O hrr.2.1 u]
     constructor
     · intro hk
       exact ⟨hk.2.2,
@@ -2930,14 +3200,16 @@ theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
           (Multiset.filter (fun y : Tuple T n =>
             Selection.keepsOpt keep y = true)
             (ValueFrame.frameOf (α := Tuple T n) id P O w
-              (q.evaluatePlain D γ) u)) (fun k : Fin 0 => k.elim0)).map
+              ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+                (ColKind.readTuple κ' u))) (fun k : Fin 0 => k.elim0)).map
           (fun v => (t.substMap (applyOuter T c n)).eval v (Fin.append u γ))
         = (Relation.groupSeqOrd (fun k : Fin 0 => k.elim0)
           (GroupOrder.byCols O o)
           (Multiset.filter (fun y : Tuple T n =>
             Selection.keepsOpt keep y = true)
             (ValueFrame.frameOf (α := Tuple T n) id P O w
-              (q.evaluatePlain D γ) u)) (fun k : Fin 0 => k.elim0)).map
+              ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+                (ColKind.readTuple κ' u))) (fun k : Fin 0 => k.elim0)).map
           (fun v => t.eval v γ) :=
       List.map_congr_left (fun v _ => by
         rw [TermIn.eval_substMap, substVal_applyOuter])
@@ -2952,9 +3224,11 @@ theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
         rw [show Multiset.filter (fun y : Tuple T n =>
               Selection.keepsOpt (T := T) none y = true)
             (ValueFrame.frameOf (α := Tuple T n) id P O w
-              (q.evaluatePlain D γ) u)
+              ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+                (ColKind.readTuple κ' u))
             = ValueFrame.frameOf (α := Tuple T n) id P O w
-              (q.evaluatePlain D γ) u from
+              ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+                (ColKind.readTuple κ' u) from
           Multiset.filter_eq_self.mpr (fun _ _ => rfl)]
         show OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
             (Relation.groupSeq (fun k : Fin 0 => k.elim0) _
@@ -2965,16 +3239,37 @@ theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
         unfold ValueFrame.windowValueWhen ValueFrame.frameListOf
         exact congrArg _ (ValueFrame.groupSeqOrd_filter_map_eq O o t φ.keeps
           (ValueFrame.frameOf (α := Tuple T n) id P O w
-            (q.evaluatePlain D γ) u) γ)
+            ((qo.evaluatePlain D γ).map (ColKind.readTuple κ'))
+              (ColKind.readTuple κ' u)) γ)
   · rw [Fin.snoc_castSucc,
       show (Fin.castSucc i) = Fin.castAdd 1 i from rfl, Fin.append_left]
 
+/-- The all-regular case, which is the shape `prop:winderived` states:
+there the frame reads the input itself. -/
+theorem evaluatePlain_winByApplyOf {c : ℕ} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
+    (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Option (Selection T n))
+    (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
+      ψ.holdsPlain y (Fin.append u γ)
+        ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
+            ∧ Selection.keepsOpt keep y = true))
+    (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
+    (γ : Fin c → T) :
+    (winByApply P O o ψ t (if dist then f.distinct else f) q).evaluatePlain D γ
+      = (AggQueryIn.Win P O o w t f q (winReadsReg_allReg P O t) dist
+          keep).evaluatePlain D γ :=
+  evaluatePlain_winByApplyOn P O o hc ψ t f dist keep hρ
+    (winReadsReg_allReg P O t) q q q (fun _ _ => rfl)
+    (fun D γ => (ColKind.map_readTuple_allReg (q.evaluatePlain D γ)).symm) D γ
 /-- **A window is an apply of a scalar aggregation** (`prop:winderived`),
 over plain relations: the rows the selection keeps are the current row's
 frame, the clause reads them in the order the window reads them, and the
 aggregate is then the window's value. This is the plain form, with
 neither `DISTINCT` nor a `FILTER` clause;
 `evaluatePlain_winByApplyOf` has both. -/
+
 theorem evaluatePlain_winByApply {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
@@ -2996,23 +3291,42 @@ theorem evaluatePlain_winByApply {c : ℕ} (P : Tuple (Fin n) m)
 /-- **The derived form uses no window**: an apply, a scalar aggregation
 and a selection, which is what the generation half of `thm:plainbasis`
 asks of it. The apply then goes by the decorrelation. -/
+theorem usesOnly_winByApplyOn {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
+    (f : SeqAggFunc T) {q qf : AggQueryIn T c n (ColKind.allReg n)}
+    (ha : OpKind.apply ∈ S) (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S)
+    (hq : q.usesOnly S) (hqf : qf.usesOnly S) :
+    (winByApplyOn P O o ψ t f q qf).usesOnly S := by
+  rw [winByApplyOn, AggQueryIn.usesOnly_castKind]
+  exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap qf _).mpr hqf⟩
+
+/-- The same where the frame reads the input itself. -/
 theorem usesOnly_winByApply {c : ℕ} {S : Set OpKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
     (ha : OpKind.apply ∈ S) (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S)
-    (hq : q.usesOnly S) : (winByApply P O o ψ t f q).usesOnly S := by
-  rw [winByApply, AggQueryIn.usesOnly_castKind]
-  exact ⟨ha, hq, hg, hs, (AggQueryIn.usesOnly_substMap q _).mpr hq⟩
+    (hq : q.usesOnly S) : (winByApply P O o ψ t f q).usesOnly S :=
+  usesOnly_winByApplyOn P O o ψ t f ha hg hs hq hq
 
 /-- **The derived form names the relations the window names.** -/
+theorem overSchema_winByApplyOn {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
+    (f : SeqAggFunc T) {q qf : AggQueryIn T c n (ColKind.allReg n)}
+    (hq : q.overSchema sch) (hqf : qf.overSchema sch) :
+    (winByApplyOn P O o ψ t f q qf).overSchema sch := by
+  rw [winByApplyOn, AggQueryIn.overSchema_castKind]
+  exact ⟨hq, (AggQueryIn.overSchema_substMap qf _ sch).mpr hqf⟩
+
+/-- The same where the frame reads the input itself. -/
 theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ψ : GenPredIn T (n + c) (ColKind.allReg n)) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)}
-    (hq : q.overSchema sch) : (winByApply P O o ψ t f q).overSchema sch := by
-  rw [winByApply, AggQueryIn.overSchema_castKind]
-  exact ⟨hq, (AggQueryIn.overSchema_substMap q _ sch).mpr hq⟩
+    (hq : q.overSchema sch) : (winByApply P O o ψ t f q).overSchema sch :=
+  overSchema_winByApplyOn P O o ψ t f hq hq
 
 /-- **A window is expressible without one** (`prop:winderived`), as the
 equivalence of queries the classification uses. -/

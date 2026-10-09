@@ -70,23 +70,148 @@ def OccFam.ofSorted [LinearOrder α] (s : Multiset α) : OccFam α :=
     hlist]
   exact Having.foldr_sortedInsert_coe s
 
-/-- A frame determined by values: `ρ` decides which *other* occurrences of
-the partition belong, from the two order values, and `s` decides whether the
-occurrence belongs to its own frame.
+/-! ## A frame is a condition on the order values
 
-Writing the two separately is what distinguishes `EXCLUDE CURRENT ROW` from
-its peers: the current row and a peer have the same order value, so no
-relation on order values alone could drop one and keep the other. -/
+SQL names a frame by a *condition* on the order values: `RANGE BETWEEN
+UNBOUNDED PRECEDING AND CURRENT ROW` holds of an occurrence the clause
+sorts at or before the current row, `EXCLUDE GROUP` adds that it is not a
+peer, and the union of several frames holds where one of them does. That
+is what a frame *is*, and `FrameCond` says it: not an arbitrary relation
+on order values, but one of these.
+
+This is what lets every frame of the syntax be read back as a predicate
+of the query language (`FrameCond.exists_pred`), so that deriving a
+window from an aggregation – `prop:winderived`, which spells the frame
+out as a selection against the current row – asks nothing of the frame
+beyond containing its current row. -/
+
+/-- The condition a frame names, as a condition on the order value of an
+occurrence (the first argument) against the current row's (the second).
+`OrderSpec.lt` being `OrderSpec.le` reversed and negated, the strict
+cases are not a negation of the language but conditions of their own. -/
+inductive FrameCond (p : ℕ) where
+  /-- Every occurrence of the partition: `RANGE BETWEEN UNBOUNDED
+  PRECEDING AND UNBOUNDED FOLLOWING`, and the default under no clause. -/
+  | whole : FrameCond p
+  /-- The clause sorts the occurrence at or before the current row. -/
+  | le (o : OrderSpec p) : FrameCond p
+  /-- …strictly before it, so the current row's peers are out. -/
+  | lt (o : OrderSpec p) : FrameCond p
+  /-- …at or after the current row. -/
+  | ge (o : OrderSpec p) : FrameCond p
+  /-- …strictly after it. -/
+  | gt (o : OrderSpec p) : FrameCond p
+  /-- Both conditions, which is what an `EXCLUDE` modifier builds. -/
+  | and : FrameCond p → FrameCond p → FrameCond p
+  /-- Either condition. -/
+  | or : FrameCond p → FrameCond p → FrameCond p
+  /-- Any of several, which is the union of the frames of a multi-frame
+  window. -/
+  | orAll {q : ℕ} (cs : Fin q → FrameCond p) : FrameCond p
+
+namespace FrameCond
+
+variable [ValueType T]
+
+/-- Whether an occurrence with order value `o'` satisfies the condition
+against a current row with order value `ov`. -/
+def holds : FrameCond p → Tuple T p → Tuple T p → Bool
+  | .whole, _, _ => true
+  | .le o, o', ov => o.le o' ov
+  | .lt o, o', ov => o.lt o' ov
+  | .ge o, o', ov => o.le ov o'
+  | .gt o, o', ov => o.lt ov o'
+  | .and a b, o', ov => a.holds o' ov && b.holds o' ov
+  | .or a b, o', ov => a.holds o' ov || b.holds o' ov
+  | .orAll cs, o', ov => (List.finRange _).any (fun j => (cs j).holds o' ov)
+
+@[simp] theorem holds_whole (o' ov : Tuple T p) :
+    (FrameCond.whole : FrameCond p).holds o' ov = true := rfl
+
+@[simp] theorem holds_le (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.le o).holds o' ov = o.le o' ov := rfl
+
+@[simp] theorem holds_lt (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.lt o).holds o' ov = o.lt o' ov := rfl
+
+@[simp] theorem holds_ge (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.ge o).holds o' ov = o.le ov o' := rfl
+
+@[simp] theorem holds_gt (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.gt o).holds o' ov = o.lt ov o' := rfl
+
+@[simp] theorem holds_and (a b : FrameCond p) (o' ov : Tuple T p) :
+    (FrameCond.and a b).holds o' ov = (a.holds o' ov && b.holds o' ov) := rfl
+
+@[simp] theorem holds_or (a b : FrameCond p) (o' ov : Tuple T p) :
+    (FrameCond.or a b).holds o' ov = (a.holds o' ov || b.holds o' ov) := rfl
+
+@[simp] theorem holds_orAll {q : ℕ} (cs : Fin q → FrameCond p)
+    (o' ov : Tuple T p) :
+    (FrameCond.orAll cs).holds o' ov
+      = (List.finRange q).any (fun j => (cs j).holds o' ov) := rfl
+
+/-- The current row's peer group: neither sorts before the other. -/
+def peers (o : OrderSpec p) : FrameCond p := .and (.le o) (.ge o)
+
+@[simp] theorem holds_peers (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.peers o).holds o' ov = o.peer o' ov := rfl
+
+/-- Everything outside the current row's peer group. The order being
+total, this is a condition of the language and not a negation: an
+occurrence is not a peer exactly when one of the two sorts strictly
+before the other. -/
+def notPeers (o : OrderSpec p) : FrameCond p := .or (.lt o) (.gt o)
+
+theorem holds_notPeers (o : OrderSpec p) (o' ov : Tuple T p) :
+    (FrameCond.notPeers o).holds o' ov = !o.peer o' ov := by
+  show (o.lt o' ov || o.lt ov o') = !o.peer o' ov
+  rw [OrderSpec.lt, OrderSpec.lt, OrderSpec.peer, Bool.not_and]
+  exact Bool.or_comm _ _
+
+end FrameCond
+
+/-- A frame determined by values: the condition `cond` decides which
+*other* occurrences of the partition belong, from the two order values,
+and the flag `self` decides whether an occurrence belongs to its own
+frame.
+
+Carrying the two separately is what distinguishes `EXCLUDE CURRENT ROW`
+from its peers: the current row and a peer have the same order value, so
+no condition on order values alone could drop one and keep the other. -/
 structure ValueFrame (T : Type) (p : ℕ) where
-  /-- Whether an occurrence with order value `o'` is in the frame of one
-  with order value `o`. -/
-  ρ : Tuple T p → Tuple T p → Bool
-  /-- Whether an occurrence with order value `o` is in its own frame. -/
-  s : Tuple T p → Bool
+  /-- The condition the frame names. -/
+  cond : FrameCond p
+  /-- Whether an occurrence is in its own frame. -/
+  self : Bool
 
 namespace ValueFrame
 
 variable [ValueType T]
+
+/-- Whether an occurrence with order value `o'` is in the frame of one
+with order value `o`. -/
+def ρ (w : ValueFrame T p) : Tuple T p → Tuple T p → Bool := w.cond.holds
+
+/-- Whether an occurrence with order value `o` is in its own frame. -/
+def s (w : ValueFrame T p) : Tuple T p → Bool := fun _ => w.self
+
+@[simp] theorem ρ_mk (c : FrameCond p) (b : Bool) :
+    (ValueFrame.mk c b : ValueFrame T p).ρ = FrameCond.holds c := rfl
+
+omit [ValueType T] in
+@[simp] theorem s_mk (c : FrameCond p) (b : Bool) (o : Tuple T p) :
+    (ValueFrame.mk c b : ValueFrame T p).s o = b := rfl
+
+omit [ValueType T] in
+theorem s_apply (w : ValueFrame T p) (o : Tuple T p) :
+    w.s o = w.self := rfl
+
+omit [ValueType T] in
+theorem s_eq (w : ValueFrame T p) : w.s = fun _ : Tuple T p => w.self := rfl
+
+theorem ρ_apply (w : ValueFrame T p) (o' o : Tuple T p) :
+    w.ρ o' o = w.cond.holds o' o := rfl
 
 /-- The frame *contains its current row exactly when it contains its peers*.
 Under this condition the frame of an occurrence depends only on its tuple, so
@@ -197,9 +322,8 @@ present, so no relation on order values decides it. -/
 
 /-- The whole partition: SQL's default frame under no `ORDER BY`, and
 `RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING`. -/
-def whole : ValueFrame T p := ⟨fun _ _ => true, fun _ => true⟩
+def whole : ValueFrame T p := ⟨FrameCond.whole, true⟩
 
-omit [ValueType T] in
 /-- The whole partition contains its current row, so a window over it is
 read in the grouped convention – which is what makes the denominator of
 a distribution function a count over a non-empty family. -/
@@ -214,8 +338,7 @@ A clause that names a direction and a null placement orders by its own
 reading, not by the domain's; the frame it determines is
 `ValueFrame.rangeUpTo` in `Provenance.OrderSpec`, and the two agree where
 every column is `ASC` and nothing is null. -/
-def upTo : ValueFrame T p :=
-  ⟨fun o' o => decide (o' ≤ o), fun _ => true⟩
+def upTo : ValueFrame T p := ⟨FrameCond.le (OrderSpec.asc p), true⟩
 
 /-- The rows the domain's own order puts strictly before the current row's
 peers: the frame a running total that must not read the row it annotates
@@ -223,15 +346,13 @@ needs. It contains neither the row nor its peers, so it can be empty in a
 world where the row is present – which is why a window over it reads its
 token in the scalar convention. Its clause-determined counterpart is
 `ValueFrame.rangeBefore` in `Provenance.OrderSpec`. -/
-def before : ValueFrame T p :=
-  ⟨fun o' o => decide (o' < o), fun _ => false⟩
+def before : ValueFrame T p := ⟨FrameCond.lt (OrderSpec.asc p), false⟩
 
 /-- `EXCLUDE CURRENT ROW`: the same frame with the current occurrence taken
 out, its peers left in. It is the modifier no relation on order values can
 express, which is why `s` is a field of its own. -/
-def excludeCurrent (w : ValueFrame T p) : ValueFrame T p := ⟨w.ρ, fun _ => false⟩
+def excludeCurrent (w : ValueFrame T p) : ValueFrame T p := ⟨w.cond, false⟩
 
-omit [ValueType T] in
 @[simp] theorem whole_containsSelf : (whole : ValueFrame T p).ContainsSelf :=
   fun _ => rfl
 
@@ -242,6 +363,7 @@ omit [ValueType T] in
 @[simp] theorem upTo_containsSelf : (upTo : ValueFrame T p).ContainsSelf :=
   fun o => by simp [upTo]
 
+omit [ValueType T] in
 @[simp] theorem upTo_containsCurrent : (upTo : ValueFrame T p).ContainsCurrent :=
   fun _ => rfl
 
@@ -251,7 +373,6 @@ telling from its twin. -/
 @[simp] theorem before_containsSelf : (before : ValueFrame T p).ContainsSelf :=
   fun o => by simp [before]
 
-omit [ValueType T] in
 /-- **`EXCLUDE CURRENT ROW` is exactly what occurrences are needed for.**
 Excluding the current row from a frame that contained it leaves each of two
 equal rows in the other's frame and out of its own, so the two get different
@@ -263,6 +384,7 @@ theorem not_containsSelf_excludeCurrent {w : ValueFrame T p}
   obtain ⟨o, ho⟩ := h
   intro hc
   have hco := hc o
+  rw [ValueFrame.ρ_apply] at ho
   simp [excludeCurrent, ho] at hco
 
 variable [HasAltLinearOrder K]
@@ -1247,46 +1369,43 @@ with order value `o`", so the current row's value is the second argument. -/
 /-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the clause
 `o`, SQL's default frame when a window names an `ORDER BY`: the current row,
 its peers, and everything the clause sorts before them. -/
-def rangeUpTo (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.le o' ov, fun _ => true⟩
+def rangeUpTo (o : OrderSpec p) : ValueFrame T p := ⟨FrameCond.le o, true⟩
 
 /-- The rows the clause sorts *strictly* before the current row's peers:
 `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE GROUP`. It is the
 frame a running total that must not read the row it annotates needs, and it
 can be empty in a world where that row is present. -/
-def rangeBefore (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.lt o' ov, fun _ => false⟩
+def rangeBefore (o : OrderSpec p) : ValueFrame T p := ⟨FrameCond.lt o, false⟩
 
 /-- `RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING`: the current row,
 its peers, and everything the clause sorts after them. It is
 `rangeUpTo` under the reversed clause. -/
-def rangeFrom (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.le ov o', fun _ => true⟩
+def rangeFrom (o : OrderSpec p) : ValueFrame T p := ⟨FrameCond.ge o, true⟩
 
 /-- The rows the clause sorts *strictly* after the current row's peers:
 the frame `lead` reads. -/
-def rangeAfter (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.lt ov o', fun _ => false⟩
+def rangeAfter (o : OrderSpec p) : ValueFrame T p := ⟨FrameCond.gt o, false⟩
 
 /-- `GROUPS BETWEEN CURRENT ROW AND CURRENT ROW`: the current row's peer
 group, and nothing else. -/
 def peerGroup (o : OrderSpec p) : ValueFrame T p :=
-  ⟨fun o' ov => o.peer o' ov, fun _ => true⟩
+  ⟨FrameCond.peers o, true⟩
 
 /-- `EXCLUDE GROUP`: the frame with the current row *and its peers* taken
 out. -/
 def excludeGroup (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
-  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, fun _ => false⟩
+  ⟨FrameCond.and w.cond (FrameCond.notPeers o), false⟩
 
 /-- `EXCLUDE TIES`: the frame with the current row's peers taken out, the
 row itself left in. -/
 def excludeTies (o : OrderSpec p) (w : ValueFrame T p) : ValueFrame T p :=
-  ⟨fun o' ov => w.ρ o' ov && !o.peer o' ov, w.s⟩
+  ⟨FrameCond.and w.cond (FrameCond.notPeers o), w.self⟩
 
 @[simp] theorem rangeUpTo_containsSelf (o : OrderSpec p) :
     (rangeUpTo o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeUpTo]
 
+omit [ValueType T] in
 @[simp] theorem rangeUpTo_containsCurrent (o : OrderSpec p) :
     (rangeUpTo o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
@@ -1301,6 +1420,7 @@ telling from its twin. -/
     (rangeFrom o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeFrom]
 
+omit [ValueType T] in
 @[simp] theorem rangeFrom_containsCurrent (o : OrderSpec p) :
     (rangeFrom o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
@@ -1311,21 +1431,25 @@ rows strictly before are: the peers are outside the frame too. -/
   simp [rangeAfter]
 
 /-- Reading the clause backwards turns the rows up to the current one into
-the rows from it on, and the rows before into the rows after. -/
+the rows from it on, and the rows before into the rows after. The two
+frames are different *conditions* – `o.reverse` at or before, against `o`
+at or after – and this says they hold of the same occurrences. -/
 @[simp] theorem rangeUpTo_reverse (o : OrderSpec p) :
-    (rangeUpTo o.reverse : ValueFrame T p) = rangeFrom o := by
+    (rangeUpTo o.reverse : ValueFrame T p).ρ = (rangeFrom o : ValueFrame T p).ρ := by
   unfold rangeUpTo rangeFrom
-  simp
+  exact funext fun a => funext fun b => by simp
 
 @[simp] theorem rangeBefore_reverse (o : OrderSpec p) :
-    (rangeBefore o.reverse : ValueFrame T p) = rangeAfter o := by
+    (rangeBefore o.reverse : ValueFrame T p).ρ
+      = (rangeAfter o : ValueFrame T p).ρ := by
   unfold rangeBefore rangeAfter
-  simp
+  exact funext fun a => funext fun b => by simp
 
 @[simp] theorem peerGroup_containsSelf (o : OrderSpec p) :
     (peerGroup o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [peerGroup]
 
+omit [ValueType T] in
 @[simp] theorem peerGroup_containsCurrent (o : OrderSpec p) :
     (peerGroup o : ValueFrame T p).ContainsCurrent := fun _ => rfl
 
@@ -1334,7 +1458,7 @@ current row together with its peers, so two equal rows are dropped from each
 other's frame as well as from their own. -/
 @[simp] theorem excludeGroup_containsSelf (o : OrderSpec p)
     (w : ValueFrame T p) : (excludeGroup o w : ValueFrame T p).ContainsSelf :=
-  fun ov => by simp [excludeGroup]
+  fun ov => by simp [excludeGroup, FrameCond.holds_notPeers]
 
 /-- **`EXCLUDE TIES` is not**, and for the same reason as `EXCLUDE CURRENT
 ROW`: it leaves each of two equal rows in the other's frame and out of its
@@ -1346,31 +1470,20 @@ theorem not_containsSelf_excludeTies (o : OrderSpec p) {w : ValueFrame T p}
   intro hc
   have hz := hc (0 : Tuple T p)
   rw [show (excludeTies o w).s = w.s from rfl, h (0 : Tuple T p)] at hz
-  simp [excludeTies] at hz
+  simp [excludeTies, FrameCond.holds_notPeers] at hz
 
-section
-
-variable [NoNulls T]
-
-/-- Under every column `ASC` and no null to place, `RANGE BETWEEN UNBOUNDED
-PRECEDING AND CURRENT ROW` is the frame `ValueFrame.upTo` states against the
-domain's order. -/
+omit [ValueType T] in
+/-- `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` under the
+all-ascending clause is `ValueFrame.upTo`, which is now what that frame
+is defined to be: a frame names a condition, and the condition the
+domain's own order states is the all-ascending clause's. -/
 theorem rangeUpTo_asc :
-    (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := by
-  unfold rangeUpTo ValueFrame.upTo
-  exact congrArg (ValueFrame.mk · _)
-    (funext fun a => funext fun b => OrderSpec.asc_le a b)
+    (rangeUpTo (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.upTo := rfl
 
+omit [ValueType T] in
 /-- And the rows strictly before are `ValueFrame.before`. -/
 theorem rangeBefore_asc :
-    (rangeBefore (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.before := by
-  unfold rangeBefore ValueFrame.before
-  refine congrArg (ValueFrame.mk · _) (funext fun a => funext fun b => ?_)
-  rw [show (OrderSpec.asc p).lt a b = !(OrderSpec.asc p).le b a from rfl,
-    OrderSpec.asc_le, Bool.eq_iff_iff]
-  simp [not_le]
-
-end
+    (rangeBefore (OrderSpec.asc p) : ValueFrame T p) = ValueFrame.before := rfl
 
 
 /-! ## Several frames of one partition: the expression a window computes
@@ -1398,10 +1511,10 @@ variable {q : ℕ}
 it is in one of them. Membership of the union is membership of one
 (`mem_unionFrame`). -/
 def unionFrame (ws : Fin q → ValueFrame T p) : ValueFrame T p where
-  ρ := fun a b => (List.finRange q).any (fun j => (ws j).ρ a b)
-  s := fun a => (List.finRange q).any (fun j => (ws j).s a)
+  cond := FrameCond.orAll (fun j => (ws j).cond)
+  self := (List.finRange q).any (fun j => (ws j).self)
 
-omit [ValueType T] [HasAltLinearOrder K] in
+omit [HasAltLinearOrder K] in
 /-- **The union of frames that contain their current row does too**: both
 sides of `ContainsSelf` are the disjunction over the leaves. -/
 theorem containsSelf_unionFrame {ws : Fin q → ValueFrame T p}
@@ -1420,7 +1533,8 @@ theorem mem_unionFrame {α : Type} (val : α → Tuple T n) (P : Tuple (Fin n) m
       ↔ ∃ l, mem val P O (ws l) r i j = true := by
   unfold mem unionFrame
   by_cases hj : j = i <;>
-    simp [hj, Bool.and_eq_true, List.any_eq_true, exists_and_left]
+    simp [hj, ValueFrame.ρ, ValueFrame.s, FrameCond.holds, Bool.and_eq_true,
+      List.any_eq_true, exists_and_left]
 
 /-- **The occurrences a window's leaves read, in the clause's order**:
 the union of the frames, as indices into the occurrence family. -/

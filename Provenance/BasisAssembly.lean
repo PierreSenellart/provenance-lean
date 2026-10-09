@@ -81,26 +81,20 @@ variable {T : Type} [ValueType T]
 
 /-! ## What a window has to be for `prop:winderived` to reach it -/
 
-/-- **Every window of the query is derivable.** At each window: its
-input's columns are all regular (an apply reads its left side as a
-relation of values), its frame contains its current row, and there is a
-predicate of the language that holds exactly where the frame condition
-holds and the window's `FILTER` clause keeps the row. The last is a
-statement about the *encoding* rather than a restriction on queries: in
-SQL a frame clause and a `FILTER` clause are both conditions one can
-write, while in the library `ValueFrame.ρ` is an arbitrary relation on
-order values.
+/-- **Every window of the query is derivable.** Two things at each
+window: its input's columns are all regular (an apply reads its left side
+as a relation of values), and its frame contains its current row –
+`EXCLUDE CURRENT ROW` and `EXCLUDE TIES` have no reading as an
+aggregation, a group being determined by its rows and not by the
+occurrence, which is the restriction `prop:winderived` itself carries.
 
-`DISTINCT` and a `FILTER` clause are covered (since 2026-10-08): the
-derived form aggregates `f^distinct` where the window does, and the
-clause enters the selection that spells the frame out
-(`evaluatePlain_winByApplyOf`). The predicate is *built* for three
-frames, not merely asked for: the whole partition
-(`AggQueryIn.winsDerivable_win_whole`), and the two `RANGE` frames read
-against the clause, either over a domain with no null (`_rangeUpTo`,
-`_rangeBefore`) or over one that names its null (`_rangeUpTo_of_null`,
-`_rangeBefore_of_null`, where the clause's null placement is read by
-`IS NOT DISTINCT FROM ν` tests).
+Nothing is asked about the frame *condition* any more: a frame names a
+`FrameCond`, so the selection that spells it out is read off it
+(`ValueFrame.exists_framePred`), for every frame of the syntax, every
+`FILTER` clause and every domain. `DISTINCT` and a clause are covered
+too: the derived form aggregates `f^distinct` where the window does, and
+the clause enters that selection (`evaluatePlain_winByApplyOf`).
+
 What stays out is a *multi-frame* window, and not for want of proving:
 its column combines the leaves' values by a function no term expresses,
 so the predicate reads `False` there, as it does for
@@ -125,14 +119,8 @@ def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .ProvSum _ _ _ q => q.WinsDerivable
   | _, _, _, .Retag _ q => q.WinsDerivable
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.WinsDerivable
-  | c, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ O _ w _ _ q _ _ keep =>
-      (∀ i, κ' i = ColKind.reg) ∧ w.ContainsSelf
-        ∧ (∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
-            ∀ (y u : Tuple T n) (γ : Fin c → T),
-              ψ.holdsPlain y (Fin.append u γ)
-                ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
-                    ∧ Selection.keepsOpt keep y = true))
-        ∧ q.WinsDerivable
+  | _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _ _ _ w _ _ q _ _ _ =>
+      (∀ i, κ' i = ColKind.reg) ∧ w.ContainsSelf ∧ q.WinsDerivable
   | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 omit [ValueType T] in
@@ -253,12 +241,16 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     rw [he' D γ]
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
-  | Win P' O o w t f q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw P' O o w t f q hrr dist keep ih =>
     intro hq hd hqs
-    obtain ⟨hreg, hcs, ⟨ψ, hψ⟩, hd'⟩ := hd
+    obtain ⟨hreg, hcs, hd'⟩ := hd
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd' hqs
     have hκ := funext hreg
     subst hκ
+    -- the frame is a condition on the order values, so the selection that
+    -- spells it out is read off it
+    obtain ⟨ψ, hψ⟩ :=
+      ValueFrame.exists_framePred (T := T) (n := nw) (c := cw) O w keep
     refine ⟨winByApply P' O o ψ t (if dist then f.distinct else f) q',
       usesOnly_winByApply P' O o ψ t _ ha hg hs hu',
       overSchema_winByApply P' O o ψ t _ hs',
@@ -284,8 +276,8 @@ is. -/
 theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     {sch : Schema} (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S)
     (hx : OpKind.prod ∈ S) (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S)
-    (hap : OpKind.apply ∉ S) (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) :
+    (hap : OpKind.apply ∉ S) (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), c = 0 →
       q.usesOnly (insert OpKind.dedup (insert OpKind.diff S)) →
       q.overSchema sch →
@@ -356,12 +348,12 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hc hq.2.2 hqs.2
     subst hc
     -- the difference is a count over the tagged union
-    refine ⟨AggQueryIn.notInDiff ValueType.nonzero f q₁' q₂',
-      AggQueryIn.usesOnly_notInDiff ValueType.nonzero f hp hs hx hu hg hu₁ hu₂,
-      AggQueryIn.overSchema_notInDiff ValueType.nonzero f hs₁ hs₂,
+    refine ⟨AggQueryIn.notInDiff cnt q₁' q₂',
+      AggQueryIn.usesOnly_notInDiff cnt hp hs hx hu hg hu₁ hu₂,
+      AggQueryIn.overSchema_notInDiff cnt hs₁ hs₂,
       fun D γ => ?_⟩
-    refine Eq.trans ?_ (AggQueryIn.diff_plainEquiv_notIn ValueType.nonzero
-      ValueType.nonzero_ne_zero f hzero q₁' q₂' D γ)
+    refine Eq.trans ?_
+      (AggQueryIn.diff_plainEquiv_notIn cnt hcnt q₁' q₂' D γ)
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
@@ -431,13 +423,13 @@ def plainOps : Set OpKind := insert OpKind.win (insert OpKind.apply basisDD)
 fragment is equivalent to one using only the six basis classes `∅`, `Π`,
 `σ`, `×`, `⊎`, `γ`, over the same schema.
 
-The three hypotheses are what the identities ask for: an aggregate `f`
-reading `𝟘` exactly on a sequence of zeros (`count` of the non-null tags,
-or their sum where the domain has no zero divisors), that the query use
-only the classes in scope, and that every window be derivable. -/
+The three hypotheses are what the identities ask for: an aggregate that
+counts (SQL's `count(e)`, which `sec:basis` assumes among the
+aggregates), that the query use only the classes in scope, and that
+every window be derivable. -/
 theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt)
     (q : AggQuery T n κ) (hq : q.usesOnly plainOps) (hd : q.WinsDerivable)
     (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n κ,
@@ -458,9 +450,80 @@ theorem AggQueryIn.exists_basisOps_plainEquiv {sch : Schema} {n : ℕ}
     AggQueryIn.exists_basisOps_of_dedupDiff (S := basisOps)
       (by simp [basisOps]) (by simp [basisOps]) (by simp [basisOps])
       (by simp [basisOps]) (by simp [basisOps]) (by simp [basisOps])
-      f hzero q₂ rfl hu₂ hs₂
+      cnt hcnt q₂ rfl hu₂ hs₂
   exact ⟨q₃, hu₃, hs₃,
     fun D γ => (he₁ D γ).trans ((he₂ D γ).trans (he₃ D γ))⟩
+
+/-- **`COUNT(*)` over `ℕ` is a count.** Nothing there is null, so the
+length of a sequence is `0` exactly when the sequence has no value to
+count. -/
+theorem counts_count_nat : SeqAggFunc.Counts (SeqAggFunc.count) :=
+  SeqAggFunc.counts_of_noNulls (fun _ => rfl)
+    (fun _ => List.length_eq_zero_iff)
+
+/-! ## The basis with the window kept
+
+`win` is a class of the basis (the classification's own `win` row), so the
+statement a *source* query is read by keeps its windows and runs only two
+passes: the applies go by the decorrelation, and the duplicate
+elimination and the difference it builds go with them. Nothing is asked
+of a window here – not that its frame contain its current row, not that
+it be single-frame, not that its input's columns be regular – because
+nothing has to rewrite one: the decorrelation carries a window of *every*
+frame (`ValueFrame.frameOf_slices`: the row a frame takes out is the same
+row on both sides), and the third pass keeps it.
+
+`AggQueryIn.exists_basisOps_plainEquiv` is the strictly stronger claim –
+the window class is not needed *for the windows `prop:winderived`
+reaches* – and that is where `AggQueryIn.WinsDerivable` is asked. -/
+
+/-- The basis with the window: the six classes and `win`. -/
+def basisWinOps : Set OpKind := insert OpKind.win basisOps
+
+/-- **Every query of the plain fragment is equivalent to one over the
+basis and the window**, over the same schema and with the same columns.
+This is `thm:plainbasis` for the basis that holds `win`, and it carries
+no hypothesis about windows at all. -/
+theorem AggQueryIn.exists_basisWinOps_plainEquiv {sch : Schema} {n : ℕ}
+    {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (q : AggQuery T n κ)
+    (hq : q.usesOnly plainOps) (hqs : q.overSchema sch) :
+    ∃ q' : AggQuery T n κ,
+      q'.usesOnly basisWinOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
+  -- the applies go, by the decorrelation, the windows riding along
+  obtain ⟨q₂, hu₂, hs₂, he₂⟩ :=
+    AggQueryIn.exists_applyFree_plainEquiv (S := insert OpKind.win basisDD)
+      (by intro k hk; simp [decorrOps] at hk; rcases hk with h|h|h|h|h|h|h <;>
+        simp [basisDD, basisOps, h])
+      (by simp [basisDD, basisOps]) q
+      (AggQueryIn.usesOnly_mono (by
+        intro k hk
+        simp only [plainOps, basisDD, basisOps, Set.mem_insert_iff,
+          Set.mem_singleton_iff] at hk ⊢
+        tauto) q hq)
+      hqs
+  -- and duplicate elimination and the difference go with them
+  obtain ⟨q₃, hu₃, hs₃, he₃⟩ :=
+    AggQueryIn.exists_basisOps_of_dedupDiff (S := basisWinOps)
+      (by simp [basisWinOps, basisOps]) (by simp [basisWinOps, basisOps])
+      (by simp [basisWinOps, basisOps]) (by simp [basisWinOps, basisOps])
+      (by simp [basisWinOps, basisOps]) (by simp [basisWinOps, basisOps])
+      cnt hcnt q₂ rfl
+      (AggQueryIn.usesOnly_mono (by
+        intro k hk
+        simp only [basisWinOps, basisDD, basisOps, Set.mem_insert_iff,
+          Set.mem_singleton_iff] at hk ⊢
+        tauto) q₂ hu₂) hs₂
+  exact ⟨q₃, hu₃, hs₃, fun D γ => (he₂ D γ).trans (he₃ D γ)⟩
+
+/-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
+theorem AggQueryIn.exists_basisWinOps_plainEquiv_nat {sch : Schema} {n : ℕ}
+    {κ : Fin n → ColKind} (q : AggQuery ℕ n κ) (hq : q.usesOnly plainOps)
+    (hqs : q.overSchema sch) :
+    ∃ q' : AggQuery ℕ n κ,
+      q'.usesOnly basisWinOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' :=
+  AggQueryIn.exists_basisWinOps_plainEquiv SeqAggFunc.count counts_count_nat
+    q hq hqs
 
 /-- **A generating set over a schema**: every query over `sch` whose
 windows are derivable, and which applies no function to an aggregate
@@ -483,21 +546,21 @@ def schemaS : Schema := fun s => if s = "S" then some 2 else none
 /-- **The six classes generate, over a schema**: `GeneratesOn`'s form of
 the theorem above, which is what the classification's other half is
 stated against. -/
-theorem basisOps_generatesOn (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+theorem basisOps_generatesOn (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (sch : Schema) :
     GeneratesOn T sch basisOps :=
   fun q hqs hq hd => by
     obtain ⟨q₃, hu₃, hs₃, he₃⟩ :=
-      AggQueryIn.exists_basisOps_plainEquiv f hzero q hq hd hqs
+      AggQueryIn.exists_basisOps_plainEquiv cnt hcnt q hq hd hqs
     obtain ⟨q', hu', hs', -, he'⟩ :=
       AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
         (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
     exact ⟨q', hs', hu', fun D γ => (he₃ D γ).trans (he' D γ)⟩
 
-/-- Over `ℕ`, with the tag `1` and the sum. -/
+/-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisOps :=
-  basisOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
+  basisOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
 /-! ## What every generating set must contain
 
@@ -991,17 +1054,18 @@ def basisApplyOps : Set OpKind :=
 
 /-- **The basis with `−` for `σ`**: every query of the plain fragment
 whose projections post-compose no aggregate column is equivalent to one
-over `∅`, `Π`, `×`, `⊎`, `γ`, `−`. The tag `yes ≠ 0` is what the
-selection's difference marks the rows it keeps with. -/
+over `∅`, `Π`, `×`, `⊎`, `γ`, `−`. The value domain's own non-zero
+value is what the selection's difference marks the rows it keeps
+with. -/
 theorem AggQueryIn.exists_basisDiffOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt)
     (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
     (hd : q.WinsDerivable) (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisDiffOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv cnt hcnt q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
@@ -1019,14 +1083,14 @@ theorem AggQueryIn.exists_basisDiffOps_plainEquiv {sch : Schema} {n : ℕ}
 /-- **The basis with the apply for `×`**: the same, over `∅`, `Π`, `σ`,
 the apply, `⊎`, `γ`. -/
 theorem AggQueryIn.exists_basisApplyOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (q : AggQuery T n κ)
+    {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (q : AggQuery T n κ)
     (hq : q.usesOnly plainOps) (hd : q.WinsDerivable)
     (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisApplyOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv cnt hcnt q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
@@ -1041,45 +1105,42 @@ theorem AggQueryIn.exists_basisApplyOps_plainEquiv {sch : Schema} {n : ℕ}
     fun D γ => ((he₃ D γ).trans (he₄ D γ)).trans (he₅ D γ)⟩
 
 /-- **`{∅, Π, ×, ⊎, γ, −}` generates, over a schema.** -/
-theorem basisDiffOps_generatesOn (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+theorem basisDiffOps_generatesOn (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (sch : Schema) :
     GeneratesOn T sch basisDiffOps :=
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisDiffOps_plainEquiv f hzero q hq hd hqs
+      AggQueryIn.exists_basisDiffOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu', he'⟩
 
 /-- **`{∅, Π, σ, apply, ⊎, γ}` generates, over a schema.** -/
-theorem basisApplyOps_generatesOn (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+theorem basisApplyOps_generatesOn (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (sch : Schema) :
     GeneratesOn T sch basisApplyOps :=
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisApplyOps_plainEquiv f hzero q hq hd hqs
+      AggQueryIn.exists_basisApplyOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu', he'⟩
 
-/-- Over `ℕ`, with the tag `1`, the sum, and `1` as the selection's
-marker. -/
+/-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisDiffOps :=
-  basisDiffOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
+  basisDiffOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
-/-- Over `ℕ`, with the tag `1` and the sum. -/
+/-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisApplyOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyOps :=
-  basisApplyOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
+  basisApplyOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
 /-! ## Three windows that are derivable
 
-`AggQueryIn.WinsDerivable` asks of a window a predicate of the language
-holding where its frame condition holds and its `FILTER` clause keeps the
-row. These are the three frames of `sec:basis`'s `prop:winderived` for
-which `Provenance.PlainBasis` builds that predicate: the whole
-partition, which asks nothing of the domain, and the two `RANGE` frames
-read against the clause, which ask that nothing be null – the predicate
-language has comparisons and `IS NOT DISTINCT FROM` but no `IS NULL`
-atom, so the null branches of `OrderCol.le` have no reading there. Each
-takes any `DISTINCT` and any clause. -/
+`AggQueryIn.WinsDerivable` asks of a window that its frame contain its
+current row and that its input be all regular. These are the three
+frames of `sec:basis`'s `prop:winderived` that satisfy the first, each
+over any `DISTINCT` and any `FILTER` clause: the whole partition and the
+two `RANGE` frames. Nothing is asked of the frame condition, which
+`ValueFrame.exists_framePred` reads as a predicate of the language, nor
+of the domain. -/
 
 /-- **A window over the whole partition is derivable.** -/
 theorem AggQueryIn.winsDerivable_win_whole {c n m p : ℕ} (P : Tuple (Fin n) m)
@@ -1088,33 +1149,30 @@ theorem AggQueryIn.winsDerivable_win_whole {c n m p : ℕ} (P : Tuple (Fin n) m)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
     (AggQueryIn.Win P O o ValueFrame.whole t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
-  ⟨fun _ => rfl, ValueFrame.containsSelf_whole,
-    exists_framePred_whole O keep, hq⟩
+  ⟨fun _ => rfl, ValueFrame.containsSelf_whole, hq⟩
 
-/-- **And one over `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`**,
-where nothing is null. -/
-theorem AggQueryIn.winsDerivable_win_rangeUpTo [NoNulls T] {c n m p : ℕ}
+/-- **And one over `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT
+ROW`.** -/
+theorem AggQueryIn.winsDerivable_win_rangeUpTo {c n m p : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
     (AggQueryIn.Win P O o (ValueFrame.rangeUpTo o) t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
-  ⟨fun _ => rfl, ValueFrame.rangeUpTo_containsSelf o,
-    exists_framePred_rangeUpTo O o keep, hq⟩
+  ⟨fun _ => rfl, ValueFrame.rangeUpTo_containsSelf o, hq⟩
 
 /-- **And one over the same frame excluding the current row's peers**
 (`EXCLUDE GROUP`), which is what a running total that must not read its
 own row needs. -/
-theorem AggQueryIn.winsDerivable_win_rangeBefore [NoNulls T] {c n m p : ℕ}
+theorem AggQueryIn.winsDerivable_win_rangeBefore {c n m p : ℕ}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
     (AggQueryIn.Win P O o (ValueFrame.rangeBefore o) t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
-  ⟨fun _ => rfl, ValueFrame.rangeBefore_containsSelf o,
-    exists_framePred_rangeBefore O o keep, hq⟩
+  ⟨fun _ => rfl, ValueFrame.rangeBefore_containsSelf o, hq⟩
 
 /-! ## The fourth basis: both swaps at once
 
@@ -1134,14 +1192,14 @@ def basisApplyDiffOps : Set OpKind :=
 the plain fragment whose projections post-compose no aggregate column is
 equivalent to one over `∅`, `Π`, the apply, `⊎`, `γ`, `−`. -/
 theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
-    {κ : Fin n → ColKind} (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0)
+    {κ : Fin n → ColKind} (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt)
     (q : AggQuery T n κ) (hq : q.usesOnly plainOps)
     (hd : q.WinsDerivable) (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.usesOnly basisApplyDiffOps ∧ q'.overSchema sch ∧ q.PlainEquiv q' := by
   obtain ⟨q₃, hu₃, hs₃, he₃⟩ :=
-    AggQueryIn.exists_basisOps_plainEquiv f hzero q hq hd hqs
+    AggQueryIn.exists_basisOps_plainEquiv cnt hcnt q hq hd hqs
   obtain ⟨q₄, hu₄, hs₄, hw₄, he₄⟩ :=
     AggQueryIn.exists_allReg (S := basisOps) (sch := sch) q₃ hu₃
       (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
@@ -1168,45 +1226,16 @@ theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
     (((he₃ D γ).trans (he₄ D γ)).trans (he₅ D γ)).trans (he₆ D γ)⟩
 
 /-- **`{∅, Π, apply, ⊎, γ, −}` generates, over a schema.** -/
-theorem basisApplyDiffOps_generatesOn (f : SeqAggFunc T)
-    (hzero : ∀ l : List T, f l = 0 ↔ ∀ x ∈ l, x = 0) (sch : Schema) :
+theorem basisApplyDiffOps_generatesOn (cnt : SeqAggFunc T)
+    (hcnt : SeqAggFunc.Counts cnt) (sch : Schema) :
     GeneratesOn T sch basisApplyDiffOps :=
   fun q hqs hq hd => by
     obtain ⟨q', hu', hs', he'⟩ :=
-      AggQueryIn.exists_basisApplyDiffOps_plainEquiv f hzero q hq hd hqs
+      AggQueryIn.exists_basisApplyDiffOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu', he'⟩
 
-/-- Over `ℕ`, with the tag `1`, the sum and the marker `1`. -/
+/-- Over `ℕ`, with `COUNT(*)` as the aggregate. -/
 theorem basisApplyDiffOps_generatesOn_nat (sch : Schema) :
     GeneratesOn ℕ sch basisApplyDiffOps :=
-  basisApplyDiffOps_generatesOn List.sum (fun _ => List.sum_eq_zero_iff) sch
+  basisApplyDiffOps_generatesOn SeqAggFunc.count counts_count_nat sch
 
-/-- **The two `RANGE` frames over a domain that names its null**: the
-same windows as `AggQueryIn.winsDerivable_win_rangeUpTo` and
-`_rangeBefore`, with the clause's null placement read by `IS NOT
-DISTINCT FROM ν` tests instead of a domain without nulls. `ν` is asked
-to be a null and the only one, which is SQL's `NULL`. -/
-theorem AggQueryIn.winsDerivable_win_rangeUpTo_of_null {c n m p : ℕ}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (t : TermIn T c n) (f : SeqAggFunc T)
-    {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
-    (keep : Option (Selection T n)) {ν : T}
-    (hν : ValueType.isNull ν = true)
-    (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win P O o (ValueFrame.rangeUpTo o) t f q
-      (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
-  ⟨fun _ => rfl, ValueFrame.rangeUpTo_containsSelf o,
-    exists_framePred_rangeUpTo_of_null O o keep hν hνu, hq⟩
-
-/-- And the same without the current row's peers. -/
-theorem AggQueryIn.winsDerivable_win_rangeBefore_of_null {c n m p : ℕ}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (t : TermIn T c n) (f : SeqAggFunc T)
-    {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
-    (keep : Option (Selection T n)) {ν : T}
-    (hν : ValueType.isNull ν = true)
-    (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win P O o (ValueFrame.rangeBefore o) t f q
-      (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
-  ⟨fun _ => rfl, ValueFrame.rangeBefore_containsSelf o,
-    exists_framePred_rangeBefore_of_null O o keep hν hνu, hq⟩

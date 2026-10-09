@@ -3075,7 +3075,6 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
 
-omit [ValueType T] in
 /-- A query with no multi-frame window asks nothing of its frames. -/
 theorem AggQueryIn.framesContainSelf_of_noWinExpr :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
