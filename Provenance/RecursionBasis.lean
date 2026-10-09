@@ -1166,3 +1166,247 @@ theorem length_frameListOf_le {n m p : ℕ} (P : Tuple (Fin n) m)
     refine le_trans (card_erase_le' _ _ x) ?_
     exact le_trans (Multiset.card_le_card (Multiset.filter_le _ X))
       (Nat.le_succ _)
+
+/-! ### Where the values of a recursion-free result lie -/
+
+private theorem poly_mono {b₁ b k₁ k m : ℕ} (hb : b₁ ≤ b) (hk : k₁ ≤ k) :
+    b₁ * (m + 1) ^ k₁ ≤ b * (m + 1) ^ k :=
+  Nat.mul_le_mul hb (Nat.pow_le_pow_right (by omega) hk)
+
+omit [ValueType T] in
+private theorem append_mem {V : Finset T} {n₁ n₂ : ℕ} {u : Tuple T n₁}
+    {v : Tuple T n₂} (hu : ∀ j, u j ∈ V) (hv : ∀ j, v j ∈ V) :
+    ∀ j, (Fin.append u v : Tuple T (n₁ + n₂)) j ∈ V := by
+  intro j
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.append_left]; exact hu i
+  · rw [Fin.append_right]; exact hv i
+
+omit [ValueType T] in
+private theorem snoc_mem {V : Finset T} {n : ℕ} {u : Tuple T n} {a : T}
+    (hu : ∀ j, u j ∈ V) (ha : a ∈ V) :
+    ∀ j, (Fin.snoc u a : Tuple T (n + 1)) j ∈ V := by
+  intro j
+  refine Fin.lastCases ?_ (fun i => ?_) j
+  · rw [Fin.snoc_last]; exact ha
+  · rw [Fin.snoc_castSucc]; exact hu i
+
+/-- A count over a sequence no longer than `m` is one of the values a
+count takes there. -/
+private theorem count_mem_countVals {cnt : SeqAggFunc T} {g : ℕ → T}
+    (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
+    {L : List T} {m : ℕ} (h : L.length ≤ m) : cnt L ∈ countVals g m := by
+  rw [hg L]
+  exact mem_countVals (le_trans List.countP_le_length h)
+
+/-- **The values of a recursion-free result**: in the minimal signature
+they are values of the instance, values the context supplies, constants
+of the query, or counts – and a count is bounded by the size of what it
+counts, which `AggQueryIn.exists_polyBound` bounds by a polynomial. -/
+theorem AggQueryIn.exists_valsIn {cnt : SeqAggFunc T} {g : ℕ → T}
+    (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x))) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.noRec → q.inSig {cnt} →
+      ∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T) (V : Finset T),
+        (∀ (m : ℕ) (s : String) (r : Relation T m), D.find m s = some r →
+            Relation.valsIn r V) →
+        (∀ j, γ j ∈ V) → q.constsIn V →
+        countVals g (b * (D.size + 1) ^ k) ⊆ V →
+        Relation.valsIn (q.evaluatePlain D γ) V := by
+  intro c n κ q
+  induction q with
+  | Rel n s =>
+    refine fun _ _ => ⟨0, 0, fun D γ V hD _ _ _ => ?_⟩
+    show Relation.valsIn (match D.find n s with
+      | none => (0 : Relation T n) | some rn => rn) V
+    cases hf : D.find n s with
+    | none => exact fun u hu => absurd hu (by simp)
+    | some rn => exact hD n s rn hf
+  | Empty =>
+    refine fun _ _ => ⟨0, 0, fun _ _ _ _ _ _ _ u hu => ?_⟩
+    exact absurd (show u ∈ (0 : Multiset (Tuple T 0)) from hu) (by simp)
+  | Proj ps q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k, hb⟩ := ih hq hs.2
+    refine ⟨b, k, fun D γ V hD hγ hc hV u hu j => ?_⟩
+    obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
+    exact (ps j).evalPlain_mem_of_noFun (hs.1 j) (hc.1 j) v
+      (fun i => hb D γ V hD hγ hc.2 hV v hv i) γ hγ
+  | Sel φ q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k, hb⟩ := ih hq hs.2
+    exact ⟨b, k, fun D γ V hD hγ hc hV =>
+      Relation.valsIn_of_le (Multiset.filter_le _ _) (hb D γ V hD hγ hc hV)⟩
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    refine fun hq hs => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1 hs.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2 hs.2
+    refine ⟨b₁ + b₂, max k₁ k₂, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain, Relation.hMul_eq_bind] at hu
+    obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+    obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+    refine append_mem (hb₁ D γ V hD hγ hc.1 ?_ v hv)
+      (hb₂ D γ V hD hγ hc.2 ?_ w hw)
+    · exact le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_left _ _))) hV
+    · exact le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_right _ _))) hV
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    refine fun hq hs => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1 hs.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2 hs.2
+    refine ⟨b₁ + b₂, max k₁ k₂, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+    obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+    have hv' : ∀ j, v j ∈ V := hb₁ D γ V hD hγ hc.1
+      (le_trans (countVals_subset (poly_mono (by omega) (le_max_left _ _))) hV)
+      v hv
+    refine append_mem hv' (hb₂ D (Fin.append v γ) V hD
+      (append_mem hv' hγ) hc.2 ?_ w hw)
+    exact le_trans (countVals_subset
+      (poly_mono (by omega) (le_max_right _ _))) hV
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    refine fun hq hs => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1 hs.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2 hs.2
+    refine ⟨b₁ + b₂, max k₁ k₂, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    rw [Multiset.mem_add] at hu
+    rcases hu with h | h
+    · exact hb₁ D γ V hD hγ hc.1 (le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_left _ _))) hV) u h
+    · exact hb₂ D γ V hD hγ hc.2 (le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_right _ _))) hV) u h
+  | Dedup q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k, hb⟩ := ih hq hs
+    exact ⟨b, k, fun D γ V hD hγ hc hV =>
+      Relation.valsIn_of_le (Multiset.dedup_le _) (hb D γ V hD hγ hc hV)⟩
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k, hb⟩ := ih₁ hq.1 hs.1
+    exact ⟨b, k, fun D γ V hD hγ hc hV =>
+      Relation.valsIn_of_le (Multiset.filter_le _ _)
+        (hb D γ V hD hγ hc.1 hV)⟩
+  | Alt k hk q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k', hb⟩ := ih hq hs
+    exact ⟨b, k', fun D γ V hD hγ hc hV => hb D γ V hD hγ hc hV⟩
+  | Retag hk q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨b, k, hb⟩ := ih hq hs
+    exact ⟨b, k, fun D γ V hD hγ hc hV => hb D γ V hD hγ hc hV⟩
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq _ => hq.elim
+  | Gamma is ts fs q keep ord ih =>
+    refine fun hq hs => ?_
+    obtain ⟨bv, kv, hbv⟩ := ih hq hs.2.2.2
+    obtain ⟨bc, kc, hbc⟩ := AggQueryIn.exists_polyBound q hq
+    refine ⟨bv + bc, max kv kc, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    obtain ⟨gg, hgg, rfl⟩ := Multiset.mem_map.mp hu
+    rw [Multiset.mem_dedup] at hgg
+    obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hgg
+    have hvV : ∀ i, v i ∈ V := hbv D γ V hD hγ hc
+      (le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_left _ _))) hV) v hv
+    refine append_mem (fun i => hvV (is i)) (fun j => ?_)
+    rw [show fs j = cnt from Set.mem_singleton_iff.mp (hs.2.1 j)]
+    refine hV (count_mem_countVals hg ?_)
+    rw [List.length_map]
+    exact le_trans (length_groupSeqOptOrd_le is ord _ _ (keep j))
+      (le_trans (hbc D γ) (poly_mono (by omega) (le_max_right _ _)))
+  | GammaScalar ts fs q ord ih =>
+    refine fun hq hs => ?_
+    obtain ⟨bc, kc, hbc⟩ := AggQueryIn.exists_polyBound q hq
+    refine ⟨bc, kc, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    obtain rfl := Multiset.mem_singleton.mp hu
+    intro j
+    show fs j _ ∈ V
+    rw [show fs j = cnt from Set.mem_singleton_iff.mp (hs.2.1 j)]
+    refine hV (count_mem_countVals hg ?_)
+    rw [List.length_map]
+    exact le_trans (length_groupSeqOptOrd_le (fun k : Fin 0 => k.elim0) ord _
+      (fun k : Fin 0 => k.elim0) none) (hbc D γ)
+  | GammaNest is his p f q ih =>
+    refine fun hq hs => ?_
+    obtain ⟨bv, kv, hbv⟩ := ih hq hs.2.2
+    obtain ⟨bc, kc, hbc⟩ := AggQueryIn.exists_polyBound q hq
+    obtain ⟨g', hsym, hmem, rfl⟩ := hs.2.1
+    rw [Set.mem_singleton_iff] at hmem
+    refine ⟨bv + bc, max kv kc, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    obtain ⟨gg, hgg, rfl⟩ := Multiset.mem_map.mp hu
+    rw [Multiset.mem_dedup] at hgg
+    obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hgg
+    have hvV : ∀ i, v i ∈ V := hbv D γ V hD hγ hc
+      (le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_left _ _))) hV) v hv
+    refine append_mem (fun i => hvV (is i)) (fun _ => ?_)
+    obtain ⟨L, hL⟩ := Quotient.exists_rep
+      (((q.evaluatePlain D γ).filter (fun w =>
+        (fun k => w (is k) : Tuple T _) = (fun k => v (is k) : Tuple T _))).map
+        (fun w => p.evalPlain w γ))
+    rw [← hL, show SeqAggFunc.onBag g' hsym (Quotient.mk _ L) = g' L from rfl,
+      hmem]
+    refine hV (count_mem_countVals hg ?_)
+    have hcard : (L : Multiset T).card
+        = Multiset.card (Multiset.map (fun w => p.evalPlain w γ)
+          (Multiset.filter (fun w =>
+            (fun k => w (is k) : Tuple T _)
+              = (fun k => v (is k) : Tuple T _)) (q.evaluatePlain D γ))) :=
+      congrArg Multiset.card hL
+    rw [show L.length = (L : Multiset T).card from rfl, hcard,
+      Multiset.card_map]
+    exact le_trans (Multiset.card_le_card (Multiset.filter_le _ _))
+      (le_trans (hbc D γ) (poly_mono (by omega) (le_max_right _ _)))
+  | Win P O o w t f q hrr dist keep ih =>
+    refine fun hq hs => ?_
+    obtain ⟨bv, kv, hbv⟩ := ih hq hs.2.2.2
+    obtain ⟨bc, kc, hbc⟩ := AggQueryIn.exists_polyBound q hq
+    refine ⟨bv + bc + 1, max kv kc, fun D γ V hD hγ hc hV u hu => ?_⟩
+    rw [AggQueryIn.evaluatePlain] at hu
+    obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
+    have hvV : ∀ i, v i ∈ V := hbv D γ V hD hγ hc
+      (le_trans (countVals_subset
+        (poly_mono (by omega) (le_max_left _ _))) hV) v hv
+    have hfc : (if dist then f.distinct else f) = cnt := by
+      cases dist with
+      | false => exact Set.mem_singleton_iff.mp hs.2.1
+      | true => exact Set.mem_singleton_iff.mp hs.2.1
+    have hlen : ∀ L : List T, L.length
+        ≤ Multiset.card (q.evaluatePlain D γ) + 1 →
+        cnt L ∈ V := by
+      intro L hL
+      refine hV (count_mem_countVals hg (le_trans hL ?_))
+      refine le_trans (Nat.add_le_add_right (le_trans (hbc D γ)
+        (poly_mono (le_refl bc) (le_max_right kv kc))) 1) ?_
+      have h1 : 1 ≤ (D.size + 1) ^ max kv kc :=
+        Nat.one_le_pow _ _ (by omega)
+      calc bc * (D.size + 1) ^ max kv kc + 1
+          ≤ bc * (D.size + 1) ^ max kv kc + 1 * (D.size + 1) ^ max kv kc := by
+            omega
+        _ = (bc + 1) * (D.size + 1) ^ max kv kc := by ring
+        _ ≤ (bv + bc + 1) * (D.size + 1) ^ max kv kc :=
+            Nat.mul_le_mul_right _ (by omega)
+    refine snoc_mem hvV ?_
+    · rw [hfc]
+      cases keep with
+      | none =>
+        rw [ValueFrame.windowValueOpt_none, ValueFrame.windowValue]
+        refine hlen _ ?_
+        rw [List.length_map]
+        exact le_trans (length_frameListOf_le P O o w _ _)
+          (Nat.add_le_add_right (le_of_eq (Multiset.card_map _ _)) 1)
+      | some φ =>
+        rw [ValueFrame.windowValueOpt_some, ValueFrame.windowValueWhen]
+        refine hlen _ ?_
+        rw [List.length_map]
+        exact le_trans (List.length_filter_le _ _)
+          (le_trans (length_frameListOf_le P O o w _ _)
+            (Nat.add_le_add_right (le_of_eq (Multiset.card_map _ _)) 1))
+  | ProvSum is his t q ih => exact fun _ hs => hs.elim
+  | GammaTok is his ts fs a q keep ih => exact fun _ hs => hs.elim
+  | WinExpr P O o ws ts fs gf q keeps ih => exact fun _ hs => hs.elim
