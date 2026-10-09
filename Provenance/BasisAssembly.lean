@@ -42,7 +42,8 @@ what the other half needs.
 That other half is six lemmas, one per row of `tab:basisclasses`:
 `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
 `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
-`empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`. They
+`empty_or_muSet_mem_of_generatesOn` and
+`sel_or_diff_mem_of_generatesOn`. They
 are separate statements rather than one conjunction because each names
 the schema its witness lives over, and the `∅` row lives over the
 *empty* schema – no single schema serves them all.
@@ -756,19 +757,23 @@ necessary is that the query be *over the schema*
 rows, and the generation then has to produce a query over the same
 schema. -/
 
-/-- **`∅` is necessary**: over the empty schema a query can name no
-relation, so there is nothing to write it with. No witness is needed –
-the unit is already a query over that schema, and whatever it is
-equivalent to must be written without a relation name. -/
-theorem empty_mem_of_generatesOn {S : Set OpKind}
-    (hms : OpKind.muSet ∉ S)
-    (hS : GeneratesOn T Schema.empty S) : OpKind.empty ∈ S := by
+/-- **One of `∅` and `μ^∪` is necessary**: over the empty schema a query
+can name no relation, so there is nothing to write it with – *unless* a
+set recursion supplies one. No witness is needed: the unit is already a
+query over that schema, and whatever it is equivalent to must be written
+without a relation name, so either from `∅` or from the recursive
+reference a `μ^∪` binds. The second is not a formality – over the empty
+schema `μ^∪R.(γ_∅[](R), R)` has one row, a scalar aggregation over the
+empty round, so `∅` alone is not forced. -/
+theorem empty_or_muSet_mem_of_generatesOn {S : Set OpKind}
+    (hS : GeneratesOn T Schema.empty S) :
+    OpKind.empty ∈ S ∨ OpKind.muSet ∈ S := by
   obtain ⟨q', hsch, hu', -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
     AggQueryIn.overSchema_unit
     (usesOnly_unit (by simp [plainOps, basisDD, basisOps])
       (by simp [plainOps, basisDD, basisOps]))
     winsDerivable_unit
-  exact AggQueryIn.usesEmpty_of_overSchema_empty hms q' hsch hu'
+  exact AggQueryIn.usesEmpty_or_muSet_of_overSchema_empty q' hsch hu'
 
 /-- **One of `σ` and `−` is necessary**: without both, a query over the
 schema is empty on every instance or non-empty on every full one, and a

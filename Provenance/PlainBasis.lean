@@ -393,17 +393,17 @@ the genericity reading of the `∅` row asks: the language is to be defined
 for every schema, the empty one included. It is *not* that the unit
 relation needs `∅`: with any name in the schema, `γ_∅[](R)` is the unit,
 whatever `R` holds. -/
-theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind}
-    (hms : OpKind.muSet ∉ S) :
+theorem AggQueryIn.usesEmpty_or_muSet_of_overSchema_empty {S : Set OpKind} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.overSchema Schema.empty → q.usesOnly S → OpKind.empty ∈ S := by
+      q.overSchema Schema.empty → q.usesOnly S →
+      OpKind.empty ∈ S ∨ OpKind.muSet ∈ S := by
   intro c n κ q
   induction q with
   | Rel n s =>
     intro h _
     have hnone : (none : Option ℕ) = some n := h
     exact (Option.some_ne_none n hnone.symm).elim
-  | Empty => intro _ h; exact h
+  | Empty => intro _ h; exact Or.inl h
   | Proj ps q ih => intro h hq; exact ih h hq.2
   | Sel φ q ih => intro h hq; exact ih h hq.2
   | Prod q₁ q₂ ih₁ ih₂ => intro h hq; exact ih₁ h.1 hq.2.1
@@ -414,7 +414,7 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind}
   | Alt k hk q ih => intro h hq; exact ih h hq
   | Retag hk q ih => intro h hq; exact ih h hq
   | Mu s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact absurd hq.1 hms
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact Or.inr hq.1
   | Gamma is ts fs q keep ord ih => intro h hq; exact ih h hq.2
   | GammaScalar ts fs q ord ih => intro h hq; exact ih h hq.2
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
