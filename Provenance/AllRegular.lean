@@ -459,8 +459,8 @@ theorem AggQueryIn.retypable_of_usesOnly {S : Set OpKind}
     exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Alt k h q ih => exact fun hq => ih hq
   | Retag h q ih => exact fun hq => ih hq
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
   | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2
   | GammaScalar ts fs q ord ih => exact fun hq => ih hq.2
   | GammaNest is his pc f q ih => exact fun hq => ih hq.2
@@ -765,7 +765,8 @@ Each case rebuilds the operator over re-typed children and then reads
 the columns it produces as values (`AggQueryIn.allRegOf`), which is the
 identity there. `Alt` and `Retag` disappear: their children come back
 already regular. -/
-theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
+theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly S → q.Retypable → q.overSchema sch →
       ∃ q' : AggQueryIn T c n (ColKind.allReg n),
@@ -870,8 +871,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema} :
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq hnt hqs
     exact ⟨q', hu', hs', hw', fun D γ => he' D γ⟩
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
   | Gamma is ts fs q keep ord ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs

@@ -1864,3 +1864,91 @@ def AggQueryIn.aritiesLe (A : ℕ) : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.aritiesLe A
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.aritiesLe A
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.aritiesLe A
+
+/-! ## The row: a basis of the whole algebra holds a recursion
+
+`thm:plainbasis`'s second half grades the recursions as classes like the
+others. The witness is the chain of diamonds: a class set holding neither
+recursion generates only queries whose answers are polynomial in the
+instance (`AggQueryIn.exists_polyBound`), and the sink of the chain has
+`2ⁿ` rows.
+
+The four rows that do **not** survive a recursion carry the two classes'
+absence as a hypothesis (`Π`, `×`/apply, `⊎`, and `σ`/`−`); `γ` survives
+it with a proof (over an empty instance every round is empty), and `∅`
+survives `μ^⊎` but not `μ^∪` – a scalar aggregation inside a set
+recursion makes a row from the empty round without naming a relation and
+without `∅`, which `tab:basisclasses`'s `∅` row does not account for.
+-/
+
+omit [ValueType T] in
+/-- **A query over classes holding neither recursion is
+recursion-free.** -/
+theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → q.noRec := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
+  | Proj ps q ih => exact fun hq => ih hq.2
+  | Sel φ q ih => exact fun hq => ih hq.2
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Dedup q ih => exact fun hq => ih hq.2
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
+  | Alt k hk q ih => exact fun hq => ih hq
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
+  | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2
+  | GammaScalar ts fs q ord ih => exact fun hq => ih hq.2
+  | GammaNest is his p f q ih => exact fun hq => ih hq.2
+  | ProvSum is his t q ih => exact fun hq => hq.elim
+  | Retag hk q ih => exact fun hq => ih hq
+  | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
+  | Win P O o w t f q hrr dist keep ih => exact fun hq => ih hq.2
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hq => ih hq.2
+
+/-- **The scope of the classification with the recursions.** -/
+def plainRecOps : Set OpKind :=
+  insert OpKind.muBag (insert OpKind.muSet plainOps)
+
+/-- **A generating set of the whole algebra**, over a schema. -/
+def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
+    Prop :=
+  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
+    q.overSchema sch → q.usesOnly plainRecOps → q.WinsDerivable →
+      ∃ q' : AggQuery T n (ColKind.allReg n),
+        q'.overSchema sch ∧ q'.usesOnly S ∧ q.PlainEquiv q'
+
+theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
+  refine ⟨rfl, rfl, ?_⟩
+  exact ⟨rfl, rfl⟩
+
+theorem usesOnly_chainWitness : chainWitness.usesOnly plainRecOps := by
+  refine ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, ?_⟩
+  exact ⟨⟨by simp [plainRecOps, plainOps, basisDD, basisOps], fun _ => rfl⟩,
+    by simp [plainRecOps, plainOps, basisDD, basisOps],
+    by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, trivial⟩
+
+theorem winsDerivable_chainWitness : chainWitness.WinsDerivable :=
+  ⟨trivial, trivial, trivial⟩
+
+/-- **A basis of the whole algebra holds a recursion operator**
+(`tab:basisclasses`'s `μ^⊎` row, in the form the invariant proved here
+gives): without both, every answer is polynomial in the instance, and
+the sink of a chain of `n` diamonds has `2ⁿ` rows. -/
+theorem muBag_or_muSet_mem_of_generatesOnRec {S : Set OpKind}
+    (hS : GeneratesOnRec ℕ schemaSE S) :
+    OpKind.muBag ∈ S ∨ OpKind.muSet ∈ S := by
+  by_contra h
+  obtain ⟨hmb, hms⟩ := not_or.mp h
+  obtain ⟨q', -, hu', he⟩ := hS chainWitness overSchema_chainWitness
+    usesOnly_chainWitness winsDerivable_chainWitness
+  obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound q'
+    (AggQueryIn.noRec_of_usesOnly hmb hms q' hu')
+  refine chainWitness_no_polynomial_bound ⟨b, k, fun D => ?_⟩
+  rw [he D (fun j => j.elim0)]
+  exact hb D (fun j => j.elim0)

@@ -2643,6 +2643,7 @@ The target set is the query's own, which is what makes the result
 composable: a query with no window decorrelates to one with no
 window. -/
 theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S)
     {sch : Schema} (hS : decorrOps ⊆ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly (insert OpKind.apply S) → q.overSchema sch →
@@ -2690,8 +2691,12 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
   | Retag hbase q ih =>
     exact fun hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_retag hS hbase (ih hq hqs P hPu hPs hnd)
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+      exact fun hq => absurd hq.1 (fun hc =>
+        hmb ((Set.mem_insert_iff.mp hc).resolve_left (by decide)))
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+      exact fun hq => absurd hq.1 (fun hc =>
+        hms ((Set.mem_insert_iff.mp hc).resolve_left (by decide)))
   | Gamma is ts fs q keep ord ih =>
     exact fun hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_gamma hS
@@ -2734,7 +2739,8 @@ projecting that block away gives an apply-free query with the same plain
 semantics. This is what `sec:basis` asserts when it leaves the apply out
 of the basis classes. -/
 theorem AggQueryIn.exists_applyFree_plainEquiv {S : Set OpKind} {sch : Schema}
-    (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S) {n : ℕ}
+    (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) {n : ℕ}
     {κ : Fin n → ColKind} (q : AggQuery T n κ)
     (hq : q.usesOnly (insert OpKind.apply S)) (hqs : q.overSchema sch) :
     ∃ q' : AggQuery T n κ,
@@ -2752,8 +2758,9 @@ theorem AggQueryIn.exists_applyFree_plainEquiv {S : Set OpKind} {sch : Schema}
     intro D
     rw [evaluatePlain_unit D (fun _ => 0) v₀]
     exact Multiset.nodup_singleton v₀
-  obtain ⟨q'', hu, hos, hd⟩ := AggQueryIn.hasDecorrelation_of_usesOnly hS q
-    hq hqs AggQueryIn.unit hunit AggQueryIn.overSchema_unit hnd
+  obtain ⟨q'', hu, hos, hd⟩ :=
+    AggQueryIn.hasDecorrelation_of_usesOnly hmb hms hS q
+      hq hqs AggQueryIn.unit hunit AggQueryIn.overSchema_unit hnd
   have hkind : ∀ i : Fin n,
       (AggQueryIn.carryCol (T := T) (ColKind.liftKinds 0 κ)
         (Fin.natAdd 0 i)).kind = κ i :=

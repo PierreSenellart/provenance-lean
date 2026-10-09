@@ -52,18 +52,28 @@ inductive OpKind where
   | gamma
   /-- A window function. -/
   | win
+  /-- The bag recursion `μ^⊎`, SQL's `WITH RECURSIVE … UNION ALL`. -/
+  | muBag
+  /-- The set recursion `μ^∪`, SQL's `WITH RECURSIVE … UNION`. -/
+  | muSet
   deriving DecidableEq, Repr
 
 /-- **The classes a query uses are among `S`.** A relation leaf is in no
 class, every operator is in its own, and `Alt` and `Retag` are in none,
 being transparent to the plain semantics.
 
-Four operators are `False`: this predicate carries the scope of the
-classification as well, and the two recursions, the token-building
-grouping and the provenance sum are outside it. The last two belong to
-the rewritten world – they are what ProvSQL's plans build, not what a
-source query is written with – so a classification of the source
-language has nothing to say about them. -/
+Two operators are `False`: this predicate carries the scope of the
+classification as well, and the token-building grouping and the
+provenance sum are outside it. They belong to the rewritten world – they
+are what ProvSQL's plans build, not what a source query is written with
+– so a classification of the source language has nothing to say about
+them.
+
+**The two recursions are classes like the others** (`muBag`, `muSet`),
+which is what `thm:plainbasis`'s second half grades. A class set holding
+neither – `plainOps`, and every basis of `Provenance.BasisAssembly` –
+therefore excludes a recursive query exactly as before, so the six rows
+of the recursion-free classification are unchanged. -/
 def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKind} →
     AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -82,8 +92,10 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
       OpKind.diff ∈ S ∧ q₁.usesOnly S ∧ q₂.usesOnly S
   | _, _, _, .Alt _ _ q => q.usesOnly S
   | _, _, _, .Retag _ q => q.usesOnly S
-  | _, _, _, .Mu _ _ _ => False
-  | _, _, _, .MuSet _ _ _ => False
+  | _, _, _, .Mu _ q₀ q₁ =>
+      OpKind.muBag ∈ S ∧ q₀.usesOnly S ∧ q₁.usesOnly S
+  | _, _, _, .MuSet _ q₀ q₁ =>
+      OpKind.muSet ∈ S ∧ q₀.usesOnly S ∧ q₁.usesOnly S
   | _, _, _, .Gamma _ _ _ q _ _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaScalar _ _ q _ => OpKind.gamma ∈ S ∧ q.usesOnly S
   | _, _, _, .GammaNest _ _ p _ q =>
@@ -132,8 +144,10 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
     exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
   | Alt k h q ih => exact fun θ => ih θ
   | Retag h q ih => exact fun θ => ih θ
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+      exact fun θ => and_congr Iff.rfl (and_congr (ih₀ θ) (ih₁ θ))
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+      exact fun θ => and_congr Iff.rfl (and_congr (ih₀ θ) (ih₁ θ))
   | Gamma is ts fs q keep ord ih =>
     exact fun θ => and_congr Iff.rfl (ih θ)
   | GammaScalar ts fs q ord ih => exact fun θ => and_congr Iff.rfl (ih θ)
@@ -177,8 +191,10 @@ theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨hSS h.1, ih₁ h.2.1, ih₂ h.2.2⟩
   | Alt k h q ih => exact fun hq => ih hq
   | Retag h q ih => exact fun hq => ih hq
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+      exact fun h => ⟨hSS h.1, ih₀ h.2.1, ih₁ h.2.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+      exact fun h => ⟨hSS h.1, ih₀ h.2.1, ih₁ h.2.2⟩
   | Gamma is ts fs q keep ord ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | GammaScalar ts fs q ord ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | GammaNest is his pc f q ih => exact fun h => ⟨⟨hSS h.1.1, h.1.2⟩, ih h.2⟩
@@ -377,7 +393,8 @@ the genericity reading of the `∅` row asks: the language is to be defined
 for every schema, the empty one included. It is *not* that the unit
 relation needs `∅`: with any name in the schema, `γ_∅[](R)` is the unit,
 whatever `R` holds. -/
-theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
+theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind}
+    (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.overSchema Schema.empty → q.usesOnly S → OpKind.empty ∈ S := by
   intro c n κ q
@@ -396,8 +413,8 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | Diff q₁ q₂ ih₁ ih₂ => intro h hq; exact ih₁ h.1 hq.2.1
   | Alt k hk q ih => intro h hq; exact ih h hq
   | Retag hk q ih => intro h hq; exact ih h hq
-  | Mu s q₀ q₁ ih₀ ih₁ => intro _ hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro _ hq; exact absurd hq.1 hms
   | Gamma is ts fs q keep ord ih => intro h hq; exact ih h hq.2
   | GammaScalar ts fs q ord ih => intro h hq; exact ih h hq.2
   | GammaNest is his p f q ih => intro h hq; exact ih h hq.2
@@ -593,7 +610,8 @@ def Database.Thin (D : Database T) : Prop :=
 
 /-- **Without `⊎`, a thin instance has an answer of at most one row.** -/
 theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
-    (hu : OpKind.union ∉ S) :
+    (hu : OpKind.union ∉ S) (hmb : OpKind.muBag ∉ S)
+    (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly S → ∀ (D : Database T), Database.Thin D → ∀ γ : Fin c → T,
       Multiset.card (q.evaluatePlain D γ) ≤ 1 := by
@@ -645,8 +663,8 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
       (ih₁ hq.2.1 D hD γ)
   | Alt k hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
   | Gamma is ts fs q keep ord ih =>
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain, Multiset.card_map]
@@ -739,7 +757,8 @@ theorem Multiset.dedup_eq_zero_iff {α : Type} [DecidableEq α]
 /-- **Without `σ` and `−`, a query is empty everywhere or non-empty on
 every full instance.** -/
 theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
-    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S) {sch : Schema} :
+    (hsel : OpKind.sel ∉ S) (hdiff : OpKind.diff ∉ S)
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) {sch : Schema} :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly S → q.overSchema sch →
       (∀ (D : Database T) (γ : Fin c → T), q.evaluatePlain D γ = 0)
@@ -840,8 +859,8 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
   | Diff q₁ q₂ ih₁ ih₂ => intro hq; exact absurd hq.1 hdiff
   | Alt k hk q ih => intro hq hw; exact ih hq hw
   | Retag hk q ih => intro hq hw; exact ih hq hw
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
   | Gamma is ts fs q keep ord ih =>
     intro hq hw
     rcases ih hq.2 hw with h | h
@@ -1012,7 +1031,8 @@ def AggQueryIn.sizeBound : {c n : ℕ} → {κ : Fin n → ColKind} →
 
 /-- **Without `×` and the apply, an answer is linear in the instance.** -/
 theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
-    (hp : OpKind.prod ∉ S) (ha : OpKind.apply ∉ S) :
+    (hp : OpKind.prod ∉ S) (ha : OpKind.apply ∉ S)
+    (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly S → ∀ (D : Database T) (γ : Fin c → T),
       Multiset.card (q.evaluatePlain D γ) ≤ q.sizeBound * (D.size + 1) := by
@@ -1053,8 +1073,8 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
       (ih₁ hq.2.1 D γ)
   | Alt k hk q ih => intro hq D γ; exact ih hq D γ
   | Retag hk q ih => intro hq D γ; exact ih hq D γ
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
   | Gamma is ts fs q keep ord ih =>
     intro hq D γ
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound,
@@ -1297,7 +1317,8 @@ def AggQueryIn.multBound : {c n : ℕ} → {κ : Fin n → ColKind} →
 
 /-- **Without `Π`, multiplicities are bounded by the query.** -/
 theorem AggQueryIn.count_le_multBound {S : Set OpKind}
-    (hpr : OpKind.proj ∉ S) :
+    (hpr : OpKind.proj ∉ S) (hmb : OpKind.muBag ∉ S)
+    (hms : OpKind.muSet ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
       q.usesOnly S → ∀ (D : Database T), Database.Nodup D →
       ∀ (γ : Fin c → T) (u : Tuple T n),
@@ -1345,8 +1366,8 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
       (ih₁ hq.2.1 D hD γ u)
   | Alt k hk q ih => intro hq D hD γ u; exact ih hq D hD γ u
   | Retag hk q ih => intro hq D hD γ u; exact ih hq D hD γ u
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
+  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
   | Gamma is ts fs q keep ord ih =>
     intro hq D hD γ u
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
@@ -3495,6 +3516,37 @@ window map it row by row, a selection filters it, a product and an apply
 read one row of each side, a union adds, duplicate elimination and
 difference only remove. Aggregation is the exception, the scalar form
 emitting its row whatever its input. -/
+private theorem muSum_zero_of_step_zero {α : Type}
+    {step : Multiset α → Multiset α} (h0 : step 0 = 0) :
+    ∀ b : ℕ, muSum step b 0 = 0 := by
+  intro b
+  induction b with
+  | zero => rfl
+  | succ b ih =>
+    show (0 : Multiset α) + muSum step b (step 0) = 0
+    rw [h0, ih, add_zero]
+
+private theorem muFix_zero_of_step_zero {α : Type}
+    {step : Multiset α → Multiset α} (h0 : step 0 = 0) : muFix step = 0 := by
+  have hmem : (0 : ℕ) ∈ {j | step^[j + 1] 0 = step^[j] 0} := by
+    show step^[1] 0 = step^[0] 0
+    simpa using h0
+  rw [muFix, muFixIdx, Nat.le_antisymm (Nat.sInf_le hmem) (Nat.zero_le _)]
+  rfl
+
+omit [ValueType T] in
+/-- The instance with a name bound to the empty relation is still
+empty. -/
+private theorem allEmpty_assign {D : Database T} (hD : D.allEmpty)
+    (s : String) (m : ℕ) : (D.assign s (0 : Relation T m)).allEmpty := by
+  intro k s' r hf
+  by_cases hc : k = m ∧ s' = s
+  · obtain ⟨rfl, rfl⟩ := hc
+    rw [Database.find_assign] at hf
+    exact (Option.some.inj hf).symm
+  · rw [Database.find_assign_of_ne s s' _ D hc] at hf
+    exact hD k s' r hf
+
 theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     (hγ : OpKind.gamma ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
@@ -3539,8 +3591,27 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     rfl
   | Alt k hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
-  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact hq.elim
+  | @Mu _ nm s q₀ q₁ ih₀ ih₁ =>
+    intro hq D hD γ
+    show muSumFix (fun X => q₁.evaluatePlain (D.assign s X) γ)
+        (q₀.evaluatePlain D γ) = 0
+    have hstep : (fun X => q₁.evaluatePlain (D.assign s X) γ)
+        (0 : Relation T nm) = 0 :=
+      ih₁ hq.2.2 (D.assign s (0 : Relation T nm))
+        (allEmpty_assign hD s nm) γ
+    rw [ih₀ hq.2.1 D hD γ, muSumFix, muSum_zero_of_step_zero hstep]
+  | @MuSet _ nm s q₀ q₁ ih₀ ih₁ =>
+    intro hq D hD γ
+    show muFix (fun X => (q₀.evaluatePlain (D.assign s X) γ
+      + q₁.evaluatePlain (D.assign s X) γ).dedup) = 0
+    refine muFix_zero_of_step_zero ?_
+    show (q₀.evaluatePlain (D.assign s (0 : Relation T nm)) γ
+      + q₁.evaluatePlain (D.assign s (0 : Relation T nm)) γ).dedup = 0
+    rw [ih₀ hq.2.1 (D.assign s (0 : Relation T nm))
+        (allEmpty_assign hD s nm) γ,
+      ih₁ hq.2.2 (D.assign s (0 : Relation T nm))
+        (allEmpty_assign hD s nm) γ]
+    rfl
   | Gamma is ts fs q keep ord ih => intro hq; exact absurd hq.1 hγ
   | GammaScalar ts fs q ord ih => intro hq; exact absurd hq.1 hγ
   | GammaNest is his p f q ih => intro hq; exact absurd hq.1.1 hγ
