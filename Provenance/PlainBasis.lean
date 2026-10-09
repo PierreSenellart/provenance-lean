@@ -1469,6 +1469,108 @@ theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
   | Win P O o w t f q hrr dist keep ih => exact fun hq D γ => ih hq.2 D γ
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hq D γ => ih hq.2 D γ
 
+/-- **A query naming nothing of a recursion settles alike on two instances
+agreeing away from its name**: the rounds it evaluates are the same, by
+`evaluatePlain_congr_of_noMention`. -/
+theorem AggQueryIn.settlesAt_of_noMention {s : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.noMention s → ∀ {D D' : Database T},
+      (∀ (k : ℕ) (s' : String), s' ≠ s → D.find k s' = D'.find k s') →
+      ∀ γ : Fin c → T, q.SettlesAt D γ → q.SettlesAt D' γ := by
+  have hassign : ∀ {D D' : Database T} (s' : String) {m : ℕ}
+      (Y : Relation T m),
+      (∀ (k : ℕ) (t : String), t ≠ s → D.find k t = D'.find k t) →
+      ∀ (k : ℕ) (t : String), t ≠ s →
+        (D.assign s' Y).find k t = (D'.assign s' Y).find k t := by
+    intro D D' s' m Y h k t ht
+    by_cases hc : k = m ∧ t = s'
+    · obtain ⟨rfl, rfl⟩ := hc
+      rw [Database.find_assign, Database.find_assign]
+    · rw [Database.find_assign_of_ne s' t Y D hc,
+        Database.find_assign_of_ne s' t Y D' hc, h k t ht]
+  intro c n κ q
+  induction q with
+  | Rel n s' => intro _ D D' _ _ _; exact trivial
+  | Empty => intro _ D D' _ _ _; exact trivial
+  | Proj ps q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Sel φ q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro hq D D' h γ hs; exact ⟨ih₁ hq.1 h γ hs.1, ih₂ hq.2 h γ hs.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro hq D D' h γ hs
+    refine ⟨ih₁ hq.1 h γ hs.1, fun u hu => ih₂ hq.2 h _ (hs.2 u ?_)⟩
+    rw [AggQueryIn.evaluatePlain_congr_of_noMention q₁ hq.1 h γ]
+    exact hu
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hq D D' h γ hs; exact ⟨ih₁ hq.1 h γ hs.1, ih₂ hq.2 h γ hs.2⟩
+  | Dedup q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro hq D D' h γ hs; exact ⟨ih₁ hq.1 h γ hs.1, ih₂ hq.2 h γ hs.2⟩
+  | Alt k hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Retag hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Mu s' q₀ q₁ ih₀ ih₁ =>
+    rename_i c' n'
+    intro hq D D' h γ hs
+    have hstep : (fun Y : Multiset (Tuple T n') => q₁.evaluatePlain (D'.assign s' Y) γ)
+        = (fun Y : Multiset (Tuple T n') => q₁.evaluatePlain (D.assign s' Y) γ) :=
+      funext fun Y =>
+        (AggQueryIn.evaluatePlain_congr_of_noMention q₁ hq.2 (hassign s' Y h) γ).symm
+    have hM : q₀.evaluatePlain D' γ = q₀.evaluatePlain D γ :=
+      (AggQueryIn.evaluatePlain_congr_of_noMention q₀ hq.1 h γ).symm
+    refine ⟨ih₀ hq.1 h γ hs.1, ?_, ?_, fun k => ?_⟩
+    · rw [← AggQueryIn.evaluatePlain_congr_of_noMention q₁ hq.2 (hassign s' _ h) γ]
+      exact hs.2.1
+    · show MuSettles (fun Y : Multiset (Tuple T n') =>
+        q₁.evaluatePlain (D'.assign s' Y) γ) (q₀.evaluatePlain D' γ)
+      rw [hstep, hM]
+      exact hs.2.2.1
+    · show q₁.SettlesAt (D'.assign s' ((fun Y : Multiset (Tuple T n') =>
+        q₁.evaluatePlain (D'.assign s' Y) γ)^[k] (q₀.evaluatePlain D' γ))) γ
+      rw [hstep, hM]
+      exact ih₁ hq.2 (hassign s' _ h) γ (hs.2.2.2 k)
+  | MuSet s' q₀ q₁ ih₀ ih₁ =>
+    rename_i c' n'
+    intro hq D D' h γ hs
+    have hstep : (fun Y : Multiset (Tuple T n') => (q₀.evaluatePlain (D'.assign s' Y) γ
+          + q₁.evaluatePlain (D'.assign s' Y) γ).dedup)
+        = (fun Y : Multiset (Tuple T n') => (q₀.evaluatePlain (D.assign s' Y) γ
+          + q₁.evaluatePlain (D.assign s' Y) γ).dedup) :=
+      funext fun Y => by
+        rw [AggQueryIn.evaluatePlain_congr_of_noMention q₀ hq.1 (hassign s' Y h) γ,
+          AggQueryIn.evaluatePlain_congr_of_noMention q₁ hq.2 (hassign s' Y h) γ]
+    refine ⟨?_, fun k => ?_⟩
+    · show MuSetSettles (fun Y : Multiset (Tuple T n') =>
+        (q₀.evaluatePlain (D'.assign s' Y) γ
+          + q₁.evaluatePlain (D'.assign s' Y) γ).dedup)
+      rw [hstep]
+      exact hs.1
+    · show q₀.SettlesAt (D'.assign s' (muIter (fun Y : Multiset (Tuple T n') =>
+          (q₀.evaluatePlain (D'.assign s' Y) γ
+            + q₁.evaluatePlain (D'.assign s' Y) γ).dedup) k)) γ
+        ∧ q₁.SettlesAt (D'.assign s' (muIter (fun Y : Multiset (Tuple T n') =>
+          (q₀.evaluatePlain (D'.assign s' Y) γ
+            + q₁.evaluatePlain (D'.assign s' Y) γ).dedup) k)) γ
+      rw [hstep]
+      exact ⟨ih₀ hq.1 (hassign s' _ h) γ (hs.2 k).1,
+        ih₁ hq.2 (hassign s' _ h) γ (hs.2 k).2⟩
+  | Gamma is ts fs q keep ord ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | GammaScalar ts fs q ord ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | GammaNest is his p f q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | ProvSum is his t q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | GammaTok is his ts fs a q keep ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Win P O o w t f q hrr dist keep ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | WinExpr P O o ws ts fs g q keeps ih => intro hq D D' h γ hs; exact ih hq h γ hs
+
+/-- **And so it settles at an instance exactly when it settles at that
+instance with the recursion's relation bound.** -/
+theorem AggQueryIn.settlesAt_assign_of_noMention {s : String} {m : ℕ}
+    (X : Relation T m) {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (hq : q.noMention s) (D : Database T)
+    (γ : Fin c → T) (h : q.SettlesAt (D.assign s X) γ) : q.SettlesAt D γ :=
+  AggQueryIn.settlesAt_of_noMention q hq
+    (fun _k s' hs' => Database.find_assign_of_ne s s' X D (fun hc => hs' hc.2))
+    γ h
+
 /-! ### What the two fixpoints are when their rounds vanish or do not -/
 
 /-- The sum of the rounds from the empty relation is empty when a round

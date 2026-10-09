@@ -1051,7 +1051,13 @@ proven engine several general results reuse internally.
   the query produced settles and agrees wherever the given one settles;
   `GeneratesOnRecSig` is the same within a signature, and
   `prod_or_apply_mem_of_generatesOnRecSig` is the product row against
-  it.
+  it. `muBag_mem_of_generatesOnRecSig` pins the recursion row to `μ^⊎`
+  in the minimal signature: `AggQueryIn.exists_polyBound_rec` bounds the
+  rows of a query without it polynomially, set recursions included, by
+  one induction carrying the card and the values of a result together –
+  a set recursion's fixpoint is duplicate-free over a value set of
+  polynomial size, and every count inside a recursive term is read off
+  the instance the recursion started from.
   The signature the row is stated in is
   `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join

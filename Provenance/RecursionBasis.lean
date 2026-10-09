@@ -1469,6 +1469,629 @@ def AggQueryIn.aritiesLe (A : ℕ) : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.aritiesLe A
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.aritiesLe A
 
+/-! ## The card and the values of a result, set recursions included
+
+What pins the `μ^⊎` row to `μ^⊎` alone is that a query of the minimal
+signature **without** it – set recursions allowed – still has
+polynomially many rows. A set recursion's fixpoint has no bound in terms
+of its arguments' sizes, only in terms of its *values*: a duplicate-free
+relation of arity `n` over `|V|` values has at most `|V|^n` rows
+(`card_le_pow_of_nodup_valsIn`). So the card and the values have to be
+bounded together, by one induction that carries two statements: of a
+query, that its result's card is polynomial and its values lie in any
+set holding the instance's values (at the arities the query reads), the
+context's, the query's constants and the counts up to that polynomial;
+and of a recursive term, that its result read in the instance extended
+by a round has its values in any such set holding the round's values
+too. The second is what the first needs at a set recursion – the rounds
+then never leave the set – and the first is what the second needs for
+the sides of a term that do not read the recursive relation, which
+`sec:plain`'s restriction keeps the counts in: every count inside a
+recursive term is over a query the recursion does not feed, read off the
+instance the recursion started from (`settlesAt_assign_of_noMention`,
+`evaluatePlain_assign_of_noMention`). -/
+
+omit [ValueType T] in
+theorem Relation.valsIn_mono {n : ℕ} {r : Multiset (Tuple T n)}
+    {V V' : Finset T} (h : V ⊆ V') (hr : Relation.valsIn r V) :
+    Relation.valsIn r V' :=
+  fun u hu j => h (hr u hu j)
+
+theorem card_countVals_le (g : ℕ → T) (m : ℕ) : (countVals g m).card ≤ m + 1 :=
+  le_trans Finset.card_image_le (le_of_eq (Finset.card_range _))
+
+/-- The largest arity a query reads. -/
+def AggQueryIn.maxArity : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → ℕ
+  | _, _, _, .Rel k _ => k
+  | _, _, _, .Empty => 0
+  | _, _, _, .Proj _ q => q.maxArity
+  | _, _, _, .Sel _ q => q.maxArity
+  | _, _, _, .Prod q₁ q₂ => max q₁.maxArity q₂.maxArity
+  | _, _, _, .Apply q₁ q₂ => max q₁.maxArity q₂.maxArity
+  | _, _, _, .Sum q₁ q₂ => max q₁.maxArity q₂.maxArity
+  | _, _, _, .Dedup q => q.maxArity
+  | _, _, _, .Diff q₁ q₂ => max q₁.maxArity q₂.maxArity
+  | _, _, _, .Alt _ _ q => q.maxArity
+  | _, _, _, .Mu _ q₀ q₁ => max q₀.maxArity q₁.maxArity
+  | _, _, _, .MuSet _ q₀ q₁ => max q₀.maxArity q₁.maxArity
+  | _, _, _, .Gamma _ _ _ q _ _ => q.maxArity
+  | _, _, _, .GammaScalar _ _ q _ => q.maxArity
+  | _, _, _, .GammaNest _ _ _ _ q => q.maxArity
+  | _, _, _, .ProvSum _ _ _ q => q.maxArity
+  | _, _, _, .Retag _ q => q.maxArity
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.maxArity
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.maxArity
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.maxArity
+
+omit [ValueType T] in
+theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.aritiesLe A → q.aritiesLe A' := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun hq => le_trans hq h
+  | Empty => exact fun _ => trivial
+  | Proj ps q ih => exact ih
+  | Sel φ q ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
+  | Alt k hk q ih => exact ih
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
+  | Gamma is ts fs q keep ord ih => exact ih
+  | GammaScalar ts fs q ord ih => exact ih
+  | GammaNest is his p f q ih => exact ih
+  | ProvSum is his t q ih => exact ih
+  | Retag hk q ih => exact ih
+  | GammaTok is his ts fs a q keep ih => exact ih
+  | Win P O o w t f q hrr dist keep ih => exact ih
+  | WinExpr P O o ws ts fs g q keeps ih => exact ih
+
+omit [ValueType T] in
+theorem AggQueryIn.aritiesLe_maxArity :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.aritiesLe q.maxArity := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact le_refl n
+  | Empty => exact trivial
+  | Proj ps q ih => exact ih
+  | Sel φ q ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₁ ih₁,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₂ ih₂⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₁ ih₁,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₂ ih₂⟩
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₁ ih₁,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₂ ih₂⟩
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₁ ih₁,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₂ ih₂⟩
+  | Alt k hk q ih => exact ih
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₀ ih₀,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₁ ih₁⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₀ ih₀,
+      AggQueryIn.aritiesLe_mono (le_max_right _ _) q₁ ih₁⟩
+  | Gamma is ts fs q keep ord ih => exact ih
+  | GammaScalar ts fs q ord ih => exact ih
+  | GammaNest is his p f q ih => exact ih
+  | ProvSum is his t q ih => exact ih
+  | Retag hk q ih => exact ih
+  | GammaTok is his ts fs a q keep ih => exact ih
+  | Win P O o w t f q hrr dist keep ih => exact ih
+  | WinExpr P O o ws ts fs g q keeps ih => exact ih
+
+private theorem projCol_consts_subset {c n m : ℕ} {κ : Fin n → ColKind}
+    (ps : Tuple (ProjColIn T c κ) m) (q : AggQueryIn T c n κ) (j : Fin m) :
+    (ps j).consts ⊆ (AggQueryIn.Proj ps q).consts :=
+  fun _ hx => Finset.mem_union_left _
+    (Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ j, hx⟩)
+
+/-- **The card and the values of a result of the minimal signature,
+without `μ^⊎`**, in the two forms the induction carries (see the section
+heading): for a query, and for a recursive term read in the instance
+extended by a round. -/
+theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
+    (hmb : OpKind.muBag ∉ S) {cnt : SeqAggFunc T} {g : ℕ → T}
+    (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
+    (A : ℕ) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+      q.usesOnly S → q.recRestricted → q.inSig {cnt} → q.aritiesLe A →
+      (∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+        Multiset.card (q.evaluatePlain D γ) ≤ b * (D.size + 1) ^ k
+        ∧ ∀ V : Finset T,
+          (∀ (m : ℕ) (s : String) (r : Relation T m), m ≤ A →
+              D.find m s = some r → Relation.valsIn r V) →
+          (∀ j, γ j ∈ V) → q.consts ⊆ V →
+          countVals g (b * (D.size + 1) ^ k) ⊆ V →
+          Relation.valsIn (q.evaluatePlain D γ) V)
+      ∧ (∀ s : String, q.recOnce s →
+        ∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T) {mX : ℕ}
+          (X : Relation T mX) (V : Finset T),
+          (∀ (m : ℕ) (s' : String) (r : Relation T m), m ≤ A →
+              D.find m s' = some r → Relation.valsIn r V) →
+          Relation.valsIn X V → (∀ j, γ j ∈ V) → q.consts ⊆ V →
+          countVals g (b * (D.size + 1) ^ k) ⊆ V →
+          q.SettlesAt (D.assign s X) γ →
+          Relation.valsIn (q.evaluatePlain (D.assign s X) γ) V) := by
+  intro c n κ q
+  induction q with
+  | Rel n s =>
+    intro _ _ _ ha
+    refine ⟨⟨1, 1, fun D γ _ => ⟨?_, fun V hD _ _ _ => ?_⟩⟩,
+      fun s' hro => ⟨0, 0, fun D γ mX X V hD hX _ _ _ _ => ?_⟩⟩
+    · show Multiset.card (match D.find n s with
+        | none => (0 : Relation T n) | some rn => rn) ≤ _
+      cases hf : D.find n s with
+      | none => exact Nat.zero_le _
+      | some rn =>
+        refine le_trans (Database.card_le_size D hf) ?_
+        rw [pow_one, one_mul]
+        omega
+    · show Relation.valsIn (match D.find n s with
+        | none => (0 : Relation T n) | some rn => rn) V
+      cases hf : D.find n s with
+      | none => exact fun u hu => absurd hu (by simp)
+      | some rn => exact hD n s rn ha hf
+    · rw [← hro]
+      show Relation.valsIn (match (D.assign s X).find n s with
+        | none => (0 : Relation T n) | some rn => rn) V
+      by_cases hc : n = mX
+      · subst hc
+        rw [Database.find_assign]
+        exact hX
+      · rw [Database.find_assign_of_ne s s X D (fun h => hc h.1)]
+        cases hf : D.find n s with
+        | none => exact fun u hu => absurd hu (by simp)
+        | some rn => exact hD n s rn ha hf
+  | Empty =>
+    intro _ _ _ _
+    exact ⟨⟨0, 0, fun _ _ _ => ⟨Nat.zero_le _, fun _ _ _ _ _ u hu =>
+      absurd (show u ∈ (0 : Multiset (Tuple T 0)) from hu) (by simp)⟩⟩,
+      fun _ h => h.elim⟩
+  | Proj ps q ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, hb⟩ := ih hq.2 hr hsig.2 ha
+    refine ⟨⟨b, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu j => ?_⟩⟩,
+      fun s hro => ?_⟩
+    · show Multiset.card (Multiset.map _ (q.evaluatePlain D γ)) ≤ _
+      rw [Multiset.card_map]
+      exact (hM D γ hs).1
+    · obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
+      exact (ps j).evalPlain_mem_of_noFun (hsig.1 j)
+        ((ps j).constsIn_of_subset (subset_trans (projCol_consts_subset ps q j) hc))
+        v (fun i => (hM D γ hs).2 V hD hγ
+          (subset_trans Finset.subset_union_right hc) hV v hv i) γ hγ
+    · obtain ⟨b', k', hB⟩ := hb s hro
+      refine ⟨b', k', fun D γ mX X V hD hX hγ hc hV hs u hu j => ?_⟩
+      obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
+      exact (ps j).evalPlain_mem_of_noFun (hsig.1 j)
+        ((ps j).constsIn_of_subset (subset_trans (projCol_consts_subset ps q j) hc))
+        v (fun i => hB D γ X V hD hX hγ
+          (subset_trans Finset.subset_union_right hc) hV hs v hv i) γ hγ
+  | Sel φ q ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, hb⟩ := ih hq.2 hr hsig.2 ha
+    refine ⟨⟨b, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV => ?_⟩⟩,
+      fun s hro => ?_⟩
+    · exact le_trans (Multiset.card_le_card (Multiset.filter_le _ _))
+        (hM D γ hs).1
+    · exact Relation.valsIn_of_le (Multiset.filter_le _ _)
+        ((hM D γ hs).2 V hD hγ hc hV)
+    · obtain ⟨b', k', hB⟩ := hb s hro.2
+      exact ⟨b', k', fun D γ mX X V hD hX hγ hc hV hs =>
+        Relation.valsIn_of_le (Multiset.filter_le _ _)
+          (hB D γ X V hD hX hγ hc hV hs)⟩
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b₁, k₁, hM₁⟩, hb₁⟩ := ih₁ hq.2.1 hr.1 hsig.1 ha.1
+    obtain ⟨⟨b₂, k₂, hM₂⟩, hb₂⟩ := ih₂ hq.2.2 hr.2 hsig.2 ha.2
+    refine ⟨⟨b₁ * b₂ + b₁ + b₂, k₁ + k₂, fun D γ hs =>
+      ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩, fun s hro => ?_⟩
+    · show Multiset.card (q₁.evaluatePlain D γ * q₂.evaluatePlain D γ) ≤ _
+      rw [Relation.card_hMul]
+      refine le_trans (Nat.mul_le_mul (hM₁ D γ hs.1).1 (hM₂ D γ hs.2).1) ?_
+      rw [pow_add, show b₁ * (D.size + 1) ^ k₁ * (b₂ * (D.size + 1) ^ k₂)
+        = b₁ * b₂ * ((D.size + 1) ^ k₁ * (D.size + 1) ^ k₂) from by ring]
+      exact Nat.mul_le_mul_right _ (by omega)
+    · rw [AggQueryIn.evaluatePlain, Relation.hMul_eq_bind] at hu
+      obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+      obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+      refine append_mem ((hM₁ D γ hs.1).2 V hD hγ
+          (subset_trans Finset.subset_union_left hc) ?_ v hv)
+        ((hM₂ D γ hs.2).2 V hD hγ
+          (subset_trans Finset.subset_union_right hc) ?_ w hw)
+      · exact subset_trans (countVals_subset
+          (poly_mono (by omega) (Nat.le_add_right _ _))) hV
+      · exact subset_trans (countVals_subset
+          (poly_mono (by omega) (Nat.le_add_left _ _))) hV
+    · rcases hro with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
+      · obtain ⟨b₁', k₁', hB₁⟩ := hb₁ s h₁
+        refine ⟨b₁' + b₂, max k₁' k₂, fun D γ mX X V hD hX hγ hc hV hs u hu => ?_⟩
+        rw [AggQueryIn.evaluatePlain, Relation.hMul_eq_bind] at hu
+        obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+        obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+        rw [AggQueryIn.evaluatePlain_assign_of_noMention X q₂ h₂ D γ] at hw
+        refine append_mem (hB₁ D γ X V hD hX hγ
+            (subset_trans Finset.subset_union_left hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_left _ _))) hV) hs.1 v hv)
+          ((hM₂ D γ (AggQueryIn.settlesAt_assign_of_noMention X q₂ h₂ D γ hs.2)).2
+            V hD hγ (subset_trans Finset.subset_union_right hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_right _ _))) hV) w hw)
+      · obtain ⟨b₂', k₂', hB₂⟩ := hb₂ s h₂
+        refine ⟨b₁ + b₂', max k₁ k₂', fun D γ mX X V hD hX hγ hc hV hs u hu => ?_⟩
+        rw [AggQueryIn.evaluatePlain, Relation.hMul_eq_bind] at hu
+        obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+        obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+        rw [AggQueryIn.evaluatePlain_assign_of_noMention X q₁ h₁ D γ] at hv
+        refine append_mem
+          ((hM₁ D γ (AggQueryIn.settlesAt_assign_of_noMention X q₁ h₁ D γ hs.1)).2
+            V hD hγ (subset_trans Finset.subset_union_left hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_left _ _))) hV) v hv)
+          (hB₂ D γ X V hD hX hγ (subset_trans Finset.subset_union_right hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_right _ _))) hV) hs.2 w hw)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b₁, k₁, hM₁⟩, hb₁⟩ := ih₁ hq.2.1 hr.1 hsig.1 ha.1
+    obtain ⟨⟨b₂, k₂, hM₂⟩, hb₂⟩ := ih₂ hq.2.2 hr.2 hsig.2 ha.2
+    refine ⟨⟨b₁ * b₂ + b₁ + b₂, k₁ + k₂, fun D γ hs =>
+      ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩, fun s hro => ?_⟩
+    · show Multiset.card ((q₁.evaluatePlain D γ).bind (fun u =>
+        Multiset.map _ (q₂.evaluatePlain D (Fin.append u γ)))) ≤ _
+      rw [Multiset.card_bind]
+      refine le_trans (Multiset.sum_le_card_nsmul _ (b₂ * (D.size + 1) ^ k₂)
+        (fun x hx => ?_)) ?_
+      · obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp hx
+        show Multiset.card (Multiset.map (fun v => Fin.append u v)
+          (q₂.evaluatePlain D (Fin.append u γ))) ≤ _
+        rw [Multiset.card_map]
+        exact (hM₂ D (Fin.append u γ) (hs.2 u hu)).1
+      · rw [smul_eq_mul, Multiset.card_map]
+        refine le_trans (Nat.mul_le_mul_right _ (hM₁ D γ hs.1).1) ?_
+        rw [pow_add, show b₁ * (D.size + 1) ^ k₁ * (b₂ * (D.size + 1) ^ k₂)
+          = b₁ * b₂ * ((D.size + 1) ^ k₁ * (D.size + 1) ^ k₂) from by ring]
+        exact Nat.mul_le_mul_right _ (by omega)
+    · rw [AggQueryIn.evaluatePlain] at hu
+      obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+      obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+      have hv' : ∀ j, v j ∈ V := (hM₁ D γ hs.1).2 V hD hγ
+        (subset_trans Finset.subset_union_left hc)
+        (subset_trans (countVals_subset
+          (poly_mono (by omega) (Nat.le_add_right _ _))) hV) v hv
+      refine append_mem hv' ((hM₂ D (Fin.append v γ) (hs.2 v hv)).2 V hD
+        (append_mem hv' hγ) (subset_trans Finset.subset_union_right hc)
+        (subset_trans (countVals_subset
+          (poly_mono (by omega) (Nat.le_add_left _ _))) hV) w hw)
+    · obtain ⟨b₁', k₁', hB₁⟩ := hb₁ s hro.1
+      refine ⟨b₁' + b₂, max k₁' k₂, fun D γ mX X V hD hX hγ hc hV hs u hu => ?_⟩
+      rw [AggQueryIn.evaluatePlain] at hu
+      obtain ⟨v, hv, hu⟩ := Multiset.mem_bind.mp hu
+      obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hu
+      have hv' : ∀ j, v j ∈ V := hB₁ D γ X V hD hX hγ
+        (subset_trans Finset.subset_union_left hc)
+        (subset_trans (countVals_subset
+          (poly_mono (by omega) (le_max_left _ _))) hV) hs.1 v hv
+      rw [AggQueryIn.evaluatePlain_assign_of_noMention X q₂ hro.2 D] at hw
+      refine append_mem hv' ((hM₂ D (Fin.append v γ)
+        (AggQueryIn.settlesAt_assign_of_noMention X q₂ hro.2 D _ (hs.2 v hv))).2
+        V hD (append_mem hv' hγ) (subset_trans Finset.subset_union_right hc)
+        (subset_trans (countVals_subset
+          (poly_mono (by omega) (le_max_right _ _))) hV) w hw)
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b₁, k₁, hM₁⟩, hb₁⟩ := ih₁ hq.2.1 hr.1 hsig.1 ha.1
+    obtain ⟨⟨b₂, k₂, hM₂⟩, hb₂⟩ := ih₂ hq.2.2 hr.2 hsig.2 ha.2
+    refine ⟨⟨b₁ + b₂, max k₁ k₂, fun D γ hs =>
+      ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩, fun s hro => ?_⟩
+    · show Multiset.card (q₁.evaluatePlain D γ + q₂.evaluatePlain D γ) ≤ _
+      rw [Relation.card_add, Nat.add_mul]
+      exact Nat.add_le_add
+        (le_trans (hM₁ D γ hs.1).1 (poly_le_poly (le_max_left _ _)))
+        (le_trans (hM₂ D γ hs.2).1 (poly_le_poly (le_max_right _ _)))
+    · rw [AggQueryIn.evaluatePlain, Multiset.mem_add] at hu
+      rcases hu with h | h
+      · exact (hM₁ D γ hs.1).2 V hD hγ (subset_trans Finset.subset_union_left hc)
+          (subset_trans (countVals_subset
+            (poly_mono (by omega) (le_max_left _ _))) hV) u h
+      · exact (hM₂ D γ hs.2).2 V hD hγ (subset_trans Finset.subset_union_right hc)
+          (subset_trans (countVals_subset
+            (poly_mono (by omega) (le_max_right _ _))) hV) u h
+    · rcases hro with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
+      · obtain ⟨b₁', k₁', hB₁⟩ := hb₁ s h₁
+        refine ⟨b₁' + b₂, max k₁' k₂, fun D γ mX X V hD hX hγ hc hV hs u hu => ?_⟩
+        rw [AggQueryIn.evaluatePlain, Multiset.mem_add] at hu
+        rcases hu with h | h
+        · exact hB₁ D γ X V hD hX hγ (subset_trans Finset.subset_union_left hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_left _ _))) hV) hs.1 u h
+        · rw [AggQueryIn.evaluatePlain_assign_of_noMention X q₂ h₂ D γ] at h
+          exact (hM₂ D γ (AggQueryIn.settlesAt_assign_of_noMention X q₂ h₂ D γ hs.2)).2
+            V hD hγ (subset_trans Finset.subset_union_right hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_right _ _))) hV) u h
+      · obtain ⟨b₂', k₂', hB₂⟩ := hb₂ s h₂
+        refine ⟨b₁ + b₂', max k₁ k₂', fun D γ mX X V hD hX hγ hc hV hs u hu => ?_⟩
+        rw [AggQueryIn.evaluatePlain, Multiset.mem_add] at hu
+        rcases hu with h | h
+        · rw [AggQueryIn.evaluatePlain_assign_of_noMention X q₁ h₁ D γ] at h
+          exact (hM₁ D γ (AggQueryIn.settlesAt_assign_of_noMention X q₁ h₁ D γ hs.1)).2
+            V hD hγ (subset_trans Finset.subset_union_left hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_left _ _))) hV) u h
+        · exact hB₂ D γ X V hD hX hγ (subset_trans Finset.subset_union_right hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_right _ _))) hV) hs.2 u h
+  | Dedup q ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig ha
+    exact ⟨⟨b, k, fun D γ hs =>
+      ⟨le_trans (Multiset.card_dedup_le _) (hM D γ hs).1,
+        fun V hD hγ hc hV => Relation.valsIn_of_le (Multiset.dedup_le _)
+          ((hM D γ hs).2 V hD hγ hc hV)⟩⟩, fun _ h => h.elim⟩
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih₁ hq.2.1 hr.1 hsig.1 ha.1
+    exact ⟨⟨b, k, fun D γ hs =>
+      ⟨le_trans (Multiset.card_le_card (Multiset.filter_le _ _)) (hM D γ hs.1).1,
+        fun V hD hγ hc hV => Relation.valsIn_of_le (Multiset.filter_le _ _)
+          ((hM D γ hs.1).2 V hD hγ (subset_trans Finset.subset_union_left hc) hV)⟩⟩,
+      fun _ h => h.elim⟩
+  | Alt k hk q ih => intro hq hr hsig ha; exact ih hq hr hsig ha
+  | Retag hk q ih => intro hq hr hsig ha; exact ih hq hr hsig ha
+  | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    rename_i c' n'
+    intro hq hr hsig ha
+    refine ⟨?_, fun _ h => h.elim⟩
+    obtain ⟨⟨b₀, k₀, hM₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hsig.1 ha.1
+    obtain ⟨-, hb₁⟩ := ih₁ hq.2.2 hr.2.2.2 hsig.2 ha.2
+    obtain ⟨b₁, k₁, hB₁⟩ := hb₁ s hr.2.1
+    set Kc := (AggQueryIn.MuSet s q₀ q₁).consts.card with hKc
+    set K₀ := max (max k₀ k₁) 1 with hK₀
+    set B₀ := A + Kc + (b₀ + b₁) + 1 + c' with hB₀
+    refine ⟨B₀ ^ n' + (b₀ + b₁), K₀ * n' + K₀, fun D γ hs => ?_⟩
+    -- The rounds never leave a set holding the base's and the body's values.
+    have hrounds : ∀ V : Finset T,
+        (∀ (m : ℕ) (s' : String) (r : Relation T m), m ≤ A →
+            D.find m s' = some r → Relation.valsIn r V) →
+        (∀ j, γ j ∈ V) → (AggQueryIn.MuSet s q₀ q₁).consts ⊆ V →
+        countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁) ⊆ V →
+        ∀ j, Relation.valsIn (muIter (fun X : Multiset (Tuple T n') =>
+          (q₀.evaluatePlain (D.assign s X) γ
+            + q₁.evaluatePlain (D.assign s X) γ).dedup) j) V := by
+      intro V hD hγ hc hV j
+      induction j with
+      | zero => exact fun u hu => absurd hu (Multiset.notMem_zero u)
+      | succ j ih =>
+        show Relation.valsIn (Multiset.dedup (q₀.evaluatePlain (D.assign s _) γ
+          + q₁.evaluatePlain (D.assign s _) γ)) V
+        refine Relation.valsIn_of_le (Multiset.dedup_le _) (fun u hu => ?_)
+        rcases Multiset.mem_add.mp hu with h | h
+        · rw [AggQueryIn.evaluatePlain_assign_of_noMention _ q₀ hr.1 D γ] at h
+          exact (hM₀ D γ (AggQueryIn.settlesAt_assign_of_noMention _ q₀ hr.1 D γ
+              (hs.2 j).1)).2 V hD hγ (subset_trans Finset.subset_union_left hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_left _ _))) hV) u h
+        · exact hB₁ D γ _ V hD ih hγ (subset_trans Finset.subset_union_right hc)
+            (subset_trans (countVals_subset
+              (poly_mono (by omega) (le_max_right _ _))) hV) (hs.2 j).2 u h
+    have hvals : ∀ V : Finset T,
+        (∀ (m : ℕ) (s' : String) (r : Relation T m), m ≤ A →
+            D.find m s' = some r → Relation.valsIn r V) →
+        (∀ j, γ j ∈ V) → (AggQueryIn.MuSet s q₀ q₁).consts ⊆ V →
+        countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁) ⊆ V →
+        Relation.valsIn ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ) V :=
+      fun V hD hγ hc hV => hrounds V hD hγ hc hV _
+    have hmaxK : max k₀ k₁ ≤ K₀ * n' + K₀ :=
+      le_trans (le_max_left _ _) (Nat.le_add_left _ _)
+    refine ⟨?_, fun V hD hγ hc hV => hvals V hD hγ hc
+      (subset_trans (countVals_subset (poly_mono (by omega) hmaxK)) hV)⟩
+    -- The card, off the value set of polynomial size.
+    set V₀ : Finset T := Union.union (Union.union (Union.union
+      (Database.instVals A D) (AggQueryIn.MuSet s q₀ q₁).consts)
+      (countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁)))
+      (Finset.univ.image γ) with hV₀
+    have hF : Relation.valsIn ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ) V₀ :=
+      hvals V₀
+        (fun m s' r hm hf => Relation.valsIn_mono
+          (fun x hx => Finset.mem_union_left _ (Finset.mem_union_left _
+            (Finset.mem_union_left _ hx)))
+          (Database.valsIn_instVals A D hm hf))
+        (fun j => Finset.mem_union_right _
+          (Finset.mem_image_of_mem γ (Finset.mem_univ j)))
+        (fun x hx => Finset.mem_union_left _ (Finset.mem_union_left _
+          (Finset.mem_union_right _ hx)))
+        (fun x hx => Finset.mem_union_left _ (Finset.mem_union_right _ hx))
+    have hnd : ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ).Nodup := by
+      show (muFix (fun X : Multiset (Tuple T n') =>
+        (q₀.evaluatePlain (D.assign s X) γ
+          + q₁.evaluatePlain (D.assign s X) γ).dedup)).Nodup
+      rw [muFix, muIter_eq_iterate]
+      exact nodup_iterate_dedup _ _
+    have hpow1 : 1 ≤ (D.size + 1) ^ K₀ := Nat.one_le_pow _ _ (by omega)
+    have hpowS : D.size + 1 ≤ (D.size + 1) ^ K₀ := by
+      calc D.size + 1 = (D.size + 1) ^ 1 := (pow_one _).symm
+        _ ≤ (D.size + 1) ^ K₀ := Nat.pow_le_pow_right (by omega) (le_max_right _ _)
+    have hpowM : (D.size + 1) ^ max k₀ k₁ ≤ (D.size + 1) ^ K₀ :=
+      Nat.pow_le_pow_right (by omega) (le_max_left _ _)
+    have hcardV : V₀.card ≤ B₀ * (D.size + 1) ^ K₀ := by
+      have h1 : (Database.instVals A D).card ≤ A * D.size :=
+        Database.card_instVals_le A D
+      have h2 : (countVals g ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁)).card
+          ≤ (b₀ + b₁) * (D.size + 1) ^ max k₀ k₁ + 1 := card_countVals_le _ _
+      have h3 : (Finset.univ.image γ).card ≤ c' :=
+        le_trans Finset.card_image_le (by simp)
+      have hU : V₀.card ≤ A * D.size + Kc
+          + ((b₀ + b₁) * (D.size + 1) ^ max k₀ k₁ + 1) + c' :=
+        le_trans (Finset.card_union_le _ _) (Nat.add_le_add
+          (le_trans (Finset.card_union_le _ _) (Nat.add_le_add
+            (le_trans (Finset.card_union_le _ _) (Nat.add_le_add h1 (le_refl _)))
+            h2)) h3)
+      refine le_trans hU ?_
+      have ha' : A * D.size ≤ A * (D.size + 1) ^ K₀ :=
+        Nat.mul_le_mul_left _ (le_trans (Nat.le_succ _) hpowS)
+      have hk' : Kc ≤ Kc * (D.size + 1) ^ K₀ := Nat.le_mul_of_pos_right _ hpow1
+      have hm' : (b₀ + b₁) * (D.size + 1) ^ max k₀ k₁
+          ≤ (b₀ + b₁) * (D.size + 1) ^ K₀ := Nat.mul_le_mul_left _ hpowM
+      have hc' : c' ≤ c' * (D.size + 1) ^ K₀ := Nat.le_mul_of_pos_right _ hpow1
+      rw [hB₀, show (A + Kc + (b₀ + b₁) + 1 + c') * (D.size + 1) ^ K₀
+        = A * (D.size + 1) ^ K₀ + Kc * (D.size + 1) ^ K₀
+          + ((b₀ + b₁) * (D.size + 1) ^ K₀ + (D.size + 1) ^ K₀)
+          + c' * (D.size + 1) ^ K₀ from by ring]
+      omega
+    calc Multiset.card ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ)
+        ≤ V₀.card ^ n' := card_le_pow_of_nodup_valsIn hnd hF
+      _ ≤ (B₀ * (D.size + 1) ^ K₀) ^ n' := Nat.pow_le_pow_left hcardV n'
+      _ = B₀ ^ n' * (D.size + 1) ^ (K₀ * n') := by rw [mul_pow, ← pow_mul]
+      _ ≤ (B₀ ^ n' + (b₀ + b₁)) * (D.size + 1) ^ (K₀ * n' + K₀) :=
+          Nat.mul_le_mul (Nat.le_add_right _ _)
+            (Nat.pow_le_pow_right (by omega) (Nat.le_add_right _ _))
+  | Gamma is ts fs q keep ord ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2.2 ha
+    refine ⟨⟨b, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩,
+      fun _ h => h.elim⟩
+    · show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hM D γ hs).1
+    · rw [AggQueryIn.evaluatePlain] at hu
+      obtain ⟨gg, hgg, rfl⟩ := Multiset.mem_map.mp hu
+      rw [Multiset.mem_dedup] at hgg
+      obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hgg
+      have hvV : ∀ i, v i ∈ V := (hM D γ hs).2 V hD hγ hc hV v hv
+      refine append_mem (fun i => hvV (is i)) (fun j => ?_)
+      rw [show fs j = cnt from Set.mem_singleton_iff.mp (hsig.2.1 j)]
+      refine hV (count_mem_countVals hg ?_)
+      rw [List.length_map]
+      exact le_trans (length_groupSeqOptOrd_le is ord _ _ (keep j)) (hM D γ hs).1
+  | GammaScalar ts fs q ord ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2 ha
+    refine ⟨⟨b + 1, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩,
+      fun _ h => h.elim⟩
+    · show Multiset.card (Multiset.ofList [_]) ≤ _
+      have h1 : 1 ≤ (D.size + 1) ^ k := Nat.one_le_pow _ _ (by omega)
+      calc Multiset.card (Multiset.ofList [_]) = 1 := rfl
+        _ ≤ (b + 1) * (D.size + 1) ^ k := by
+          rw [Nat.add_mul, one_mul]; omega
+    · rw [AggQueryIn.evaluatePlain] at hu
+      obtain rfl := Multiset.mem_singleton.mp hu
+      intro j
+      show fs j _ ∈ V
+      rw [show fs j = cnt from Set.mem_singleton_iff.mp (hsig.2.1 j)]
+      refine hV (count_mem_countVals hg ?_)
+      rw [List.length_map]
+      exact le_trans (length_groupSeqOptOrd_le (fun k : Fin 0 => k.elim0) ord _
+        (fun k : Fin 0 => k.elim0) none)
+        (le_trans (hM D γ hs).1 (poly_mono (Nat.le_succ b) (le_refl k)))
+  | GammaNest is his p f q ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2 ha
+    obtain ⟨g', hsym, hmem, rfl⟩ := hsig.2.1
+    rw [Set.mem_singleton_iff] at hmem
+    refine ⟨⟨b, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩,
+      fun _ h => h.elim⟩
+    · show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hM D γ hs).1
+    · rw [AggQueryIn.evaluatePlain] at hu
+      obtain ⟨gg, hgg, rfl⟩ := Multiset.mem_map.mp hu
+      rw [Multiset.mem_dedup] at hgg
+      obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hgg
+      have hvV : ∀ i, v i ∈ V := (hM D γ hs).2 V hD hγ hc hV v hv
+      refine append_mem (fun i => hvV (is i)) (fun _ => ?_)
+      obtain ⟨L, hL⟩ := Quotient.exists_rep
+        (((q.evaluatePlain D γ).filter (fun w =>
+          (fun k => w (is k) : Tuple T _) = (fun k => v (is k) : Tuple T _))).map
+          (fun w => p.evalPlain w γ))
+      rw [← hL, show SeqAggFunc.onBag g' hsym (Quotient.mk _ L) = g' L from rfl,
+        hmem]
+      refine hV (count_mem_countVals hg ?_)
+      have hcard : (L : Multiset T).card
+          = Multiset.card (Multiset.map (fun w => p.evalPlain w γ)
+            (Multiset.filter (fun w =>
+              (fun k => w (is k) : Tuple T _)
+                = (fun k => v (is k) : Tuple T _)) (q.evaluatePlain D γ))) :=
+        congrArg Multiset.card hL
+      rw [show L.length = (L : Multiset T).card from rfl, hcard,
+        Multiset.card_map]
+      exact le_trans (Multiset.card_le_card (Multiset.filter_le _ _)) (hM D γ hs).1
+  | ProvSum is his t q ih => intro _ _ hsig; exact hsig.elim
+  | GammaTok is his ts fs a q keep ih => intro _ _ hsig; exact hsig.elim
+  | Win P O o w t f q hrr dist keep ih =>
+    intro hq hr hsig ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2.2 ha
+    refine ⟨⟨b + 1, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩,
+      fun _ h => h.elim⟩
+    · show Multiset.card (Multiset.map _ (q.evaluatePlain D γ)) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (hM D γ hs).1 (poly_mono (Nat.le_succ b) (le_refl k))
+    · rw [AggQueryIn.evaluatePlain] at hu
+      obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
+      have hvV : ∀ i, v i ∈ V := (hM D γ hs).2 V hD hγ hc
+        (subset_trans (countVals_subset (poly_mono (Nat.le_succ b) (le_refl k))) hV)
+        v hv
+      have hfc : (if dist then f.distinct else f) = cnt := by
+        cases dist with
+        | false => exact Set.mem_singleton_iff.mp hsig.2.1
+        | true => exact Set.mem_singleton_iff.mp hsig.2.1
+      have hlen : ∀ L : List T, L.length
+          ≤ Multiset.card (q.evaluatePlain D γ) + 1 → cnt L ∈ V := by
+        intro L hL
+        refine hV (count_mem_countVals hg (le_trans hL ?_))
+        have h1 : 1 ≤ (D.size + 1) ^ k := Nat.one_le_pow _ _ (by omega)
+        calc Multiset.card (q.evaluatePlain D γ) + 1
+            ≤ b * (D.size + 1) ^ k + 1 := Nat.add_le_add_right (hM D γ hs).1 1
+          _ ≤ b * (D.size + 1) ^ k + (D.size + 1) ^ k := by omega
+          _ = (b + 1) * (D.size + 1) ^ k := by ring
+      refine snoc_mem hvV ?_
+      rw [hfc]
+      cases keep with
+      | none =>
+        rw [ValueFrame.windowValueOpt_none, ValueFrame.windowValue]
+        refine hlen _ ?_
+        rw [List.length_map]
+        exact le_trans (length_frameListOf_le P O o w _ _)
+          (Nat.add_le_add_right (le_of_eq (Multiset.card_map _ _)) 1)
+      | some φ =>
+        rw [ValueFrame.windowValueOpt_some, ValueFrame.windowValueWhen]
+        refine hlen _ ?_
+        rw [List.length_map]
+        exact le_trans (List.length_filter_le _ _)
+          (le_trans (length_frameListOf_le P O o w _ _)
+            (Nat.add_le_add_right (le_of_eq (Multiset.card_map _ _)) 1))
+  | WinExpr P O o ws ts fs gf q keeps ih => intro _ _ hsig; exact hsig.elim
+
+/-- **Without `μ^⊎`, a query of the minimal signature has polynomially
+many rows wherever it is defined**, set recursions included. -/
+theorem AggQueryIn.exists_polyBound_rec {S : Set OpKind}
+    (hmb : OpKind.muBag ∉ S) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+    {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    (hq : q.usesOnly S) (hr : q.recRestricted) (hsig : q.inSig {cnt}) :
+    ∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+      Multiset.card (q.evaluatePlain D γ) ≤ b * (D.size + 1) ^ k := by
+  obtain ⟨g, hg⟩ := hcnt
+  obtain ⟨b, k, h⟩ := (AggQueryIn.exists_polyBound_rec_aux hmb hg q.maxArity q
+    hq hr hsig (AggQueryIn.aritiesLe_maxArity q)).1
+  exact ⟨b, k, fun D γ hs => (h D γ hs).1⟩
+
 /-! ## The row: a basis of the whole algebra holds a recursion
 
 `thm:plainbasis`'s second half grades the recursions as classes like the
@@ -1655,3 +2278,27 @@ theorem muBag_or_muSet_mem_of_generatesOnRec {S : Set OpKind}
   refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
   rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
   exact hb (dChain n) (fun j => j.elim0)
+
+/-- The witness is in every signature: no function on values, no
+aggregate. -/
+theorem inSig_chainWitness {Θ : Set (SeqAggFunc ℕ)} : chainWitness.inSig Θ :=
+  ⟨trivial, fun _ => rfl, rfl, trivial, trivial⟩
+
+/-- **`μ^⊎` is in every basis of the whole algebra in the minimal
+signature** (`tab:basisclasses`'s row, pinned): without it, a query of
+`𝒜(∅, {count})` has polynomially many rows wherever it is defined – set
+recursions included, their rows being the duplicate-free tuples over a
+value set of polynomial size – and the sink of a chain of `n` diamonds
+has `2ⁿ`. -/
+theorem muBag_mem_of_generatesOnRecSig {cnt : SeqAggFunc ℕ}
+    (hcnt : cnt.IsCount) {S : Set OpKind}
+    (hS : GeneratesOnRecSig ℕ schemaSE {cnt} S) : OpKind.muBag ∈ S := by
+  by_contra hmb
+  obtain ⟨q', -, hu', hr', hsig', he⟩ := hS chainWitness overSchema_chainWitness
+    usesOnly_chainWitness recRestricted_chainWitness inSig_chainWitness
+    winsDerivable_chainWitness
+  obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound_rec hmb hcnt q' hu' hr' hsig'
+  refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
+  rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
+  exact hb (dChain n) (fun j => j.elim0)
+    (he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).1
