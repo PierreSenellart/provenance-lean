@@ -498,7 +498,16 @@ def ProjColIn.noFun {c k : ℕ} {κ : Fin k → ColKind} :
 `noFun` – no function on values – and `Θ` the aggregates it may use. A
 second-level aggregation reads its group as a bag, so its outer
 aggregate is asked to be a symmetric member of `Θ` read that way
-(`SeqAggFunc.onBag`). -/
+(`SeqAggFunc.onBag`).
+
+Three operators are `False` **because they apply a function to values**,
+which `Ω` does not hold: the two of the rewritten world fold the
+domain's `+` into their provenance column (`ProvSum`, `GammaTok`), and a
+multi-frame window combines its leaves by an arbitrary function – which
+is why SQL's distribution functions take their arithmetic as a parameter
+here. So a value of the result of a query in the signature is a value of
+the instance, a constant of the query, or an aggregate of one of `Θ`,
+which is what the row of `μ^⊎` reads. -/
 def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
     {κ : Fin n → ColKind} → AggQueryIn T c n κ → Prop
   | _, _, _, .Rel _ _ => True
@@ -524,17 +533,13 @@ def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
         ∧ (∃ (g : SeqAggFunc T) (hg : g.Symmetric),
             g ∈ Θ ∧ f = SeqAggFunc.onBag g hg)
         ∧ q.inSig Θ
-  | _, _, _, .ProvSum _ _ t q => t.noFun = true ∧ q.inSig Θ
+  | _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, .Retag _ q => q.inSig Θ
-  | _, _, _, .GammaTok _ _ ts fs a q keep =>
-      (∀ j, (ts j).noFun = true) ∧ (∀ j, fs j ∈ Θ) ∧ a.noFun = true
-        ∧ (∀ j, Selection.noFunOpt (keep j) = true) ∧ q.inSig Θ
+  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   | _, _, _, .Win _ _ _ _ t f q _ dist keep =>
       t.noFun = true ∧ (if dist then f.distinct ∈ Θ else f ∈ Θ)
         ∧ Selection.noFunOpt keep = true ∧ q.inSig Θ
-  | _, _, _, .WinExpr _ _ _ _ ts fs _ q keeps =>
-      (∀ l, (ts l).noFun = true) ∧ (∀ l, fs l ∈ Θ)
-        ∧ (∀ l, Selection.noFunOpt (keeps l) = true) ∧ q.inSig Θ
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 /-- **The minimal signature** `𝒜(∅, {count})`: no function on values,
 and one counting aggregate. The aggregate is a parameter with

@@ -497,3 +497,183 @@ theorem chainWitness_no_polynomial_bound :
   have hb := h (dChain n)
   rw [size_dChain, show 4 * n + 1 + 1 = 4 * n + 2 from by omega] at hb
   exact absurd (le_trans (le_card_chainWitness n) hb) (not_le.mpr hn)
+
+/-! ## Half of the invariant: the operators that are not a recursion
+
+`tab:basisclasses`'s `μ^⊎` row is the *invariant* that a query without
+it has at most `p(n)` tuples over an instance of `n` tuples,
+multiplicities included. The operators other than the two recursions
+bound their result by sums and products of the bounds of their
+arguments, in numbers fixed by the query, and an apply by the bound of
+its left side times that of its right side – which does not depend on
+the parameters, so the bound is uniform in the context. That is this
+section; the set recursion is the other half, and is where the minimal
+signature comes in.
+-/
+
+/-- **No recursion.** -/
+def AggQueryIn.noRec : {c n : ℕ} → {κ : Fin n → ColKind} →
+    AggQueryIn T c n κ → Prop
+  | _, _, _, .Rel _ _ => True
+  | _, _, _, .Empty => True
+  | _, _, _, .Proj _ q => q.noRec
+  | _, _, _, .Sel _ q => q.noRec
+  | _, _, _, .Prod q₁ q₂ => q₁.noRec ∧ q₂.noRec
+  | _, _, _, .Apply q₁ q₂ => q₁.noRec ∧ q₂.noRec
+  | _, _, _, .Sum q₁ q₂ => q₁.noRec ∧ q₂.noRec
+  | _, _, _, .Dedup q => q.noRec
+  | _, _, _, .Diff q₁ q₂ => q₁.noRec ∧ q₂.noRec
+  | _, _, _, .Alt _ _ q => q.noRec
+  | _, _, _, .Mu _ _ _ => False
+  | _, _, _, .MuSet _ _ _ => False
+  | _, _, _, .Gamma _ _ _ q _ _ => q.noRec
+  | _, _, _, .GammaScalar _ _ q _ => q.noRec
+  | _, _, _, .GammaNest _ _ _ _ q => q.noRec
+  | _, _, _, .ProvSum _ _ _ q => q.noRec
+  | _, _, _, .Retag _ q => q.noRec
+  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noRec
+  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noRec
+  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noRec
+
+/-- Raising the degree only weakens a bound. -/
+private theorem poly_le_poly {b k k' m : ℕ} (h : k ≤ k') :
+    b * (m + 1) ^ k ≤ b * (m + 1) ^ k' :=
+  Nat.mul_le_mul_left b (Nat.pow_le_pow_right (by omega) h)
+
+/-- **A recursion-free query has polynomially many rows**, multiplicities
+included, and the polynomial is uniform in the context: an apply's right
+side is bounded independently of the parameters it reads. -/
+theorem AggQueryIn.exists_polyBound :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), q.noRec →
+      ∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T),
+        Multiset.card (q.evaluatePlain D γ) ≤ b * (D.size + 1) ^ k := by
+  intro c n κ q
+  induction q with
+  | Rel n s =>
+    refine fun _ => ⟨1, 1, fun D γ => ?_⟩
+    show Multiset.card (match D.find n s with
+      | none => (0 : Relation T n) | some rn => rn) ≤ _
+    cases hf : D.find n s with
+    | none => exact Nat.zero_le _
+    | some rn =>
+      refine le_trans (Database.card_le_size D hf) ?_
+      rw [pow_one, one_mul]
+      omega
+  | Empty => exact fun _ => ⟨0, 0, fun _ _ => Nat.zero_le _⟩
+  | Proj ps q ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (q.evaluatePlain D γ)) ≤ _
+      rw [Multiset.card_map]; exact hb D γ⟩
+  | Sel φ q ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => le_trans
+      (Multiset.card_le_card (Multiset.filter_le _ _)) (hb D γ)⟩
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    refine fun hq => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2
+    refine ⟨b₁ * b₂, k₁ + k₂, fun D γ => ?_⟩
+    show Multiset.card (q₁.evaluatePlain D γ * q₂.evaluatePlain D γ) ≤ _
+    rw [Relation.card_hMul, pow_add,
+      show b₁ * b₂ * ((D.size + 1) ^ k₁ * (D.size + 1) ^ k₂)
+        = b₁ * (D.size + 1) ^ k₁ * (b₂ * (D.size + 1) ^ k₂) from by ring]
+    exact Nat.mul_le_mul (hb₁ D γ) (hb₂ D γ)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    refine fun hq => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2
+    refine ⟨b₁ * b₂, k₁ + k₂, fun D γ => ?_⟩
+    show Multiset.card ((q₁.evaluatePlain D γ).bind (fun u =>
+      Multiset.map _ (q₂.evaluatePlain D (Fin.append u γ)))) ≤ _
+    rw [Multiset.card_bind, pow_add,
+      show b₁ * b₂ * ((D.size + 1) ^ k₁ * (D.size + 1) ^ k₂)
+        = b₁ * (D.size + 1) ^ k₁ * (b₂ * (D.size + 1) ^ k₂) from by ring]
+    refine le_trans (Multiset.sum_le_card_nsmul _ (b₂ * (D.size + 1) ^ k₂)
+      (fun x hx => ?_)) ?_
+    · obtain ⟨u, -, rfl⟩ := Multiset.mem_map.mp hx
+      show Multiset.card (Multiset.map (fun v => Fin.append u v)
+        (q₂.evaluatePlain D (Fin.append u γ))) ≤ _
+      rw [Multiset.card_map]
+      exact hb₂ D (Fin.append u γ)
+    · rw [smul_eq_mul, Multiset.card_map]
+      exact Nat.mul_le_mul_right _ (hb₁ D γ)
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    refine fun hq => ?_
+    obtain ⟨b₁, k₁, hb₁⟩ := ih₁ hq.1
+    obtain ⟨b₂, k₂, hb₂⟩ := ih₂ hq.2
+    refine ⟨b₁ + b₂, max k₁ k₂, fun D γ => ?_⟩
+    show Multiset.card (q₁.evaluatePlain D γ + q₂.evaluatePlain D γ) ≤ _
+    rw [Relation.card_add, Nat.add_mul]
+    exact Nat.add_le_add
+      (le_trans (hb₁ D γ) (poly_le_poly (le_max_left _ _)))
+      (le_trans (hb₂ D γ) (poly_le_poly (le_max_right _ _)))
+  | Dedup q ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => le_trans (Multiset.card_dedup_le _) (hb D γ)⟩
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih₁ hq.1
+    exact ⟨b, k, fun D γ => le_trans
+      (Multiset.card_le_card (Multiset.filter_le _ _)) (hb D γ)⟩
+  | Alt k hk q ih => exact fun hq => ih hq
+  | Retag hk q ih => exact fun hq => ih hq
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
+  | Gamma is ts fs q keep ord ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hb D γ)⟩
+  | GammaScalar ts fs q ord ih =>
+    refine fun _ => ⟨1, 0, fun D γ => ?_⟩
+    show Multiset.card (Multiset.ofList [_]) ≤ _
+    rw [pow_zero, one_mul]
+    rfl
+  | GammaNest is his p f q ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hb D γ)⟩
+  | ProvSum is his t q ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hb D γ)⟩
+  | GammaTok is his ts fs a q keep ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (Multiset.dedup
+        (Multiset.map _ (q.evaluatePlain D γ)))) ≤ _
+      rw [Multiset.card_map]
+      exact le_trans (le_trans (Multiset.card_dedup_le _)
+        (le_of_eq (Multiset.card_map _ _))) (hb D γ)⟩
+  | Win P O o w t f q hrr dist keep ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (Multiset.map _ (q.evaluatePlain D γ)) ≤ _
+      rw [Multiset.card_map]; exact hb D γ⟩
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    refine fun hq => ?_
+    obtain ⟨b, k, hb⟩ := ih hq
+    exact ⟨b, k, fun D γ => by
+      show Multiset.card (OccFam.toMultiset _) ≤ _
+      rw [OccFam.card_toMultiset]
+      exact le_trans (le_of_eq (OccFam.size_ofSorted _)) (hb D γ)⟩
