@@ -971,13 +971,18 @@ proven engine several general results reuse internally.
   `proj_mem_of_generatesOn`, `union_mem_of_generatesOn`,
   `gamma_mem_of_generatesOn`, `prod_or_apply_mem_of_generatesOn`,
   `empty_mem_of_generatesOn` and `sel_or_diff_mem_of_generatesOn`, each
-  over the schema its witness lives on. The last holds of the whole
-  algebra: `AggQueryIn.NonzeroOn`, the dichotomy relative to a set of
-  names forced empty, is what carries it through a set recursion, and
+  over the schema its witness lives on. Two of them hold of the whole
+  algebra: for `σ`/`−`, `AggQueryIn.NonzeroOn`, the dichotomy relative
+  to a set of names forced empty, is what carries the invariant through
+  a set recursion; for `Π`, `AggQueryIn.affine_of_recOnce` says that a
+  recursive term without a projection reads the recursive relation
+  tuple by tuple, so a bag recursion settles only at its base. In both,
   `AggQueryIn.SettlesAt` – the recursions settle at this instance – is
-  the one hypothesis a statement about a recursion's value needs.
-  `GeneratesOn` asks the query it produces to settle everywhere, as the
-  plain query it stands for does.
+  the one hypothesis a statement about a recursion's value needs, and
+  `AggQueryIn.recRestricted` is `sec:plain`'s restriction on a
+  recursive term. `GeneratesOn` asks the query it produces to be of the
+  algebra and to settle everywhere, as the plain query it stands for
+  does.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its
   input is all-regular, a predicate of the language holds exactly where
