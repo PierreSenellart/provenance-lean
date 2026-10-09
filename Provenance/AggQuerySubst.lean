@@ -304,7 +304,6 @@ omit [ValueType T] in
     (p.substMap θ).kind = p.kind := by
   cases p <;> rfl
 
-omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- The substitution does not turn a source column into the rewritten
@@ -314,6 +313,7 @@ world's. -/
     (p.substMap θ).sourceCol = p.sourceCol := by
   cases p <;> rfl
 
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 theorem ProjColIn.eval_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) (p : ProjColIn T c κ)
     (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
