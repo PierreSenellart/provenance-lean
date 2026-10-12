@@ -50,6 +50,7 @@ import Provenance.AllRegular
 /- The basis, assembled -/
 import Provenance.BasisAssembly
 import Provenance.RecursionBasis
+import Provenance.SumByMu
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1054,7 +1055,8 @@ proven engine several general results reuse internally.
   query is a partial function of the instance: the query produced
   settles and agrees wherever the given one settles. The rows against
   it are `empty_`, `gamma_`, `sel_or_diff_`, `proj_`,
-  `prod_or_apply_` and `muBag_mem_of_generatesOnRec`; `⊎` is open. The
+  `prod_or_apply_` and `muBag_mem_of_generatesOnRec`; `⊎` is **not** a
+  row, being derivable (`Provenance.SumByMu`). The
   last rests on `AggQueryIn.exists_polyBound_rec`, which bounds the rows
   of a query without `μ^⊎` polynomially, set recursions included, by one
   induction carrying the card and the values of a result together – a
@@ -1063,6 +1065,26 @@ proven engine several general results reuse internally.
   the instance the recursion started from.
   The signature the row is stated in is
   `AggQueryIn.inMinimalSig` of `Provenance.PlainBasis`
+- `Provenance.SumByMu` – **`⊎` from `μ^⊎`**: with a bag recursion the
+  union is a derived operator, so the `⊎` row of the plain fragment's
+  table does not survive to the whole algebra. `AggQueryIn.sumByMu` is
+  the construction (two bag recursions over a one-row driver, each
+  reading one operand once through a phase tag; `evaluatePlain_sumByMu`
+  says it is `q₁ ⊎ q₂`, `settlesAt_sumByMu` that it settles wherever the
+  operands do), and `AggQueryIn.exists_sumFree` the pass: every query
+  over the classes of `S` and `⊎` – restricted recursions, in a signature
+  `Θ`, every `⊎` all-regular (`sumsAllReg`, what a recursion needs and
+  the re-typing produces) – is matched wherever it is defined by one
+  over `S` alone, for any `S` holding `sumMuOps` = `{∅, Π, σ, ×, γ, μ^⊎}`,
+  with the restriction, the signature, derivable windows and
+  well-formedness kept. A `⊎` inside a recursive body is not replaced
+  but *split* (`exists_sumFree_aux`'s second half): the body is the sum
+  of a body with the non-recursive side of each `⊎` on the recursive
+  path dropped and a closed query, which is empty at a bag recursion
+  that settles (`mu_of_split`) and moves into the base of a set
+  recursion (`muSet_of_split`). The bound names come from an injective
+  supply the query does not use, which `exists_freshSupply` gives for a
+  schema declaring finitely many names
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

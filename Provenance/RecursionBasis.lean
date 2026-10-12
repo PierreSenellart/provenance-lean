@@ -2174,7 +2174,8 @@ everywhere; the invariants are the ones of `Provenance.PlainBasis`
 extended through the recursions. What is **not** here is `⊎`: its
 thin-instance invariant fails with a recursion
 (`μ^⊎R.(S, Π_c(σ_{#1≠c}(R)))` over `{a}` has the rows `a` and `c`),
-and whether the class stays necessary is open. -/
+and the class is indeed not necessary – with a bag recursion the union
+is a derived operator (`Provenance.SumByMu`). -/
 
 private theorem settlesAt_of_plain {c n : ℕ} {κ : Fin n → ColKind}
     (q : AggQueryIn T c n κ) (hq : q.usesOnly plainOps) :
