@@ -744,8 +744,8 @@ theorem proj_mem_of_generatesOn {S : Set OpKind}
 /-- **One of `×` and the apply is necessary**: without both, an answer
 is linear in the instance, and a relation joined with itself is
 quadratic. This is the recursion-free form; with the recursions the row
-is about a signature without functions on values, and is
-`prod_or_apply_mem_of_generatesOnRecSig`. -/
+is stated in the minimal universe, `prod_or_apply_mem_of_generatesOnRec`
+of `Provenance.RecursionBasis`. -/
 theorem prod_or_apply_mem_of_generatesOn {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S)
     (hS : GeneratesOn ℕ schemaR S) :

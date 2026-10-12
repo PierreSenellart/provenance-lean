@@ -1047,15 +1047,15 @@ proven engine several general results reuse internally.
   `muSettles_chain` says the rounds end, `count_chainWitness` gives the
   sink `2ⁿ` copies, and `chainWitness_no_polynomial_bound` is the row:
   no `c · (n+1)^k` bounds that. `GeneratesOnRec` is generation over the
-  whole algebra, where a query is a partial function of the instance:
-  the query produced settles and agrees wherever the given one settles;
-  `GeneratesOnRecSig` is the same within a signature, and
-  `prod_or_apply_mem_of_generatesOnRecSig` is the product row against
-  it. `muBag_mem_of_generatesOnRecSig` pins the recursion row to `μ^⊎`
-  in the minimal signature: `AggQueryIn.exists_polyBound_rec` bounds the
-  rows of a query without it polynomially, set recursions included, by
-  one induction carrying the card and the values of a result together –
-  a set recursion's fixpoint is duplicate-free over a value set of
+  whole algebra **in the minimal universe** `𝒜(∅, {count})`, where a
+  query is a partial function of the instance: the query produced
+  settles and agrees wherever the given one settles. The rows against
+  it are `empty_`, `gamma_`, `sel_or_diff_`, `proj_`,
+  `prod_or_apply_` and `muBag_mem_of_generatesOnRec`; `⊎` is open. The
+  last rests on `AggQueryIn.exists_polyBound_rec`, which bounds the rows
+  of a query without `μ^⊎` polynomially, set recursions included, by one
+  induction carrying the card and the values of a result together – a
+  set recursion's fixpoint is duplicate-free over a value set of
   polynomial size, and every count inside a recursive term is read off
   the instance the recursion started from.
   The signature the row is stated in is

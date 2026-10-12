@@ -2142,82 +2142,178 @@ theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
 def plainRecOps : Set OpKind :=
   insert OpKind.muBag (insert OpKind.muSet plainOps)
 
-/-- **A generating set of the whole algebra**, over a schema: every query
-of the algebra over `sch` with derivable windows is matched by one using
-only the classes of `S`, which is **defined wherever the query is and
-agrees with it there** (`AggQueryIn.SettlesAt`). A query of the whole
-algebra is a partial function of the instance, so this is what
-equivalence means for it; nothing is asked where the query is undefined.
-On a query of the plain fragment, which is defined everywhere, it is
-`GeneratesOn` (`generatesOn_of_generatesOnRec`). -/
-def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
-    Prop :=
+/-- **A generating set of the whole algebra**, over a schema, **in the
+minimal universe** `𝒜(∅, {count})` (Pierre, 2026-10-12: the
+classification with the recursions is done there and only there): every
+query of the algebra over `sch` in the minimal signature, with derivable
+windows, is matched by one in the minimal signature using only the
+classes of `S`, which is **defined wherever the query is and agrees with
+it there** (`AggQueryIn.SettlesAt`). A query of the whole algebra is a
+partial function of the instance, so this is what equivalence means for
+it; nothing is asked where the query is undefined. The counting aggregate
+`cnt` is a parameter with `SeqAggFunc.IsCount` as its specification
+where a row needs it, as everywhere in the classification. -/
+def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema)
+    (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.recRestricted →
-      q.WinsDerivable →
+      q.inMinimalSig cnt → q.WinsDerivable →
       ∃ q' : AggQuery T n (ColKind.allReg n),
         q'.overSchema sch ∧ q'.usesOnly S ∧ q'.recRestricted
+          ∧ q'.inMinimalSig cnt
           ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
             q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
 
-/-- **A generating set of the whole algebra in a signature**: as
-`GeneratesOnRec`, for the queries of the signature `𝒜(∅, Θ)` – no
-function on values, aggregates in `Θ` – and producing queries of it.
-This is the form the rows that depend on the signature are stated
-against, the product row being one: a recursive term that may apply a
-function to values runs as many rounds as the instance wants. -/
-def GeneratesOnRecSig (T : Type) [ValueType T] (sch : Schema)
-    (Θ : Set (SeqAggFunc T)) (S : Set OpKind) : Prop :=
-  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
-    q.overSchema sch → q.usesOnly plainRecOps → q.recRestricted → q.inSig Θ →
-      q.WinsDerivable →
-      ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.recRestricted ∧ q'.inSig Θ
-          ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
-            q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+/-! ## The rows of `tab:basisclasses` for the whole algebra
 
-/-- **One of `×` and the apply is in every basis of the whole algebra in
-a signature without functions on values**: there a recursive term reads
-the previous round row by row, so a recursion's answer stays linear in
-the instance, and a relation joined with itself is quadratic. -/
-theorem prod_or_apply_mem_of_generatesOnRecSig {Θ : Set (SeqAggFunc ℕ)}
-    {S : Set OpKind} (hS : GeneratesOnRecSig ℕ schemaR Θ S) :
+Each row below is the statement that a class is in every basis of the
+whole algebra in the minimal universe. The witnesses are the plain
+fragment's (`Provenance.BasisAssembly`), every one of them in the
+minimal signature and recursion-free, hence restricted and defined
+everywhere; the invariants are the ones of `Provenance.PlainBasis`
+extended through the recursions. What is **not** here is `⊎`: its
+thin-instance invariant fails with a recursion
+(`μ^⊎R.(S, Π_c(σ_{#1≠c}(R)))` over `{a}` has the rows `a` and `c`),
+and whether the class stays necessary is open. -/
+
+private theorem settlesAt_of_plain {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (hq : q.usesOnly plainOps) :
+    ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ :=
+  AggQueryIn.settlesAt_of_usesOnly (S := plainOps)
+    (by simp [plainOps, basisDD, basisOps])
+    (by simp [plainOps, basisDD, basisOps]) q hq
+
+omit [ValueType T] in
+private theorem recRestricted_of_plain {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (hq : q.usesOnly plainOps) : q.recRestricted :=
+  AggQueryIn.recRestricted_of_usesOnly (S := plainOps)
+    (by simp [plainOps, basisDD, basisOps])
+    (by simp [plainOps, basisDD, basisOps]) q hq
+
+private theorem plainOps_subset_plainRecOps : plainOps ⊆ plainRecOps :=
+  fun x hx => by
+    simp only [plainRecOps]
+    exact Set.mem_insert_of_mem _ (Set.mem_insert_of_mem _ hx)
+
+omit [ValueType T] in
+private theorem usesOnly_unit_plain :
+    (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).usesOnly plainOps := by
+  unfold AggQueryIn.unit
+  rw [AggQueryIn.usesOnly_castKind]
+  exact ⟨by simp [plainOps, basisDD, basisOps],
+    show OpKind.empty ∈ plainOps by simp [plainOps, basisDD, basisOps]⟩
+
+private theorem inSig_unit {Θ : Set (SeqAggFunc T)} :
+    (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).inSig Θ := by
+  unfold AggQueryIn.unit
+  rw [AggQueryIn.inSig_castKind]
+  exact ⟨fun j => j.elim0, fun j => j.elim0, trivial⟩
+
+private theorem winsDerivable_unit_rec :
+    (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).WinsDerivable := by
+  unfold AggQueryIn.unit
+  rw [AggQueryIn.winsDerivable_castKind]
+  exact trivial
+
+/-- **`∅` is in every basis of the whole algebra**: over the empty schema
+a query can name no relation, and a recursion's base is a query of the
+ambient schema, so the base of every recursion there has `∅` for its
+only leaf. -/
+theorem empty_mem_of_generatesOnRec {cnt : SeqAggFunc T} {S : Set OpKind}
+    (hS : GeneratesOnRec T Schema.empty cnt S) : OpKind.empty ∈ S := by
+  obtain ⟨q', hsch, hu', -, -, -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+    AggQueryIn.overSchema_unit
+    (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ usesOnly_unit_plain)
+    (recRestricted_of_plain _ usesOnly_unit_plain) inSig_unit
+    winsDerivable_unit_rec
+  exact AggQueryIn.usesEmpty_of_overSchema_empty q' hsch hu'
+
+/-- **`γ` is in every basis of the whole algebra**: without it the
+all-empty instance has an empty answer, every round of a recursion
+included, and the unit has a row there. -/
+theorem gamma_mem_of_generatesOnRec {cnt : SeqAggFunc T} {sch : Schema}
+    {S : Set OpKind} (hS : GeneratesOnRec T sch cnt S) : OpKind.gamma ∈ S := by
+  by_contra hg
+  obtain ⟨q', -, hu', -, -, he⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+    AggQueryIn.overSchema_unit
+    (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ usesOnly_unit_plain)
+    (recRestricted_of_plain _ usesOnly_unit_plain) inSig_unit
+    winsDerivable_unit_rec
+  refine AggQueryIn.evaluatePlain_unit_ne_zero ([] : Database T)
+    (fun j => j.elim0) (Eq.trans (he ([] : Database T) (fun j => j.elim0)
+      (settlesAt_of_plain _ usesOnly_unit_plain _ _)).2 ?_)
+  exact AggQueryIn.evaluatePlain_eq_zero_of_allEmpty hg q' hu'
+    ([] : Database T) Database.allEmpty_nil (fun j => j.elim0)
+
+/-- **One of `σ` and `−` is in every basis of the whole algebra**:
+without both, a query over the schema is empty on every instance or
+non-empty on every full one wherever it is defined, and a selection on
+a value is neither. -/
+theorem sel_or_diff_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+    (hS : GeneratesOnRec ℕ schemaR cnt S) :
+    OpKind.sel ∈ S ∨ OpKind.diff ∈ S := by
+  by_contra h
+  obtain ⟨hsel, hdiff⟩ := not_or.mp h
+  have hplain : selWitness.usesOnly plainOps :=
+    ⟨by simp [plainOps, basisDD, basisOps], trivial⟩
+  obtain ⟨q', hsch, hu', -, -, he⟩ := hS selWitness (by rfl)
+    (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
+    (recRestricted_of_plain _ hplain) ⟨rfl, trivial⟩ trivial
+  refine selWitness_breaks ?_
+  rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff q' hu' hsch with
+    h0 | h1
+  · exact Or.inl (fun D γ =>
+      (he D γ (settlesAt_of_plain _ hplain D γ)).2.trans
+        (h0 D γ (he D γ (settlesAt_of_plain _ hplain D γ)).1))
+  · exact Or.inr (fun D γ hfull hc =>
+      h1 D γ hfull (he D γ (settlesAt_of_plain _ hplain D γ)).1
+        ((he D γ (settlesAt_of_plain _ hplain D γ)).2.symm.trans hc))
+
+/-- **`Π` is in every basis of the whole algebra**: without it
+multiplicities are bounded by the query wherever it is defined – a
+recursive term then reads the previous round tuple by tuple, so a bag
+recursion that settles is its base – and a projection of a relation
+with a repeated column has unbounded ones. -/
+theorem proj_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+    (hS : GeneratesOnRec ℕ schemaS cnt S) : OpKind.proj ∈ S := by
+  by_contra hp
+  have hplain : projWitness.usesOnly plainOps :=
+    ⟨⟨by simp [plainOps, basisDD, basisOps], fun j => by
+      have hj : j = 0 := Subsingleton.elim _ _
+      subst hj
+      rfl⟩, trivial⟩
+  obtain ⟨q', -, hu', hr', -, he⟩ := hS projWitness (by rfl)
+    (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
+    (recRestricted_of_plain _ hplain)
+    ⟨fun j => by
+      have hj : j = 0 := Subsingleton.elim _ _
+      subst hj
+      rfl, trivial⟩ trivial
+  refine projWitness_unbounded_multiplicity ⟨q'.multBound, fun D hnd u => ?_⟩
+  rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
+  exact AggQueryIn.count_le_multBound hp q' hu' hr' D hnd (fun j => j.elim0)
+    (he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1 u
+
+/-- **One of `×` and the apply is in every basis of the whole algebra**:
+in the minimal universe a recursive term reads the previous round row by
+row and its orbits repeat within a bound the query fixes, so an answer
+stays linear in the instance, and a relation joined with itself is
+quadratic. -/
+theorem prod_or_apply_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
+    {S : Set OpKind} (hS : GeneratesOnRec ℕ schemaR cnt S) :
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h
   obtain ⟨hp, ha⟩ := not_or.mp h
-  have hset : ∀ (D : Database ℕ) (γ : Fin 0 → ℕ), prodWitness.SettlesAt D γ :=
-    AggQueryIn.settlesAt_of_usesOnly (S := plainOps)
-      (by simp [plainOps, basisDD, basisOps])
-      (by simp [plainOps, basisDD, basisOps]) prodWitness
-      ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
+  have hplain : prodWitness.usesOnly plainOps :=
+    ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
   obtain ⟨q', -, hu', hr', hsig', he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
-    ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial, trivial⟩
-    ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
+    (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
+    (recRestricted_of_plain _ hplain) ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
-  rw [(he D (fun j => j.elim0) (hset D _)).2]
+  rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
   exact AggQueryIn.card_le_sizeBound hp ha q' hu' hr'
     (AggQueryIn.recNoFun_of_inSig q' hsig') D (fun j => j.elim0)
-    (he D (fun j => j.elim0) (hset D _)).1
-
-/-- **A generating set of the whole algebra generates the plain
-fragment**, whose queries are defined everywhere: so every row proved
-against `GeneratesOn` holds of a generating set of the whole algebra. -/
-theorem generatesOn_of_generatesOnRec {sch : Schema} {S : Set OpKind}
-    (hS : GeneratesOnRec T sch S) : GeneratesOn T sch S := by
-  intro n κ q hqs hq hd
-  have hset : ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ :=
-    AggQueryIn.settlesAt_of_usesOnly
-      (by simp [plainOps, basisDD, basisOps])
-      (by simp [plainOps, basisDD, basisOps]) q hq
-  obtain ⟨q', hs', hu', hr', he⟩ := hS q hqs
-    (AggQueryIn.usesOnly_mono
-      (fun x hx => by simp only [plainRecOps]; exact
-        Set.mem_insert_of_mem _ (Set.mem_insert_of_mem _ hx)) q hq)
-    (AggQueryIn.recRestricted_of_usesOnly
-      (by simp [plainOps, basisDD, basisOps])
-      (by simp [plainOps, basisDD, basisOps]) q hq) hd
-  exact ⟨q', hs', hu', hr', fun D γ => (he D γ (hset D γ)).1,
-    fun D γ => (he D γ (hset D γ)).2⟩
+    (he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1
 
 theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
   refine ⟨rfl, rfl, ?_⟩
@@ -2262,37 +2358,20 @@ theorem settlesAt_chainWitness (n : ℕ) :
         by simp [plainOps, basisDD, basisOps],
         by simp [plainOps, basisDD, basisOps], trivial, trivial⟩ _ _
 
-/-- **A basis of the whole algebra holds a recursion operator**
-(`tab:basisclasses`'s `μ^⊎` row, in the form the invariant proved here
-gives): without both, every answer is polynomial in the instance, and
-the sink of a chain of `n` diamonds has `2ⁿ` rows. -/
-theorem muBag_or_muSet_mem_of_generatesOnRec {S : Set OpKind}
-    (hS : GeneratesOnRec ℕ schemaSE S) :
-    OpKind.muBag ∈ S ∨ OpKind.muSet ∈ S := by
-  by_contra h
-  obtain ⟨hmb, hms⟩ := not_or.mp h
-  obtain ⟨q', -, hu', -, he⟩ := hS chainWitness overSchema_chainWitness
-    usesOnly_chainWitness recRestricted_chainWitness winsDerivable_chainWitness
-  obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound q'
-    (AggQueryIn.noRec_of_usesOnly hmb hms q' hu')
-  refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
-  rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
-  exact hb (dChain n) (fun j => j.elim0)
-
 /-- The witness is in every signature: no function on values, no
 aggregate. -/
 theorem inSig_chainWitness {Θ : Set (SeqAggFunc ℕ)} : chainWitness.inSig Θ :=
   ⟨trivial, fun _ => rfl, rfl, trivial, trivial⟩
 
-/-- **`μ^⊎` is in every basis of the whole algebra in the minimal
-signature** (`tab:basisclasses`'s row, pinned): without it, a query of
-`𝒜(∅, {count})` has polynomially many rows wherever it is defined – set
-recursions included, their rows being the duplicate-free tuples over a
-value set of polynomial size – and the sink of a chain of `n` diamonds
-has `2ⁿ`. -/
-theorem muBag_mem_of_generatesOnRecSig {cnt : SeqAggFunc ℕ}
+/-- **`μ^⊎` is in every basis of the whole algebra** (`tab:basisclasses`'s
+row): without it, a query of the minimal universe has polynomially many
+rows wherever it is defined – set recursions included, their rows being
+the duplicate-free tuples over a value set of polynomial size – and the
+sink of a chain of `n` diamonds has `2ⁿ`. The one row that reads what
+`cnt` is: a count. -/
+theorem muBag_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
     (hcnt : cnt.IsCount) {S : Set OpKind}
-    (hS : GeneratesOnRecSig ℕ schemaSE {cnt} S) : OpKind.muBag ∈ S := by
+    (hS : GeneratesOnRec ℕ schemaSE cnt S) : OpKind.muBag ∈ S := by
   by_contra hmb
   obtain ⟨q', -, hu', hr', hsig', he⟩ := hS chainWitness overSchema_chainWitness
     usesOnly_chainWitness recRestricted_chainWitness inSig_chainWitness

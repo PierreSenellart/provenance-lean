@@ -565,6 +565,12 @@ def AggQueryIn.inMinimalSig {c n : ℕ} {κ : Fin n → ColKind}
     (cnt : SeqAggFunc T) (q : AggQueryIn T c n κ) : Prop :=
   q.inSig {cnt}
 
+@[simp] theorem AggQueryIn.inSig_castKind {c n : ℕ}
+    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ)
+    (Θ : Set (SeqAggFunc T)) : (q.castKind h).inSig Θ ↔ q.inSig Θ := by
+  cases h
+  exact Iff.rfl
+
 /-! ## Counting rows: two facts the invariants run on -/
 
 /-- The length of a family's canonical indexing is the relation's size. -/
