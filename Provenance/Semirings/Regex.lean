@@ -22,10 +22,11 @@ What ProvSQL claims of it, verified here:
   and `𝟙 ⊖ L = 𝟙` for a language without the empty word, which is right
   but registers no absence), but the monus exists, so the refusal is a
   gap of the implementation and not of the algebra;
-- `⊕` is idempotent (`idempotent_add`) and the semiring is exclusive
-  (`exclusive_of`) and complemented (`complemented_of`), but **not
-  absorptive** (`not_absorptive`: `𝟙 ⊕ a ≠ 𝟙` as soon as `a` holds a
-  non-empty word);
+- `⊕` is idempotent (`idempotent_add`) and the semiring is complemented
+  (`complemented_of`), but **neither absorptive nor exclusive**
+  (`not_absorptive`: `𝟙 ⊕ a ≠ 𝟙` as soon as `a` holds a non-empty word;
+  `not_exclusive`: `{a} ⊗ (𝟙 ⊖ {a}) = {a} ≠ 𝟘`, the monus of `𝟙` by a
+  language without the empty word being `𝟙` itself);
 - every value has a Kleene star (Mathlib's `Language.kstar`), with the
   identities ProvSQL's simplifier applies: `(ε ∪ a)∗ = a∗`,
   `(a∗)∗ = a∗`, `∅∗ = ε∗ = ε`, and `a∗ = 𝟙 ⊕ a ⊗ a∗` on either side
