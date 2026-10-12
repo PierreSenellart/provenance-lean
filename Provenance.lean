@@ -136,6 +136,7 @@ import Provenance.Algorithms.SumDP
 import Provenance.HavingComplexity
 
 /- Various semirings -/
+import Provenance.Semirings.BestPath
 import Provenance.Semirings.Bool
 import Provenance.Semirings.BoolFunc
 import Provenance.Semirings.ChainFive
@@ -144,8 +145,10 @@ import Provenance.Semirings.IntervalUnion
 import Provenance.Semirings.Lukasiewicz
 import Provenance.Semirings.MinMax
 import Provenance.Semirings.Nat
+import Provenance.Semirings.Regex
 import Provenance.Semirings.Security
 import Provenance.Semirings.Tropical
+import Provenance.Semirings.TropicalPaths
 import Provenance.Semirings.Viterbi
 import Provenance.Semirings.Which
 import Provenance.Semirings.Why
@@ -1670,6 +1673,38 @@ proven engine several general results reuse internally.
 
 **Published papers**
 
+- `Provenance.Semirings.Regex` – **the regular-expression semiring**
+  (ProvSQL's `sr_regex`, 1.13.0): languages over the labels of the
+  input tuples, `⊕` the union, `⊗` the concatenation, a product gate
+  concatenating its factors in the order of the query. The first entry
+  of the catalog whose `⊗` **does not commute** (`not_commutative`), on
+  Mathlib's `Language`. An m-semiring all the same: the monus is the
+  difference of languages, which ProvSQL declines to compute but which
+  exists, and `δ` the indicator of non-emptiness. Idempotent,
+  complemented, neither absorptive nor exclusive, and every value has a
+  Kleene star with the identities ProvSQL's simplifier applies
+  (`kstar_one_add`, `kstar_kstar`, `kstar_zero`, `kstar_one`)
+- `Provenance.Semirings.TropicalPaths` – **the min-cost-paths semiring**
+  (`sr_tropical_paths`): a cost with every derivation of that cost as a
+  language, `⊕` keeping the lower cost and merging the languages on a
+  tie, `⊗` adding the costs and concatenating. `⊕` is the join of the
+  lexicographic order of the costs reversed and the languages by
+  inclusion, with `𝟘` at the bottom, and the monus that order
+  determines (the difference of the languages on a tie) makes it an
+  m-semiring, again one ProvSQL declines to compute. The star it
+  implements is verified against the fixpoint equation it solves: `𝟙`
+  for a positive cost, `(0, L∗)` for a cost `0`, and no solution for a
+  negative one (`no_fixpoint_of_neg`), which is the refusal
+  `recursion-cycle-no-value`
+- `Provenance.Semirings.BestPath` – **the one-best-derivation semiring**
+  (`sr_best_path`): a cost with one word of labels, the better value
+  being the cheaper one and, at equal costs, the shortlex-smaller word;
+  `⊕` the better of two, so the values are a chain with `𝟘` at the
+  bottom, `⊗` the concatenation with the costs added. Selective,
+  idempotent, non-commutative, complemented, with `⊗` distributing over
+  the monus on both sides, and absorptive on both sides for nonnegative
+  costs (`absorptive_of`), which is what lets ProvSQL solve a recursion
+  in it by Dijkstra's algorithm
 - `Provenance.Papers.Icde2026` – a frozen restatement of the claims of
   [Sen, Maniu & Senellart][sen2026provsql], each proved by applying the
   declaration the paper links to. Its statements are fixed at publication and
