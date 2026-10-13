@@ -1553,8 +1553,8 @@ a counting aggregate. Duplicate elimination and the difference go by
 (`Provenance.SumByMu`), every column is read as a value, and a window
 stays a window, over the doubled input (`Provenance.WinKept`). With the
 necessity rows, a basis of the whole algebra in that universe is `∅`,
-`Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×` and the apply, `win` (the
-`win` row, not formalized) and possibly `μ^∪`. -/
+`Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×` and the apply, `win`
+(`Provenance.WinRow`) and possibly `μ^∪`. -/
 theorem generatesOnRec_basisRecWinOps (sch : Schema) (cnt : SeqAggFunc T)
     (hcnt : cnt.IsCount) :
     GeneratesOnRec T sch cnt basisRecWinOps := by
@@ -1575,8 +1575,8 @@ reaches**: every query whose windows contain their current row and read
 all-regular inputs (`AggQueryIn.WinsDerivable`) is matched over the
 seven classes `basisRecOps`, defined and equal wherever it is. The
 hypothesis is the fragment's and not the predicate's: the `win` row of
-`tab:basisclasses` says the other windows are not derivable in the
-minimal signature. -/
+`tab:basisclasses` (`Provenance.WinRow`) says the other windows are not
+derivable in the minimal signature. -/
 theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
     (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)

@@ -18,12 +18,15 @@ fixpoint. So `ε(Π_tuple(S)) = F` as soon as `|E|^K ≥ |F|`
 
 This module has the construction and its correctness for *any* counter
 relation `E` of non-null values that is large enough. What `E` can be
-read off the query is the other half: for a term that computes no
-aggregate, the values of `F` are values of the instance, of the base, or
-constants of the query, so `E` is the union of those (the second part of
-the module), which is `prop:muunion` as stated. With counts inside the
-term, the paper argues the bound through the *order type* of the
-parameters of a count subquery, and that lemma is not formalized.
+read off the query is the other half: the values of the instance at the
+recursion's leaves, its constants and the context, with two constants of
+the domain (`counterRel`), and a width `K` fixed by the query. A count
+inside the term takes values that no such set enumerates, which is where
+the paper's *order-type* lemma enters: the fixpoint is duplicate-free
+over those values and the counts the recursion computes, of which there
+are polynomially many (`AggQueryIn.exists_card_bound_muSet` in
+`Provenance.Genericity`), so `|F| ≤ |E|^K` for a `K` read off that
+polynomial.
 -/
 
 variable {T : Type} [ValueType T]
@@ -2893,8 +2896,7 @@ computes, of which there are polynomially many
 `Provenance.Genericity`), so a counter of a width fixed by the query
 covers it. With the necessity rows, a basis of the whole algebra in the
 minimal universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×`
-and the apply, and `win` (the `win` row, not formalized); `μ^∪` is in
-none. -/
+and the apply, and `win` (`Provenance.WinRow`); `μ^∪` is in none. -/
 theorem generatesOnRec_sumMuWinOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRec T sch cnt sumMuWinOps := by
   intro n κ q ho hq hi

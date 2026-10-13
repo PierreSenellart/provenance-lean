@@ -54,6 +54,7 @@ import Provenance.SumByMu
 import Provenance.WinKept
 import Provenance.BasisRec
 import Provenance.Genericity
+import Provenance.WinRow
 import Provenance.MuUnion
 
 /- Relations read as families of occurrences -/
@@ -1123,8 +1124,8 @@ proven engine several general results reuse internally.
   recursive terms admits an apply whose left side reads the recursive
   relation, which no decorrelation keeps. With the necessity rows, a
   basis of the whole algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`,
-  one of `σ`/`−`, one of `×`/apply and `win` (its row is not
-  formalized); `μ^∪` is in none (`Provenance.MuUnion`)
+  one of `σ`/`−`, one of `×`/apply and `win` (`Provenance.WinRow`);
+  `μ^∪` is in none (`Provenance.MuUnion`)
 - `Provenance.Genericity` – **a query of the minimal signature commutes
   with a faithful map**, and its counts are polynomially many: a map
   faithful on a set of values (`FaithfulOn`: nulls and the order
@@ -1149,6 +1150,25 @@ proven engine several general results reuse internally.
   `AggQueryIn.valsIn_evaluatePlain` (every value of a result is read off
   the instance, the context or the constants, or is a count) is its
   first half
+- `Provenance.WinRow` – **the `win` row of the whole-algebra table**:
+  `win_mem_of_generatesOnRec` says the window class is in every
+  generating set over `ℕ` with the counting aggregate. The witness is
+  `count(*) OVER (… EXCLUDE CURRENT ROW)` on `n` copies of one row
+  (`winWitness`, `dRep`), which writes `n − 1`; the invariant (`sym_aux`,
+  `ClosedSym`/`BodySym`) is that a window-free query of the minimal
+  universe reads that family, for `n` past a threshold, as a bag of
+  *polynomial shapes* (`Shape`, `PolyBag`: a multiplicity and a row of
+  polynomials over `ℕ`, instantiated at `n`), its settling being decided
+  by one bit. Two polynomials are eventually equal or eventually strictly
+  ordered (`Poly.Cmp`, off their real asymptotics), so every comparison a
+  predicate, a key or a duplicate elimination makes is decided at the
+  threshold (`Decided`, `dedupAt`, `inst_eq_iff_shift`); a count is read
+  symbolically (`count_onBag_eq_card`); and the recursions run their
+  rounds on bags, the fixpoint index being read off the symbolic rounds.
+  The polynomials a query can write are finitely many because the counts
+  it reads are (`CountPolys`, off `Provenance.Genericity`'s bound), and
+  `n − 1` is `X − 1`, which has no natural constant coefficient
+  (`Poly.add_one_ne_X`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
