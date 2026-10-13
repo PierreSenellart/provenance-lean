@@ -55,6 +55,7 @@ import Provenance.WinKept
 import Provenance.RecursionBasisPass
 import Provenance.Genericity
 import Provenance.WinRow
+import Provenance.SelRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1163,6 +1164,20 @@ proven engine several general results reuse internally.
   it reads are (`CountPolys`, off `Provenance.Genericity`'s bound), and
   `n − 1` is `X − 1`, which has no natural constant coefficient
   (`Poly.add_one_ne_X`)
+- `Provenance.SelRow` – **the selection is the only operator reading the
+  order**: `AggQueryIn.evaluatePlain_orderBlind` says a query with no
+  selection, reading no aggregate column as a key (`altFree`), in a
+  signature with no function on values, commutes on its regular columns
+  (`ColKind.readTuple`) with every injective map of the values fixing `0`
+  and its constants, whatever the map does to the order – the
+  faithfulness commutation of `Provenance.Genericity` with the order
+  dropped. The windows and the ordered aggregations read the order into
+  aggregate columns, which such a query never reads back. The witness
+  `σ_{#1<#2}(S)` keeps `{(a, b)}` and not `{(b, a)}` (`ltWitness_breaks`),
+  so no selection-free query expresses it (`ltWitness_not_expressible`),
+  and `σ` is in every generating set whose produced queries read no
+  aggregate column as a key (`sel_mem_of_generatesOnRecAltFree`, against
+  `GeneratesOnRecAltFree`, the scope of the annotated classification)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
