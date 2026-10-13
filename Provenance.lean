@@ -52,6 +52,7 @@ import Provenance.BasisAssembly
 import Provenance.RecursionBasis
 import Provenance.SumByMu
 import Provenance.BasisRec
+import Provenance.MuUnion
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1105,6 +1106,30 @@ proven engine several general results reuse internally.
   decorrelation keeps. With the necessity rows, a basis of the whole
   algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ`/`−`, one
   of `×`/apply, and possibly `μ^∪`
+- `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`): a set
+  recursion whose term computes no aggregate is simulated by a bag
+  recursion over pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K`
+  and each round applying the term to the tuple part and moving the
+  counter to every larger one in the lexicographic order of `E^K`
+  (`AggQueryIn.sim`, `simResult` = its tuple parts without duplicates).
+  `evaluatePlain_simResult` is the correctness, under `|F| ≤ |E|^K` for
+  the fixpoint `F` and a counter relation `E` of non-null values, and
+  `settlesAt_simResult` the definedness. The counter relation is
+  computed (`counterRel`): the columns of the base, of the relations the
+  term reads, the term's constants and the context, with two constants of
+  the domain, the non-null rows kept by `x = x`; the value lemma
+  `valsIn_of_noAgg` (an aggregate-free query of the minimal signature
+  creates no value, through its recursions) bounds the fixpoint by
+  `(|E| + 1)^n ≤ |E|^(2n)`. The pass of `Provenance.BasisRec` is
+  generalized over its target classes and threads the schema; where the
+  target holds no `μ^∪` it calls `MuSetHandler`, which `muSetHandler`
+  proves for any target holding the union's basis, and
+  `generatesOnRec_sumMuOps_of_setRecNoAgg` is the generation statement:
+  over `{∅, Π, σ, apply, γ, μ^⊎}`, for the fragment where every set
+  recursion's term computes no aggregate (`AggQueryIn.setRecNoAgg`). A
+  count inside the term takes the fixpoint's values outside any relation
+  computable in advance; the paper's lemma on parameters, which would
+  lift the restriction, is not formalized
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
