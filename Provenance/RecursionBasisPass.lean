@@ -1,20 +1,23 @@
 import Provenance.WinKept
 
 /-!
-# A generating set of the whole algebra
+# The pass over the whole algebra
 
 `thm:plainbasis` classifies the bases of the recursion-free fragment and
 says of the whole algebra only which classes every basis contains. This
-module supplies the other half: **a set of classes that generates the
-whole algebra in the minimal universe**, `basisRecWinOps` =
-`{∅, Π, σ, apply, γ, win, μ^⊎, μ^∪}` (`generatesOnRec_basisRecWinOps`),
-and without `win` for the windows `prop:winderived` reaches
-(`generatesOnRec_basisRecOps_of_winsDerivable`). The
-apply is kept in place of `×` because the restriction on recursive terms
-admits an apply whose left side reads the recursive relation, and the
-decorrelation of such an apply puts `ε` of that left side inside the
-right side's decorrelation – the recursive relation read twice, under a
-duplicate elimination.
+module is the construction behind the other half: **one structural
+induction** (`exists_basisRec_aux`) matching every query of the whole
+algebra in the minimal universe by a query over a target set of classes
+holding the construction's six (`AggQueryIn.sumMuOps`: `∅`, `Π`, `σ`,
+the apply, `γ`, `μ^⊎`) and not `⊎`, with `win` kept or derived and the
+set recursion kept or handed to a `MuSetHandler`. Its instance over
+`basisRecOps` = `{∅, Π, σ, apply, γ, win, μ^⊎}`, the basis of the whole
+algebra, is `basisRecOps_generatesOnRec` in `Provenance.MuUnion`, where
+the handler is proved. The apply is kept in place of `×` because the
+restriction on recursive terms admits an apply whose left side reads the
+recursive relation, and the decorrelation of such an apply puts `ε` of
+that left side inside the right side's decorrelation – the recursive
+relation read twice, under a duplicate elimination.
 
 The pass is one structural induction (`exists_basisRec_aux`), every node
 re-typed to regular columns and rewritten by the local identities of
@@ -601,16 +604,6 @@ end ProdSwapFacts
 
 /-! ## The classes, and what the pass carries -/
 
-/-- **The generating set**: the construction's classes and the set
-recursion. -/
-def basisRecOps : Set OpKind := insert OpKind.muSet AggQueryIn.sumMuOps
-
-theorem sumMuOps_subset_basisRecOps : AggQueryIn.sumMuOps ⊆ basisRecOps :=
-  fun _ hx => Set.mem_insert_of_mem _ hx
-
-theorem union_notMem_basisRecOps : OpKind.union ∉ basisRecOps := by
-  simp [basisRecOps, AggQueryIn.sumMuOps]
-
 omit [ValueType T] in
 /-- With no `⊎` at all, every `⊎` is all-regular. -/
 theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union ∉ S) :
@@ -746,8 +739,8 @@ private theorem orR {p a b : Prop} (h : p ∨ a ∧ b) : p ∨ b := h.imp_right 
 
 /-- **The pass**, both halves at once: every query of the whole algebra in
 a signature `Θ` holding the counting aggregate `cnt`, with restricted
-recursions and derivable windows, is matched by a query over
-`basisRecOps` with all-regular columns, keeping what `BasisRecOf` lists
+recursions, is matched by a query over the target classes `S` with
+all-regular columns, keeping what `BasisRecOf` lists
 and defined and equal wherever the query is; and a body reading the name
 `s` once is matched by such a body and a closed query it is the sum of
 (`exists_sumFree_aux`'s shape). -/
@@ -1533,61 +1526,3 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
   | WinExpr P' O o ws ts fs g q keeps ih => exact fun _ _ hi _ => hi.elim
 
 end AggQueryIn
-
-/-- The seven classes with the windows. -/
-def basisRecWinOps : Set OpKind := insert OpKind.win basisRecOps
-
-theorem sumMuOps_subset_basisRecWinOps : AggQueryIn.sumMuOps ⊆ basisRecWinOps :=
-  fun _ hx => Set.mem_insert_of_mem _ (sumMuOps_subset_basisRecOps hx)
-
-theorem union_notMem_basisRecWinOps : OpKind.union ∉ basisRecWinOps := by
-  simp [basisRecWinOps, basisRecOps, AggQueryIn.sumMuOps]
-
-/-- **A generating set of the whole algebra in the minimal universe**
-(the positive half the recursion rows of `tab:basisclasses` were
-missing): over a schema declaring finitely many names, the classes
-`basisRecWinOps` – `∅`, `Π`, `σ`, the apply, `γ`, `win`, `μ^⊎` and
-`μ^∪` – generate the whole algebra in the signature `𝒜(∅, {count})`, for
-a counting aggregate. Duplicate elimination and the difference go by
-`prop:collapse`, products by the apply, unions by the bag recursion
-(`Provenance.SumByMu`), every column is read as a value, and a window
-stays a window, over the doubled input (`Provenance.WinKept`). With the
-necessity rows, a basis of the whole algebra in that universe is `∅`,
-`Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×` and the apply, `win`
-(`Provenance.WinRow`) and possibly `μ^∪`. -/
-theorem generatesOnRec_basisRecWinOps (sch : Schema) (cnt : SeqAggFunc T)
-    (hcnt : cnt.IsCount) :
-    GeneratesOnRec T sch cnt basisRecWinOps := by
-  intro n κ q ho hq hi
-  have hr : q.hygienic := q.hygienic_of_overSchema _ ho
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
-  have hmus : OpKind.muSet ∈ basisRecWinOps := by
-    simp [basisRecWinOps, basisRecOps, AggQueryIn.sumMuOps]
-  have hwin : OpKind.win ∈ basisRecWinOps := Set.mem_insert _ _
-  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecWinOps
-    union_notMem_basisRecWinOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcnt.counts q
-    hq hr hi (Or.inl hwin) f hf hfr sch hfsch ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
-    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩
-
-/-- **Without the window class, for the windows `prop:winderived`
-reaches**: every query whose windows contain their current row and read
-all-regular inputs (`AggQueryIn.WinsDerivable`) is matched over the
-seven classes `basisRecOps`, defined and equal wherever it is. The
-hypothesis is the fragment's and not the predicate's: the `win` row of
-`tab:basisclasses` (`Provenance.WinRow`) says the other windows are not
-derivable in the minimal signature. -/
-theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
-    (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
-    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
-    (hq : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (hw : q.WinsDerivable) :
-    ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly basisRecOps ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
-  have hr : q.hygienic := q.hygienic_of_overSchema _ ho
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
-  have hmus : OpKind.muSet ∈ basisRecOps := by simp [basisRecOps, AggQueryIn.sumMuOps]
-  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecOps
-    union_notMem_basisRecOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcnt.counts q
-    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
-    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩

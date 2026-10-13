@@ -2231,9 +2231,8 @@ def plainRecOps : Set OpKind :=
 /-- **A generating set of the whole algebra**, over a schema, **in the
 minimal universe** `𝒜(∅, {count})` (Pierre, 2026-10-12: the
 classification with the recursions is done there and only there): every
-query of the algebra over `sch` in the minimal signature, with derivable
-windows, is matched by one in the minimal signature using only the
-classes of `S`, which is **defined wherever the query is and agrees with
+query of the algebra over `sch` in the minimal signature is matched by
+one in the minimal signature using only the classes of `S`, which is **defined wherever the query is and agrees with
 it there** (`AggQueryIn.SettlesAt`). A query of the whole algebra is a
 partial function of the instance, so this is what equivalence means for
 it; nothing is asked where the query is undefined. The counting aggregate
@@ -2245,6 +2244,14 @@ def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema)
     q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
       ∃ q' : AggQuery T n (ColKind.allReg n),
         q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.Extends q
+
+/-- A set of classes generating the whole algebra does so with any class
+added. -/
+theorem GeneratesOnRec.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKind}
+    (hSS : S ⊆ S') (h : GeneratesOnRec T sch cnt S) : GeneratesOnRec T sch cnt S' := by
+  intro n κ q ho hq hi
+  obtain ⟨q', h₁, h₂, h₃, h₄⟩ := h q ho hq hi
+  exact ⟨q', h₁, AggQueryIn.usesOnly_mono hSS q' h₂, h₃, h₄⟩
 
 /-! ## The rows of `tab:basisclasses` for the whole algebra
 

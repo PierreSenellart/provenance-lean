@@ -2877,11 +2877,17 @@ omit [ValueType T] in
 theorem union_notMem_sumMuOps : OpKind.union ∉ AggQueryIn.sumMuOps := by
   simp [AggQueryIn.sumMuOps]
 
-/-- The six classes with the windows. -/
-def sumMuWinOps : Set OpKind := insert OpKind.win AggQueryIn.sumMuOps
+/-- **The basis of the whole algebra in the minimal universe**: the
+construction's classes and the windows, `{∅, Π, σ, apply, γ, win, μ^⊎}`.
+`basisRecOps_generatesOnRec` says it generates, and
+`Provenance.RecursionBasisTheorem` that no proper subset does. -/
+def basisRecOps : Set OpKind := insert OpKind.win AggQueryIn.sumMuOps
 
-theorem union_notMem_sumMuWinOps : OpKind.union ∉ sumMuWinOps := by
-  simp [sumMuWinOps, AggQueryIn.sumMuOps]
+theorem union_notMem_basisRecOps : OpKind.union ∉ basisRecOps := by
+  simp [basisRecOps, AggQueryIn.sumMuOps]
+
+theorem muSet_notMem_basisRecOps : OpKind.muSet ∉ basisRecOps := by
+  simp [basisRecOps, AggQueryIn.sumMuOps]
 
 /-- **`prop:muunion` as a generation statement, for every restricted
 term**: over a schema declaring finitely many names, every query of the
@@ -2897,14 +2903,14 @@ computes, of which there are polynomially many
 covers it. With the necessity rows, a basis of the whole algebra in the
 minimal universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×`
 and the apply, and `win` (`Provenance.WinRow`); `μ^∪` is in none. -/
-theorem generatesOnRec_sumMuWinOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
-    GeneratesOnRec T sch cnt sumMuWinOps := by
+theorem basisRecOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
+    GeneratesOnRec T sch cnt basisRecOps := by
   intro n κ q ho hq hi
   have hr : q.hygienic := q.hygienic_of_overSchema _ ho
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
-  have hS : AggQueryIn.sumMuOps ⊆ sumMuWinOps := Set.subset_insert _ _
-  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
-    (Or.inr (AggQueryIn.muSetHandler hS union_notMem_sumMuWinOps cnt hcnt.readsCount)) cnt
+  have hS : AggQueryIn.sumMuOps ⊆ basisRecOps := Set.subset_insert _ _
+  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux hS union_notMem_basisRecOps
+    (Or.inr (AggQueryIn.muSetHandler hS union_notMem_basisRecOps cnt hcnt.readsCount)) cnt
     (Set.mem_singleton cnt) hcnt.counts q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch
     ho).1 rfl
   exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
@@ -2914,7 +2920,7 @@ theorem generatesOnRec_sumMuWinOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : c
 reaches: the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
 every query of the whole algebra in the minimal universe whose windows
 are derivable (`AggQueryIn.WinsDerivable`). -/
-theorem generatesOnRec_sumMuOps_of_winsDerivable (sch : Schema)
+theorem sumMuOps_generatesOnRec_of_winsDerivable (sch : Schema)
     (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hq : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (hw : q.WinsDerivable) :

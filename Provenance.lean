@@ -52,10 +52,11 @@ import Provenance.BasisAssembly
 import Provenance.RecursionBasis
 import Provenance.SumByMu
 import Provenance.WinKept
-import Provenance.BasisRec
+import Provenance.RecursionBasisPass
 import Provenance.Genericity
 import Provenance.WinRow
 import Provenance.MuUnion
+import Provenance.RecursionBasisTheorem
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1101,31 +1102,24 @@ proven engine several general results reuse internally.
   of a frame, sorted by the clause with ties by the row, differ only in
   the order of rows with equal first blocks (`windowValueOpt_blockL`, off
   `readLe_blockL` and `OrderSpec.map_eq_of_sorted`)
-- `Provenance.BasisRec` – **a generating set of the whole algebra in the
-  minimal universe**: `generatesOnRec_basisRecWinOps` says the classes
-  `basisRecWinOps` = `{∅, Π, σ, apply, γ, win, μ^⊎, μ^∪}` generate the
-  whole algebra over a schema declaring finitely many names, for a
-  counting aggregate (`GeneratesOnRec`: `Extends`, defined wherever the query is
-  with the same value, no hypothesis on the query's windows), and
-  `generatesOnRec_basisRecOps_of_winsDerivable` drops `win` for the
-  queries whose windows `prop:winderived` reaches
-  (`AggQueryIn.WinsDerivable`). It is one structural induction
-  (`exists_basisRec_aux`) in the manner of the union's pass, generalized
-  over its target classes: every node is re-typed to regular columns
+- `Provenance.RecursionBasisPass` – **the pass over the whole algebra**:
+  one structural induction (`exists_basisRec_aux`) in the manner of the
+  union's pass, generalized over its target classes – any set holding
+  the construction's six (`AggQueryIn.sumMuOps`) and not `⊎`, with the
+  windows kept or derived and the set recursion kept or handed to a
+  `MuSetHandler`. Every node is re-typed to regular columns
   (`AggQueryIn.allRegOf`, `toReg`) and rewritten by the local
   identities – a window kept over the doubled input (`winKept`) or, where
   the target has no `win`, written as `winByApply`, duplicate elimination
   as a grouping, the difference as the `NOT IN` form with its product
   written as an apply (`notInDiffA`), a product as an apply (`prodA`, or
   `prodSwap` when the recursive relation is on its right, the apply
-  admitting it on the left only), a union through `exists_sumFree_aux`,
-  a set recursion kept or handed to a `MuSetHandler` – with a second half
-  for recursive bodies. The apply replaces `×` because the restriction on
-  recursive terms admits an apply whose left side reads the recursive
-  relation, which no decorrelation keeps. With the necessity rows, a
-  basis of the whole algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`,
-  one of `σ`/`−`, one of `×`/apply and `win` (`Provenance.WinRow`);
-  `μ^∪` is in none (`Provenance.MuUnion`)
+  admitting it on the left only), a union through `exists_sumFree_aux` –
+  with a second half for recursive bodies. The apply replaces `×` because
+  the restriction on recursive terms admits an apply whose left side
+  reads the recursive relation, which no decorrelation keeps. Its
+  instance over the basis is `basisRecOps_generatesOnRec` in
+  `Provenance.MuUnion`
 - `Provenance.Genericity` – **a query of the minimal signature commutes
   with a faithful map**, and its counts are polynomially many: a map
   faithful on a set of values (`FaithfulOn`: nulls and the order
@@ -1184,15 +1178,24 @@ proven engine several general results reuse internally.
   the query, off `AggQueryIn.exists_card_bound_muSet` of
   `Provenance.Genericity`, which bounds the fixpoint by a polynomial in
   the number of values the counter runs over. The pass of
-  `Provenance.BasisRec` is generalized over its target classes and
-  threads the schema; where the target holds no `μ^∪` it calls
-  `MuSetHandler`, which `muSetHandler` proves for any target holding the
-  union's basis, and `generatesOnRec_sumMuWinOps` is the generation
-  statement: `{∅, Π, σ, apply, γ, win, μ^⊎}` generate the whole algebra
-  in the minimal universe (`GeneratesOnRec`), with
-  `generatesOnRec_sumMuOps_of_winsDerivable` dropping `win` for
-  derivable windows. So `μ^∪` is in no basis of the whole algebra in that
-  universe
+  `Provenance.RecursionBasisPass` threads the schema; where the target
+  holds no `μ^∪` it calls `MuSetHandler`, which `muSetHandler` proves for
+  any target holding the union's basis, and `basisRecOps_generatesOnRec`
+  is the generation statement: `basisRecOps` = `{∅, Π, σ, apply, γ, win,
+  μ^⊎}` generates the whole algebra in the minimal universe
+  (`GeneratesOnRec`), with `sumMuOps_generatesOnRec_of_winsDerivable`
+  dropping `win` for derivable windows. So `μ^∪` is in no basis of the
+  whole algebra in that universe
+- `Provenance.RecursionBasisTheorem` – **the classification of the whole
+  algebra in the minimal universe, in one place**: `basisRecOps_isBasis`
+  says `basisRecOps` generates over every schema
+  (`generatesOnRec_of_basisRecOps_subset` extends that to every superset,
+  off `GeneratesOnRec.mono`) and that no proper subset does
+  (`basisRecOps_minimal`), the rows gathered as
+  `required_mem_of_generatesOnRec`: `∅`, `Π`, `γ`, `μ^⊎`, `win`, one of
+  `σ`/`−` and one of `×`/apply are in every generating set over `ℕ` with
+  the counting aggregate. Whether `−` for `σ` or `×` for the apply give
+  further bases is not settled
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

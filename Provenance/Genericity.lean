@@ -1,4 +1,4 @@
-import Provenance.BasisRec
+import Provenance.RecursionBasisPass
 
 /-!
 # Genericity of the minimal universe: a query reads its parameters only up to order

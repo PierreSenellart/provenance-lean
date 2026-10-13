@@ -2294,6 +2294,9 @@ theorem Poly.add_one_ne_X (p : Poly) : p + 1 ≠ Polynomial.X := by
   have := congrArg (fun q : Poly => q.coeff 0) h
   simp at this
 
+end WinRow
+
+open WinRow in
 /-- **The `win` row of `tab:basisclasses` for the whole algebra, in the
 minimal universe**: `win` is in every generating set over `ℕ` with the
 counting aggregate. Without a window every query reads the instance of
@@ -2319,7 +2322,7 @@ theorem win_mem_of_generatesOnRec {S : Set OpKind}
   have hN₂n : N₂ ≤ n₀ := hn₀ ▸ le_trans (le_max_right _ _) (le_max_left _ _)
   have hctx : ctxAt (fun i : Fin 0 => i.elim0) n₀ = fun _ => 0 := funext (fun i => i.elim0)
   have heq := (hL n₀ hNn).2
-  rw [hctx, ← (he.settles (dRep n₀) (fun _ => 0) (settlesAt_winWitness _ _)).2,
+  rw [hctx, ← (he.settles (WinRow.dRep n₀) (fun _ => 0) (settlesAt_winWitness _ _)).2,
     evaluatePlain_winWitness] at heq
   have hmem : (Fin.snoc ![1] (n₀ - 1) : Tuple ℕ (1 + 1)) ∈ PolyBag.inst L n₀ := by
     rw [← heq]
@@ -2337,5 +2340,3 @@ theorem win_mem_of_generatesOnRec {S : Set OpKind}
   | lt h => exact absurd hX (ne_of_lt (h n₀ hN₂n))
   | gt h => exact absurd hX (ne_of_gt (h n₀ hN₂n))
   | eq h => exact Poly.add_one_ne_X _ (Poly.eq_of_eventually_eq ⟨N₂, h⟩)
-
-end WinRow
