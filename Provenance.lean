@@ -1104,8 +1104,8 @@ proven engine several general results reuse internally.
   minimal universe**: `generatesOnRec_basisRecWinOps` says the classes
   `basisRecWinOps` = `{∅, Π, σ, apply, γ, win, μ^⊎, μ^∪}` generate the
   whole algebra over a schema declaring finitely many names, for a
-  counting aggregate (`GeneratesOnRec`, equivalence wherever the query is
-  defined, no hypothesis on the query's windows), and
+  counting aggregate (`GeneratesOnRec`: `Extends`, defined wherever the query is
+  with the same value, no hypothesis on the query's windows), and
   `generatesOnRec_basisRecOps_of_winsDerivable` drops `win` for the
   queries whose windows `prop:winderived` reaches
   (`AggQueryIn.WinsDerivable`). It is one structural induction

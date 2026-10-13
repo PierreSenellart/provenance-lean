@@ -240,16 +240,53 @@ conforming instance instead of reading an absent name as empty.
 would need: the condition is static, so it belongs in the hypotheses and
 not in the evaluator's result type.) -/
 
-/-- A schema: the arity of each relation name it declares. -/
-def Schema := String → Option ℕ
+/-- A schema: the arity of each relation name it declares, finitely many
+names being declared. -/
+structure Schema where
+  /-- The arity of a name, or `none` where the schema does not declare it. -/
+  decl : String → Option ℕ
+  /-- A schema declares finitely many names. -/
+  finite : {s | decl s ≠ none}.Finite
+
+instance : CoeFun Schema (fun _ => String → Option ℕ) := ⟨Schema.decl⟩
 
 /-- The schema declaring nothing. -/
-def Schema.empty : Schema := fun _ => none
+def Schema.empty : Schema := ⟨fun _ => none, by simp⟩
+
+@[simp] theorem Schema.empty_apply (s : String) : Schema.empty s = none := rfl
+
+/-- Two schemas declaring the same arities are equal. -/
+@[ext] theorem Schema.ext {sch₁ sch₂ : Schema} (h : ∀ s, sch₁ s = sch₂ s) : sch₁ = sch₂ := by
+  obtain ⟨d₁, f₁⟩ := sch₁
+  obtain ⟨d₂, f₂⟩ := sch₂
+  have hd : d₁ = d₂ := funext h
+  subst hd
+  rfl
 
 /-- Declaring one name, as a recursion's rounds do for the name they
 bind. -/
+theorem Schema.update_finite (sch : Schema) (s : String) (k : ℕ) :
+    {s' | (if s' = s then some k else sch s') ≠ none}.Finite := by
+  refine (sch.finite.insert s).subset (fun s' h => ?_)
+  by_cases hs : s' = s
+  · exact Set.mem_insert_iff.mpr (Or.inl hs)
+  · refine Set.mem_insert_iff.mpr (Or.inr ?_)
+    rw [Set.mem_ofPred_eq, ite_eq_right hs] at h
+    exact h
+
 def Schema.update (sch : Schema) (s : String) (k : ℕ) : Schema :=
-  fun s' => if s' = s then some k else sch s'
+  ⟨fun s' => if s' = s then some k else sch s', Schema.update_finite sch s k⟩
+
+@[simp] theorem Schema.update_apply (sch : Schema) (s : String) (k : ℕ) (s' : String) :
+    sch.update s k s' = if s' = s then some k else sch s' := rfl
+
+/-- A schema declaring the names of a list, each with an arity. -/
+def Schema.ofFn (f : String → Option ℕ) (N : Finset String) (h : ∀ s, f s ≠ none → s ∈ N) :
+    Schema :=
+  ⟨f, N.finite_toSet.subset (fun s hs => h s hs)⟩
+
+@[simp] theorem Schema.ofFn_apply (f : String → Option ℕ) (N : Finset String)
+    (h : ∀ s, f s ≠ none → s ∈ N) (s : String) : Schema.ofFn f N h s = f s := rfl
 
 /-- **The name `s` does not occur in the query.** -/
 def AggQueryIn.noMention (s : String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
@@ -402,10 +439,10 @@ theorem Database.Conforms.assign {sch : Schema} {D : Database T}
   intro s' k' h
   by_cases hs : s' = s
   · subst hs
-    rw [Schema.update, ite_eq_left rfl] at h
+    rw [Schema.update_apply, ite_eq_left rfl] at h
     obtain rfl : k' = k := (Option.some.inj h).symm
     exact ⟨X, Database.find_assign s' X D⟩
-  · rw [Schema.update, ite_eq_right hs] at h
+  · rw [Schema.update_apply, ite_eq_right hs] at h
     obtain ⟨r, hr⟩ := hD s' k' h
     exact ⟨r, (Database.find_assign_of_ne s s' X D
       (fun hc => hs hc.2)).trans hr⟩
@@ -1690,27 +1727,39 @@ theorem AggQueryIn.evaluatePlain?_eq_none_iff {c n : ℕ} {κ : Fin n → ColKin
   · next h => exact ⟨fun he => absurd he (by simp), fun hn => absurd h hn⟩
   · next h => exact ⟨fun _ => h, fun _ => rfl⟩
 
-/-- **`q'` extends `q` as a partial function**: it is defined wherever
-`q` is, with the same value. This is what a rewriting of the whole
-algebra establishes; `extends_iff_evaluatePlain?` is the same statement
-over the partial semantics. -/
+/-- **`q'` extends `q` as a partial function**: wherever `q` is defined,
+`q'` is defined with the same value. This is what a rewriting of the
+whole algebra establishes; `extends_iff_settles` spells it out through
+the evaluator and the settling. -/
 def AggQueryIn.Extends {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)}
     (q' : AggQueryIn T c n κ' l') (q : AggQueryIn T c n κ l) : Prop :=
-  ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
-    q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+  ∀ (D : Database T) (γ : Fin c → T) (r : Relation T n),
+    q.evaluatePlain? D γ = some r → q'.evaluatePlain? D γ = some r
 
-theorem AggQueryIn.extends_iff_evaluatePlain? {c n : ℕ} {κ κ' : Fin n → ColKind}
+theorem AggQueryIn.extends_iff_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l l' : List (String × ℕ)} (q' : AggQueryIn T c n κ' l') (q : AggQueryIn T c n κ l) :
-    q'.Extends q ↔ ∀ (D : Database T) (γ : Fin c → T) (r : Relation T n),
-      q.evaluatePlain? D γ = some r → q'.evaluatePlain? D γ = some r := by
+    q'.Extends q ↔ ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+      q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
   constructor
-  · intro h D γ r hr
-    obtain ⟨hs, he⟩ := (AggQueryIn.evaluatePlain?_eq_some_iff q D γ r).mp hr
-    exact (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ r).mpr ⟨(h D γ hs).1, (h D γ hs).2 ▸ he⟩
   · intro h D γ hs
     have := (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ _).mp
       (h D γ _ ((AggQueryIn.evaluatePlain?_eq_some_iff q D γ _).mpr ⟨hs, rfl⟩))
     exact ⟨this.1, this.2.symm⟩
+  · intro h D γ r hr
+    obtain ⟨hs, he⟩ := (AggQueryIn.evaluatePlain?_eq_some_iff q D γ r).mp hr
+    exact (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ r).mpr ⟨(h D γ hs).1, (h D γ hs).2 ▸ he⟩
+
+theorem AggQueryIn.Extends.settles {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l l' : List (String × ℕ)} {q' : AggQueryIn T c n κ' l'} {q : AggQueryIn T c n κ l}
+    (h : q'.Extends q) : ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+      q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ :=
+  (AggQueryIn.extends_iff_settles q' q).mp h
+
+theorem AggQueryIn.Extends.of_settles {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l l' : List (String × ℕ)} {q' : AggQueryIn T c n κ' l'} {q : AggQueryIn T c n κ l}
+    (h : ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+      q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ) : q'.Extends q :=
+  (AggQueryIn.extends_iff_settles q' q).mpr h
 
 /-- **A query with no recursion settles everywhere.** -/
 theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
@@ -1999,11 +2048,11 @@ theorem Database.FullOff.assign_update {sch : Schema} {E : Set String}
   by_cases hts : t = s
   · subst hts
     have hk : k = m := by
-      simp only [Schema.update, ite_true] at ht
+      simp only [Schema.update_apply, ite_true] at ht
       exact (Option.some.inj ht).symm
     subst hk
     exact ⟨X, Database.find_assign t X D, hX⟩
-  · have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+  · have ht' : sch t = some k := by simpa [Schema.update_apply, hts] using ht
     rw [Database.find_assign_of_ne s t X D (fun h' => hts h'.2)]
     exact h t k ht' (fun hE' => hE ⟨hE', hts⟩)
 
@@ -2016,7 +2065,7 @@ theorem Database.FullOff.assign_update_zero {sch : Schema} {E : Set String}
       (D.assign s (0 : Relation T m)) := by
   intro t k ht hE
   have hts : t ≠ s := fun h' => hE (h' ▸ Set.mem_insert s E)
-  have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+  have ht' : sch t = some k := by simpa [Schema.update_apply, hts] using ht
   rw [Database.find_assign_of_ne s t _ D (fun h' => hts h'.2)]
   exact h t k ht' (fun hE' => hE (Set.mem_insert_of_mem s hE'))
 
@@ -2044,12 +2093,12 @@ theorem Database.EmptyOn.assign_update_zero {sch : Schema} {E : Set String}
   by_cases hts : t = s
   · subst hts
     have hk : k = m := by
-      simp only [Schema.update, ite_true] at ht
+      simp only [Schema.update_apply, ite_true] at ht
       exact (Option.some.inj ht).symm
     subst hk
     rw [Database.find_assign] at hf
     exact (Option.some.inj hf).symm
-  · have ht' : sch t = some k := by simpa [Schema.update, hts] using ht
+  · have ht' : sch t = some k := by simpa [Schema.update_apply, hts] using ht
     rw [Database.find_assign_of_ne s t _ D (fun h' => hts h'.2)] at hf
     exact h t k r ht' ((Set.mem_insert_iff.mp hE).resolve_left hts) hf
 
@@ -2453,7 +2502,10 @@ theorem AggQueryIn.zero_or_ne_zero_of_noSelDiff {S : Set OpKind}
         hw h D γ (Database.emptyOn_empty sch D) hs)
 
 /-- The schema of one unary relation, for the witnesses below. -/
-def schemaR : Schema := fun s => if s = "R" then some 1 else none
+def schemaR : Schema := Schema.ofFn (fun s => if s = "R" then some 1 else none) {"R"}
+  (fun s hs => Finset.mem_singleton.mpr (by by_contra hne; exact hs (ite_eq_right hne)))
+
+theorem schemaR_apply (s : String) : schemaR s = if s = "R" then some 1 else none := rfl
 
 /-- An instance of it holding the row `(1)`. -/
 def dOne : Database ℕ := [("R", ⟨1, ({![1]} : Multiset (Tuple ℕ 1))⟩)]
@@ -2470,22 +2522,22 @@ theorem full_dOne : Database.Full schemaR dOne := by
   intro s k h
   by_cases hs : s = "R"
   · subst hs
-    rw [schemaR, ite_eq_left rfl] at h
+    rw [schemaR_apply, ite_eq_left rfl] at h
     obtain rfl : k = 1 := (Option.some.inj h).symm
     exact ⟨({![1]} : Multiset (Tuple ℕ 1)), rfl, fun hc =>
       absurd (congrArg Multiset.card hc) (by simp)⟩
-  · rw [schemaR, ite_eq_right hs] at h
+  · rw [schemaR_apply, ite_eq_right hs] at h
     exact absurd h (fun hc => Option.some_ne_none k hc.symm)
 
 theorem full_dZero : Database.Full schemaR dZero := by
   intro s k h
   by_cases hs : s = "R"
   · subst hs
-    rw [schemaR, ite_eq_left rfl] at h
+    rw [schemaR_apply, ite_eq_left rfl] at h
     obtain rfl : k = 1 := (Option.some.inj h).symm
     exact ⟨({![0]} : Multiset (Tuple ℕ 1)), rfl, fun hc =>
       absurd (congrArg Multiset.card hc) (by simp)⟩
-  · rw [schemaR, ite_eq_right hs] at h
+  · rw [schemaR_apply, ite_eq_right hs] at h
     exact absurd h (fun hc => Option.some_ne_none k hc.symm)
 
 /-- **And a selection breaks it**: it keeps the row of one full instance

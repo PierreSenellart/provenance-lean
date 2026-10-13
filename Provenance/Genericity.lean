@@ -396,7 +396,7 @@ end FaithfulOn
 /-! ## What a count reads
 
 A count is a function of how many non-null values its sequence holds
-(`SeqAggFunc.IsCount`), so it reads a listing of a bag through the bag's
+(`SeqAggFunc.ReadsCount`), so it reads a listing of a bag through the bag's
 non-null count alone, and a faithful map of the bag's rows keeps that
 count. -/
 
@@ -406,7 +406,7 @@ def Multiset.nonNullCount {c m : ℕ} (t : TermIn T c m) (γ : Fin c → T)
   S.countP (fun u => ValueType.isNull (t.eval u γ) = false)
 
 /-- A count over a listing of a bag is a function of the bag's non-null count. -/
-theorem SeqAggFunc.IsCount.eq_of_nonNullCount {cnt : SeqAggFunc T} (hc : cnt.IsCount)
+theorem SeqAggFunc.ReadsCount.eq_of_nonNullCount {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
     {c m : ℕ} (t : TermIn T c m) (γ γ' : Fin c → T) {L L' : List (Tuple T m)}
     (h : Multiset.nonNullCount t γ (L : Multiset (Tuple T m))
       = Multiset.nonNullCount t γ' (L' : Multiset (Tuple T m))) :
@@ -938,7 +938,7 @@ theorem ColKind.readTuple_comp {n : ℕ} (κ : Fin n → ColKind) {τ : T → T}
   cases (κ k).base <;> simp [h0]
 
 /-- A count over a bag of values the map preserves nulls on reads alike. -/
-theorem SeqAggFunc.IsCount.onBag_map {cnt : SeqAggFunc T} (hc : cnt.IsCount)
+theorem SeqAggFunc.ReadsCount.onBag_map {cnt : SeqAggFunc T} (hc : cnt.ReadsCount)
     (hsym : cnt.Symmetric) {τ : T → T} {W : Set T} (h : FaithfulOn τ W) {M : Multiset T}
     (hM : ∀ a ∈ M, a ∈ W) : cnt.onBag hsym (M.map τ) = cnt.onBag hsym M := by
   induction M using Quot.inductionOn with
@@ -1044,7 +1044,7 @@ variable {τ : T → T} {W : Set T}
 
 /-- **A grouping of a mapped relation**: the mapped keys, each with the
 counts of its group, which the map preserves. -/
-theorem gamma_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+theorem gamma_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (hfs : ∀ j, fs j = cnt) (hts : ∀ j, (ts j).noFun = true)
     (hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W)
@@ -1086,7 +1086,7 @@ theorem gamma_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount
 
 /-- **A scalar aggregation of a mapped relation** is the same row: it holds
 counts only. -/
-theorem gammaScalar_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+theorem gammaScalar_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c m n₂ : ℕ} (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (hfs : ∀ j, fs j = cnt) (hts : ∀ j, (ts j).noFun = true)
     (hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W) (ord : GroupOrder T m)
@@ -1114,7 +1114,7 @@ theorem gammaScalar_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.I
 
 /-- **A second-level aggregation of a mapped relation**, its aggregate a
 count: the mapped keys with the same counts. -/
-theorem gammaNest_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+theorem gammaNest_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (hp : p.noFun = true) (hcp : ∀ a ∈ p.consts, τ a = a ∧ a ∈ W)
     (hsym : cnt.Symmetric) (q : AggQueryIn T c m κ) (D D' : Database T) {γ : Fin c → T}
@@ -1160,7 +1160,7 @@ theorem gammaNest_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsC
 
 /-- **A window over a mapped relation**, its aggregate a count: the mapped
 rows, each with the count of its frame. -/
-theorem win_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) (h0 : τ 0 = 0)
+theorem win_map (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) (h0 : τ 0 = 0)
     (h0W : (0 : T) ∈ W) {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (ht : t.noFun = true) (hct : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W) (f : SeqAggFunc T)
@@ -1223,7 +1223,7 @@ end FaithfulOn
 that fixes its constants and its counts: on an instance whose relations
 at the query's leaves are the mapped ones, in the mapped context, it
 returns the mapped result. -/
-theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) :
+theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig {cnt} → ∀ {τ : T → T} {W : Set T}, FaithfulOn τ W → τ 0 = 0 → (0 : T) ∈ W →
       ∀ (D D' : Database T) (γ : Fin c → T),
@@ -1830,7 +1830,7 @@ the input commutes. -/
 the node's input, read at the representative of the context's order type
 over `S`, is the mapped input. `S` holds the base set and the counts the
 input computes. -/
-theorem AggQueryIn.exists_faithful_rep {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.exists_faithful_rep {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
     {S : Finset T} (hBS : B ⊆ S) (D D' : Database T)
@@ -1877,7 +1877,7 @@ zero and the null, the counts of a hygienic query of the minimal signature
 lie in the base set and its count types. The instance it is read at may
 differ from the one the count types are taken over at the holes, which is
 what a recursion's rounds need. -/
-theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig {cnt} → q.hygienic → (∀ p ∈ l, q.noMention p.1) →
@@ -2231,7 +2231,7 @@ theorem AggQueryIn.card_repVals_le (S : Finset T) {c n : ℕ} {κ : Fin n → Co
 
 /-- The values of a query's input at an aggregating node lie in the base
 set, the input's count types and the context: a finite set. -/
-theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
     (hh : q.hygienic) (D : Database T)
@@ -2252,7 +2252,7 @@ theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.IsCount
     (fun v hv => Finset.mem_coe.mpr (Finset.mem_union_left _ (hcv hv)))
 
 /-- A grouping has at most `|V|^n₁` groups, `V` the values of its input. -/
-theorem AggQueryIn.card_gamma_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.card_gamma_le {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (q : AggQueryIn T c m (ColKind.allReg m))
@@ -2276,7 +2276,7 @@ theorem AggQueryIn.card_gamma_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : 
       (le_trans Finset.card_image_le (by rw [Finset.card_univ, Fintype.card_fin])) _)
 
 /-- A second-level aggregation has at most `|V|^n₁` groups. -/
-theorem AggQueryIn.card_gammaNest_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.card_gammaNest_le {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
@@ -2300,7 +2300,7 @@ theorem AggQueryIn.card_gammaNest_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {
 
 /-- A window's column takes at most `(|V|+1)^n` values, `V` the values of
 its input: it is a function of the row's regular columns. -/
-theorem AggQueryIn.card_win_vals_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B : Finset T}
+theorem AggQueryIn.card_win_vals_le {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
@@ -2353,7 +2353,7 @@ theorem AggQueryIn.card_win_vals_le {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) {B
 hygienic query of the minimal signature over a base set holding its
 instance values, its constants, the zero and the null number at most a
 polynomial, fixed by the query, in the size of the base set. -/
-theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.IsCount) :
+theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.inSig {cnt} → q.hygienic → (∀ p ∈ l, q.noMention p.1) →
       ∃ f : ℕ → ℕ, PolyBounded f ∧ ∀ (B : Finset T) (D : Database T),
@@ -2570,7 +2570,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
 /-- **A set recursion's fixpoint is polynomially bounded in the number of
 values it may read**: its rows are duplicate-free tuples over the base set
 and the count types, of which there are polynomially many. -/
-theorem AggQueryIn.exists_card_bound_muSet {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+theorem AggQueryIn.exists_card_bound_muSet {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c n : ℕ} (s : String) (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hs : (AggQueryIn.MuSet s q₀ q₁).inSig {cnt}) (hh : (AggQueryIn.MuSet s q₀ q₁).hygienic) :

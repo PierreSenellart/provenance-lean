@@ -573,7 +573,8 @@ def GeneratesOn (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
           ∧ q.PlainEquiv q'
 
 /-- The schema of the binary relation the projection witness reads. -/
-def schemaS : Schema := fun s => if s = "S" then some 2 else none
+def schemaS : Schema := Schema.ofFn (fun s => if s = "S" then some 2 else none) {"S"}
+  (fun s hs => Finset.mem_singleton.mpr (by by_contra hne; exact hs (ite_eq_right hne)))
 
 /-- **The six classes generate, over a schema**: `GeneratesOn`'s form of
 the theorem above, which is what the classification's other half is

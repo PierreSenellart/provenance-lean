@@ -116,8 +116,8 @@ theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
 /-- Two declarations of distinct names commute. -/
 theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' : ℕ) :
     (sch.update s m).update s' m' = (sch.update s' m').update s m := by
-  funext t
-  simp only [Schema.update]
+  refine Schema.ext (fun t => ?_)
+  simp only [Schema.update_apply]
   by_cases hs : t = s'
   · subst hs; simp [Ne.symm h]
   · by_cases hs' : t = s
@@ -2108,11 +2108,10 @@ theorem exists_sumFree {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (SeqAggF
 
 /-- **A supply of fresh names exists** for a schema declaring finitely
 many names and a finite set of names to avoid, `String` being infinite. -/
-theorem exists_freshSupply (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
-    (N : Finset String) :
+theorem exists_freshSupply (sch : Schema) (N : Finset String) :
     ∃ f : ℕ → String, Function.Injective f ∧ (∀ i, sch (f i) = none) ∧ ∀ i, f i ∉ N := by
   have hinf : ({s | sch s ≠ none} ∪ (↑N : Set String))ᶜ.Infinite :=
-    (hfin.union N.finite_toSet).infinite_compl
+    (sch.finite.union N.finite_toSet).infinite_compl
   let e := hinf.natEmbedding
   refine ⟨fun i => (e i).1, fun a b h => e.injective (Subtype.ext h), fun i => ?_, fun i => ?_⟩
   · have := (e i).2

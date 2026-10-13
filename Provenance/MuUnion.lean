@@ -2617,7 +2617,7 @@ variable {c : ℕ}
 /-- **The handler**, for any target holding the union's basis and no
 union. -/
 theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
-    (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) : MuSetHandler (T := T) S {cnt} := by
+    (cnt : SeqAggFunc T) (hcnt : cnt.ReadsCount) : MuSetHandler (T := T) S {cnt} := by
   intro c n s q₀ q₀' qC q₁ q₁' f hf hfs hf0₀ hf0₁ hq₀n hq₁n sch hsch hss ho₀ ho₁ hh₀ hh₁ hi₀ hi₁
     hCn h₀n hb₀ hb₁ hbC he₀ he₁
   classical
@@ -2895,32 +2895,33 @@ covers it. With the necessity rows, a basis of the whole algebra in the
 minimal universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×`
 and the apply, and `win` (the `win` row, not formalized); `μ^∪` is in
 none. -/
-theorem generatesOnRec_sumMuWinOps (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
-    (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt) (hic : cnt.IsCount) :
+theorem generatesOnRec_sumMuWinOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount) :
     GeneratesOnRec T sch cnt sumMuWinOps := by
   intro n κ q ho hq hi
   have hr : q.hygienic := q.hygienic_of_overSchema _ ho
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
   have hS : AggQueryIn.sumMuOps ⊆ sumMuWinOps := Set.subset_insert _ _
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
-    (Or.inr (AggQueryIn.muSetHandler hS union_notMem_sumMuWinOps cnt hic)) cnt
-    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch
+    (Or.inr (AggQueryIn.muSetHandler hS union_notMem_sumMuWinOps cnt hcnt.readsCount)) cnt
+    (Set.mem_singleton cnt) hcnt.counts q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch
     ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
+    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩
 
 /-- **And without the window class**, for the windows `prop:winderived`
 reaches: the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
 every query of the whole algebra in the minimal universe whose windows
 are derivable (`AggQueryIn.WinsDerivable`). -/
 theorem generatesOnRec_sumMuOps_of_winsDerivable (sch : Schema)
-    (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
-    (hic : cnt.IsCount) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
+    (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hq : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (hw : q.WinsDerivable) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
   have hr : q.hygienic := q.hygienic_of_overSchema _ ho
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux (subset_refl _) union_notMem_sumMuOps
-    (Or.inr (AggQueryIn.muSetHandler (subset_refl _) union_notMem_sumMuOps cnt hic)) cnt
-    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inr hw) f hf hfr sch hfsch ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩
+    (Or.inr (AggQueryIn.muSetHandler (subset_refl _) union_notMem_sumMuOps cnt hcnt.readsCount)) cnt
+    (Set.mem_singleton cnt) hcnt.counts q hq hr hi (Or.inr hw) f hf hfr sch hfsch ho).1 rfl
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
+    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩

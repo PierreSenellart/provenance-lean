@@ -1555,19 +1555,20 @@ stays a window, over the doubled input (`Provenance.WinKept`). With the
 necessity rows, a basis of the whole algebra in that universe is `∅`,
 `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×` and the apply, `win` (the
 `win` row, not formalized) and possibly `μ^∪`. -/
-theorem generatesOnRec_basisRecWinOps (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
-    (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt) :
+theorem generatesOnRec_basisRecWinOps (sch : Schema) (cnt : SeqAggFunc T)
+    (hcnt : cnt.IsCount) :
     GeneratesOnRec T sch cnt basisRecWinOps := by
   intro n κ q ho hq hi
   have hr : q.hygienic := q.hygienic_of_overSchema _ ho
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
   have hmus : OpKind.muSet ∈ basisRecWinOps := by
     simp [basisRecWinOps, basisRecOps, AggQueryIn.sumMuOps]
   have hwin : OpKind.win ∈ basisRecWinOps := Set.mem_insert _ _
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecWinOps
-    union_notMem_basisRecWinOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
+    union_notMem_basisRecWinOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcnt.counts q
     hq hr hi (Or.inl hwin) f hf hfr sch hfsch ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
+    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩
 
 /-- **Without the window class, for the windows `prop:winderived`
 reaches**: every query whose windows contain their current row and read
@@ -1577,17 +1578,16 @@ hypothesis is the fragment's and not the predicate's: the `win` row of
 `tab:basisclasses` says the other windows are not derivable in the
 minimal signature. -/
 theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
-    (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
+    (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
-    (hq : q.usesOnly plainRecOps) (hr : q.hygienic) (hi : q.inMinimalSig cnt)
-    (hw : q.WinsDerivable) :
+    (hq : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (hw : q.WinsDerivable) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly basisRecOps ∧ q'.hygienic
-        ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
-  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+      q'.overSchema sch ∧ q'.usesOnly basisRecOps ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
+  have hr : q.hygienic := q.hygienic_of_overSchema _ ho
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
   have hmus : OpKind.muSet ∈ basisRecOps := by simp [basisRecOps, AggQueryIn.sumMuOps]
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecOps
-    union_notMem_basisRecOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
-    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho ).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.hygienic, hb.inSig,
-    fun D γ hs => he D γ hs⟩
+    union_notMem_basisRecOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcnt.counts q
+    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho).1 rfl
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
+    AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩

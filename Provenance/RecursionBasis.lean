@@ -42,7 +42,11 @@ def node (a : ℕ) : Tuple ℕ 1 := fun _ => a
 
 /-- The schema of the witness: a source relation and an edge relation. -/
 def schemaSE : Schema :=
-  fun s => if s = "S" then some 1 else if s = "E" then some 2 else none
+  Schema.ofFn (fun s => if s = "S" then some 1 else if s = "E" then some 2 else none) {"S", "E"}
+    (fun s hs => by
+      by_contra hne
+      simp only [Finset.mem_insert, Finset.mem_singleton, not_or] at hne
+      exact hs (by rw [ite_eq_right hne.1, ite_eq_right hne.2]))
 
 /-- **The edges of a chain of `n` diamonds.** Diamond `i` runs from `3i`
 to `3(i+1)` through the two nodes `3i+1` and `3i+2`, so its four edges
@@ -712,12 +716,39 @@ theorem Relation.valsIn_of_le {n : ℕ} {r r' : Multiset (Tuple T n)}
     Relation.valsIn r V :=
   fun u hu j => hr' u (Multiset.mem_of_le h hu) j
 
-/-- **An aggregate that is a count**: its value is a function of the
-number of non-null values it reads, which is what the minimal signature
-has in place of an arbitrary aggregate. -/
-def SeqAggFunc.IsCount (cnt : SeqAggFunc T) : Prop :=
+/-- **An aggregate that reads only how many non-null values it is given**:
+its value is a function of that number. This is what the genericity of a
+count rests on; it does not say the aggregate counts. -/
+def SeqAggFunc.ReadsCount (cnt : SeqAggFunc T) : Prop :=
   ∃ g : ℕ → T,
     ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x))
+
+/-- **An aggregate that is a count**, SQL's `count(e)`: its value is a
+function `g` of the number of non-null values it reads, never null, and
+zero exactly when that number is zero. It reads only that number
+(`ReadsCount`) and it counts matches (`Counts`). -/
+def SeqAggFunc.IsCount (cnt : SeqAggFunc T) : Prop :=
+  ∃ g : ℕ → T,
+    (∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
+      ∧ (∀ m, ValueType.isNull (g m) = false) ∧ ∀ m, g m = 0 ↔ m = 0
+
+theorem SeqAggFunc.IsCount.readsCount {cnt : SeqAggFunc T} (h : cnt.IsCount) :
+    cnt.ReadsCount := by
+  obtain ⟨g, hg, -, -⟩ := h
+  exact ⟨g, hg⟩
+
+theorem SeqAggFunc.IsCount.counts {cnt : SeqAggFunc T} (h : cnt.IsCount) :
+    SeqAggFunc.Counts cnt := by
+  obtain ⟨g, hg, hnn, hz⟩ := h
+  refine ⟨fun L => by rw [hg]; exact hnn _, fun L => ?_⟩
+  rw [hg, hz, List.countP_eq_zero]
+  simp
+
+/-- **`COUNT(*)` over `ℕ` is a count.** -/
+theorem SeqAggFunc.isCount_count_nat : SeqAggFunc.count.IsCount :=
+  ⟨id, fun L => by
+    show L.length = L.countP (fun x => !ValueType.isNull x)
+    exact (List.countP_eq_length.mpr (fun _ _ => rfl)).symm, fun _ => rfl, fun _ => Iff.rfl⟩
 
 /-- The values a count can take over a sequence of at most `m` values. -/
 def countVals (g : ℕ → T) (m : ℕ) : Finset T := (Finset.range (m + 1)).image g
@@ -2136,7 +2167,7 @@ theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
 /-- **Without `μ^⊎`, a query of the minimal signature has polynomially
 many rows wherever it is defined**, set recursions included. -/
 theorem AggQueryIn.exists_polyBound_rec {S : Set OpKind}
-    (hmb : OpKind.muBag ∉ S) {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
+    (hmb : OpKind.muBag ∉ S) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
     (hq : q.usesOnly S) (hr : q.hygienic) (hsig : q.inSig {cnt}) :
     ∃ b k : ℕ, ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
@@ -2206,7 +2237,7 @@ classes of `S`, which is **defined wherever the query is and agrees with
 it there** (`AggQueryIn.SettlesAt`). A query of the whole algebra is a
 partial function of the instance, so this is what equivalence means for
 it; nothing is asked where the query is undefined. The counting aggregate
-`cnt` is a parameter with `SeqAggFunc.IsCount` as its specification
+`cnt` is a parameter with `SeqAggFunc.ReadsCount` as its specification
 where a row needs it, as everywhere in the classification. -/
 def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema)
     (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
@@ -2277,7 +2308,7 @@ theorem gamma_mem_of_generatesOnRec {cnt : SeqAggFunc T} {sch : Schema}
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ usesOnly_unit_plain)
     inSig_unit
   refine AggQueryIn.evaluatePlain_unit_ne_zero ([] : Database T)
-    (fun j => j.elim0) (Eq.trans (he ([] : Database T) (fun j => j.elim0)
+    (fun j => j.elim0) (Eq.trans (he.settles ([] : Database T) (fun j => j.elim0)
       (settlesAt_of_plain _ usesOnly_unit_plain _ _)).2 ?_)
   exact AggQueryIn.evaluatePlain_eq_zero_of_allEmpty hg q' hu'
     ([] : Database T) Database.allEmpty_nil (fun j => j.elim0)
@@ -2300,11 +2331,11 @@ theorem sel_or_diff_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind
   rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff q' hu' hsch with
     h0 | h1
   · exact Or.inl (fun D γ =>
-      (he D γ (settlesAt_of_plain _ hplain D γ)).2.trans
-        (h0 D γ (he D γ (settlesAt_of_plain _ hplain D γ)).1))
+      (he.settles D γ (settlesAt_of_plain _ hplain D γ)).2.trans
+        (h0 D γ (he.settles D γ (settlesAt_of_plain _ hplain D γ)).1))
   · exact Or.inr (fun D γ hfull hc =>
-      h1 D γ hfull (he D γ (settlesAt_of_plain _ hplain D γ)).1
-        ((he D γ (settlesAt_of_plain _ hplain D γ)).2.symm.trans hc))
+      h1 D γ hfull (he.settles D γ (settlesAt_of_plain _ hplain D γ)).1
+        ((he.settles D γ (settlesAt_of_plain _ hplain D γ)).2.symm.trans hc))
 
 /-- **`Π` is in every basis of the whole algebra**: without it
 multiplicities are bounded by the query wherever it is defined – a
@@ -2326,10 +2357,10 @@ theorem proj_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
       subst hj
       rfl, trivial⟩
   refine projWitness_unbounded_multiplicity ⟨q'.multBound, fun D hnd u => ?_⟩
-  rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
+  rw [(he.settles D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
   exact AggQueryIn.count_le_multBound hp q' hu' (q'.hygienic_of_overSchema _ hsch) D hnd
     (fun j => j.elim0)
-    (he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1 u
+    (he.settles D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1 u
 
 /-- **One of `×` and the apply is in every basis of the whole algebra**:
 in the minimal universe a recursive term reads the previous round row by
@@ -2347,10 +2378,10 @@ theorem prod_or_apply_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
     ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
-  rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
+  rw [(he.settles D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
   exact AggQueryIn.card_le_sizeBound hp ha q' hu' (q'.hygienic_of_overSchema _ hsch)
     (AggQueryIn.recNoFun_of_inSig q' hsig') D (fun j => j.elim0)
-    (he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1
+    (he.settles D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).1
 
 theorem overSchema_chainWitness : chainWitness.overSchema schemaSE := by
   refine ⟨rfl, rfl, ⟨trivial, show "E" ≠ "R" by decide⟩, ?_⟩
@@ -2401,13 +2432,13 @@ the duplicate-free tuples over a value set of polynomial size – and the
 sink of a chain of `n` diamonds has `2ⁿ`. The one row that reads what
 `cnt` is: a count. -/
 theorem muBag_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
-    (hcnt : cnt.IsCount) {S : Set OpKind}
+    (hcnt : cnt.ReadsCount) {S : Set OpKind}
     (hS : GeneratesOnRec ℕ schemaSE cnt S) : OpKind.muBag ∈ S := by
   by_contra hmb
   obtain ⟨q', hsch, hu', hsig', he⟩ := hS chainWitness overSchema_chainWitness
     usesOnly_chainWitness inSig_chainWitness
   obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound_rec hmb hcnt q' hu' (q'.hygienic_of_overSchema _ hsch) hsig'
   refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
-  rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
+  rw [(he.settles (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
   exact hb (dChain n) (fun j => j.elim0)
-    (he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).1
+    (he.settles (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).1
