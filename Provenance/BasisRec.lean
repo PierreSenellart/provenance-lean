@@ -1,4 +1,4 @@
-import Provenance.SumByMu
+import Provenance.WinKept
 
 /-!
 # A generating set of the whole algebra
@@ -6,8 +6,10 @@ import Provenance.SumByMu
 `thm:plainbasis` classifies the bases of the recursion-free fragment and
 says of the whole algebra only which classes every basis contains. This
 module supplies the other half: **a set of classes that generates the
-whole algebra in the minimal universe**, `basisRecOps` =
-`{∅, Π, σ, apply, γ, μ^⊎, μ^∪}` (`generatesOnRec_basisRecOps`). The
+whole algebra in the minimal universe**, `basisRecWinOps` =
+`{∅, Π, σ, apply, γ, win, μ^⊎, μ^∪}` (`generatesOnRec_basisRecWinOps`),
+and without `win` for the windows `prop:winderived` reaches
+(`generatesOnRec_basisRecOps_of_winsDerivable`). The
 apply is kept in place of `×` because the restriction on recursive terms
 admits an apply whose left side reads the recursive relation, and the
 decorrelation of such an apply puts `ε` of that left side inside the
@@ -16,8 +18,10 @@ duplicate elimination.
 
 The pass is one structural induction (`exists_basisRec_aux`), every node
 re-typed to regular columns and rewritten by the local identities of
-`Provenance.PlainBasis` – a window as an apply of a scalar aggregation
-(`winByApply`), duplicate elimination as a grouping, the difference as a
+`Provenance.PlainBasis` – a window kept over the doubled input
+(`Provenance.WinKept`) or, without the window class, written as an apply
+of a scalar aggregation (`winByApply`), duplicate elimination as a
+grouping, the difference as a
 `NOT IN`, a product as an apply, a union as two bag recursions
 (`Provenance.SumByMu`) – with a second half for recursive bodies, as the
 union's pass has. What the induction needs first is that the predicates
@@ -816,6 +820,12 @@ def MuSetHandler (S : Set OpKind) (Θ : Set (SeqAggFunc T)) : Prop :=
             ∧ (AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ = q'.evaluatePlain D γ
 
 
+omit [ValueType T] in
+private theorem orL {p a b : Prop} (h : p ∨ a ∧ b) : p ∨ a := h.imp_right And.left
+
+omit [ValueType T] in
+private theorem orR {p a b : Prop} (h : p ∨ a ∧ b) : p ∨ b := h.imp_right And.right
+
 /-- **The pass**, both halves at once: every query of the whole algebra in
 a signature `Θ` holding the counting aggregate `cnt`, with restricted
 recursions and derivable windows, is matched by a query over
@@ -827,7 +837,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     {Θ : Set (SeqAggFunc T)} (hms : OpKind.muSet ∈ S ∨ MuSetHandler S Θ)
     (cnt : SeqAggFunc T) (hcnt : cnt ∈ Θ) (hcc : SeqAggFunc.Counts cnt) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.usesOnly plainRecOps → q.recRestricted → q.inSig Θ → q.WinsDerivable →
+      q.usesOnly plainRecOps → q.recRestricted → q.inSig Θ →
+      (OpKind.win ∈ S ∨ q.WinsDerivable) →
       ∀ (f : ℕ → String), Function.Injective f → (∀ i, f i ∉ q.names) →
       ∀ (sch : Schema), (∀ i, sch (f i) = none) → q.overSchema sch →
         OpKind.muSet ∈ S ∨ q.setRecNoAgg →
@@ -974,10 +985,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       rw [he', Multiset.filter_add]
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
       (hfrag.imp_right And.left)
-    obtain ⟨⟨q₂', hb₂, he₂⟩, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨⟨q₂', hb₂, he₂⟩, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
       (hfrag.imp_right And.right)
     have hbundleA : ∀ {p₁ : AggQueryIn T _ _ (ColKind.allReg _)}
@@ -1051,10 +1062,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         exact Multiset.bind_congr fun a _ => Multiset.map_add _ _ _
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
       (hfrag.imp_right And.left)
-    obtain ⟨⟨q₂', hb₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨⟨q₂', hb₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
       (hfrag.imp_right And.right)
     have hbundle : ∀ {p₁ : AggQueryIn T _ _ (ColKind.allReg _)},
@@ -1124,10 +1135,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
           congrArg _ (he₂ D _ (hset.2 u (hmem' u (Or.inr hu)))).2
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₁', hb₁, he₁⟩, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
       (hfrag.imp_right And.left)
-    obtain ⟨⟨q₂', hb₂, he₂⟩, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨⟨q₂', hb₂, he₂⟩, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
       (hfrag.imp_right And.right)
     have hf0₁ : ∀ i, f i ∉ q₁.names := fun i h => hfr i (Finset.mem_union_left _ h)
@@ -1245,10 +1256,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       rw [he']
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨⟨q₁', hb₁, he₁⟩, -⟩ := ih₁ hq.2.1 hr.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₁', hb₁, he₁⟩, -⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
       (hfrag.imp_right And.left)
-    obtain ⟨⟨q₂', hb₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨⟨q₂', hb₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
       (hfrag.imp_right And.right)
     have hf0₁ : ∀ i, f i ∉ q₁.names := fun i h => hfr i (Finset.mem_union_left _ h)
@@ -1308,10 +1319,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
     have hfs : ∀ i, s ≠ f i := ne_of_mem_names hfr (Finset.mem_insert_self s _)
-    obtain ⟨⟨q₀', hb₀, he₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₀', hb₀, he₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1)
       sch (sch_tri hsch 1) ho.2.1 (hfrag.imp_right And.left)
-    obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
       (sch.update s _) (update_fresh (sch_tri hsch 2) (ne_tri hfs 2)) ho.2.2
       (hfrag.imp_right And.right)
@@ -1342,10 +1353,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       fun i h => hfr i (Finset.mem_insert_of_mem (Finset.mem_union_left _ h))
     have hf0₁ : ∀ i, f i ∉ q₁.names :=
       fun i h => hfr i (Finset.mem_insert_of_mem (Finset.mem_union_right _ h))
-    obtain ⟨⟨q₀', hb₀, he₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 hw.1 (tri f 1) (tri_injective hf 1)
+    obtain ⟨⟨q₀', hb₀, he₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1)
       sch (sch_tri hsch 1) ho.2.1 (hfrag.imp_right fun h => h.2.1)
-    obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 hw.2 (tri f 2) (tri_injective hf 2)
+    obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
       (sch.update s _) (update_fresh (sch_tri hsch 2) (ne_tri hfs 2)) ho.2.2
       (hfrag.imp_right fun h => h.2.2)
@@ -1489,8 +1500,36 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | @Win cw nw _mw _pw _κw P' O o w t fw q hrr dist keep ih =>
     intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hreg, hcs, hd'⟩ := hw
-    obtain ⟨⟨q', hb, he⟩, -⟩ := ih hq.2 hr hi.2.2.2 hd' f hf hfr sch hsch ho hfrag
+    by_cases hwin : OpKind.win ∈ S
+    · -- the target keeps windows: the window over the re-typed child, through the doubling
+      obtain ⟨⟨q', hb, he⟩, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho hfrag
+      refine ⟨⟨(winKept P' O o w t fw _κw q' dist keep).allRegOf, ?_, fun D γ hset => ?_⟩,
+        fun s hro => hro.elim⟩
+      · exact { usesOnly := by
+                  rw [AggQueryIn.usesOnly_allRegOf]
+                  exact usesOnly_winKept P' O o w t fw _κw q' dist keep hwin hproj hb.usesOnly
+                recRestricted := by
+                  rw [AggQueryIn.recRestricted_allRegOf]
+                  exact recRestricted_winKept P' O o w t fw _κw q' dist keep hb.recRestricted
+                inSig := by
+                  rw [AggQueryIn.inSig_allRegOf]
+                  exact inSig_winKept P' O o w t fw _κw q' dist keep hi.1 hi.2.1 hi.2.2.1 hb.inSig
+                over := fun sch hsch ho => by
+                  rw [AggQueryIn.overSchema_allRegOf]
+                  exact overSchema_winKept P' O o w t fw _κw q' dist keep (hb.over sch hsch ho)
+                names := fun x hx => by
+                  rw [AggQueryIn.names_allRegOf, names_winKept] at hx
+                  exact hb.names x hx
+                nom := fun s hs hn => by
+                  rw [AggQueryIn.noMention_allRegOf]
+                  exact noMention_winKept P' O o w t fw _κw q' dist keep s (hb.nom s hs hn) }
+      · obtain ⟨hs', he'⟩ := he D γ hset
+        refine ⟨by rw [AggQueryIn.settlesAt_allRegOf]
+                   exact settlesAt_winKept P' O o w t fw _κw q' dist keep D γ hs', ?_⟩
+        rw [AggQueryIn.evaluatePlain_allRegOf,
+          evaluatePlain_winKept P' O o w t fw q hrr q' dist keep D γ he']
+    obtain ⟨hreg, hcs, hd'⟩ := hw.resolve_left hwin
+    obtain ⟨⟨q', hb, he⟩, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inr hd') f hf hfr sch hsch ho hfrag
     have hκ := funext hreg
     subst hκ
     obtain ⟨ψ, hψn, hψ⟩ := ValueFrame.exists_framePred (T := T) (n := nw) (c := cw) O w keep
@@ -1526,29 +1565,66 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he']
       rfl
-  | WinExpr P' O o ws ts fs g q keeps ih => exact fun _ _ _ hw => hw.elim
+  | WinExpr P' O o ws ts fs g q keeps ih => exact fun _ _ hi _ => hi.elim
 
 end AggQueryIn
+
+/-- The seven classes with the windows. -/
+def basisRecWinOps : Set OpKind := insert OpKind.win basisRecOps
+
+theorem sumMuOps_subset_basisRecWinOps : AggQueryIn.sumMuOps ⊆ basisRecWinOps :=
+  fun _ hx => Set.mem_insert_of_mem _ (sumMuOps_subset_basisRecOps hx)
+
+theorem union_notMem_basisRecWinOps : OpKind.union ∉ basisRecWinOps := by
+  simp [basisRecWinOps, basisRecOps, AggQueryIn.sumMuOps]
 
 /-- **A generating set of the whole algebra in the minimal universe**
 (the positive half the recursion rows of `tab:basisclasses` were
 missing): over a schema declaring finitely many names, the classes
-`S` – `∅`, `Π`, `σ`, the apply, `γ`, `μ^⊎` and `μ^∪` –
-generate the whole algebra in the signature `𝒜(∅, {count})`, for a
-counting aggregate. Windows go by `prop:winderived`, duplicate
-elimination and the difference by `prop:collapse`, products by the
-apply, unions by the bag recursion (`Provenance.SumByMu`), and every
-column is read as a value. With the necessity rows, a basis of the whole
-algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one
-of `×` and the apply, and possibly `μ^∪`. -/
-theorem generatesOnRec_basisRecOps (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
+`basisRecWinOps` – `∅`, `Π`, `σ`, the apply, `γ`, `win`, `μ^⊎` and
+`μ^∪` – generate the whole algebra in the signature `𝒜(∅, {count})`, for
+a counting aggregate. Duplicate elimination and the difference go by
+`prop:collapse`, products by the apply, unions by the bag recursion
+(`Provenance.SumByMu`), every column is read as a value, and a window
+stays a window, over the doubled input (`Provenance.WinKept`). With the
+necessity rows, a basis of the whole algebra in that universe is `∅`,
+`Π`, `γ`, `μ^⊎`, one of `σ` and `−`, one of `×` and the apply, `win` (the
+`win` row, not formalized) and possibly `μ^∪`. -/
+theorem generatesOnRec_basisRecWinOps (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
     (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt) :
-    GeneratesOnRec T sch cnt basisRecOps := by
-  intro n κ q ho hq hr hi hw
+    GeneratesOnRec T sch cnt basisRecWinOps := by
+  intro n κ q ho hq hr hi
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+  have hmus : OpKind.muSet ∈ basisRecWinOps := by
+    simp [basisRecWinOps, basisRecOps, AggQueryIn.sumMuOps]
+  have hwin : OpKind.win ∈ basisRecWinOps := Set.mem_insert _ _
+  obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecWinOps
+    union_notMem_basisRecWinOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
+    hq hr hi (Or.inl hwin) f hf hfr sch hfsch ho (Or.inl hmus)
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
+    fun D γ hs => he D γ hs⟩
+
+/-- **Without the window class, for the windows `prop:winderived`
+reaches**: every query whose windows contain their current row and read
+all-regular inputs (`AggQueryIn.WinsDerivable`) is matched over the
+seven classes `basisRecOps`, defined and equal wherever it is. The
+hypothesis is the fragment's and not the predicate's: the `win` row of
+`tab:basisclasses` says the other windows are not derivable in the
+minimal signature. -/
+theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
+    (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
+    (hq : q.usesOnly plainRecOps) (hr : q.recRestricted) (hi : q.inMinimalSig cnt)
+    (hw : q.WinsDerivable) :
+    ∃ q' : AggQuery T n (ColKind.allReg n),
+      q'.overSchema sch ∧ q'.usesOnly basisRecOps ∧ q'.recRestricted
+        ∧ q'.inMinimalSig cnt
+        ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
+          q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   have hmus : OpKind.muSet ∈ basisRecOps := by simp [basisRecOps, AggQueryIn.sumMuOps]
   obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecOps
     union_notMem_basisRecOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
-    hq hr hi hw f hf hfr sch hfsch ho (Or.inl hmus)
+    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho (Or.inl hmus)
   exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
     fun D γ hs => he D γ hs⟩

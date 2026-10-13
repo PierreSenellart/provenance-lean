@@ -2958,21 +2958,51 @@ omit [ValueType T] in
 theorem union_notMem_sumMuOps : OpKind.union ∉ AggQueryIn.sumMuOps := by
   simp [AggQueryIn.sumMuOps]
 
+/-- The six classes with the windows. -/
+def sumMuWinOps : Set OpKind := insert OpKind.win AggQueryIn.sumMuOps
+
+theorem union_notMem_sumMuWinOps : OpKind.union ∉ sumMuWinOps := by
+  simp [sumMuWinOps, AggQueryIn.sumMuOps]
+
 /-- **`prop:muunion` as a generation statement**: over a schema declaring
 finitely many names, every query of the whole algebra in the minimal
-universe, with restricted recursions, derivable windows and **no
-aggregate in a set recursion's term**, is matched over `∅`, `Π`, `σ`,
-the apply, `γ` and `μ^⊎` alone – defined wherever the query is and equal
-to it there. With the necessity rows, a basis of that fragment is `∅`,
-`Π`, `γ`, `μ^⊎`, one of `σ` and `−`, and one of `×` and the apply; what
-keeps the statement to the fragment is the counter relation, which is
-computed from the values the fixpoint can hold and which a count inside
-the term would take outside any relation computable in advance. -/
-theorem generatesOnRec_sumMuOps_of_setRecNoAgg (sch : Schema) (hfin : {s | sch s ≠ none}.Finite)
-    (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt) {n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQuery T n κ) (ho : q.overSchema sch) (hq : q.usesOnly plainRecOps)
-    (hr : q.recRestricted) (hi : q.inMinimalSig cnt) (hw : q.WinsDerivable)
+universe, with restricted recursions and **no aggregate in a set
+recursion's term**, is matched over `∅`, `Π`, `σ`, the apply, `γ`, `win`
+and `μ^⊎` – defined wherever the query is and equal to it there. With the
+necessity rows, a basis of that fragment is `∅`, `Π`, `γ`, `win`, `μ^⊎`,
+one of `σ` and `−`, and one of `×` and the apply; what keeps the
+statement to the fragment is the counter relation, which is computed from
+the values the fixpoint can hold and which a count inside the term would
+take outside any relation computable in advance. -/
+theorem generatesOnRec_sumMuWinOps_of_setRecNoAgg (sch : Schema)
+    (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
+    (hq : q.usesOnly plainRecOps) (hr : q.recRestricted) (hi : q.inMinimalSig cnt)
     (hna : q.setRecNoAgg) :
+    ∃ q' : AggQuery T n (ColKind.allReg n),
+      q'.overSchema sch ∧ q'.usesOnly sumMuWinOps ∧ q'.recRestricted
+        ∧ q'.inMinimalSig cnt
+        ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
+          q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
+  have hS : AggQueryIn.sumMuOps ⊆ sumMuWinOps := Set.subset_insert _ _
+  obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
+    (Or.inr (AggQueryIn.muSetHandler hS union_notMem_sumMuWinOps _)) cnt
+    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch ho
+    (Or.inr hna)
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
+    fun D γ hs => he D γ hs⟩
+
+/-- **And without the window class**, for the windows `prop:winderived`
+reaches: the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
+every query of the fragment whose windows are derivable
+(`AggQueryIn.WinsDerivable`) and whose set recursions' terms compute no
+aggregate. -/
+theorem generatesOnRec_sumMuOps_of_winsDerivable_of_setRecNoAgg (sch : Schema)
+    (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
+    (hq : q.usesOnly plainRecOps) (hr : q.recRestricted) (hi : q.inMinimalSig cnt)
+    (hw : q.WinsDerivable) (hna : q.setRecNoAgg) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.recRestricted
         ∧ q'.inMinimalSig cnt
@@ -2981,6 +3011,6 @@ theorem generatesOnRec_sumMuOps_of_setRecNoAgg (sch : Schema) (hfin : {s | sch s
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux (subset_refl _) union_notMem_sumMuOps
     (Or.inr (AggQueryIn.muSetHandler (subset_refl _) union_notMem_sumMuOps _)) cnt
-    (Set.mem_singleton cnt) hcc q hq hr hi hw f hf hfr sch hfsch ho (Or.inr hna)
+    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inr hw) f hf hfr sch hfsch ho (Or.inr hna)
   exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
     fun D γ hs => he D γ hs⟩

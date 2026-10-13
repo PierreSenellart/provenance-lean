@@ -51,6 +51,7 @@ import Provenance.AllRegular
 import Provenance.BasisAssembly
 import Provenance.RecursionBasis
 import Provenance.SumByMu
+import Provenance.WinKept
 import Provenance.BasisRec
 import Provenance.MuUnion
 
@@ -1087,25 +1088,42 @@ proven engine several general results reuse internally.
   recursion (`muSet_of_split`). The bound names come from an injective
   supply the query does not use, which `exists_freshSupply` gives for a
   schema declaring finitely many names
+- `Provenance.WinKept` – **a window kept as a window over an all-regular
+  input**: a window reads the regular columns of its rows and nothing of
+  the aggregate ones, its peers' tie-break included, so the window over
+  a re-typed input is a different query. `AggQueryIn.winKept` writes it
+  over the doubled input – each row prefixed by its nulled copy
+  (`doubled`), the partition, order, term and clause moved to the first
+  block (`castCols`, `TermIn.widen`, `Selection.widen`), the block then
+  dropped – and `evaluatePlain_winKept` is the equality: the two listings
+  of a frame, sorted by the clause with ties by the row, differ only in
+  the order of rows with equal first blocks (`windowValueOpt_blockL`, off
+  `readLe_blockL` and `OrderSpec.map_eq_of_sorted`)
 - `Provenance.BasisRec` – **a generating set of the whole algebra in the
-  minimal universe**: `generatesOnRec_basisRecOps` says the classes
-  `basisRecOps` = `{∅, Π, σ, apply, γ, μ^⊎, μ^∪}` generate the whole
-  algebra over a schema declaring finitely many names, for a counting
-  aggregate (`GeneratesOnRec`, equivalence wherever the query is
-  defined). It is one structural induction (`exists_basisRec_aux`) in
-  the manner of the union's pass: every node is re-typed to regular
-  columns (`AggQueryIn.allRegOf`, `toReg`) and rewritten by the local
-  identities – a window as `winByApply`, duplicate elimination as a
-  grouping, the difference as the `NOT IN` form with its product written
-  as an apply (`notInDiffA`), a product as an apply (`prodA`, or
+  minimal universe**: `generatesOnRec_basisRecWinOps` says the classes
+  `basisRecWinOps` = `{∅, Π, σ, apply, γ, win, μ^⊎, μ^∪}` generate the
+  whole algebra over a schema declaring finitely many names, for a
+  counting aggregate (`GeneratesOnRec`, equivalence wherever the query is
+  defined, no hypothesis on the query's windows), and
+  `generatesOnRec_basisRecOps_of_winsDerivable` drops `win` for the
+  queries whose windows `prop:winderived` reaches
+  (`AggQueryIn.WinsDerivable`). It is one structural induction
+  (`exists_basisRec_aux`) in the manner of the union's pass, generalized
+  over its target classes: every node is re-typed to regular columns
+  (`AggQueryIn.allRegOf`, `toReg`) and rewritten by the local
+  identities – a window kept over the doubled input (`winKept`) or, where
+  the target has no `win`, written as `winByApply`, duplicate elimination
+  as a grouping, the difference as the `NOT IN` form with its product
+  written as an apply (`notInDiffA`), a product as an apply (`prodA`, or
   `prodSwap` when the recursive relation is on its right, the apply
-  admitting it on the left only), a union through
-  `exists_sumFree_aux` – with a second half for recursive bodies. The
-  apply replaces `×` because the restriction on recursive terms admits an
-  apply whose left side reads the recursive relation, which no
-  decorrelation keeps. With the necessity rows, a basis of the whole
-  algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ`/`−`, one
-  of `×`/apply, and possibly `μ^∪`
+  admitting it on the left only), a union through `exists_sumFree_aux`,
+  a set recursion kept or handed to a `MuSetHandler` – with a second half
+  for recursive bodies. The apply replaces `×` because the restriction on
+  recursive terms admits an apply whose left side reads the recursive
+  relation, which no decorrelation keeps. With the necessity rows, a
+  basis of the whole algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`,
+  one of `σ`/`−`, one of `×`/apply, `win` (its row is not formalized)
+  and possibly `μ^∪`
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`): a set
   recursion whose term computes no aggregate is simulated by a bag
   recursion over pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K`
@@ -1124,9 +1142,12 @@ proven engine several general results reuse internally.
   generalized over its target classes and threads the schema; where the
   target holds no `μ^∪` it calls `MuSetHandler`, which `muSetHandler`
   proves for any target holding the union's basis, and
-  `generatesOnRec_sumMuOps_of_setRecNoAgg` is the generation statement:
-  over `{∅, Π, σ, apply, γ, μ^⊎}`, for the fragment where every set
-  recursion's term computes no aggregate (`AggQueryIn.setRecNoAgg`). A
+  `generatesOnRec_sumMuWinOps_of_setRecNoAgg` is the generation
+  statement: over `{∅, Π, σ, apply, γ, win, μ^⊎}`, for the fragment where
+  every set recursion's term computes no aggregate
+  (`AggQueryIn.setRecNoAgg`), with
+  `generatesOnRec_sumMuOps_of_winsDerivable_of_setRecNoAgg` dropping `win`
+  for derivable windows. A
   count inside the term takes the fixpoint's values outside any relation
   computable in advance; the paper's lemma on parameters, which would
   lift the restriction, is not formalized

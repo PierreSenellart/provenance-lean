@@ -2157,7 +2157,7 @@ def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema)
     (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.recRestricted →
-      q.inMinimalSig cnt → q.WinsDerivable →
+      q.inMinimalSig cnt →
       ∃ q' : AggQuery T n (ColKind.allReg n),
         q'.overSchema sch ∧ q'.usesOnly S ∧ q'.recRestricted
           ∧ q'.inMinimalSig cnt
@@ -2210,12 +2210,6 @@ private theorem inSig_unit {Θ : Set (SeqAggFunc T)} :
   rw [AggQueryIn.inSig_castKind]
   exact ⟨fun j => j.elim0, fun j => j.elim0, trivial⟩
 
-private theorem winsDerivable_unit_rec :
-    (AggQueryIn.unit : AggQuery T 0 (ColKind.allReg 0)).WinsDerivable := by
-  unfold AggQueryIn.unit
-  rw [AggQueryIn.winsDerivable_castKind]
-  exact trivial
-
 /-- **`∅` is in every basis of the whole algebra**: over the empty schema
 a query can name no relation, and a recursion's base is a query of the
 ambient schema, so the base of every recursion there has `∅` for its
@@ -2226,7 +2220,6 @@ theorem empty_mem_of_generatesOnRec {cnt : SeqAggFunc T} {S : Set OpKind}
     AggQueryIn.overSchema_unit
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ usesOnly_unit_plain)
     (recRestricted_of_plain _ usesOnly_unit_plain) inSig_unit
-    winsDerivable_unit_rec
   exact AggQueryIn.usesEmpty_of_overSchema_empty q' hsch hu'
 
 /-- **`γ` is in every basis of the whole algebra**: without it the
@@ -2239,7 +2232,6 @@ theorem gamma_mem_of_generatesOnRec {cnt : SeqAggFunc T} {sch : Schema}
     AggQueryIn.overSchema_unit
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ usesOnly_unit_plain)
     (recRestricted_of_plain _ usesOnly_unit_plain) inSig_unit
-    winsDerivable_unit_rec
   refine AggQueryIn.evaluatePlain_unit_ne_zero ([] : Database T)
     (fun j => j.elim0) (Eq.trans (he ([] : Database T) (fun j => j.elim0)
       (settlesAt_of_plain _ usesOnly_unit_plain _ _)).2 ?_)
@@ -2259,7 +2251,7 @@ theorem sel_or_diff_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind
     ⟨by simp [plainOps, basisDD, basisOps], trivial⟩
   obtain ⟨q', hsch, hu', -, -, he⟩ := hS selWitness (by rfl)
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
-    (recRestricted_of_plain _ hplain) ⟨rfl, trivial⟩ trivial
+    (recRestricted_of_plain _ hplain) ⟨rfl, trivial⟩
   refine selWitness_breaks ?_
   rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff q' hu' hsch with
     h0 | h1
@@ -2289,7 +2281,7 @@ theorem proj_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     ⟨fun j => by
       have hj : j = 0 := Subsingleton.elim _ _
       subst hj
-      rfl, trivial⟩ trivial
+      rfl, trivial⟩
   refine projWitness_unbounded_multiplicity ⟨q'.multBound, fun D hnd u => ?_⟩
   rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
   exact AggQueryIn.count_le_multBound hp q' hu' hr' D hnd (fun j => j.elim0)
@@ -2309,7 +2301,7 @@ theorem prod_or_apply_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
     ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
   obtain ⟨q', -, hu', hr', hsig', he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
     (AggQueryIn.usesOnly_mono plainOps_subset_plainRecOps _ hplain)
-    (recRestricted_of_plain _ hplain) ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
+    (recRestricted_of_plain _ hplain) ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
   rw [(he D (fun j => j.elim0) (settlesAt_of_plain _ hplain D _)).2]
   exact AggQueryIn.card_le_sizeBound hp ha q' hu' hr'
@@ -2376,7 +2368,6 @@ theorem muBag_mem_of_generatesOnRec {cnt : SeqAggFunc ℕ}
   by_contra hmb
   obtain ⟨q', -, hu', hr', hsig', he⟩ := hS chainWitness overSchema_chainWitness
     usesOnly_chainWitness recRestricted_chainWitness inSig_chainWitness
-    winsDerivable_chainWitness
   obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound_rec hmb hcnt q' hu' hr' hsig'
   refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
   rw [(he (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
