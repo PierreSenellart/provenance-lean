@@ -53,6 +53,7 @@ import Provenance.RecursionBasis
 import Provenance.SumByMu
 import Provenance.WinKept
 import Provenance.BasisRec
+import Provenance.Genericity
 import Provenance.MuUnion
 
 /- Relations read as families of occurrences -/
@@ -1122,35 +1123,56 @@ proven engine several general results reuse internally.
   recursive terms admits an apply whose left side reads the recursive
   relation, which no decorrelation keeps. With the necessity rows, a
   basis of the whole algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`,
-  one of `σ`/`−`, one of `×`/apply, `win` (its row is not formalized)
-  and possibly `μ^∪`
-- `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`): a set
-  recursion whose term computes no aggregate is simulated by a bag
-  recursion over pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K`
-  and each round applying the term to the tuple part and moving the
-  counter to every larger one in the lexicographic order of `E^K`
-  (`AggQueryIn.sim`, `simResult` = its tuple parts without duplicates).
+  one of `σ`/`−`, one of `×`/apply and `win` (its row is not
+  formalized); `μ^∪` is in none (`Provenance.MuUnion`)
+- `Provenance.Genericity` – **a query of the minimal signature commutes
+  with a faithful map**, and its counts are polynomially many: a map
+  faithful on a set of values (`FaithfulOn`: nulls and the order
+  preserved) that fixes the query's constants and the counts it computes
+  (`AggQueryIn.countValsAll`) commutes with its evaluation
+  (`AggQueryIn.evaluatePlain_faithful`), through every operator and both
+  recursions, settling or not. The order type of a context over a finite
+  set (`ordType`: each parameter's place among the set's values and
+  whether it is one, and the parameters' pairwise comparison) yields such
+  a map between two contexts of one type
+  (`exists_faithful_of_ordType_eq`), so at an aggregating node the counts
+  at a context are those at the representative of its order type
+  (`AggQueryIn.countValsAll_subset`, the count types
+  `AggQueryIn.countTypes` collecting them over a base set), and there are
+  polynomially many order types (`card_ordType`), hence polynomially many
+  count types (`AggQueryIn.exists_polyBound_countTypes`, `PolyBounded`).
+  `AggQueryIn.exists_card_bound_muSet` is what `Provenance.MuUnion` needs:
+  a set recursion's fixpoint, duplicate-free over the base set and the
+  count types, has polynomially many rows in the number of values the
+  recursion reads. This is the lemma on parameters the semantics paper
+  argues after `prop:muunion`; the value lemma
+  `AggQueryIn.valsIn_evaluatePlain` (every value of a result is read off
+  the instance, the context or the constants, or is a count) is its
+  first half
+- `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
+  restricted term): a set recursion is simulated by a bag recursion over
+  pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
+  round applying the term to the tuple part and moving the counter to
+  every larger one in the lexicographic order of `E^K` (`AggQueryIn.sim`,
+  `simResult` = its tuple parts without duplicates).
   `evaluatePlain_simResult` is the correctness, under `|F| ≤ |E|^K` for
   the fixpoint `F` and a counter relation `E` of non-null values, and
   `settlesAt_simResult` the definedness. The counter relation is
   computed (`counterRel`): the columns of the base, of the relations the
-  term reads, the term's constants and the context, with two constants of
-  the domain, the non-null rows kept by `x = x`; the value lemma
-  `valsIn_of_noAgg` (an aggregate-free query of the minimal signature
-  creates no value, through its recursions) bounds the fixpoint by
-  `(|E| + 1)^n ≤ |E|^(2n)`. The pass of `Provenance.BasisRec` is
-  generalized over its target classes and threads the schema; where the
-  target holds no `μ^∪` it calls `MuSetHandler`, which `muSetHandler`
-  proves for any target holding the union's basis, and
-  `generatesOnRec_sumMuWinOps_of_setRecNoAgg` is the generation
-  statement: over `{∅, Π, σ, apply, γ, win, μ^⊎}`, for the fragment where
-  every set recursion's term computes no aggregate
-  (`AggQueryIn.setRecNoAgg`), with
-  `generatesOnRec_sumMuOps_of_winsDerivable_of_setRecNoAgg` dropping `win`
-  for derivable windows. A
-  count inside the term takes the fixpoint's values outside any relation
-  computable in advance; the paper's lemma on parameters, which would
-  lift the restriction, is not formalized
+  recursion reads, its constants and the context, with two constants of
+  the domain, the non-null rows kept by `x = x`; its width `K` is fixed by
+  the query, off `AggQueryIn.exists_card_bound_muSet` of
+  `Provenance.Genericity`, which bounds the fixpoint by a polynomial in
+  the number of values the counter runs over. The pass of
+  `Provenance.BasisRec` is generalized over its target classes and
+  threads the schema; where the target holds no `μ^∪` it calls
+  `MuSetHandler`, which `muSetHandler` proves for any target holding the
+  union's basis, and `generatesOnRec_sumMuWinOps` is the generation
+  statement: `{∅, Π, σ, apply, γ, win, μ^⊎}` generate the whole algebra
+  in the minimal universe (`GeneratesOnRec`), with
+  `generatesOnRec_sumMuOps_of_winsDerivable` dropping `win` for
+  derivable windows. So `μ^∪` is in no basis of the whole algebra in that
+  universe
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

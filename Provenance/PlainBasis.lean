@@ -803,6 +803,99 @@ makes every count inside the body one over a query without it.
 -/
 
 
+/-- **The relations a query reads off the instance**, each with the arity
+it reads it at: its leaves, less the one a body reads its own recursive
+name at – the name at the recursion's arity, which is bound. A leaf naming
+that name at another arity reads the instance and stays free. -/
+def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l →
+    List (ℕ × String)
+  | _, _, _, _, .Rel k s => [(k, s)]
+  | _, _, _, _, .Hole k s => [(k, s)]
+  | _, _, _, _, .Empty => []
+  | _, _, _, _, .Proj _ q => q.leaves
+  | _, _, _, _, .Sel _ q _ => q.leaves
+  | _, _, _, _, .Prod q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Apply q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Sum q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Dedup q => q.leaves
+  | _, _, _, _, .Diff q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Alt _ _ q => q.leaves
+  | _, _, _, _, .Retag _ q => q.leaves
+  | _, n, _, _, .Mu s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
+  | _, n, _, _, .MuSet s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.leaves
+  | _, _, _, _, .GammaScalar _ _ q _ => q.leaves
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.leaves
+  | _, _, _, _, .ProvSum _ _ _ q => q.leaves
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.leaves
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.leaves
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.leaves
+
+omit [ValueType T] in
+/-- A leaf of a query carrying a name the query does not mention is one of
+its holes. -/
+theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noMention t → ∀ p ∈ q.leaves, p.2 = t → (p.2, p.1) ∈ l := by
+  intro c n κ l q
+  induction q with
+  | Rel k s =>
+    intro h p hp hpt
+    rw [List.mem_singleton.mp hp] at hpt
+    exact absurd hpt h
+  | Hole k s =>
+    intro _ p hp _
+    rw [List.mem_singleton.mp hp]
+    exact List.mem_singleton_self _
+  | Empty => exact fun _ p hp => absurd hp List.not_mem_nil
+  | Proj ps q ih => exact ih
+  | Sel φ q _ ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim
+      (fun hp => List.mem_append.mpr (Or.inl (ih₁ h.1 p hp hpt)))
+      (fun hp => List.mem_append.mpr (Or.inr (ih₂ h.2 p hp hpt)))
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim (fun hp => ih₁ h.1 p hp hpt)
+      (fun hp => absurd (ih₂ h.2 p hp hpt) (by simp))
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim
+      (fun hp => List.mem_append.mpr (Or.inl (ih₁ h.1 p hp hpt)))
+      (fun hp => List.mem_append.mpr (Or.inr (ih₂ h.2 p hp hpt)))
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim (fun hp => ih₁ h.1 p hp hpt) (fun hp => ih₂ h.2 p hp hpt)
+  | Alt k hk q ih => exact ih
+  | Retag hk q ih => exact ih
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro h p hp hpt
+    refine (List.mem_append.mp hp).elim (fun hp => ih₀ h.1 p hp hpt) (fun hp => ?_)
+    have hmem := ih₁ h.2 p (List.mem_of_mem_filter hp) hpt
+    obtain ⟨h₁, h₂⟩ := Prod.mk.inj (List.mem_singleton.mp hmem)
+    exact absurd (Prod.ext h₂ h₁) (of_decide_eq_true (List.mem_filter.mp hp).2)
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro h p hp hpt
+    refine (List.mem_append.mp hp).elim (fun hp => ih₀ h.1 p hp hpt) (fun hp => ?_)
+    have hmem := ih₁ h.2 p (List.mem_of_mem_filter hp) hpt
+    obtain ⟨h₁, h₂⟩ := Prod.mk.inj (List.mem_singleton.mp hmem)
+    exact absurd (Prod.ext h₂ h₁) (of_decide_eq_true (List.mem_filter.mp hp).2)
+  | Gamma is ts fs q keep ord ih => exact ih
+  | GammaScalar ts fs q ord ih => exact ih
+  | GammaNest is his p fn q ih => exact ih
+  | ProvSum is his t q ih => exact ih
+  | GammaTok is his ts fs a q keep ih => exact ih
+  | Win P O o w t fw q hrr dist keep ih => exact ih
+  | WinExpr P O o ws ts fs g q keeps ih => exact ih
+
+omit [ValueType T] in
+/-- A leaf of a closed query not mentioning a name does not carry it. -/
+theorem AggQueryIn.ne_of_noMention_of_mem_leaves {t : String} {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (h : q.noMention t) : ∀ p ∈ q.leaves, p.2 ≠ t :=
+  fun p hp hpt => absurd (AggQueryIn.mem_index_of_mem_leaves q h p hp hpt) List.not_mem_nil
+
 /-- **A query reads an instance only through `Database.find`.** -/
 theorem AggQueryIn.evaluatePlain_congr_find :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)

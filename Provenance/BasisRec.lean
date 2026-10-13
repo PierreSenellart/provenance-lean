@@ -639,57 +639,6 @@ theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union �
   | Win P O o w t fw q hrr dist keep ih => exact fun hq => ih hq.2
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hq => ih hq.2
 
-/-- **No aggregating operator**: no grouping, no window, no second-level
-aggregation. In the minimal signature such a query creates no value: what
-it returns it read off the instance, its context or its own constants. -/
-def AggQueryIn.noAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noAgg
-  | _, _, _, _, .Sel _ q _ => q.noAgg
-  | _, _, _, _, .Prod q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-  | _, _, _, _, .Apply q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-  | _, _, _, _, .Sum q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-  | _, _, _, _, .Dedup q => q.noAgg
-  | _, _, _, _, .Diff q₁ q₂ => q₁.noAgg ∧ q₂.noAgg
-  | _, _, _, _, .Alt _ _ q => q.noAgg
-  | _, _, _, _, .Retag _ q => q.noAgg
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noAgg ∧ q₁.noAgg
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noAgg ∧ q₁.noAgg
-  | _, _, _, _, .Gamma _ _ _ _ _ _ => False
-  | _, _, _, _, .GammaScalar _ _ _ _ => False
-  | _, _, _, _, .GammaNest _ _ _ _ _ => False
-  | _, _, _, _, .ProvSum _ _ _ _ => False
-  | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
-
-/-- **Every set recursion's term computes no aggregate**: the fragment
-`prop:muunion` replaces `μ^∪` in. -/
-def AggQueryIn.setRecNoAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.setRecNoAgg
-  | _, _, _, _, .Sel _ q _ => q.setRecNoAgg
-  | _, _, _, _, .Prod q₁ q₂ => q₁.setRecNoAgg ∧ q₂.setRecNoAgg
-  | _, _, _, _, .Apply q₁ q₂ => q₁.setRecNoAgg ∧ q₂.setRecNoAgg
-  | _, _, _, _, .Sum q₁ q₂ => q₁.setRecNoAgg ∧ q₂.setRecNoAgg
-  | _, _, _, _, .Dedup q => q.setRecNoAgg
-  | _, _, _, _, .Diff q₁ q₂ => q₁.setRecNoAgg ∧ q₂.setRecNoAgg
-  | _, _, _, _, .Alt _ _ q => q.setRecNoAgg
-  | _, _, _, _, .Retag _ q => q.setRecNoAgg
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.setRecNoAgg ∧ q₁.setRecNoAgg
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₁.noAgg ∧ q₀.setRecNoAgg ∧ q₁.setRecNoAgg
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.setRecNoAgg
-  | _, _, _, _, .GammaScalar _ _ q _ => q.setRecNoAgg
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.setRecNoAgg
-  | _, _, _, _, .ProvSum _ _ _ q => q.setRecNoAgg
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.setRecNoAgg
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.setRecNoAgg
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.setRecNoAgg
-
 /-- **What the pass keeps of a query, besides its value**: the
 generating classes, the restriction on recursive terms, the signature,
 well-formedness over a schema declaring none of the fresh names, the
@@ -762,9 +711,8 @@ theorem update_fresh {f : ℕ → String} {sch : Schema} {s : String} {m : ℕ}
 
 /-- **What stands in for a set recursion** where the target classes hold
 none: from the pass's rewriting of the base, the body and its closed
-part of `μ^∪R.(q₀, q₁)`, with `q₁` computing no aggregate, a query over
-the target classes defined and equal to the recursion wherever the
-recursion is. The supply `f` is the recursion's own, its children having
+part of `μ^∪R.(q₀, q₁)`, a query over the target classes defined and
+equal to the recursion wherever the recursion is. The supply `f` is the recursion's own, its children having
 been rewritten with its first and second thirds; the bodies are over the
 schema the recursion is written over, with its name declared. -/
 def MuSetHandler (S : Set OpKind) (Θ : Set (SeqAggFunc T)) : Prop :=
@@ -773,7 +721,7 @@ def MuSetHandler (S : Set OpKind) (Θ : Set (SeqAggFunc T)) : Prop :=
     (f : ℕ → String), Function.Injective f → (∀ i, s ≠ f i) →
     (∀ i, f i ∉ q₀.names) → (∀ i, f i ∉ q₁.names) → q₀.noMention s → q₁.noMention s →
     ∀ sch : Schema, (∀ i, sch (f i) = none) → sch s = none → q₀.overSchema sch →
-      q₁.overSchema (sch.update s n) → q₁.noAgg → q₁.inSig Θ →
+      q₁.overSchema (sch.update s n) → q₀.hygienic → q₁.hygienic → q₀.inSig Θ → q₁.inSig Θ →
       qC.noMention s → q₀'.noMention s →
       BasisRecOf S Θ (tri f 1) q₀ q₀' → BasisRecOf S Θ (tri f 2) q₁ q₁' →
       BasisRecOf S Θ (tri f 2) q₁ qC →
@@ -811,7 +759,6 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       (OpKind.win ∈ S ∨ q.WinsDerivable) →
       ∀ (f : ℕ → String), Function.Injective f → (∀ i, f i ∉ q.names) →
       ∀ (sch : Schema), (∀ i, sch (f i) = none) → q.overSchema sch →
-        OpKind.muSet ∈ S ∨ q.setRecNoAgg →
         (l = [] → ∃ q' : AggQueryIn T c n (ColKind.allReg n), BasisRecOf S Θ f q q' ∧
             ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
               q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ)
@@ -854,12 +801,12 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
   intro c n κ l q
   induction q with
   | Rel n s' =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, fun _ _ h => h,
       fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Hole n s' =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     refine ⟨fun hl => absurd hl (by simp), fun s m hl _ => ?_⟩
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
     refine ⟨AggQueryIn.Hole n _, emptyRel n, noMention_emptyRel n _,
@@ -872,13 +819,13 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     rw [evaluatePlain_emptyRel]
     exact (add_zero (M := Multiset (Tuple T n)) _).symm
   | Empty =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨hempty, trivial, trivial, fun _ _ h => h,
       fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Proj ps q ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, hbody⟩ := ih hq.2 hr hi.2 hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, hbody⟩ := ih hq.2 hr hi.2 hw f hf hfr sch hsch ho
     have hcols : ∀ j, ((ps j).toReg).sourceCol = true := fun j => by cases ps j <;> rfl
     -- the bundle for a re-typed projection over an output
     have hbundle : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ (ColKind.allReg _) l'},
@@ -936,8 +883,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he', Multiset.map_add]
   | Sel φ q hφ ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, hbody⟩ := ih hq.2 hr hi.2 hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, hbody⟩ := ih hq.2 hr hi.2 hw f hf hfr sch hsch ho
     have hok : ∀ l' : List (String × ℕ), SelOK l' φ.toReg :=
       fun _ => SelOK.of_noAggAtom (GenPredIn.hasAggAtom_toReg φ)
     have hbundle : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ (ColKind.allReg _) l'},
@@ -969,13 +916,11 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he', Multiset.filter_add]
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc₁, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
-      (hfrag.imp_right And.left)
     obtain ⟨hc₂, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
-      (hfrag.imp_right And.right)
     have hbundleA : ∀ {l' : List (String × ℕ)} {p₁ : AggQueryIn T _ _ (ColKind.allReg _) l'}
         {p₂ : AggQueryIn T _ _ (ColKind.allReg _)},
         BasisRecOf S Θ (tri f 1) q₁ p₁ → BasisRecOf S Θ (tri f 2) q₂ p₂ →
@@ -1055,13 +1000,11 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
           ← Multiset.bind_add]
         exact Multiset.bind_congr fun a _ => Multiset.map_add _ _ _
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc₁, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
-      (hfrag.imp_right And.left)
     obtain ⟨hc₂, -⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
-      (hfrag.imp_right And.right)
     obtain ⟨q₂', hb₂, he₂⟩ := hc₂ rfl
     have hbundle : ∀ {l' : List (String × ℕ)} {p₁ : AggQueryIn T _ _ (ColKind.allReg _) l'},
         BasisRecOf S Θ (tri f 1) q₁ p₁ →
@@ -1131,13 +1074,11 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       · exact Multiset.bind_congr fun u hu =>
           congrArg _ (he₂ D _ (hset.2 u (hmem' u (Or.inr hu)))).2
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc₁, hbody₁⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
-      (hfrag.imp_right And.left)
     obtain ⟨hc₂, hbody₂⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
-      (hfrag.imp_right And.right)
     have hf0₁ : ∀ i, f i ∉ q₁.names := fun i h => hfr i (Finset.mem_union_left _ h)
     have hf0₂ : ∀ i, f i ∉ q₂.names := fun i h => hfr i (Finset.mem_union_right _ h)
     -- the bundle of the union's pass, as a bundle of this one
@@ -1227,8 +1168,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         show (_ : Multiset (Tuple T _)) + (_ + _) = _ + (_ + _)
         exact add_left_comm _ _ _
   | @Dedup cd nd q ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     have hκ : (fun j => ((Fin.append (ColKind.allReg nd) (fun _ : Fin 0 => ColKind.agg)) j))
         = ColKind.allReg (nd + 0) := by
@@ -1264,13 +1205,11 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he']
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc₁, -⟩ := ih₁ hq.2.1 hr.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr Finset.subset_union_left 1) sch (sch_tri hsch 1) ho.1
-      (hfrag.imp_right And.left)
     obtain ⟨hc₂, -⟩ := ih₂ hq.2.2 hr.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr Finset.subset_union_right 2) sch (sch_tri hsch 2) ho.2
-      (hfrag.imp_right And.right)
     obtain ⟨q₁', hb₁, he₁⟩ := hc₁ rfl
     obtain ⟨q₂', hb₂, he₂⟩ := hc₂ rfl
     have hf0₁ : ∀ i, f i ∉ q₁.names := fun i h => hfr i (Finset.mem_union_left _ h)
@@ -1312,8 +1251,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       rw [he₁', he₂']
     rw [hD, AggQueryIn.diff_plainEquiv_notIn cnt hcc q₁' q₂' D γ, ← evaluatePlain_notInDiffA, hpe]
   | Alt k hk q ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, hbody⟩ := ih hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, hbody⟩ := ih hq hr hi hw f hf hfr sch hsch ho
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hb, he⟩ := hc hl
       exact ⟨q', ⟨hb.usesOnly, hb.hygienic, hb.inSig, hb.over, hb.names, hb.nom⟩,
@@ -1323,8 +1262,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       ⟨hbC.usesOnly, hbC.hygienic, hbC.inSig, hbC.over, hbC.names, hbC.nom⟩,
       fun D γ hset => he D γ hset⟩
   | Retag hk q ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, hbody⟩ := ih hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, hbody⟩ := ih hq hr hi hw f hf hfr sch hsch ho
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hb, he⟩ := hc hl
       exact ⟨q', ⟨hb.usesOnly, hb.hygienic, hb.inSig, hb.over, hb.names, hb.nom⟩,
@@ -1334,16 +1273,15 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       ⟨hbC.usesOnly, hbC.hygienic, hbC.inSig, hbC.over, hbC.names, hbC.nom⟩,
       fun D γ hset => he D γ hset⟩
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     have hfs : ∀ i, s ≠ f i := ne_of_mem_names hfr (Finset.mem_insert_self s _)
     obtain ⟨hc₀, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1)
-      sch (sch_tri hsch 1) ho.2.1 (hfrag.imp_right And.left)
+      sch (sch_tri hsch 1) ho.2.1
     obtain ⟨q₀', hb₀, he₀⟩ := hc₀ rfl
     obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
       (sch.update s _) (update_fresh (sch_tri hsch 2) (ne_tri hfs 2)) ho.2.2.2
-      (hfrag.imp_right And.right)
     obtain ⟨q₁', qC, hCn, hb₁, hbC, he₁⟩ := hbody₁ s _ rfl hr.2.1
     refine ⟨fun _ => ⟨AggQueryIn.Mu s q₀' q₁', ?_, fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
@@ -1367,7 +1305,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     · exact AggQueryIn.mu_of_split s q₀ q₀' q₁ q₁' qC hCn D γ hset (he₀ D γ hset.1)
         (fun D' h => he₁ D' γ h)
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     have hfs : ∀ i, s ≠ f i := ne_of_mem_names hfr (Finset.mem_insert_self s _)
     have hf0₀ : ∀ i, f i ∉ q₀.names :=
       fun i h => hfr i (Finset.mem_insert_of_mem (Finset.mem_union_left _ h))
@@ -1375,20 +1313,18 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       fun i h => hfr i (Finset.mem_insert_of_mem (Finset.mem_union_right _ h))
     obtain ⟨hc₀, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 (orL hw) (tri f 1) (tri_injective hf 1)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1)
-      sch (sch_tri hsch 1) ho.2.1 (hfrag.imp_right fun h => h.2.1)
+      sch (sch_tri hsch 1) ho.2.1
     obtain ⟨q₀', hb₀, he₀⟩ := hc₀ rfl
     obtain ⟨-, hbody₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 (orR hw) (tri f 2) (tri_injective hf 2)
       (tri_fresh hfr (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
       (sch.update s _) (update_fresh (sch_tri hsch 2) (ne_tri hfs 2)) ho.2.2.2
-      (hfrag.imp_right fun h => h.2.2)
     obtain ⟨q₁', qC, hCn, hb₁, hbC, he₁⟩ := hbody₁ s _ rfl hr.2.1
     have h₀n : q₀'.noMention s := hb₀.nom s (ne_tri hfs 1) hr.1
     by_cases hmus : OpKind.muSet ∈ S
     swap
     · -- the target has no set recursion: the simulation stands in
-      have hfr' : q₁.noAgg := (hfrag.resolve_left hmus).1
       obtain ⟨q', hb', he'⟩ := (hms.resolve_left hmus) s q₀ q₀' qC q₁ q₁' f hf hfs hf0₀ hf0₁
-        hr.1 hr.2.1 sch hsch ho.1 ho.2.1 ho.2.2.2 hfr' hi.2 hCn h₀n hb₀ hb₁ hbC
+        hr.1 hr.2.1 sch hsch ho.1 ho.2.1 ho.2.2.2 hr.2.2.1 hr.2.2.2 hi.1 hi.2 hCn h₀n hb₀ hb₁ hbC
         (fun D γ h => he₀ D γ h) (fun D γ h => he₁ D γ h)
       exact ⟨fun _ => ⟨q', hb', he'⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨base, hsf, hbase⟩ := hsum q₀' qC (tri f 0) (tri_injective hf 0)
@@ -1428,8 +1364,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         (fun D' h => he₀ D' γ h) (fun D' h => he₁ D' γ h)
         (fun D' h₀ hC => hbase D' γ h₀ hC)
   | Gamma is ts fs q keep ord ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     refine ⟨fun _ => ⟨(AggQueryIn.Gamma is ts fs q' keep ord).allRegOf, ?_, fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
@@ -1457,8 +1393,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he']
   | GammaScalar ts fs q ord ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     refine ⟨fun _ => ⟨(AggQueryIn.GammaScalar ts fs q' ord).allRegOf, ?_, fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
@@ -1486,8 +1422,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he']
   | GammaNest is his pc fn q ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     refine ⟨fun _ => ⟨(AggQueryIn.GammaNest is (fun k hc => ColKind.noConfusion hc)
         pc.toReg fn q').allRegOf, ?_, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
@@ -1525,10 +1461,10 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | @Win cw nw _mw _pw _κw P' O o w t fw q hrr dist keep ih =>
-    intro hq hr hi hw f hf hfr sch hsch ho hfrag
+    intro hq hr hi hw f hf hfr sch hsch ho
     by_cases hwin : OpKind.win ∈ S
     · -- the target keeps windows: the window over the re-typed child, through the doubling
-      obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho hfrag
+      obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho
       obtain ⟨q', hb, he⟩ := hc rfl
       refine ⟨fun _ => ⟨(winKept P' O o w t fw _κw q' dist keep).allRegOf, ?_,
           fun D γ hset => ?_⟩,
@@ -1557,7 +1493,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         rw [AggQueryIn.evaluatePlain_allRegOf,
           evaluatePlain_winKept P' O o w t fw q hrr q' dist keep D γ he']
     obtain ⟨hreg, hcs, hd'⟩ := hw.resolve_left hwin
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inr hd') f hf hfr sch hsch ho hfrag
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inr hd') f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     have hκ := funext hreg
     subst hκ
@@ -1630,7 +1566,7 @@ theorem generatesOnRec_basisRecWinOps (sch : Schema) (hfin : {s | sch s ≠ none
   have hwin : OpKind.win ∈ basisRecWinOps := Set.mem_insert _ _
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecWinOps
     union_notMem_basisRecWinOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
-    hq hr hi (Or.inl hwin) f hf hfr sch hfsch ho (Or.inl hmus)).1 rfl
+    hq hr hi (Or.inl hwin) f hf hfr sch hfsch ho).1 rfl
   exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩
 
 /-- **Without the window class, for the windows `prop:winderived`
@@ -1652,6 +1588,6 @@ theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
   have hmus : OpKind.muSet ∈ basisRecOps := by simp [basisRecOps, AggQueryIn.sumMuOps]
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecOps
     union_notMem_basisRecOps (Or.inl hmus) cnt (Set.mem_singleton cnt) hcc q
-    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho (Or.inl hmus)).1 rfl
+    hq hr hi (Or.inr hw) f hf hfr sch hfsch ho ).1 rfl
   exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.hygienic, hb.inSig,
     fun D γ hs => he D γ hs⟩
