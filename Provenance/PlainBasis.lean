@@ -1571,6 +1571,54 @@ def AggQueryIn.SettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _, D, γ => q.SettlesAt D γ
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D, γ => q.SettlesAt D γ
 
+/-- **The partial semantics**: the plain reading where the query is
+defined, and nothing where it is not. This is what a query of the whole
+algebra denotes; `evaluatePlain` is its total extension by a junk value
+where a recursion never settles. -/
+noncomputable def AggQueryIn.evaluatePlain? {c n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
+    Option (Relation T n) :=
+  open Classical in if q.SettlesAt D γ then some (q.evaluatePlain D γ) else none
+
+theorem AggQueryIn.evaluatePlain?_eq_some_iff {c n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
+    (r : Relation T n) :
+    q.evaluatePlain? D γ = some r ↔ q.SettlesAt D γ ∧ q.evaluatePlain D γ = r := by
+  unfold AggQueryIn.evaluatePlain?
+  split
+  · next h => exact ⟨fun he => ⟨h, Option.some.inj he⟩, fun he => congrArg some he.2⟩
+  · next h => exact ⟨fun he => absurd he (by simp), fun he => absurd he.1 h⟩
+
+theorem AggQueryIn.evaluatePlain?_eq_none_iff {c n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
+    q.evaluatePlain? D γ = none ↔ ¬ q.SettlesAt D γ := by
+  unfold AggQueryIn.evaluatePlain?
+  split
+  · next h => exact ⟨fun he => absurd he (by simp), fun hn => absurd h hn⟩
+  · next h => exact ⟨fun _ => h, fun _ => rfl⟩
+
+/-- **`q'` extends `q` as a partial function**: it is defined wherever
+`q` is, with the same value. This is what a rewriting of the whole
+algebra establishes; `extends_iff_evaluatePlain?` is the same statement
+over the partial semantics. -/
+def AggQueryIn.Extends {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (q' : AggQueryIn T c n κ' l') (q : AggQueryIn T c n κ l) : Prop :=
+  ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
+    q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+
+theorem AggQueryIn.extends_iff_evaluatePlain? {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (q' : AggQueryIn T c n κ' l') (q : AggQueryIn T c n κ l) :
+    q'.Extends q ↔ ∀ (D : Database T) (γ : Fin c → T) (r : Relation T n),
+      q.evaluatePlain? D γ = some r → q'.evaluatePlain? D γ = some r := by
+  constructor
+  · intro h D γ r hr
+    obtain ⟨hs, he⟩ := (AggQueryIn.evaluatePlain?_eq_some_iff q D γ r).mp hr
+    exact (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ r).mpr ⟨(h D γ hs).1, (h D γ hs).2 ▸ he⟩
+  · intro h D γ hs
+    have := (AggQueryIn.evaluatePlain?_eq_some_iff q' D γ _).mp
+      (h D γ _ ((AggQueryIn.evaluatePlain?_eq_some_iff q D γ _).mpr ⟨hs, rfl⟩))
+    exact ⟨this.1, this.2.symm⟩
+
 /-- **A query with no recursion settles everywhere.** -/
 theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :

@@ -3190,9 +3190,7 @@ theorem generatesOnRec_sumMuWinOps_of_setRecNoAgg (sch : Schema)
     (hq : q.usesOnly plainRecOps) (hr : q.hygienic) (hi : q.inMinimalSig cnt)
     (hna : q.setRecNoAgg) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly sumMuWinOps ∧ q'.inMinimalSig cnt
-        ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
-          q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
+      q'.overSchema sch ∧ q'.usesOnly sumMuWinOps ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   have hS : AggQueryIn.sumMuOps ⊆ sumMuWinOps := Set.subset_insert _ _
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
@@ -3212,9 +3210,7 @@ theorem generatesOnRec_sumMuOps_of_winsDerivable_of_setRecNoAgg (sch : Schema)
     (hq : q.usesOnly plainRecOps) (hr : q.hygienic) (hi : q.inMinimalSig cnt)
     (hw : q.WinsDerivable) (hna : q.setRecNoAgg) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.inMinimalSig cnt
-        ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
-          q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
+      q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux (subset_refl _) union_notMem_sumMuOps
     (Or.inr (AggQueryIn.muSetHandler (subset_refl _) union_notMem_sumMuOps _)) cnt

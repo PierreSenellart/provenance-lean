@@ -1647,9 +1647,7 @@ theorem generatesOnRec_basisRecOps_of_winsDerivable (sch : Schema)
     (hw : q.WinsDerivable) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
       q'.overSchema sch ∧ q'.usesOnly basisRecOps ∧ q'.hygienic
-        ∧ q'.inMinimalSig cnt
-        ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
-          q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
+        ∧ q'.inMinimalSig cnt ∧ q'.Extends q := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   have hmus : OpKind.muSet ∈ basisRecOps := by simp [basisRecOps, AggQueryIn.sumMuOps]
   obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux sumMuOps_subset_basisRecOps

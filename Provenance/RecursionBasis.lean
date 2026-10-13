@@ -2213,9 +2213,7 @@ def GeneratesOnRec (T : Type) [ValueType T] (sch : Schema)
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
       ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt
-          ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
-            q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ
+        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.Extends q
 
 /-! ## The rows of `tab:basisclasses` for the whole algebra
 
