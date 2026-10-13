@@ -342,50 +342,52 @@ theorem ProjColIn.evalPlain_substMap {c d n : ℕ} {κ : Fin n → ColKind}
 reads its left neighbour's columns first and the ambient outer ones
 after, so the substitution passes under it by leaving the neighbour's
 block alone and shifting the ambient one. -/
-def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
-    (θ : Fin c → T ⊕ Fin d) (q : AggQueryIn T c n κ) : AggQueryIn T d n κ :=
-  match c, d, n, κ, θ, q with
-  | _, _, _, _, _, .Rel n s => .Rel n s
-  | _, _, _, _, _, .Empty => .Empty
-  | _, _, _, _, θ, .Proj ps q =>
+def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (θ : Fin c → T ⊕ Fin d) (q : AggQueryIn T c n κ l) : AggQueryIn T d n κ l :=
+  match c, d, n, κ, l, θ, q with
+  | _, _, _, _, _, _, .Rel n s => .Rel n s
+  | _, _, _, _, _, _, .Hole n s => .Hole n s
+  | _, _, _, _, _, _, .Empty => .Empty
+  | _, _, _, _, _, θ, .Proj ps q =>
       AggQueryIn.castKind (funext fun j => ProjColIn.kind_substMap θ (ps j))
         (.Proj (fun j => (ps j).substMap θ) (q.substMap θ))
-  | _, _, _, _, θ, .Sel φ q => .Sel (φ.substMap θ) (q.substMap θ)
-  | _, _, _, _, θ, .Prod q₁ q₂ => .Prod (q₁.substMap θ) (q₂.substMap θ)
-  | _, d, _, _, θ, @AggQueryIn.Apply _ _ n₁ _ _ q₁ q₂ =>
+  | _, _, _, _, _, θ, .Sel φ q hφ =>
+      .Sel (φ.substMap θ) (q.substMap θ) (SelOK.of_eq (GenPredIn.hasAggAtom_substMap θ φ) hφ)
+  | _, _, _, _, _, θ, .Prod q₁ q₂ => .Prod (q₁.substMap θ) (q₂.substMap θ)
+  | _, d, _, _, _, θ, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂ =>
       .Apply (q₁.substMap θ)
         (q₂.substMap (Fin.append (fun k => Sum.inr (Fin.castAdd d k))
           (fun j => Sum.map id (Fin.natAdd n₁) (θ j))))
-  | _, _, _, _, θ, .Sum q₁ q₂ => .Sum (q₁.substMap θ) (q₂.substMap θ)
-  | _, _, _, _, θ, .Dedup q => .Dedup (q.substMap θ)
-  | _, _, _, _, θ, .Diff q₁ q₂ => .Diff (q₁.substMap θ) (q₂.substMap θ)
-  | _, _, _, _, θ, .Alt k h q => .Alt k h (q.substMap θ)
-  | _, _, _, _, θ, .Mu s q₀ q₁ => .Mu s (q₀.substMap θ) (q₁.substMap θ)
-  | _, _, _, _, θ, .MuSet s q₀ q₁ =>
+  | _, _, _, _, _, θ, .Sum q₁ q₂ => .Sum (q₁.substMap θ) (q₂.substMap θ)
+  | _, _, _, _, _, θ, .Dedup q => .Dedup (q.substMap θ)
+  | _, _, _, _, _, θ, .Diff q₁ q₂ => .Diff (q₁.substMap θ) (q₂.substMap θ)
+  | _, _, _, _, _, θ, .Alt k h q => .Alt k h (q.substMap θ)
+  | _, _, _, _, _, θ, .Mu s q₀ q₁ => .Mu s (q₀.substMap θ) (q₁.substMap θ)
+  | _, _, _, _, _, θ, .MuSet s q₀ q₁ =>
       .MuSet s (q₀.substMap θ) (q₁.substMap θ)
-  | _, _, _, _, θ, .Gamma is ts fs q keep ord =>
+  | _, _, _, _, _, θ, .Gamma is ts fs q keep ord =>
       .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep ord
-  | _, _, _, _, θ, .GammaScalar ts fs q ord =>
+  | _, _, _, _, _, θ, .GammaScalar ts fs q ord =>
       .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ) ord
-  | _, _, _, _, θ, .GammaNest is his p f q =>
+  | _, _, _, _, _, θ, .GammaNest is his p f q =>
       .GammaNest is his (p.substMap θ) f (q.substMap θ)
-  | _, _, _, _, θ, .ProvSum is his t q =>
+  | _, _, _, _, _, θ, .ProvSum is his t q =>
       .ProvSum is his (t.substMap θ) (q.substMap θ)
-  | _, _, _, _, θ, .Retag h q => .Retag h (q.substMap θ)
-  | _, _, _, _, θ, .GammaTok is his ts fs a q keep =>
+  | _, _, _, _, _, θ, .Retag h q => .Retag h (q.substMap θ)
+  | _, _, _, _, _, θ, .GammaTok is his ts fs a q keep =>
       .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
         (q.substMap θ) keep
-  | _, _, _, _, θ, .Win P O o w t f q hrr dist keep =>
+  | _, _, _, _, _, θ, .Win P O o w t f q hrr dist keep =>
       .Win P O o w (t.substMap θ) f (q.substMap θ)
         ⟨hrr.1, hrr.2.1, by rw [TermIn.regOnly_substMap]; exact hrr.2.2⟩
         dist keep
-  | _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
+  | _, _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
       .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
 termination_by structural q
 
 /-- Close a query: give every outer column a value, written `q[u]`. -/
-abbrev AggQueryIn.subst {c n : ℕ} {κ : Fin n → ColKind} (u : Fin c → T)
-    (q : AggQueryIn T c n κ) : AggQuery T n κ :=
+abbrev AggQueryIn.subst {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (u : Fin c → T)
+    (q : AggQueryIn T c n κ l) : AggQueryIn T 0 n κ l :=
   q.substMap (fun k => Sum.inl (u k))
 
 omit [ValueType T] in
@@ -419,13 +421,14 @@ theorem substVal_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
 /-- **Substituting and evaluating is evaluating under the substituted
 valuation**, for the plain semantics. -/
 theorem AggQueryIn.evaluatePlain_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d) (D : Database T) (γ : Fin d → T),
       (q.substMap θ).evaluatePlain D γ
         = q.evaluatePlain D (substVal θ γ) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => intro d θ D γ; rfl
+  | Hole n s => intro d θ D γ; rfl
   | Empty => intro d θ D γ; rfl
   | Proj ps q ih =>
     intro d θ D γ
@@ -435,7 +438,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     refine Multiset.map_congr rfl (fun u _ => ?_)
     funext j
     exact ProjColIn.evalPlain_substMap θ (ps j) u γ
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -447,7 +450,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
     rw [ih₁ θ D γ, ih₂ θ D γ]
-  | @Apply cI n₁ n₂ κ₂ q₁ q₂ ih₁ ih₂ =>
+  | @Apply cI n₁ n₂ κ₂ _ q₁ q₂ ih₁ ih₂ =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -718,20 +721,21 @@ theorem ValueFrame.exprOfWhen_substMap {c d n m p na : ℕ}
 /-- **Substituting and evaluating is evaluating under the substituted
 valuation**, for the annotated semantics. -/
 theorem AggQueryIn.evaluate_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d) (dB : AnnotatedDatabase T K)
       (γ : Fin d → T),
       (q.substMap θ).evaluate dB γ = q.evaluate dB (substVal θ γ) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => intro d θ dB γ; rfl
+  | Hole n s => intro d θ dB γ; rfl
   | Empty => intro d θ dB γ; rfl
   | Proj ps q ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap, AggQueryIn.evaluate_castKind]
     simp only [AggQueryIn.evaluate, ProjColIn.eval_substMap]
     rw [ih θ dB γ]
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, GenPredIn.hasAggAtom_substMap,
@@ -748,7 +752,7 @@ theorem AggQueryIn.evaluate_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
     rw [ih₁ θ dB γ, ih₂ θ dB γ]
-  | @Apply cI n₁ n₂ κ₂ q₁ q₂ ih₁ ih₂ =>
+  | @Apply cI n₁ n₂ κ₂ _ q₁ q₂ ih₁ ih₂ =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
@@ -825,21 +829,21 @@ theorem AggQueryIn.evaluate_substMap :
 
 /-- Evaluating a closed instance is evaluating under the values it was
 closed with. -/
-theorem AggQueryIn.evaluate_subst {c n : ℕ} {κ : Fin n → ColKind}
-    (u : Fin c → T) (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) :
+theorem AggQueryIn.evaluate_subst {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (u : Fin c → T) (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K) :
     (q.subst u).evaluate d = q.evaluate d u :=
   AggQueryIn.evaluate_substMap q _ d _
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Plain counterpart of `AggQueryIn.evaluate_subst`. -/
-theorem AggQueryIn.evaluatePlain_subst {c n : ℕ} {κ : Fin n → ColKind}
-    (u : Fin c → T) (q : AggQueryIn T c n κ) (D : Database T) :
+theorem AggQueryIn.evaluatePlain_subst {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (u : Fin c → T) (q : AggQueryIn T c n κ l) (D : Database T) :
     (q.subst u).evaluatePlain D = q.evaluatePlain D u :=
   AggQueryIn.evaluatePlain_substMap q _ D _
 
 /-- Annotated counterpart of `AggQueryIn.evaluate_subst`. -/
-theorem AggQueryIn.evaluateAnnotated_subst {c n : ℕ} {κ : Fin n → ColKind}
-    (u : Fin c → T) (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K) :
+theorem AggQueryIn.evaluateAnnotated_subst {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (u : Fin c → T) (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K) :
     (q.subst u).evaluateAnnotated d = q.evaluateAnnotated d u :=
   congrArg (Multiset.map GenRow.toAnnotated)
     (AggQueryIn.evaluate_subst u q d)

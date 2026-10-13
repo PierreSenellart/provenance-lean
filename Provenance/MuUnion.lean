@@ -40,45 +40,48 @@ linearly**: under a projection, a selection on regular columns, either
 side of a product or the left side of an apply, with the other side
 closed. No `⊎`: its closed side is the `C` of `q₁ = L ⊎ C`. -/
 def AggQueryIn.recLinear (s : String) (n : ℕ) : {c m : ℕ} → {κ : Fin m → ColKind} →
-    AggQueryIn T c m κ → Prop
-  | _, _, _, .Rel n' s' => s' = s ∧ n' = n
-  | _, _, _, .Empty => False
-  | _, _, _, .Proj _ q => q.recLinear s n
-  | _, _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.recLinear s n
-  | _, _, _, .Prod q₁ q₂ =>
-      (q₁.recLinear s n ∧ q₂.noMention s) ∨ (q₁.noMention s ∧ q₂.recLinear s n)
-  | _, _, _, .Apply q₁ q₂ => q₁.recLinear s n ∧ q₂.noMention s
-  | _, _, _, .Sum _ _ => False
-  | _, _, _, .Alt _ _ q => q.recLinear s n
-  | _, _, _, .Retag _ q => q.recLinear s n
-  | _, _, _, .Dedup _ => False
-  | _, _, _, .Diff _ _ => False
-  | _, _, _, .Mu _ _ _ => False
-  | _, _, _, .MuSet _ _ _ => False
-  | _, _, _, .Gamma _ _ _ _ _ _ => False
-  | _, _, _, .GammaScalar _ _ _ _ => False
-  | _, _, _, .GammaNest _ _ _ _ _ => False
-  | _, _, _, .ProvSum _ _ _ _ => False
-  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
+    {l : List (String × ℕ)} → AggQueryIn T c m κ l → Prop
+  | _, _, _, _, .Rel _ _ => False
+  | _, _, _, _, .Hole n' s' => s' = s ∧ n' = n
+  | _, _, _, _, .Empty => False
+  | _, _, _, _, .Proj _ q => q.recLinear s n
+  | _, _, _, _, .Sel φ q _ => φ.hasAggAtom = false ∧ q.recLinear s n
+  | _, _, _, _, @AggQueryIn.Prod _ _ _ _ _ _ l₁ l₂ q₁ q₂ =>
+      (q₁.recLinear s n ∧ l₂ = [] ∧ q₂.noMention s)
+        ∨ (l₁ = [] ∧ q₁.noMention s ∧ q₂.recLinear s n)
+  | _, _, _, _, .Apply q₁ q₂ => q₁.recLinear s n ∧ q₂.noMention s
+  | _, _, _, _, .Sum _ _ => False
+  | _, _, _, _, .Alt _ _ q => q.recLinear s n
+  | _, _, _, _, .Retag _ q => q.recLinear s n
+  | _, _, _, _, .Dedup _ => False
+  | _, _, _, _, .Diff _ _ => False
+  | _, _, _, _, .Mu _ _ _ => False
+  | _, _, _, _, .MuSet _ _ _ => False
+  | _, _, _, _, .Gamma _ _ _ _ _ _ => False
+  | _, _, _, _, .GammaScalar _ _ _ _ => False
+  | _, _, _, _, .GammaNest _ _ _ _ _ => False
+  | _, _, _, _, .ProvSum _ _ _ _ => False
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 omit [ValueType T] in
-/-- A linear term reads the relation once. -/
-theorem AggQueryIn.recOnce_of_recLinear {s : String} {n : ℕ} :
-    ∀ {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ),
-      q.recLinear s n → q.recOnce s := by
-  intro c m κ q
+/-- A linear term's one hole is the recursive relation, at its arity. -/
+theorem AggQueryIn.index_of_recLinear {s : String} {n : ℕ} :
+    ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
+      q.recLinear s n → l = [(s, n)] := by
+  intro c m κ l q
   induction q with
-  | Rel n s' => exact fun h => h.1
+  | Rel n s' => exact fun h => h.elim
+  | Hole n s' => exact fun ⟨h₁, h₂⟩ => by rw [h₁, h₂]
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact fun h => ⟨h.1, ih h.2⟩
+  | Sel φ q _ ih => exact fun h => ih h.2
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩)
-    · exact Or.inl ⟨ih₁ h₁, h₂⟩
-    · exact Or.inr ⟨h₁, ih₂ h₂⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, h.2⟩
+    rintro (⟨h₁, rfl, -⟩ | ⟨rfl, -, h₂⟩)
+    · rw [ih₁ h₁]; rfl
+    · exact ih₂ h₂
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -97,13 +100,14 @@ theorem AggQueryIn.recOnce_of_recLinear {s : String} {n : ℕ} :
 /-- **A linear term reads the relation row by row**: its value at `X` is
 the sum, over the rows of `X`, of its values at each row alone. -/
 theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ} :
-    ∀ {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T) (X : Relation T n),
         (q.evaluatePlain (D.assign s X) γ : Multiset (Tuple T m))
           = X.bind (fun t => q.evaluatePlain (D.assign s ({t} : Multiset (Tuple T n))) γ) := by
-  intro c m κ q
+  intro c m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ D γ X
     simp only [AggQueryIn.evaluatePlain, Database.find_assign]
     exact (Eq.trans (Multiset.bind_singleton X id) (Multiset.map_id' X)).symm
@@ -112,12 +116,12 @@ theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ}
     intro h D γ X
     simp only [AggQueryIn.evaluatePlain]
     rw [ih h D γ X, Multiset.map_bind]
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro h D γ X
     simp only [AggQueryIn.evaluatePlain]
     rw [ih h.2 D γ X, Multiset.filter_bind]
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) D γ X
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) D γ X
     · simp only [AggQueryIn.evaluatePlain]
       rw [ih₁ h₁ D γ X, Relation.hMul_eq_bind, Multiset.bind_assoc]
       refine Multiset.bind_congr fun t _ => ?_
@@ -155,7 +159,7 @@ theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ}
 
 /-- Hence it grows with its argument, as a set. -/
 theorem AggQueryIn.mem_evaluatePlain_assign_of_subset {s : String} {n : ℕ} {c m : ℕ}
-    {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) (hq : q.recLinear s n) (D : Database T)
+    {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l) (hq : q.recLinear s n) (D : Database T)
     (γ : Fin c → T) {X X' : Relation T n} (hXX : ∀ t, Multiset.Mem X t → Multiset.Mem X' t)
     (u : Tuple T m) (hu : Multiset.Mem (q.evaluatePlain (D.assign s X) γ) u) :
     Multiset.Mem (q.evaluatePlain (D.assign s X') γ) u := by
@@ -317,83 +321,219 @@ end Chains
 
 /-! ## Replacing the recursive relation by a query -/
 
-/-- **The recursive relation replaced by a query of the same context**,
-on the path a linear term reads it along; nothing else is touched. -/
-def AggQueryIn.substRel (s : String) {c n : ℕ} (ρ : AggQueryIn T c n (ColKind.allReg n)) :
-    {m : ℕ} → {κ : Fin m → ColKind} → AggQueryIn T c m κ → AggQueryIn T c m κ
-  | _, _, .Rel n' s' =>
-      if h : s' = s ∧ n' = n then (h.2 ▸ ρ) else .Rel n' s'
-  | _, _, .Proj ps q => .Proj ps (substRel s ρ q)
-  | _, _, .Sel φ q => .Sel φ (substRel s ρ q)
-  | _, _, .Prod q₁ q₂ => .Prod (substRel s ρ q₁) (substRel s ρ q₂)
-  | _, _, .Apply q₁ q₂ => .Apply (substRel s ρ q₁) q₂
-  | _, _, .Alt k hk q => .Alt k hk (substRel s ρ q)
-  | _, _, .Retag hk q => .Retag hk (substRel s ρ q)
-  | _, _, q => q
+/-- The holes of a term, the recursive relation's taken out. -/
+def subIdx (s : String) (n : ℕ) (l : List (String × ℕ)) : List (String × ℕ) :=
+  l.filter (fun p => decide (p ≠ (s, n)))
 
 omit [ValueType T] in
-/-- A query not mentioning the name is unchanged. -/
+theorem subIdx_append (s : String) (n : ℕ) (l₁ l₂ : List (String × ℕ)) :
+    subIdx s n (l₁ ++ l₂) = subIdx s n l₁ ++ subIdx s n l₂ :=
+  List.filter_append l₁ l₂
+
+omit [ValueType T] in
+theorem subIdx_self (s : String) (n : ℕ) : subIdx s n [(s, n)] = [] := by
+  simp [subIdx]
+
+omit [ValueType T] in
+theorem subIdx_single_ne {s s' : String} {n n' : ℕ} (h : ¬ (s' = s ∧ n' = n)) :
+    subIdx s n [(s', n')] = [(s', n')] := by
+  have : (s', n') ≠ (s, n) := fun hc => h ⟨(Prod.mk.inj hc).1, (Prod.mk.inj hc).2⟩
+  simp [subIdx, this]
+
+/-- A term, its hole index rewritten. -/
+def AggQueryIn.castIdx {c m : ℕ} {κ : Fin m → ColKind} {l l' : List (String × ℕ)} (h : l = l')
+    (q : AggQueryIn T c m κ l) : AggQueryIn T c m κ l' := h ▸ q
+
+omit [ValueType T] in
+theorem AggQueryIn.castIdx_rfl {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (h : l = l)
+    (q : AggQueryIn T c m κ l) : q.castIdx h = q := rfl
+
+@[simp] theorem AggQueryIn.evaluatePlain_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) (D : Database T)
+    (γ : Fin c → T) : (q.castIdx h).evaluatePlain D γ = q.evaluatePlain D γ := by
+  cases h; rfl
+
+@[simp] theorem AggQueryIn.settlesAt_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) (D : Database T)
+    (γ : Fin c → T) : (q.castIdx h).SettlesAt D γ ↔ q.SettlesAt D γ := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.usesOnly_castIdx {S : Set OpKind} {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).usesOnly S ↔ q.usesOnly S := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.hygienic_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).hygienic ↔ q.hygienic := by
+  cases h; exact Iff.rfl
+
+@[simp] theorem AggQueryIn.inSig_castIdx {Θ : Set (SeqAggFunc T)} {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).inSig Θ ↔ q.inSig Θ := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.sumsAllReg_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).sumsAllReg ↔ q.sumsAllReg := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.overSchema_castIdx {sch : Schema} {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).overSchema sch ↔ q.overSchema sch := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.names_castIdx {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).names = q.names := by
+  cases h; rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.noMention_castIdx {s : String} {c m : ℕ} {κ : Fin m → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c m κ l) :
+    (q.castIdx h).noMention s ↔ q.noMention s := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+/-- Admissibility of a selection's predicate survives taking a hole out. -/
+theorem SelOK.sub {s : String} {n : ℕ} {l : List (String × ℕ)} {c m : ℕ}
+    {κ : Fin m → ColKind} {φ : GenPredIn T c κ} (hφ : SelOK l φ) : SelOK (subIdx s n l) φ := by
+  cases hl : subIdx s n l with
+  | nil => trivial
+  | cons a t =>
+    show φ.hasAggAtom = false
+    cases l with
+    | nil => simp [subIdx] at hl
+    | cons b l => exact hφ
+
+/-- **The recursive relation replaced by a query of the same context**:
+every hole of its name and arity becomes `ρ`, so the holes of the result
+are the term's with that one taken out; nothing else is touched. -/
+def AggQueryIn.substRel (s : String) {c n : ℕ} (ρ : AggQueryIn T c n (ColKind.allReg n)) :
+    {m : ℕ} → {κ : Fin m → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c m κ l →
+    AggQueryIn T c m κ (subIdx s n l)
+  | _, _, _, .Hole n' s' =>
+      if h : s' = s ∧ n' = n then
+        AggQueryIn.castIdx (by rw [h.1, h.2, subIdx_self]) (h.2 ▸ ρ)
+      else AggQueryIn.castIdx (subIdx_single_ne h).symm (.Hole n' s')
+  | _, _, _, .Proj ps q => .Proj ps (substRel s ρ q)
+  | _, _, _, .Sel φ q hφ => .Sel φ (substRel s ρ q) (SelOK.sub hφ)
+  | _, _, _, .Prod q₁ q₂ =>
+      AggQueryIn.castIdx (subIdx_append s n _ _).symm (.Prod (substRel s ρ q₁) (substRel s ρ q₂))
+  | _, _, _, .Apply q₁ q₂ => .Apply (substRel s ρ q₁) q₂
+  | _, _, _, .Sum q₁ q₂ =>
+      AggQueryIn.castIdx (subIdx_append s n _ _).symm (.Sum (substRel s ρ q₁) (substRel s ρ q₂))
+  | _, _, _, .Alt k hk q => .Alt k hk (substRel s ρ q)
+  | _, _, _, .Retag hk q => .Retag hk (substRel s ρ q)
+  | _, _, _, .Rel n' s' => .Rel n' s'
+  | _, _, _, .Empty => .Empty
+  | _, _, _, .Dedup q => .Dedup q
+  | _, _, _, .Diff q₁ q₂ => .Diff q₁ q₂
+  | _, _, _, .Mu s' q₀ q₁ => .Mu s' q₀ q₁
+  | _, _, _, .MuSet s' q₀ q₁ => .MuSet s' q₀ q₁
+  | _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q keep ord
+  | _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q ord
+  | _, _, _, .GammaNest is his p f q => .GammaNest is his p f q
+  | _, _, _, .ProvSum is his t q => .ProvSum is his t q
+  | _, _, _, .GammaTok is his ts fs a q keep => .GammaTok is his ts fs a q keep
+  | _, _, _, .Win P O o w t f q hrr dist keep => .Win P O o w t f q hrr dist keep
+  | _, _, _, .WinExpr P O o ws ts fs g q keeps => .WinExpr P O o ws ts fs g q keeps
+
+omit [ValueType T] in
+/-- A closed query not mentioning the name is unchanged. -/
 theorem AggQueryIn.substRel_of_noMention {s : String} {c n : ℕ}
     (ρ : AggQueryIn T c n (ColKind.allReg n)) :
     ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.noMention s →
       AggQueryIn.substRel s ρ q = q := by
-  intro m κ q
-  induction q with
-  | Rel n' s' =>
-    intro h
-    show (if h : s' = s ∧ n' = n then _ else AggQueryIn.Rel n' s') = _
-    rw [dite_eq_right (fun hc => h hc.1)]
-  | Proj ps q ih => exact fun h => congrArg _ (ih ρ h)
-  | Sel φ q ih => exact fun h => congrArg _ (ih ρ h)
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => by rw [AggQueryIn.substRel, ih₁ ρ h.1, ih₂ ρ h.2]
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => by rw [AggQueryIn.substRel, ih₁ ρ h.1]
-  | Alt k hk q ih => exact fun h => congrArg _ (ih ρ h)
-  | Retag hk q ih => exact fun h => congrArg _ (ih ρ h)
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun _ => rfl
-  | Empty => exact fun _ => rfl
-  | Dedup q ih => exact fun _ => rfl
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun _ => rfl
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun _ => rfl
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun _ => rfl
-  | Gamma is ts fs q keep ord ih => exact fun _ => rfl
-  | GammaScalar ts fs q ord ih => exact fun _ => rfl
-  | GammaNest is his p fn q ih => exact fun _ => rfl
-  | ProvSum is his t q ih => exact fun _ => rfl
-  | GammaTok is his ts fs a q keep ih => exact fun _ => rfl
-  | Win P O o w t fw q hrr dist keep ih => exact fun _ => rfl
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun _ => rfl
+  have key : ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
+      l = [] → q.noMention s → HEq (AggQueryIn.substRel s ρ q) q := by
+    intro m κ l q
+    induction q with
+    | Rel n' s' => exact fun _ _ => HEq.rfl
+    | Hole n' s' => exact fun h => absurd h (by simp)
+    | Proj ps q ih =>
+      intro hl h
+      subst hl
+      rw [AggQueryIn.substRel, eq_of_heq (ih ρ rfl h)]
+    | Sel φ q _ ih =>
+      intro hl h
+      subst hl
+      rw [AggQueryIn.substRel, eq_of_heq (ih ρ rfl h)]
+    | Prod q₁ q₂ ih₁ ih₂ =>
+      intro hl h
+      obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+      subst hl₁ hl₂
+      rw [AggQueryIn.substRel, eq_of_heq (ih₁ ρ rfl h.1), eq_of_heq (ih₂ ρ rfl h.2)]
+      exact HEq.rfl
+    | Apply q₁ q₂ ih₁ ih₂ =>
+      intro hl h
+      subst hl
+      rw [AggQueryIn.substRel, eq_of_heq (ih₁ ρ rfl h.1)]
+    | Sum q₁ q₂ ih₁ ih₂ =>
+      intro hl h
+      obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+      subst hl₁ hl₂
+      rw [AggQueryIn.substRel, eq_of_heq (ih₁ ρ rfl h.1), eq_of_heq (ih₂ ρ rfl h.2)]
+      exact HEq.rfl
+    | Alt k hk q ih =>
+      intro hl h
+      subst hl
+      rw [AggQueryIn.substRel, eq_of_heq (ih ρ rfl h)]
+    | Retag hk q ih =>
+      intro hl h
+      subst hl
+      rw [AggQueryIn.substRel, eq_of_heq (ih ρ rfl h)]
+    | Empty => exact fun _ _ => HEq.rfl
+    | Dedup q ih => exact fun _ _ => HEq.rfl
+    | Diff q₁ q₂ ih₁ ih₂ => exact fun _ _ => HEq.rfl
+    | Mu s' q₀ q₁ ih₀ ih₁ => exact fun _ _ => HEq.rfl
+    | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun _ _ => HEq.rfl
+    | Gamma is ts fs q keep ord ih => exact fun _ _ => HEq.rfl
+    | GammaScalar ts fs q ord ih => exact fun _ _ => HEq.rfl
+    | GammaNest is his p fn q ih => exact fun _ _ => HEq.rfl
+    | ProvSum is his t q ih => exact fun _ _ => HEq.rfl
+    | GammaTok is his ts fs a q keep ih => exact fun _ _ => HEq.rfl
+    | Win P O o w t fw q hrr dist keep ih => exact fun _ _ => HEq.rfl
+    | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ => HEq.rfl
+  intro m κ q h
+  exact eq_of_heq (key q rfl h)
 
 /-- **Substituting is assigning**: the term with the relation replaced by
 `ρ` reads as the term over the instance binding the name to `ρ`'s
 value. -/
 theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
     (ρ : AggQueryIn T c n (ColKind.allReg n)) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T),
         (AggQueryIn.substRel s ρ q).evaluatePlain D γ
           = q.evaluatePlain (D.assign s (ρ.evaluatePlain D γ)) γ := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ D γ
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').evaluatePlain D γ = _
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.evaluatePlain_castIdx]
     simp only [AggQueryIn.evaluatePlain, Database.find_assign]
   | Empty => exact fun h => h.elim
   | Proj ps q ih =>
     intro h D γ
     simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain]
     rw [ih ρ h D γ]
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro h D γ
     simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain]
     rw [ih ρ h.2 D γ]
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) D γ
-    · simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain]
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) D γ
+    · simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain_castIdx, AggQueryIn.evaluatePlain]
       rw [ih₁ ρ h₁ D γ, AggQueryIn.substRel_of_noMention ρ q₂ h₂,
         AggQueryIn.evaluatePlain_assign_of_noMention _ q₂ h₂]
-    · simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain]
+    · simp only [AggQueryIn.substRel, AggQueryIn.evaluatePlain_castIdx, AggQueryIn.evaluatePlain]
       rw [ih₂ ρ h₂ D γ, AggQueryIn.substRel_of_noMention ρ q₁ h₁,
         AggQueryIn.evaluatePlain_assign_of_noMention _ q₁ h₁]
   | Apply q₁ q₂ ih₁ ih₂ =>
@@ -422,26 +562,28 @@ omit [ValueType T] in
 no longer the recursive name. -/
 theorem AggQueryIn.noMention_substRel {s s' : String} {c n : ℕ}
     (ρ : AggQueryIn T c n (ColKind.allReg n)) (hρ : ρ.noMention s') :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       (s' = s ∨ q.noMention s') → (AggQueryIn.substRel s ρ q).noMention s' := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s'' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s'' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s'' = s'' ∧ n' = n' then _ else AggQueryIn.Rel n' s'').noMention s'
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.noMention_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hs => ih ρ hρ h hs
-  | Sel φ q ih => exact fun h hs => ih ρ hρ h.2 hs
+  | Sel φ q _ ih => exact fun h hs => ih ρ hρ h.2 hs
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hs
-    · refine ⟨ih₁ ρ hρ h₁ (hs.imp_right fun h => h.1), ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hs
+    · rw [AggQueryIn.substRel, AggQueryIn.noMention_castIdx]
+      refine ⟨ih₁ ρ hρ h₁ (hs.imp_right fun h => h.1), ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]
       rcases hs with rfl | hs
       · exact h₂
       · exact hs.2
-    · refine ⟨?_, ih₂ ρ hρ h₂ (hs.imp_right fun h => h.2)⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.noMention_castIdx]
+      refine ⟨?_, ih₂ ρ hρ h₂ (hs.imp_right fun h => h.2)⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]
       rcases hs with rfl | hs
       · exact h₁
@@ -632,29 +774,30 @@ namespace AggQueryIn
 variable {c : ℕ}
 
 omit [ValueType T] in
-@[simp] theorem recLinear_castKind {s : String} {n c m : ℕ} {κ κ' : Fin m → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c m κ) :
+@[simp] theorem recLinear_castKind {s : String} {n c m : ℕ} {κ κ' : Fin m → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c m κ l) :
     (q.castKind h).recLinear s n ↔ q.recLinear s n := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
 /-- A substitution keeps a term linear. -/
 theorem recLinear_substMap {s : String} {n : ℕ} :
-    ∀ {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ) {d : ℕ}
+    ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recLinear s n ↔ q.recLinear s n := by
-  intro c m κ q
+  intro c m κ l q
   induction q with
   | Rel n' s' => exact fun θ => Iff.rfl
+  | Hole n' s' => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
     rw [AggQueryIn.substMap, recLinear_castKind]
     exact ih θ
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     exact fun θ => and_congr (by rw [GenPredIn.hasAggAtom_substMap]) (ih θ)
   | Prod q₁ q₂ ih₁ ih₂ =>
-    exact fun θ => or_congr (and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ θ))
-      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ))
+    exact fun θ => or_congr (and_congr (ih₁ θ) (and_congr Iff.rfl (AggQueryIn.noMention_substMap q₂ θ)))
+      (and_congr Iff.rfl (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ)))
   | Apply q₁ q₂ ih₁ ih₂ =>
     exact fun θ => and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ _)
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => Iff.rfl
@@ -675,26 +818,28 @@ theorem recLinear_substMap {s : String} {n : ℕ} :
 /-- **The substituted term is defined where the term is at `ρ`'s
 value.** -/
 theorem settlesAt_substRel {s : String} {c n : ℕ} (ρ : AggQueryIn T c n (ColKind.allReg n)) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T), ρ.SettlesAt D γ →
         q.SettlesAt (D.assign s (ρ.evaluatePlain D γ)) γ →
         (AggQueryIn.substRel s ρ q).SettlesAt D γ := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ D γ hρ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').SettlesAt D γ
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.settlesAt_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h D γ hρ hq => ih ρ h D γ hρ hq
-  | Sel φ q ih => exact fun h D γ hρ hq => ih ρ h.2 D γ hρ hq
+  | Sel φ q _ ih => exact fun h D γ hρ hq => ih ρ h.2 D γ hρ hq
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) D γ hρ hq
-    · refine ⟨ih₁ ρ h₁ D γ hρ hq.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) D γ hρ hq
+    · rw [AggQueryIn.substRel, AggQueryIn.settlesAt_castIdx]
+      refine ⟨ih₁ ρ h₁ D γ hρ hq.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]
       exact AggQueryIn.settlesAt_assign_of_noMention _ q₂ h₂ D γ hq.2
-    · refine ⟨?_, ih₂ ρ h₂ D γ hρ hq.2⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.settlesAt_castIdx]
+      refine ⟨?_, ih₂ ρ h₂ D γ hρ hq.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]
       exact AggQueryIn.settlesAt_assign_of_noMention _ q₁ h₁ D γ hq.1
   | Apply q₁ q₂ ih₁ ih₂ =>
@@ -720,31 +865,32 @@ theorem settlesAt_substRel {s : String} {c n : ℕ} (ρ : AggQueryIn T c n (ColK
 
 /-- **A linear term defined at a relation is defined at a sub-relation.** -/
 theorem settlesAt_assign_of_subset {s : String} {n : ℕ} :
-    ∀ {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       ∀ (D : Database T) (γ : Fin c → T) {X X' : Relation T n},
         (∀ t, Multiset.Mem X t → Multiset.Mem X' t) →
         q.SettlesAt (D.assign s X') γ → q.SettlesAt (D.assign s X) γ := by
-  intro c m κ q
+  intro c m κ l q
   induction q with
   | Rel n' s' => exact fun _ _ _ _ _ _ _ => trivial
+  | Hole n' s' => exact fun _ _ _ _ _ _ _ => trivial
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h D γ _ _ hXX hq => ih h D γ hXX hq
-  | Sel φ q ih => exact fun h D γ _ _ hXX hq => ih h.2 D γ hXX hq
+  | Sel φ q _ ih => exact fun h D γ _ _ hXX hq => ih h.2 D γ hXX hq
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) D γ X X' hXX hq
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) D γ X X' hXX hq
     · exact ⟨ih₁ h₁ D γ hXX hq.1, AggQueryIn.settlesAt_of_noMention q₂ h₂
-        (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht hc.2)).trans
-          (Database.find_assign_of_ne s t X D (fun hc => ht hc.2)).symm) γ hq.2⟩
+        (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).trans
+          (Database.find_assign_of_ne s t X D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ hq.2⟩
     · exact ⟨AggQueryIn.settlesAt_of_noMention q₁ h₁
-        (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht hc.2)).trans
-          (Database.find_assign_of_ne s t X D (fun hc => ht hc.2)).symm) γ hq.1,
+        (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).trans
+          (Database.find_assign_of_ne s t X D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ hq.1,
         ih₂ h₂ D γ hXX hq.2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro h D γ X X' hXX hq
     refine ⟨ih₁ h.1 D γ hXX hq.1, fun u hu => ?_⟩
     exact AggQueryIn.settlesAt_of_noMention q₂ h.2
-      (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht hc.2)).trans
-        (Database.find_assign_of_ne s t X D (fun hc => ht hc.2)).symm) _
+      (fun k t ht => (Database.find_assign_of_ne s t X' D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).trans
+        (Database.find_assign_of_ne s t X D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).symm) _
       (hq.2 u (AggQueryIn.mem_evaluatePlain_assign_of_subset q₁ h.1 D γ hXX u hu))
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
@@ -848,13 +994,14 @@ theorem holdsPlain_ltSel (n K : ℕ) (u : Tuple T (n + K)) (γ : Fin c → T) (y
 relation, the term at the row's tuple part, paired with every counter
 above the row's. -/
 def simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-    (L : AggQueryIn T c n (ColKind.allReg n)) :
-    AggQueryIn T c (n + K) (ColKind.allReg (n + K)) :=
+    (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) :
+    AggQueryIn T c (n + K) (ColKind.allReg (n + K)) [(s', n + K)] :=
   (AggQueryIn.Proj (fun j : Fin (n + K) =>
       ProjColIn.term (TermGIn.index (Fin.natAdd (n + K) j) (by rw [Fin.append_right]; rfl)))
-    (AggQueryIn.Apply (AggQueryIn.Rel (n + K) s')
+    (AggQueryIn.Apply (AggQueryIn.Hole (n + K) s')
       (AggQueryIn.prodA
-        (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K))))
+        (AggQueryIn.castIdx (subIdx_self s n)
+          (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K)))))
         (AggQueryIn.Sel (ltSel n K) ((pow EQ K).substMap (applyOuter T c (n + K))))))).castKind
     (funext fun _ => rfl)
 
@@ -869,7 +1016,7 @@ theorem nonNull_pow (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (D : Database T) 
 counters: for each row, the term at the row's tuple part, each of its
 rows paired with every counter above the row's. -/
 theorem evaluatePlain_simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-    (L : AggQueryIn T c n (ColKind.allReg n)) (hL : L.recLinear s n) (hLs : L.noMention s')
+    (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hL : L.recLinear s n) (hLs : L.noMention s')
     (hEs : EQ.noMention s') (D : Database T) (γ : Fin c → T)
     (hE : ∀ e ∈ unaryVals (EQ.evaluatePlain D γ), ValueType.isNull e = false)
     (Y : Relation T (n + K))
@@ -882,9 +1029,10 @@ theorem evaluatePlain_simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1
                 ((pow EQ K).evaluatePlain D γ)).map
               (fun m => (Fin.append a m : Tuple T (n + K))))) := by
   rw [simBody, AggQueryIn.evaluatePlain_castKind]
-  show Multiset.map (dropLeft n K) ((AggQueryIn.Apply (AggQueryIn.Rel (n + K) s')
+  show Multiset.map (dropLeft n K) ((AggQueryIn.Apply (AggQueryIn.Hole (n + K) s')
     (AggQueryIn.prodA
-      (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K))))
+      (AggQueryIn.castIdx (subIdx_self s n)
+        (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K)))))
       (AggQueryIn.Sel (ltSel n K) ((pow EQ K).substMap (applyOuter T c (n + K)))))).evaluatePlain
         (D.assign s' Y) γ) = _
   simp only [AggQueryIn.evaluatePlain, Database.find_assign, AggQueryIn.evaluatePlain_prodA]
@@ -896,17 +1044,18 @@ theorem evaluatePlain_simBody (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1
     funext j
     exact Fin.append_right u v j
   -- the left factor: the term at the row's tuple part
-  have hleft : (AggQueryIn.substRel s (rowRel n K)
-      (L.substMap (applyOuter T c (n + K)))).evaluatePlain (D.assign s' Y) (Fin.append u γ)
+  have hleft : (AggQueryIn.castIdx (subIdx_self s n) (AggQueryIn.substRel s (rowRel n K)
+      (L.substMap (applyOuter T c (n + K))))).evaluatePlain (D.assign s' Y) (Fin.append u γ)
       = L.evaluatePlain (D.assign s ({leftPart n K u} : Multiset (Tuple T n))) γ := by
-    rw [AggQueryIn.evaluatePlain_substRel (rowRel n K) _ ((recLinear_substMap L _).mpr hL),
+    rw [AggQueryIn.evaluatePlain_castIdx,
+      AggQueryIn.evaluatePlain_substRel (rowRel n K) _ ((recLinear_substMap L _).mpr hL),
       evaluatePlain_rowRel, AggQueryIn.evaluatePlain_substMap, substVal_applyOuter]
     refine AggQueryIn.evaluatePlain_congr_of_noMention L hLs (fun k t ht => ?_) γ
     by_cases hc : k = n ∧ t = s
     · obtain ⟨rfl, rfl⟩ := hc
       rw [Database.find_assign, Database.find_assign]
     · rw [Database.find_assign_of_ne s t _ _ hc, Database.find_assign_of_ne s t _ _ hc,
-        Database.find_assign_of_ne s' t Y D (fun hc' => ht hc'.2)]
+        Database.find_assign_of_ne s' t Y D (fun hc' => ht.elim (fun h => h hc'.2) (fun h => hc ⟨(Prod.mk.inj (List.mem_singleton.mp h)).2, (Prod.mk.inj (List.mem_singleton.mp h)).1⟩))]
   -- the right factor: the counters above the row's
   have hright : ((pow EQ K).substMap (applyOuter T c (n + K))).evaluatePlain (D.assign s' Y)
       (Fin.append u γ) = (pow EQ K).evaluatePlain D γ := by
@@ -983,7 +1132,7 @@ theorem bind_pairRel {n K n' K' : ℕ} (A : Multiset (Tuple T n)) (M : Multiset 
 counter, from `(q₀ ⊎ C) × E^K`, each round applying the term to the
 tuple part and moving the counter up. -/
 def sim (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-    (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n)) :
+    (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) :
     AggQueryIn T c (n + K) (ColKind.allReg (n + K)) :=
   AggQueryIn.Mu s' (AggQueryIn.prodA BQ (pow EQ K)) (simBody s s' n K EQ L)
 
@@ -1015,20 +1164,20 @@ theorem settlesAt_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D 
 
 /-- Its tuple parts, without duplicates: the set recursion's value. -/
 def simResult (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-    (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n)) :
+    (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) :
     AggQueryIn T c n (ColKind.allReg n) :=
   dedupG ((AggQueryIn.Proj (fun i : Fin n =>
       ProjColIn.term (TermGIn.index (Fin.castAdd K i) rfl)) (sim s s' n K EQ BQ L)).castKind
     (funext fun _ => rfl))
 
 /-- The term applied to one row of the recursive relation. -/
-noncomputable def rowTerm (s : String) (n : ℕ) (L : AggQueryIn T c n (ColKind.allReg n))
+noncomputable def rowTerm (s : String) (n : ℕ) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (D : Database T) (γ : Fin c → T) : Tuple T n → Multiset (Tuple T n) :=
   fun t => L.evaluatePlain (D.assign s ({t} : Multiset (Tuple T n))) γ
 
 /-- One round of the simulation, as a function of the recursive relation. -/
 noncomputable def simStep (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-    (L : AggQueryIn T c n (ColKind.allReg n)) (D : Database T) (γ : Fin c → T) :
+    (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (D : Database T) (γ : Fin c → T) :
     Multiset (Tuple T (n + K)) → Multiset (Tuple T (n + K)) :=
   fun Y => (simBody s s' n K EQ L).evaluatePlain (D.assign s' Y) γ
 
@@ -1040,7 +1189,7 @@ noncomputable def counters (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K : ℕ) 
 section Rounds
 
 variable (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-  (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n))
+  (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
   (hL : L.recLinear s n) (hLs : L.noMention s') (hEs : EQ.noMention s')
   (D : Database T) (γ : Fin c → T)
   (hE : ∀ e ∈ unaryVals (EQ.evaluatePlain D γ), ValueType.isNull e = false)
@@ -1198,7 +1347,8 @@ theorem settlesAt_simResult (hBQ : BQ.SettlesAt D γ) (hEQ : EQ.SettlesAt D γ)
         (Nat.le_of_not_lt hjN)] at hm
       exact Multiset.notMem_zero m hm
     refine AggQueryIn.settlesAt_prodA _ _ _ _ ?_ ?_
-    · refine AggQueryIn.settlesAt_substRel (rowRel n K) _
+    · rw [AggQueryIn.settlesAt_castIdx]
+      refine AggQueryIn.settlesAt_substRel (rowRel n K) _
         ((recLinear_substMap L _).mpr hL) _ _ ?_ ?_
       · rw [rowRel, AggQueryIn.settlesAt_castKind]
         show (unitC : AggQueryIn T _ 0 _).SettlesAt _ _
@@ -1211,11 +1361,11 @@ theorem settlesAt_simResult (hBQ : BQ.SettlesAt D γ) (hEQ : EQ.SettlesAt D γ)
         · obtain ⟨rfl, rfl⟩ := hc
           rw [Database.find_assign, Database.find_assign]
         · rw [Database.find_assign_of_ne s t _ _ hc, Database.find_assign_of_ne s t _ _ hc,
-            Database.find_assign_of_ne s' t _ D (fun hc' => ht hc'.2)]
+            Database.find_assign_of_ne s' t _ D (fun hc' => ht.elim (fun h => h hc'.2) (fun h => hc ⟨(Prod.mk.inj (List.mem_singleton.mp h)).2, (Prod.mk.inj (List.mem_singleton.mp h)).1⟩))]
     · show ((pow EQ K).substMap (applyOuter T c (n + K))).SettlesAt _ _
       rw [AggQueryIn.settlesAt_substMap, substVal_applyOuter]
       exact AggQueryIn.settlesAt_of_noMention _ (noMention_pow EQ hEs K)
-        (fun k' t ht => (Database.find_assign_of_ne s' t _ D (fun hc => ht hc.2)).symm) γ
+        (fun k' t ht => (Database.find_assign_of_ne s' t _ D (fun hc => ht.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ
         (settlesAt_pow EQ D γ hEQ K)
 
 end Rounds
@@ -1291,9 +1441,9 @@ relation `E` of non-null values with `|E|^K` at least the size of the
 fixpoint, the simulation's tuples are the fixpoint, wherever the
 recursion is defined. -/
 theorem evaluatePlain_simResult (s s' : String) (n K : ℕ)
-    (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (BQ L qC q₀ q₁ : AggQueryIn T c n (ColKind.allReg n))
-    (hL : L.recLinear s n) (hLs : L.noMention s') (hEs : EQ.noMention s')
-    (h₀ : q₀.noMention s) (hC : qC.noMention s) (D : Database T) (γ : Fin c → T)
+    (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (BQ qC q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (L q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hL : L.recLinear s n) (hLs : L.noMention s') (hEs : EQ.noMention s')
+    (hC : qC.noMention s) (D : Database T) (γ : Fin c → T)
     (hset : (AggQueryIn.MuSet s q₀ q₁).SettlesAt D γ)
     (hsplit : ∀ X : Relation T n, q₁.SettlesAt (D.assign s X) γ →
       (q₁.evaluatePlain (D.assign s X) γ : Multiset (Tuple T n))
@@ -1310,9 +1460,9 @@ theorem evaluatePlain_simResult (s s' : String) (n K : ℕ)
           (BQ.evaluatePlain D γ : Multiset (Tuple T n)) →
         Multiset.Mem ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ) t := by
   classical
-  obtain ⟨hs, hk⟩ := hset
+  obtain ⟨-, hs, hk⟩ := hset
   -- the set recursion's step, and the bag step it is the duplicate elimination of
-  have hround : ∀ j, muIter (fun X => (q₀.evaluatePlain (D.assign s X) γ
+  have hround : ∀ j, muIter (fun X => (q₀.evaluatePlain D γ
       + q₁.evaluatePlain (D.assign s X) γ).dedup) j
       = muIter (fun X => (bagStep (q₀.evaluatePlain D γ + qC.evaluatePlain D γ)
           (rowTerm s n L D γ) X).dedup) j := by
@@ -1322,8 +1472,7 @@ theorem evaluatePlain_simResult (s s' : String) (n K : ℕ)
     | succ j ih =>
       rw [muIter, muIter, ← ih]
       refine congrArg Multiset.dedup ?_
-      rw [hsplit _ (hk j).2, AggQueryIn.evaluatePlain_assign_of_noMention _ q₀ h₀,
-        AggQueryIn.evaluatePlain_assign_of_noMention _ qC hC,
+      rw [hsplit _ (hk j), AggQueryIn.evaluatePlain_assign_of_noMention _ qC hC,
         AggQueryIn.evaluatePlain_assign_bind_of_recLinear L hL D γ]
       have hac : ∀ a b d : Multiset (Tuple T n), a + (b + d) = (a + d) + b :=
         fun a b d => by ac_rfl
@@ -1376,43 +1525,48 @@ no aggregate: duplicate-free over a finite set of values, it has at most
 it reads it at: its leaves, less the one a body reads its own recursive
 name at – the name at the recursion's arity, which is bound. A leaf naming
 that name at another arity reads the instance and stays free. -/
-def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → AggQueryIn T c n κ →
+def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l →
     List (ℕ × String)
-  | _, _, _, .Rel k s => [(k, s)]
-  | _, _, _, .Empty => []
-  | _, _, _, .Proj _ q => q.leaves
-  | _, _, _, .Sel _ q => q.leaves
-  | _, _, _, .Prod q₁ q₂ => q₁.leaves ++ q₂.leaves
-  | _, _, _, .Apply q₁ q₂ => q₁.leaves ++ q₂.leaves
-  | _, _, _, .Sum q₁ q₂ => q₁.leaves ++ q₂.leaves
-  | _, _, _, .Dedup q => q.leaves
-  | _, _, _, .Diff q₁ q₂ => q₁.leaves ++ q₂.leaves
-  | _, _, _, .Alt _ _ q => q.leaves
-  | _, _, _, .Retag _ q => q.leaves
-  | _, n, _, .Mu s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
-  | _, n, _, .MuSet s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
-  | _, _, _, .Gamma _ _ _ q _ _ => q.leaves
-  | _, _, _, .GammaScalar _ _ q _ => q.leaves
-  | _, _, _, .GammaNest _ _ _ _ q => q.leaves
-  | _, _, _, .ProvSum _ _ _ q => q.leaves
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.leaves
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.leaves
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.leaves
+  | _, _, _, _, .Rel k s => [(k, s)]
+  | _, _, _, _, .Hole k s => [(k, s)]
+  | _, _, _, _, .Empty => []
+  | _, _, _, _, .Proj _ q => q.leaves
+  | _, _, _, _, .Sel _ q _ => q.leaves
+  | _, _, _, _, .Prod q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Apply q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Sum q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Dedup q => q.leaves
+  | _, _, _, _, .Diff q₁ q₂ => q₁.leaves ++ q₂.leaves
+  | _, _, _, _, .Alt _ _ q => q.leaves
+  | _, _, _, _, .Retag _ q => q.leaves
+  | _, n, _, _, .Mu s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
+  | _, n, _, _, .MuSet s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.leaves
+  | _, _, _, _, .GammaScalar _ _ q _ => q.leaves
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.leaves
+  | _, _, _, _, .ProvSum _ _ _ q => q.leaves
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.leaves
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.leaves
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.leaves
 
 omit [ValueType T] in
 /-- A leaf's name is a name of the query. -/
 theorem AggQueryIn.snd_mem_names_of_mem_leaves :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (p : ℕ × String),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (p : ℕ × String),
       p ∈ q.leaves → p.2 ∈ q.names := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel k s =>
     intro p hp
     rw [List.mem_singleton.mp hp]
     exact Finset.mem_singleton_self s
+  | Hole k s =>
+    intro p hp
+    rw [List.mem_singleton.mp hp]
+    exact Finset.mem_singleton_self s
   | Empty => exact fun p hp => absurd hp (List.not_mem_nil)
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro p hp
     exact (List.mem_append.mp hp).elim (fun h => Finset.mem_union_left _ (ih₁ p h))
@@ -1454,17 +1608,21 @@ omit [ValueType T] in
 /-- A query over a schema reads each leaf at the arity the schema
 declares; a body reads its recursive name at the recursion's arity. -/
 theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {sch : Schema},
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {sch : Schema},
       q.overSchema sch → ∀ p ∈ q.leaves, sch p.2 = some p.1 := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel k s =>
     intro sch ho p hp
     rw [List.mem_singleton.mp hp]
     exact ho
+  | Hole k s =>
+    intro sch ho p hp
+    rw [List.mem_singleton.mp hp]
+    exact ho
   | Empty => exact fun _ p hp => absurd hp (List.not_mem_nil)
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro sch ho p hp
     exact (List.mem_append.mp hp).elim (ih₁ ho.1 p) (ih₂ ho.2 p)
@@ -1484,7 +1642,7 @@ theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
     intro sch ho p hp
     refine (List.mem_append.mp hp).elim (ih₀ ho.2.1 p) (fun h => ?_)
     obtain ⟨h, hne⟩ := List.mem_filter.mp h
-    have h' : (if p.2 = s then some _ else sch p.2) = some p.1 := ih₁ ho.2.2 p h
+    have h' : (if p.2 = s then some _ else sch p.2) = some p.1 := ih₁ ho.2.2.2 p h
     by_cases hs : p.2 = s
     · rw [ite_eq_left hs, Option.some.injEq] at h'
       exact absurd (Prod.ext h'.symm hs) (by simpa using hne)
@@ -1493,7 +1651,7 @@ theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
     intro sch ho p hp
     refine (List.mem_append.mp hp).elim (ih₀ ho.2.1 p) (fun h => ?_)
     obtain ⟨h, hne⟩ := List.mem_filter.mp h
-    have h' : (if p.2 = s then some _ else sch p.2) = some p.1 := ih₁ ho.2.2 p h
+    have h' : (if p.2 = s then some _ else sch p.2) = some p.1 := ih₁ ho.2.2.2 p h
     by_cases hs : p.2 = s
     · rw [ite_eq_left hs, Option.some.injEq] at h'
       exact absurd (Prod.ext h'.symm hs) (by simpa using hne)
@@ -1520,14 +1678,21 @@ its result's values are values of the relations it reads, of its context
 or of its constants – through its recursions, each round reading the
 previous one. -/
 theorem AggQueryIn.valsIn_of_noAgg {Θ : Set (SeqAggFunc T)} :
-    ∀ {c m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.noAgg → q.inSig Θ →
+    ∀ {c m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.noAgg → q.inSig Θ →
       ∀ (D : Database T) (γ : Fin c → T) (V : Finset T),
         (∀ p ∈ q.leaves, ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
           Relation.valsIn r V) →
         (∀ j, γ j ∈ V) → q.constsIn V → Relation.valsIn (q.evaluatePlain D γ) V := by
-  intro c m κ q
+  intro c m κ l q
   induction q with
   | Rel n s =>
+    intro _ _ D γ V hD _ _
+    show Relation.valsIn (match D.find n s with
+      | none => (0 : Relation T n) | some rn => rn) V
+    cases hf : D.find n s with
+    | none => exact fun u hu => absurd hu (by simp)
+    | some rn => exact hD (n, s) (List.mem_singleton_self _) rn hf
+  | Hole n s =>
     intro _ _ D γ V hD _ _
     show Relation.valsIn (match D.find n s with
       | none => (0 : Relation T n) | some rn => rn) V
@@ -1542,7 +1707,7 @@ theorem AggQueryIn.valsIn_of_noAgg {Θ : Set (SeqAggFunc T)} :
     obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
     exact (ps j).evalPlain_mem_of_noFun (hs.1 j) (hc.1 j) v
       (fun i => ih hq hs.2 D γ V hD hγ hc.2 v hv i) γ hγ
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hs D γ V hD hγ hc
     exact Relation.valsIn_of_le (Multiset.filter_le _ _) (ih hq hs.2 D γ V hD hγ hc)
   | Prod q₁ q₂ ih₁ ih₂ =>
@@ -1624,7 +1789,7 @@ theorem AggQueryIn.valsIn_of_noAgg {Θ : Set (SeqAggFunc T)} :
       · rw [Database.find_assign_of_ne s t X D hkt] at hr
         exact hl (k, t) hp (fun h => hkt (Prod.mk.inj h)) r hr
     have hround : ∀ j, Relation.valsIn (muIter (fun X : Multiset (Tuple T nm) =>
-        (q₀.evaluatePlain (D.assign s X) γ + q₁.evaluatePlain (D.assign s X) γ).dedup) j) V := by
+        (q₀.evaluatePlain D γ + q₁.evaluatePlain (D.assign s X) γ).dedup) j) V := by
       intro j
       induction j with
       | zero => exact fun u hu => absurd hu (Multiset.notMem_zero u)
@@ -1632,8 +1797,7 @@ theorem AggQueryIn.valsIn_of_noAgg {Θ : Set (SeqAggFunc T)} :
         rw [muIter]
         refine Relation.valsIn_of_le (Multiset.dedup_le _) (fun u hu => ?_)
         rcases Multiset.mem_add.mp hu with h | h
-        · exact ih₀ hq.1 hs.1 _ γ V (hDX _ (fun p hp _ => hD p (List.mem_append_left _ hp)) _ ih)
-            hγ hc.1 u h
+        · exact ih₀ hq.1 hs.1 D γ V (fun p hp => hD p (List.mem_append_left _ hp)) hγ hc.1 u h
         · refine ih₁ hq.2 hs.2 _ γ V (hDX _ (fun p hp hne => hD p ?_) _ ih) hγ hc.2 u h
           exact List.mem_append_right _ (List.mem_filter.mpr ⟨hp, decide_eq_true hne⟩)
     exact hround _
@@ -1647,17 +1811,18 @@ theorem AggQueryIn.valsIn_of_noAgg {Θ : Set (SeqAggFunc T)} :
 
 /-- A query whose constants lie in `V` has them there column by column. -/
 theorem AggQueryIn.constsIn_of_subset {V : Finset T} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), q.consts ⊆ V → q.constsIn V := by
-  intro c n κ q
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), q.consts ⊆ V → q.constsIn V := by
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih =>
     intro h
     refine ⟨fun j => (ps j).constsIn_of_subset (subset_trans (fun x hx => ?_) h),
       ih (subset_trans Finset.subset_union_right h)⟩
     exact Finset.mem_union_left _ (Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ j, hx⟩)
-  | Sel φ q ih => exact fun h => ih h
+  | Sel φ q _ ih => exact fun h => ih h
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ (subset_trans Finset.subset_union_left h),
       ih₂ (subset_trans Finset.subset_union_right h)⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ (subset_trans Finset.subset_union_left h),
@@ -1732,12 +1897,12 @@ theorem usesOnly_listSum {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} :
       AggQueryIn.usesOnly_mono (Set.subset_insert _ _) _ (h q List.mem_cons_self),
       usesOnly_listSum hS l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
-theorem recRestricted_listSum {n : ℕ} :
-    ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.recRestricted) →
-      (listSum l).recRestricted
-  | [], _ => recRestricted_emptyRel n
+theorem hygienic_listSum {n : ℕ} :
+    ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.hygienic) →
+      (listSum l).hygienic
+  | [], _ => hygienic_emptyRel n
   | q :: l, h => ⟨h q List.mem_cons_self,
-      recRestricted_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
+      hygienic_listSum l (fun q' hq' => h q' (List.mem_cons_of_mem _ hq'))⟩
 
 theorem inSig_listSum {Θ : Set (SeqAggFunc T)} {n : ℕ} :
     ∀ (l : List (AggQueryIn T c n (ColKind.allReg n))), (∀ q ∈ l, q.inSig Θ) →
@@ -1952,8 +2117,8 @@ theorem settlesAt_unitC (D : Database T) (γ : Fin c → T) :
   rw [unitC, AggQueryIn.settlesAt_castKind]; trivial
 
 omit [ValueType T] in
-theorem recRestricted_unitC : (unitC : AggQueryIn T c 0 _).recRestricted := by
-  rw [unitC, AggQueryIn.recRestricted_castKind]; trivial
+theorem hygienic_unitC : (unitC : AggQueryIn T c 0 _).hygienic := by
+  rw [unitC, AggQueryIn.hygienic_castKind]; trivial
 
 theorem winsDerivable_unitC : (unitC : AggQueryIn T c 0 _).WinsDerivable := by
   rw [unitC, AggQueryIn.winsDerivable_castKind]; trivial
@@ -1994,13 +2159,13 @@ theorem usesOnly_counterRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (hB : B.usesO
   · rw [constRel, AggQueryIn.usesOnly_castKind]; exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS⟩
   · rw [outerRel, AggQueryIn.usesOnly_castKind]; exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS⟩
 
-theorem recRestricted_counterRel (hB : B.recRestricted) : (counterRel B ls cs).recRestricted := by
-  refine recRestricted_listSum _ (fun q hq => ?_)
+theorem hygienic_counterRel (hB : B.hygienic) : (counterRel B ls cs).hygienic := by
+  refine hygienic_listSum _ (fun q hq => ?_)
   rcases mem_counterParts B ls cs q hq with ⟨i, rfl⟩ | ⟨p, _, i, rfl⟩ | ⟨a, _, rfl⟩ | ⟨j, rfl⟩
-  · rw [colRel, AggQueryIn.recRestricted_castKind]; exact hB
-  · rw [colRel, AggQueryIn.recRestricted_castKind]; trivial
-  · rw [constRel, AggQueryIn.recRestricted_castKind]; exact recRestricted_unitC
-  · rw [outerRel, AggQueryIn.recRestricted_castKind]; exact recRestricted_unitC
+  · rw [colRel, AggQueryIn.hygienic_castKind]; exact hB
+  · rw [colRel, AggQueryIn.hygienic_castKind]; trivial
+  · rw [constRel, AggQueryIn.hygienic_castKind]; exact hygienic_unitC
+  · rw [outerRel, AggQueryIn.hygienic_castKind]; exact hygienic_unitC
 
 theorem inSig_counterRel {Θ : Set (SeqAggFunc T)} (hB : B.inSig Θ) :
     (counterRel B ls cs).inSig Θ := by
@@ -2077,23 +2242,25 @@ variable {s : String} {n : ℕ} (ρ : AggQueryIn T c n (ColKind.allReg n))
 
 omit [ValueType T] in
 theorem usesOnly_substRel {S : Set OpKind} (hρ : ρ.usesOnly S) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       q.usesOnly S → (AggQueryIn.substRel s ρ q).usesOnly S := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').usesOnly S
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.usesOnly_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hq => ⟨hq.1, ih ρ hρ h hq.2⟩
-  | Sel φ q ih => exact fun h hq => ⟨hq.1, ih ρ hρ h.2 hq.2⟩
+  | Sel φ q _ ih => exact fun h hq => ⟨hq.1, ih ρ hρ h.2 hq.2⟩
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hq
-    · refine ⟨hq.1, ih₁ ρ hρ h₁ hq.2.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hq
+    · rw [AggQueryIn.substRel, AggQueryIn.usesOnly_castIdx]
+      refine ⟨hq.1, ih₁ ρ hρ h₁ hq.2.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]; exact hq.2.2
-    · refine ⟨hq.1, ?_, ih₂ ρ hρ h₂ hq.2.2⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.usesOnly_castIdx]
+      refine ⟨hq.1, ?_, ih₂ ρ hρ h₂ hq.2.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]; exact hq.2.1
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h hq => ⟨hq.1, ih₁ ρ hρ h.1 hq.2.1, hq.2.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -2112,24 +2279,26 @@ theorem usesOnly_substRel {S : Set OpKind} (hρ : ρ.usesOnly S) :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
-theorem recRestricted_substRel (hρ : ρ.recRestricted) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
-      q.recRestricted → (AggQueryIn.substRel s ρ q).recRestricted := by
-  intro m κ q
+theorem hygienic_substRel (hρ : ρ.hygienic) :
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
+      q.hygienic → (AggQueryIn.substRel s ρ q).hygienic := by
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').recRestricted
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.hygienic_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hq => ih ρ hρ h hq
-  | Sel φ q ih => exact fun h hq => ih ρ hρ h.2 hq
+  | Sel φ q _ ih => exact fun h hq => ih ρ hρ h.2 hq
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hq
-    · refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hq
+    · rw [AggQueryIn.substRel, AggQueryIn.hygienic_castIdx]
+      refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]; exact hq.2
-    · refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.hygienic_castIdx]
+      refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]; exact hq.1
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h hq => ⟨ih₁ ρ hρ h.1 hq.1, hq.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -2148,23 +2317,25 @@ theorem recRestricted_substRel (hρ : ρ.recRestricted) :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : ρ.inSig Θ) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       q.inSig Θ → (AggQueryIn.substRel s ρ q).inSig Θ := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').inSig Θ
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.inSig_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hq => ⟨hq.1, ih ρ hρ h hq.2⟩
-  | Sel φ q ih => exact fun h hq => ⟨hq.1, ih ρ hρ h.2 hq.2⟩
+  | Sel φ q _ ih => exact fun h hq => ⟨hq.1, ih ρ hρ h.2 hq.2⟩
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hq
-    · refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hq
+    · rw [AggQueryIn.substRel, AggQueryIn.inSig_castIdx]
+      refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]; exact hq.2
-    · refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.inSig_castIdx]
+      refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]; exact hq.1
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h hq => ⟨ih₁ ρ hρ h.1 hq.1, hq.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -2184,23 +2355,25 @@ theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : ρ.inSig Θ) :
 
 omit [ValueType T] in
 theorem sumsAllReg_substRel (hρ : ρ.sumsAllReg) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       q.sumsAllReg → (AggQueryIn.substRel s ρ q).sumsAllReg := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').sumsAllReg
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.sumsAllReg_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hq => ih ρ hρ h hq
-  | Sel φ q ih => exact fun h hq => ih ρ hρ h.2 hq
+  | Sel φ q _ ih => exact fun h hq => ih ρ hρ h.2 hq
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hq
-    · refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hq
+    · rw [AggQueryIn.substRel, AggQueryIn.sumsAllReg_castIdx]
+      refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]; exact hq.2
-    · refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
+    · rw [AggQueryIn.substRel, AggQueryIn.sumsAllReg_castIdx]
+      refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]; exact hq.1
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h hq => ⟨ih₁ ρ hρ h.1 hq.1, hq.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -2223,29 +2396,31 @@ omit [ValueType T] in
 term is over the schema with the recursive name declared, and the
 substitute is over the schema. -/
 theorem overSchema_substRel {sch : Schema} (hρ : ρ.overSchema sch) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       q.overSchema (sch.update s n) → (AggQueryIn.substRel s ρ q).overSchema sch := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ _
-    show (if h : s' = s' ∧ n' = n' then _ else AggQueryIn.Rel n' s').overSchema sch
-    rw [dite_eq_left ⟨rfl, rfl⟩]
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.overSchema_castIdx]
     exact hρ
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h hq => ih ρ hρ h hq
-  | Sel φ q ih => exact fun h hq => ih ρ hρ h.2 hq
+  | Sel φ q _ ih => exact fun h hq => ih ρ hρ h.2 hq
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hq
-    · refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) hq
+    · rw [AggQueryIn.substRel, AggQueryIn.overSchema_castIdx]
+      refine ⟨ih₁ ρ hρ h₁ hq.1, ?_⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂]
-      exact AggQueryIn.overSchema_of_update_of_noMention q₂ h₂ hq.2
-    · refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
+      exact AggQueryIn.overSchema_of_update_of_noMention q₂ (fun _ h => by simp at h) h₂ hq.2
+    · rw [AggQueryIn.substRel, AggQueryIn.overSchema_castIdx]
+      refine ⟨?_, ih₂ ρ hρ h₂ hq.2⟩
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁]
-      exact AggQueryIn.overSchema_of_update_of_noMention q₁ h₁ hq.1
+      exact AggQueryIn.overSchema_of_update_of_noMention q₁ (fun _ h => by simp at h) h₁ hq.1
   | Apply q₁ q₂ ih₁ ih₂ =>
     exact fun h hq => ⟨ih₁ ρ hρ h.1 hq.1,
-      AggQueryIn.overSchema_of_update_of_noMention q₂ h.2 hq.2⟩
+      AggQueryIn.overSchema_of_update_of_noMention q₂ (fun _ h => by simp at h) h.2 hq.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
@@ -2263,28 +2438,26 @@ theorem overSchema_substRel {sch : Schema} (hρ : ρ.overSchema sch) :
 
 omit [ValueType T] in
 theorem mem_names_substRel :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recLinear s n →
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l), q.recLinear s n →
       ∀ x, x ∈ (AggQueryIn.substRel s ρ q).names → x ∈ q.names ∨ x ∈ ρ.names := by
-  intro m κ q
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' =>
     rintro ⟨rfl, rfl⟩ x hx
-    have : x ∈ (if h : s' = s' ∧ n' = n' then (h.2 ▸ ρ) else AggQueryIn.Rel n' s').names := hx
-    rw [dite_eq_left ⟨rfl, rfl⟩] at this
-    exact Or.inr this
+    rw [AggQueryIn.substRel, dite_eq_left ⟨rfl, rfl⟩, AggQueryIn.names_castIdx] at hx
+    exact Or.inr hx
   | Empty => exact fun h => h.elim
   | Proj ps q ih => exact fun h x hx => ih ρ h x hx
-  | Sel φ q ih => exact fun h x hx => ih ρ h.2 x hx
+  | Sel φ q _ ih => exact fun h x hx => ih ρ h.2 x hx
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) x hx
-    · have hx : x ∈ (AggQueryIn.Prod (AggQueryIn.substRel s ρ q₁)
-          (AggQueryIn.substRel s ρ q₂)).names := hx
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) x hx
+    · rw [AggQueryIn.substRel, AggQueryIn.names_castIdx] at hx
       rw [AggQueryIn.substRel_of_noMention ρ q₂ h₂] at hx
       rcases Finset.mem_union.mp hx with hx | hx
       · exact (ih₁ ρ h₁ x hx).imp_left (Finset.mem_union_left _)
       · exact Or.inl (Finset.mem_union_right _ hx)
-    · have hx : x ∈ (AggQueryIn.Prod (AggQueryIn.substRel s ρ q₁)
-          (AggQueryIn.substRel s ρ q₂)).names := hx
+    · rw [AggQueryIn.substRel, AggQueryIn.names_castIdx] at hx
       rw [AggQueryIn.substRel_of_noMention ρ q₁ h₁] at hx
       rcases Finset.mem_union.mp hx with hx | hx
       · exact Or.inl (Finset.mem_union_left _ hx)
@@ -2325,11 +2498,11 @@ theorem usesOnly_pow {S : Set OpKind} (hS : sumMuOps ⊆ S) (h : EQ.usesOnly S) 
     exact AggQueryIn.usesOnly_prodA _ _ (hS (by simp [sumMuOps])) (usesOnly_pow hS h K) h
 
 omit [ValueType T] in
-theorem recRestricted_pow (h : EQ.recRestricted) : ∀ K, (pow EQ K).recRestricted
-  | 0 => recRestricted_unitC
+theorem hygienic_pow (h : EQ.hygienic) : ∀ K, (pow EQ K).hygienic
+  | 0 => hygienic_unitC
   | K + 1 => by
     rw [pow]
-    exact AggQueryIn.recRestricted_prodA _ _ (recRestricted_pow h K) h
+    exact AggQueryIn.hygienic_prodA _ _ (hygienic_pow h K) h
 
 theorem inSig_pow {Θ : Set (SeqAggFunc T)} (h : EQ.inSig Θ) : ∀ K, (pow EQ K).inSig Θ
   | 0 => inSig_unitC Θ
@@ -2380,9 +2553,9 @@ theorem usesOnly_rowRel {S : Set OpKind} (hS : sumMuOps ⊆ S) :
   exact ⟨⟨hS (by simp [sumMuOps]), fun _ => rfl⟩, usesOnly_unitC hS⟩
 
 omit [ValueType T] in
-theorem recRestricted_rowRel : (rowRel (T := T) (c := c) n K).recRestricted := by
-  rw [rowRel, AggQueryIn.recRestricted_castKind]
-  exact recRestricted_unitC
+theorem hygienic_rowRel : (rowRel (T := T) (c := c) n K).hygienic := by
+  rw [rowRel, AggQueryIn.hygienic_castKind]
+  exact hygienic_unitC
 
 theorem inSig_rowRel (Θ : Set (SeqAggFunc T)) : (rowRel (T := T) (c := c) n K).inSig Θ := by
   rw [rowRel, AggQueryIn.inSig_castKind]
@@ -2425,8 +2598,8 @@ theorem usesOnly_dedupG {S : Set OpKind} (hg : OpKind.gamma ∈ S) (h : q.usesOn
   rw [dedupG, AggQueryIn.usesOnly_castKind]; exact ⟨hg, h⟩
 
 omit [ValueType T] in
-theorem recRestricted_dedupG (h : q.recRestricted) : (dedupG q).recRestricted := by
-  rw [dedupG, AggQueryIn.recRestricted_castKind]; exact h
+theorem hygienic_dedupG (h : q.hygienic) : (dedupG q).hygienic := by
+  rw [dedupG, AggQueryIn.hygienic_castKind]; exact h
 
 theorem inSig_dedupG {Θ : Set (SeqAggFunc T)} (h : q.inSig Θ) : (dedupG q).inSig Θ := by
   rw [dedupG, AggQueryIn.inSig_castKind]
@@ -2459,7 +2632,7 @@ variable {c : ℕ}
 section SimStructure
 
 variable (s s' : String) (n K : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
-  (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n))
+  (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
   (hL : L.recLinear s n)
 
 include hL in
@@ -2474,29 +2647,32 @@ theorem usesOnly_simResult {S : Set OpKind} (hS : sumMuOps ⊆ S) (hLu : L.usesO
     AggQueryIn.usesOnly_prodA _ _ happly hBu (usesOnly_pow EQ hS hEu K), ?_⟩
   rw [simBody, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hproj, fun _ => rfl⟩, happly, trivial, AggQueryIn.usesOnly_prodA _ _ happly ?_ ?_⟩
-  · exact usesOnly_substRel _ (usesOnly_rowRel n K hS) _ ((recLinear_substMap L _).mpr hL)
+  · rw [AggQueryIn.usesOnly_castIdx]
+    exact usesOnly_substRel _ (usesOnly_rowRel n K hS) _ ((recLinear_substMap L _).mpr hL)
       ((AggQueryIn.usesOnly_substMap _ _).mpr hLu)
   · exact ⟨hsel, (AggQueryIn.usesOnly_substMap _ _).mpr (usesOnly_pow EQ hS hEu K)⟩
 
 include hL in
-theorem recRestricted_simResult (hLr : L.recRestricted) (hBr : BQ.recRestricted)
-    (hEr : EQ.recRestricted) (hLs : L.noMention s') (hBs : BQ.noMention s')
+theorem hygienic_simResult (hLr : L.hygienic) (hBr : BQ.hygienic)
+    (hEr : EQ.hygienic) (hLs : L.noMention s') (hBs : BQ.noMention s')
     (hEs : EQ.noMention s') :
-    (simResult s s' n K EQ BQ L).recRestricted := by
-  refine recRestricted_dedupG _ ?_
-  rw [AggQueryIn.recRestricted_castKind]
+    (simResult s s' n K EQ BQ L).hygienic := by
+  refine hygienic_dedupG _ ?_
+  rw [AggQueryIn.hygienic_castKind]
   refine ⟨AggQueryIn.noMention_prodA _ _ hBs (noMention_pow EQ hEs K), ?_,
-    AggQueryIn.recRestricted_prodA _ _ hBr (recRestricted_pow EQ hEr K), ?_⟩
-  · rw [simBody, AggQueryIn.recOnce_castKind]
-    refine ⟨rfl, AggQueryIn.noMention_prodA _ _ ?_ ?_⟩
-    · exact AggQueryIn.noMention_substRel _ (noMention_rowRel n K s') _
+    AggQueryIn.hygienic_prodA _ _ hBr (hygienic_pow EQ hEr K), ?_⟩
+  · rw [simBody, AggQueryIn.noMention_castKind]
+    refine ⟨trivial, AggQueryIn.noMention_prodA _ _ ?_ ?_⟩
+    · rw [AggQueryIn.noMention_castIdx]
+      exact AggQueryIn.noMention_substRel _ (noMention_rowRel n K s') _
         ((recLinear_substMap L _).mpr hL) (Or.inr ((AggQueryIn.noMention_substMap _ _).mpr hLs))
     · exact (AggQueryIn.noMention_substMap _ _).mpr (noMention_pow EQ hEs K)
-  · rw [simBody, AggQueryIn.recRestricted_castKind]
-    refine ⟨trivial, AggQueryIn.recRestricted_prodA _ _ ?_ ?_⟩
-    · exact recRestricted_substRel _ (recRestricted_rowRel n K) _ ((recLinear_substMap L _).mpr hL)
-        ((AggQueryIn.recRestricted_substMap _ _).mpr hLr)
-    · exact (AggQueryIn.recRestricted_substMap _ _).mpr (recRestricted_pow EQ hEr K)
+  · rw [simBody, AggQueryIn.hygienic_castKind]
+    refine ⟨trivial, AggQueryIn.hygienic_prodA _ _ ?_ ?_⟩
+    · rw [AggQueryIn.hygienic_castIdx]
+      exact hygienic_substRel _ (hygienic_rowRel n K) _ ((recLinear_substMap L _).mpr hL)
+        ((AggQueryIn.hygienic_substMap _ _).mpr hLr)
+    · exact (AggQueryIn.hygienic_substMap _ _).mpr (hygienic_pow EQ hEr K)
 
 include hL in
 theorem inSig_simResult {Θ : Set (SeqAggFunc T)} (hLi : L.inSig Θ) (hBi : BQ.inSig Θ)
@@ -2506,7 +2682,8 @@ theorem inSig_simResult {Θ : Set (SeqAggFunc T)} (hLi : L.inSig Θ) (hBi : BQ.i
   refine ⟨fun _ => rfl, AggQueryIn.inSig_prodA _ _ hBi (inSig_pow EQ hEi K), ?_⟩
   rw [simBody, AggQueryIn.inSig_castKind]
   refine ⟨fun _ => rfl, trivial, AggQueryIn.inSig_prodA _ _ ?_ ?_⟩
-  · exact inSig_substRel _ (inSig_rowRel n K Θ) _ ((recLinear_substMap L _).mpr hL)
+  · rw [AggQueryIn.inSig_castIdx]
+    exact inSig_substRel _ (inSig_rowRel n K Θ) _ ((recLinear_substMap L _).mpr hL)
       ((AggQueryIn.inSig_substMap _ _).mpr hLi)
   · exact ⟨noFun_ltSel n K, (AggQueryIn.inSig_substMap _ _).mpr (inSig_pow EQ hEi K)⟩
 
@@ -2518,7 +2695,8 @@ theorem sumsAllReg_simResult (hLa : L.sumsAllReg) (hBa : BQ.sumsAllReg) (hEa : E
   refine ⟨sumsAllReg_prodA _ _ hBa (sumsAllReg_pow EQ hEa K), ?_⟩
   rw [simBody, AggQueryIn.sumsAllReg_castKind]
   refine ⟨trivial, sumsAllReg_prodA _ _ ?_ ?_⟩
-  · exact sumsAllReg_substRel _ (sumsAllReg_rowRel n K) _ ((recLinear_substMap L _).mpr hL)
+  · rw [AggQueryIn.sumsAllReg_castIdx]
+    exact sumsAllReg_substRel _ (sumsAllReg_rowRel n K) _ ((recLinear_substMap L _).mpr hL)
       ((AggQueryIn.sumsAllReg_substMap _ _).mpr hLa)
   · exact (AggQueryIn.sumsAllReg_substMap _ _).mpr (sumsAllReg_pow EQ hEa K)
 
@@ -2531,10 +2709,19 @@ theorem overSchema_simResult {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ 
     (simResult s s' n K EQ BQ L).overSchema sch := by
   refine overSchema_dedupG _ ?_
   rw [AggQueryIn.overSchema_castKind]
-  refine ⟨hs', AggQueryIn.overSchema_prodA _ _ hBo (overSchema_pow EQ hEo K), ?_⟩
+  refine ⟨hs', AggQueryIn.overSchema_prodA _ _ hBo (overSchema_pow EQ hEo K), ?_, ?_⟩
+  · rw [simBody, AggQueryIn.noMention_castKind]
+    refine ⟨trivial, AggQueryIn.noMention_prodA _ _ ?_ ?_⟩
+    · rw [AggQueryIn.noMention_castIdx]
+      exact AggQueryIn.noMention_substRel _ (noMention_rowRel n K s') _
+        ((recLinear_substMap L _).mpr hL) (Or.inr ((AggQueryIn.noMention_substMap _ _).mpr
+          (AggQueryIn.noMention_of_not_mem_names L hLn)))
+    · exact (AggQueryIn.noMention_substMap _ _).mpr (noMention_pow EQ
+        (AggQueryIn.noMention_of_not_mem_names EQ hEn) K)
   rw [simBody, AggQueryIn.overSchema_castKind]
   refine ⟨Schema.update_self sch s' (n + K), AggQueryIn.overSchema_prodA _ _ ?_ ?_⟩
-  · refine overSchema_substRel _ (overSchema_rowRel n K _) _ ((recLinear_substMap L _).mpr hL) ?_
+  · rw [AggQueryIn.overSchema_castIdx]
+    refine overSchema_substRel _ (overSchema_rowRel n K _) _ ((recLinear_substMap L _).mpr hL) ?_
     rw [Schema.update_comm sch hss, AggQueryIn.overSchema_substMap]
     exact AggQueryIn.overSchema_update_of_not_mem_names L hLo hLn
   · show ((pow EQ K).substMap (applyOuter T c (n + K))).overSchema _
@@ -2555,11 +2742,12 @@ theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K EQ BQ L
     · exact Or.inr (Or.inr (Or.inr (mem_names_pow EQ K x hx)))
   · rw [simBody, AggQueryIn.names_castKind] at hx
     have hx : x ∈ Union.union ({s'} : Finset String)
-        (AggQueryIn.prodA (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K))))
+        (AggQueryIn.prodA (AggQueryIn.castIdx (subIdx_self s n)
+            (AggQueryIn.substRel s (rowRel n K) (L.substMap (applyOuter T c (n + K)))))
           (AggQueryIn.Sel (ltSel n K) ((pow EQ K).substMap (applyOuter T c (n + K))))).names := hx
     rcases Finset.mem_union.mp hx with hx | hx
     · exact Or.inl (Finset.mem_singleton.mp hx)
-    rw [AggQueryIn.names_prodA] at hx
+    rw [AggQueryIn.names_prodA, AggQueryIn.names_castIdx] at hx
     rcases Finset.mem_union.mp hx with hx | hx
     · rcases mem_names_substRel (rowRel n K) _ ((recLinear_substMap L _).mpr hL) x hx with hx | hx
       · rw [AggQueryIn.names_substMap] at hx
@@ -2571,14 +2759,15 @@ theorem mem_names_simResult (x : String) (hx : x ∈ (simResult s s' n K EQ BQ L
       exact Or.inr (Or.inr (Or.inr (mem_names_pow EQ K x hx)))
 
 include hL in
-theorem noMention_simResult (t : String) (hts : s' ≠ t) (hLt : L.noMention t)
+theorem noMention_simResult (t : String) (hLt : L.noMention t)
     (hBt : BQ.noMention t) (hEt : EQ.noMention t) : (simResult s s' n K EQ BQ L).noMention t := by
   refine noMention_dedupG _ t ?_
   rw [AggQueryIn.noMention_castKind]
   refine ⟨AggQueryIn.noMention_prodA _ _ hBt (noMention_pow EQ hEt K), ?_⟩
   rw [simBody, AggQueryIn.noMention_castKind]
-  refine ⟨hts, AggQueryIn.noMention_prodA _ _ ?_ ?_⟩
-  · exact AggQueryIn.noMention_substRel _ (noMention_rowRel n K t) _
+  refine ⟨trivial, AggQueryIn.noMention_prodA _ _ ?_ ?_⟩
+  · rw [AggQueryIn.noMention_castIdx]
+    exact AggQueryIn.noMention_substRel _ (noMention_rowRel n K t) _
       ((recLinear_substMap L _).mpr hL) (Or.inr ((AggQueryIn.noMention_substMap _ _).mpr hLt))
   · exact (AggQueryIn.noMention_substMap _ _).mpr (noMention_pow EQ hEt K)
 
@@ -2593,78 +2782,94 @@ namespace AggQueryIn
 variable {c : ℕ}
 
 omit [ValueType T] in
-/-- **A restricted term with no union is linear**: it reads the recursive
-name once, at the arity the schema declares. -/
-theorem recLinear_of_recOnce {S : Set OpKind} (hSu : OpKind.union ∉ S) {s : String} {n : ℕ}
-    {sch : Schema} :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} (q : AggQueryIn T c m κ), q.recOnce s → q.usesOnly S →
-      q.overSchema (sch.update s n) → q.recLinear s n := by
-  intro m κ q
+/-- **A recursive term with no union is linear**: with one hole, the
+recursive relation at its arity, and no `⊎` on the way down to it. -/
+theorem recLinear_of_usesOnly {S : Set OpKind} (hSu : OpKind.union ∉ S) {s : String} {n : ℕ} :
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
+      l = [(s, n)] → q.noMention s → q.usesOnly S → q.recLinear s n := by
+  intro m κ l q
   induction q with
-  | Rel n' s' =>
-    intro h _ ho
-    subst h
-    have ho' : (if s' = s' then some n else sch s') = some n' := ho
-    rw [ite_eq_left rfl, Option.some.injEq] at ho'
-    exact ⟨rfl, ho'.symm⟩
-  | Empty => exact fun h => h.elim
-  | Proj ps q ih => exact fun h hu ho => ih h hu.2 ho
-  | Sel φ q ih => exact fun h hu ho => ⟨h.1, ih h.2 hu.2 ho⟩
+  | Rel n' s' => exact fun hl => absurd hl (by simp)
+  | Hole n' s' =>
+    intro hl _ _
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
+    exact ⟨rfl, rfl⟩
+  | Empty => exact fun hl => absurd hl (by simp)
+  | Proj ps q ih => exact fun hl hn hu => ih hl hn hu.2
+  | Sel φ q hφ ih =>
+    exact fun hl hn hu => ⟨SelOK.noAggAtom hφ (by rw [hl]; simp), ih hl hn hu.2⟩
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, h₂⟩ | ⟨h₁, h₂⟩) hu ho
-    · exact Or.inl ⟨ih₁ h₁ hu.2.1 ho.1, h₂⟩
-    · exact Or.inr ⟨h₁, ih₂ h₂ hu.2.2 ho.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h hu ho => ⟨ih₁ h.1 hu.2.1 ho.1, h.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun _ hu _ => absurd hu.1 hSu
-  | Dedup q ih => exact fun h => h.elim
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hu ho => ih h hu ho
-  | Retag hk q ih => exact fun h hu ho => ih h hu ho
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | Gamma is ts fs q keep ord ih => exact fun h => h.elim
-  | GammaScalar ts fs q ord ih => exact fun h => h.elim
-  | GammaNest is his p fn q ih => exact fun h => h.elim
-  | ProvSum is his t q ih => exact fun h => h.elim
-  | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
-  | Win P O o w t fw q hrr dist keep ih => exact fun h => h.elim
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
+    intro hl hn hu
+    rcases List.append_eq_singleton' hl with ⟨hl₁, hl₂⟩ | ⟨hl₁, hl₂⟩
+    · exact Or.inl ⟨ih₁ hl₁ hn.1 hu.2.1, hl₂, hn.2⟩
+    · exact Or.inr ⟨hl₁, hn.1, ih₂ hl₂ hn.2 hu.2.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun hl hn hu => ⟨ih₁ hl hn.1 hu.2.1, hn.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun _ _ hu => absurd hu.1 hSu
+  | Dedup q ih => exact fun hl => absurd hl (by simp)
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
+  | Alt k hk q ih => exact fun hl hn hu => ih hl hn hu
+  | Retag hk q ih => exact fun hl hn hu => ih hl hn hu
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
+  | Gamma is ts fs q keep ord ih => exact fun hl => absurd hl (by simp)
+  | GammaScalar ts fs q ord ih => exact fun hl => absurd hl (by simp)
+  | GammaNest is his p fn q ih => exact fun hl => absurd hl (by simp)
+  | ProvSum is his t q ih => exact fun hl => absurd hl (by simp)
+  | GammaTok is his ts fs a q keep ih => exact fun hl => absurd hl (by simp)
+  | Win P O o w t fw q hrr dist keep ih => exact fun hl => absurd hl (by simp)
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hl => absurd hl (by simp)
 
 omit [ValueType T] in
-/-- A leaf of a query not mentioning a name does not carry it. -/
-theorem ne_of_noMention_of_mem_leaves {t : String} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), q.noMention t →
-      ∀ p ∈ q.leaves, p.2 ≠ t := by
-  intro c n κ q
+/-- A leaf of a query carrying a name the query does not mention is one of
+its holes. -/
+theorem mem_index_of_mem_leaves {t : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noMention t → ∀ p ∈ q.leaves, p.2 = t → (p.2, p.1) ∈ l := by
+  intro c n κ l q
   induction q with
   | Rel k s =>
-    intro h p hp
+    intro h p hp hpt
+    rw [List.mem_singleton.mp hp] at hpt
+    exact absurd hpt h
+  | Hole k s =>
+    intro _ p hp _
     rw [List.mem_singleton.mp hp]
-    exact h
-  | Empty => exact fun _ p hp => absurd hp (List.not_mem_nil)
+    exact List.mem_singleton_self _
+  | Empty => exact fun _ p hp => absurd hp List.not_mem_nil
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₁ h.1 p) (ih₂ h.2 p)
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim
+      (fun hp => List.mem_append.mpr (Or.inl (ih₁ h.1 p hp hpt)))
+      (fun hp => List.mem_append.mpr (Or.inr (ih₂ h.2 p hp hpt)))
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₁ h.1 p) (ih₂ h.2 p)
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim (fun hp => ih₁ h.1 p hp hpt)
+      (fun hp => absurd (ih₂ h.2 p hp hpt) (by simp))
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₁ h.1 p) (ih₂ h.2 p)
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim
+      (fun hp => List.mem_append.mpr (Or.inl (ih₁ h.1 p hp hpt)))
+      (fun hp => List.mem_append.mpr (Or.inr (ih₂ h.2 p hp hpt)))
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₁ h.1 p) (ih₂ h.2 p)
+    intro h p hp hpt
+    exact (List.mem_append.mp hp).elim (fun hp => ih₁ h.1 p hp hpt) (fun hp => ih₂ h.2 p hp hpt)
   | Alt k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₀ h.1 p) (fun h' => ih₁ h.2 p (List.mem_of_mem_filter h'))
+    intro h p hp hpt
+    refine (List.mem_append.mp hp).elim (fun hp => ih₀ h.1 p hp hpt) (fun hp => ?_)
+    have hmem := ih₁ h.2 p (List.mem_of_mem_filter hp) hpt
+    obtain ⟨h₁, h₂⟩ := Prod.mk.inj (List.mem_singleton.mp hmem)
+    exact absurd (Prod.ext h₂ h₁) (of_decide_eq_true (List.mem_filter.mp hp).2)
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro h p hp
-    exact (List.mem_append.mp hp).elim (ih₀ h.1 p) (fun h' => ih₁ h.2 p (List.mem_of_mem_filter h'))
+    intro h p hp hpt
+    refine (List.mem_append.mp hp).elim (fun hp => ih₀ h.1 p hp hpt) (fun hp => ?_)
+    have hmem := ih₁ h.2 p (List.mem_of_mem_filter hp) hpt
+    obtain ⟨h₁, h₂⟩ := Prod.mk.inj (List.mem_singleton.mp hmem)
+    exact absurd (Prod.ext h₂ h₁) (of_decide_eq_true (List.mem_filter.mp hp).2)
   | Gamma is ts fs q keep ord ih => exact ih
   | GammaScalar ts fs q ord ih => exact ih
   | GammaNest is his p fn q ih => exact ih
@@ -2672,6 +2877,12 @@ theorem ne_of_noMention_of_mem_leaves {t : String} :
   | GammaTok is his ts fs a q keep ih => exact ih
   | Win P O o w t fw q hrr dist keep ih => exact ih
   | WinExpr P O o ws ts fs g q keeps ih => exact ih
+
+omit [ValueType T] in
+/-- A leaf of a closed query not mentioning a name does not carry it. -/
+theorem ne_of_noMention_of_mem_leaves {t : String} {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (h : q.noMention t) : ∀ p ∈ q.leaves, p.2 ≠ t :=
+  fun p hp hpt => absurd (mem_index_of_mem_leaves q h p hp hpt) List.not_mem_nil
 
 omit [ValueType T] in
 /-- **The counter is large enough**: a duplicate-free relation of arity
@@ -2703,27 +2914,27 @@ variable {c : ℕ}
 union. -/
 theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union ∉ S)
     (Θ : Set (SeqAggFunc T)) : MuSetHandler (T := T) S Θ := by
-  intro c n s q₀ q₁ q₀' q₁' qC f hf hfs hf0₀ hf0₁ hq₀n sch hsch hss ho₀ ho₁ hna hi₁ hro hCn h₀n
+  intro c n s q₀ q₀' qC q₁ q₁' f hf hfs hf0₀ hf0₁ hq₀n hq₁n sch hsch hss ho₀ ho₁ hna hi₁ hCn h₀n
     hb₀ hb₁ hbC he₀ he₁
   classical
   have hS' : sumMuOps ⊆ insert OpKind.union S := subset_trans hS (Set.subset_insert _ _)
-  have hmono : ∀ {c n : ℕ} (p : AggQueryIn T c n (ColKind.allReg n)), p.usesOnly S →
-      p.usesOnly (insert OpKind.union S) :=
+  have hmono : ∀ {c n : ℕ} {l : List (String × ℕ)} (p : AggQueryIn T c n (ColKind.allReg n) l),
+      p.usesOnly S → p.usesOnly (insert OpKind.union S) :=
     fun p hp => AggQueryIn.usesOnly_mono (Set.subset_insert _ _) p hp
-  have hsar : ∀ {c n : ℕ} (p : AggQueryIn T c n (ColKind.allReg n)), p.usesOnly S →
-      p.sumsAllReg := fun p hp => AggQueryIn.sumsAllReg_of_usesOnly hnu p hp
+  have hsar : ∀ {c n : ℕ} {l : List (String × ℕ)} (p : AggQueryIn T c n (ColKind.allReg n) l),
+      p.usesOnly S → p.sumsAllReg := fun p hp => AggQueryIn.sumsAllReg_of_usesOnly hnu p hp
   -- the supply: its first third for the base's union, one name for the
   -- simulation's recursion, its last third for the unions of the counter
   have hg0₀ : ∀ i, tri (tri f 0) 0 i ∉ q₀'.names :=
     fun i => tri_notMem hf (by omega) (by omega) (by omega) hb₀.names hf0₀ (3 * i + 0)
   have hg0C : ∀ i, tri (tri f 0) 0 i ∉ qC.names :=
     fun i => tri_notMem hf (by omega) (by omega) (by omega) hbC.names hf0₁ (3 * i + 0)
-  obtain ⟨⟨base, hsfb, heb⟩, -⟩ := exists_sumFree_aux hS (AggQueryIn.Sum q₀' qC)
+  obtain ⟨base, hsfb, heb⟩ := (exists_sumFree_aux hS (AggQueryIn.Sum q₀' qC)
     ⟨Set.mem_insert _ _, hmono q₀' hb₀.usesOnly, hmono qC hbC.usesOnly⟩
-    ⟨hb₀.recRestricted, hbC.recRestricted⟩ ⟨hb₀.inSig, hbC.inSig⟩
+    ⟨hb₀.hygienic, hbC.hygienic⟩ ⟨hb₀.inSig, hbC.inSig⟩
     ⟨rfl, hsar q₀' hb₀.usesOnly, hsar qC hbC.usesOnly⟩ (tri (tri f 0) 0)
     (tri_injective (tri_injective hf 0) 0)
-    (fun i h => (Finset.mem_union.mp h).elim (hg0₀ i) (hg0C i))
+    (fun i h => (Finset.mem_union.mp h).elim (hg0₀ i) (hg0C i))).1 rfl
   -- the simulation's own recursive name
   set s' : String := tri (tri f 0) 1 0 with hs'def
   have hs'f : s' = f 3 := rfl
@@ -2758,8 +2969,7 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
     · exact hs'q₁ (hp' ▸ AggQueryIn.snd_mem_names_of_mem_leaves q₁ p (List.mem_of_mem_filter hp))
   -- the term is linear
   have hL : q₁'.recLinear s n :=
-    recLinear_of_recOnce hnu q₁' hro hb₁.usesOnly
-      (hb₁.over (sch.update s n) (update_fresh (sch_tri hsch 2) (ne_tri hfs 2)) ho₁)
+    recLinear_of_usesOnly hnu q₁' rfl (hb₁.nom s (ne_tri hfs 2) hq₁n) hb₁.usesOnly
   have hq₁s' : q₁.noMention s' := AggQueryIn.noMention_of_not_mem_names q₁ hs'q₁
   have hLs' : q₁'.noMention s' := AggQueryIn.noMention_of_not_mem_names q₁' hs'q₁'
   have hbs' : base.noMention s' := AggQueryIn.noMention_of_not_mem_names base hs'base
@@ -2793,29 +3003,29 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
         · have := hf hk; omega
       · exact hf0₁ _ (hp' ▸ AggQueryIn.snd_mem_names_of_mem_leaves q₁ p
           (List.mem_of_mem_filter hp))
-  obtain ⟨⟨q', hsf, he'⟩, -⟩ := exists_sumFree_aux hS (simResult s s' n (2 * n) EQ base q₁')
+  obtain ⟨q', hsf, he'⟩ := (exists_sumFree_aux hS (simResult s s' n (2 * n) EQ base q₁')
     (usesOnly_simResult s s' n (2 * n) EQ base q₁' hL hS' (hmono q₁' hb₁.usesOnly)
       (hmono base hsfb.usesOnly) (usesOnly_counterRel base ls cs hS hsfb.usesOnly))
-    (recRestricted_simResult s s' n (2 * n) EQ base q₁' hL hb₁.recRestricted hsfb.recRestricted
-      (recRestricted_counterRel base ls cs hsfb.recRestricted) hLs' hbs' hEs')
+    (hygienic_simResult s s' n (2 * n) EQ base q₁' hL hb₁.hygienic hsfb.hygienic
+      (hygienic_counterRel base ls cs hsfb.hygienic) hLs' hbs' hEs')
     (inSig_simResult s s' n (2 * n) EQ base q₁' hL hb₁.inSig hsfb.inSig
       (inSig_counterRel base ls cs hsfb.inSig))
     (sumsAllReg_simResult s s' n (2 * n) EQ base q₁' hL (hsar q₁' hb₁.usesOnly)
       (hsar base hsfb.usesOnly) (sumsAllReg_counterRel base ls cs (hsar base hsfb.usesOnly)))
-    (tri (tri f 0) 2) (tri_injective (tri_injective hf 0) 2) hg2
+    (tri (tri f 0) 2) (tri_injective (tri_injective hf 0) 2) hg2).1 rfl
   refine ⟨q', ?_, fun D γ hset => ?_⟩
   · exact {
       usesOnly := hsf.usesOnly
-      recRestricted := hsf.recRestricted
+      hygienic := hsf.hygienic
       inSig := hsf.inSig
       over := fun sch₂ hsch₂ ho₂ => by
         refine hsf.over sch₂ (fun i => hsch₂ _) ?_
         have hbo : base.overSchema sch₂ := hsfb.over sch₂ (fun i => hsch₂ _)
           ⟨hb₀.over sch₂ (sch_tri hsch₂ 1) ho₂.2.1,
-            AggQueryIn.overSchema_of_update_of_noMention qC hCn
-              (hbC.over (sch₂.update s n) (update_fresh (sch_tri hsch₂ 2) (ne_tri hfs 2)) ho₂.2.2)⟩
+            AggQueryIn.overSchema_of_update_of_noMention qC (fun _ h => by simp at h) hCn
+              (hbC.over (sch₂.update s n) (update_fresh (sch_tri hsch₂ 2) (ne_tri hfs 2)) ho₂.2.2.2)⟩
         refine overSchema_simResult s s' n (2 * n) EQ base q₁' hL (hsch₂ 3) hss'
-          (hb₁.over (sch₂.update s n) (update_fresh (sch_tri hsch₂ 2) (ne_tri hfs 2)) ho₂.2.2)
+          (hb₁.over (sch₂.update s n) (update_fresh (sch_tri hsch₂ 2) (ne_tri hfs 2)) ho₂.2.2.2)
           hs'q₁' hbo ?_ hs'EQ
         exact overSchema_counterRel base ls cs hbo (fun p hp =>
           AggQueryIn.find_of_mem_leaves_of_overSchema (AggQueryIn.MuSet s q₀ q₁) ho₂ p
@@ -2854,18 +3064,19 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
         refine hsf.nom t (fun i => ht _) ?_
         have hbt : base.noMention t := hsfb.nom t (fun i => ht _)
           ⟨hb₀.nom t (ne_tri ht 1) hn.1, hbC.nom t (ne_tri ht 2) hn.2⟩
-        refine noMention_simResult s s' n (2 * n) EQ base q₁' hL t (fun h => ht 3 h.symm)
+        refine noMention_simResult s s' n (2 * n) EQ base q₁' hL t
           (hb₁.nom t (ne_tri ht 2) hn.2) hbt ?_
-        exact noMention_counterRel base ls cs t hbt (fun p hp =>
-          AggQueryIn.ne_of_noMention_of_mem_leaves q₁ hn.2 p (List.mem_of_mem_filter hp)) }
+        exact noMention_counterRel base ls cs t hbt (fun p hp hpt => by
+          have hmem := AggQueryIn.mem_index_of_mem_leaves q₁ hn.2 p (List.mem_of_mem_filter hp) hpt
+          obtain ⟨h₁, h₂⟩ := Prod.mk.inj (List.mem_singleton.mp hmem)
+          exact (of_decide_eq_true (List.mem_filter.mp hp).2)
+            (Prod.ext h₂ h₁)) }
   · -- correctness: the recursion's rounds are defined, so are the pieces
-    obtain ⟨hsR, hkR⟩ := hset
+    obtain ⟨hq₀s, hsR, hkR⟩ := hset
     have h0 := hkR 0
-    have hq₀s : q₀.SettlesAt D γ :=
-      AggQueryIn.settlesAt_assign_of_noMention _ q₀ hq₀n D γ h0.1
     obtain ⟨hq₀'s, he₀eq⟩ := he₀ D γ hq₀s
     have hqCs : qC.SettlesAt D γ :=
-      AggQueryIn.settlesAt_assign_of_noMention _ qC hCn D γ (he₁ _ γ h0.2).2.1
+      AggQueryIn.settlesAt_assign_of_noMention _ qC hCn D γ (he₁ _ γ h0).2.1
     obtain ⟨hbases, hbaseeq⟩ := heb D γ ⟨hq₀'s, hqCs⟩
     have hB : (base.evaluatePlain D γ : Multiset (Tuple T n))
         = q₀.evaluatePlain D γ + qC.evaluatePlain D γ := by
@@ -2892,7 +3103,7 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
     have hbaseV : ∀ u, Multiset.Mem (base.evaluatePlain D γ) u → ∀ i, u i ∈ V :=
       fun u hu i => hin _ (fun hnn => mem_counterRel_of_mem_B base ls cs D γ u hu i hnn)
     have hround : ∀ j, Relation.valsIn (muIter (fun X : Multiset (Tuple T n) =>
-        (q₀.evaluatePlain (D.assign s X) γ + q₁.evaluatePlain (D.assign s X) γ).dedup) j) V := by
+        (q₀.evaluatePlain D γ + q₁.evaluatePlain (D.assign s X) γ).dedup) j) V := by
       intro j
       induction j with
       | zero => exact fun u hu => absurd hu (Multiset.notMem_zero u)
@@ -2900,8 +3111,7 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
         rw [muIter]
         refine Relation.valsIn_of_le (Multiset.dedup_le _) (fun u hu => ?_)
         rcases Multiset.mem_add.mp hu with h | h
-        · rw [AggQueryIn.evaluatePlain_assign_of_noMention _ q₀ hq₀n] at h
-          exact hbaseV u (by rw [hB]; exact Multiset.mem_add.mpr (Or.inl h))
+        · exact hbaseV u (by rw [hB]; exact Multiset.mem_add.mpr (Or.inl h))
         · refine AggQueryIn.valsIn_of_noAgg q₁ hna hi₁ _ γ V ?_
             (fun k => hin _ (fun hnn => mem_counterRel_of_outer base ls cs D γ k hnn)) ?_ u h
           · rintro ⟨k, t⟩ hp r hr
@@ -2937,14 +3147,14 @@ theorem muSetHandler {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind.union 
         ≤ (unaryVals (EQ.evaluatePlain D γ)).toFinset.card ^ (2 * n) :=
       card_le_pow_two_mul h2 (le_trans (card_le_pow_of_nodup_valsIn hFnd hFvals)
         (Nat.pow_le_pow_left hVcard n))
-    obtain ⟨heq, hmemF⟩ := evaluatePlain_simResult s s' n (2 * n) EQ base q₁' qC q₀ q₁ hL hLs' hEs'
-      hq₀n hCn D γ ⟨hsR, hkR⟩ hsplit hB hE hcard
+    obtain ⟨heq, hmemF⟩ := evaluatePlain_simResult s s' n (2 * n) EQ base qC q₀ q₁' q₁ hL hLs' hEs'
+      hCn D γ ⟨hq₀s, hsR, hkR⟩ hsplit hB hE hcard
     have hsimS : (simResult s s' n (2 * n) EQ base q₁').SettlesAt D γ := by
       refine settlesAt_simResult s s' n (2 * n) EQ base q₁' hL hLs' hEs' D γ hE hbases hEQs
         (fun j t hj ht => ?_)
       have htF := hmemF j t hj ht
       have hq₁F : q₁.SettlesAt (D.assign s ((AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ)) γ :=
-        (hkR _).2
+        hkR _
       exact AggQueryIn.settlesAt_assign_of_subset q₁' hL D γ
         (fun u hu => by rw [Multiset.mem_singleton.mp hu]; exact htF) (he₁ _ γ hq₁F).1
     obtain ⟨hq's, hq'eq⟩ := he' D γ hsimS
@@ -2977,21 +3187,19 @@ take outside any relation computable in advance. -/
 theorem generatesOnRec_sumMuWinOps_of_setRecNoAgg (sch : Schema)
     (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
-    (hq : q.usesOnly plainRecOps) (hr : q.recRestricted) (hi : q.inMinimalSig cnt)
+    (hq : q.usesOnly plainRecOps) (hr : q.hygienic) (hi : q.inMinimalSig cnt)
     (hna : q.setRecNoAgg) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly sumMuWinOps ∧ q'.recRestricted
-        ∧ q'.inMinimalSig cnt
+      q'.overSchema sch ∧ q'.usesOnly sumMuWinOps ∧ q'.inMinimalSig cnt
         ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
           q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
   have hS : AggQueryIn.sumMuOps ⊆ sumMuWinOps := Set.subset_insert _ _
-  obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
+  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux hS union_notMem_sumMuWinOps
     (Or.inr (AggQueryIn.muSetHandler hS union_notMem_sumMuWinOps _)) cnt
     (Set.mem_singleton cnt) hcc q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch ho
-    (Or.inr hna)
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
-    fun D γ hs => he D γ hs⟩
+    (Or.inr hna)).1 rfl
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩
 
 /-- **And without the window class**, for the windows `prop:winderived`
 reaches: the six classes `∅`, `Π`, `σ`, the apply, `γ` and `μ^⊎` match
@@ -3001,16 +3209,14 @@ aggregate. -/
 theorem generatesOnRec_sumMuOps_of_winsDerivable_of_setRecNoAgg (sch : Schema)
     (hfin : {s | sch s ≠ none}.Finite) (cnt : SeqAggFunc T) (hcc : SeqAggFunc.Counts cnt)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
-    (hq : q.usesOnly plainRecOps) (hr : q.recRestricted) (hi : q.inMinimalSig cnt)
+    (hq : q.usesOnly plainRecOps) (hr : q.hygienic) (hi : q.inMinimalSig cnt)
     (hw : q.WinsDerivable) (hna : q.setRecNoAgg) :
     ∃ q' : AggQuery T n (ColKind.allReg n),
-      q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.recRestricted
-        ∧ q'.inMinimalSig cnt
+      q'.overSchema sch ∧ q'.usesOnly AggQueryIn.sumMuOps ∧ q'.inMinimalSig cnt
         ∧ ∀ (D : Database T) (γ : Fin 0 → T), q.SettlesAt D γ →
           q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch hfin q.names
-  obtain ⟨⟨q', hb, he⟩, -⟩ := AggQueryIn.exists_basisRec_aux (subset_refl _) union_notMem_sumMuOps
+  obtain ⟨q', hb, he⟩ := (AggQueryIn.exists_basisRec_aux (subset_refl _) union_notMem_sumMuOps
     (Or.inr (AggQueryIn.muSetHandler (subset_refl _) union_notMem_sumMuOps _)) cnt
-    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inr hw) f hf hfr sch hfsch ho (Or.inr hna)
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.recRestricted, hb.inSig,
-    fun D γ hs => he D γ hs⟩
+    (Set.mem_singleton cnt) hcc q hq hr hi (Or.inr hw) f hf hfr sch hfsch ho (Or.inr hna)).1 rfl
+  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig, fun D γ hs => he D γ hs⟩

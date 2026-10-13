@@ -150,24 +150,29 @@ token-bearing rows. Value-kinded operators act through the `inl`
 embedding; `GammaTok` builds tokens and the group guard; the gates
 inside terms are interpreted by `predProvOf` and `Having.chi`. -/
 noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn (T ⊕ K) c n κ → Database (T ⊕ K) →
+    {l : List (String × ℕ)} → AggQueryIn (T ⊕ K) c n κ l → Database (T ⊕ K) →
     (γ : Fin c → (T ⊕ K) := fun _ => 0) →
     Multiset (Tuple (GenValue (T ⊕ K) K) n)
-  | _, n, _, .Rel _ s, D, _ =>
+  | _, n, _, _, .Rel _ s, D, _ =>
     match D.find n s with
     | none => 0
     | some rn => rn.map (fun t =>
         ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) n))
-  | _, _, _, .Empty, _, _ => 0
-  | _, _, _, .Proj ps q, D, γ =>
+  | _, n, _, _, .Hole _ s, D, _ =>
+    match D.find n s with
+    | none => 0
+    | some rn => rn.map (fun t =>
+        ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) n))
+  | _, _, _, _, .Empty, _, _ => 0
+  | _, _, _, _, .Proj ps q, D, γ =>
     (q.evaluateRew D γ).map (fun u => (fun j => (ps j).evalRew u γ))
-  | _, _, _, .Sel φ q, D, γ =>
+  | _, _, _, _, .Sel φ q _, D, γ =>
     (q.evaluateRew D γ).filter (fun u => φ.holdsRew u γ)
   -- an aggregate column read as a key is not a rewritten-world
   -- operator: the rewritten plan cannot enumerate a token's values, and
   -- on plain rows there is one alternative, so it is the identity here
-  | _, _, _, .Alt _ _ q, D, γ => q.evaluateRew D γ
-  | _, _, _, .Mu s q₀ q₁, D, γ =>
+  | _, _, _, _, .Alt _ _ q, D, γ => q.evaluateRew D γ
+  | _, _, _, _, .Mu s q₀ q₁, D, γ =>
     -- the rounds are relations of the rewritten schema, so each round is
     -- read back through the collapse that `Rel` embeds
     (muSumFix (fun X : Relation (T ⊕ K) _ =>
@@ -176,33 +181,33 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       ((q₀.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _)))).map
       (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
-  | _, _, _, .MuSet s q₀ q₁, D, γ =>
+  | _, _, _, _, .MuSet s q₀ q₁, D, γ =>
     (muFix (fun X : Relation (T ⊕ K) _ =>
-      (((q₀.evaluateRew (D.assign s X) γ).map
+      (((q₀.evaluateRew D γ).map
           (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))
         + (q₁.evaluateRew (D.assign s X) γ).map
             (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).dedup))).map
       (fun t => ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _))
-  | _, _, _, .Prod q₁ q₂, D, γ =>
+  | _, _, _, _, .Prod q₁ q₂, D, γ =>
     ((q₁.evaluateRew D γ).product (q₂.evaluateRew D γ)).map
       (fun (x, y) => Fin.append x y)
-  | _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ q₁ q₂, D, γ =>
+  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂, D, γ =>
     (q₁.evaluateRew D γ).bind (fun u =>
       (q₂.evaluateRew D
           (Fin.append (fun k => AggValue.collapseSum (u k)) γ)).map
         (fun v => (Fin.append u v : Tuple (GenValue (T ⊕ K) K) (n₁ + _))))
-  | _, _, _, .Sum q₁ q₂, D, γ => q₁.evaluateRew D γ + q₂.evaluateRew D γ
-  | _, _, _, .Dedup q, D, γ =>
+  | _, _, _, _, .Sum q₁ q₂, D, γ => q₁.evaluateRew D γ + q₂.evaluateRew D γ
+  | _, _, _, _, .Dedup q, D, γ =>
     (((q.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).dedup).map
       (fun t => (fun k => Sum.inl (t k)))
-  | _, _, _, .Diff q₁ q₂, D, γ =>
+  | _, _, _, _, .Diff q₁ q₂, D, γ =>
     let r₂ := (q₂.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))
     ((((q₁.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).filter
       (fun t => t ∉ r₂)).map (fun t => (fun k => Sum.inl (t k))))
-  | _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q keep ord, D, γ =>
+  | _, _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ is ts fs q keep ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     let keys := (r.map
@@ -214,14 +219,14 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun j => (fs j)
         ((Relation.groupSeqOptOrd is ord r g (keep j)).map
           (fun v => (ts j).eval v γ))) k)))
-  | _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ ts fs q ord, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ ts fs q ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     (Multiset.ofList [(fun j => Sum.inl ((fs j)
       ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ)))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
-  | _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ is _his p f q, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ is _his p f q, D, γ =>
     -- second-level aggregation is not rewritten: as for a grouping, the
     -- rewritten world reads it through the plain semantics of the
     -- composite domain
@@ -232,7 +237,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun k => Sum.inl (Fin.append g (fun _ : Fin 1 =>
         f ((r.filter (fun u => key u = g)).map
           (fun u => p.evalPlain u γ))) k)))
-  | _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' P O o w t f q _hrr dist keep,
+  | _, _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' P O o w t f q _hrr dist keep,
       D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
@@ -245,7 +250,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
               (ColKind.readTuple κ' u) γ)
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
-  | _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na P O o ws ts fs g q keeps, D, γ =>
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na P O o ws ts fs g q keeps, D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
     r.map (fun u : Tuple (T ⊕ K) n' =>
@@ -254,8 +259,8 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
               (fs l) (keeps l) r u γ))
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
-  | _, _, _, .Retag _ q, D, γ => q.evaluateRew D γ
-  | _, _, _, @AggQueryIn.ProvSum _ _ _m n₁ _κ is _his t q, D, γ =>
+  | _, _, _, _, .Retag _ q, D, γ => q.evaluateRew D γ
+  | _, _, _, _, @AggQueryIn.ProvSum _ _ _m n₁ _κ is _his t q, D, γ =>
     let r := q.evaluateRew D γ
     let keys := (r.map
       (fun u => (fun k => GenRow.plainTuple u (is k)
@@ -266,7 +271,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
           (((r.filter (fun u => ∀ k' : Fin n₁,
               GenRow.plainTuple u (is k') = g k')).map
             (fun u => t.evalRew u γ)).fold addFn 0)))
-  | _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, D, γ =>
     let r := q.evaluateRew D γ
     let ar : AnnotatedRelation (T ⊕ K) K m :=
       r.map (fun u => (GenRow.plainTuple u, (a.evalRew u γ).annPart))
@@ -294,51 +299,53 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
 out the fragment on which the rewritten world's evaluator is the plain
 semantics through the `inl` embedding. -/
 def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T' c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.noGammaTok
-  | _, _, _, .Sel _ q => q.noGammaTok
-  | _, _, _, .Prod q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
-  | _, _, _, .Apply q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
-  | _, _, _, .Sum q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
-  | _, _, _, .Dedup q => q.noGammaTok
-  | _, _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
-  | _, _, _, .Alt _ _ q => q.noGammaTok
-  | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
-  | _, _, _, .Gamma _ _ _ q _ _ => q.noGammaTok
-  | _, _, _, .GammaScalar _ _ q _ => q.noGammaTok
-  | _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
-  | _, _, _, .ProvSum _ _ _ q => q.noGammaTok
-  | _, _, _, .Retag _ q => q.noGammaTok
-  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaTok
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaTok
+    {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noGammaTok
+  | _, _, _, _, .Sel _ q _ => q.noGammaTok
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
+  | _, _, _, _, .Dedup q => q.noGammaTok
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
+  | _, _, _, _, .Alt _ _ q => q.noGammaTok
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noGammaTok
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noGammaTok
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noGammaTok
+  | _, _, _, _, .ProvSum _ _ _ q => q.noGammaTok
+  | _, _, _, _, .Retag _ q => q.noGammaTok
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaTok
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaTok
 
 /-- No indicator gate anywhere in a query's terms and predicates. -/
 def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T' c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj ps q => (∀ j, (ps j).chiFree) ∧ q.chiFree
-  | _, _, _, .Sel φ q => φ.chiFree ∧ q.chiFree
-  | _, _, _, .Prod q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
-  | _, _, _, .Apply q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
-  | _, _, _, .Sum q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
-  | _, _, _, .Dedup q => q.chiFree
-  | _, _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
-  | _, _, _, .Alt _ _ q => q.chiFree
-  | _, _, _, .Mu _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
-  | _, _, _, .Gamma _ _ _ q _ _ => q.chiFree
-  | _, _, _, .GammaScalar _ _ q _ => q.chiFree
-  | _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
-  | _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
-  | _, _, _, .Retag _ q => q.chiFree
-  | _, _, _, .GammaTok _ _ _ _ a q _ => a.chiFree ∧ q.chiFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.chiFree
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chiFree
+    {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj ps q => (∀ j, (ps j).chiFree) ∧ q.chiFree
+  | _, _, _, _, .Sel φ q _ => φ.chiFree ∧ q.chiFree
+  | _, _, _, _, .Prod q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
+  | _, _, _, _, .Apply q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
+  | _, _, _, _, .Sum q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
+  | _, _, _, _, .Dedup q => q.chiFree
+  | _, _, _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
+  | _, _, _, _, .Alt _ _ q => q.chiFree
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.chiFree
+  | _, _, _, _, .GammaScalar _ _ q _ => q.chiFree
+  | _, _, _, _, .GammaNest _ _ p _ q => p.chiFree ∧ q.chiFree
+  | _, _, _, _, .ProvSum _ _ t q => t.chiFree ∧ q.chiFree
+  | _, _, _, _, .Retag _ q => q.chiFree
+  | _, _, _, _, .GammaTok _ _ _ _ a q _ => a.chiFree ∧ q.chiFree
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.chiFree
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chiFree
 
 /-- On `inl`-embedded rows a gate-free term evaluates in the rewritten
 world as its plain evaluation – including the `cmpAgg` gate, whose junk
@@ -448,16 +455,22 @@ theorem map_plainTuple_map_inl {m : ℕ} (X : Multiset (Tuple (T ⊕ K) m)) :
 /-- **Plain agreement.** Off the token-building operator, the rewritten
 world's evaluator is the plain semantics through the `inl` embedding. -/
 theorem AggQueryIn.evaluateRew_plain :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn (T ⊕ K) c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn (T ⊕ K) c n κ l)
       (_hq : q.noGammaTok) (_hc : q.chiFree)
       (D : Database (T ⊕ K))
       (γ : Fin c → (T ⊕ K)),
       q.evaluateRew D γ
         = (q.evaluatePlain D γ).map (fun t =>
             ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) _)) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro hq hc D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
+    cases hf : D.find n s
+    · rfl
+    · rfl
+  | Hole n s =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     cases hf : D.find n s
@@ -475,7 +488,7 @@ theorem AggQueryIn.evaluateRew_plain :
     simp only [Function.comp_apply]
     funext j
     exact (ps j).evalRew_inl (hc.1 j) t
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc.2 D γ]
@@ -538,10 +551,10 @@ theorem AggQueryIn.evaluateRew_plain :
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     refine congrArg _ (muFix_congr (fun X => ?_))
-    rw [ih₀ hq.1 hc.1 (D.assign s X) γ, ih₁ hq.2 hc.2 (D.assign s X) γ,
+    rw [ih₀ hq.1 hc.1 D γ, ih₁ hq.2 hc.2 (D.assign s X) γ,
       map_plainTuple_map_inl, map_plainTuple_map_inl]
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
-      @Multiset.dedup _ i (q₀.evaluatePlain (D.assign s X) γ
+      @Multiset.dedup _ i (q₀.evaluatePlain D γ
         + q₁.evaluatePlain (D.assign s X) γ)) (Subsingleton.elim _ _)
   | @Diff cI nD q₁ q₂ ih₁ ih₂ =>
     intro hq hc D γ
@@ -681,76 +694,79 @@ theorem Having.chi_inl (op : CompOp) (x y : T) :
 omit [DecidableEq K] in
 /-- The classical rewriting emits no token-building grouping. -/
 theorem AggQueryIn.rewriting_noGammaTok :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical),
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noGammaTok
-  | _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, .Empty, _ => trivial
-  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+  | _, _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Empty, _ => trivial
+  | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     rewriting_noGammaTok q hq.2
-  | _, _, _, .Sel _ q, hq => rewriting_noGammaTok q hq.2
-  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, _, _, .Sel _ q _, hq => rewriting_noGammaTok q hq.2
+  | _, _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ _ _ q₁ q₂, hq =>
     ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩
-  | _, _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩
-  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noGammaTok q hq
-  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noGammaTok q hq
+  | _, _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     ⟨⟨rewriting_noGammaTok q₁ hq.1,
       ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩,
      ⟨rewriting_noGammaTok q₁ hq.1, rewriting_noGammaTok q₂ hq.2⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
-  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
-  | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
-termination_by structural _ _ _ q _ => q
+  | _, _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
+termination_by structural _ _ _ _ q _ => q
 
 omit [DecidableEq K] in
 /-- The classical rewriting emits no `FILTER` clause: it emits no
 grouping at all, a classical query having none. -/
 theorem AggQueryIn.rewriting_noFilter :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical),
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noFilter
-  | _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, .Empty, _ => trivial
-  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+  | _, _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Empty, _ => trivial
+  | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     rewriting_noFilter q hq.2
-  | _, _, _, .Sel _ q, hq => rewriting_noFilter q hq.2
-  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, _, _, .Sel _ q _, hq => rewriting_noFilter q hq.2
+  | _, _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ _ _ q₁ q₂, hq =>
     ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩
-  | _, _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩
-  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noFilter q hq
-  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Dedup _ _ n q, hq => rewriting_noFilter q hq
+  | _, _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     ⟨⟨rewriting_noFilter q₁ hq.1,
       ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩,
      ⟨rewriting_noFilter q₁ hq.1, rewriting_noFilter q₂ hq.2⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
-  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
-  | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
-termination_by structural _ _ _ q _ => q
+  | _, _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
+termination_by structural _ _ _ _ q _ => q
 
 omit [DecidableEq K] in
 /-- The classical rewriting emits no indicator gate: its terms are
 column reads, their `⊗`/`⊖` combinations, and composite casts of the
 source terms – the gate is introduced only by the `HAVING` site. -/
 theorem AggQueryIn.rewriting_chiFree :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical),
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).chiFree
-  | _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, .Empty, _ => ⟨fun _ => trivial, trivial⟩
-  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+  | _, _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Empty, _ => ⟨fun _ => trivial, trivial⟩
+  | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     ⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < m)
@@ -759,9 +775,9 @@ theorem AggQueryIn.rewriting_chiFree :
         · rw [dite_eq_right hj]
           exact trivial,
      rewriting_chiFree q hq.2⟩
-  | _, _, _, .Sel _ q, hq =>
+  | _, _, _, _, .Sel _ q _, hq =>
     ⟨GenPredIn.castComposite_chiFree _ _ _, rewriting_chiFree q hq.2⟩
-  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ _ _ q₁ q₂, hq =>
     ⟨fun j => by
         dsimp only
         by_cases h₁ : ((j : ℕ) < n₁)
@@ -771,10 +787,10 @@ theorem AggQueryIn.rewriting_chiFree :
           · rw [dite_eq_left h₂]; exact trivial
           · rw [dite_eq_right h₂]; exact ⟨trivial, trivial⟩,
      ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩⟩
-  | _, _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, _, .Sum q₁ q₂, hq =>
     ⟨rewriting_chiFree q₁ hq.1, rewriting_chiFree q₂ hq.2⟩
-  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq => ⟨trivial, rewriting_chiFree q hq⟩
-  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Dedup _ _ n q, hq => ⟨trivial, rewriting_chiFree q hq⟩
+  | _, _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     ⟨⟨fun j => by
         dsimp only
         by_cases hj : ((j : ℕ) < n)
@@ -792,14 +808,14 @@ theorem AggQueryIn.rewriting_chiFree :
       ⟨keyJoinCond_chiFree _ _ _ _,
        ⟨rewriting_chiFree q₁ hq.1,
         ⟨trivial, rewriting_chiFree q₂ hq.2⟩⟩⟩⟩⟩
-  | _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
-  | _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
-  | _, _, _, .Retag _ _, hq => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
-termination_by structural _ _ _ q _ => q
+  | _, _, _, _, .Gamma _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .GammaScalar _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .ProvSum _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Retag _ _, hq => False.elim hq
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => False.elim hq
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => False.elim hq
+termination_by structural _ _ _ _ q _ => q
 
 /-! ## The group sequence under the composite embedding -/
 

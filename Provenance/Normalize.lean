@@ -36,81 +36,86 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 /-- **Merge adjacent selections**: `σ_φ(σ_ψ(q))` becomes `σ_{φ ∧ ψ}(q)`,
 recursively, so that a maximal chain becomes one selection on the
 conjunction of its predicates, in the order they were written. -/
-def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → AggQueryIn T c n κ
-  | _, _, _, .Rel n s => .Rel n s
-  | _, _, _, .Empty => .Empty
-  | _, _, _, .Proj ps q => .Proj ps q.normalize
-  | _, _, _, .Sel φ q =>
+def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → AggQueryIn T c n κ l
+  | _, _, _, _, .Rel n s => .Rel n s
+  | _, _, _, _, .Hole n s => .Hole n s
+  | _, _, _, _, .Empty => .Empty
+  | _, _, _, _, .Proj ps q => .Proj ps q.normalize
+  | _, _, _, _, .Sel φ q hφ =>
     match q.normalize with
-    | .Sel ψ q' => .Sel (.and φ ψ) q'
-    | q' => .Sel φ q'
-  | _, _, _, .Prod q₁ q₂ => .Prod q₁.normalize q₂.normalize
-  | _, _, _, .Apply q₁ q₂ => .Apply q₁.normalize q₂.normalize
-  | _, _, _, .Sum q₁ q₂ => .Sum q₁.normalize q₂.normalize
-  | _, _, _, .Dedup q => .Dedup q.normalize
-  | _, _, _, .Diff q₁ q₂ => .Diff q₁.normalize q₂.normalize
-  | _, _, _, .Alt k h q => .Alt k h q.normalize
-  | _, _, _, .Mu s q₀ q₁ => .Mu s q₀.normalize q₁.normalize
-  | _, _, _, .MuSet s q₀ q₁ => .MuSet s q₀.normalize q₁.normalize
-  | _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q.normalize keep ord
-  | _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q.normalize ord
-  | _, _, _, .GammaNest is his p f q => .GammaNest is his p f q.normalize
-  | _, _, _, .ProvSum is his t q => .ProvSum is his t q.normalize
-  | _, _, _, .Retag h q => .Retag h q.normalize
-  | _, _, _, .GammaTok is his ts fs a q keep =>
+    | .Sel ψ q' hψ => .Sel (.and φ ψ) q' (SelOK.and hφ hψ)
+    | q' => .Sel φ q' hφ
+  | _, _, _, _, .Prod q₁ q₂ => .Prod q₁.normalize q₂.normalize
+  | _, _, _, _, .Apply q₁ q₂ => .Apply q₁.normalize q₂.normalize
+  | _, _, _, _, .Sum q₁ q₂ => .Sum q₁.normalize q₂.normalize
+  | _, _, _, _, .Dedup q => .Dedup q.normalize
+  | _, _, _, _, .Diff q₁ q₂ => .Diff q₁.normalize q₂.normalize
+  | _, _, _, _, .Alt k h q => .Alt k h q.normalize
+  | _, _, _, _, .Mu s q₀ q₁ => .Mu s q₀.normalize q₁.normalize
+  | _, _, _, _, .MuSet s q₀ q₁ => .MuSet s q₀.normalize q₁.normalize
+  | _, _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q.normalize keep ord
+  | _, _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q.normalize ord
+  | _, _, _, _, .GammaNest is his p f q => .GammaNest is his p f q.normalize
+  | _, _, _, _, .ProvSum is his t q => .ProvSum is his t q.normalize
+  | _, _, _, _, .Retag h q => .Retag h q.normalize
+  | _, _, _, _, .GammaTok is his ts fs a q keep =>
       .GammaTok is his ts fs a q.normalize keep
-  | _, _, _, .Win P O o w t f q hrr dist keep =>
+  | _, _, _, _, .Win P O o w t f q hrr dist keep =>
       .Win P O o w t f q.normalize hrr dist keep
-  | _, _, _, .WinExpr P O o ws ts fs g q keeps =>
+  | _, _, _, _, .WinExpr P O o ws ts fs g q keeps =>
       .WinExpr P O o ws ts fs g q.normalize keeps
 
 /-- **No selection directly above a selection**: the shape a normalized
 query has, and the shape on which a chain and its merge cannot differ
 because there is no chain. -/
-def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.chainFree
-  | _, _, _, .Sel _ (.Sel _ _) => False
-  | _, _, _, .Sel _ q => q.chainFree
-  | _, _, _, .Prod q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
-  | _, _, _, .Apply q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
-  | _, _, _, .Sum q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
-  | _, _, _, .Dedup q => q.chainFree
-  | _, _, _, .Diff q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
-  | _, _, _, .Alt _ _ q => q.chainFree
-  | _, _, _, .Mu _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
-  | _, _, _, .Gamma _ _ _ q _ _ => q.chainFree
-  | _, _, _, .GammaScalar _ _ q _ => q.chainFree
-  | _, _, _, .GammaNest _ _ _ _ q => q.chainFree
-  | _, _, _, .ProvSum _ _ _ q => q.chainFree
-  | _, _, _, .Retag _ q => q.chainFree
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.chainFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.chainFree
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chainFree
+def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.chainFree
+  | _, _, _, _, .Sel _ (.Sel _ _ _) _ => False
+  | _, _, _, _, .Sel _ q _ => q.chainFree
+  | _, _, _, _, .Prod q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
+  | _, _, _, _, .Apply q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
+  | _, _, _, _, .Sum q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
+  | _, _, _, _, .Dedup q => q.chainFree
+  | _, _, _, _, .Diff q₁ q₂ => q₁.chainFree ∧ q₂.chainFree
+  | _, _, _, _, .Alt _ _ q => q.chainFree
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.chainFree ∧ q₁.chainFree
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.chainFree
+  | _, _, _, _, .GammaScalar _ _ q _ => q.chainFree
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.chainFree
+  | _, _, _, _, .ProvSum _ _ _ q => q.chainFree
+  | _, _, _, _, .Retag _ q => q.chainFree
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.chainFree
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.chainFree
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.chainFree
 
 omit [ValueType T] in
 /-- **Normalizing leaves no chain.** -/
 theorem AggQueryIn.normalize_chainFree :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.normalize.chainFree := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => trivial
+  | Hole n s => trivial
   | Empty => trivial
   | Proj ps q ih => exact ih
-  | Sel φ q ih =>
+  | Sel φ q hφ ih =>
     show (match q.normalize with
-      | .Sel ψ q' => AggQueryIn.Sel (.and φ ψ) q'
-      | q' => AggQueryIn.Sel φ q').chainFree
+      | .Sel ψ q' hψ => AggQueryIn.Sel (.and φ ψ) q' (SelOK.and hφ hψ)
+      | q' => AggQueryIn.Sel φ q' hφ).chainFree
     split
-    · next ψ q' heq =>
+    · next ψ q' hψ heq =>
         rw [heq] at ih
         cases q' <;> exact ih
-    · next hne => cases hq : q.normalize <;> simp_all [AggQueryIn.chainFree]
+    · next hne =>
+        cases hq : q.normalize <;> simp_all [AggQueryIn.chainFree]
+        exact hne _ (by assumption) rfl
   | Prod q₁ q₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact ⟨ih₁, ih₂⟩
@@ -132,19 +137,20 @@ omit [ValueType T] in
 /-- **Normalizing changes nothing where there was no chain**, so it is
 idempotent and imposes nothing on a query already in normal form. -/
 theorem AggQueryIn.normalize_id_of_chainFree :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.chainFree → q.normalize = q := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => intro _; rfl
+  | Hole n s => intro _; rfl
   | Empty => intro _; rfl
   | Proj ps q ih => intro h; rw [AggQueryIn.normalize, ih h]
-  | Sel φ q ih =>
+  | Sel φ q hφ ih =>
     intro h
     have hq : q.chainFree := by cases q <;> first | exact h.elim | exact h
     show (match q.normalize with
-      | .Sel ψ q' => AggQueryIn.Sel (.and φ ψ) q'
-      | q' => AggQueryIn.Sel φ q') = _
+      | .Sel ψ q' hψ => AggQueryIn.Sel (.and φ ψ) q' (SelOK.and hφ hψ)
+      | q' => AggQueryIn.Sel φ q' hφ) = _
     rw [ih hq]
     cases q <;> first | exact h.elim | rfl
   | Prod q₁ q₂ ih₁ ih₂ =>
@@ -173,8 +179,8 @@ theorem AggQueryIn.normalize_id_of_chainFree :
 
 omit [ValueType T] in
 /-- **Normalization is idempotent.** -/
-theorem AggQueryIn.normalize_idem {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) : q.normalize.normalize = q.normalize :=
+theorem AggQueryIn.normalize_idem {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) : q.normalize.normalize = q.normalize :=
   AggQueryIn.normalize_id_of_chainFree _ (AggQueryIn.normalize_chainFree q)
 
 /-! ## What the merge does to the pending factors

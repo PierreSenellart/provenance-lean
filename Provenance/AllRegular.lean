@@ -228,10 +228,10 @@ theorem regBelow_succ {n : ℕ} (κ : Fin n → ColKind) {m : ℕ} (h : m < n) :
 
 /-- **Every column below `m` read as a value.** -/
 def AggQueryIn.altBelow {c n : ℕ} :
-    (m : ℕ) → {κ : Fin n → ColKind} → AggQueryIn T c n κ →
-      AggQueryIn T c n (regBelow κ m)
-  | 0, κ, q => q.castKind (regBelow_zero κ).symm
-  | m + 1, κ, q =>
+    (m : ℕ) → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l →
+      AggQueryIn T c n (regBelow κ m) l
+  | 0, κ, _, q => q.castKind (regBelow_zero κ).symm
+  | m + 1, κ, _, q =>
     if h : m < n then
       match hk : regBelow κ m (⟨m, h⟩ : Fin n) with
       | ColKind.agg =>
@@ -255,23 +255,23 @@ def AggQueryIn.altBelow {c n : ℕ} :
         (regBelow_succ_of_le κ (Nat.le_of_not_lt h)).symm
 
 /-- **A query with every column read as a value.** -/
-def AggQueryIn.allRegOf {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) : AggQueryIn T c n (ColKind.allReg n) :=
+def AggQueryIn.allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) : AggQueryIn T c n (ColKind.allReg n) l :=
   (q.altBelow n).castKind (regBelow_ge κ le_rfl)
 
 omit [ValueType T] in
 /-- Reading the columns as values changes no operator. -/
 @[simp] theorem AggQueryIn.usesOnly_altBelow {c n : ℕ} {S : Set OpKind} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.altBelow m).usesOnly S ↔ q.usesOnly S := by
   intro m
   induction m with
   | zero =>
-    intro κ q
+    intro κ l q
     show ((q.castKind _).usesOnly S) ↔ _
     rw [AggQueryIn.usesOnly_castKind]
   | succ m ih =>
-    intro κ q
+    intro κ l q
     unfold AggQueryIn.altBelow
     split
     · split
@@ -290,16 +290,16 @@ omit [ValueType T] in
 omit [ValueType T] in
 /-- Nor which relations it names. -/
 @[simp] theorem AggQueryIn.overSchema_altBelow {c n : ℕ} {sch : Schema} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.altBelow m).overSchema sch ↔ q.overSchema sch := by
   intro m
   induction m with
   | zero =>
-    intro κ q
+    intro κ l q
     show ((q.castKind _).overSchema sch) ↔ _
     rw [AggQueryIn.overSchema_castKind]
   | succ m ih =>
-    intro κ q
+    intro κ l q
     unfold AggQueryIn.altBelow
     split
     · split
@@ -318,17 +318,17 @@ omit [ValueType T] in
 /-- **And it is invisible to the plain semantics**: both readings are the
 identity there. -/
 @[simp] theorem AggQueryIn.evaluatePlain_altBelow {c n : ℕ} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (D : Database T) (γ : Fin c → T),
       (q.altBelow m).evaluatePlain D γ = q.evaluatePlain D γ := by
   intro m
   induction m with
   | zero =>
-    intro κ q D γ
+    intro κ l q D γ
     show (q.castKind _).evaluatePlain D γ = _
     rw [AggQueryIn.evaluatePlain_castKind]
   | succ m ih =>
-    intro κ q D γ
+    intro κ l q D γ
     unfold AggQueryIn.altBelow
     split
     · split
@@ -346,20 +346,20 @@ identity there. -/
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.usesOnly_allRegOf {c n : ℕ} {S : Set OpKind}
-    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).usesOnly S ↔ q.usesOnly S := by
   rw [AggQueryIn.allRegOf, AggQueryIn.usesOnly_castKind,
     AggQueryIn.usesOnly_altBelow]
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.overSchema_allRegOf {c n : ℕ} {sch : Schema}
-    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).overSchema sch ↔ q.overSchema sch := by
   rw [AggQueryIn.allRegOf, AggQueryIn.overSchema_castKind,
     AggQueryIn.overSchema_altBelow]
 
 @[simp] theorem AggQueryIn.evaluatePlain_allRegOf {c n : ℕ}
-    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (D : Database T)
+    {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T)
     (γ : Fin c → T) : (q.allRegOf).evaluatePlain D γ = q.evaluatePlain D γ := by
   rw [AggQueryIn.allRegOf, AggQueryIn.evaluatePlain_castKind,
     AggQueryIn.evaluatePlain_altBelow]
@@ -397,27 +397,28 @@ second column reads `5` before the re-typing and `7` after. A `FILTER`
 clause is no longer excluded but asked to read the occurrence's regular
 columns, which is what `sec:agg` says a clause does: its truth is then
 unchanged by the nulling, so it keeps the same rows on both sides. -/
-def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.Retypable
-  | _, _, _, .Sel _ q => q.Retypable
-  | _, _, _, .Prod q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
-  | _, _, _, .Apply q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
-  | _, _, _, .Sum q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
-  | _, _, _, .Dedup q => q.Retypable
-  | _, _, _, .Diff q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
-  | _, _, _, .Alt _ _ q => q.Retypable
-  | _, _, _, .Mu _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
-  | _, _, _, .Gamma _ _ _ q _ _ => q.Retypable
-  | _, _, _, .GammaScalar _ _ q _ => q.Retypable
-  | _, _, _, .GammaNest _ _ _ _ q => q.Retypable
-  | _, _, _, .ProvSum _ _ _ q => q.Retypable
-  | _, _, _, .Retag _ q => q.Retypable
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
-  | c, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ O o _ t fn q _ dist keep =>
+def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.Retypable
+  | _, _, _, _, .Sel _ q _ => q.Retypable
+  | _, _, _, _, .Prod q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, _, .Apply q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, _, .Sum q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, _, .Dedup q => q.Retypable
+  | _, _, _, _, .Diff q₁ q₂ => q₁.Retypable ∧ q₂.Retypable
+  | _, _, _, _, .Alt _ _ q => q.Retypable
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.Retypable ∧ q₁.Retypable
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.Retypable
+  | _, _, _, _, .GammaScalar _ _ q _ => q.Retypable
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.Retypable
+  | _, _, _, _, .ProvSum _ _ _ q => q.Retypable
+  | _, _, _, _, .Retag _ q => q.Retypable
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
+  | c, _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _ O o _ t fn q _ dist keep =>
       ((∀ i, κ' i = ColKind.reg)
           ∨ ((∀ (D : Database T) (γ : Fin c → T),
                 (if dist then fn.distinct else fn).Symmetric
@@ -428,7 +429,7 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} →
                   Selection.keepsOpt keep (ColKind.readTuple κ' y)
                     = Selection.keepsOpt keep y))
         ∧ q.Retypable
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.Retypable
 
 /-- **A window-free query is re-typable.** The window is the only thing
 `AggQueryIn.Retypable` asks about, every column of the source language
@@ -440,14 +441,15 @@ passes of `Provenance.BasisAssembly` are in, the first of them replacing
 every window by an apply of a scalar aggregation. -/
 theorem AggQueryIn.retypable_of_usesOnly {S : Set OpKind}
     (hw : OpKind.win ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.Retypable := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
-  | Sel φ q ih => exact fun hq => ih hq.2
+  | Sel φ q _ ih => exact fun hq => ih hq.2
   | Prod q₁ q₂ ih₁ ih₂ =>
     exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
@@ -475,30 +477,31 @@ selection has regular columns and its predicate has no aggregate atom
 columns), and the left factor of every product has regular columns (so
 that the product can become an apply, whose left side takes them). It is
 what `AggQueryIn.exists_allReg` leaves behind. -/
-def AggQueryIn.SwapReady : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.SwapReady
-  | _, _, κ, .Sel φ q =>
+def AggQueryIn.SwapReady : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.SwapReady
+  | _, _, κ, _, .Sel φ q _ =>
       (∀ i, κ i = ColKind.reg) ∧ φ.hasAggAtom = false ∧ q.SwapReady
-  | _, _, _, @AggQueryIn.Prod _ _ _ _ κ₁ _ q₁ q₂ =>
+  | _, _, _, _, @AggQueryIn.Prod _ _ _ _ κ₁ _ _ _ q₁ q₂ =>
       (∀ i, κ₁ i = ColKind.reg) ∧ q₁.SwapReady ∧ q₂.SwapReady
-  | _, _, _, .Apply q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
-  | _, _, _, .Sum q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
-  | _, _, _, .Dedup q => q.SwapReady
-  | _, _, _, .Diff q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
-  | _, _, _, .Alt _ _ q => q.SwapReady
-  | _, _, _, .Mu _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
-  | _, _, _, .Gamma _ _ _ q _ _ => q.SwapReady
-  | _, _, _, .GammaScalar _ _ q _ => q.SwapReady
-  | _, _, _, .GammaNest _ _ _ _ q => q.SwapReady
-  | _, _, _, .ProvSum _ _ _ q => q.SwapReady
-  | _, _, _, .Retag _ q => q.SwapReady
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.SwapReady
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.SwapReady
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.SwapReady
+  | _, _, _, _, .Apply q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, _, .Sum q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, _, .Dedup q => q.SwapReady
+  | _, _, _, _, .Diff q₁ q₂ => q₁.SwapReady ∧ q₂.SwapReady
+  | _, _, _, _, .Alt _ _ q => q.SwapReady
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.SwapReady ∧ q₁.SwapReady
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.SwapReady
+  | _, _, _, _, .GammaScalar _ _ q _ => q.SwapReady
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.SwapReady
+  | _, _, _, _, .ProvSum _ _ _ q => q.SwapReady
+  | _, _, _, _, .Retag _ q => q.SwapReady
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.SwapReady
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.SwapReady
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.SwapReady
 
 omit [ValueType T] in
 /-- **The difference a selection becomes is ready for the product swap**
@@ -513,23 +516,23 @@ theorem AggQueryIn.swapReady_selByDiff {k : ℕ} (yes : T)
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.swapReady_castKind {c n : ℕ}
-    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ) :
+    {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).SwapReady ↔ q.SwapReady := by
   cases h
   exact Iff.rfl
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.swapReady_altBelow {c n : ℕ} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       (q.altBelow m).SwapReady ↔ q.SwapReady := by
   intro m
   induction m with
   | zero =>
-    intro κ q
+    intro κ l q
     show ((q.castKind _).SwapReady) ↔ _
     rw [AggQueryIn.swapReady_castKind]
   | succ m ih =>
-    intro κ q
+    intro κ l q
     unfold AggQueryIn.altBelow
     split
     · split
@@ -547,7 +550,7 @@ omit [ValueType T] in
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.swapReady_allRegOf {c n : ℕ}
-    {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) :
+    {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
     (q.allRegOf).SwapReady ↔ q.SwapReady := by
   rw [AggQueryIn.allRegOf, AggQueryIn.swapReady_castKind,
     AggQueryIn.swapReady_altBelow]
@@ -767,16 +770,17 @@ identity there. `Alt` and `Retag` disappear: their children come back
 already regular. -/
 theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.Retypable → q.overSchema sch →
-      ∃ q' : AggQueryIn T c n (ColKind.allReg n),
+      ∃ q' : AggQueryIn T c n (ColKind.allReg n) l,
         q'.usesOnly S ∧ q'.overSchema sch ∧ q'.SwapReady
           ∧ ∀ (D : Database T) (γ : Fin c → T),
             q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
-  | Rel n s => exact fun _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial,
-      fun _ _ => rfl⟩
+  | Rel n s => exact fun _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial, fun _ _ => rfl⟩
+  | Hole n s =>
+    exact fun _ _ hqs => ⟨AggQueryIn.Hole n s, trivial, hqs, trivial, fun _ _ => rfl⟩
   | Empty =>
     exact fun hq _ _ => ⟨AggQueryIn.Empty, hq, trivial, trivial,
       fun _ _ => rfl⟩
@@ -799,10 +803,11 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
       rw [he' D γ]
       refine Multiset.map_congr rfl (fun u _ => funext (fun j => ?_))
       exact (ProjColIn.evalPlain_toReg (ps j) (hq.1.2 j) u γ).symm
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨AggQueryIn.Sel φ.toReg q', ⟨hq.1, hu'⟩, hs',
+    refine ⟨AggQueryIn.Sel φ.toReg q' (SelOK.of_noAggAtom (GenPredIn.hasAggAtom_toReg φ)),
+      ⟨hq.1, hu'⟩, hs',
       ⟨fun i => rfl, GenPredIn.hasAggAtom_toReg φ, hw'⟩, fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]

@@ -270,22 +270,31 @@ data part of the annotated evaluation is not the data part of any one
 world and no stripping recovers it. The readings that *are* world
 readings – the Boolean support and the random world – do cover it. -/
 theorem AggQueryIn.evaluateAnnotated_toPlain :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (_hq : q.altFree)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (_hq : q.altFree)
       (_hr : q.recSettles (K := K))
       (d : AnnotatedDatabase T K) {γ : Fin c → T},
     (q.evaluateAnnotated d γ).toPlain
       = q.stripAgg.evaluatePlain d.toPlain γ := by
-  have hplain : ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+  have hplain : ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) {γ : Fin c → T},
       (q.evaluateAnnotated d γ).toPlain
         = (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst) := by
-    intro c n κ q d γ
+    intro c n κ l q d γ
     unfold AggQueryIn.evaluateAnnotated AnnotatedRelation.toPlain
     rw [Multiset.map_map]
     rfl
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro hq hr d γ
+    rw [hplain]
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
+    rw [AnnotatedDatabase.find_toPlain]
+    cases hf : d.find n s
+    · rfl
+    · rw [Option.map_some, Multiset.map_map]
+      rfl
+  | Hole n s =>
     intro hq hr d γ
     rw [hplain]
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
@@ -309,7 +318,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     intro r _
     funext j
     exact ProjColIn.collapseSum_eval (ps j) r.fst
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hr d γ
     rw [hplain]
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg]
@@ -398,14 +407,13 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     refine Eq.trans (Multiset.map_congr rfl
       (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
     refine muFix_map (h := Multiset.map Prod.fst) (Multiset.map_zero _)
-      (stepP := fun X => (q₀.stripAgg.evaluatePlain (d.toPlain.assign s X) γ
+      (stepP := fun X => (q₀.stripAgg.evaluatePlain d.toPlain γ
         + q₁.stripAgg.evaluatePlain (d.toPlain.assign s X) γ).dedup)
       (fun X => ?_) (hr.1 d γ)
     have h₀ : Multiset.map Prod.fst
-          (Multiset.map GenRow.toAnnotated (q₀.evaluate (d.assign s X) γ))
-        = q₀.stripAgg.evaluatePlain
-            (d.toPlain.assign s (Multiset.map Prod.fst X)) γ :=
-      ih₀ hq.1 hr.2.1 (d.assign s X)
+          (Multiset.map GenRow.toAnnotated (q₀.evaluate d γ))
+        = q₀.stripAgg.evaluatePlain d.toPlain γ :=
+      ih₀ hq.1 hr.2.1 d
     have h₁ : Multiset.map Prod.fst
           (Multiset.map GenRow.toAnnotated (q₁.evaluate (d.assign s X) γ))
         = q₁.stripAgg.evaluatePlain

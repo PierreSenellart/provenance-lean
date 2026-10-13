@@ -143,16 +143,16 @@ theorem Tuple.cast_coord {T' : Type} {n m : ℕ} (heq : n = m)
 rewriting of the stripped query evaluate identically on any composite
 database. -/
 theorem AggQueryIn.rewriting_plain :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical) (D : Database (T ⊕ K)),
       (q.rewriting hq).evaluatePlain D
         = ((q.strip hq).rewriting (q.strip_source hq)).evaluate D
-  | _, n, _, .Rel _ s, _, D => by
+  | _, n, _, _, .Rel _ s, _, D => by
     show (AggQueryIn.Rel (T := T ⊕ K) (n + 1) s).evaluatePlain D
       = (Query.Rel (T := T ⊕ K) (n + 1) s).evaluate D
     simp only [AggQueryIn.evaluatePlain, Query.evaluate]
     cases D.find (n + 1) s <;> rfl
-  | _, _, _, .Empty, hq, D => by
+  | _, _, _, _, .Empty, hq, D => by
     -- both sides are the empty relation of the rewritten schema: one
     -- projects nothing, the other filters a relation by a predicate that
     -- keeps nothing
@@ -181,7 +181,7 @@ theorem AggQueryIn.rewriting_plain :
         simp [Selection.castToAnnotatedTuple, Selection.eval, Selection.eval3,
           Kleene.not])
     rw [hl, hr]
-  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq, D => by
+  | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
@@ -194,7 +194,7 @@ theorem AggQueryIn.rewriting_plain :
       exact ProjColIn.castComposite_evalPlain _ _ _ u
     · rw [dite_eq_right hj, dite_eq_right hj]
       rfl
-  | _, _, _, .Sel φ q, hq, D => by
+  | _, _, _, _, .Sel φ q _, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
@@ -204,7 +204,7 @@ theorem AggQueryIn.rewriting_plain :
     exact Multiset.filter_congr
       (fun u _ => GenPredIn.castComposite_holdsPlain
         (AggQueryIn.classical_kinds q hq.2) φ hq.1 u)
-  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq, D => by
+  | _, _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ _ _ q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -240,12 +240,12 @@ theorem AggQueryIn.rewriting_plain :
           simp only [Fin.ofNat]
           rw [Nat.mod_eq_of_lt (by omega)]
           omega
-  | _, _, _, .Sum q₁ q₂, hq, D => by
+  | _, _, _, _, .Sum q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting Query.evaluate
     rw [rewriting_plain q₁ hq.1 D, rewriting_plain q₂ hq.2 D]
-  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq, D => by
+  | _, _, _, _, @AggQueryIn.Dedup _ _ n q, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -260,7 +260,7 @@ theorem AggQueryIn.rewriting_plain :
         show Multiset.fold addFn 0 _ = Multiset.fold addFn 0 _
         refine congrArg _ (Multiset.map_congr ?_ (fun u _ => rfl))
         congr 1
-  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq, D => by
+  | _, _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq, D => by
     unfold AggQueryIn.rewriting AggQueryIn.retagToRew AggQueryIn.strip
     simp only [AggQueryIn.evaluatePlain]
     unfold Query.rewriting
@@ -377,12 +377,12 @@ theorem AggQueryIn.rewriting_plain :
             (congrArg t (Fin.ext (by
               simp only [Fin.val_natAdd, Fin.val_last, Fin.val_zero]
               omega)))
-  | _, _, _, .Gamma _ _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .GammaScalar _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .Retag _ _, hq, _ => False.elim hq
-  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq, _ => False.elim hq
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, _, .Gamma _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, _, .GammaScalar _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, _, .ProvSum _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, _, .Retag _ _, hq, _ => False.elim hq
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _, hq, _ => False.elim hq
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq, _ => False.elim hq
 
 end PlainAgreement
 

@@ -898,7 +898,8 @@ theorem evaluateAnnotated_foldl_rowOf (l : List (Tuple T k))
     (q : AggQuery T k (ColKind.allReg k)) (d : AnnotatedDatabase T K)
     (γ : Fin 0 → T) (r : Multiset (AnnotatedTuple T K k))
     (hq : q.evaluateAnnotated d γ = r) :
-    (l.foldl (fun q' v => AggQueryIn.Sum q' (rowOf v)) q).evaluateAnnotated d γ
+    (l.foldl (fun (q' : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q' (rowOf v))
+        q).evaluateAnnotated d γ
       = r + Multiset.ofList
           ((l.map (fun u => ((u, 1) : AnnotatedTuple T K k)))
             : List (AnnotatedTuple T K k)) := by
@@ -930,7 +931,7 @@ theorem evaluateAnnotated_values (us : List (Tuple T k)) (h : us ≠ [])
   match us, h with
   | [], h => exact absurd rfl h
   | u :: rest, _ =>
-    show (rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v))
+    show (rest.foldl (fun (q : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q (rowOf v))
       (rowOf u)).evaluateAnnotated d γ = _
     rw [evaluateAnnotated_foldl_rowOf rest (rowOf u) d γ
       ({(u, 1)} : Multiset (AnnotatedTuple T K k))

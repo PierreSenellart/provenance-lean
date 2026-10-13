@@ -775,13 +775,71 @@ only in an aggregate column read alike – so carrying an aggregate column
 through one would need a canonical listing of general rows, which is an
 order on `AggTok`. -/
 
+/-- **What a selection on a recursive term asks of its predicate**: no
+aggregate atom. On a closed query – no hole – it asks nothing, and
+`trivial` discharges it, which is what lets a closed selection be
+written without a proof. -/
+def SelOK (l : List (String × ℕ)) {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) : Prop :=
+  match l with
+  | [] => True
+  | _ :: _ => φ.hasAggAtom = false
+
+omit [ValueType T] in
+/-- A predicate with no aggregate atom is fine on any term. -/
+theorem SelOK.of_noAggAtom {l : List (String × ℕ)} {c n : ℕ} {κ : Fin n → ColKind}
+    {φ : GenPredIn T c κ} (h : φ.hasAggAtom = false) : SelOK l φ := by
+  cases l with
+  | nil => trivial
+  | cons _ _ => exact h
+
+omit [ValueType T] in
+/-- The condition is read off the predicate's atoms only. -/
+theorem SelOK.of_eq {l : List (String × ℕ)} {c n c' n' : ℕ} {κ : Fin n → ColKind}
+    {κ' : Fin n' → ColKind} {φ : GenPredIn T c κ} {φ' : GenPredIn T c' κ'}
+    (h : φ'.hasAggAtom = φ.hasAggAtom) (hφ : SelOK l φ) : SelOK l φ' := by
+  cases l with
+  | nil => trivial
+  | cons _ _ => exact h.trans hφ
+
+omit [ValueType T] in
+theorem SelOK.noAggAtom {l : List (String × ℕ)} {c n : ℕ} {κ : Fin n → ColKind}
+    {φ : GenPredIn T c κ} (hφ : SelOK l φ) (hl : l ≠ []) : φ.hasAggAtom = false := by
+  cases l with
+  | nil => exact absurd rfl hl
+  | cons _ _ => exact hφ
+
+omit [ValueType T] in
+/-- A conjunction of two admissible predicates is admissible. -/
+theorem SelOK.and {l : List (String × ℕ)} {c n : ℕ} {κ : Fin n → ColKind}
+    {φ ψ : GenPredIn T c κ} (hφ : SelOK l φ) (hψ : SelOK l ψ) : SelOK l (.and φ ψ) := by
+  cases l with
+  | nil => trivial
+  | cons _ _ =>
+    show (φ.hasAggAtom || ψ.hasAggAtom) = false
+    rw [show φ.hasAggAtom = false from hφ, show ψ.hasAggAtom = false from hψ]
+    rfl
+
 /-- Kind-indexed general queries. The index discipline enforces the
 scope conditions: `Gamma` aggregates an all-regular input, `Dedup` and
 `Diff` require all-regular kinds, and the projection/selection grammars
 never compute over tokens. -/
-inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type where
+inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
+    (l : List (String × ℕ) := []) → Type where
   /-- Base relation (all-regular). -/
   | Rel : {c : ℕ} → (n : ℕ) → String → AggQueryIn T c n (ColKind.allReg n)
+  /-- **The recursive reference**: the relation name `s` of arity `n`
+  bound by the enclosing recursion, which is the one hole a recursive
+  term holds. The last index of the syntax lists a term's holes, so a
+  closed query has none, a recursion's term has exactly this one, and
+  the operators a hole may sit under are those whose typing passes the
+  index through: a projection, a selection with no aggregate atom, either
+  side of a product, the left side of an apply, either side of a union,
+  the alternatives and a retagging. Everything else is closed. This is
+  the restriction on recursive terms of `sec:plain`, in the type rather
+  than beside it. -/
+  | Hole : {c : ℕ} → (n : ℕ) → (s : String) →
+      AggQueryIn T c n (ColKind.allReg n) [(s, n)]
   /-- **The empty relation of arity `0`**, empty on every instance. It is
   the one leaf that belongs to the *query* and not to the instance, which
   is what makes it the base of everything a query can build from nowhere:
@@ -797,16 +855,21 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   scalar aggregation is the one that emits a row regardless. -/
   | Empty : {c : ℕ} → AggQueryIn T c 0 (ColKind.allReg 0)
   /-- Generalized projection. -/
-  | Proj : {c n m : ℕ} → {κ : Fin n → ColKind} →
-      (ps : Tuple (ProjColIn T c κ) m) → AggQueryIn T c n κ →
-      AggQueryIn T c m (fun j => (ps j).kind)
-  /-- Generalized selection. -/
-  | Sel : {c n : ℕ} → {κ : Fin n → ColKind} →
-      GenPredIn T c κ → AggQueryIn T c n κ → AggQueryIn T c n κ
+  | Proj : {c n m : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+      (ps : Tuple (ProjColIn T c κ) m) → AggQueryIn T c n κ l →
+      AggQueryIn T c m (fun j => (ps j).kind) l
+  /-- Generalized selection. On a recursive term – one with a hole – the
+  predicate carries no aggregate atom, which the trailing proof says; on
+  a closed query it says nothing, and the tactic finds it. -/
+  | Sel : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+      (φ : GenPredIn T c κ) → AggQueryIn T c n κ l →
+      (hφ : SelOK l φ := by first | trivial | assumption) →
+      AggQueryIn T c n κ l
   /-- Cartesian product (join). -/
   | Prod : {c n₁ n₂ : ℕ} → {κ₁ : Fin n₁ → ColKind} → {κ₂ : Fin n₂ → ColKind} →
-      AggQueryIn T c n₁ κ₁ → AggQueryIn T c n₂ κ₂ →
-      AggQueryIn T c (n₁ + n₂) (Fin.append κ₁ κ₂)
+      {l₁ l₂ : List (String × ℕ)} →
+      AggQueryIn T c n₁ κ₁ l₁ → AggQueryIn T c n₂ κ₂ l₂ →
+      AggQueryIn T c (n₁ + n₂) (Fin.append κ₁ κ₂) (l₁ ++ l₂)
   /-- **Apply** – SQL's `LATERAL`, the operator of Galindo-Legaria and
   Joshi: a product whose right side is read once per row of the left and
   may read that row's columns. The right side's context is the left
@@ -818,13 +881,13 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   It is not derivable from the cross product once annotations are there:
   the product reads its right side once, the apply once per row of the
   left, and it is the apply that a correlated subquery needs. -/
-  | Apply : {c n₁ n₂ : ℕ} → {κ₂ : Fin n₂ → ColKind} →
-      AggQueryIn T c n₁ (ColKind.allReg n₁) →
+  | Apply : {c n₁ n₂ : ℕ} → {κ₂ : Fin n₂ → ColKind} → {l : List (String × ℕ)} →
+      AggQueryIn T c n₁ (ColKind.allReg n₁) l →
       AggQueryIn T (n₁ + c) n₂ κ₂ →
-      AggQueryIn T c (n₁ + n₂) (Fin.append (ColKind.allReg n₁) κ₂)
+      AggQueryIn T c (n₁ + n₂) (Fin.append (ColKind.allReg n₁) κ₂) l
   /-- Union (all). -/
-  | Sum : {c n : ℕ} → {κ : Fin n → ColKind} →
-      AggQueryIn T c n κ → AggQueryIn T c n κ → AggQueryIn T c n κ
+  | Sum : {c n : ℕ} → {κ : Fin n → ColKind} → {l₁ l₂ : List (String × ℕ)} →
+      AggQueryIn T c n κ l₁ → AggQueryIn T c n κ l₂ → AggQueryIn T c n κ (l₁ ++ l₂)
   /-- Duplicate elimination – all-regular only. -/
   | Dedup : {c n : ℕ} → AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n)
@@ -847,7 +910,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   count rather than at its own rounds is not this operator. -/
   | Mu : {c n : ℕ} → (s : String) →
       AggQueryIn T c n (ColKind.allReg n) →
-      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n) [(s, n)] →
       AggQueryIn T c n (ColKind.allReg n)
   /-- **Recursion up to duplicates**: SQL's `WITH RECURSIVE … UNION`.
   The least fixpoint the semantics says it is: `X₀` empty,
@@ -862,7 +925,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   and in an absorptive semiring with such derivations too. -/
   | MuSet : {c n : ℕ} → (s : String) →
       AggQueryIn T c n (ColKind.allReg n) →
-      AggQueryIn T c n (ColKind.allReg n) →
+      AggQueryIn T c n (ColKind.allReg n) [(s, n)] →
       AggQueryIn T c n (ColKind.allReg n)
   /-- **Reading an aggregate column as a key.** Every operator here
   that compares keys – `Dedup`, `Diff`, the grouping and partition
@@ -872,9 +935,9 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   per value the column takes, each carrying `[a ≐ v]`, and the column
   becomes regular (`GenRow.alternativesAt`). Over a plain relation an
   aggregate value is a value and this is the identity. -/
-  | Alt : {c n : ℕ} → {κ : Fin n → ColKind} → (k : Fin n) →
-      κ k = ColKind.agg → AggQueryIn T c n κ →
-      AggQueryIn T c n (Function.update κ k ColKind.reg)
+  | Alt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → (k : Fin n) →
+      κ k = ColKind.agg → AggQueryIn T c n κ l →
+      AggQueryIn T c n (Function.update κ k ColKind.reg) l
   /-- The decomposed grouping operator `γ^≼`: group the (all-regular)
   input by the key columns `is`; one output row per group, carrying the
   key followed by one aggregate token per `(term, aggregate)` pair.
@@ -971,9 +1034,9 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) → Type w
   `prov`): semantically the identity, it declares which value columns
   carry provenance – the typing act of casting a value column to
   ProvSQL's uuid type. Token columns cannot be retagged. -/
-  | Retag : {c n : ℕ} → {κ κ' : Fin n → ColKind} →
-      (h : ∀ k, (κ k).base = (κ' k).base) → AggQueryIn T c n κ →
-      AggQueryIn T c n κ'
+  | Retag : {c n : ℕ} → {κ κ' : Fin n → ColKind} → {l : List (String × ℕ)} →
+      (h : ∀ k, (κ k).base = (κ' k).base) → AggQueryIn T c n κ l →
+      AggQueryIn T c n κ' l
   /-- Token-building grouping (ProvSQL's `provsql_agg`): group by the
   key columns `is`, output the keys, one aggregate token per
   `(term, aggregate)` pair whose occurrence annotations are the values
@@ -1115,8 +1178,8 @@ abbrev AggQuery (T : Type) (n : ℕ) (κ : Fin n → ColKind) := AggQueryIn T 0 
 
 /-- Transport a query along an equality of kind vectors (kind vectors
 arising from projections are rarely definitionally all-regular). -/
-def AggQueryIn.castKind {c n : ℕ} {κ κ' : Fin n → ColKind} (h : κ = κ') :
-    AggQueryIn T c n κ → AggQueryIn T c n κ' := h ▸ id
+def AggQueryIn.castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') : AggQueryIn T c n κ l → AggQueryIn T c n κ' l := h ▸ id
 
 /-! ## The general evaluator -/
 
@@ -1710,16 +1773,20 @@ def AnnotatedRelation.dedupAnn {n : ℕ} (r : AnnotatedRelation T K n) :
 
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
-noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
+noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) : Multiset (GenRow T K n) :=
-  match c, n, κ, q, d, γ with
-  | _, n, _, Rel _ s, d, _ =>
+  match c, n, κ, l, q, d, γ with
+  | _, n, _, _, Rel _ s, d, _ =>
     match d.find n s with
     | none => (∅ : Multiset (GenRow T K n))
     | some rn => (rn : Multiset (AnnotatedTuple T K n)).map GenRow.ofAnnotated
-  | _, _, _, Empty, _, _ => (∅ : Multiset (GenRow T K 0))
-  | _, _, _, @Proj _ _ n m κ ps q, d, γ =>
+  | _, n, _, _, Hole _ s, d, _ =>
+    match d.find n s with
+    | none => (∅ : Multiset (GenRow T K n))
+    | some rn => (rn : Multiset (AnnotatedTuple T K n)).map GenRow.ofAnnotated
+  | _, _, _, _, Empty, _, _ => (∅ : Multiset (GenRow T K 0))
+  | _, _, _, _, @Proj _ _ n m κ _ ps q, d, γ =>
     (q.evaluate d γ).map (fun r =>
       let u' : Tuple (GenValue T K) m := fun j => (ps j).eval r.fst γ
       -- groups all of whose token columns are dropped are cashed
@@ -1728,7 +1795,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           ((r.snd.pending - kept).map
             (fun l => SemiringWithMonus.delta l.sum)).prod,
         kept⟩⟩)
-  | _, _, _, Sel φ q, d, γ =>
+  | _, _, _, _, Sel φ q _, d, γ =>
     let r := q.evaluate d γ
     if φ.hasAggAtom then
       r.map (fun r =>
@@ -1760,42 +1827,42 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           else r.snd.pending⟩⟩)
     else
       r.filter (fun r => φ.holds r.fst γ)
-  | _, _, _, Prod q₁ q₂, d, γ =>
+  | _, _, _, _, Prod q₁ q₂, d, γ =>
     ((q₁.evaluate d γ).product (q₂.evaluate d γ)).map (fun (x, y) =>
       ⟨Fin.append x.fst y.fst,
         ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩)
-  | _, _, _, @Apply _ _ n₁ _ _ q₁ q₂, d, γ =>
+  | _, _, _, _, @Apply _ _ n₁ _ _ _ q₁ q₂, d, γ =>
     -- the right side is read once per row of the left, under that row
     (q₁.evaluate d γ).bind (fun x =>
       (q₂.evaluate d (Fin.append (GenRow.plainTuple x.fst) γ)).map (fun y =>
         (⟨Fin.append x.fst y.fst,
           ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩
             : GenRow T K (n₁ + _))))
-  | _, _, _, Sum q₁ q₂, d, γ => q₁.evaluate d γ + q₂.evaluate d γ
-  | _, _, _, Dedup q, d, γ =>
+  | _, _, _, _, Sum q₁ q₂, d, γ => q₁.evaluate d γ + q₂.evaluate d γ
+  | _, _, _, _, Dedup q, d, γ =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey r).val).map GenRow.ofAnnotated
-  | _, _, _, Alt k _ q, d, γ =>
+  | _, _, _, _, Alt k _ q, d, γ =>
     (q.evaluate d γ).bind (fun r => r.alternativesAt k)
-  | _, _, _, Mu s q₀ q₁, d, γ =>
+  | _, _, _, _, Mu s q₀ q₁, d, γ =>
     -- the rounds up to the first empty one, junk where none is empty
     (muSumFix (fun X => (q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
       ((q₀.evaluate d γ).map GenRow.toAnnotated)).map GenRow.ofAnnotated
-  | _, _, _, MuSet s q₀ q₁, d, γ =>
+  | _, _, _, _, MuSet s q₀ q₁, d, γ =>
     -- the round the iteration settles at, junk where it never settles
     (muFix (fun X =>
       AnnotatedRelation.dedupAnn
-        (((q₀.evaluate (d.assign s X) γ).map GenRow.toAnnotated)
+        (((q₀.evaluate d γ).map GenRow.toAnnotated)
           + ((q₁.evaluate (d.assign s X) γ).map GenRow.toAnnotated)))).map
       GenRow.ofAnnotated
-  | _, _, _, Diff q₁ q₂, d, γ =>
+  | _, _, _, _, Diff q₁ q₂, d, γ =>
     let r₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ).map GenRow.toAnnotated
     let r₂ : AnnotatedRelation T K _ := (q₂.evaluate d γ).map GenRow.toAnnotated
     let grouped₂ := groupByKey r₂
     (r₁.map (fun (u, α) =>
       (⟨u, α - (((grouped₂.val.find? (·.1 = u)).map Prod.snd).getD 0)⟩ :
         AnnotatedTuple T K _))).map GenRow.ofAnnotated
-  | _, _, _, @Gamma _ _ m n₁ n₂ is ts fs q keep ord, d, γ =>
+  | _, _, _, _, @Gamma _ _ m n₁ n₂ is ts fs q keep ord, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     -- one row per group key (the closed form is `havingSite_evaluateAnnotated`)
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
@@ -1813,7 +1880,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           | some φ =>
               AggTok.expr (AggExpr.ofGroupWhen (fs j) (ts j) φ.keeps U γ))),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, @GammaScalar _ _ m n₂ ts fs q ord, d, γ =>
+  | _, _, _, _, @GammaScalar _ _ m n₂ ts fs q ord, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     -- one row whatever the input; the whole of it is the occurrence
     -- sequence, read in the aggregation's own order
@@ -1821,7 +1888,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
       (fun k : Fin 0 => k.elim0)
     {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j) U γ)), ⟨1, 0⟩⟩
       : GenRow T K n₂)}
-  | _, _, _, @GammaNest _ _ m n₁ _κ is _his p f q, d, γ =>
+  | _, _, _, _, @GammaNest _ _ m n₁ _κ is _his p f q, d, γ =>
     let rows := q.evaluate d γ
     -- the key is read off the columns' deterministic values; `his` makes
     -- every key column a value column, so this is the value it holds
@@ -1840,8 +1907,8 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
        -- occurrences sums to – which is what `AggTok.annList` gives a
        -- nested token, so the supersede test can match the two
        ⟨1, {[(U.map Prod.snd).sum]}⟩⟩)
-  | _, _, _, Retag _ q, d, γ => q.evaluate d γ
-  | _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ =>
+  | _, _, _, _, Retag _ q, d, γ => q.evaluate d γ
+  | _, _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ).map GenRow.toAnnotated
     let keys := (r.map (fun p => (fun k => p.fst (is k) : Tuple T n₁))).dedup
     keys.map (fun g =>
@@ -1851,7 +1918,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
               (fun p => t.evalPlain p.fst γ)).fold addFn 0)),
         ⟨((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             Prod.snd).sum, 0⟩⟩ : GenRow T K (n₁ + 1)))
-  | _, _, _, @GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
+  | _, _, _, _, @GammaTok _ _ m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
     let r : AnnotatedRelation T K m := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey (r.map (fun p => (fun k => p.fst (is k), p.snd)
         : AnnotatedTuple T K m → AnnotatedTuple T K n₁))).val).map (fun kv =>
@@ -1870,7 +1937,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
+  | _, _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
     let rows := q.evaluate d γ
     -- the relation the token is read over: what the window reads of each
     -- row (`ColKind.readTuple`), carrying the row's annotation
@@ -1879,7 +1946,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind}
     -- and gains its token: a window removes no row and creates no group
     rows.map (fun x =>
       ValueFrame.windowGenRow κ' P O o w t f keep r x γ dist)
-  | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
+  | _, _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ).map GenRow.toAnnotated
     let occ := OccFam.ofSorted r
     -- the column is an expression over the union of the frames, which the
@@ -1917,8 +1984,8 @@ theorem AggQueryIn.evaluate_Apply {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKin
 
 /-- The final annotated relation computed by a general query: evaluate,
 then finalize every row. -/
-noncomputable def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
+noncomputable def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) : AnnotatedRelation T K n :=
   (q.evaluate d γ).map GenRow.toAnnotated
 
@@ -1927,7 +1994,7 @@ noncomputable def AggQueryIn.evaluateAnnotated {c n : ℕ} {κ : Fin n → ColKi
 /-- The round function of `Mu`: the body read with the name bound to the
 previous round. -/
 noncomputable def AggQueryIn.muStep {c n : ℕ} (s : String)
-    (q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) :
     AnnotatedRelation T K n → AnnotatedRelation T K n :=
   fun X => q₁.evaluateAnnotated (d.assign s X) γ
@@ -1935,16 +2002,17 @@ noncomputable def AggQueryIn.muStep {c n : ℕ} (s : String)
 /-- The round function of `MuSet`: `ε(q₀ ⊎ q₁)` read with the name bound
 to the previous round. -/
 noncomputable def AggQueryIn.muSetStep {c n : ℕ} (s : String)
-    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T := fun _ => 0) :
     AnnotatedRelation T K n → AnnotatedRelation T K n :=
   fun X => AnnotatedRelation.dedupAnn
-    (q₀.evaluateAnnotated (d.assign s X) γ
-      + q₁.evaluateAnnotated (d.assign s X) γ)
+    (q₀.evaluateAnnotated d γ + q₁.evaluateAnnotated (d.assign s X) γ)
 
 /-- `Mu` is the sum of its rounds up to the first empty one. -/
 theorem AggQueryIn.evaluate_Mu {c n : ℕ} (s : String)
-    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :
     (AggQueryIn.Mu s q₀ q₁).evaluate d γ
       = (muSumFix (AggQueryIn.muStep s q₁ d γ)
@@ -1953,7 +2021,8 @@ theorem AggQueryIn.evaluate_Mu {c n : ℕ} (s : String)
 
 /-- `MuSet` is the round its iteration settles at. -/
 theorem AggQueryIn.evaluate_MuSet {c n : ℕ} (s : String)
-    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) :
     (AggQueryIn.MuSet s q₀ q₁).evaluate d γ
       = (muFix (AggQueryIn.muSetStep s q₀ q₁ d γ)).map GenRow.ofAnnotated :=
@@ -1965,7 +2034,8 @@ semantics asks for in asking that some round be empty – the query's value
 is the bounded sum up to that round. This is how a computation witnesses
 the semantics, the round count being no part of the query. -/
 theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {k : ℕ} (s : String)
-    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (h0 : AggQueryIn.muStep s q₁ d γ 0 = 0)
     (hk : (AggQueryIn.muStep s q₁ d γ)^[k + 1]
         (q₀.evaluateAnnotated d γ) = 0) :
@@ -1976,7 +2046,8 @@ theorem AggQueryIn.evaluate_Mu_of_empty {c n : ℕ} {k : ℕ} (s : String)
 
 /-- **A repeating round computes `MuSet`.** -/
 theorem AggQueryIn.evaluate_MuSet_of_fix {c n : ℕ} {j : ℕ} (s : String)
-    (q₀ q₁ : AggQueryIn T c n (ColKind.allReg n)) (d : AnnotatedDatabase T K)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (d : AnnotatedDatabase T K)
     (γ : Fin c → T)
     (hj : AggQueryIn.muSetStep s q₀ q₁ d γ
         (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) j)
@@ -2171,64 +2242,67 @@ computing the aggregate of each group's full occurrence sequence (in the
 canonical `≼` order of `Relation.groupSeq`) and every selection filtering
 classically. `Diff` is the all-or-nothing difference of
 `Query.evaluate`. -/
-noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Database T →
+noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Database T →
     (γ : Fin c → T := fun _ => 0) → Relation T n
-  | _, n, _, Rel _ s, d, _ =>
+  | _, n, _, _, Rel _ s, d, _ =>
     match d.find n s with
     | none => (∅ : Multiset (Tuple T n))
     | some rn => rn
-  | _, _, _, Empty, _, _ => (0 : Relation T 0)
-  | _, _, _, @Proj _ _ n _ κ ps q, d, γ =>
+  | _, n, _, _, Hole _ s, d, _ =>
+    match d.find n s with
+    | none => (∅ : Multiset (Tuple T n))
+    | some rn => rn
+  | _, _, _, _, Empty, _, _ => (0 : Relation T 0)
+  | _, _, _, _, @Proj _ _ n _ κ _ ps q, d, γ =>
     (q.evaluatePlain d γ).map (fun u => (fun j => (ps j).evalPlain u γ))
-  | _, _, _, Sel φ q, d, γ =>
+  | _, _, _, _, Sel φ q _, d, γ =>
     @Multiset.filter _ (fun u => φ.holdsPlain u γ)
       (fun u => φ.decHoldsPlain u γ) (q.evaluatePlain d γ)
-  | _, _, _, Prod q₁ q₂, d, γ => q₁.evaluatePlain d γ * q₂.evaluatePlain d γ
-  | _, _, _, @Apply _ _ n₁ _ _ q₁ q₂, d, γ =>
+  | _, _, _, _, Prod q₁ q₂, d, γ => q₁.evaluatePlain d γ * q₂.evaluatePlain d γ
+  | _, _, _, _, @Apply _ _ n₁ _ _ _ q₁ q₂, d, γ =>
     (q₁.evaluatePlain d γ).bind (fun u =>
       (q₂.evaluatePlain d (Fin.append u γ)).map (fun v =>
         (Fin.append u v : Tuple T (n₁ + _))))
-  | _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
-  | _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
-  | _, _, _, Alt _ _ q, d, γ => q.evaluatePlain d γ
-  | _, _, _, Mu s q₀ q₁, d, γ =>
+  | _, _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
+  | _, _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
+  | _, _, _, _, Alt _ _ q, d, γ => q.evaluatePlain d γ
+  | _, _, _, _, Mu s q₀ q₁, d, γ =>
     muSumFix (fun X => q₁.evaluatePlain (d.assign s X) γ)
       (q₀.evaluatePlain d γ)
-  | _, _, _, MuSet s q₀ q₁, d, γ =>
-    muFix (fun X => (q₀.evaluatePlain (d.assign s X) γ
-      + q₁.evaluatePlain (d.assign s X) γ).dedup)
-  | _, _, _, Diff q₁ q₂, d, γ =>
+  | _, _, _, _, MuSet s q₀ q₁, d, γ =>
+    muFix (fun X => (q₀.evaluatePlain d γ + q₁.evaluatePlain (d.assign s X) γ).dedup)
+  | _, _, _, _, Diff q₁ q₂, d, γ =>
     let r₂ : Multiset (Tuple T _) := q₂.evaluatePlain d γ
     (q₁.evaluatePlain d γ).filter (fun t => t ∉ r₂)
-  | _, _, _, @Gamma _ _ _m n₁ n₂ is ts fs q keep ord, d, γ =>
+  | _, _, _, _, @Gamma _ _ _m n₁ n₂ is ts fs q keep ord, d, γ =>
     let r := q.evaluatePlain d γ
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g
       (fun j => (fs j)
         ((Relation.groupSeqOptOrd is ord r g (keep j)).map
           (fun v => (ts j).eval v γ))))
-  | _, _, _, @GammaScalar _ _ _m n₂ ts fs q ord, d, γ =>
+  | _, _, _, _, @GammaScalar _ _ _m n₂ ts fs q ord, d, γ =>
     let r := q.evaluatePlain d γ
     (Multiset.ofList [(fun j => (fs j)
       ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ))
           : Tuple T n₂)] : Relation T n₂)
-  | _, _, _, @GammaNest _ _ _m n₁ _κ is _his p f q, d, γ =>
+  | _, _, _, _, @GammaNest _ _ _m n₁ _κ is _his p f q, d, γ =>
     let r := q.evaluatePlain d γ
     let key : Tuple T _ → Tuple T n₁ := fun u => fun k => u (is k)
     ((r.map key).dedup).map (fun g => Fin.append g (fun _ : Fin 1 =>
       -- the group as a bag, which is what the aggregate reads: it is a
       -- function of one, so no `Relation.groupSeq` is needed to list it
       f ((r.filter (fun u => key u = g)).map (fun u => p.evalPlain u γ))))
-  | _, _, _, Retag _ q, d, γ => q.evaluatePlain d γ
-  | _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ =>
+  | _, _, _, _, Retag _ q, d, γ => q.evaluatePlain d γ
+  | _, _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ =>
     let r := q.evaluatePlain d γ
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append g (fun _ : Fin 1 =>
       ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
         (fun u => t.evalPlain u γ)).fold addFn 0))
-  | _, _, _, @GammaTok _ _ _m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
+  | _, _, _, _, @GammaTok _ _ _m n₁ n₂ _κ is _his ts fs a q keep, d, γ =>
     let r := q.evaluatePlain d γ
     let keys := (r.map (fun u => (fun k => u (is k) : Tuple T n₁))).dedup
     keys.map (fun g => Fin.append
@@ -2239,7 +2313,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u γ)).fold addFn 0))
-  | _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
+  | _, _, _, _, @Win _ _ n _m _p κ' P O o w t f q _hrr dist keep, d, γ =>
     let rows := q.evaluatePlain d γ
     -- the window reads the regular columns of each row, as the annotated
     -- evaluator does, so the two agree on what a frame holds
@@ -2249,7 +2323,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
           (if dist then f.distinct else f) keep read
             (ColKind.readTuple κ' u) γ)
         : Tuple T (n + 1)))
-  | _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
+  | _, _, _, _, @WinExpr _ _ n _m _p _na P O o ws ts fs g q keeps, d, γ =>
     let occ := OccFam.ofSorted (q.evaluatePlain d γ)
     (OccFam.mk occ.size (fun i =>
       (Fin.snoc (occ.row i)
@@ -2458,31 +2532,32 @@ never removes tuple slots) and selections containing an aggregate atom
 as ProvSQL emits them). The data-part adequacy of `evaluateAnnotated`
 is stated against the plain evaluation of the stripped query, mirroring
 `Query.stripDiff` in `Provenance.QueryAdequacy`. -/
-def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → AggQueryIn T c n κ
-  | _, _, _, Rel n s => Rel n s
-  | _, _, _, Empty => Empty
-  | _, _, _, Proj ps q => Proj ps q.stripAgg
-  | _, _, _, Sel φ q =>
-    if φ.hasAggAtom then q.stripAgg else Sel φ q.stripAgg
-  | _, _, _, Prod q₁ q₂ => Prod q₁.stripAgg q₂.stripAgg
-  | _, _, _, Apply q₁ q₂ => Apply q₁.stripAgg q₂.stripAgg
-  | _, _, _, Sum q₁ q₂ => Sum q₁.stripAgg q₂.stripAgg
-  | _, _, _, Dedup q => Dedup q.stripAgg
-  | _, _, _, Diff q₁ _ => q₁.stripAgg
-  | _, _, _, Alt k h q => Alt k h q.stripAgg
-  | _, _, _, Mu s q₀ q₁ => Mu s q₀.stripAgg q₁.stripAgg
-  | _, _, _, MuSet s q₀ q₁ => MuSet s q₀.stripAgg q₁.stripAgg
-  | _, _, _, Gamma is ts fs q keep ord => Gamma is ts fs q.stripAgg keep ord
-  | _, _, _, GammaScalar ts fs q ord => GammaScalar ts fs q.stripAgg ord
-  | _, _, _, GammaNest is his p f q => GammaNest is his p f q.stripAgg
-  | _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
-  | _, _, _, Retag h q => Retag h q.stripAgg
-  | _, _, _, GammaTok is his ts fs a q keep =>
+def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → AggQueryIn T c n κ l
+  | _, _, _, _, Rel n s => Rel n s
+  | _, _, _, _, Hole n s => Hole n s
+  | _, _, _, _, Empty => Empty
+  | _, _, _, _, Proj ps q => Proj ps q.stripAgg
+  | _, _, _, _, Sel φ q hφ =>
+    if φ.hasAggAtom then q.stripAgg else Sel φ q.stripAgg hφ
+  | _, _, _, _, Prod q₁ q₂ => Prod q₁.stripAgg q₂.stripAgg
+  | _, _, _, _, Apply q₁ q₂ => Apply q₁.stripAgg q₂.stripAgg
+  | _, _, _, _, Sum q₁ q₂ => Sum q₁.stripAgg q₂.stripAgg
+  | _, _, _, _, Dedup q => Dedup q.stripAgg
+  | _, _, _, _, Diff q₁ _ => q₁.stripAgg
+  | _, _, _, _, Alt k h q => Alt k h q.stripAgg
+  | _, _, _, _, Mu s q₀ q₁ => Mu s q₀.stripAgg q₁.stripAgg
+  | _, _, _, _, MuSet s q₀ q₁ => MuSet s q₀.stripAgg q₁.stripAgg
+  | _, _, _, _, Gamma is ts fs q keep ord => Gamma is ts fs q.stripAgg keep ord
+  | _, _, _, _, GammaScalar ts fs q ord => GammaScalar ts fs q.stripAgg ord
+  | _, _, _, _, GammaNest is his p f q => GammaNest is his p f q.stripAgg
+  | _, _, _, _, ProvSum is his t q => ProvSum is his t q.stripAgg
+  | _, _, _, _, Retag h q => Retag h q.stripAgg
+  | _, _, _, _, GammaTok is his ts fs a q keep =>
       GammaTok is his ts fs a q.stripAgg keep
-  | _, _, _, Win P O o w t f q hrr dist keep =>
+  | _, _, _, _, Win P O o w t f q hrr dist keep =>
       Win P O o w t f q.stripAgg hrr dist keep
-  | _, _, _, WinExpr P O o ws ts fs g q keeps =>
+  | _, _, _, _, WinExpr P O o ws ts fs g q keeps =>
       WinExpr P O o ws ts fs g q.stripAgg keeps
 
 /-- No plan-level provenance aggregation. The possible-world
@@ -2490,28 +2565,29 @@ metatheorems (random-world commutation, PQE) are about source queries;
 `ProvSum` is a rewriting-target operator whose deterministic group sum
 is not world-faithful – exactly as the classical `Agg` was excluded from
 the annotated evaluators. -/
-def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.noProvSum
-  | _, _, _, .Sel _ q => q.noProvSum
-  | _, _, _, .Prod q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
-  | _, _, _, .Apply q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
-  | _, _, _, .Sum q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
-  | _, _, _, .Dedup q => q.noProvSum
-  | _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
-  | _, _, _, .Alt _ _ q => q.noProvSum
-  | _, _, _, .Mu _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
-  | _, _, _, .Gamma _ _ _ q _ _ => q.noProvSum
-  | _, _, _, .GammaScalar _ _ q _ => q.noProvSum
-  | _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
-  | _, _, _, .ProvSum _ _ _ _ => False
-  | _, _, _, .Retag _ q => q.noProvSum
-  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noProvSum
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noProvSum
+def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noProvSum
+  | _, _, _, _, .Sel _ q _ => q.noProvSum
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, _, .Dedup q => q.noProvSum
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
+  | _, _, _, _, .Alt _ _ q => q.noProvSum
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noProvSum
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noProvSum
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noProvSum
+  | _, _, _, _, .ProvSum _ _ _ _ => False
+  | _, _, _, _, .Retag _ q => q.noProvSum
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noProvSum
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noProvSum
 
 /-- **No aggregate column read as a key.** Reading one produces a row
 per value the column takes in *some* world, so the data part of the
@@ -2520,27 +2596,28 @@ annotation-forgetting adequacy of `evaluateAnnotated_toPlain` does not
 hold for it – unlike the readings that *are* world readings, the
 Boolean support and the random world, which `Alt` respects. -/
 def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T' c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.altFree
-  | _, _, _, .Sel _ q => q.altFree
-  | _, _, _, .Prod q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, .Apply q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, .Sum q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, .Dedup q => q.altFree
-  | _, _, _, .Diff q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, .Alt _ _ _ => False
-  | _, _, _, .Mu _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, .Gamma _ _ _ q _ _ => q.altFree
-  | _, _, _, .GammaScalar _ _ q _ => q.altFree
-  | _, _, _, .GammaNest _ _ _ _ q => q.altFree
-  | _, _, _, .ProvSum _ _ _ q => q.altFree
-  | _, _, _, .Retag _ q => q.altFree
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.altFree
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.altFree
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.altFree
+    {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.altFree
+  | _, _, _, _, .Sel _ q _ => q.altFree
+  | _, _, _, _, .Prod q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, _, .Apply q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, _, .Sum q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, _, .Dedup q => q.altFree
+  | _, _, _, _, .Diff q₁ q₂ => q₁.altFree ∧ q₂.altFree
+  | _, _, _, _, .Alt _ _ _ => False
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.altFree
+  | _, _, _, _, .GammaScalar _ _ q _ => q.altFree
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.altFree
+  | _, _, _, _, .ProvSum _ _ _ q => q.altFree
+  | _, _, _, _, .Retag _ q => q.altFree
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.altFree
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.altFree
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.altFree
 
 /-! ## Join conditions on key columns -/
 
@@ -2670,8 +2747,8 @@ theorem keyJoinCond_holds {n m : ℕ} {κ' : Fin m → ColKind}
 
 /-- Kind transport is transparent to evaluation (row types do not mention
 the kind vector). -/
-theorem AggQueryIn.evaluate_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
+theorem AggQueryIn.evaluate_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K)
     {γ : Fin c → T} :
     (q.castKind h).evaluate d γ = q.evaluate d γ := by
   subst h; rfl
@@ -2682,8 +2759,8 @@ abbrev ColKind.gammaKinds (n₁ n₂ : ℕ) : Fin (n₁ + n₂) → ColKind :=
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Kind transport is transparent to plain evaluation too. -/
-theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) (d : Database T)
+theorem AggQueryIn.evaluatePlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) (d : Database T)
     {γ : Fin c → T} :
     (q.castKind h).evaluatePlain d γ = q.evaluatePlain d γ := by
   subst h; rfl
@@ -2756,28 +2833,29 @@ clause like the plain one does – both through
 `AggQueryIn.evaluateRew_plain` covers a filtered grouping and a filtered
 window, as the evaluators, the hom commutation, the possible-world
 reading and the data-part adequacy already did. -/
-def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.noFilter
-  | _, _, _, .Sel _ q => q.noFilter
-  | _, _, _, .Prod q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
-  | _, _, _, .Apply q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
-  | _, _, _, .Sum q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
-  | _, _, _, .Dedup q => q.noFilter
-  | _, _, _, .Diff q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
-  | _, _, _, .Alt _ _ q => q.noFilter
-  | _, _, _, .Mu _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
-  | _, _, _, .Gamma _ _ _ q keep _ => (∀ j, keep j = none) ∧ q.noFilter
-  | _, _, _, .GammaScalar _ _ q _ => q.noFilter
-  | _, _, _, .GammaNest _ _ _ _ q => q.noFilter
-  | _, _, _, .ProvSum _ _ _ q => q.noFilter
-  | _, _, _, .Retag _ q => q.noFilter
-  | _, _, _, .GammaTok _ _ _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ keep => keep = none ∧ q.noFilter
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q keeps => (∀ l, keeps l = none) ∧ q.noFilter
+def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noFilter
+  | _, _, _, _, .Sel _ q _ => q.noFilter
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
+  | _, _, _, _, .Dedup q => q.noFilter
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
+  | _, _, _, _, .Alt _ _ q => q.noFilter
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
+  | _, _, _, _, .Gamma _ _ _ q keep _ => (∀ j, keep j = none) ∧ q.noFilter
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noFilter
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noFilter
+  | _, _, _, _, .ProvSum _ _ _ q => q.noFilter
+  | _, _, _, _, .Retag _ q => q.noFilter
+  | _, _, _, _, .GammaTok _ _ _ _ _ q keep => (∀ j, keep j = none) ∧ q.noFilter
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ keep => keep = none ∧ q.noFilter
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q keeps => (∀ l, keeps l = none) ∧ q.noFilter
 
 /-- **No second-level aggregation.** `GammaNest` is the one operator of
 the syntax that builds a *nested* token, and what this excludes is the
@@ -2809,28 +2887,29 @@ statistics; and `GenRow.Sim` now relates an aggregate column by its
 `AggExpr.worldStats`, the bag of those triples, which a tie-block
 permutation preserves (`AggExpr.worldStats_congr`) and which every
 operator's aggregate column therefore gives. -/
-def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.noGammaNest
-  | _, _, _, .Sel _ q => q.noGammaNest
-  | _, _, _, .Prod q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
-  | _, _, _, .Apply q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
-  | _, _, _, .Sum q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
-  | _, _, _, .Dedup q => q.noGammaNest
-  | _, _, _, .Diff q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
-  | _, _, _, .Alt _ _ q => q.noGammaNest
-  | _, _, _, .Mu _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
-  | _, _, _, .Gamma _ _ _ q _ _ => q.noGammaNest
-  | _, _, _, .GammaScalar _ _ q _ => q.noGammaNest
-  | _, _, _, .GammaNest _ _ _ _ _ => False
-  | _, _, _, .ProvSum _ _ _ q => q.noGammaNest
-  | _, _, _, .Retag _ q => q.noGammaNest
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noGammaNest
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaNest
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaNest
+def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noGammaNest
+  | _, _, _, _, .Sel _ q _ => q.noGammaNest
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
+  | _, _, _, _, .Dedup q => q.noGammaNest
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
+  | _, _, _, _, .Alt _ _ q => q.noGammaNest
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noGammaNest
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noGammaNest
+  | _, _, _, _, .GammaNest _ _ _ _ _ => False
+  | _, _, _, _, .ProvSum _ _ _ q => q.noGammaNest
+  | _, _, _, _, .Retag _ q => q.noGammaNest
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noGammaNest
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noGammaNest
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noGammaNest
 
 /-- **Every recursion of the query settles.** A recursion means the value
 its rounds settle at and means nothing elsewhere, so a result that
@@ -2843,36 +2922,37 @@ It is asked at *every* database, because a nested recursion is evaluated
 at the databases its enclosing rounds produce. A query with no recursion
 satisfies it with no content, every clause but the two recursions asking
 only what its subqueries ask. -/
-def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.recSettles
-  | _, _, _, .Sel _ q => q.recSettles
-  | _, _, _, .Prod q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
-  | _, _, _, .Apply q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
-  | _, _, _, .Sum q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
-  | _, _, _, .Dedup q => q.recSettles
-  | _, _, _, .Diff q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
-  | _, _, _, .Alt _ _ q => q.recSettles
-  | _, _, _, .Mu s q₀ q₁ =>
+def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.recSettles
+  | _, _, _, _, .Sel _ q _ => q.recSettles
+  | _, _, _, _, .Prod q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, _, .Apply q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, _, .Sum q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, _, .Dedup q => q.recSettles
+  | _, _, _, _, .Diff q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
+  | _, _, _, _, .Alt _ _ q => q.recSettles
+  | _, _, _, _, .Mu s q₀ q₁ =>
       (∀ (d : AnnotatedDatabase T K) γ,
           AggQueryIn.muStep s q₁ d γ 0 = 0
             ∧ MuSettles (AggQueryIn.muStep s q₁ d γ)
                 (q₀.evaluateAnnotated d γ))
         ∧ q₀.recSettles ∧ q₁.recSettles
-  | _, _, _, .MuSet s q₀ q₁ =>
+  | _, _, _, _, .MuSet s q₀ q₁ =>
       (∀ (d : AnnotatedDatabase T K) γ,
           MuSetSettles (AggQueryIn.muSetStep s q₀ q₁ d γ))
         ∧ q₀.recSettles ∧ q₁.recSettles
-  | _, _, _, .Gamma _ _ _ q _ _ => q.recSettles
-  | _, _, _, .GammaScalar _ _ q _ => q.recSettles
-  | _, _, _, .GammaNest _ _ _ _ q => q.recSettles
-  | _, _, _, .ProvSum _ _ _ q => q.recSettles
-  | _, _, _, .Retag _ q => q.recSettles
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.recSettles
+  | _, _, _, _, .GammaScalar _ _ q _ => q.recSettles
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.recSettles
+  | _, _, _, _, .ProvSum _ _ _ q => q.recSettles
+  | _, _, _, _, .Retag _ q => q.recSettles
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
 
 /-- **Every second-level aggregation is read in a complemented
 semiring.** This is what the hom commutation asks of `GammaNest` instead
@@ -2888,41 +2968,43 @@ It costs nothing where no second-level aggregation occurs, being `True`
 there, and nothing in the catalog either: every semiring of it is
 complemented. It bites only in an m-semiring that is not, such as the
 non-negative rationals, where `𝟙 ⊖ (½ ⊕ ½)` is `𝟘` against `¼`. -/
-def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.nestInComplemented
-  | _, _, _, .Sel _ q => q.nestInComplemented
-  | _, _, _, .Prod q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, .Apply q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, .Sum q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, .Dedup q => q.nestInComplemented
-  | _, _, _, .Diff q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, .Alt _ _ q => q.nestInComplemented
-  | _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, .Gamma _ _ _ q _ _ => q.nestInComplemented
-  | _, _, _, .GammaScalar _ _ q _ => q.nestInComplemented
-  | _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
-  | _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
-  | _, _, _, .Retag _ q => q.nestInComplemented
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestInComplemented
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestInComplemented
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestInComplemented
+def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.nestInComplemented
+  | _, _, _, _, .Sel _ q _ => q.nestInComplemented
+  | _, _, _, _, .Prod q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
+  | _, _, _, _, .Apply q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
+  | _, _, _, _, .Sum q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
+  | _, _, _, _, .Dedup q => q.nestInComplemented
+  | _, _, _, _, .Diff q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
+  | _, _, _, _, .Alt _ _ q => q.nestInComplemented
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestInComplemented
+  | _, _, _, _, .GammaScalar _ _ q _ => q.nestInComplemented
+  | _, _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
+  | _, _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
+  | _, _, _, _, .Retag _ q => q.nestInComplemented
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestInComplemented
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestInComplemented
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestInComplemented
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A query with no second-level aggregation asks nothing of the
 semiring. -/
 theorem AggQueryIn.nestInComplemented_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noGammaNest → q.nestInComplemented (K := K) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
@@ -2952,41 +3034,43 @@ results ask this of the query: no `GammaNest` inside a `GammaNest`.
 
 It is strictly weaker than `AggQueryIn.noGammaNest`, which excludes the
 operator outright. -/
-def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.nestOnce
-  | _, _, _, .Sel _ q => q.nestOnce
-  | _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, .Apply q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, .Dedup q => q.nestOnce
-  | _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, .Alt _ _ q => q.nestOnce
-  | _, _, _, .Mu _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
-  | _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
-  | _, _, _, .GammaScalar _ _ q _ => q.nestOnce
-  | _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
-  | _, _, _, .ProvSum _ _ _ q => q.nestOnce
-  | _, _, _, .Retag _ q => q.nestOnce
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestOnce
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestOnce
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestOnce
+def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.nestOnce
+  | _, _, _, _, .Sel _ q _ => q.nestOnce
+  | _, _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, _, .Apply q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, _, .Dedup q => q.nestOnce
+  | _, _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+  | _, _, _, _, .Alt _ _ q => q.nestOnce
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
+  | _, _, _, _, .GammaScalar _ _ q _ => q.nestOnce
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
+  | _, _, _, _, .ProvSum _ _ _ q => q.nestOnce
+  | _, _, _, _, .Retag _ q => q.nestOnce
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestOnce
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestOnce
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestOnce
 
 omit [ValueType T] in
 /-- A query with no second-level aggregation at all nests at most
 once. -/
 theorem AggQueryIn.nestOnce_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noGammaNest → q.nestOnce := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
@@ -3014,28 +3098,29 @@ A result that reads an expression column through the four readings
 `AggExpr` provides needs no such fence; the hom commutation asks instead
 that the frames be read off the tuples
 (`AggQueryIn.framesContainSelf`). -/
-def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.noWinExpr
-  | _, _, _, .Sel _ q => q.noWinExpr
-  | _, _, _, .Prod q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
-  | _, _, _, .Apply q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
-  | _, _, _, .Sum q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
-  | _, _, _, .Dedup q => q.noWinExpr
-  | _, _, _, .Diff q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
-  | _, _, _, .Alt _ _ q => q.noWinExpr
-  | _, _, _, .Mu _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
-  | _, _, _, .Gamma _ _ _ q _ _ => q.noWinExpr
-  | _, _, _, .GammaScalar _ _ q _ => q.noWinExpr
-  | _, _, _, .GammaNest _ _ _ _ q => q.noWinExpr
-  | _, _, _, .ProvSum _ _ _ q => q.noWinExpr
-  | _, _, _, .Retag _ q => q.noWinExpr
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.noWinExpr
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noWinExpr
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
+def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noWinExpr
+  | _, _, _, _, .Sel _ q _ => q.noWinExpr
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, _, .Dedup q => q.noWinExpr
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
+  | _, _, _, _, .Alt _ _ q => q.noWinExpr
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noWinExpr
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noWinExpr
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noWinExpr
+  | _, _, _, _, .ProvSum _ _ _ q => q.noWinExpr
+  | _, _, _, _, .Retag _ q => q.noWinExpr
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noWinExpr
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noWinExpr
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 /-- **Every multi-frame window frames by the tuple.** A window
 expression lists its shared family by occurrence index, and a change of
@@ -3051,40 +3136,42 @@ it; `EXCLUDE CURRENT ROW` and `EXCLUDE TIES` are exactly the frames that
 do not (`ValueFrame.not_containsSelf_excludeCurrent`), and they are the
 ones a multi-frame window needs the occurrences for. Nothing is asked of
 a single-frame `Win`, whose token is read off the relation. -/
-def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.framesContainSelf
-  | _, _, _, .Sel _ q => q.framesContainSelf
-  | _, _, _, .Prod q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
-  | _, _, _, .Apply q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
-  | _, _, _, .Sum q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
-  | _, _, _, .Dedup q => q.framesContainSelf
-  | _, _, _, .Diff q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
-  | _, _, _, .Alt _ _ q => q.framesContainSelf
-  | _, _, _, .Mu _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
-  | _, _, _, .Gamma _ _ _ q _ _ => q.framesContainSelf
-  | _, _, _, .GammaScalar _ _ q _ => q.framesContainSelf
-  | _, _, _, .GammaNest _ _ _ _ q => q.framesContainSelf
-  | _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
-  | _, _, _, .Retag _ q => q.framesContainSelf
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.framesContainSelf
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.framesContainSelf
-  | _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
+def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.framesContainSelf
+  | _, _, _, _, .Sel _ q _ => q.framesContainSelf
+  | _, _, _, _, .Prod q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, _, .Apply q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, _, .Sum q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, _, .Dedup q => q.framesContainSelf
+  | _, _, _, _, .Diff q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
+  | _, _, _, _, .Alt _ _ q => q.framesContainSelf
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.framesContainSelf
+  | _, _, _, _, .GammaScalar _ _ q _ => q.framesContainSelf
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.framesContainSelf
+  | _, _, _, _, .ProvSum _ _ _ q => q.framesContainSelf
+  | _, _, _, _, .Retag _ q => q.framesContainSelf
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.framesContainSelf
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.framesContainSelf
+  | _, _, _, _, .WinExpr _ _ _ ws _ _ _ q _ =>
       (∀ l, (ws l).ContainsSelf) ∧ q.framesContainSelf
 
 /-- A query with no multi-frame window asks nothing of its frames. -/
 theorem AggQueryIn.framesContainSelf_of_noWinExpr :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noWinExpr → q.framesContainSelf := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact ih
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
@@ -3115,14 +3202,23 @@ This is what lets a result proved only for an ordinary token keep its
 statement about rows: it gets "every token here is ordinary" from this
 lemma, with the two operators excluded on the query. -/
 theorem AggQueryIn.evaluate_ordinaryTokens :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noWinExpr → q.noGammaNest → q.noFilter →
       ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T}
         (r : GenRow T K n),
       r ∈ q.evaluate d γ → GenRow.OrdinaryTokens r.fst := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro hq hn hfl d γ r hr k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    cases hf : d.find n s with
+    | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
+    | some rn =>
+      rw [hf] at hr
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Hole n s =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
@@ -3167,7 +3263,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isTok_postcomp]
         exact ih hq hn hfl d r₀ hr₀ k x hu
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hn hfl d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
@@ -3319,14 +3415,23 @@ constructs a nested value, and `noGammaNest` is what excludes it.
 This is what a result proved for an expression column as well as an
 ordinary one asks of a row. -/
 theorem AggQueryIn.evaluate_noNested :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noGammaNest →
       ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T}
         (r : GenRow T K n),
       r ∈ q.evaluate d γ → GenRow.NoNested r.fst := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro hn d γ r hr k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    cases hf : d.find n s with
+    | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
+    | some rn =>
+      rw [hf] at hr
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Hole n s =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
@@ -3371,7 +3476,7 @@ theorem AggQueryIn.evaluate_noNested :
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isNested_postcomp]
         exact ih hn d r₀ hr₀ k x hu
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hn d γ r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
@@ -3524,12 +3629,21 @@ theorem AggQueryIn.evaluate_noNested :
 
 /-- **Kind conformance of the general evaluator.** -/
 theorem AggQueryIn.evaluate_conform :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) {γ : Fin c → T} (r : GenRow T K n),
       r ∈ q.evaluate d γ → ∀ k, GenValue.kindOf (r.fst k) = (κ k).base := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro d γ r hr k
+    simp only [AggQueryIn.evaluate] at hr
+    cases hf : d.find n s with
+    | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
+    | some rn =>
+      rw [hf] at hr
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      rfl
+  | Hole n s =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
@@ -3578,7 +3692,7 @@ theorem AggQueryIn.evaluate_conform :
         rw [hu] at this
         exact absurd this (by simp [GenValue.kindOf, ColKind.base])
       | inr a => rfl
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro d γ r hr k
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom

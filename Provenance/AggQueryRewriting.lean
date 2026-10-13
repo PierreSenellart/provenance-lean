@@ -62,94 +62,98 @@ def AggQueryIn.retagToRew {T' : Type} {n : ℕ} {κ : Fin (n + 1) → ColKind}
 /-- The classical (R1)–(R4) source fragment of the general syntax: no
 grouping, no provenance aggregation, no retagging, projections through
 regular terms only, selections without aggregate atoms. -/
-def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
+def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  -- a recursive term is not in the fragment: its hole has no rewriting
+  | _, _, _, _, .Hole _ _ => False
   -- the empty relation is in the fragment: its rewriting is the empty
   -- relation of the rewritten schema, with nothing to carry
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj ps q =>
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj ps q =>
       (∀ j, (ps j).kind = ColKind.reg) ∧ q.classical
-  | _, _, _, .Sel φ q => φ.hasAggAtom = false ∧ q.classical
-  | _, _, _, .Prod q₁ q₂ => q₁.classical ∧ q₂.classical
-  | _, _, _, .Sum q₁ q₂ => q₁.classical ∧ q₂.classical
-  | _, _, _, .Dedup q => q.classical
-  | _, _, _, .Diff q₁ q₂ => q₁.classical ∧ q₂.classical
+  | _, _, _, _, .Sel φ q _ => φ.hasAggAtom = false ∧ q.classical
+  | _, _, _, _, .Prod q₁ q₂ => q₁.classical ∧ q₂.classical
+  | _, _, _, _, .Sum q₁ q₂ => q₁.classical ∧ q₂.classical
+  | _, _, _, _, .Dedup q => q.classical
+  | _, _, _, _, .Diff q₁ q₂ => q₁.classical ∧ q₂.classical
   -- the apply is not part of (R1)-(R5): its right side is read once per
   -- row of its left, which the rewritten plan has no way to express
-  | _, _, _, .Apply _ _ => False
+  | _, _, _, _, .Apply _ _ => False
   -- an aggregate column read as a key is not part of (R1)-(R5): the
   -- rewritten plan has no way to enumerate the values a token takes
-  | _, _, _, .Alt _ _ _ => False
+  | _, _, _, _, .Alt _ _ _ => False
   -- recursion is not part of (R1)-(R5): a rewritten body carries the
   -- provenance column, so the name bound by the rounds would have to be
   -- bound to the rewritten relation, and the fixpoint is then over a
   -- different schema than the one the source query iterates
-  | _, _, _, .Mu _ _ _ => False
-  | _, _, _, .MuSet _ _ _ => False
-  | _, _, _, .Gamma _ _ _ _ _ _ => False
-  | _, _, _, .GammaScalar _ _ _ _ => False
-  | _, _, _, .GammaNest _ _ _ _ _ => False
-  | _, _, _, .ProvSum _ _ _ _ => False
-  | _, _, _, .Retag _ _ => False
-  | _, _, _, .GammaTok _ _ _ _ _ _ _ => False
+  | _, _, _, _, .Mu _ _ _ => False
+  | _, _, _, _, .MuSet _ _ _ => False
+  | _, _, _, _, .Gamma _ _ _ _ _ _ => False
+  | _, _, _, _, .GammaScalar _ _ _ _ => False
+  | _, _, _, _, .GammaNest _ _ _ _ _ => False
+  | _, _, _, _, .ProvSum _ _ _ _ => False
+  | _, _, _, _, .Retag _ _ => False
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
   -- rewriting a window into the provenance-carrying form is not part of
   -- (R1)-(R5); a window is excluded from the fragment, as a grouping is
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- A classical query builds no nested token, every aggregating operator
 being outside the fragment. -/
 theorem AggQueryIn.noGammaNest_of_classical :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.classical → q.noGammaNest
-  | _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, .Empty, _ => trivial
-  | _, _, _, .Proj _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
-  | _, _, _, .Sel _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
-  | _, _, _, .Prod q₁ q₂, hq =>
+  | _, _, _, _, .Rel _ _, _ => trivial
+  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Empty, _ => trivial
+  | _, _, _, _, .Proj _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
+  | _, _, _, _, .Sel _ q _, hq => AggQueryIn.noGammaNest_of_classical q hq.2
+  | _, _, _, _, .Prod q₁ q₂, hq =>
     ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
       AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
-  | _, _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, _, .Sum q₁ q₂, hq =>
     ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
       AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
-  | _, _, _, .Dedup q, hq => AggQueryIn.noGammaNest_of_classical q hq
-  | _, _, _, .Diff q₁ q₂, hq =>
+  | _, _, _, _, .Dedup q, hq => AggQueryIn.noGammaNest_of_classical q hq
+  | _, _, _, _, .Diff q₁ q₂, hq =>
     ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
       AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
-  | _, _, _, .Apply _ _, hq => hq.elim
-  | _, _, _, .Alt _ _ _, hq => hq.elim
-  | _, _, _, .Mu _ _ _, hq => hq.elim
-  | _, _, _, .MuSet _ _ _, hq => hq.elim
-  | _, _, _, .Gamma _ _ _ _ _ _, hq => hq.elim
-  | _, _, _, .GammaScalar _ _ _ _, hq => hq.elim
-  | _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim
-  | _, _, _, .ProvSum _ _ _ _, hq => hq.elim
-  | _, _, _, .Retag _ _, hq => hq.elim
-  | _, _, _, .GammaTok _ _ _ _ _ _ _, hq => hq.elim
-  | _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => hq.elim
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, _, .Apply _ _, hq => hq.elim
+  | _, _, _, _, .Alt _ _ _, hq => hq.elim
+  | _, _, _, _, .Mu _ _ _, hq => hq.elim
+  | _, _, _, _, .MuSet _ _ _, hq => hq.elim
+  | _, _, _, _, .Gamma _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, _, .GammaScalar _ _ _ _, hq => hq.elim
+  | _, _, _, _, .GammaNest _ _ _ _ _, hq => hq.elim
+  | _, _, _, _, .ProvSum _ _ _ _, hq => hq.elim
+  | _, _, _, _, .Retag _ _, hq => hq.elim
+  | _, _, _, _, .GammaTok _ _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _, hq => hq.elim
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _, hq => hq.elim
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
 /-- Classical queries have all-regular kinds (pointwise). -/
 theorem AggQueryIn.classical_kinds :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.classical → ∀ k, κ k = ColKind.reg
-  | _, _, _, .Rel _ _, _, _ => rfl
-  | _, _, _, .Proj ps _, hq, k => hq.1 k
-  | _, _, _, .Sel _ q, hq, k => classical_kinds q hq.2 k
-  | _, _, _, .Prod q₁ q₂, hq, k => by
+  | _, _, _, _, .Rel _ _, _, _ => rfl
+  | _, _, _, _, .Hole _ _, hq, _ => hq.elim
+  | _, _, _, _, .Proj ps _, hq, k => hq.1 k
+  | _, _, _, _, .Sel _ q _, hq, k => classical_kinds q hq.2 k
+  | _, _, _, _, .Prod q₁ q₂, hq, k => by
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
     · rw [Fin.append_left]
       exact classical_kinds q₁ hq.1 i
     · rw [Fin.append_right]
       exact classical_kinds q₂ hq.2 j
-  | _, _, _, .Sum q₁ q₂, hq, k => classical_kinds q₁ hq.1 k
-  | _, _, _, .Dedup _, _, _ => rfl
-  | _, _, _, .Diff _ _, _, _ => rfl
+  | _, _, _, _, .Sum q₁ q₂, hq, k => classical_kinds q₁ hq.1 k
+  | _, _, _, _, .Dedup _, _, _ => rfl
+  | _, _, _, _, .Diff _ _, _, _ => rfl
 
 /-! ## Casting terms, predicates and columns to the composite domain -/
 
@@ -279,17 +283,18 @@ deduplication `⊕`-sums the provenance per surviving tuple (R4, `ε`), and
 difference combines the unmatched branch with the matched branch's
 `α ⊖ Σβ` (R4, `∖`). -/
 def AggQueryIn.rewriting :
-    {c n : ℕ} → {κ : Fin n → ColKind} → (q : AggQueryIn T c n κ) →
+    {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → (q : AggQueryIn T c n κ l) →
     q.classical → AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)
-  | _, n, _, .Rel _ s, _ =>
+  | _, n, _, _, .Rel _ s, _ =>
     AggQueryIn.retagToRew (fun _ => rfl) (AggQueryIn.Rel (n + 1) s)
-  | _, _, _, .Empty, _ =>
+  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Empty, _ =>
     -- one column, the provenance one, over no row: a projection of the
     -- empty relation, which is empty whatever it projects
     AggQueryIn.retagToRew (fun _ => rfl)
       (AggQueryIn.Proj (fun _ : Fin 1 => ProjColIn.term (TermGIn.const 0))
         (AggQueryIn.Empty : AggQuery (T ⊕ K) 0 (ColKind.allReg 0)))
-  | _, _, _, @AggQueryIn.Proj _ _ n m κ ps q, hq =>
+  | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         by_cases hj : (j : ℕ) < m
@@ -306,10 +311,10 @@ def AggQueryIn.rewriting :
             ProjColIn.provTerm (TermGIn.provIndex (Fin.last n)
               (ColKind.rewKinds_of_not_lt (lt_irrefl n))))
         (q.rewriting hq.2))
-  | _, _, _, .Sel φ q, hq =>
+  | _, _, _, _, .Sel φ q _, hq =>
     AggQueryIn.Sel (φ.castComposite (AggQueryIn.classical_kinds q hq.2) hq.1)
       (q.rewriting hq.2)
-  | _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Prod _ _ n₁ n₂ κ₁ κ₂ _ _ q₁ q₂, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         by_cases h₁ : (j : ℕ) < n₁
@@ -339,9 +344,9 @@ def AggQueryIn.rewriting :
                 ((Fin.append_right _ _ _).trans
                   (ColKind.rewKinds_of_not_lt (lt_irrefl n₂))))))
         (AggQueryIn.Prod (q₁.rewriting hq.1) (q₂.rewriting hq.2)))
-  | _, _, _, .Sum q₁ q₂, hq =>
+  | _, _, _, _, .Sum q₁ q₂, hq =>
     AggQueryIn.Sum (q₁.rewriting hq.1) (q₂.rewriting hq.2)
-  | _, _, _, @AggQueryIn.Dedup _ _ n q, hq =>
+  | _, _, _, _, @AggQueryIn.Dedup _ _ n q, hq =>
     AggQueryIn.retagToRew
       (fun j => by
         refine Fin.addCases (fun i => ?_) (fun j' => ?_) j
@@ -356,7 +361,7 @@ def AggQueryIn.rewriting :
         (TermGIn.provIndex (Fin.last n)
           (ColKind.rewKinds_of_not_lt (lt_irrefl n)))
         (q.rewriting hq))
-  | _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
+  | _, _, _, _, @AggQueryIn.Diff _ _ n q₁ q₂, hq =>
     -- unmatched branch: rows of `q₁` whose data part is absent from `q₂`
     let keyProj : (q : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)) →
         AggQuery (T ⊕ K) n (ColKind.allReg n) := fun q =>
@@ -443,4 +448,4 @@ def AggQueryIn.rewriting :
                     (Fin.append_right _ _ _)))))
           joined₂)
     AggQueryIn.Sum branch₁ branch₂
-termination_by structural _ _ _ q _ => q
+termination_by structural _ _ _ _ q _ => q

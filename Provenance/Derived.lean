@@ -1652,7 +1652,7 @@ def values (us : List (Tuple T k)) (h : us ≠ []) :
   match us, h with
   | [], h => absurd rfl h
   | u :: rest, _ =>
-      rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v)) (rowOf u)
+      rest.foldl (fun (q : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q (rowOf v)) (rowOf u)
 
 /-- **The unit has one row, and it is the empty tuple.** Stated against
 any arity-`0` tuple, every one of them being that tuple. -/
@@ -1685,7 +1685,7 @@ any arity-`0` tuple, every one of them being that tuple. -/
 theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
     (q : AggQuery T k (ColKind.allReg k)) (D : Database T) (γ : Fin 0 → T)
     (r : Multiset (Tuple T k)) (hq : q.evaluatePlain D γ = r) :
-    (l.foldl (fun q' v => AggQueryIn.Sum q' (rowOf v)) q).evaluatePlain D γ
+    (l.foldl (fun (q' : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q' (rowOf v)) q).evaluatePlain D γ
       = r + Multiset.ofList l := by
   induction l generalizing q r with
   | nil =>
@@ -1708,7 +1708,7 @@ theorem evaluatePlain_values (us : List (Tuple T k)) (h : us ≠ [])
   match us, h with
   | [], h => exact absurd rfl h
   | u :: rest, _ =>
-    show (rest.foldl (fun q v => AggQueryIn.Sum q (rowOf v))
+    show (rest.foldl (fun (q : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q (rowOf v))
       (rowOf u)).evaluatePlain D γ = _
     rw [evaluatePlain_foldl_rowOf rest (rowOf u) D γ
       ({u} : Multiset (Tuple T k)) (evaluatePlain_rowOf u D γ)]

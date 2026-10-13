@@ -218,8 +218,8 @@ theorem Relation.groupSeqOrd_map_eq_of_listing {k n₁ : ℕ} {γ' : Type}
 
 /-- **What a window reads of its input**: its rows with the aggregate
 columns nulled, which is the listing the clause orders. -/
-noncomputable def AggQueryIn.readRows {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T) :
+noncomputable def AggQueryIn.readRows {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     Multiset (Tuple T n) :=
   (q.evaluatePlain D γ : Multiset (Tuple T n)).map (ColKind.readTuple κ)
 
@@ -240,49 +240,50 @@ rows the clause leaves tied. This is the condition under which the
 document admits a query – a condition on the rows, so a judgment about
 the query *and* the instance, which is why it is quantified here and not
 read off the syntax. -/
-def AggQueryIn.DeterminateOn : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Database T → (Fin c → T) → Prop
-  | _, _, _, .Rel _ _, _, _ => True
-  | _, _, _, .Empty, _, _ => True
-  | _, _, _, .Proj _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Sel _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Prod q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
-  | _, _, _, .Apply q₁ q₂, D, γ =>
+def AggQueryIn.DeterminateOn : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Database T → (Fin c → T) → Prop
+  | _, _, _, _, .Rel _ _, _, _ => True
+  | _, _, _, _, .Hole _ _, _, _ => True
+  | _, _, _, _, .Empty, _, _ => True
+  | _, _, _, _, .Proj _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Sel _ q _, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Prod q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
+  | _, _, _, _, .Apply q₁ q₂, D, γ =>
       q₁.DeterminateOn D γ
         ∧ Relation.allRows (q₁.evaluatePlain D γ)
             (fun u => q₂.DeterminateOn D (Fin.append u γ))
-  | _, _, _, .Sum q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
-  | _, _, _, .Dedup q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Diff q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
-  | _, _, _, .Alt _ _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Retag _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Mu _ q₀ q₁, D, γ => q₀.DeterminateOn D γ ∧ q₁.DeterminateOn D γ
-  | _, _, _, .MuSet _ q₀ q₁, D, γ =>
+  | _, _, _, _, .Sum q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
+  | _, _, _, _, .Dedup q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Diff q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
+  | _, _, _, _, .Alt _ _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Retag _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Mu _ q₀ q₁, D, γ => q₀.DeterminateOn D γ ∧ q₁.DeterminateOn D γ
+  | _, _, _, _, .MuSet _ q₀ q₁, D, γ =>
       q₀.DeterminateOn D γ ∧ q₁.DeterminateOn D γ
-  | _, _, _, .Gamma _ ts fs q _ ord, D, γ =>
+  | _, _, _, _, .Gamma _ ts fs q _ ord, D, γ =>
       (∀ j, (fs j).Symmetric
           ∨ Relation.rowsAgree (q.evaluatePlain D γ) ord.peers
               (fun y => (ts j).eval y γ))
         ∧ q.DeterminateOn D γ
-  | _, _, _, .GammaScalar ts fs q ord, D, γ =>
+  | _, _, _, _, .GammaScalar ts fs q ord, D, γ =>
       (∀ j, (fs j).Symmetric
           ∨ Relation.rowsAgree (q.evaluatePlain D γ) ord.peers
               (fun y => (ts j).eval y γ))
         ∧ q.DeterminateOn D γ
-  | _, _, _, .GammaNest _ _ _ _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .GammaTok _ _ ts fs _ q _, D, γ =>
+  | _, _, _, _, .GammaNest _ _ _ _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .GammaTok _ _ ts fs _ q _, D, γ =>
       (∀ j, (fs j).Symmetric
           ∨ Relation.rowsAgree (q.evaluatePlain D γ) (fun _ _ => true)
               (fun y => (ts j).eval y γ))
         ∧ q.DeterminateOn D γ
-  | _, _, _, .ProvSum _ _ _ q, D, γ => q.DeterminateOn D γ
-  | _, _, _, .Win _ O o _ t f q _ dist _, D, γ =>
+  | _, _, _, _, .ProvSum _ _ _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Win _ O o _ t f q _ dist _, D, γ =>
       ((if dist then f.distinct else f).Symmetric
           ∨ Relation.rowsAgree (q.readRows D γ)
               (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
               (fun y => t.eval y γ))
         ∧ q.DeterminateOn D γ
-  | _, _, _, .WinExpr _ O o _ ts fs _ q _, D, γ =>
+  | _, _, _, _, .WinExpr _ O o _ ts fs _ q _, D, γ =>
       (∀ l, (fs l).Symmetric
           ∨ Relation.rowsAgree (q.evaluatePlain D γ)
               (fun y z => o.peer (Tuple.key O y) (Tuple.key O z))
@@ -293,26 +294,26 @@ open Classical in
 /-- **The evaluator that refuses**: the plain answer where the query's
 aggregates cannot tell their listings apart on this instance, and
 nothing where one of them can. -/
-noncomputable def AggQueryIn.evaluateChecked {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T) :
+noncomputable def AggQueryIn.evaluateChecked {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     Option (Relation T n) :=
   if q.DeterminateOn D γ then some (q.evaluatePlain D γ) else none
 
-theorem AggQueryIn.evaluateChecked_eq_some {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T)
+theorem AggQueryIn.evaluateChecked_eq_some {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
     (h : q.DeterminateOn D γ) :
     q.evaluateChecked D γ = some (q.evaluatePlain D γ) := by
   unfold AggQueryIn.evaluateChecked
   exact ite_eq_left h
 
-theorem AggQueryIn.evaluateChecked_eq_none {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T)
+theorem AggQueryIn.evaluateChecked_eq_none {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T)
     (h : ¬ q.DeterminateOn D γ) : q.evaluateChecked D γ = none := by
   unfold AggQueryIn.evaluateChecked
   exact ite_eq_right h
 
-theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T) :
+theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.evaluateChecked D γ).isSome = true ↔ q.DeterminateOn D γ := by
   by_cases h : q.DeterminateOn D γ
   · rw [AggQueryIn.evaluateChecked_eq_some q D γ h]

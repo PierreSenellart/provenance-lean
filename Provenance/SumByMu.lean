@@ -48,40 +48,42 @@ variable {T : Type} [ValueType T]
 
 /-- **Every name a query mentions**, the names its recursions bind
 included: what a fresh name has to avoid. -/
-def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Finset String
-  | _, _, _, .Rel _ s => {s}
-  | _, _, _, .Empty => ∅
-  | _, _, _, .Proj _ q => q.names
-  | _, _, _, .Sel _ q => q.names
-  | _, _, _, .Prod q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, .Apply q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, .Sum q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, .Dedup q => q.names
-  | _, _, _, .Diff q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, .Alt _ _ q => q.names
-  | _, _, _, .Retag _ q => q.names
-  | _, _, _, .Mu s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
-  | _, _, _, .MuSet s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
-  | _, _, _, .Gamma _ _ _ q _ _ => q.names
-  | _, _, _, .GammaScalar _ _ q _ => q.names
-  | _, _, _, .GammaNest _ _ _ _ q => q.names
-  | _, _, _, .ProvSum _ _ _ q => q.names
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.names
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.names
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.names
+def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Finset String
+  | _, _, _, _, .Rel _ s => {s}
+  | _, _, _, _, .Hole _ s => {s}
+  | _, _, _, _, .Empty => ∅
+  | _, _, _, _, .Proj _ q => q.names
+  | _, _, _, _, .Sel _ q _ => q.names
+  | _, _, _, _, .Prod q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Apply q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Dedup q => q.names
+  | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.names q₂.names
+  | _, _, _, _, .Alt _ _ q => q.names
+  | _, _, _, _, .Retag _ q => q.names
+  | _, _, _, _, .Mu s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
+  | _, _, _, _, .MuSet s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.names
+  | _, _, _, _, .GammaScalar _ _ q _ => q.names
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.names
+  | _, _, _, _, .ProvSum _ _ _ q => q.names
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.names
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.names
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.names
 
 omit [ValueType T] in
 /-- A name the query does not mention is not mentioned. -/
 theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       s ∉ q.names → q.noMention s := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s' => exact fun h h' => h (h' ▸ Finset.mem_singleton_self s')
+  | Hole n s' => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun h => ih h
-  | Sel φ q ih => exact fun h => ih h
+  | Sel φ q _ ih => exact fun h => ih h
   | Prod q₁ q₂ ih₁ ih₂ =>
     exact fun h => ⟨ih₁ (fun h' => h (Finset.mem_union_left _ h')),
       ih₂ (fun h' => h (Finset.mem_union_right _ h'))⟩
@@ -125,18 +127,23 @@ theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' :
 omit [ValueType T] in
 /-- Declaring a name the query does not mention keeps it well-formed. -/
 theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {sch : Schema},
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {sch : Schema},
       q.overSchema sch → s ∉ q.names → q.overSchema (sch.update s m) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s' =>
     intro sch h hn
     have hne : s' ≠ s := fun h' => hn (h' ▸ Finset.mem_singleton_self s')
     show (if s' = s then some m else sch s') = some n
     rw [ite_eq_right hne]; exact h
+  | Hole n s' =>
+    intro sch h hn
+    have hne : s' ≠ s := fun h' => hn (h' ▸ Finset.mem_singleton_self s')
+    show (if s' = s then some m else sch s') = some n
+    rw [ite_eq_right hne]; exact h
   | Empty => exact fun _ _ => trivial
   | Proj ps q ih => exact fun h hn => ih h hn
-  | Sel φ q ih => exact fun h hn => ih h hn
+  | Sel φ q _ ih => exact fun h hn => ih h hn
   | Prod q₁ q₂ ih₁ ih₂ =>
     exact fun h hn => ⟨ih₁ h.1 (fun h' => hn (Finset.mem_union_left _ h')),
       ih₂ h.2 (fun h' => hn (Finset.mem_union_right _ h'))⟩
@@ -156,20 +163,20 @@ theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
     intro sch h hn
     have hne : s ≠ s' := fun h' => hn (by rw [h']; exact Finset.mem_insert_self _ _)
     refine ⟨?_, ih₀ h.2.1 (fun h' => hn (Finset.mem_insert_of_mem
-      (Finset.mem_union_left _ h'))), ?_⟩
+      (Finset.mem_union_left _ h'))), h.2.2.1, ?_⟩
     · show (if s' = s then some m else sch s') = none
       rw [ite_eq_right hne.symm]; exact h.1
     · rw [Schema.update_comm sch hne]
-      exact ih₁ h.2.2 (fun h' => hn (Finset.mem_insert_of_mem (Finset.mem_union_right _ h')))
+      exact ih₁ h.2.2.2 (fun h' => hn (Finset.mem_insert_of_mem (Finset.mem_union_right _ h')))
   | MuSet s' q₀ q₁ ih₀ ih₁ =>
     intro sch h hn
     have hne : s ≠ s' := fun h' => hn (by rw [h']; exact Finset.mem_insert_self _ _)
     refine ⟨?_, ih₀ h.2.1 (fun h' => hn (Finset.mem_insert_of_mem
-      (Finset.mem_union_left _ h'))), ?_⟩
+      (Finset.mem_union_left _ h'))), h.2.2.1, ?_⟩
     · show (if s' = s then some m else sch s') = none
       rw [ite_eq_right hne.symm]; exact h.1
     · rw [Schema.update_comm sch hne]
-      exact ih₁ h.2.2 (fun h' => hn (Finset.mem_insert_of_mem (Finset.mem_union_right _ h')))
+      exact ih₁ h.2.2.2 (fun h' => hn (Finset.mem_insert_of_mem (Finset.mem_union_right _ h')))
   | Gamma is ts fs q keep ord ih => exact fun h hn => ih h hn
   | GammaScalar ts fs q ord ih => exact fun h hn => ih h hn
   | GammaNest is his p f q ih => exact fun h hn => ih h hn
@@ -181,66 +188,56 @@ theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
 /-! ### What a kind cast keeps -/
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.names_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) : (q.castKind h).names = q.names := by
+@[simp] theorem AggQueryIn.names_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) : (q.castKind h).names = q.names := by
   cases h; rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.recRestricted_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) :
-    (q.castKind h).recRestricted ↔ q.recRestricted := by
+@[simp] theorem AggQueryIn.hygienic_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).hygienic ↔ q.hygienic := by
   cases h; exact Iff.rfl
 
-omit [ValueType T] in
-@[simp] theorem AggQueryIn.noMention_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) (s : String) :
-    (q.castKind h).noMention s ↔ q.noMention s := by
-  cases h; exact Iff.rfl
-
-@[simp] theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) (D : Database T) (γ : Fin c → T) :
+@[simp] theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.castKind h).SettlesAt D γ ↔ q.SettlesAt D γ := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.recOnce_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) (s : String) :
-    (q.castKind h).recOnce s ↔ q.recOnce s := by
-  cases h; exact Iff.rfl
-
-omit [ValueType T] in
-/-- A term reading the recursive relation names it. -/
-theorem AggQueryIn.mem_names_of_recOnce {s : String} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.recOnce s → s ∈ q.names := by
-  intro c n κ q
+/-- A term with a hole names the hole's relation. -/
+theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      (s, m) ∈ l → s ∈ q.names := by
+  intro c n κ l q
   induction q with
-  | Rel n s' => exact fun h => h ▸ Finset.mem_singleton_self s'
-  | Empty => exact fun h => h.elim
+  | Rel n s' => exact fun h => by simp at h
+  | Hole n s' =>
+    intro h
+    obtain ⟨rfl, -⟩ := Prod.mk.inj (List.mem_singleton.mp h)
+    exact Finset.mem_singleton_self _
+  | Empty => exact fun h => by simp at h
   | Proj ps q ih => exact ih
-  | Sel φ q ih => exact fun h => ih h.2
+  | Sel φ q _ ih => exact ih
   | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h, -⟩ | ⟨-, h⟩)
-    · exact Finset.mem_union_left _ (ih₁ h)
-    · exact Finset.mem_union_right _ (ih₂ h)
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => Finset.mem_union_left _ (ih₁ h.1)
+    exact fun h => (List.mem_append.mp h).elim
+      (fun h => Finset.mem_union_left _ (ih₁ h)) (fun h => Finset.mem_union_right _ (ih₂ h))
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => Finset.mem_union_left _ (ih₁ h)
   | Sum q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h, -⟩ | ⟨-, h⟩)
-    · exact Finset.mem_union_left _ (ih₁ h)
-    · exact Finset.mem_union_right _ (ih₂ h)
-  | Dedup q ih => exact fun h => h.elim
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
+    exact fun h => (List.mem_append.mp h).elim
+      (fun h => Finset.mem_union_left _ (ih₁ h)) (fun h => Finset.mem_union_right _ (ih₂ h))
+  | Dedup q ih => exact fun h => by simp at h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => by simp at h
   | Alt k hk q ih => exact ih
   | Retag hk q ih => exact ih
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | Gamma is ts fs q keep ord ih => exact fun h => h.elim
-  | GammaScalar ts fs q ord ih => exact fun h => h.elim
-  | GammaNest is his p f q ih => exact fun h => h.elim
-  | ProvSum is his t q ih => exact fun h => h.elim
-  | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
-  | Win P O o w t f q hrr dist keep ih => exact fun h => h.elim
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => by simp at h
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => by simp at h
+  | Gamma is ts fs q keep ord ih => exact fun h => by simp at h
+  | GammaScalar ts fs q ord ih => exact fun h => by simp at h
+  | GammaNest is his p f q ih => exact fun h => by simp at h
+  | ProvSum is his t q ih => exact fun h => by simp at h
+  | GammaTok is his ts fs a q keep ih => exact fun h => by simp at h
+  | Win P O o w t f q hrr dist keep ih => exact fun h => by simp at h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => by simp at h
 
 /-! ## The restriction, the signature and the names, through a substitution -/
 
@@ -290,17 +287,18 @@ theorem GenPredIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fi
 omit [ValueType T] in
 /-- A substitution changes no name. -/
 theorem AggQueryIn.names_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).names = q.names := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ => rfl
+  | Hole n s => exact fun θ => rfl
   | Empty => exact fun θ => rfl
   | Proj ps q ih =>
     intro d θ
     rw [AggQueryIn.substMap, AggQueryIn.names_castKind]
     exact ih θ
-  | Sel φ q ih => exact fun θ => ih θ
+  | Sel φ q _ ih => exact fun θ => ih θ
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro d θ
     show Union.union _ _ = Union.union _ _
@@ -337,87 +335,20 @@ theorem AggQueryIn.names_substMap :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
 
 omit [ValueType T] in
-/-- Nor what is mentioned. -/
-theorem AggQueryIn.noMention_substMap {s : String} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
-      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).noMention s ↔ q.noMention s := by
-  intro c n κ q
-  induction q with
-  | Rel n s' => exact fun θ => Iff.rfl
-  | Empty => exact fun θ => Iff.rfl
-  | Proj ps q ih =>
-    intro d θ
-    rw [AggQueryIn.substMap, AggQueryIn.noMention_castKind]
-    exact ih θ
-  | Sel φ q ih => exact fun θ => ih θ
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Dedup q ih => exact fun θ => ih θ
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
-  | Retag hk q ih => exact fun θ => ih θ
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
-  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
-  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
-  | GammaNest is his p fn q ih => exact fun θ => ih θ
-  | ProvSum is his t q ih => exact fun θ => ih θ
-  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
-  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
-
-omit [ValueType T] in
-/-- Nor where the recursive relation is read. -/
-theorem AggQueryIn.recOnce_substMap {s : String} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
-      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recOnce s ↔ q.recOnce s := by
-  intro c n κ q
-  induction q with
-  | Rel n s' => exact fun θ => Iff.rfl
-  | Empty => exact fun θ => Iff.rfl
-  | Proj ps q ih =>
-    intro d θ
-    rw [AggQueryIn.substMap, AggQueryIn.recOnce_castKind]
-    exact ih θ
-  | Sel φ q ih =>
-    exact fun θ => and_congr (by rw [GenPredIn.hasAggAtom_substMap]) (ih θ)
-  | Prod q₁ q₂ ih₁ ih₂ =>
-    exact fun θ => or_congr (and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ θ))
-      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ))
-  | Apply q₁ q₂ ih₁ ih₂ =>
-    exact fun θ => and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ _)
-  | Sum q₁ q₂ ih₁ ih₂ =>
-    exact fun θ => or_congr (and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ θ))
-      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ))
-  | Dedup q ih => exact fun θ => Iff.rfl
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => Iff.rfl
-  | Alt k hk q ih => exact fun θ => ih θ
-  | Retag hk q ih => exact fun θ => ih θ
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
-  | Gamma is ts fs q keep ord ih => exact fun θ => Iff.rfl
-  | GammaScalar ts fs q ord ih => exact fun θ => Iff.rfl
-  | GammaNest is his p fn q ih => exact fun θ => Iff.rfl
-  | ProvSum is his t q ih => exact fun θ => Iff.rfl
-  | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
-  | Win P O o w t fw q hrr dist keep ih => exact fun θ => Iff.rfl
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => Iff.rfl
-
-omit [ValueType T] in
-/-- Nor whether the recursions are restricted. -/
-theorem AggQueryIn.recRestricted_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
-      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recRestricted ↔ q.recRestricted := by
-  intro c n κ q
+/-- Nor whether the recursions are hygienic. -/
+theorem AggQueryIn.hygienic_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).hygienic ↔ q.hygienic := by
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
+  | Hole n s => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
-    rw [AggQueryIn.substMap, AggQueryIn.recRestricted_castKind]
+    rw [AggQueryIn.substMap, AggQueryIn.hygienic_castKind]
     exact ih θ
-  | Sel φ q ih => exact fun θ => ih θ
+  | Sel φ q _ ih => exact fun θ => ih θ
   | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
@@ -427,10 +358,10 @@ theorem AggQueryIn.recRestricted_substMap :
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun θ => and_congr (AggQueryIn.noMention_substMap q₀ θ)
-      (and_congr (AggQueryIn.recOnce_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
+      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     exact fun θ => and_congr (AggQueryIn.noMention_substMap q₀ θ)
-      (and_congr (AggQueryIn.recOnce_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
+      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
   | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
   | GammaScalar ts fs q ord ih => exact fun θ => ih θ
   | GammaNest is his p fn q ih => exact fun θ => ih θ
@@ -442,17 +373,18 @@ theorem AggQueryIn.recRestricted_substMap :
 /-- Nor the signature: a substitution puts a constant or a column where
 an outer column was. -/
 theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).inSig Θ ↔ q.inSig Θ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
+  | Hole n s => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
     rw [AggQueryIn.substMap, AggQueryIn.inSig_castKind]
     exact and_congr (forall_congr' fun j => by rw [ProjColIn.noFun_substMap]) (ih θ)
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     exact fun θ => and_congr (by rw [GenPredIn.noFun_substMap]) (ih θ)
   | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
@@ -482,18 +414,19 @@ theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
 /-- **A substituted query is defined where the query is**, under the
 valuation the substitution induces. -/
 theorem AggQueryIn.settlesAt_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d) (D : Database T) (γ : Fin d → T),
       (q.substMap θ).SettlesAt D γ ↔ q.SettlesAt D (substVal θ γ) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ D γ => Iff.rfl
+  | Hole n s => exact fun θ D γ => Iff.rfl
   | Empty => exact fun θ D γ => Iff.rfl
   | Proj ps q ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap, AggQueryIn.settlesAt_castKind]
     exact ih θ D γ
-  | Sel φ q ih => exact fun θ D γ => ih θ D γ
+  | Sel φ q _ ih => exact fun θ D γ => ih θ D γ
   | Prod q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro d θ D γ
@@ -526,17 +459,18 @@ theorem AggQueryIn.settlesAt_substMap :
 
 /-- Nor which windows are derivable. -/
 theorem AggQueryIn.winsDerivable_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).WinsDerivable ↔ q.WinsDerivable := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
+  | Hole n s => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
     rw [AggQueryIn.substMap, AggQueryIn.winsDerivable_castKind]
     exact ih θ
-  | Sel φ q ih => exact fun θ => ih θ
+  | Sel φ q _ ih => exact fun θ => ih θ
   | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
@@ -676,9 +610,9 @@ reads no column of the left – which is what a product is, and keeps the
 construction over the classes of a basis holding the apply and not
 `×`. -/
 def phaseBody (s : String) (p₁ : T) (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
-    AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) :=
+    AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) [(s, k + 1)] :=
   (AggQueryIn.Proj (roundCols p₁)
-    (AggQueryIn.Sel sameTag (AggQueryIn.Apply (AggQueryIn.Rel (k + 1) s)
+    (AggQueryIn.Sel sameTag (AggQueryIn.Apply (AggQueryIn.Hole (k + 1) s)
       (Z.substMap (applyOuter T c (k + 1)))))).castKind
     (roundCols_kind p₁)
 
@@ -748,10 +682,10 @@ theorem evaluatePlain_phaseBody (s : String) (p₀ p₁ : T)
   rw [phaseBody, AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u j => (roundCols p₁ j).evalPlain u γ)
     (Multiset.filter (fun u => sameTag.holdsPlain u γ)
-      ((AggQueryIn.Apply (AggQueryIn.Rel (k + 1) s)
+      ((AggQueryIn.Apply (AggQueryIn.Hole (k + 1) s)
         (Z.substMap (fun j : Fin c => Sum.inr (Fin.natAdd (k + 1) j)))).evaluatePlain
           (D.assign s X) γ)) = _
-  rw [AggQueryIn.apply_plainEquiv_prod (AggQueryIn.Rel (k + 1) s) Z (D.assign s X) γ]
+  rw [AggQueryIn.apply_plainEquiv_prod (AggQueryIn.Hole (k + 1) s) Z (D.assign s X) γ]
   simp only [AggQueryIn.evaluatePlain]
   rw [AggQueryIn.evaluatePlain_assign_of_noMention X Z hZ D γ, hZv]
   simp only [Database.find_assign, Relation.hMul_eq_bind, Multiset.filter_bind,
@@ -853,7 +787,8 @@ theorem settlesAt_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
     refine (⟨trivial, fun u _ => ?_⟩ : True ∧ _)
     rw [AggQueryIn.settlesAt_substMap, substVal_applyOuter]
     exact AggQueryIn.settlesAt_of_noMention Z hZ
-      (fun _k s' hs' => (Database.find_assign_of_ne s s' _ D (fun hc => hs' hc.2)).symm) γ hZs
+      (fun _k s' hs' => (Database.find_assign_of_ne s s' _ D
+        (fun hc => hs'.elim (fun h => h hc.2) (fun h => by simp at h))).symm) γ hZs
 
 /-- The driver names no relation. -/
 theorem noMention_driver (p₀ : T) (s : String) : (driver (c := c) (k := k) p₀).noMention s := by
@@ -871,9 +806,9 @@ theorem noMention_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) (s :
 omit [ValueType T] in
 theorem noMention_phaseBody (s' : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) {s : String}
-    (hs : s' ≠ s) (hZ : Z.noMention s) : (phaseBody s' p₁ Z).noMention s := by
+    (hZ : Z.noMention s) : (phaseBody s' p₁ Z).noMention s := by
   rw [phaseBody, AggQueryIn.noMention_castKind]
-  exact ⟨hs, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
+  exact ⟨trivial, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
 
 /-- **The construction is the union**: its value is `q₁ ⊎ q₂` on every
 instance and context, the two bound names being fresh. -/
@@ -1010,48 +945,40 @@ theorem usesOnly_sumByMu {S : Set OpKind} (hS : sumMuOps ⊆ S) (s₁ s₂ : Str
       usesOnly_phaseBody hS _ _ _ (usesOnly_withTag hS 0 q₁ h₁)⟩,
     usesOnly_phaseBody hS _ _ _ (usesOnly_withTag hS 0 q₂ h₂)⟩
 
-theorem recRestricted_driver (p₀ : T) : (driver (c := c) (k := k) p₀).recRestricted := by
-  rw [driver, AggQueryIn.recRestricted_castKind]
-  show (unitC : AggQueryIn T c 0 _).recRestricted
-  rw [unitC, AggQueryIn.recRestricted_castKind]
+theorem hygienic_driver (p₀ : T) : (driver (c := c) (k := k) p₀).hygienic := by
+  rw [driver, AggQueryIn.hygienic_castKind]
+  show (unitC : AggQueryIn T c 0 _).hygienic
+  rw [unitC, AggQueryIn.hygienic_castKind]
   trivial
 
 omit [ValueType T] in
-theorem recRestricted_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
-    (withTag t q).recRestricted ↔ q.recRestricted := by
-  rw [withTag, AggQueryIn.recRestricted_castKind]
+theorem hygienic_withTag (t : T) (q : AggQueryIn T c k (ColKind.allReg k)) :
+    (withTag t q).hygienic ↔ q.hygienic := by
+  rw [withTag, AggQueryIn.hygienic_castKind]
   exact Iff.rfl
 
 omit [ValueType T] in
-theorem recRestricted_phaseBody (s : String) (p₁ : T)
+theorem hygienic_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
-    (phaseBody s p₁ Z).recRestricted ↔ Z.recRestricted := by
-  rw [phaseBody, AggQueryIn.recRestricted_castKind]
-  exact ⟨fun h => (AggQueryIn.recRestricted_substMap Z _).mp h.2,
-    fun h => ⟨trivial, (AggQueryIn.recRestricted_substMap Z _).mpr h⟩⟩
+    (phaseBody s p₁ Z).hygienic ↔ Z.hygienic := by
+  rw [phaseBody, AggQueryIn.hygienic_castKind]
+  exact ⟨fun h => (AggQueryIn.hygienic_substMap Z _).mp h.2,
+    fun h => ⟨trivial, (AggQueryIn.hygienic_substMap Z _).mpr h⟩⟩
 
-omit [ValueType T] in
-/-- A round reads its recursive relation once, under a projection, a
-selection on regular columns and a product. -/
-theorem recOnce_phaseBody (s : String) (p₁ : T)
-    (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s) :
-    (phaseBody s p₁ Z).recOnce s := by
-  rw [phaseBody, AggQueryIn.recOnce_castKind]
-  exact ⟨rfl, rfl, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
-
-/-- **The construction's recursions are restricted**, given fresh names. -/
-theorem recRestricted_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
-    (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂) (h₂₂ : q₂.noMention s₂) (h₁₂ : s₁ ≠ s₂)
-    (hr₁ : q₁.recRestricted) (hr₂ : q₂.recRestricted) :
-    (sumByMu s₁ s₂ q₁ q₂).recRestricted := by
-  rw [sumByMu, AggQueryIn.recRestricted_castKind]
+/-- **The construction's recursions are hygienic**, given fresh names:
+neither operand mentions the name bound over it. -/
+theorem hygienic_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
+    (h₁ : q₁.noMention s₁) (h₂₁ : q₁.noMention s₂) (h₂₂ : q₂.noMention s₂)
+    (hr₁ : q₁.hygienic) (hr₂ : q₂.hygienic) :
+    (sumByMu s₁ s₂ q₁ q₂).hygienic := by
+  rw [sumByMu, AggQueryIn.hygienic_castKind]
   exact ⟨⟨noMention_driver 0 s₂,
-      noMention_phaseBody s₁ _ _ h₁₂ ((noMention_withTag 0 q₁ s₂).mpr h₂₁)⟩,
-    recOnce_phaseBody s₂ _ _ ((noMention_withTag 0 q₂ s₂).mpr h₂₂),
-    ⟨noMention_driver 0 s₁, recOnce_phaseBody s₁ _ _ ((noMention_withTag 0 q₁ s₁).mpr h₁),
-      recRestricted_driver 0, (recRestricted_phaseBody _ _ _).mpr
-        ((recRestricted_withTag 0 q₁).mpr hr₁)⟩,
-    (recRestricted_phaseBody _ _ _).mpr ((recRestricted_withTag 0 q₂).mpr hr₂)⟩
+      noMention_phaseBody s₁ _ _ ((noMention_withTag 0 q₁ s₂).mpr h₂₁)⟩,
+    noMention_phaseBody s₂ _ _ ((noMention_withTag 0 q₂ s₂).mpr h₂₂),
+    ⟨noMention_driver 0 s₁, noMention_phaseBody s₁ _ _ ((noMention_withTag 0 q₁ s₁).mpr h₁),
+      hygienic_driver 0, (hygienic_phaseBody _ _ _).mpr
+        ((hygienic_withTag 0 q₁).mpr hr₁)⟩,
+    (hygienic_phaseBody _ _ _).mpr ((hygienic_withTag 0 q₂).mpr hr₂)⟩
 
 theorem inSig_unitC (Θ : Set (SeqAggFunc T)) : (unitC : AggQueryIn T c 0 _).inSig Θ := by
   rw [unitC, AggQueryIn.inSig_castKind]
@@ -1150,9 +1077,13 @@ theorem overSchema_sumByMu (sch : Schema) (s₁ s₂ : String)
     (sumByMu s₁ s₂ q₁ q₂).overSchema sch := by
   rw [sumByMu, AggQueryIn.overSchema_castKind]
   exact ⟨hs₂, ⟨hs₁, overSchema_driver sch 0,
+      noMention_phaseBody s₁ _ _ ((noMention_withTag 0 q₁ s₁).mpr
+        (AggQueryIn.noMention_of_not_mem_names q₁ hn₁)),
       overSchema_phaseBody (Schema.update_self sch s₁ (k + 1)) _ _
         ((overSchema_withTag _ 0 q₁).mpr
           (AggQueryIn.overSchema_update_of_not_mem_names q₁ h₁ hn₁))⟩,
+    noMention_phaseBody s₂ _ _ ((noMention_withTag 0 q₂ s₂).mpr
+      (AggQueryIn.noMention_of_not_mem_names q₂ hn₂)),
     overSchema_phaseBody (Schema.update_self sch s₂ (k + 1)) _ _
       ((overSchema_withTag _ 0 q₂).mpr
         (AggQueryIn.overSchema_update_of_not_mem_names q₂ h₂ hn₂))⟩
@@ -1172,12 +1103,12 @@ theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKin
 /-- The construction names nothing its operands do not, its two bound
 names aside. -/
 theorem noMention_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
-    {s : String} (hs₁ : s ≠ s₁) (hs₂ : s ≠ s₂) (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
+    {s : String} (h₁ : q₁.noMention s) (h₂ : q₂.noMention s) :
     (sumByMu s₁ s₂ q₁ q₂).noMention s := by
   rw [sumByMu, AggQueryIn.noMention_castKind]
-  exact ⟨⟨noMention_driver 0 s, noMention_phaseBody s₁ _ _ hs₁.symm
+  exact ⟨⟨noMention_driver 0 s, noMention_phaseBody s₁ _ _
       ((noMention_withTag 0 q₁ s).mpr h₁)⟩,
-    noMention_phaseBody s₂ _ _ hs₂.symm ((noMention_withTag 0 q₂ s).mpr h₂)⟩
+    noMention_phaseBody s₂ _ _ ((noMention_withTag 0 q₂ s).mpr h₂)⟩
 
 end AggQueryIn
 
@@ -1221,8 +1152,8 @@ theorem usesOnly_emptyRel {S : Set OpKind} (hS : sumMuOps ⊆ S) (n : ℕ) :
   rw [emptyRel, AggQueryIn.usesOnly_castKind]
   exact ⟨⟨hS (by simp [sumMuOps]), fun _ => rfl⟩, hS (by simp [sumMuOps])⟩
 
-theorem recRestricted_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).recRestricted := by
-  rw [emptyRel, AggQueryIn.recRestricted_castKind]
+theorem hygienic_emptyRel (n : ℕ) : (emptyRel (T := T) (c := c) n).hygienic := by
+  rw [emptyRel, AggQueryIn.hygienic_castKind]
   trivial
 
 theorem inSig_emptyRel (Θ : Set (SeqAggFunc T)) (n : ℕ) :
@@ -1291,7 +1222,9 @@ the recursive name: where it settles, `qC` is empty – it would be in
 every round – so `q₁'` is the body at every round, and the recursion
 over `q₁'` and a base agreeing with its own is the same recursion. -/
 theorem AggQueryIn.mu_of_split {c n : ℕ} (s : String)
-    (q₀ q₀' q₁ q₁' qC : AggQueryIn T c n (ColKind.allReg n)) (hC : qC.noMention s)
+    (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (qC : AggQueryIn T c n (ColKind.allReg n)) (hC : qC.noMention s)
     (D : Database T) (γ : Fin c → T) (hset : (AggQueryIn.Mu s q₀ q₁).SettlesAt D γ)
     (h₀ : q₀'.SettlesAt D γ ∧ q₀.evaluatePlain D γ = q₀'.evaluatePlain D γ)
     (h₁ : ∀ D' : Database T, q₁.SettlesAt D' γ → q₁'.SettlesAt D' γ ∧ qC.SettlesAt D' γ
@@ -1345,7 +1278,9 @@ moves into the base – a round is the duplicate elimination of
 `q₀ ⊎ q₁' ⊎ qC` either way – so the recursion over a base computing
 `q₀ ⊎ qC` and the body `q₁'` is the same recursion. -/
 theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
-    (q₀ q₀' q₁ q₁' qC base' : AggQueryIn T c n (ColKind.allReg n))
+    (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (qC base' : AggQueryIn T c n (ColKind.allReg n)) (hC : qC.noMention s)
     (D : Database T) (γ : Fin c → T) (hset : (AggQueryIn.MuSet s q₀ q₁).SettlesAt D γ)
     (h₀ : ∀ D' : Database T, q₀.SettlesAt D' γ →
       q₀'.SettlesAt D' γ ∧ q₀.evaluatePlain D' γ = q₀'.evaluatePlain D' γ)
@@ -1359,34 +1294,34 @@ theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
     (AggQueryIn.MuSet s base' q₁').SettlesAt D γ
       ∧ (AggQueryIn.MuSet s q₀ q₁).evaluatePlain D γ
           = (AggQueryIn.MuSet s base' q₁').evaluatePlain D γ := by
-  obtain ⟨hs, hk⟩ := hset
+  obtain ⟨hs₀, hs, hk⟩ := hset
+  have hCD : qC.SettlesAt D γ :=
+    AggQueryIn.settlesAt_assign_of_noMention _ qC hC D γ (h₁ _ (hk 0)).2.1
+  have hb := hbase D (h₀ D hs₀).1 hCD
   have hround : ∀ j,
-      muIter (fun X : Multiset (Tuple T n) => (q₀.evaluatePlain (D.assign s X) γ
+      muIter (fun X : Multiset (Tuple T n) => (q₀.evaluatePlain D γ
         + q₁.evaluatePlain (D.assign s X) γ).dedup) j
-      = muIter (fun X : Multiset (Tuple T n) => (base'.evaluatePlain (D.assign s X) γ
+      = muIter (fun X : Multiset (Tuple T n) => (base'.evaluatePlain D γ
         + q₁'.evaluatePlain (D.assign s X) γ).dedup) j := by
     intro j
     induction j with
     | zero => rfl
     | succ j ih =>
       rw [muIter, muIter, ← ih]
-      have hj := hk j
-      have e₁ := (h₁ _ hj.2).2.2
-      have e₀ := (h₀ _ hj.1).2
-      have eb := (hbase _ (h₀ _ hj.1).1 (h₁ _ hj.2).2.1).2
+      have e₁ := (h₁ _ (hk j)).2.2
       show Multiset.dedup (_ + _) = Multiset.dedup (_ + _)
-      rw [e₁, e₀, eb]
+      rw [e₁, (h₀ D hs₀).2, hb.2, AggQueryIn.evaluatePlain_assign_of_noMention _ qC hC D γ]
       have hac : ∀ a b c : Multiset (Tuple T n), a + (b + c) = (a + c) + b :=
         fun a b c => by ac_rfl
       exact congrArg Multiset.dedup (hac _ _ _)
-  refine ⟨⟨?_, fun j => ?_⟩, ?_⟩
+  refine ⟨⟨hb.1, ?_, fun j => ?_⟩, ?_⟩
   · obtain ⟨j, hj⟩ := hs
     refine ⟨j, ?_⟩
     rw [← muIter_eq_iterate, ← muIter_eq_iterate, ← hround, ← hround, muIter_eq_iterate,
       muIter_eq_iterate]
     exact hj
   · rw [← hround]
-    exact ⟨(hbase _ (h₀ _ (hk j).1).1 (h₁ _ (hk j).2).2.1).1, (h₁ _ (hk j).2).1⟩
+    exact (h₁ _ (hk j)).1
   · simp only [AggQueryIn.evaluatePlain]
     exact muFix_congr_of_iterate hs hround
 
@@ -1396,47 +1331,49 @@ theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
 (`AggQueryIn.Mu` is), so this is what the construction needs of a `⊎`
 it replaces; it is what the re-typing produces, every operator of its
 output being over all-regular children. -/
-def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.sumsAllReg
-  | _, _, _, .Sel _ q => q.sumsAllReg
-  | _, _, _, .Prod q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
-  | _, _, _, .Apply q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
-  | _, n, κ, .Sum q₁ q₂ => κ = ColKind.allReg n ∧ q₁.sumsAllReg ∧ q₂.sumsAllReg
-  | _, _, _, .Dedup q => q.sumsAllReg
-  | _, _, _, .Diff q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
-  | _, _, _, .Alt _ _ q => q.sumsAllReg
-  | _, _, _, .Retag _ q => q.sumsAllReg
-  | _, _, _, .Mu _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
-  | _, _, _, .Gamma _ _ _ q _ _ => q.sumsAllReg
-  | _, _, _, .GammaScalar _ _ q _ => q.sumsAllReg
-  | _, _, _, .GammaNest _ _ _ _ q => q.sumsAllReg
-  | _, _, _, .ProvSum _ _ _ q => q.sumsAllReg
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.sumsAllReg
-  | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.sumsAllReg
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sumsAllReg
+def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.sumsAllReg
+  | _, _, _, _, .Sel _ q _ => q.sumsAllReg
+  | _, _, _, _, .Prod q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
+  | _, _, _, _, .Apply q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
+  | _, n, κ, _, .Sum q₁ q₂ => κ = ColKind.allReg n ∧ q₁.sumsAllReg ∧ q₂.sumsAllReg
+  | _, _, _, _, .Dedup q => q.sumsAllReg
+  | _, _, _, _, .Diff q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
+  | _, _, _, _, .Alt _ _ q => q.sumsAllReg
+  | _, _, _, _, .Retag _ q => q.sumsAllReg
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.sumsAllReg
+  | _, _, _, _, .GammaScalar _ _ q _ => q.sumsAllReg
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.sumsAllReg
+  | _, _, _, _, .ProvSum _ _ _ q => q.sumsAllReg
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.sumsAllReg
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.sumsAllReg
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sumsAllReg
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    (h : κ = κ') (q : AggQueryIn T c n κ) : (q.castKind h).sumsAllReg ↔ q.sumsAllReg := by
+@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+    (h : κ = κ') (q : AggQueryIn T c n κ l) : (q.castKind h).sumsAllReg ↔ q.sumsAllReg := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
 /-- A substitution changes no `⊎`. -/
 theorem AggQueryIn.sumsAllReg_substMap :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
       (θ : Fin c → T ⊕ Fin d), (q.substMap θ).sumsAllReg ↔ q.sumsAllReg := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
+  | Hole n s => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
     rw [AggQueryIn.substMap, AggQueryIn.sumsAllReg_castKind]
     exact ih θ
-  | Sel φ q ih => exact fun θ => ih θ
+  | Sel φ q _ ih => exact fun θ => ih θ
   | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
@@ -1460,9 +1397,10 @@ recursive terms, the signature, derivable windows, well-formedness over
 a schema declaring none of the fresh names, the names (its own, or
 fresh ones), and the names it does not mention (fresh ones aside). -/
 structure AggQueryIn.SumFreeOf (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (f : ℕ → String)
-    {c n : ℕ} {κ : Fin n → ColKind} (q q' : AggQueryIn T c n κ) : Prop where
+    {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (q' : AggQueryIn T c n κ l') : Prop where
   usesOnly : q'.usesOnly S
-  recRestricted : q'.recRestricted
+  hygienic : q'.hygienic
   inSig : q'.inSig Θ
   wins : q.WinsDerivable → q'.WinsDerivable
   over : ∀ sch : Schema, (∀ i, sch (f i) = none) → q.overSchema sch → q'.overSchema sch
@@ -1471,51 +1409,66 @@ structure AggQueryIn.SumFreeOf (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (f : �
 
 omit [ValueType T] in
 /-- Reading a schema with a name it does not mention declared is reading
-the schema. -/
+the schema – for a query whose holes do not carry that name. -/
 theorem AggQueryIn.overSchema_of_update_of_noMention {s : String} {m : ℕ} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {sch : Schema},
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      {sch : Schema}, (∀ k, (s, k) ∉ l) →
       q.noMention s → q.overSchema (sch.update s m) → q.overSchema sch := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s' =>
-    intro sch h ho
+    intro sch _ h ho
     have : (if s' = s then some m else sch s') = some n := ho
     rwa [ite_eq_right h] at this
-  | Empty => exact fun _ _ => trivial
-  | Proj ps q ih => exact fun h ho => ih h ho
-  | Sel φ q ih => exact fun h ho => ih h ho
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h ho => ⟨ih₁ h.1 ho.1, ih₂ h.2 ho.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h ho => ⟨ih₁ h.1 ho.1, ih₂ h.2 ho.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h ho => ⟨ih₁ h.1 ho.1, ih₂ h.2 ho.2⟩
-  | Dedup q ih => exact fun h ho => ih h ho
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h ho => ⟨ih₁ h.1 ho.1, ih₂ h.2 ho.2⟩
-  | Alt k hk q ih => exact fun h ho => ih h ho
-  | Retag hk q ih => exact fun h ho => ih h ho
+  | Hole n s' =>
+    intro sch hl _ ho
+    have hne : s' ≠ s := fun h => hl n (by rw [h]; exact List.mem_singleton_self _)
+    have : (if s' = s then some m else sch s') = some n := ho
+    rwa [ite_eq_right hne] at this
+  | Empty => exact fun _ _ _ => trivial
+  | Proj ps q ih => exact fun hl h ho => ih hl h ho
+  | Sel φ q _ ih => exact fun hl h ho => ih hl h ho
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    exact fun hl h ho => ⟨ih₁ (fun k hk => hl k (List.mem_append.mpr (Or.inl hk))) h.1 ho.1,
+      ih₂ (fun k hk => hl k (List.mem_append.mpr (Or.inr hk))) h.2 ho.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun hl h ho => ⟨ih₁ hl h.1 ho.1, ih₂ (fun _ hk => by simp at hk) h.2 ho.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact fun hl h ho => ⟨ih₁ (fun k hk => hl k (List.mem_append.mpr (Or.inl hk))) h.1 ho.1,
+      ih₂ (fun k hk => hl k (List.mem_append.mpr (Or.inr hk))) h.2 ho.2⟩
+  | Dedup q ih => exact fun hl h ho => ih hl h ho
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun hl h ho => ⟨ih₁ hl h.1 ho.1, ih₂ hl h.2 ho.2⟩
+  | Alt k hk q ih => exact fun hl h ho => ih hl h ho
+  | Retag hk q ih => exact fun hl h ho => ih hl h ho
   | Mu s' q₀ q₁ ih₀ ih₁ =>
-    intro sch h ho
+    intro sch _ h ho
     have hne : s' ≠ s := fun hs => by
       have : (if s' = s then some m else sch s') = none := ho.1
       rw [ite_eq_left hs] at this
       exact Option.some_ne_none m this
-    refine ⟨?_, ih₀ h.1 ho.2.1, ih₁ h.2 (by rw [Schema.update_comm sch hne]; exact ho.2.2)⟩
+    refine ⟨?_, ih₀ (fun _ hk => by simp at hk) h.1 ho.2.1, ho.2.2.1,
+      ih₁ (fun k hk => hne (Prod.mk.inj (List.mem_singleton.mp hk)).1.symm) h.2
+        (by rw [Schema.update_comm sch hne]; exact ho.2.2.2)⟩
     have : (if s' = s then some m else sch s') = none := ho.1
     rwa [ite_eq_right hne] at this
   | MuSet s' q₀ q₁ ih₀ ih₁ =>
-    intro sch h ho
+    intro sch _ h ho
     have hne : s' ≠ s := fun hs => by
       have : (if s' = s then some m else sch s') = none := ho.1
       rw [ite_eq_left hs] at this
       exact Option.some_ne_none m this
-    refine ⟨?_, ih₀ h.1 ho.2.1, ih₁ h.2 (by rw [Schema.update_comm sch hne]; exact ho.2.2)⟩
+    refine ⟨?_, ih₀ (fun _ hk => by simp at hk) h.1 ho.2.1, ho.2.2.1,
+      ih₁ (fun k hk => hne (Prod.mk.inj (List.mem_singleton.mp hk)).1.symm) h.2
+        (by rw [Schema.update_comm sch hne]; exact ho.2.2.2)⟩
     have : (if s' = s then some m else sch s') = none := ho.1
     rwa [ite_eq_right hne] at this
-  | Gamma is ts fs q keep ord ih => exact fun h ho => ih h ho
-  | GammaScalar ts fs q ord ih => exact fun h ho => ih h ho
-  | GammaNest is his p fn q ih => exact fun h ho => ih h ho
-  | ProvSum is his t q ih => exact fun h ho => ih h ho
-  | GammaTok is his ts fs a q keep ih => exact fun h ho => ih h ho
-  | Win P O o w t fw q hrr dist keep ih => exact fun h ho => ih h ho
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun h ho => ih h ho
+  | Gamma is ts fs q keep ord ih => exact fun hl h ho => ih hl h ho
+  | GammaScalar ts fs q ord ih => exact fun hl h ho => ih hl h ho
+  | GammaNest is his p fn q ih => exact fun hl h ho => ih hl h ho
+  | ProvSum is his t q ih => exact fun hl h ho => ih hl h ho
+  | GammaTok is his ts fs a q keep ih => exact fun hl h ho => ih hl h ho
+  | Win P O o w t fw q hrr dist keep ih => exact fun hl h ho => ih hl h ho
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun hl h ho => ih hl h ho
 
 namespace AggQueryIn
 
@@ -1535,7 +1488,8 @@ omit [ValueType T] in
 /-- A name of the supply the children did not get is not among a child's
 output names. -/
 private theorem not_mem_of_shift {f : ℕ → String} (hf : Function.Injective f)
-    {c n : ℕ} {κ : Fin n → ColKind} {q q' : AggQueryIn T c n κ}
+    {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
     (hn : ∀ x, x ∈ q'.names → x ∈ q.names ∨ ∃ i, x = shift2 f i) {j : ℕ} (hj : j < 2)
     (hfr : f j ∉ q.names) : f j ∉ q'.names := fun h => by
   rcases hn _ h with h' | ⟨i, hi⟩
@@ -1589,28 +1543,33 @@ defined and equal wherever the query is; and, for a body reading the
 name `s` once, a body still reading it once and a closed query the body
 is the sum of. -/
 theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (SeqAggFunc T)} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
-      q.usesOnly (insert OpKind.union S) → q.recRestricted → q.inSig Θ → q.sumsAllReg →
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.usesOnly (insert OpKind.union S) → q.hygienic → q.inSig Θ → q.sumsAllReg →
       ∀ (f : ℕ → String), Function.Injective f → (∀ i, f i ∉ q.names) →
-        (∃ q' : AggQueryIn T c n κ, SumFreeOf S Θ f q q' ∧
+        (l = [] → ∃ q' : AggQueryIn T c n κ, SumFreeOf S Θ f q q' ∧
             ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
               q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ)
-        ∧ (∀ s : String, q.recOnce s →
-            ∃ q' qC : AggQueryIn T c n κ, q'.recOnce s ∧ qC.noMention s
+        ∧ (∀ (s : String) (m : ℕ), l = [(s, m)] → q.noMention s →
+            ∃ (q' : AggQueryIn T c n κ l) (qC : AggQueryIn T c n κ), qC.noMention s
               ∧ SumFreeOf S Θ f q q' ∧ SumFreeOf S Θ f q qC
               ∧ ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
                 q'.SettlesAt D γ ∧ qC.SettlesAt D γ
                   ∧ (q.evaluatePlain D γ : Multiset (Tuple T n))
                       = q'.evaluatePlain D γ + qC.evaluatePlain D γ) := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s' =>
     intro hq hr hi hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
-      fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩, fun s hro => ?_⟩
-    refine ⟨AggQueryIn.Rel n s', emptyRel n, hro, noMention_emptyRel n s,
+    exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
+      fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
+      fun _ _ hl _ => absurd hl (by simp)⟩
+  | Hole n s' =>
+    intro hq hr hi hsa f hf hfr
+    refine ⟨fun hl => absurd hl (by simp), fun s m hl _ => ?_⟩
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
+    refine ⟨AggQueryIn.Hole n _, emptyRel n, noMention_emptyRel n _,
       ⟨trivial, trivial, trivial, id, fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h⟩,
-      ⟨usesOnly_emptyRel hS n, recRestricted_emptyRel n, inSig_emptyRel Θ n,
+      ⟨usesOnly_emptyRel hS n, hygienic_emptyRel n, inSig_emptyRel Θ n,
         fun _ => winsDerivable_emptyRel n, fun sch _ _ => overSchema_emptyRel sch n,
         fun x hx => by rw [names_emptyRel] at hx; exact absurd hx (Finset.notMem_empty x),
         fun s' _ _ => noMention_emptyRel n s'⟩,
@@ -1619,40 +1578,44 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     exact (add_zero (M := Multiset (Tuple T n)) _).symm
   | Empty =>
     intro hq hr hi hsa f hf hfr
-    exact ⟨⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
+    exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
       fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
-      fun s hro => hro.elim⟩
+      fun _ _ hl _ => absurd hl (by simp)⟩
   | Proj ps q ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, hb⟩ := ih hq.2 hr hi.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Proj ps q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩,
-      hs.recRestricted, ⟨hi.1, hs.inSig⟩, hs.wins, hs.over, hs.names, hs.nom⟩,
-      fun D γ hset => ?_⟩, fun s hro => ?_⟩
-    · obtain ⟨hs', he'⟩ := he D γ hset
+    obtain ⟨hc, hb⟩ := ih hq.2 hr hi.2 hsa f hf hfr
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨q', hs, he⟩ := hc hl
+      refine ⟨AggQueryIn.Proj ps q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩,
+        hs.hygienic, ⟨hi.1, hs.inSig⟩, hs.wins, hs.over, hs.names, hs.nom⟩,
+        fun D γ hset => ?_⟩
+      obtain ⟨hs', he'⟩ := he D γ hset
       exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
-    · obtain ⟨q', qC, hro', hCn, hs, hsC, he⟩ := hb s hro
-      refine ⟨AggQueryIn.Proj ps q', AggQueryIn.Proj ps qC, hro', hCn,
-        ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩, hs.recRestricted, ⟨hi.1, hs.inSig⟩,
+    · obtain ⟨q', qC, hCn, hs, hsC, he⟩ := hb s m hl hnm
+      refine ⟨AggQueryIn.Proj ps q', AggQueryIn.Proj ps qC, hCn,
+        ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩,
           hs.wins, hs.over, hs.names, hs.nom⟩,
-        ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hsC.usesOnly⟩, hsC.recRestricted, ⟨hi.1, hsC.inSig⟩,
+        ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hsC.usesOnly⟩, hsC.hygienic, ⟨hi.1, hsC.inSig⟩,
           hsC.wins, hsC.over, hsC.names, hsC.nom⟩, fun D γ hset => ?_⟩
       obtain ⟨hs', hsC', he'⟩ := he D γ hset
       refine ⟨hs', hsC', ?_⟩
       simp only [AggQueryIn.evaluatePlain]
       rw [he', Multiset.map_add]
-  | Sel φ q ih =>
+  | Sel φ q hφ ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, hb⟩ := ih hq.2 hr hi.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Sel φ q', ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.recRestricted,
-      ⟨hi.1, hs.inSig⟩, hs.wins, hs.over, hs.names, hs.nom⟩, fun D γ hset => ?_⟩,
-      fun s hro => ?_⟩
-    · obtain ⟨hs', he'⟩ := he D γ hset
+    obtain ⟨hc, hb⟩ := ih hq.2 hr hi.2 hsa f hf hfr
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨q', hs, he⟩ := hc hl
+      subst hl
+      refine ⟨AggQueryIn.Sel φ q' hφ, ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic,
+        ⟨hi.1, hs.inSig⟩, hs.wins, hs.over, hs.names, hs.nom⟩, fun D γ hset => ?_⟩
+      obtain ⟨hs', he'⟩ := he D γ hset
       exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
-    · obtain ⟨q', qC, hro', hCn, hs, hsC, he⟩ := hb s hro.2
-      refine ⟨AggQueryIn.Sel φ q', AggQueryIn.Sel φ qC, ⟨hro.1, hro'⟩, hCn,
-        ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.recRestricted, ⟨hi.1, hs.inSig⟩,
+    · obtain ⟨q', qC, hCn, hs, hsC, he⟩ := hb s m hl hnm
+      refine ⟨AggQueryIn.Sel φ q' hφ, AggQueryIn.Sel φ qC trivial, hCn,
+        ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩,
           hs.wins, hs.over, hs.names, hs.nom⟩,
-        ⟨⟨memS nofun hq.1, hsC.usesOnly⟩, hsC.recRestricted, ⟨hi.1, hsC.inSig⟩,
+        ⟨⟨memS nofun hq.1, hsC.usesOnly⟩, hsC.hygienic, ⟨hi.1, hsC.inSig⟩,
           hsC.wins, hsC.over, hsC.names, hsC.nom⟩, fun D γ hset => ?_⟩
       obtain ⟨hs', hsC', he'⟩ := he D γ hset
       refine ⟨hs', hsC', ?_⟩
@@ -1662,59 +1625,69 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     have hfr₁ := fresh_sub hfr (Finset.subset_union_left (s₂ := q₂.names))
     have hfr₂ := fresh_sub hfr (Finset.subset_union_right (s₁ := q₁.names))
-    obtain ⟨⟨q₁', hs₁, he₁⟩, hb₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
-    obtain ⟨⟨q₂', hs₂, he₂⟩, hb₂⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
-    refine ⟨⟨AggQueryIn.Prod q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
-      ⟨hs₁.recRestricted, hs₂.recRestricted⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
-      fun hw => ⟨hs₁.wins hw.1, hs₂.wins hw.2⟩,
-      fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
-      names_union hs₁.names hs₂.names,
-      fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩,
-      fun s hro => ?_⟩
-    · obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
+    obtain ⟨hc₁, hb₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
+    obtain ⟨hc₂, hb₂⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+      subst hl₁ hl₂
+      obtain ⟨q₁', hs₁, he₁⟩ := hc₁ rfl
+      obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+      refine ⟨AggQueryIn.Prod q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
+        ⟨hs₁.hygienic, hs₂.hygienic⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
+        fun hw => ⟨hs₁.wins hw.1, hs₂.wins hw.2⟩,
+        fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
+        names_union hs₁.names hs₂.names,
+        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩
+      obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
       obtain ⟨hs₂', he₂'⟩ := he₂ D γ hset.2
       exact ⟨⟨hs₁', hs₂'⟩, by simp only [AggQueryIn.evaluatePlain, he₁', he₂']⟩
-    · rcases hro with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
-      · obtain ⟨p₁, pC, hro', hCn, hp, hpC, he⟩ := hb₁ s h₁
-        refine ⟨AggQueryIn.Prod p₁ q₂', AggQueryIn.Prod pC q₂', Or.inl ⟨hro', hs₂.nom s ?_ h₂⟩,
+    · rcases List.append_eq_singleton' hl with ⟨hl₁, hl₂⟩ | ⟨hl₁, hl₂⟩
+      · subst hl₁ hl₂
+        obtain ⟨h₁, h₂⟩ := hnm
+        obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+        obtain ⟨p₁, pC, hCn, hp, hpC, he⟩ := hb₁ s m rfl h₁
+        refine ⟨AggQueryIn.Prod p₁ q₂', AggQueryIn.Prod pC q₂',
           ⟨hCn, hs₂.nom s ?_ h₂⟩,
           ⟨⟨memS nofun hq.1, hp.usesOnly, hs₂.usesOnly⟩,
-            ⟨hp.recRestricted, hs₂.recRestricted⟩, ⟨hp.inSig, hs₂.inSig⟩,
+            ⟨hp.hygienic, hs₂.hygienic⟩, ⟨hp.inSig, hs₂.inSig⟩,
             fun hw => ⟨hp.wins hw.1, hs₂.wins hw.2⟩,
             fun sch hsch ho => ⟨hp.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
             names_union hp.names hs₂.names,
             fun s hs hn => ⟨hp.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩,
           ⟨⟨memS nofun hq.1, hpC.usesOnly, hs₂.usesOnly⟩,
-            ⟨hpC.recRestricted, hs₂.recRestricted⟩, ⟨hpC.inSig, hs₂.inSig⟩,
+            ⟨hpC.hygienic, hs₂.hygienic⟩, ⟨hpC.inSig, hs₂.inSig⟩,
             fun hw => ⟨hpC.wins hw.1, hs₂.wins hw.2⟩,
             fun sch hsch ho => ⟨hpC.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
             names_union hpC.names hs₂.names,
             fun s hs hn => ⟨hpC.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩
-        · exact ne_of_mem hfr (Finset.mem_union_left _ (AggQueryIn.mem_names_of_recOnce q₁ h₁))
-        · exact ne_of_mem hfr (Finset.mem_union_left _ (AggQueryIn.mem_names_of_recOnce q₁ h₁))
+        · exact ne_of_mem hfr (Finset.mem_union_left _ (AggQueryIn.mem_names_of_index q₁
+            (List.mem_singleton_self _)))
         obtain ⟨hp', hpC', he'⟩ := he D γ hset.1
         obtain ⟨hs₂', he₂'⟩ := he₂ D γ hset.2
         refine ⟨⟨hp', hs₂'⟩, ⟨hpC', hs₂'⟩, ?_⟩
         simp only [AggQueryIn.evaluatePlain]
         rw [he', he₂', Relation.hMul_eq_bind, Relation.hMul_eq_bind, Relation.hMul_eq_bind,
           Multiset.add_bind]
-      · obtain ⟨p₂, pC, hro', hCn, hp, hpC, he⟩ := hb₂ s h₂
-        refine ⟨AggQueryIn.Prod q₁' p₂, AggQueryIn.Prod q₁' pC, Or.inr ⟨hs₁.nom s ?_ h₁, hro'⟩,
+      · subst hl₁ hl₂
+        obtain ⟨h₁, h₂⟩ := hnm
+        obtain ⟨q₁', hs₁, he₁⟩ := hc₁ rfl
+        obtain ⟨p₂, pC, hCn, hp, hpC, he⟩ := hb₂ s m rfl h₂
+        refine ⟨AggQueryIn.Prod q₁' p₂, AggQueryIn.Prod q₁' pC,
           ⟨hs₁.nom s ?_ h₁, hCn⟩,
           ⟨⟨memS nofun hq.1, hs₁.usesOnly, hp.usesOnly⟩,
-            ⟨hs₁.recRestricted, hp.recRestricted⟩, ⟨hs₁.inSig, hp.inSig⟩,
+            ⟨hs₁.hygienic, hp.hygienic⟩, ⟨hs₁.inSig, hp.inSig⟩,
             fun hw => ⟨hs₁.wins hw.1, hp.wins hw.2⟩,
             fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hp.over sch hsch ho.2⟩,
             names_union hs₁.names hp.names,
             fun s hs hn => ⟨hs₁.nom s hs hn.1, hp.nom s hs hn.2⟩⟩,
           ⟨⟨memS nofun hq.1, hs₁.usesOnly, hpC.usesOnly⟩,
-            ⟨hs₁.recRestricted, hpC.recRestricted⟩, ⟨hs₁.inSig, hpC.inSig⟩,
+            ⟨hs₁.hygienic, hpC.hygienic⟩, ⟨hs₁.inSig, hpC.inSig⟩,
             fun hw => ⟨hs₁.wins hw.1, hpC.wins hw.2⟩,
             fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hpC.over sch hsch ho.2⟩,
             names_union hs₁.names hpC.names,
             fun s hs hn => ⟨hs₁.nom s hs hn.1, hpC.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩
-        · exact ne_of_mem hfr (Finset.mem_union_right _ (AggQueryIn.mem_names_of_recOnce q₂ h₂))
-        · exact ne_of_mem hfr (Finset.mem_union_right _ (AggQueryIn.mem_names_of_recOnce q₂ h₂))
+        · exact ne_of_mem hfr (Finset.mem_union_right _ (AggQueryIn.mem_names_of_index q₂
+            (List.mem_singleton_self _)))
         obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
         obtain ⟨hp', hpC', he'⟩ := he D γ hset.2
         refine ⟨⟨hs₁', hp'⟩, ⟨hs₁', hpC'⟩, ?_⟩
@@ -1727,39 +1700,43 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     have hfr₁ := fresh_sub hfr (Finset.subset_union_left (s₂ := q₂.names))
     have hfr₂ := fresh_sub hfr (Finset.subset_union_right (s₁ := q₁.names))
-    obtain ⟨⟨q₁', hs₁, he₁⟩, hb₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
-    obtain ⟨⟨q₂', hs₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
-    have hmem : ∀ (D : Database T) (γ : Fin _ → T) (p : AggQueryIn T _ _ (ColKind.allReg _)),
+    obtain ⟨hc₁, hb₁⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
+    obtain ⟨hc₂, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
+    obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+    have hmem : ∀ (D : Database T) (γ : Fin _ → T) (l' : List (String × ℕ))
+        (p : AggQueryIn T _ _ (ColKind.allReg _) l'),
         q₁.evaluatePlain D γ = p.evaluatePlain D γ →
         ∀ u, Multiset.Mem (p.evaluatePlain D γ) u →
           Multiset.Mem (q₁.evaluatePlain D γ) u :=
-      fun D γ p he u hu => by rw [he]; exact hu
-    refine ⟨⟨AggQueryIn.Apply q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
-      ⟨hs₁.recRestricted, hs₂.recRestricted⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
-      fun hw => ⟨hs₁.wins hw.1, hs₂.wins hw.2⟩,
-      fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
-      names_union hs₁.names hs₂.names,
-      fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩,
-      fun s hro => ?_⟩
-    · obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
-      refine ⟨⟨hs₁', fun u hu => (he₂ D _ (hset.2 u (hmem D γ q₁' he₁' u hu))).1⟩, ?_⟩
+      fun D γ _ p he u hu => by rw [he]; exact hu
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨q₁', hs₁, he₁⟩ := hc₁ hl
+      refine ⟨AggQueryIn.Apply q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
+        ⟨hs₁.hygienic, hs₂.hygienic⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
+        fun hw => ⟨hs₁.wins hw.1, hs₂.wins hw.2⟩,
+        fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
+        names_union hs₁.names hs₂.names,
+        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩
+      obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
+      refine ⟨⟨hs₁', fun u hu => (he₂ D _ (hset.2 u (hmem D γ _ q₁' he₁' u hu))).1⟩, ?_⟩
       simp only [AggQueryIn.evaluatePlain]
       rw [he₁']
       exact Multiset.bind_congr fun u hu =>
-        congrArg _ (he₂ D _ (hset.2 u (hmem D γ q₁' he₁' u hu))).2
-    · obtain ⟨p₁, pC, hro', hCn, hp, hpC, he⟩ := hb₁ s hro.1
+        congrArg _ (he₂ D _ (hset.2 u (hmem D γ _ q₁' he₁' u hu))).2
+    · obtain ⟨p₁, pC, hCn, hp, hpC, he⟩ := hb₁ s m hl hnm.1
       have hs2 : ∀ i, s ≠ f i :=
-        ne_of_mem hfr (Finset.mem_union_left _ (AggQueryIn.mem_names_of_recOnce q₁ hro.1))
-      refine ⟨AggQueryIn.Apply p₁ q₂', AggQueryIn.Apply pC q₂', ⟨hro', hs₂.nom s hs2 hro.2⟩,
-        ⟨hCn, hs₂.nom s hs2 hro.2⟩,
+        ne_of_mem hfr (Finset.mem_union_left _ (AggQueryIn.mem_names_of_index q₁
+          (hl ▸ List.mem_singleton_self _)))
+      refine ⟨AggQueryIn.Apply p₁ q₂', AggQueryIn.Apply pC q₂',
+        ⟨hCn, hs₂.nom s hs2 hnm.2⟩,
         ⟨⟨memS nofun hq.1, hp.usesOnly, hs₂.usesOnly⟩,
-          ⟨hp.recRestricted, hs₂.recRestricted⟩, ⟨hp.inSig, hs₂.inSig⟩,
+          ⟨hp.hygienic, hs₂.hygienic⟩, ⟨hp.inSig, hs₂.inSig⟩,
           fun hw => ⟨hp.wins hw.1, hs₂.wins hw.2⟩,
           fun sch hsch ho => ⟨hp.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
           names_union hp.names hs₂.names,
           fun s hs hn => ⟨hp.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩,
         ⟨⟨memS nofun hq.1, hpC.usesOnly, hs₂.usesOnly⟩,
-          ⟨hpC.recRestricted, hs₂.recRestricted⟩, ⟨hpC.inSig, hs₂.inSig⟩,
+          ⟨hpC.hygienic, hs₂.hygienic⟩, ⟨hpC.inSig, hs₂.inSig⟩,
           fun hw => ⟨hpC.wins hw.1, hs₂.wins hw.2⟩,
           fun sch hsch ho => ⟨hpC.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
           names_union hpC.names hs₂.names,
@@ -1784,9 +1761,9 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     subst hκ
     have hfr₁ := fresh_shift hfr (Finset.subset_union_left (s₂ := q₂.names))
     have hfr₂ := fresh_shift hfr (Finset.subset_union_right (s₁ := q₁.names))
-    obtain ⟨⟨q₁', hs₁, he₁⟩, hb₁⟩ :=
+    obtain ⟨hc₁, hb₁⟩ :=
       ih₁ hq.2.1 hr.1 hi.1 hsa₁ (shift2 f) (shift2_injective hf) hfr₁
-    obtain ⟨⟨q₂', hs₂, he₂⟩, hb₂⟩ :=
+    obtain ⟨hc₂, hb₂⟩ :=
       ih₂ hq.2.2 hr.2 hi.2 hsa₂ (shift2 f) (shift2_injective hf) hfr₂
     have hf0 : f 0 ∉ (AggQueryIn.Sum q₁ q₂).names := hfr 0
     have hf1 : f 1 ∉ (AggQueryIn.Sum q₁ q₂).names := hfr 1
@@ -1804,11 +1781,11 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
       have hn₂₁ : f 1 ∉ p₂.names := not_mem_of_shift hf hp₂.names (by omega) hf1₂
       exact {
         usesOnly := usesOnly_sumByMu hS _ _ _ _ hp₁.usesOnly hp₂.usesOnly
-        recRestricted := recRestricted_sumByMu _ _ _ _
+        hygienic := hygienic_sumByMu _ _ _ _
           (AggQueryIn.noMention_of_not_mem_names _ hn₁₀)
           (AggQueryIn.noMention_of_not_mem_names _ hn₁₁)
-          (AggQueryIn.noMention_of_not_mem_names _ hn₂₁) (f01_ne hf)
-          hp₁.recRestricted hp₂.recRestricted
+          (AggQueryIn.noMention_of_not_mem_names _ hn₂₁)
+          hp₁.hygienic hp₂.hygienic
         inSig := inSig_sumByMu Θ _ _ _ _ hp₁.inSig hp₂.inSig
         wins := fun hw => winsDerivable_sumByMu _ _ _ _ (hp₁.wins hw.1) (hp₂.wins hw.2)
         over := fun sch hsch ho => overSchema_sumByMu sch _ _ _ _ (hsch 0) (hsch 1) hn₁₀ hn₂₁
@@ -1821,7 +1798,7 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
           exact (Finset.mem_union.mp hx'').elim
             (fun h => names_shift (hp₁.names x h) Finset.subset_union_left)
             (fun h => names_shift (hp₂.names x h) Finset.subset_union_right)
-        nom := fun s hs hn => noMention_sumByMu _ _ _ _ (hs 0) (hs 1)
+        nom := fun s hs hn => noMention_sumByMu _ _ _ _
           (hp₁.nom s (fun i => hs (i + 2)) hn.1) (hp₂.nom s (fun i => hs (i + 2)) hn.2) }
     -- the construction's value and definedness over two children's outputs
     have hval : ∀ {p₁ p₂ : AggQueryIn T _ _ _},
@@ -1838,32 +1815,42 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
         evaluatePlain_sumByMu _ _ _ _ (AggQueryIn.noMention_of_not_mem_names _ hn₁₀)
           (AggQueryIn.noMention_of_not_mem_names _ hn₂₁) D γ⟩
     -- a child's output, as the output for the sum
-    have hleft : ∀ {p : AggQueryIn T _ _ _}, SumFreeOf S Θ (shift2 f) q₁ p →
+    have hleft : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'},
+        SumFreeOf S Θ (shift2 f) q₁ p →
         SumFreeOf S Θ f (AggQueryIn.Sum q₁ q₂) p := fun hp =>
-      ⟨hp.usesOnly, hp.recRestricted, hp.inSig, fun hw => hp.wins hw.1,
+      ⟨hp.usesOnly, hp.hygienic, hp.inSig, fun hw => hp.wins hw.1,
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.1,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_left,
         fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.1⟩
-    have hright : ∀ {p : AggQueryIn T _ _ _}, SumFreeOf S Θ (shift2 f) q₂ p →
+    have hright : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'},
+        SumFreeOf S Θ (shift2 f) q₂ p →
         SumFreeOf S Θ f (AggQueryIn.Sum q₁ q₂) p := fun hp =>
-      ⟨hp.usesOnly, hp.recRestricted, hp.inSig, fun hw => hp.wins hw.2,
+      ⟨hp.usesOnly, hp.hygienic, hp.inSig, fun hw => hp.wins hw.2,
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.2,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_right,
         fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.2⟩
-    refine ⟨⟨sumByMu (f 0) (f 1) q₁' q₂', hbundle hs₁ hs₂, fun D γ hset => ?_⟩,
-      fun s hro => ?_⟩
-    · obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+      subst hl₁ hl₂
+      obtain ⟨q₁', hs₁, he₁⟩ := hc₁ rfl
+      obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+      refine ⟨sumByMu (f 0) (f 1) q₁' q₂', hbundle hs₁ hs₂, fun D γ hset => ?_⟩
+      obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
       obtain ⟨hs₂', he₂'⟩ := he₂ D γ hset.2
       obtain ⟨hv, hv'⟩ := hval hs₁ hs₂ D γ hs₁' hs₂'
       refine ⟨hv, ?_⟩
       show (q₁.evaluatePlain D γ : Multiset (Tuple T _)) + q₂.evaluatePlain D γ = _
       rw [hv', he₁', he₂']
-    · rcases hro with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
-      · obtain ⟨p₁, pC, hro', hCn, hp, hpC, he⟩ := hb₁ s h₁
+    · rcases List.append_eq_singleton' hl with ⟨hl₁, hl₂⟩ | ⟨hl₁, hl₂⟩
+      · subst hl₁ hl₂
+        obtain ⟨h₁, h₂⟩ := hnm
+        obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+        obtain ⟨p₁, pC, hCn, hp, hpC, he⟩ := hb₁ s m rfl h₁
         have hss : s ∈ (AggQueryIn.Sum q₁ q₂).names :=
-          Finset.mem_union_left _ (AggQueryIn.mem_names_of_recOnce q₁ h₁)
-        refine ⟨p₁, sumByMu (f 0) (f 1) pC q₂', hro',
-          noMention_sumByMu _ _ _ _ (ne_of_mem hfr hss 0) (ne_of_mem hfr hss 1) hCn
+          Finset.mem_union_left _ (AggQueryIn.mem_names_of_index q₁
+            (List.mem_singleton_self _))
+        refine ⟨p₁, sumByMu (f 0) (f 1) pC q₂',
+          noMention_sumByMu _ _ _ _ hCn
             (hs₂.nom s (ne_shift_of_mem hfr hss) h₂),
           hleft hp, hbundle hpC hs₂, fun D γ hset => ?_⟩
         obtain ⟨hp', hpC', he'⟩ := he D γ hset.1
@@ -1874,11 +1861,15 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
         rw [hv', he', he₂']
         show (_ : Multiset (Tuple T _)) + _ + _ = _ + (_ + _)
         exact add_assoc _ _ _
-      · obtain ⟨p₂, pC, hro', hCn, hp, hpC, he⟩ := hb₂ s h₂
+      · subst hl₁ hl₂
+        obtain ⟨h₁, h₂⟩ := hnm
+        obtain ⟨q₁', hs₁, he₁⟩ := hc₁ rfl
+        obtain ⟨p₂, pC, hCn, hp, hpC, he⟩ := hb₂ s m rfl h₂
         have hss : s ∈ (AggQueryIn.Sum q₁ q₂).names :=
-          Finset.mem_union_right _ (AggQueryIn.mem_names_of_recOnce q₂ h₂)
-        refine ⟨p₂, sumByMu (f 0) (f 1) q₁' pC, hro',
-          noMention_sumByMu _ _ _ _ (ne_of_mem hfr hss 0) (ne_of_mem hfr hss 1)
+          Finset.mem_union_right _ (AggQueryIn.mem_names_of_index q₂
+            (List.mem_singleton_self _))
+        refine ⟨p₂, sumByMu (f 0) (f 1) q₁' pC,
+          noMention_sumByMu _ _ _ _
             (hs₁.nom s (ne_shift_of_mem hfr hss) h₁) hCn,
           hright hp, hbundle hs₁ hpC, fun D γ hset => ?_⟩
         obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
@@ -1891,53 +1882,56 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
         exact add_left_comm _ _ _
   | Dedup q ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, -⟩ := ih hq.2 hr hi hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Dedup q', ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.recRestricted,
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi hsa f hf hfr
+    obtain ⟨q', hs, he⟩ := hc rfl
+    refine ⟨fun _ => ⟨AggQueryIn.Dedup q', ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic,
       hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩, fun D γ hset => ?_⟩,
-      fun s hro => hro.elim⟩
+      fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq hr hi hsa f hf hfr
     have hfr₁ := fresh_sub hfr (Finset.subset_union_left (s₂ := q₂.names))
     have hfr₂ := fresh_sub hfr (Finset.subset_union_right (s₁ := q₁.names))
-    obtain ⟨⟨q₁', hs₁, he₁⟩, -⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
-    obtain ⟨⟨q₂', hs₂, he₂⟩, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
-    refine ⟨⟨AggQueryIn.Diff q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
-      ⟨hs₁.recRestricted, hs₂.recRestricted⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
+    obtain ⟨hc₁, -⟩ := ih₁ hq.2.1 hr.1 hi.1 hsa.1 f hf hfr₁
+    obtain ⟨hc₂, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
+    obtain ⟨q₁', hs₁, he₁⟩ := hc₁ rfl
+    obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
+    refine ⟨fun _ => ⟨AggQueryIn.Diff q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,
+      ⟨hs₁.hygienic, hs₂.hygienic⟩, ⟨hs₁.inSig, hs₂.inSig⟩,
       fun hw => ⟨hs₁.wins hw.1, hs₂.wins hw.2⟩,
       fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
       fun x hx => (Finset.mem_union.mp hx).elim
         (fun h => (hs₁.names x h).imp_left (Finset.mem_union_left _))
         (fun h => (hs₂.names x h).imp_left (Finset.mem_union_right _)),
       fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun D γ hset => ?_⟩,
-      fun s hro => hro.elim⟩
+      fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
     obtain ⟨hs₂', he₂'⟩ := he₂ D γ hset.2
     exact ⟨⟨hs₁', hs₂'⟩, by simp only [AggQueryIn.evaluatePlain, he₁', he₂']⟩
   | Alt k hk q ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, hb⟩ := ih hq hr hi hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Alt k hk q', ⟨hs.usesOnly, hs.recRestricted, hs.inSig, hs.wins,
-      hs.over, hs.names, hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => ?_⟩
-    · obtain ⟨hs', he'⟩ := he D γ hset
-      exact ⟨hs', he'⟩
-    · obtain ⟨q', qC, hro', hCn, hs, hsC, he⟩ := hb s hro
-      exact ⟨AggQueryIn.Alt k hk q', AggQueryIn.Alt k hk qC, hro', hCn,
-        ⟨hs.usesOnly, hs.recRestricted, hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩,
-        ⟨hsC.usesOnly, hsC.recRestricted, hsC.inSig, hsC.wins, hsC.over, hsC.names, hsC.nom⟩,
+    obtain ⟨hc, hb⟩ := ih hq hr hi hsa f hf hfr
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨q', hs, he⟩ := hc hl
+      exact ⟨AggQueryIn.Alt k hk q', ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins,
+        hs.over, hs.names, hs.nom⟩, fun D γ hset => he D γ hset⟩
+    · obtain ⟨q', qC, hCn, hs, hsC, he⟩ := hb s m hl hnm
+      exact ⟨AggQueryIn.Alt k hk q', AggQueryIn.Alt k hk qC, hCn,
+        ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩,
+        ⟨hsC.usesOnly, hsC.hygienic, hsC.inSig, hsC.wins, hsC.over, hsC.names, hsC.nom⟩,
         fun D γ hset => he D γ hset⟩
   | Retag hk q ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, hb⟩ := ih hq hr hi hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Retag hk q', ⟨hs.usesOnly, hs.recRestricted, hs.inSig, hs.wins,
-      hs.over, hs.names, hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => ?_⟩
-    · obtain ⟨hs', he'⟩ := he D γ hset
-      exact ⟨hs', he'⟩
-    · obtain ⟨q', qC, hro', hCn, hs, hsC, he⟩ := hb s hro
-      exact ⟨AggQueryIn.Retag hk q', AggQueryIn.Retag hk qC, hro', hCn,
-        ⟨hs.usesOnly, hs.recRestricted, hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩,
-        ⟨hsC.usesOnly, hsC.recRestricted, hsC.inSig, hsC.wins, hsC.over, hsC.names, hsC.nom⟩,
+    obtain ⟨hc, hb⟩ := ih hq hr hi hsa f hf hfr
+    refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
+    · obtain ⟨q', hs, he⟩ := hc hl
+      exact ⟨AggQueryIn.Retag hk q', ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins,
+        hs.over, hs.names, hs.nom⟩, fun D γ hset => he D γ hset⟩
+    · obtain ⟨q', qC, hCn, hs, hsC, he⟩ := hb s m hl hnm
+      exact ⟨AggQueryIn.Retag hk q', AggQueryIn.Retag hk qC, hCn,
+        ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩,
+        ⟨hsC.usesOnly, hsC.hygienic, hsC.inSig, hsC.wins, hsC.over, hsC.names, hsC.nom⟩,
         fun D γ hset => he D γ hset⟩
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq hr hi hsa f hf hfr
@@ -1946,20 +1940,22 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     have hfr₁ : ∀ i, f i ∉ q₁.names :=
       fun i h => hfr i (Finset.mem_insert_of_mem (Finset.mem_union_right _ h))
     have hfs : ∀ i, s ≠ f i := ne_of_mem hfr (Finset.mem_insert_self s _)
-    obtain ⟨⟨q₀', hs₀, he₀⟩, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 hsa.1 f hf hfr₀
+    obtain ⟨hc₀, -⟩ := ih₀ hq.2.1 hr.2.2.1 hi.1 hsa.1 f hf hfr₀
+    obtain ⟨q₀', hs₀, he₀⟩ := hc₀ rfl
     obtain ⟨-, hb₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 hsa.2 f hf hfr₁
-    obtain ⟨q₁', qC, hro, hCn, hs₁, hsC, he₁⟩ := hb₁ s hr.2.1
-    refine ⟨⟨AggQueryIn.Mu s q₀' q₁', ?_, fun D γ hset => ?_⟩, fun s' h => h.elim⟩
+    obtain ⟨q₁', qC, hCn, hs₁, hsC, he₁⟩ := hb₁ s _ rfl hr.2.1
+    refine ⟨fun _ => ⟨AggQueryIn.Mu s q₀' q₁', ?_, fun D γ hset => ?_⟩,
+      fun _ _ hl _ => absurd hl (by simp)⟩
     · exact {
         usesOnly := ⟨memS nofun hq.1, hs₀.usesOnly, hs₁.usesOnly⟩
-        recRestricted := ⟨hs₀.nom s hfs hr.1, hro, hs₀.recRestricted, hs₁.recRestricted⟩
+        hygienic := ⟨hs₀.nom s hfs hr.1, hs₁.nom s hfs hr.2.1, hs₀.hygienic, hs₁.hygienic⟩
         inSig := ⟨hs₀.inSig, hs₁.inSig⟩
         wins := fun hw => ⟨hs₀.wins hw.1, hs₁.wins hw.2⟩
-        over := fun sch hsch ho => ⟨ho.1, hs₀.over sch hsch ho.2.1,
+        over := fun sch hsch ho => ⟨ho.1, hs₀.over sch hsch ho.2.1, hs₁.nom s hfs hr.2.1,
           hs₁.over (sch.update s _) (fun i => by
             show (if f i = s then _ else _) = none
             rw [ite_eq_right (hfs i).symm]
-            exact hsch i) ho.2.2⟩
+            exact hsch i) ho.2.2.2⟩
         names := fun x hx => by
           rcases Finset.mem_insert.mp hx with rfl | hx'
           · exact Or.inl (Finset.mem_insert_self _ _)
@@ -1984,40 +1980,42 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
       fun h => hfr 1 (Finset.mem_insert_of_mem (Finset.mem_union_left _ h))
     have hf1₁ : f 1 ∉ q₁.names :=
       fun h => hfr 1 (Finset.mem_insert_of_mem (Finset.mem_union_right _ h))
-    obtain ⟨⟨q₀', hs₀, he₀⟩, -⟩ :=
+    obtain ⟨hc₀, -⟩ :=
       ih₀ hq.2.1 hr.2.2.1 hi.1 hsa.1 (shift2 f) (shift2_injective hf) hfr₀
+    obtain ⟨q₀', hs₀, he₀⟩ := hc₀ rfl
     obtain ⟨-, hb₁⟩ := ih₁ hq.2.2 hr.2.2.2 hi.2 hsa.2 (shift2 f) (shift2_injective hf) hfr₁
-    obtain ⟨q₁', qC, hro, hCn, hs₁, hsC, he₁⟩ := hb₁ s hr.2.1
+    obtain ⟨q₁', qC, hCn, hs₁, hsC, he₁⟩ := hb₁ s _ rfl hr.2.1
     have hn₀₀ : f 0 ∉ q₀'.names := not_mem_of_shift hf hs₀.names (by omega) hf0₀
     have hn₀₁ : f 1 ∉ q₀'.names := not_mem_of_shift hf hs₀.names (by omega) hf1₀
     have hnC1 : f 1 ∉ qC.names := not_mem_of_shift hf hsC.names (by omega) hf1₁
     have h₀n : q₀'.noMention s := hs₀.nom s (fun i => hfs (i + 2)) hr.1
     have hbn : (sumByMu (f 0) (f 1) q₀' qC).noMention s :=
-      noMention_sumByMu _ _ _ _ (hfs 0) (hfs 1) h₀n hCn
+      noMention_sumByMu _ _ _ _ h₀n hCn
     have hupd : ∀ (m : ℕ) (sch : Schema), (∀ i, sch (f i) = none) →
         ∀ i, (sch.update s m) (f i) = none := fun m sch hsch i => by
       show (if f i = s then _ else _) = none
       rw [ite_eq_right (hfs i).symm]
       exact hsch i
-    refine ⟨⟨AggQueryIn.MuSet s (sumByMu (f 0) (f 1) q₀' qC) q₁', ?_, fun D γ hset => ?_⟩,
-      fun s' h => h.elim⟩
+    refine ⟨fun _ => ⟨AggQueryIn.MuSet s (sumByMu (f 0) (f 1) q₀' qC) q₁', ?_,
+      fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     · exact {
         usesOnly := ⟨memS nofun hq.1, usesOnly_sumByMu hS _ _ _ _ hs₀.usesOnly hsC.usesOnly,
           hs₁.usesOnly⟩
-        recRestricted := ⟨hbn, hro, recRestricted_sumByMu _ _ _ _
+        hygienic := ⟨hbn, hs₁.nom s (fun i => hfs (i + 2)) hr.2.1, hygienic_sumByMu _ _ _ _
           (AggQueryIn.noMention_of_not_mem_names _ hn₀₀)
           (AggQueryIn.noMention_of_not_mem_names _ hn₀₁)
-          (AggQueryIn.noMention_of_not_mem_names _ hnC1) (f01_ne hf)
-          hs₀.recRestricted hsC.recRestricted, hs₁.recRestricted⟩
+          (AggQueryIn.noMention_of_not_mem_names _ hnC1)
+          hs₀.hygienic hsC.hygienic, hs₁.hygienic⟩
         inSig := ⟨inSig_sumByMu Θ _ _ _ _ hs₀.inSig hsC.inSig, hs₁.inSig⟩
         wins := fun hw => ⟨winsDerivable_sumByMu _ _ _ _ (hs₀.wins hw.1) (hsC.wins hw.2),
           hs₁.wins hw.2⟩
         over := fun sch hsch ho => ⟨ho.1,
           overSchema_sumByMu sch _ _ _ _ (hsch 0) (hsch 1) hn₀₀ hnC1
             (hs₀.over sch (fun i => hsch (i + 2)) ho.2.1)
-            (AggQueryIn.overSchema_of_update_of_noMention qC hCn
-              (hsC.over (sch.update s _) (fun i => hupd _ sch hsch (i + 2)) ho.2.2)),
-          hs₁.over (sch.update s _) (fun i => hupd _ sch hsch (i + 2)) ho.2.2⟩
+            (AggQueryIn.overSchema_of_update_of_noMention qC (fun _ h => by simp at h) hCn
+              (hsC.over (sch.update s _) (fun i => hupd _ sch hsch (i + 2)) ho.2.2.2)),
+          hs₁.nom s (fun i => hfs (i + 2)) hr.2.1,
+          hs₁.over (sch.update s _) (fun i => hupd _ sch hsch (i + 2)) ho.2.2.2⟩
         names := fun x hx => by
           rcases Finset.mem_insert.mp hx with rfl | hx'
           · exact Or.inl (Finset.mem_insert_self _ _)
@@ -2033,10 +2031,10 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
                 (fun y hy => Finset.mem_insert_of_mem (Finset.mem_union_right _ hy)))
           · exact names_shift (hs₁.names x h)
               (fun y hy => Finset.mem_insert_of_mem (Finset.mem_union_right _ hy))
-        nom := fun s' hs' hn => ⟨noMention_sumByMu _ _ _ _ (hs' 0) (hs' 1)
+        nom := fun s' hs' hn => ⟨noMention_sumByMu _ _ _ _
           (hs₀.nom s' (fun i => hs' (i + 2)) hn.1) (hsC.nom s' (fun i => hs' (i + 2)) hn.2),
           hs₁.nom s' (fun i => hs' (i + 2)) hn.2⟩ }
-    · exact AggQueryIn.muSet_of_split s q₀ q₀' q₁ q₁' qC _ D γ hset
+    · exact AggQueryIn.muSet_of_split s q₀ q₀' q₁ q₁' qC _ hCn D γ hset
         (fun D' h => he₀ D' γ h) (fun D' h => he₁ D' γ h)
         (fun D' h₀ hC => ⟨settlesAt_sumByMu _ _ _ _
             (AggQueryIn.noMention_of_not_mem_names _ hn₀₀)
@@ -2046,37 +2044,41 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
             (AggQueryIn.noMention_of_not_mem_names _ hnC1) D' γ⟩)
   | Gamma is ts fs q keep ord ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Gamma is ts fs q' keep ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
-      hs.recRestricted, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
-      hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => hro.elim⟩
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
+    obtain ⟨q', hs, he⟩ := hc rfl
+    refine ⟨fun _ => ⟨AggQueryIn.Gamma is ts fs q' keep ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+      hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
+      hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | GammaScalar ts fs q ord ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.GammaScalar ts fs q' ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
-      hs.recRestricted, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
-      hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => hro.elim⟩
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
+    obtain ⟨q', hs, he⟩ := hc rfl
+    refine ⟨fun _ => ⟨AggQueryIn.GammaScalar ts fs q' ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+      hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
+      hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | GammaNest is his p fn q ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩,
-      hs.recRestricted, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
-      hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => hro.elim⟩
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
+    obtain ⟨q', hs, he⟩ := hc rfl
+    refine ⟨fun _ => ⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩,
+      hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
+      hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t fw q hrr dist keep ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨⟨q', hs, he⟩, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
-    refine ⟨⟨AggQueryIn.Win P O o w t fw q' hrr dist keep, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
-      hs.recRestricted, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
+    obtain ⟨q', hs, he⟩ := hc rfl
+    refine ⟨fun _ => ⟨AggQueryIn.Win P O o w t fw q' hrr dist keep, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+      hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
       fun hw => ⟨hw.1, hw.2.1, hs.wins hw.2.2⟩, hs.over, hs.names,
-      hs.nom⟩, fun D γ hset => ?_⟩, fun s hro => hro.elim⟩
+      hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
     exact ⟨hs', by simp only [AggQueryIn.evaluatePlain, he']⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ hi => hi.elim
@@ -2092,17 +2094,17 @@ construction binds come from an injective supply the query does not
 use, which `exists_freshSupply` provides. -/
 theorem exists_sumFree {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (SeqAggFunc T)}
     {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
-    (hq : q.usesOnly (insert OpKind.union S)) (hr : q.recRestricted) (hi : q.inSig Θ)
+    (hq : q.usesOnly (insert OpKind.union S)) (hr : q.hygienic) (hi : q.inSig Θ)
     (hsa : q.sumsAllReg) (f : ℕ → String) (hf : Function.Injective f)
     (hfr : ∀ i, f i ∉ q.names) :
     ∃ q' : AggQueryIn T c n κ,
-      q'.usesOnly S ∧ q'.recRestricted ∧ q'.inSig Θ
+      q'.usesOnly S ∧ q'.hygienic ∧ q'.inSig Θ
         ∧ (q.WinsDerivable → q'.WinsDerivable)
         ∧ (∀ sch : Schema, (∀ i, sch (f i) = none) → q.overSchema sch → q'.overSchema sch)
         ∧ ∀ (D : Database T) (γ : Fin c → T), q.SettlesAt D γ →
             q'.SettlesAt D γ ∧ q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  obtain ⟨⟨q', hs, he⟩, -⟩ := exists_sumFree_aux hS q hq hr hi hsa f hf hfr
-  exact ⟨q', hs.usesOnly, hs.recRestricted, hs.inSig, hs.wins, hs.over, he⟩
+  obtain ⟨q', hs, he⟩ := (exists_sumFree_aux hS q hq hr hi hsa f hf hfr).1 rfl
+  exact ⟨q', hs.usesOnly, hs.hygienic, hs.inSig, hs.wins, hs.over, he⟩
 
 /-- **A supply of fresh names exists** for a schema declaring finitely
 many names and a finite set of names to avoid, `String` being infinite. -/

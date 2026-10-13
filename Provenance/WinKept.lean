@@ -432,11 +432,11 @@ theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpK
     · rw [Fin.append_right]
       rfl
 
-theorem recRestricted_winKept (hq : q.recRestricted) :
-    (winKept P O o w t f κ q dist keep).recRestricted := by
-  rw [winKept, AggQueryIn.recRestricted_castKind]
-  show (doubled κ q).recRestricted
-  rw [doubled, AggQueryIn.recRestricted_castKind]
+theorem hygienic_winKept (hq : q.hygienic) :
+    (winKept P O o w t f κ q dist keep).hygienic := by
+  rw [winKept, AggQueryIn.hygienic_castKind]
+  show (doubled κ q).hygienic
+  rw [doubled, AggQueryIn.hygienic_castKind]
   exact hq
 
 theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)

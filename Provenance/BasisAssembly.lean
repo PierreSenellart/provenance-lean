@@ -99,29 +99,30 @@ What stays out is a *multi-frame* window, and not for want of proving:
 its column combines the leaves' values by a function no term expresses,
 so the predicate reads `False` there, as it does for
 `ProjColIn.aggTerm` elsewhere. -/
-def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} →
-    AggQueryIn T c n κ → Prop
-  | _, _, _, .Rel _ _ => True
-  | _, _, _, .Empty => True
-  | _, _, _, .Proj _ q => q.WinsDerivable
-  | _, _, _, .Sel _ q => q.WinsDerivable
-  | _, _, _, .Prod q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
-  | _, _, _, .Apply q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
-  | _, _, _, .Sum q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
-  | _, _, _, .Dedup q => q.WinsDerivable
-  | _, _, _, .Diff q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
-  | _, _, _, .Alt _ _ q => q.WinsDerivable
-  | _, _, _, .Mu _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
-  | _, _, _, .MuSet _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
-  | _, _, _, .Gamma _ _ _ q _ _ => q.WinsDerivable
-  | _, _, _, .GammaScalar _ _ q _ => q.WinsDerivable
-  | _, _, _, .GammaNest _ _ _ _ q => q.WinsDerivable
-  | _, _, _, .ProvSum _ _ _ q => q.WinsDerivable
-  | _, _, _, .Retag _ q => q.WinsDerivable
-  | _, _, _, .GammaTok _ _ _ _ _ q _ => q.WinsDerivable
-  | _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _ _ _ w _ _ q _ _ _ =>
+def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.WinsDerivable
+  | _, _, _, _, .Sel _ q _ => q.WinsDerivable
+  | _, _, _, _, .Prod q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
+  | _, _, _, _, .Apply q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
+  | _, _, _, _, .Sum q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
+  | _, _, _, _, .Dedup q => q.WinsDerivable
+  | _, _, _, _, .Diff q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
+  | _, _, _, _, .Alt _ _ q => q.WinsDerivable
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.WinsDerivable
+  | _, _, _, _, .GammaScalar _ _ q _ => q.WinsDerivable
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.WinsDerivable
+  | _, _, _, _, .ProvSum _ _ _ q => q.WinsDerivable
+  | _, _, _, _, .Retag _ q => q.WinsDerivable
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.WinsDerivable
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _ _ _ w _ _ q _ _ _ =>
       (∀ i, κ' i = ColKind.reg) ∧ w.ContainsSelf ∧ q.WinsDerivable
-  | _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 omit [ValueType T] in
 /-- A class other than `j` that `insert j S` holds is in `S`. -/
@@ -143,17 +144,20 @@ using the apply, the aggregation and the selection in their place. -/
 theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     (ha : OpKind.apply ∈ S) (hg : OpKind.gamma ∈ S) (hs : OpKind.sel ∈ S)
     (hmb : OpKind.muBag ∉ S) (hms : OpKind.muSet ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly (insert OpKind.win S) → q.WinsDerivable →
       q.overSchema sch →
-      ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
+      ∃ q' : AggQueryIn T c n κ l, q'.usesOnly S ∧ q'.overSchema sch
         ∧ ∀ (D : Database T) (γ : Fin c → T),
           q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
     exact fun _ _ hqs =>
       ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
+  | Hole n s =>
+    exact fun _ _ hqs =>
+      ⟨AggQueryIn.Hole n s, trivial, hqs, fun _ _ => rfl⟩
   | Empty =>
     exact fun hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, fun _ _ => rfl⟩
@@ -165,10 +169,10 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | Sel φ q ih =>
+  | Sel φ q hφ ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd hqs
-    refine ⟨AggQueryIn.Sel φ q',
+    refine ⟨AggQueryIn.Sel φ q' hφ,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -288,17 +292,20 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     (hap : OpKind.apply ∉ S) (hmb : OpKind.muBag ∉ S)
     (hms : OpKind.muSet ∉ S) (cnt : SeqAggFunc T)
     (hcnt : SeqAggFunc.Counts cnt) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), c = 0 →
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), c = 0 →
       q.usesOnly (insert OpKind.dedup (insert OpKind.diff S)) →
       q.overSchema sch →
-      ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
+      ∃ q' : AggQueryIn T c n κ l, q'.usesOnly S ∧ q'.overSchema sch
         ∧ ∀ (D : Database T) (γ : Fin c → T),
           q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
     exact fun _ _ hqs =>
       ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
+  | Hole n s =>
+    exact fun _ _ hqs =>
+      ⟨AggQueryIn.Hole n s, trivial, hqs, fun _ _ => rfl⟩
   | Empty =>
     exact fun _ hq _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) (mem_of_mem_insert (by decide) hq),
@@ -309,10 +316,10 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     refine ⟨AggQueryIn.Proj ps q', ⟨⟨hp, hq.1.2⟩, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | Sel φ q ih =>
+  | Sel φ q hφ ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.Sel φ q', ⟨hs, hu'⟩, hs',       fun D γ => ?_⟩
+    refine ⟨AggQueryIn.Sel φ q' hφ, ⟨hs, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Prod q₁ q₂ ih₁ ih₂ =>
@@ -551,9 +558,7 @@ This is the form the classification needs for the `∅` and `σ`/`−` rows;
 the three passes give the equivalence on *every* instance, which is
 stronger than `AggQueryIn.PlainEquivOn` asks. The query produced has
 regular columns throughout, which is what the swaps need and what the
-plain semantics has anyway. It is also asked to be a query **of the
-algebra** – its recursions restricted as `sec:plain` restricts them
-(`AggQueryIn.recRestricted`) – and **defined everywhere**
+plain semantics has anyway. It is also asked to be **defined everywhere**
 (`AggQueryIn.SettlesAt`), as the query it stands for is: a set of
 classes holding a recursion could otherwise stand in for a total query
 with one whose rounds never settle, and whose value is then nothing the
@@ -563,7 +568,7 @@ def GeneratesOn (T : Type) [ValueType T] (sch : Schema) (S : Set OpKind) :
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainOps → q.WinsDerivable →
       ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.recRestricted
+        q'.overSchema sch ∧ q'.usesOnly S
           ∧ (∀ (D : Database T) (γ : Fin 0 → T), q'.SettlesAt D γ)
           ∧ q.PlainEquiv q'
 
@@ -584,8 +589,6 @@ theorem basisOps_generatesOn (cnt : SeqAggFunc T)
         (by simp [basisOps]) (by simp [basisOps]) q₃ hu₃
         (AggQueryIn.retypable_of_usesOnly (by simp [basisOps]) q₃ hu₃) hs₃
     exact ⟨q', hs', hu',
-      AggQueryIn.recRestricted_of_usesOnly (by simp [basisOps])
-        (by simp [basisOps]) q' hu',
       AggQueryIn.settlesAt_of_usesOnly (by simp [basisOps])
         (by simp [basisOps]) q' hu',
       fun D γ => (he₃ D γ).trans (he' D γ)⟩
@@ -606,14 +609,15 @@ the class would have to express the witness by a query that cannot. -/
 none: the condition is on the windows, so it is vacuous. -/
 theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
     (hw : OpKind.win ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.usesOnly S → q.WinsDerivable := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
+  | Hole n s => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
-  | Sel φ q ih => exact fun hq => ih hq.2
+  | Sel φ q _ ih => exact fun hq => ih hq.2
   | Prod q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Apply q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
@@ -633,7 +637,7 @@ theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
 
 /-- Transporting along an equality of kind vectors changes no window. -/
 @[simp] theorem AggQueryIn.winsDerivable_castKind {c n : ℕ}
-    {κ κ' : Fin n → ColKind} (h : κ = κ') (q : AggQueryIn T c n κ) :
+    {κ κ' : Fin n → ColKind} {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).WinsDerivable ↔ q.WinsDerivable := by
   cases h
   exact Iff.rfl
@@ -682,7 +686,7 @@ theorem union_mem_of_generatesOn {S : Set OpKind} {sch : Schema}
     (hS : GeneratesOn T sch S) : OpKind.union ∈ S := by
   by_contra hu
   set u : Tuple T 0 := fun j => j.elim0 with hu0
-  obtain ⟨q', -, hu', -, -, he⟩ := hS (AggQueryIn.values [u, u] (by simp))
+  obtain ⟨q', -, hu', -, he⟩ := hS (AggQueryIn.values [u, u] (by simp))
     (show (AggQueryIn.Sum (AggQueryIn.rowOf u)
         (AggQueryIn.rowOf u)).overSchema sch from
       ⟨by rw [AggQueryIn.rowOf, AggQueryIn.overSchema_castKind]
@@ -713,7 +717,7 @@ answer, and the unit has a row there. -/
 theorem gamma_mem_of_generatesOn {S : Set OpKind} {sch : Schema}
     (hS : GeneratesOn T sch S) : OpKind.gamma ∈ S := by
   by_contra hg
-  obtain ⟨q', -, hu', -, -, he⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+  obtain ⟨q', -, hu', -, he⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
     AggQueryIn.overSchema_unit
     (usesOnly_unit (by simp [plainOps, basisDD, basisOps])
       (by simp [plainOps, basisDD, basisOps]))
@@ -731,14 +735,14 @@ with a repeated column has unbounded ones. -/
 theorem proj_mem_of_generatesOn {S : Set OpKind}
     (hS : GeneratesOn ℕ schemaS S) : OpKind.proj ∈ S := by
   by_contra hp
-  obtain ⟨q', -, hu', hr', hset, he⟩ := hS projWitness (by rfl)
+  obtain ⟨q', hsch, hu', hset, he⟩ := hS projWitness (by rfl)
     ⟨⟨by simp [plainOps, basisDD, basisOps], fun j => by
       have hj : j = 0 := Subsingleton.elim _ _
       subst hj
       rfl⟩, trivial⟩ trivial
   refine projWitness_unbounded_multiplicity ⟨q'.multBound, fun D hnd u => ?_⟩
   rw [he D (fun j => j.elim0)]
-  exact AggQueryIn.count_le_multBound hp q' hu' hr' D hnd
+  exact AggQueryIn.count_le_multBound hp q' hu' (q'.hygienic_of_overSchema _ hsch) D hnd
     (fun j => j.elim0) (hset D _) u
 
 /-- **One of `×` and the apply is necessary**: without both, an answer
@@ -752,12 +756,12 @@ theorem prod_or_apply_mem_of_generatesOn {S : Set OpKind}
     OpKind.prod ∈ S ∨ OpKind.apply ∈ S := by
   by_contra h
   obtain ⟨hp, ha⟩ := not_or.mp h
-  obtain ⟨q', -, hu', hr', hset, he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
+  obtain ⟨q', hsch, hu', hset, he⟩ := hS prodWitness ⟨by rfl, by rfl⟩
     ⟨by simp [plainOps, basisDD, basisOps], trivial, trivial⟩
     ⟨trivial, trivial⟩
   refine prodWitness_no_linear_bound ⟨q'.sizeBound, fun D => ?_⟩
   rw [he D (fun j => j.elim0)]
-  exact AggQueryIn.card_le_sizeBound hp ha q' hu' hr'
+  exact AggQueryIn.card_le_sizeBound hp ha q' hu' (q'.hygienic_of_overSchema _ hsch)
     (AggQueryIn.recNoFun_of_usesOnly hmb hms q' hu') D (fun j => j.elim0)
     (hset D _)
 
@@ -783,7 +787,7 @@ A recursion is no way round it: the name it binds is declared to its
 of a recursion over the empty schema has `∅` for its only leaf. -/
 theorem empty_mem_of_generatesOn {S : Set OpKind}
     (hS : GeneratesOn T Schema.empty S) : OpKind.empty ∈ S := by
-  obtain ⟨q', hsch, hu', -, -, -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
+  obtain ⟨q', hsch, hu', -, -⟩ := hS (AggQueryIn.unit : AggQuery T 0 _)
     AggQueryIn.overSchema_unit
     (usesOnly_unit (by simp [plainOps, basisDD, basisOps])
       (by simp [plainOps, basisDD, basisOps]))
@@ -800,7 +804,7 @@ theorem sel_or_diff_mem_of_generatesOn {S : Set OpKind}
     OpKind.sel ∈ S ∨ OpKind.diff ∈ S := by
   by_contra h
   obtain ⟨hsel, hdiff⟩ := not_or.mp h
-  obtain ⟨q', hsch, hu', -, hset, he⟩ := hS selWitness (by rfl)
+  obtain ⟨q', hsch, hu', hset, he⟩ := hS selWitness (by rfl)
     ⟨by simp [plainOps, basisDD, basisOps], trivial⟩ trivial
   refine selWitness_breaks ?_
   rcases AggQueryIn.zero_or_ne_zero_of_noSelDiff hsel hdiff q' hu' hsch with
@@ -823,38 +827,40 @@ reads no outer column, which is what `apply_plainEquiv_prod` says. -/
 theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
     (ha : OpKind.apply ∈ S) (hmb : OpKind.muBag ∉ S)
     (hms : OpKind.muSet ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ),
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), l = [] →
       q.usesOnly (insert OpKind.prod S) → q.SwapReady → q.overSchema sch →
       ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
         ∧ ∀ (D : Database T) (γ : Fin c → T),
           q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
-  | Rel n s => exact fun _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs,
-      fun _ _ => rfl⟩
+  | Rel n s => exact fun _ _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
+  | Hole n s => exact fun hl => absurd hl (by simp)
   | Empty =>
-    exact fun hq _ _ => ⟨AggQueryIn.Empty,
+    exact fun _ hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, fun _ _ => rfl⟩
   | Proj ps q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih hl hq.2 hw hqs
     refine ⟨AggQueryIn.Proj ps q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | Sel φ q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw.2.2 hqs
-    refine ⟨AggQueryIn.Sel φ q',
+  | Sel φ q _ ih =>
+    intro hl hq hw hqs
+    subst hl
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw.2.2 hqs
+    refine ⟨AggQueryIn.Sel φ q' trivial,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq hw hqs
+    intro hl hq hw hqs
+    obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
     obtain ⟨hreg, hw₁, hw₂⟩ := hw
-    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hq.2.1 hw₁ hqs.1
-    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hq.2.2 hw₂ hqs.2
+    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hl₁ hq.2.1 hw₁ hqs.1
+    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hl₂ hq.2.2 hw₂ hqs.2
     have hκ := funext hreg
     subst hκ
     -- a product is the apply whose right side reads no outer column
@@ -867,9 +873,10 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ, he₂ D γ]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hq.2.1 hw.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hq.2.2 hw.2 hqs.2
+    intro hl hq hw hqs
+    subst hl
+    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ rfl hq.2.1 hw.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ rfl hq.2.2 hw.2 hqs.2
     refine ⟨AggQueryIn.Apply q₁' q₂',
       ⟨mem_of_mem_insert (by decide) hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       fun D γ => ?_⟩
@@ -878,25 +885,26 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
     exact Multiset.bind_congr (fun u _ =>
       congrArg (Multiset.map _) (he₂ D (Fin.append u γ)))
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hq.2.1 hw.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hq.2.2 hw.2 hqs.2
+    intro hl hq hw hqs
+    obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hl₁ hq.2.1 hw.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hl₂ hq.2.2 hw.2 hqs.2
     refine ⟨AggQueryIn.Sum q₁' q₂',
       ⟨mem_of_mem_insert (by decide) hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ, he₂ D γ]
   | Dedup q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.Dedup q',
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ hq.2.1 hw.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ hq.2.2 hw.2 hqs.2
+    intro hl hq hw hqs
+    obtain ⟨q₁', hu₁, hs₁, he₁⟩ := ih₁ rfl hq.2.1 hw.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, he₂⟩ := ih₂ rfl hq.2.2 hw.2 hqs.2
     refine ⟨AggQueryIn.Diff q₁' q₂',
       ⟨mem_of_mem_insert (by decide) hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       fun D γ => ?_⟩
@@ -904,51 +912,51 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
   | Alt i hi q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih hl hq hw hqs
     exact ⟨AggQueryIn.Alt i hi q', hu', hs', fun D γ => he' D γ⟩
   | Retag hbase q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih hl hq hw hqs
     exact ⟨AggQueryIn.Retag hbase q', hu', hs', fun D γ => he' D γ⟩
   | Mu s q₀ q₁ ih₀ ih₁ =>
-      exact fun hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hmb)
+      exact fun _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hmb)
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-      exact fun hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hms)
+      exact fun _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hms)
   | Gamma is ts fs q keep ord ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.Gamma is ts fs q' keep ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.GammaScalar ts fs q' ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc fn q ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.GammaNest is his pc fn q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | GammaTok is his ts fs b q keep ih => exact fun hq => hq.elim
-  | ProvSum is his t q ih => exact fun hq => hq.elim
+  | GammaTok is his ts fs b q keep ih => exact fun _ hq => hq.elim
+  | ProvSum is his t q ih => exact fun _ hq => hq.elim
   | Win P' O o w t fn q hrr dist keep ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.Win P' O o w t fn q' hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
-    intro hq hw hqs
-    obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hw hqs
+    intro hl hq hw hqs
+    obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
     refine ⟨AggQueryIn.WinExpr P' O o ws ts fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -963,29 +971,30 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     (hp : OpKind.proj ∈ S) (hd : OpKind.diff ∈ S)
     (hap : OpKind.apply ∉ S) (hmb : OpKind.muBag ∉ S)
     (hms : OpKind.muSet ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ), c = 0 →
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), l = [] → c = 0 →
       q.usesOnly (insert OpKind.sel S) → q.SwapReady → q.overSchema sch →
       ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
         ∧ q'.SwapReady ∧ ∀ (D : Database T) (γ : Fin c → T),
           q.evaluatePlain D γ = q'.evaluatePlain D γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
-  | Rel n s => exact fun _ _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs,
-      trivial, fun _ _ => rfl⟩
+  | Rel n s => exact fun _ _ _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial, fun _ _ => rfl⟩
+  | Hole n s => exact fun hl => absurd hl (by simp)
   | Empty =>
-    exact fun _ hq _ _ => ⟨AggQueryIn.Empty,
+    exact fun _ _ hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, trivial, fun _ _ => rfl⟩
   | Proj ps q ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hl hc hq.2 hw hqs
     refine ⟨AggQueryIn.Proj ps q', ⟨⟨hp, hq.1.2⟩, hu'⟩, hs', hw',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | Sel φ q ih =>
-    intro hc hq hw hqs
+  | Sel φ q _ ih =>
+    intro hl hc hq hw hqs
+    subst hl
     obtain ⟨hreg, hagg, hw'⟩ := hw
-    obtain ⟨q', hu', hs', hw'', he'⟩ := ih hc hq.2 hw' hqs
+    obtain ⟨q', hu', hs', hw'', he'⟩ := ih rfl hc hq.2 hw' hqs
     subst hc
     have hκ := funext hreg
     subst hκ
@@ -1000,88 +1009,90 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hc hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hc hq.2.1 hw.2.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hc hq.2.2 hw.2.2 hqs.2
+    intro hl hc hq hw hqs
+    obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hl₁ hc hq.2.1 hw.2.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hl₂ hc hq.2.2 hw.2.2 hqs.2
     refine ⟨AggQueryIn.Prod q₁' q₂',
       ⟨mem_of_mem_insert (by decide) hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       ⟨hw.1, hw₁, hw₂⟩, fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ, he₂ D γ]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro _ hq
+    intro _ _ hq
     exact absurd (mem_of_mem_insert (by decide) hq.1) hap
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hc hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hc hq.2.1 hw.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hc hq.2.2 hw.2 hqs.2
+    intro hl hc hq hw hqs
+    obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hl₁ hc hq.2.1 hw.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hl₂ hc hq.2.2 hw.2 hqs.2
     refine ⟨AggQueryIn.Sum q₁' q₂',
       ⟨mem_of_mem_insert (by decide) hq.1, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       ⟨hw₁, hw₂⟩, fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ, he₂ D γ]
   | Dedup q ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.Dedup q',
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hc hq hw hqs
-    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ hc hq.2.1 hw.1 hqs.1
-    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ hc hq.2.2 hw.2 hqs.2
+    intro hl hc hq hw hqs
+    obtain ⟨q₁', hu₁, hs₁, hw₁, he₁⟩ := ih₁ rfl hc hq.2.1 hw.1 hqs.1
+    obtain ⟨q₂', hu₂, hs₂, hw₂, he₂⟩ := ih₂ rfl hc hq.2.2 hw.2 hqs.2
     refine ⟨AggQueryIn.Diff q₁' q₂', ⟨hd, hu₁, hu₂⟩, ⟨hs₁, hs₂⟩,
       ⟨hw₁, hw₂⟩, fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
   | Alt i hi q ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hl hc hq hw hqs
     exact ⟨AggQueryIn.Alt i hi q', hu', hs', hw', fun D γ => he' D γ⟩
   | Retag hbase q ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih hl hc hq hw hqs
     exact ⟨AggQueryIn.Retag hbase q', hu', hs', hw', fun D γ => he' D γ⟩
   | Mu s q₀ q₁ ih₀ ih₁ =>
-      exact fun _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hmb)
+      exact fun _ _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hmb)
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-      exact fun _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hms)
+      exact fun _ _ hq => absurd hq.1 (not_mem_insert_of_ne (by decide) hms)
   | Gamma is ts fs q keep ord ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.Gamma is ts fs q' keep ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.GammaScalar ts fs q' ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc fn q ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.GammaNest is his pc fn q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs', hw',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
-  | GammaTok is his ts fs b q keep ih => exact fun _ hq => hq.elim
-  | ProvSum is his t q ih => exact fun _ hq => hq.elim
+  | GammaTok is his ts fs b q keep ih => exact fun _ _ hq => hq.elim
+  | ProvSum is his t q ih => exact fun _ _ hq => hq.elim
   | Win P' O o w t fn q hrr dist keep ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.Win P' O o w t fn q' hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
-    intro hc hq hw hqs
-    obtain ⟨q', hu', hs', hw', he'⟩ := ih hc hq.2 hw hqs
+    intro hl hc hq hw hqs
+    obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
     refine ⟨AggQueryIn.WinExpr P' O o ws ts fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -1128,7 +1139,7 @@ theorem AggQueryIn.exists_basisDiffOps_plainEquiv {sch : Schema} {n : ℕ}
   obtain ⟨q₅, hu₅, hs₅, -, he₅⟩ :=
     AggQueryIn.exists_selFree (S := basisDiffOps) (by simp [basisDiffOps])
       (by simp [basisDiffOps]) (by simp [basisDiffOps])
-      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl
+      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl rfl
       (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
@@ -1155,7 +1166,7 @@ theorem AggQueryIn.exists_basisApplyOps_plainEquiv {sch : Schema} {n : ℕ}
   obtain ⟨q₅, hu₅, hs₅, he₅⟩ :=
     AggQueryIn.exists_prodFree (S := basisApplyOps) (by simp [basisApplyOps])
       (by simp [basisApplyOps]) (by simp [basisApplyOps])
-      q₄ (AggQueryIn.usesOnly_mono (by
+      q₄ rfl (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
         rcases hk with h | h | h | h | h | h <;>
@@ -1171,8 +1182,6 @@ theorem basisDiffOps_generatesOn (cnt : SeqAggFunc T)
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisDiffOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu',
-      AggQueryIn.recRestricted_of_usesOnly (by simp [basisDiffOps])
-        (by simp [basisDiffOps]) q' hu',
       AggQueryIn.settlesAt_of_usesOnly (by simp [basisDiffOps])
         (by simp [basisDiffOps]) q' hu', he'⟩
 
@@ -1184,8 +1193,6 @@ theorem basisApplyOps_generatesOn (cnt : SeqAggFunc T)
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisApplyOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu',
-      AggQueryIn.recRestricted_of_usesOnly (by simp [basisApplyOps])
-        (by simp [basisApplyOps]) q' hu',
       AggQueryIn.settlesAt_of_usesOnly (by simp [basisApplyOps])
         (by simp [basisApplyOps]) q' hu', he'⟩
 
@@ -1276,7 +1283,7 @@ theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
   obtain ⟨q₅, hu₅, hs₅, hw₅, he₅⟩ :=
     AggQueryIn.exists_selFree (S := basisDiffOps) (by simp [basisDiffOps])
       (by simp [basisDiffOps]) (by simp [basisDiffOps])
-      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl
+      (by simp [basisDiffOps]) (by simp [basisDiffOps]) q₄ rfl rfl
       (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hk
@@ -1286,7 +1293,7 @@ theorem AggQueryIn.exists_basisApplyDiffOps_plainEquiv {sch : Schema} {n : ℕ}
   obtain ⟨q₆, hu₆, hs₆, he₆⟩ :=
     AggQueryIn.exists_prodFree (S := basisApplyDiffOps)
       (by simp [basisApplyDiffOps]) (by simp [basisApplyDiffOps])
-      (by simp [basisApplyDiffOps]) q₅ (AggQueryIn.usesOnly_mono (by
+      (by simp [basisApplyDiffOps]) q₅ rfl (AggQueryIn.usesOnly_mono (by
         intro k hk
         simp only [basisDiffOps, Set.mem_insert_iff,
           Set.mem_singleton_iff] at hk
@@ -1303,8 +1310,6 @@ theorem basisApplyDiffOps_generatesOn (cnt : SeqAggFunc T)
     obtain ⟨q', hu', hs', he'⟩ :=
       AggQueryIn.exists_basisApplyDiffOps_plainEquiv cnt hcnt q hq hd hqs
     exact ⟨q', hs', hu',
-      AggQueryIn.recRestricted_of_usesOnly (by simp [basisApplyDiffOps])
-        (by simp [basisApplyDiffOps]) q' hu',
       AggQueryIn.settlesAt_of_usesOnly (by simp [basisApplyDiffOps])
         (by simp [basisApplyDiffOps]) q' hu', he'⟩
 

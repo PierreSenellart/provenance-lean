@@ -1710,16 +1710,25 @@ empty world is one of its worlds, so there is no occurrence to realize. This
 is the case split the possible-world reading of an aggregate comparison
 makes anyway. -/
 theorem AggQueryIn.evaluate_guarded :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T (BoolFunc X)) {γ : Fin c → T}
       (r : GenRow T (BoolFunc X) n),
       r ∈ q.evaluate d γ → ∀ v : X → Bool,
       r.snd.finalize v = true →
       ∀ (k : Fin n) (a : AggTok T (BoolFunc X)), r.fst k = Sum.inr a →
         a.Realized v := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro d γ r hr v _ k a ha
+    simp only [AggQueryIn.evaluate] at hr
+    cases hf : d.find n s with
+    | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
+    | some rn =>
+      rw [hf] at hr
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      exact absurd ha (by simp [GenRow.ofAnnotated])
+  | Hole n s =>
     intro d γ r hr v _ k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
@@ -1800,7 +1809,7 @@ theorem AggQueryIn.evaluate_guarded :
           -- reading through a function moves neither the family nor the
           -- conventions, so the worlds are the expression's own
           exact ih d r₀ hr₀ v hfin₀ k (AggTok.expr a₀) hu
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro d γ r hr v hfin k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
@@ -2230,8 +2239,8 @@ omit [Fintype X] [DecidableEq X] in
 /-- On an all-regular subquery, the plain and general realized worlds
 coincide (every column is a regular value, on which the specialized and
 plain readings agree). -/
-private lemma genRandomWorld_allReg {c n : ℕ}
-    (q : AggQueryIn T c n (ColKind.allReg n))
+private lemma genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n (ColKind.allReg n) l)
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
     {γ : Fin c → T} :
     randomWorld v ((q.evaluate d γ).map GenRow.toAnnotated)
@@ -3295,16 +3304,23 @@ of the row's own column (`ProjColIn.specialize_innerValue`). What
 `nestOnce` excludes is a second storey, whose inner reading is taken
 through its collapse – the deterministic reading, not the world one. -/
 theorem AggQueryIn.genRandomWorld_evaluate :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (_hq : q.noProvSum) (_hn : q.nestOnce)
       (_hr : q.recSettles (K := BoolFunc X))
       (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
       {γ : Fin c → T},
     genRandomWorld v (q.evaluate d γ)
       = q.evaluatePlain (d.randomWorld v) γ := by
-  intro c n κ q
+  intro c n κ l q
   induction q with
   | Rel n s =>
+    intro hq hn hr d v γ
+    simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
+    rw [AnnotatedDatabase.find_randomWorld]
+    cases hf : d.find n s with
+    | none => rfl
+    | some rn => exact genRandomWorld_ofAnnotated rn v
+  | Hole n s =>
     intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [AnnotatedDatabase.find_randomWorld]
@@ -3335,7 +3351,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
         = fun j => (ps j).evalPlain (GenRow.specializeTuple v r.fst) γ
       funext j
       exact ProjColIn.specializeAt_eval (ps j) r.fst hconf v
-  | Sel φ q ih =>
+  | Sel φ q _ ih =>
     intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     by_cases hφ : φ.hasAggAtom
@@ -3485,13 +3501,13 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated]
     refine muFix_map (h := _root_.randomWorld v) rfl
-      (stepP := fun Y => (q₀.evaluatePlain ((d.randomWorld v).assign s Y) γ
+      (stepP := fun Y => (q₀.evaluatePlain (d.randomWorld v) γ
         + q₁.evaluatePlain ((d.randomWorld v).assign s Y) γ).dedup)
       (fun Y => ?_) (hr.1 d γ)
     show _root_.randomWorld v (AnnotatedRelation.dedupAnn (_ + _)) = _
     rw [AnnotatedRelation.dedupAnn, randomWorld_groupByKey, randomWorld_add,
       genRandomWorld_allReg, genRandomWorld_allReg,
-      ih₀ hq.1 hn.1 hr.2.1 (d.assign s Y) v,
+      ih₀ hq.1 hn.1 hr.2.1 d v,
       ih₁ hq.2 hn.2 hr.2.2 (d.assign s Y) v]
     rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
