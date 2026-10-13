@@ -19,8 +19,8 @@ derived from `(p₀, c̄)` alone, since only a row of phase `p₀` passes the
 selection, so with `r`'s own multiplicity – then `∅`, the phase being
 `p₁`. The rounds of `T`: `Q_R`, then `{(p₁, s) : s ∈ S}`, again from
 `(p₀, c̄)` alone, then `∅`. Both settle on every instance, in two
-rounds; the restriction on recursive terms is met (`Y` once, under a
-product, a selection on regular columns and a projection; the bases
+rounds; the restriction on recursive terms is met (`Y` once, on the left
+of an apply, under a selection on regular columns and a projection; the bases
 closed, `Q_R` being a closed query with its own recursion); and the
 multiplicities of `R` and `S` add up through the final projection, as
 `⊎` wants. What a single recursion cannot do – its body reads one fixed
@@ -31,7 +31,9 @@ round that reads `S` to start from.
 `AggQueryIn.sumByMu` is the construction, `evaluatePlain_sumByMu` its
 evaluation, and `AggQueryIn.exists_sumFree` the pass: every query of the
 minimal universe is equivalent, wherever it settles, to one with no `⊎`,
-over `{∅, Π, σ, ×, γ, μ^⊎}` and whatever else it used. The two bound
+over `{∅, Π, σ, apply, γ, μ^⊎}` and whatever else it used – the product
+of each round being written as an apply, since a basis holds one of the
+two and the apply is the one a recursive term may sit under. The two bound
 names of each construction have to be **fresh** – declared by no
 relation of the schema and occurring nowhere in the query, bound names
 included – so the pass takes a supply of fresh names, an injective
@@ -240,6 +242,319 @@ theorem AggQueryIn.mem_names_of_recOnce {s : String} :
   | Win P O o w t f q hrr dist keep ih => exact fun h => h.elim
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
+/-! ## The restriction, the signature and the names, through a substitution -/
+
+omit [ValueType T] in
+theorem TermIn.noFun_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) (t : TermIn T c n) :
+    (t.substMap θ).noFun = t.noFun := by
+  cases t <;> try rfl
+  rename_i k
+  show (Sum.elim TermIn.const TermIn.outer (θ k)).noFun = true
+  cases θ k <;> rfl
+
+omit [ValueType T] in
+theorem TermGIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    (t : TermGIn T c κ) : (t.substMap θ).noFun = t.noFun := by
+  cases t <;> try rfl
+  rename_i k
+  show (Sum.elim TermGIn.const TermGIn.outer (θ k)).noFun = true
+  cases θ k <;> rfl
+
+omit [ValueType T] in
+theorem ProjColIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    (p : ProjColIn T c κ) : (p.substMap θ).noFun = p.noFun := by
+  cases p with
+  | term t => exact TermGIn.noFun_substMap θ t
+  | provTerm t => exact TermGIn.noFun_substMap θ t
+  | _ => rfl
+
+omit [ValueType T] in
+theorem GenPredIn.noFun_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    (φ : GenPredIn T c κ) : (φ.substMap θ).noFun = φ.noFun := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    show ((t₁.substMap θ).noFun && (t₂.substMap θ).noFun) = (t₁.noFun && t₂.noFun)
+    rw [TermGIn.noFun_substMap, TermGIn.noFun_substMap]
+  | aggCmp k h op t => exact TermGIn.noFun_substMap θ t
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    show ((t₁.substMap θ).noFun && (t₂.substMap θ).noFun) = (t₁.noFun && t₂.noFun)
+    rw [TermGIn.noFun_substMap, TermGIn.noFun_substMap]
+  | and φ ψ ihφ ihψ =>
+    show ((φ.substMap θ).noFun && (ψ.substMap θ).noFun) = (φ.noFun && ψ.noFun)
+    rw [ihφ, ihψ]
+  | or φ ψ ihφ ihψ =>
+    show ((φ.substMap θ).noFun && (ψ.substMap θ).noFun) = (φ.noFun && ψ.noFun)
+    rw [ihφ, ihψ]
+  | not φ ih => exact ih
+
+omit [ValueType T] in
+/-- A substitution changes no name. -/
+theorem AggQueryIn.names_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).names = q.names := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => rfl
+  | Empty => exact fun θ => rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.names_castKind]
+    exact ih θ
+  | Sel φ q ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    show Union.union _ _ = Union.union _ _
+    rw [ih₁ θ, ih₂ θ]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    show Union.union _ _ = Union.union _ _
+    rw [ih₁ θ, ih₂ _]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    show Union.union _ _ = Union.union _ _
+    rw [ih₁ θ, ih₂ θ]
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    show Union.union _ _ = Union.union _ _
+    rw [ih₁ θ, ih₂ θ]
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro d θ
+    show insert s (Union.union _ _) = insert s (Union.union _ _)
+    rw [ih₀ θ, ih₁ θ]
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro d θ
+    show insert s (Union.union _ _) = insert s (Union.union _ _)
+    rw [ih₀ θ, ih₁ θ]
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
+
+omit [ValueType T] in
+/-- Nor what is mentioned. -/
+theorem AggQueryIn.noMention_substMap {s : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).noMention s ↔ q.noMention s := by
+  intro c n κ q
+  induction q with
+  | Rel n s' => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.noMention_castKind]
+    exact ih θ
+  | Sel φ q ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
+
+omit [ValueType T] in
+/-- Nor where the recursive relation is read. -/
+theorem AggQueryIn.recOnce_substMap {s : String} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recOnce s ↔ q.recOnce s := by
+  intro c n κ q
+  induction q with
+  | Rel n s' => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.recOnce_castKind]
+    exact ih θ
+  | Sel φ q ih =>
+    exact fun θ => and_congr (by rw [GenPredIn.hasAggAtom_substMap]) (ih θ)
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => or_congr (and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ θ))
+      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ))
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    exact fun θ => or_congr (and_congr (ih₁ θ) (AggQueryIn.noMention_substMap q₂ θ))
+      (and_congr (AggQueryIn.noMention_substMap q₁ θ) (ih₂ θ))
+  | Dedup q ih => exact fun θ => Iff.rfl
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => Iff.rfl
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
+  | Gamma is ts fs q keep ord ih => exact fun θ => Iff.rfl
+  | GammaScalar ts fs q ord ih => exact fun θ => Iff.rfl
+  | GammaNest is his p fn q ih => exact fun θ => Iff.rfl
+  | ProvSum is his t q ih => exact fun θ => Iff.rfl
+  | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => Iff.rfl
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => Iff.rfl
+
+omit [ValueType T] in
+/-- Nor whether the recursions are restricted. -/
+theorem AggQueryIn.recRestricted_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).recRestricted ↔ q.recRestricted := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.recRestricted_castKind]
+    exact ih θ
+  | Sel φ q ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    exact fun θ => and_congr (AggQueryIn.noMention_substMap q₀ θ)
+      (and_congr (AggQueryIn.recOnce_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    exact fun θ => and_congr (AggQueryIn.noMention_substMap q₀ θ)
+      (and_congr (AggQueryIn.recOnce_substMap q₁ θ) (and_congr (ih₀ θ) (ih₁ θ)))
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
+
+/-- Nor the signature: a substitution puts a constant or a column where
+an outer column was. -/
+theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).inSig Θ ↔ q.inSig Θ := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.inSig_castKind]
+    exact and_congr (forall_congr' fun j => by rw [ProjColIn.noFun_substMap]) (ih θ)
+  | Sel φ q ih =>
+    exact fun θ => and_congr (by rw [GenPredIn.noFun_substMap]) (ih θ)
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | Gamma is ts fs q keep ord ih =>
+    exact fun θ => and_congr (forall_congr' fun j => by rw [TermIn.noFun_substMap])
+      (and_congr Iff.rfl (and_congr Iff.rfl (ih θ)))
+  | GammaScalar ts fs q ord ih =>
+    exact fun θ => and_congr (forall_congr' fun j => by rw [TermIn.noFun_substMap])
+      (and_congr Iff.rfl (ih θ))
+  | GammaNest is his p fn q ih =>
+    exact fun θ => and_congr (by rw [ProjColIn.noFun_substMap])
+      (and_congr Iff.rfl (ih θ))
+  | ProvSum is his t q ih => exact fun θ => Iff.rfl
+  | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
+  | Win P O o w t fw q hrr dist keep ih =>
+    exact fun θ => and_congr (by rw [TermIn.noFun_substMap])
+      (and_congr Iff.rfl (and_congr Iff.rfl (ih θ)))
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => Iff.rfl
+
+/-- **A substituted query is defined where the query is**, under the
+valuation the substitution induces. -/
+theorem AggQueryIn.settlesAt_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d) (D : Database T) (γ : Fin d → T),
+      (q.substMap θ).SettlesAt D γ ↔ q.SettlesAt D (substVal θ γ) := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ D γ => Iff.rfl
+  | Empty => exact fun θ D γ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ D γ
+    rw [AggQueryIn.substMap, AggQueryIn.settlesAt_castKind]
+    exact ih θ D γ
+  | Sel φ q ih => exact fun θ D γ => ih θ D γ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro d θ D γ
+    refine and_congr (ih₁ θ D γ) (forall_congr' fun u => ?_)
+    show Multiset.Mem ((q₁.substMap θ).evaluatePlain D γ) u → _
+      ↔ (Multiset.Mem (q₁.evaluatePlain D (substVal θ γ)) u → _)
+    rw [AggQueryIn.evaluatePlain_substMap]
+    exact imp_congr Iff.rfl (by rw [ih₂ _ D (Fin.append u γ), substVal_append])
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
+  | Dedup q ih => exact fun θ D γ => ih θ D γ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
+  | Alt k hk q ih => exact fun θ D γ => ih θ D γ
+  | Retag hk q ih => exact fun θ D γ => ih θ D γ
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro d θ D γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.SettlesAt, AggQueryIn.evaluatePlain_substMap, ih₀ θ, ih₁ θ]
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro d θ D γ
+    rw [AggQueryIn.substMap]
+    simp only [AggQueryIn.SettlesAt, AggQueryIn.evaluatePlain_substMap, ih₀ θ, ih₁ θ]
+  | Gamma is ts fs q keep ord ih => exact fun θ D γ => ih θ D γ
+  | GammaScalar ts fs q ord ih => exact fun θ D γ => ih θ D γ
+  | GammaNest is his p fn q ih => exact fun θ D γ => ih θ D γ
+  | ProvSum is his t q ih => exact fun θ D γ => ih θ D γ
+  | GammaTok is his ts fs a q keep ih => exact fun θ D γ => ih θ D γ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ D γ => ih θ D γ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ D γ => ih θ D γ
+
+
+/-- Nor which windows are derivable. -/
+theorem AggQueryIn.winsDerivable_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).WinsDerivable ↔ q.WinsDerivable := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.winsDerivable_castKind]
+    exact ih θ
+  | Sel φ q ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih =>
+    exact fun θ => and_congr Iff.rfl (and_congr Iff.rfl (ih θ))
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => Iff.rfl
+
 /-! ## The construction -/
 
 namespace AggQueryIn
@@ -356,11 +671,15 @@ def sameTag : GenPredIn T c (Fin.append (ColKind.allReg (k + 1)) (ColKind.allReg
 
 /-- **A round of the construction**: the rows of the recursive relation
 of phase `p₀` (the tag of `Z`) each read `Z`, and the rows read are
-re-withTag `p₁`. -/
+re-tagged `p₁`. The product is written as an apply whose right side
+reads no column of the left – which is what a product is, and keeps the
+construction over the classes of a basis holding the apply and not
+`×`. -/
 def phaseBody (s : String) (p₁ : T) (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) :=
   (AggQueryIn.Proj (roundCols p₁)
-    (AggQueryIn.Sel sameTag (AggQueryIn.Prod (AggQueryIn.Rel (k + 1) s) Z))).castKind
+    (AggQueryIn.Sel sameTag (AggQueryIn.Apply (AggQueryIn.Rel (k + 1) s)
+      (Z.substMap (applyOuter T c (k + 1)))))).castKind
     (roundCols_kind p₁)
 
 /-- The selection dropping the rows of phase `p₀`. -/
@@ -427,6 +746,12 @@ theorem evaluatePlain_phaseBody (s : String) (p₀ p₁ : T)
       = (X.filter (fun x => x 0 = p₀)).bind
           (fun _ => R.map (tagRow p₁)) := by
   rw [phaseBody, AggQueryIn.evaluatePlain_castKind]
+  show Multiset.map (fun u j => (roundCols p₁ j).evalPlain u γ)
+    (Multiset.filter (fun u => sameTag.holdsPlain u γ)
+      ((AggQueryIn.Apply (AggQueryIn.Rel (k + 1) s)
+        (Z.substMap (fun j : Fin c => Sum.inr (Fin.natAdd (k + 1) j)))).evaluatePlain
+          (D.assign s X) γ)) = _
+  rw [AggQueryIn.apply_plainEquiv_prod (AggQueryIn.Rel (k + 1) s) Z (D.assign s X) γ]
   simp only [AggQueryIn.evaluatePlain]
   rw [AggQueryIn.evaluatePlain_assign_of_noMention X Z hZ D γ, hZv]
   simp only [Database.find_assign, Relation.hMul_eq_bind, Multiset.filter_bind,
@@ -525,7 +850,8 @@ theorem settlesAt_phaseMu (s : String) {p₀ p₁ : T} (hp : p₁ ≠ p₀)
     rw [Multiset.filter_eq_nil.mpr (fun x hx h => hp (Eq.trans (mem_round_phase hx).symm h)),
       Multiset.zero_bind]
   · rw [phaseBody, AggQueryIn.settlesAt_castKind]
-    refine (⟨trivial, ?_⟩ : True ∧ _)
+    refine (⟨trivial, fun u _ => ?_⟩ : True ∧ _)
+    rw [AggQueryIn.settlesAt_substMap, substVal_applyOuter]
     exact AggQueryIn.settlesAt_of_noMention Z hZ
       (fun _k s' hs' => (Database.find_assign_of_ne s s' _ D (fun hc => hs' hc.2)).symm) γ hZs
 
@@ -547,7 +873,7 @@ theorem noMention_phaseBody (s' : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) {s : String}
     (hs : s' ≠ s) (hZ : Z.noMention s) : (phaseBody s' p₁ Z).noMention s := by
   rw [phaseBody, AggQueryIn.noMention_castKind]
-  exact ⟨hs, hZ⟩
+  exact ⟨hs, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
 
 /-- **The construction is the union**: its value is `q₁ ⊎ q₂` on every
 instance and context, the two bound names being fresh. -/
@@ -640,10 +966,10 @@ theorem settlesAt_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (Co
 /-! ## What the construction is made of -/
 
 /-- **The classes the construction uses**: the empty relation and a
-scalar aggregation (the unit), projections, selections, products and bag
+scalar aggregation (the unit), projections, selections, applies and bag
 recursions. -/
 def sumMuOps : Set OpKind :=
-  {OpKind.empty, OpKind.proj, OpKind.sel, OpKind.prod, OpKind.gamma, OpKind.muBag}
+  {OpKind.empty, OpKind.proj, OpKind.sel, OpKind.apply, OpKind.gamma, OpKind.muBag}
 
 omit [ValueType T] in
 theorem usesOnly_unitC {S : Set OpKind} (hS : sumMuOps ⊆ S) :
@@ -670,7 +996,7 @@ theorem usesOnly_phaseBody {S : Set OpKind} (hS : sumMuOps ⊆ S) (s : String) (
     (phaseBody s p₁ Z).usesOnly S := by
   rw [phaseBody, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hS (by simp [sumMuOps]), fun j => ?_⟩, hS (by simp [sumMuOps]),
-    hS (by simp [sumMuOps]), trivial, hZ⟩
+    hS (by simp [sumMuOps]), trivial, (AggQueryIn.usesOnly_substMap Z _).mpr hZ⟩
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
 /-- **The construction uses the classes of `sumMuOps`** and its operands'. -/
@@ -701,7 +1027,8 @@ theorem recRestricted_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     (phaseBody s p₁ Z).recRestricted ↔ Z.recRestricted := by
   rw [phaseBody, AggQueryIn.recRestricted_castKind]
-  exact ⟨fun h => h.2, fun h => ⟨trivial, h⟩⟩
+  exact ⟨fun h => (AggQueryIn.recRestricted_substMap Z _).mp h.2,
+    fun h => ⟨trivial, (AggQueryIn.recRestricted_substMap Z _).mpr h⟩⟩
 
 omit [ValueType T] in
 /-- A round reads its recursive relation once, under a projection, a
@@ -710,7 +1037,7 @@ theorem recOnce_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.noMention s) :
     (phaseBody s p₁ Z).recOnce s := by
   rw [phaseBody, AggQueryIn.recOnce_castKind]
-  exact ⟨rfl, Or.inl ⟨rfl, hZ⟩⟩
+  exact ⟨rfl, rfl, (AggQueryIn.noMention_substMap Z _).mpr hZ⟩
 
 /-- **The construction's recursions are restricted**, given fresh names. -/
 theorem recRestricted_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
@@ -745,7 +1072,7 @@ theorem inSig_phaseBody (Θ : Set (SeqAggFunc T)) (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.inSig Θ) :
     (phaseBody s p₁ Z).inSig Θ := by
   rw [phaseBody, AggQueryIn.inSig_castKind]
-  refine ⟨fun j => ?_, rfl, trivial, hZ⟩
+  refine ⟨fun j => ?_, rfl, trivial, (AggQueryIn.inSig_substMap Z _).mpr hZ⟩
   refine Fin.cases ?_ (fun i => ?_) j <;> rfl
 
 /-- **The construction applies no function and adds no aggregate**: it
@@ -772,7 +1099,8 @@ theorem winsDerivable_phaseBody (s : String) (p₁ : T)
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) :
     (phaseBody s p₁ Z).WinsDerivable ↔ Z.WinsDerivable := by
   rw [phaseBody, AggQueryIn.winsDerivable_castKind]
-  exact ⟨fun h => h.2, fun h => ⟨trivial, h⟩⟩
+  exact ⟨fun h => (AggQueryIn.winsDerivable_substMap Z _).mp h.2,
+    fun h => ⟨trivial, (AggQueryIn.winsDerivable_substMap Z _).mpr h⟩⟩
 
 /-- The construction has no window of its own. -/
 theorem winsDerivable_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k))
@@ -804,7 +1132,7 @@ theorem overSchema_phaseBody {sch : Schema} {s : String} (hs : sch s = some (k +
     (Z : AggQueryIn T c (k + 1) (ColKind.allReg (k + 1))) (hZ : Z.overSchema sch) :
     (phaseBody s p₁ Z).overSchema sch := by
   rw [phaseBody, AggQueryIn.overSchema_castKind]
-  exact ⟨hs, hZ⟩
+  exact ⟨hs, (AggQueryIn.overSchema_substMap Z _ sch).mpr hZ⟩
 
 omit [ValueType T] in
 /-- A declaration reads back. -/
@@ -835,6 +1163,7 @@ theorem names_sumByMu (s₁ s₂ : String) (q₁ q₂ : AggQueryIn T c k (ColKin
   intro x hx
   rw [sumByMu, AggQueryIn.names_castKind] at hx
   simp only [AggQueryIn.names, phaseBody, withTag, driver, unitC, AggQueryIn.names_castKind,
+    AggQueryIn.names_substMap,
     Finset.mem_insert, Finset.mem_union, Finset.mem_singleton, Finset.notMem_empty,
     false_or] at hx
   simp only [Finset.mem_insert, Finset.mem_union]
@@ -1088,6 +1417,42 @@ def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → AggQuer
   | _, _, _, .GammaTok _ _ _ _ _ q _ => q.sumsAllReg
   | _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.sumsAllReg
   | _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sumsAllReg
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    (h : κ = κ') (q : AggQueryIn T c n κ) : (q.castKind h).sumsAllReg ↔ q.sumsAllReg := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+/-- A substitution changes no `⊎`. -/
+theorem AggQueryIn.sumsAllReg_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).sumsAllReg ↔ q.sumsAllReg := by
+  intro c n κ q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.sumsAllReg_castKind]
+    exact ih θ
+  | Sel φ q ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Alt k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
 
 /-- **What the pass keeps of a query, besides its value**: the classes
 of `S` (the construction's being among them), the restriction on
@@ -1722,7 +2087,7 @@ construction, 2026-10-12): every query over the classes of `S` and `⊎` –
 restricted recursions, the signature `Θ`, every `⊎` all-regular – is
 matched, on every instance where it is defined, by one over the classes
 of `S` alone, for any `S` holding the construction's classes
-(`sumMuOps`: `∅`, `Π`, `σ`, `×`, `γ`, `μ^⊎`). The names the
+(`sumMuOps`: `∅`, `Π`, `σ`, apply, `γ`, `μ^⊎`). The names the
 construction binds come from an injective supply the query does not
 use, which `exists_freshSupply` provides. -/
 theorem exists_sumFree {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (SeqAggFunc T)}

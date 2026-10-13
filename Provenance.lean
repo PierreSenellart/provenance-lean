@@ -51,6 +51,7 @@ import Provenance.AllRegular
 import Provenance.BasisAssembly
 import Provenance.RecursionBasis
 import Provenance.SumByMu
+import Provenance.BasisRec
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1075,7 +1076,7 @@ proven engine several general results reuse internally.
   over the classes of `S` and `⊎` – restricted recursions, in a signature
   `Θ`, every `⊎` all-regular (`sumsAllReg`, what a recursion needs and
   the re-typing produces) – is matched wherever it is defined by one
-  over `S` alone, for any `S` holding `sumMuOps` = `{∅, Π, σ, ×, γ, μ^⊎}`,
+  over `S` alone, for any `S` holding `sumMuOps` = `{∅, Π, σ, apply, γ, μ^⊎}`,
   with the restriction, the signature, derivable windows and
   well-formedness kept. A `⊎` inside a recursive body is not replaced
   but *split* (`exists_sumFree_aux`'s second half): the body is the sum
@@ -1085,6 +1086,25 @@ proven engine several general results reuse internally.
   recursion (`muSet_of_split`). The bound names come from an injective
   supply the query does not use, which `exists_freshSupply` gives for a
   schema declaring finitely many names
+- `Provenance.BasisRec` – **a generating set of the whole algebra in the
+  minimal universe**: `generatesOnRec_basisRecOps` says the classes
+  `basisRecOps` = `{∅, Π, σ, apply, γ, μ^⊎, μ^∪}` generate the whole
+  algebra over a schema declaring finitely many names, for a counting
+  aggregate (`GeneratesOnRec`, equivalence wherever the query is
+  defined). It is one structural induction (`exists_basisRec_aux`) in
+  the manner of the union's pass: every node is re-typed to regular
+  columns (`AggQueryIn.allRegOf`, `toReg`) and rewritten by the local
+  identities – a window as `winByApply`, duplicate elimination as a
+  grouping, the difference as the `NOT IN` form with its product written
+  as an apply (`notInDiffA`), a product as an apply (`prodA`, or
+  `prodSwap` when the recursive relation is on its right, the apply
+  admitting it on the left only), a union through
+  `exists_sumFree_aux` – with a second half for recursive bodies. The
+  apply replaces `×` because the restriction on recursive terms admits an
+  apply whose left side reads the recursive relation, which no
+  decorrelation keeps. With the necessity rows, a basis of the whole
+  algebra in that universe is `∅`, `Π`, `γ`, `μ^⊎`, one of `σ`/`−`, one
+  of `×`/apply, and possibly `μ^∪`
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

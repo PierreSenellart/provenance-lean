@@ -3740,20 +3740,20 @@ either. -/
 
 section Difference
 
-variable {k : ℕ}
+variable {c k : ℕ}
 
 /-- The projection that tags a row with a constant: its own columns, and
 one more holding `a`. The column constructor is outside the case
 analysis, so every output column is regular by reduction. -/
 def AggQueryIn.tagCols (a : T) :
-    Tuple (ProjCol T (ColKind.allReg k)) (k + 1) :=
+    Tuple (ProjColIn T c (ColKind.allReg k)) (k + 1) :=
   fun j => .term (Fin.lastCases (TermGIn.const a)
     (fun i : Fin k => TermGIn.index i rfl) j)
 
 /-- **The two sides tagged and united**: every row of `q₁` with `0`,
 every row of `q₂` with the domain's non-zero value. -/
-def AggQueryIn.tagUnion (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
-    AggQuery T (k + 1) (ColKind.allReg (k + 1)) :=
+def AggQueryIn.tagUnion (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
+    AggQueryIn T c (k + 1) (ColKind.allReg (k + 1)) :=
   .Sum (.Proj (AggQueryIn.tagCols 0) q₁)
     (.Proj (AggQueryIn.tagCols ValueType.nonzero) q₂)
 
@@ -3767,8 +3767,8 @@ def AggQueryIn.rightTag : Selection T (k + 1) :=
 /-- **One row per distinct tuple, carrying the count of the right side's
 copies of it.** -/
 def AggQueryIn.tagAgg (cnt : SeqAggFunc T)
-    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
-    AggQuery T (k + 1)
+    (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
+    AggQueryIn T c (k + 1)
       (Fin.append (fun _ : Fin k => ColKind.reg)
         (fun _ : Fin 1 => ColKind.agg)) :=
   .Gamma (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last k)] ![cnt]
@@ -3794,18 +3794,18 @@ theorem notInKinds_agg (k : ℕ) :
 
 /-- **What the construction selects on**: the two blocks of key columns
 agree, and the tag count is `0`. -/
-def AggQueryIn.notInCond : GenPred T (notInKinds k) :=
-  .and (keyJoinCond (fun i : Fin k => Fin.castAdd (k + 1) i)
+def AggQueryIn.notInCond : GenPredIn T c (notInKinds k) :=
+  .and ((keyJoinCond (T' := T) (fun i : Fin k => Fin.castAdd (k + 1) i)
       (fun i : Fin k => Fin.natAdd k (Fin.castAdd 1 i))
-      (notInKinds_left k) (notInKinds_key k))
+      (notInKinds_left k) (notInKinds_key k)).substMap (fun j : Fin 0 => j.elim0))
     (.aggCmp (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) (notInKinds_agg k)
       CompOp.syneq (.const 0))
 
 /-- **The difference read as a `NOT IN`**: the copies of `q₁` whose tuple
 the tag count reads `0` on. -/
 def AggQueryIn.notInDiff (cnt : SeqAggFunc T)
-    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
-    AggQuery T k (ColKind.allReg k) :=
+    (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
+    AggQueryIn T c k (ColKind.allReg k) :=
   .Proj (fun i : Fin k =>
       .term (TermGIn.index (Fin.castAdd (k + 1) i) (notInKinds_left k i)))
     (.Sel AggQueryIn.notInCond (.Prod q₁ (AggQueryIn.tagAgg cnt q₁ q₂)))
@@ -3814,7 +3814,7 @@ def AggQueryIn.notInDiff (cnt : SeqAggFunc T)
 product, an aggregation and a union – the basis classes, which is the
 point of the identity. -/
 theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
-    (cnt : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
+    (cnt : SeqAggFunc T) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (hp : OpKind.proj ∈ S) (hs : OpKind.sel ∈ S) (hx : OpKind.prod ∈ S)
     (hu : OpKind.union ∈ S) (hg : OpKind.gamma ∈ S) (h₁ : q₁.usesOnly S)
     (h₂ : q₂.usesOnly S) : (AggQueryIn.notInDiff cnt q₁ q₂).usesOnly S :=
@@ -3823,14 +3823,14 @@ theorem AggQueryIn.usesOnly_notInDiff {S : Set OpKind}
 
 /-- **The `NOT IN` form names the relations its two sides name.** -/
 theorem AggQueryIn.overSchema_notInDiff {sch : Schema}
-    (cnt : SeqAggFunc T) {q₁ q₂ : AggQuery T k (ColKind.allReg k)}
+    (cnt : SeqAggFunc T) {q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)}
     (h₁ : q₁.overSchema sch) (h₂ : q₂.overSchema sch) :
     (AggQueryIn.notInDiff cnt q₁ q₂).overSchema sch :=
   ⟨h₁, h₁, h₂⟩
 
 /-- Tagging a row appends the constant to it. -/
-private theorem tagCols_eval (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
-    (AggQueryIn.tagCols (T := T) (k := k) a j).evalPlain u (fun _ => 0)
+private theorem tagCols_eval {γ : Fin c → T} (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
+    (AggQueryIn.tagCols (T := T) (c := c) (k := k) a j).evalPlain u γ
       = (Fin.snoc u a : Tuple T (k + 1)) j := by
   refine Fin.lastCases ?_ (fun i => ?_) j
   · rw [Fin.snoc_last]
@@ -3848,14 +3848,14 @@ private theorem tagCols_eval (a : T) (u : Tuple T k) (j : Fin (k + 1)) :
 /-- **The tagged union, row by row**: the rows of `q₁` with `0` appended
 and those of `q₂` with `a`. -/
 theorem AggQueryIn.evaluatePlain_tagUnion
-    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) (D : Database T) :
-    (AggQueryIn.tagUnion q₁ q₂).evaluatePlain D
-      = (q₁.evaluatePlain D).map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
-        + (q₂.evaluatePlain D).map
+    (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) (D : Database T) (γ : Fin c → T) :
+    (AggQueryIn.tagUnion q₁ q₂).evaluatePlain D γ
+      = (q₁.evaluatePlain D γ).map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
+        + (q₂.evaluatePlain D γ).map
             (fun u => (Fin.snoc u ValueType.nonzero
               : Tuple T (k + 1))) := by
-  show Multiset.map _ (q₁.evaluatePlain D)
-      + Multiset.map _ (q₂.evaluatePlain D) = _
+  show Multiset.map _ (q₁.evaluatePlain D γ)
+      + Multiset.map _ (q₂.evaluatePlain D γ) = _
   exact congrArg₂ (· + ·)
     (Multiset.map_congr rfl (fun u _ => funext (fun j => tagCols_eval 0 u j)))
     (Multiset.map_congr rfl (fun u _ =>
@@ -4031,14 +4031,12 @@ are the copies carrying the right side's tag. So the only aggregate the
 identity needs is SQL's `count`. -/
 theorem AggQueryIn.diff_plainEquiv_notIn (cnt : SeqAggFunc T)
     (hc : SeqAggFunc.Counts cnt)
-    (q₁ q₂ : AggQuery T k (ColKind.allReg k)) :
+    (q₁ q₂ : AggQueryIn T c k (ColKind.allReg k)) :
     (AggQueryIn.Diff q₁ q₂).PlainEquiv (AggQueryIn.notInDiff cnt q₁ q₂) := by
   intro D γ
-  have hγ : γ = (fun j : Fin 0 => (0 : T)) := funext (fun j => j.elim0)
-  subst hγ
   -- the two sides' rows, as multisets, which is what `−` reads
-  set r₁ : Multiset (Tuple T k) := q₁.evaluatePlain D with hr₁
-  set r₂ : Multiset (Tuple T k) := q₂.evaluatePlain D with hr₂
+  set r₁ : Multiset (Tuple T k) := q₁.evaluatePlain D γ with hr₁
+  set r₂ : Multiset (Tuple T k) := q₂.evaluatePlain D γ with hr₂
   -- the tagged union: the rows of `q₁` with `0` and those of `q₂` with `a`
   set tagged : Multiset (Fin (k + 1) → T) :=
     r₁.map (fun u => (Fin.snoc u 0 : Tuple T (k + 1)))
@@ -4050,11 +4048,11 @@ theorem AggQueryIn.diff_plainEquiv_notIn (cnt : SeqAggFunc T)
       (AggQueryIn.rightTag (T := T) (k := k)).keeps).map
       (fun v => v (Fin.last k))) with hval
   -- the grouping's rows: one per distinct tuple, carrying its tag
-  have hDr : (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D
+  have hDr : (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D γ
       = ((r₁ + r₂).dedup).map (fun g =>
           (Fin.append g (fun _ : Fin 1 => val g) : Fin (k + 1) → T)) := by
     show Multiset.map _ (Multiset.dedup (Multiset.map _
-        ((AggQueryIn.tagUnion q₁ q₂).evaluatePlain D))) = _
+        ((AggQueryIn.tagUnion q₁ q₂).evaluatePlain D γ))) = _
     rw [AggQueryIn.evaluatePlain_tagUnion]
     refine congrArg₂ Multiset.map (funext (fun g => ?_))
       (AggQueryIn.tagAgg_keys _ _)
@@ -4063,21 +4061,27 @@ theorem AggQueryIn.diff_plainEquiv_notIn (cnt : SeqAggFunc T)
     rfl
   -- the selection's condition, read on a row of the product
   have hcond : ∀ w : Tuple T (k + (k + 1)),
-      (AggQueryIn.notInCond (T := T) (k := k)).holdsPlain w
+      (AggQueryIn.notInCond (T := T) (c := c) (k := k)).holdsPlain w γ
         ↔ ((∀ i : Fin k, w (Fin.castAdd (k + 1) i)
               = w (Fin.natAdd k (Fin.castAdd 1 i)))
             ∧ w (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))) = 0) := by
     intro w
-    rw [AggQueryIn.notInCond, GenPredIn.holdsPlain_and, keyJoinCond_holdsPlain]
+    rw [AggQueryIn.notInCond]
+    refine (Kleene.and_eq_true_iff _ _).trans ?_
+    show (_ : GenPredIn T c (notInKinds k)).holdsPlain w γ
+      ∧ (_ : GenPredIn T c (notInKinds k)).holdsPlain w γ ↔ _
+    rw [GenPredIn.holdsPlain_substMap,
+      show substVal (fun j : Fin 0 => j.elim0) γ = fun _ => 0 from funext fun j => j.elim0,
+      keyJoinCond_holdsPlain]
     refine and_congr Iff.rfl ?_
     show CompOp.syneq.eval3 (w (Fin.natAdd k (Fin.natAdd k (0 : Fin 1))))
-        ((TermGIn.const (0 : T)).evalPlain w (fun _ => 0)) = Kleene.true ↔ _
+        ((TermGIn.const (0 : T)).evalPlain w γ) = Kleene.true ↔ _
     rw [CompOp.syneq_eval3_eq_true_iff]
     exact Iff.rfl
   show Multiset.filter (fun t => t ∉ r₂) r₁ = _
   show _ = Multiset.map _ (Multiset.filter
-      (fun w => (AggQueryIn.notInCond (T := T) (k := k)).holdsPlain w)
-      (q₁.evaluatePlain D * (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D))
+      (fun w => (AggQueryIn.notInCond (T := T) (c := c) (k := k)).holdsPlain w γ)
+      (q₁.evaluatePlain D γ * (AggQueryIn.tagAgg cnt q₁ q₂).evaluatePlain D γ))
   rw [hDr, Multiset.filter_congr (fun w _ => hcond w), Relation.hMul_eq_bind]
   refine Eq.symm (Eq.trans (notIn_filter_map r₁ ((r₁ + r₂).dedup) val
     (Multiset.nodup_dedup _)
@@ -5126,26 +5130,119 @@ theorem holdsPlain_clausePredOpt {c k : ℕ} (keep : Option (Selection T k))
     exact ⟨fun _ => rfl, fun _ => rfl⟩
   | some φ => exact Selection.holdsPlain_toPredIn φ y γ
 
+/-! #### The predicates built here apply no function to values -/
+
+omit [ValueType T] in
+theorem TermIn.noFun_toRegIn {c k : ℕ} (t : Term T k) :
+    (t.toRegIn (c := c)).noFun = t.noFun := by
+  cases t <;> first | rfl | (rename_i j; exact j.elim0)
+
+theorem Selection.noFun_toPredIn {c k : ℕ} :
+    ∀ φ : Selection T k, (φ.toPredIn (c := c)).noFun = φ.noFun
+  | .BT b => by
+    cases b <;> (show (_ && _) = (_ && _); rw [TermIn.noFun_toRegIn, TermIn.noFun_toRegIn]; try rfl)
+  | .Not φ => Selection.noFun_toPredIn φ
+  | .And φ₁ φ₂ => by
+    show (_ && _) = (_ && _)
+    rw [Selection.noFun_toPredIn φ₁, Selection.noFun_toPredIn φ₂]
+  | .Or φ₁ φ₂ => by
+    show (_ && _) = (_ && _)
+    rw [Selection.noFun_toPredIn φ₁, Selection.noFun_toPredIn φ₂]
+  | .True => rfl
+
+omit [ValueType T] in
+@[simp] theorem TermGIn.noFun_const {c n : ℕ} {κ : Fin n → ColKind} (a : T) :
+    (TermGIn.const (c := c) (κ := κ) a).noFun = true := rfl
+
+theorem noFun_clausePredOpt {c k : ℕ} (keep : Option (Selection T k)) :
+    (clausePredOpt (c := c) keep).noFun = Selection.noFunOpt keep := by
+  cases keep with
+  | none => rfl
+  | some φ => exact Selection.noFun_toPredIn φ
+
+omit [ValueType T] in
+theorem OrderCol.noFun_lePred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
+    (hx : x.noFun = true) (hy : y.noFun = true) : (cl.lePred x y).noFun = true := by
+  unfold OrderCol.lePred
+  split <;> (show (_ && _) = true; rw [hx, hy]; rfl)
+
+omit [ValueType T] in
+theorem OrderCol.noFun_ltPred {c m : ℕ} (cl : OrderCol) {x y : TermGIn T c (ColKind.allReg m)}
+    (hx : x.noFun = true) (hy : y.noFun = true) : (cl.ltPred x y).noFun = true := by
+  unfold OrderCol.ltPred
+  split <;> (show (_ && _) = true; rw [hx, hy]; rfl)
+
+omit [ValueType T] in
+theorem OrderCol.noFun_lePredN {c m : ℕ} (cl : OrderCol) (ν : T)
+    {x y : TermGIn T c (ColKind.allReg m)} (hx : x.noFun = true) (hy : y.noFun = true) :
+    (cl.lePredN ν x y).noFun = true := by
+  unfold OrderCol.lePredN
+  split <;> simp only [GenPredIn.noFun, hx, hy, TermGIn.noFun_const,
+    OrderCol.noFun_lePred cl hx hy, Bool.and_self]
+
+omit [ValueType T] in
+theorem OrderCol.noFun_ltPredN {c m : ℕ} (cl : OrderCol) (ν : T)
+    {x y : TermGIn T c (ColKind.allReg m)} (hx : x.noFun = true) (hy : y.noFun = true) :
+    (cl.ltPredN ν x y).noFun = true := by
+  unfold OrderCol.ltPredN
+  split <;> simp only [GenPredIn.noFun, hx, hy, TermGIn.noFun_const,
+    OrderCol.noFun_ltPred cl hx hy, Bool.and_self]
+
+theorem OrderSpec.noFun_lePredOnOf {c m : ℕ}
+    {base : Fin p → GenPredIn T c (ColKind.allReg m)}
+    {x y : Fin p → TermGIn T c (ColKind.allReg m)} (hb : ∀ k, (base k).noFun = true)
+    (hx : ∀ k, (x k).noFun = true) (hy : ∀ k, (y k).noFun = true) :
+    ∀ ks : List (Fin p), (OrderSpec.lePredOnOf base x y ks).noFun = true
+  | [] => rfl
+  | k :: ks => by
+    simp only [OrderSpec.lePredOnOf, GenPredIn.noFun, hb, hx, hy,
+      OrderSpec.noFun_lePredOnOf hb hx hy ks, Bool.and_self]
+
+theorem OrderSpec.noFun_ltPredOnOf {c m : ℕ}
+    {base : Fin p → GenPredIn T c (ColKind.allReg m)}
+    {x y : Fin p → TermGIn T c (ColKind.allReg m)} (hb : ∀ k, (base k).noFun = true)
+    (hx : ∀ k, (x k).noFun = true) (hy : ∀ k, (y k).noFun = true) :
+    ∀ ks : List (Fin p), (OrderSpec.ltPredOnOf base x y ks).noFun = true
+  | [] => rfl
+  | k :: ks => by
+    simp only [OrderSpec.ltPredOnOf, GenPredIn.noFun, hb, hx, hy,
+      OrderSpec.noFun_ltPredOnOf hb hx hy ks, Bool.and_self]
+
+omit [ValueType T] in
+theorem noFun_frameSelfTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
+    (frameSelfTerms (T := T) (c := c) O j).noFun = true := rfl
+
+omit [ValueType T] in
+theorem noFun_frameOuterTerms {c k q : ℕ} (O : Tuple (Fin k) q) (j : Fin q) :
+    (frameOuterTerms (T := T) (c := c) O j).noFun = true := rfl
+
 theorem exists_framePred_whole {c : ℕ} (O : Tuple (Fin n) p)
     (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.whole : ValueFrame T p).ρ (Tuple.key O y)
               (Tuple.key O u) = true ∧ Selection.keepsOpt keep y = true) := by
-  refine ⟨clausePredOpt keep, fun y u γ => ?_⟩
+  refine ⟨clausePredOpt keep, fun hk => by rw [noFun_clausePredOpt]; exact hk, fun y u γ => ?_⟩
   rw [holdsPlain_clausePredOpt]
   exact (and_iff_right rfl).symm
 
 private theorem exists_framePred_rangeUpTo_noNulls [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeUpTo o).ρ (Tuple.key O y)
               (Tuple.key O u) = true ∧ Selection.keepsOpt keep y = true) := by
   refine ⟨GenPredIn.and (o.lePredOn (frameSelfTerms O) (frameOuterTerms O)
-      (List.finRange p)) (clausePredOpt keep), fun y u γ => ?_⟩
+      (List.finRange p)) (clausePredOpt keep), fun hk => ?_, fun y u γ => ?_⟩
+  · have h1 : (o.lePredOn (frameSelfTerms (T := T) (c := c) O) (frameOuterTerms (c := c) O)
+        (List.finRange p)).noFun = true :=
+      OrderSpec.noFun_lePredOnOf (fun k => OrderCol.noFun_lePred (o k) (noFun_frameSelfTerms O k)
+        (noFun_frameOuterTerms O k)) (noFun_frameSelfTerms O) (noFun_frameOuterTerms O) _
+    simp only [GenPredIn.noFun, h1, noFun_clausePredOpt, hk, Bool.and_self]
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt,
     OrderSpec.holdsPlain_lePredOn o (frameSelfTerms O) (frameOuterTerms O) y
       (Fin.append u γ)]
@@ -5159,12 +5256,18 @@ private theorem exists_framePred_rangeUpTo_noNulls [NoNulls T] {c : ℕ} (O : Tu
 private theorem exists_framePred_rangeBefore_noNulls [NoNulls T] {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeBefore o).ρ (Tuple.key O y)
               (Tuple.key O u) = true ∧ Selection.keepsOpt keep y = true) := by
   refine ⟨GenPredIn.and (o.ltPredOn (frameSelfTerms O) (frameOuterTerms O)
-      (List.finRange p)) (clausePredOpt keep), fun y u γ => ?_⟩
+      (List.finRange p)) (clausePredOpt keep), fun hk => ?_, fun y u γ => ?_⟩
+  · have h1 : (o.ltPredOn (frameSelfTerms (T := T) (c := c) O) (frameOuterTerms (c := c) O)
+        (List.finRange p)).noFun = true :=
+      OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred (o k) (noFun_frameSelfTerms O k)
+        (noFun_frameOuterTerms O k)) (noFun_frameSelfTerms O) (noFun_frameOuterTerms O) _
+    simp only [GenPredIn.noFun, h1, noFun_clausePredOpt, hk, Bool.and_self]
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt,
     OrderSpec.holdsPlain_ltPredOn o (frameSelfTerms O) (frameOuterTerms O) y
       (Fin.append u γ)]
@@ -5193,6 +5296,7 @@ private theorem exists_framePred_rangeUpTo_of_null {c : ℕ} (O : Tuple (Fin n) 
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeUpTo o).ρ (Tuple.key O y)
@@ -5200,7 +5304,15 @@ private theorem exists_framePred_rangeUpTo_of_null {c : ℕ} (O : Tuple (Fin n) 
   refine ⟨GenPredIn.and (OrderSpec.lePredOnOf
       (fun k => (o k).lePredN ν (frameSelfTerms O k) (frameOuterTerms O k))
       (frameSelfTerms O) (frameOuterTerms O) (List.finRange p))
-    (clausePredOpt keep), fun y u γ => ?_⟩
+    (clausePredOpt keep), fun hk => ?_, fun y u γ => ?_⟩
+  · have h1 : (OrderSpec.lePredOnOf
+        (fun k => (o k).lePredN ν (frameSelfTerms (c := c) O k) (frameOuterTerms (c := c) O k))
+        (frameSelfTerms (c := c) O) (frameOuterTerms (c := c) O) (List.finRange p)).noFun
+          = true :=
+      OrderSpec.noFun_lePredOnOf (fun k => OrderCol.noFun_lePredN (o k) ν
+        (noFun_frameSelfTerms O k) (noFun_frameOuterTerms O k))
+        (noFun_frameSelfTerms O) (noFun_frameOuterTerms O) _
+    simp only [GenPredIn.noFun, h1, noFun_clausePredOpt, hk, Bool.and_self]
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt,
     OrderSpec.holdsPlain_lePredOnOf o _ (frameSelfTerms O) (frameOuterTerms O) y
       (Fin.append u γ)
@@ -5218,6 +5330,7 @@ private theorem exists_framePred_rangeBefore_of_null {c : ℕ} (O : Tuple (Fin n
     (hν : ValueType.isNull ν = true)
     (hνu : ∀ a : T, ValueType.isNull a = true → a = ν) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeBefore o).ρ (Tuple.key O y)
@@ -5225,7 +5338,15 @@ private theorem exists_framePred_rangeBefore_of_null {c : ℕ} (O : Tuple (Fin n
   refine ⟨GenPredIn.and (OrderSpec.ltPredOnOf
       (fun k => (o k).ltPredN ν (frameSelfTerms O k) (frameOuterTerms O k))
       (frameSelfTerms O) (frameOuterTerms O) (List.finRange p))
-    (clausePredOpt keep), fun y u γ => ?_⟩
+    (clausePredOpt keep), fun hk => ?_, fun y u γ => ?_⟩
+  · have h1 : (OrderSpec.ltPredOnOf
+        (fun k => (o k).ltPredN ν (frameSelfTerms (c := c) O k) (frameOuterTerms (c := c) O k))
+        (frameSelfTerms (c := c) O) (frameOuterTerms (c := c) O) (List.finRange p)).noFun
+          = true :=
+      OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPredN (o k) ν
+        (noFun_frameSelfTerms O k) (noFun_frameOuterTerms O k))
+        (noFun_frameSelfTerms O) (noFun_frameOuterTerms O) _
+    simp only [GenPredIn.noFun, h1, noFun_clausePredOpt, hk, Bool.and_self]
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt,
     OrderSpec.holdsPlain_ltPredOnOf o _ (frameSelfTerms O) (frameOuterTerms O) y
       (Fin.append u γ)
@@ -5280,6 +5401,7 @@ predicate.** -/
 theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeUpTo o).ρ (Tuple.key O y)
@@ -5297,6 +5419,7 @@ theorem exists_framePred_rangeUpTo {c : ℕ} (O : Tuple (Fin n) p)
 theorem exists_framePred_rangeBefore {c : ℕ} (O : Tuple (Fin n) p)
     (o : OrderSpec p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ ((ValueFrame.rangeBefore o).ρ (Tuple.key O y)
@@ -5329,23 +5452,25 @@ predicate. -/
 private theorem exists_anyPred {c : ℕ} {β : Type} (O : Tuple (Fin n) p)
     (f : β → Tuple T p → Tuple T p → Bool)
     (hf : ∀ b : β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ψ.noFun = true ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ f b (Tuple.key O y) (Tuple.key O u) = true) :
     ∀ L : List β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      ψ.noFun = true ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ L.any (fun b => f b (Tuple.key O y) (Tuple.key O u)) = true := by
   intro L
   induction L with
   | nil =>
-    refine ⟨falsePred, fun y u γ => ?_⟩
+    refine ⟨falsePred, rfl, fun y u γ => ?_⟩
     exact ⟨fun h => absurd h (holdsPlain_falsePred y _),
       fun h => absurd h (by simp)⟩
   | cons b L ih =>
-    obtain ⟨ψ₁, hψ₁⟩ := hf b
-    obtain ⟨ψ₂, hψ₂⟩ := ih
-    refine ⟨GenPredIn.or ψ₁ ψ₂, fun y u γ => ?_⟩
+    obtain ⟨ψ₁, hn₁, hψ₁⟩ := hf b
+    obtain ⟨ψ₂, hn₂, hψ₂⟩ := ih
+    refine ⟨GenPredIn.or ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
     rw [holdsPlain_or_iff, hψ₁, hψ₂, List.any_cons]
     simp
 
@@ -5353,45 +5478,46 @@ private theorem exists_anyPred {c : ℕ} {β : Type} (O : Tuple (Fin n) p)
 theorem FrameCond.exists_condPred {c : ℕ} (O : Tuple (Fin n) p) :
     ∀ fc : FrameCond p,
       ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+        ψ.noFun = true ∧
         ∀ (y u : Tuple T n) (γ : Fin c → T),
           ψ.holdsPlain y (Fin.append u γ)
             ↔ fc.holds (Tuple.key O y) (Tuple.key O u) = true := by
   intro fc
   induction fc with
   | whole =>
-    exact ⟨truePred, fun y u γ =>
+    exact ⟨truePred, rfl, fun y u γ =>
       ⟨fun _ => rfl, fun _ => holdsPlain_truePred y _⟩⟩
   | le o =>
-    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o (none : Option (Selection T n))
-    exact ⟨ψ, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+    obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o (none : Option (Selection T n))
+    exact ⟨ψ, hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
   | lt o =>
-    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeBefore (c := c) O o (none : Option (Selection T n))
-    exact ⟨ψ, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+    obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeBefore (c := c) O o (none : Option (Selection T n))
+    exact ⟨ψ, hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
   | ge o =>
-    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o.reverse
+    obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o.reverse
       (none : Option (Selection T n))
-    refine ⟨ψ, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    refine ⟨ψ, hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
     show OrderSpec.le o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
     rw [OrderSpec.le_reverse]
     exact Iff.rfl
   | gt o =>
-    obtain ⟨ψ, hψ⟩ := exists_framePred_rangeBefore (c := c) O o.reverse
+    obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeBefore (c := c) O o.reverse
       (none : Option (Selection T n))
-    refine ⟨ψ, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    refine ⟨ψ, hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
     show OrderSpec.lt o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
     rw [OrderSpec.lt_reverse]
     exact Iff.rfl
   | and a b iha ihb =>
-    obtain ⟨ψ₁, hψ₁⟩ := iha
-    obtain ⟨ψ₂, hψ₂⟩ := ihb
-    refine ⟨GenPredIn.and ψ₁ ψ₂, fun y u γ => ?_⟩
+    obtain ⟨ψ₁, hn₁, hψ₁⟩ := iha
+    obtain ⟨ψ₂, hn₂, hψ₂⟩ := ihb
+    refine ⟨GenPredIn.and ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
     rw [holdsPlain_and_iff, hψ₁, hψ₂]
     show _ ↔ (_ && _) = true
     rw [Bool.and_eq_true]
   | or a b iha ihb =>
-    obtain ⟨ψ₁, hψ₁⟩ := iha
-    obtain ⟨ψ₂, hψ₂⟩ := ihb
-    refine ⟨GenPredIn.or ψ₁ ψ₂, fun y u γ => ?_⟩
+    obtain ⟨ψ₁, hn₁, hψ₁⟩ := iha
+    obtain ⟨ψ₂, hn₂, hψ₂⟩ := ihb
+    refine ⟨GenPredIn.or ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
     rw [holdsPlain_or_iff, hψ₁, hψ₂]
     show _ ↔ (_ || _) = true
     rw [Bool.or_eq_true]
@@ -5404,12 +5530,15 @@ the syntax can name and every clause. -/
 theorem ValueFrame.exists_framePred {c : ℕ} (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
+      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
               ∧ Selection.keepsOpt keep y = true) := by
-  obtain ⟨ψ, hψ⟩ := FrameCond.exists_condPred (T := T) (c := c) O w.cond
-  refine ⟨GenPredIn.and ψ (clausePredOpt keep), fun y u γ => ?_⟩
+  obtain ⟨ψ, hn, hψ⟩ := FrameCond.exists_condPred (T := T) (c := c) O w.cond
+  refine ⟨GenPredIn.and ψ (clausePredOpt keep),
+    fun hk => by simp only [GenPredIn.noFun, hn, noFun_clausePredOpt, hk, Bool.and_self],
+    fun y u γ => ?_⟩
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt, hψ]
   exact Iff.rfl
 

@@ -258,7 +258,7 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     subst hκ
     -- the frame is a condition on the order values, so the selection that
     -- spells it out is read off it
-    obtain ⟨ψ, hψ⟩ :=
+    obtain ⟨ψ, -, hψ⟩ :=
       ValueFrame.exists_framePred (T := T) (n := nw) (c := cw) O w keep
     refine ⟨winByApply P' O o ψ t (if dist then f.distinct else f) q',
       usesOnly_winByApply P' O o ψ t _ ha hg hs hu',
