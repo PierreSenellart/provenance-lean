@@ -56,6 +56,7 @@ import Provenance.RecursionBasisPass
 import Provenance.Genericity
 import Provenance.WinRow
 import Provenance.SelRow
+import Provenance.RoundBound
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1178,6 +1179,23 @@ proven engine several general results reuse internally.
   and `σ` is in every generating set whose produced queries read no
   aggregate column as a key (`sel_mem_of_generatesOnRecAltFree`, against
   `GeneratesOnRecAltFree`, the scope of the annotated classification)
+- `Provenance.RoundBound` – **a bag recursion that settles does so
+  within a bound read off its values**: a recursive term reads its hole
+  once, so it is linear in the recursive relation
+  (`AggQueryIn.bind_of_body`: a round is the previous round bound through
+  a function of the row, plus what the term reads at the empty round); a
+  row of round `j` ends a path of `j` steps from the base
+  (`exists_path_of_mem_round`), a path over `V^m` longer than `|V|^m`
+  repeats a row, and the segment between the two copies pumps a
+  non-empty round past every bound (`mem_round_pump`). So a recursion
+  that settles has an empty round at `|V|^m`
+  (`bindStep_round_eq_zero_of_settles`) and is the sum of that many
+  rounds (`AggQueryIn.mu_eq_muSum_of_valsIn`). This is what a bounded
+  simulation of a bag recursion rests on – one that settles everywhere
+  and agrees with the recursion wherever the recursion settles – which is
+  what tabulating an apply's right side over a closed parameter relation
+  needs, the table evaluating the right side at parameters the apply never
+  reaches
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
