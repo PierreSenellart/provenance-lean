@@ -2303,12 +2303,12 @@ counting aggregate. Without a window every query reads the instance of
 `n` copies of one row as a bag of polynomial shapes (`sym_aux`), and the
 witness – `count(*)` over the whole partition excluding the current row
 – writes `n − 1`, which no polynomial over `ℕ` is. -/
-theorem win_mem_of_generatesOnRec {S : Set OpKind}
-    (hS : GeneratesOnRec ℕ schemaR SeqAggFunc.count S) : OpKind.win ∈ S := by
+theorem win_mem_of_generatesAt {S : Set OpKind}
+    (hS : GeneratesAt ℕ schemaR SeqAggFunc.count S winWitness) : OpKind.win ∈ S := by
   classical
   by_contra hwin
-  obtain ⟨q', hsch, hu', hsig', he⟩ :=
-    hS winWitness overSchema_winWitness usesOnly_winWitness inSig_winWitness
+  obtain ⟨κ', q', hsch, hu', hsig', he⟩ :=
+    hS overSchema_winWitness usesOnly_winWitness inSig_winWitness
   obtain ⟨N, L, b, -, hL⟩ := (sym_aux hwin q' hu' hsig' (q'.hygienic_of_overSchema _ hsch)).1 rfl
     (fun i : Fin 0 => i.elim0)
   -- each shape's aggregate column compared with `X`, from one threshold on
@@ -2340,3 +2340,9 @@ theorem win_mem_of_generatesOnRec {S : Set OpKind}
   | lt h => exact absurd hX (ne_of_lt (h n₀ hN₂n))
   | gt h => exact absurd hX (ne_of_gt (h n₀ hN₂n))
   | eq h => exact Poly.add_one_ne_X _ (Poly.eq_of_eventually_eq ⟨N₂, h⟩)
+
+/-- **The `win` row**: `win` is in every basis of the whole algebra over `ℕ`
+with the counting aggregate. -/
+theorem win_mem_of_generatesOnRec {S : Set OpKind}
+    (hS : GeneratesOnRec ℕ schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
+  win_mem_of_generatesAt (hS _)

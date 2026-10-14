@@ -2913,7 +2913,7 @@ theorem basisRecOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T) (hcnt : c
     (Or.inr (AggQueryIn.muSetHandler hS union_notMem_basisRecOps cnt hcnt.readsCount)) cnt
     (Set.mem_singleton cnt) hcnt.counts q hq hr hi (Or.inl (Set.mem_insert _ _)) f hf hfr sch hfsch
     ho).1 rfl
-  exact ⟨q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
+  exact ⟨_, q', hb.over sch hfsch ho, hb.usesOnly, hb.inSig,
     AggQueryIn.Extends.of_settles (fun D γ hs => he D γ hs)⟩
 
 /-- **And without the window class**, for the windows `prop:winderived`

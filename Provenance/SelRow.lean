@@ -630,7 +630,7 @@ with no function on values, is not plain-equivalent to `σ_{#1<#2}(S)`:
 on two fresh values `a < b` it answers alike, up to the swap, on
 `{(a, b)}` and on `{(b, a)}`, and the witness does not. -/
 theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
-    (hsel : OpKind.sel ∉ S) (q : AggQuery ℕ 2 (ColKind.allReg 2))
+    (hsel : OpKind.sel ∉ S) {κ : Fin 2 → ColKind} (q : AggQuery ℕ 2 κ)
     (hq : q.usesOnly S) (hs : q.inSig Θ) (ha : q.altFree) :
     ¬ ∀ D : Database ℕ, q.evaluatePlain D = ltWitness.evaluatePlain D := by
   intro heq
@@ -656,10 +656,11 @@ theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
       rfl
   have h := AggQueryIn.evaluatePlain_orderBlind hsel q hq hs ha (Equiv.swap a b).injective hτ0
     (dPair a b) (dPair b a) (fun _ => 0) hD' hτc
-  simp only [ColKind.map_readTuple_allReg] at h
   have hγ : (Equiv.swap a b ∘ fun _ : Fin 0 => 0) = fun _ => 0 := funext (fun i => i.elim0)
-  rw [hγ, heq, heq] at h
-  exact ltWitness_breaks hab h
+  rw [hγ, heq, heq, evaluatePlain_ltWitness, evaluatePlain_ltWitness, ite_eq_left hab,
+    ite_eq_right (not_lt.mpr (le_of_lt hab))] at h
+  have := congrArg Multiset.card h
+  simp at this
 
 /-! ## The row -/
 
@@ -669,25 +670,35 @@ asked to be `altFree`. This is the scope of the annotated classification,
 where the alternatives are not an operator of the source language; over
 it the selection is in every basis, which the plain scope's "`−` for `σ`"
 construction escapes only by reading aggregate columns as keys. -/
+def GeneratesAtAltFree (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
+    (S : Set OpKind) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) : Prop :=
+  q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
+    ∃ (κ' : Fin n → ColKind) (q' : AggQuery T n κ'),
+      q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.altFree ∧ q'.Extends q
+
+/-- The alternatives-free generation of every query of the algebra. -/
 def GeneratesOnRecAltFree (T : Type) [ValueType T] (sch : Schema)
     (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
-  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
-    q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
-      ∃ q' : AggQuery T n (ColKind.allReg n),
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.altFree ∧ q'.Extends q
+  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ), GeneratesAtAltFree T sch cnt S q
 
 theorem GeneratesOnRecAltFree.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesOnRecAltFree T sch cnt S) : GeneratesOnRec T sch cnt S := by
   intro n κ q ho hq hi
-  obtain ⟨q', h₁, h₂, h₃, -, h₅⟩ := h q ho hq hi
-  exact ⟨q', h₁, h₂, h₃, h₅⟩
+  obtain ⟨κ', q', h₁, h₂, h₃, -, h₅⟩ := h q ho hq hi
+  exact ⟨κ', q', h₁, h₂, h₃, h₅⟩
+
+/-- **The selection row, in the scope where no aggregate column is read as
+a key**: `σ` is in every generating set. -/
+theorem sel_mem_of_generatesAtAltFree {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+    (hS : GeneratesAtAltFree ℕ schemaS cnt S ltWitness) : OpKind.sel ∈ S := by
+  by_contra hsel
+  obtain ⟨κ', q', -, hu', hsig', ha', he⟩ := hS overSchema_ltWitness usesOnly_ltWitness
+    (inSig_ltWitness _)
+  refine ltWitness_not_expressible hsel q' hu' hsig' ha' (fun D => ?_)
+  exact (he.settles D (fun _ => 0) (settlesAt_ltWitness D _)).2.symm
 
 /-- **The selection row, in the scope where no aggregate column is read as
 a key**: `σ` is in every generating set. -/
 theorem sel_mem_of_generatesOnRecAltFree {cnt : SeqAggFunc ℕ} {S : Set OpKind}
-    (hS : GeneratesOnRecAltFree ℕ schemaS cnt S) : OpKind.sel ∈ S := by
-  by_contra hsel
-  obtain ⟨q', -, hu', hsig', ha', he⟩ := hS ltWitness overSchema_ltWitness usesOnly_ltWitness
-    (inSig_ltWitness _)
-  refine ltWitness_not_expressible hsel q' hu' hsig' ha' (fun D => ?_)
-  exact (he.settles D (fun _ => 0) (settlesAt_ltWitness D _)).2.symm
+    (hS : GeneratesOnRecAltFree ℕ schemaS cnt S) : OpKind.sel ∈ S :=
+  sel_mem_of_generatesAtAltFree (hS _)

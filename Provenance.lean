@@ -57,6 +57,7 @@ import Provenance.Genericity
 import Provenance.WinRow
 import Provenance.SelRow
 import Provenance.RoundBound
+import Provenance.AnnotatedBasis
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1196,6 +1197,28 @@ proven engine several general results reuse internally.
   what tabulating an apply's right side over a closed parameter relation
   needs, the table evaluating the right side at parameters the apply never
   reaches
+- `Provenance.AnnotatedBasis` – **the basis of the annotated semantics,
+  its statement and its inherited rows**: `GeneratesAnn T K sch cnt S`
+  says every query of the whole algebra in the minimal universe reading
+  no aggregate column as a key is matched over `S`, with the same kinds
+  and no aggregate column read as a key, by a query whose annotated
+  evaluation (`evaluateAnnotated`) settles and agrees with it on every
+  `K`-instance at which the query's does (`AggQueryIn.AnnSettlesAt`, the
+  per-instance settling of the annotated recursions, in
+  `Provenance.AggQueryAdequacy`, whose data-part adequacy now takes it).
+  The settling of the recursions transfers both ways between the
+  annotated evaluation and the plain evaluation of the stripped query
+  (`settlesAt_stripAgg_of_annSettlesAt`; `annSettlesAt_of_settlesAt`
+  for a `liftFaithful` query – no aggregate selection, no difference, no
+  set recursion – at an instance annotated `𝟙`, `Database.liftOne`), so a
+  set generating the annotated algebra over any `K` generates every
+  faithful query plainly (`generatesAtAltFree_of_generatesAnn`), which
+  every witness of the plain rows is: `∅`, `Π`, `γ`, `μ^⊎`, `win`, `σ`
+  and one of `×`/apply are in every such set
+  (`required_mem_of_generatesAnn`), the selection row holding outright
+  since the alternatives are out of the language. The trivial generating
+  set is every class (`generatesAnn_plainRecOps`); `GeneratesAnn.mono`
+  carries generation to supersets
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
