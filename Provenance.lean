@@ -58,6 +58,7 @@ import Provenance.WinRow
 import Provenance.SelRow
 import Provenance.RoundBound
 import Provenance.AnnotatedBasis
+import Provenance.AnnotatedDedup
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1219,6 +1220,20 @@ proven engine several general results reuse internally.
   since the alternatives are out of the language. The trivial generating
   set is every class (`generatesAnn_plainRecOps`); `GeneratesAnn.mono`
   carries generation to supersets
+- `Provenance.AnnotatedDedup` – **`ε` is dispensable in the annotated
+  algebra**, the first non-trivial sufficient half of the annotated
+  classification: `ε(q) = μ^∪s.(q, σ_false(s))` exactly in every
+  commutative m-semiring (`evaluate_dedupMu`: the first round is the
+  deduplication, the term keeps nothing of the round, the iteration
+  settles at the second round, `annSettlesAt_dedupMu`), and the pass
+  `dedupFree` replaces every `ε` by that recursion under a fresh name,
+  changing no annotated evaluation (`evaluate_dedupFree`), settling
+  wherever the query does (`annSettlesAt_dedupFree`) and keeping the
+  classes, the signature, the hygiene and the well-formedness. So the
+  classes other than `ε` generate the annotated algebra
+  (`generatesAnn_dedupFree`). The products and the unions stay: the
+  apply's left side and the recursions' operands are all-regular by
+  typing, and nothing re-types an aggregate column without exploding it
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
