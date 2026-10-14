@@ -4,6 +4,7 @@
 -/
 import Provenance.Derived
 import Provenance.HavingQueryCorrectness
+import Provenance.AggQuerySubst
 
 /-!
 # Annotations of the derived operators
@@ -451,7 +452,7 @@ theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
           (⟨Fin.append x.fst (fun _ : Fin 1 => Sum.inr (AggTok.tok
               (matchToken cnt kap φ Q d (GenRow.plainTuple x.fst)))),
             x.snd⟩ : GenRow T K (k + 1))) := by
-  rw [matchCount, AggQueryIn.evaluate_Apply]
+  rw [matchCount, AggQueryIn.evaluate_Apply_reg]
   refine (Multiset.bind_congr (fun x _ => ?_)).trans
     (Multiset.bind_singleton _ _)
   rw [evaluate_GammaScalar_one, Multiset.map_singleton]

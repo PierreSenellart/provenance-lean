@@ -66,7 +66,8 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
   -- a recursive term is not in the fragment: its hole has no rewriting
-  | _, _, _, _, .Hole _ _ => False
+  | _, _, _, _, .Hole _ _ _ => False
+  | _, _, _, _, .Param _ _ => False
   -- the empty relation is in the fragment: its rewriting is the empty
   -- relation of the rewritten schema, with nothing to carry
   | _, _, _, _, .Empty => True
@@ -108,7 +109,8 @@ theorem AggQueryIn.noGammaNest_of_classical :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.classical → q.noGammaNest
   | _, _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ => trivial
   | _, _, _, _, .Proj _ q, hq => AggQueryIn.noGammaNest_of_classical q hq.2
   | _, _, _, _, .Sel _ q _, hq => AggQueryIn.noGammaNest_of_classical q hq.2
@@ -142,7 +144,7 @@ theorem AggQueryIn.classical_kinds :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.classical → ∀ k, κ k = ColKind.reg
   | _, _, _, _, .Rel _ _, _, _ => rfl
-  | _, _, _, _, .Hole _ _, hq, _ => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq, _ => hq.elim
   | _, _, _, _, .Proj ps _, hq, k => hq.1 k
   | _, _, _, _, .Sel _ q _, hq, k => classical_kinds q hq.2 k
   | _, _, _, _, .Prod q₁ q₂, hq, k => by
@@ -287,7 +289,8 @@ def AggQueryIn.rewriting :
     q.classical → AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n)
   | _, n, _, _, .Rel _ s, _ =>
     AggQueryIn.retagToRew (fun _ => rfl) (AggQueryIn.Rel (n + 1) s)
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ =>
     -- one column, the provenance one, over no row: a projection of the
     -- empty relation, which is empty whatever it projects

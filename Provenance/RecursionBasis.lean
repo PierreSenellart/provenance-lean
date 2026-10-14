@@ -519,7 +519,8 @@ signature comes in.
 def AggQueryIn.noRec : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.noRec
   | _, _, _, _, .Sel _ q _ => q.noRec
@@ -574,6 +575,10 @@ theorem AggQueryIn.exists_polyBound :
       refine le_trans (Database.card_le_size D hf) ?_
       rw [pow_one, one_mul]
       omega
+  | Param pv ρ =>
+    refine fun _ => ⟨1, 1, fun D γ => ?_⟩
+    simp only [AggQueryIn.evaluatePlain, Multiset.card_singleton, pow_one, one_mul]
+    omega
   | Empty => exact fun _ => ⟨0, 0, fun _ _ => Nat.zero_le _⟩
   | Proj ps q ih =>
     refine fun hq => ?_
@@ -709,6 +714,26 @@ instance search for `∈` and `≤` cannot see through. -/
 def Relation.valsIn {n : ℕ} (r : Multiset (Tuple T n)) (V : Finset T) :
     Prop :=
   ∀ u ∈ r, ∀ j, u j ∈ V
+
+theorem AggQueryIn.constsIn_param_of_consts {c m : ℕ} (pv : Fin m → T ⊕ Fin c)
+    (ρ : Fin m → ColKind) {V : Finset T}
+    (h : (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).consts ⊆ V) :
+    (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).constsIn V := fun k a hk =>
+  h (Finset.mem_biUnion.mpr ⟨k, Finset.mem_univ _, by rw [hk]; exact Finset.mem_singleton_self a⟩)
+
+/-- **A row of parameters holds the context's values and the leaf's
+constants.** -/
+theorem AggQueryIn.valsIn_param {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind)
+    (D : Database T) (γ : Fin c → T) (V : Finset T) (hγ : ∀ j, γ j ∈ V)
+    (hc : (AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).constsIn V) :
+    Relation.valsIn ((AggQueryIn.Param pv ρ : AggQueryIn T c m ρ).evaluatePlain D γ) V := by
+  intro u hu k
+  simp only [AggQueryIn.evaluatePlain, Multiset.mem_singleton] at hu
+  subst hu
+  show _root_.Sum.elim id γ (pv k) ∈ V
+  cases h : pv k with
+  | inl a => exact hc k a h
+  | inr j => exact hγ j
 
 omit [ValueType T] in
 theorem Relation.valsIn_of_le {n : ℕ} {r r' : Multiset (Tuple T n)}
@@ -875,6 +900,8 @@ theorem AggQueryIn.exists_valsIn {cnt : SeqAggFunc T} {g : ℕ → T}
     cases hf : D.find n s with
     | none => exact fun u hu => absurd hu (by simp)
     | some rn => exact hD n s rn hf
+  | Param pv ρ =>
+    exact fun _ _ => ⟨0, 0, fun D γ V _ hγ hc _ => AggQueryIn.valsIn_param pv ρ D γ V hγ hc⟩
   | Empty =>
     refine fun _ _ => ⟨0, 0, fun _ _ _ _ _ _ _ u hu => ?_⟩
     exact absurd (show u ∈ (0 : Multiset (Tuple T 0)) from hu) (by simp)
@@ -1103,7 +1130,8 @@ difference. -/
 def AggQueryIn.recSimple : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.recSimple
   | _, _, _, _, .Sel _ q _ => q.recSimple
@@ -1134,6 +1162,7 @@ theorem AggQueryIn.recSimple_of_noRec :
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -1195,6 +1224,9 @@ theorem AggQueryIn.exists_valsIn_assign {cnt : SeqAggFunc T} {g : ℕ → T}
       cases hf : D.find n s' with
       | none => exact fun u hu => absurd hu (by simp)
       | some rn => exact hD n s' rn hf
+  | Param pv ρ =>
+    exact fun _ _ _ => ⟨0, 0, fun D γ V _ _ hγ hc _ =>
+      AggQueryIn.valsIn_param pv ρ (D.assign s X) γ V hγ hc⟩
   | Empty =>
     refine fun _ _ _ => ⟨0, 0, fun _ _ _ _ _ _ _ _ u hu => ?_⟩
     exact absurd (show u ∈ (0 : Multiset (Tuple T 0)) from hu) (by simp)
@@ -1512,7 +1544,8 @@ theorem Database.valsIn_instVals (A : ℕ) :
 def AggQueryIn.aritiesLe (A : ℕ) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel k _ => k ≤ A
-  | _, _, _, _, .Hole k _ => k ≤ A
+  | _, _, _, _, .Hole k _ _ => k ≤ A
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.aritiesLe A
   | _, _, _, _, .Sel _ q _ => q.aritiesLe A
@@ -1568,7 +1601,8 @@ theorem card_countVals_le (g : ℕ → T) (m : ℕ) : (countVals g m).card ≤ m
 def AggQueryIn.maxArity : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → ℕ
   | _, _, _, _, .Rel k _ => k
-  | _, _, _, _, .Hole k _ => k
+  | _, _, _, _, .Hole k _ _ => k
+  | _, _, _, _, .Param _ _ => 0
   | _, _, _, _, .Empty => 0
   | _, _, _, _, .Proj _ q => q.maxArity
   | _, _, _, _, .Sel _ q _ => q.maxArity
@@ -1597,6 +1631,7 @@ theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
   induction q with
   | Rel n s => exact fun hq => le_trans hq h
   | Hole n s => exact fun hq => le_trans hq h
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -1625,6 +1660,7 @@ theorem AggQueryIn.aritiesLe_maxArity :
   induction q with
   | Rel n s => exact le_refl n
   | Hole n s => exact le_refl n
+  | Param pv ρ => exact trivial
   | Empty => exact trivial
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -1732,6 +1768,13 @@ theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
         | none => (0 : Relation T n) | some rn => rn) V
       rw [Database.find_assign]
       exact hX
+  | Param pv ρ =>
+    intro _ _ _ _
+    refine ⟨⟨1, 1, fun D γ _ => ⟨?_, fun V _ hγ hc _ =>
+      AggQueryIn.valsIn_param pv ρ D γ V hγ (AggQueryIn.constsIn_param_of_consts pv ρ hc)⟩⟩,
+      fun _ _ hl _ => absurd hl (by simp)⟩
+    simp only [AggQueryIn.evaluatePlain, Multiset.card_singleton, pow_one, one_mul]
+    omega
   | Empty =>
     intro _ _ _ _
     exact ⟨⟨0, 0, fun _ _ _ => ⟨Nat.zero_le _, fun _ _ _ _ _ u hu =>
@@ -2204,6 +2247,7 @@ theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -2450,7 +2494,8 @@ theorem muBag_mem_of_generatesAt {cnt : SeqAggFunc ℕ}
   by_contra hmb
   obtain ⟨κ', q', hsch, hu', hsig', he⟩ := hS overSchema_chainWitness
     usesOnly_chainWitness inSig_chainWitness
-  obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound_rec hmb hcnt q' hu' (q'.hygienic_of_overSchema _ hsch) hsig'
+  obtain ⟨b, k, hb⟩ := AggQueryIn.exists_polyBound_rec hmb hcnt q' hu'
+      (q'.hygienic_of_overSchema _ hsch) hsig'
   refine chainWitness_no_polynomial_bound ⟨b, k, fun n => ?_⟩
   rw [(he.settles (dChain n) (fun j => j.elim0) (settlesAt_chainWitness n)).2]
   exact hb (dChain n) (fun j => j.elim0)

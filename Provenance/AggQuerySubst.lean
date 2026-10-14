@@ -346,7 +346,8 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String
     (θ : Fin c → T ⊕ Fin d) (q : AggQueryIn T c n κ l) : AggQueryIn T d n κ l :=
   match c, d, n, κ, l, θ, q with
   | _, _, _, _, _, _, .Rel n s => .Rel n s
-  | _, _, _, _, _, _, .Hole n s => .Hole n s
+  | _, _, _, _, _, _, .Hole n s κ => .Hole n s κ
+  | _, _, _, _, _, θ, .Param pv ρ => .Param (fun k => _root_.Sum.elim Sum.inl θ (pv k)) ρ
   | _, _, _, _, _, _, .Empty => .Empty
   | _, _, _, _, _, θ, .Proj ps q =>
       AggQueryIn.castKind (funext fun j => ProjColIn.kind_substMap θ (ps j))
@@ -416,6 +417,135 @@ theorem substVal_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
     | inl a => rfl
     | inr i => exact Fin.append_right v γ i
 
+/-- Substituting a context of general values: a constant becomes a
+regular value. -/
+def substCtx {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (u : Tuple (GenValue T K) d) :
+    Tuple (GenValue T K) c :=
+  fun k => Sum.elim Sum.inl u (θ k)
+
+/-- The environment a substituted query is read in, seen from the source:
+its context substituted. -/
+def EvalEnv.substEnv {c d : ℕ} (E : EvalEnv T K) (θ : Fin c → T ⊕ Fin d) (γ : Fin d → T) :
+    EvalEnv T K :=
+  E.withCtx (substCtx θ (E.ctxAt d γ))
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem EvalEnv.substEnv_assignHole {c d : ℕ} (E : EvalEnv T K) (θ : Fin c → T ⊕ Fin d)
+    (γ : Fin d → T) (s : String) {n : ℕ} (X : Multiset (GenRow T K n)) :
+    (E.assignHole s X).substEnv θ γ = (E.substEnv θ γ).assignHole s X := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Passing a substitution under an apply, on a context of general values. -/
+theorem substCtx_append {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (x : Tuple (GenValue T K) n₁) (u : Tuple (GenValue T K) d) :
+    substCtx (Fin.append (fun k => Sum.inr (Fin.castAdd d k))
+        (fun j => Sum.map id (Fin.natAdd n₁) (θ j))) (Fin.append x u)
+      = Fin.append x (substCtx θ u) := by
+  funext k
+  refine Fin.addCases (fun i => ?_) (fun j => ?_) k
+  · show Sum.elim Sum.inl (Fin.append x u)
+      (Fin.append (fun k => Sum.inr (Fin.castAdd d k)) _ (Fin.castAdd c i)) = _
+    rw [Fin.append_left, Fin.append_left]
+    exact Fin.append_left x u i
+  · show Sum.elim Sum.inl (Fin.append x u)
+      (Fin.append _ (fun j => Sum.map id (Fin.natAdd n₁) (θ j)) (Fin.natAdd n₁ j)) = _
+    rw [Fin.append_right, Fin.append_right]
+    show Sum.elim Sum.inl (Fin.append x u) (Sum.map id (Fin.natAdd n₁) (θ j))
+      = Sum.elim Sum.inl u (θ j)
+    cases θ j with
+    | inl a => rfl
+    | inr i => exact Fin.append_right x u i
+
+/-- **The evaluation reads the environment's context only at its own
+arity**: two environments binding the same rounds and giving the same
+context there evaluate alike. -/
+theorem AggQueryIn.evaluate_congr_env :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (dB : AnnotatedDatabase T K) (γ : Fin c → T) {E E' : EvalEnv T K},
+      E.holes = E'.holes → E.ctxAt c γ = E'.ctxAt c γ →
+      q.evaluate dB γ E = q.evaluate dB γ E' := by
+  intro c n κ l q
+  induction q with
+  | Rel n s => intro dB γ E E' _ _; rfl
+  | Hole n s κ => intro dB γ E E' hh _; simp only [AggQueryIn.evaluate, hh]
+  | Param pv ρ =>
+    intro dB γ E E' _ hc
+    simp only [AggQueryIn.evaluate, EvalEnv.paramRows, hc]
+  | Empty => intro dB γ E E' _ _; rfl
+  | Proj ps q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Sel φ q _ ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih₁ dB γ hh hc, ih₂ dB γ hh hc]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro dB γ E E' hh hc
+    simp only [AggQueryIn.evaluate, ih₁ dB γ hh hc]
+    refine Multiset.bind_congr (fun x _ => ?_)
+    rw [ih₂ dB _ (E := E.withCtx (Fin.append x.fst (E.ctxAt _ γ)))
+      (E' := E'.withCtx (Fin.append x.fst (E'.ctxAt _ γ))) hh
+      (by rw [EvalEnv.ctxAt_withCtx, EvalEnv.ctxAt_withCtx, hc])]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih₁ dB γ hh hc, ih₂ dB γ hh hc]
+  | Dedup q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih₁ dB γ hh hc, ih₂ dB γ hh hc]
+  | Explode k h q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro dB γ E E' hh hc
+    simp only [AggQueryIn.evaluate, ih₀ dB γ hh hc]
+    exact muSumFix_congr (fun X => ih₁ dB γ (E := E.assignHole s X) (E' := E'.assignHole s X)
+      (by simp only [EvalEnv.assignHole, hh]) hc) rfl
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro dB γ E E' hh hc
+    simp only [AggQueryIn.evaluate, ih₀ dB γ hh hc]
+    refine congrArg _ (muFix_congr (fun X => ?_))
+    rw [ih₁ dB γ (E := E.assignHole s (X.map GenRow.ofAnnotated))
+      (E' := E'.assignHole s (X.map GenRow.ofAnnotated))
+      (by simp only [EvalEnv.assignHole, hh]) hc]
+  | Gamma is ts fs q keep ord ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
+        ih dB γ hh hc]
+  | GammaScalar ts fs q ord ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
+        ih dB γ hh hc]
+  | GammaNest is his p f q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
+        ih dB γ hh hc]
+  | ProvSum is his t q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Retag h q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | GammaTok is his ts fs a q keep ih =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | Win P O o w t f q hrr dist keep ih =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro dB γ E E' hh hc
+    simp only [AggQueryIn.evaluate]
+    rw [ih dB γ hh hc]
+
+/-- **An apply whose left side has regular columns** reads its right side
+as a query with nothing bound, in the plain context of the left row: a
+context of regular values is what the environment-free reading gives. -/
+theorem AggQueryIn.evaluate_Apply_reg {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+    (q₁ : AggQuery T n₁ (ColKind.allReg n₁)) (q₂ : AggQueryIn T n₁ n₂ κ₂)
+    (d : AnnotatedDatabase T K) :
+    (AggQueryIn.Apply q₁ q₂).evaluate d
+      = (q₁.evaluate d).bind (fun x =>
+          (q₂.evaluate d (GenRow.plainTuple x.fst)).map (fun y =>
+            (⟨Fin.append x.fst y.fst,
+              ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩
+              : GenRow T K (n₁ + n₂)))) := by
+  rw [AggQueryIn.evaluate_Apply]
+  refine Multiset.bind_congr (fun x hx => ?_)
+  have hconf := AggQueryIn.evaluate_conform q₁ d x hx
+  refine congrArg (Multiset.map _) (AggQueryIn.evaluate_congr_env q₂ d _ rfl ?_)
+  rw [EvalEnv.ctxAt_withCtx_cast _ (Nat.add_zero n₁), EvalEnv.empty_ctxAt]
+  funext i
+  rw [show Fin.cast (Nat.add_zero n₁).symm i = Fin.castAdd 0 i from rfl, Fin.append_left]
+  have hk := hconf i
+  cases hxi : x.fst i with
+  | inl w =>
+    rw [EvalEnv.empty_ctxAt]
+    simp only [GenRow.plainTuple, hxi]
+    rfl
+  | inr a => rw [hxi] at hk; cases hk
+
+
 /-! ## The two readings agree -/
 
 /-- **Substituting and evaluating is evaluating under the substituted
@@ -429,6 +559,11 @@ theorem AggQueryIn.evaluatePlain_substMap :
   induction q with
   | Rel n s => intro d θ D γ; rfl
   | Hole n s => intro d θ D γ; rfl
+  | Param pv ρ =>
+    intro d θ D γ
+    simp only [AggQueryIn.substMap, AggQueryIn.evaluatePlain]
+    refine congrArg (fun u => ({u} : Multiset _)) (funext fun k => ?_)
+    cases pv k <;> rfl
   | Empty => intro d θ D γ; rfl
   | Proj ps q ih =>
     intro d θ D γ
@@ -723,107 +858,118 @@ valuation**, for the annotated semantics. -/
 theorem AggQueryIn.evaluate_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       {d : ℕ} (θ : Fin c → T ⊕ Fin d) (dB : AnnotatedDatabase T K)
-      (γ : Fin d → T),
-      (q.substMap θ).evaluate dB γ = q.evaluate dB (substVal θ γ) := by
+      (γ : Fin d → T) (E : EvalEnv T K),
+      (q.substMap θ).evaluate dB γ E = q.evaluate dB (substVal θ γ) (E.substEnv θ γ) := by
   intro c n κ l q
   induction q with
-  | Rel n s => intro d θ dB γ; rfl
-  | Hole n s => intro d θ dB γ; rfl
-  | Empty => intro d θ dB γ; rfl
+  | Rel n s => intro d θ dB γ E; rfl
+  | Hole n s => intro d θ dB γ E; rfl
+  | Param pv ρ =>
+    intro d θ dB γ E
+    simp only [AggQueryIn.substMap, AggQueryIn.evaluate, EvalEnv.paramRows, EvalEnv.substEnv,
+      EvalEnv.ctxAt_withCtx]
+    have hu : (fun k => _root_.Sum.elim Sum.inl (E.ctxAt d γ)
+        (_root_.Sum.elim Sum.inl θ (pv k)) : Tuple (GenValue T K) _)
+        = fun k => _root_.Sum.elim Sum.inl (substCtx θ (E.ctxAt d γ)) (pv k) :=
+      funext fun k => by cases pv k <;> rfl
+    rw [hu]
+  | Empty => intro d θ dB γ E; rfl
   | Proj ps q ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap, AggQueryIn.evaluate_castKind]
     simp only [AggQueryIn.evaluate, ProjColIn.eval_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | Sel φ q _ ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, GenPredIn.hasAggAtom_substMap,
       GenPredIn.comparedCols_substMap, GenPredIn.entailsExistence_substMap,
       GenPredIn.predsem_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ, ite_eq_left hφ]
     · rw [ite_eq_right hφ, ite_eq_right hφ]
       exact Multiset.filter_congr
         (fun r _ => GenPredIn.holds_substMap θ φ r.fst γ)
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
-    rw [ih₁ θ dB γ, ih₂ θ dB γ]
+    rw [ih₁ θ dB γ E, ih₂ θ dB γ E]
   | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
-    rw [ih₁ θ dB γ]
+    rw [ih₁ θ dB γ E]
     refine Multiset.bind_congr (fun x _ => ?_)
     rw [ih₂ _ dB (Fin.append (GenRow.plainTuple x.fst) γ), substVal_append]
+    simp only [EvalEnv.substEnv, EvalEnv.ctxAt_withCtx, EvalEnv.withCtx_withCtx,
+      substCtx_append]
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
-    rw [ih₁ θ dB γ, ih₂ θ dB γ]
+    rw [ih₁ θ dB γ E, ih₂ θ dB γ E]
   | Dedup q ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
-    rw [ih₁ θ dB γ, ih₂ θ dB γ]
+    rw [ih₁ θ dB γ E, ih₂ θ dB γ E]
   | Explode k h q ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ih]
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, ih₀, ih₁]
+    simp only [AggQueryIn.evaluate, ih₀, ih₁, EvalEnv.substEnv_assignHole]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.evaluate, ih₀, ih₁]
+    simp only [AggQueryIn.evaluate, ih₀, ih₁, EvalEnv.substEnv_assignHole]
   | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | @GammaScalar cI m n₂ ts fs q ord ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofScalarGroup_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | @GammaNest cI m n₁ κ' is his p f q ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ProjColIn.eval_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, TermGIn.evalPlain_substMap]
-    rw [ih θ dB γ]
-  | Retag h q ih => intro d θ dB γ; rw [AggQueryIn.substMap]; exact ih θ dB γ
+    rw [ih θ dB γ E]
+  | Retag h q ih => intro d θ dB γ E; rw [AggQueryIn.substMap]; exact ih θ dB γ E
   | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.windowGenRow_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
   | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
-    intro d θ dB γ
+    intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.exprOfWhen_substMap]
-    rw [ih θ dB γ]
+    rw [ih θ dB γ E]
 
 /-! ## Closing a query: `q[u]` -/
 
@@ -832,7 +978,10 @@ closed with. -/
 theorem AggQueryIn.evaluate_subst {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (u : Fin c → T) (q : AggQueryIn T c n κ l) (d : AnnotatedDatabase T K) :
     (q.subst u).evaluate d = q.evaluate d u :=
-  AggQueryIn.evaluate_substMap q _ d _
+  (AggQueryIn.evaluate_substMap q _ d _ _).trans
+    (AggQueryIn.evaluate_congr_env q d _ rfl (by
+      simp only [EvalEnv.substEnv, EvalEnv.ctxAt_withCtx, EvalEnv.empty_ctxAt]
+      rfl))
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Plain counterpart of `AggQueryIn.evaluate_subst`. -/
@@ -864,8 +1013,22 @@ theorem AggQueryIn.evaluate_Apply_subst {n₁ n₂ : ℕ} {κ₂ : Fin n₂ → 
               ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩
               : GenRow T K (n₁ + n₂)))) := by
   simp only [AggQueryIn.evaluate]
-  refine Multiset.bind_congr (fun x _ => ?_)
+  refine Multiset.bind_congr (fun x hx => ?_)
   rw [AggQueryIn.evaluate_subst, Fin.append_nil]
+  -- an all-regular left row is its plain reading
+  refine congrArg _ (AggQueryIn.evaluate_congr_env q₂ d _ rfl ?_)
+  rw [EvalEnv.ctxAt_withCtx_cast _ (Nat.add_zero n₁)]
+  simp only [EvalEnv.empty_ctxAt]
+  funext k
+  show Fin.append x.fst _ (Fin.castAdd 0 k) = _
+  rw [Fin.append_left]
+  have hk := AggQueryIn.evaluate_conform q₁ d x hx k
+  unfold GenRow.plainTuple
+  cases h : x.fst k with
+  | inl w => rfl
+  | inr a =>
+    rw [h] at hk
+    exact absurd hk (by simp [GenValue.kindOf, ColKind.allReg, ColKind.base])
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- Plain counterpart: `⟦q₁ ⋈ᴬ q₂⟧ = {(u, v) ∣ u ∈ ⟦q₁⟧, v ∈ ⟦q₂[u]⟧}`. -/
@@ -897,6 +1060,7 @@ theorem AggQueryIn.stripAgg_substMap :
   induction q with
   | Rel n s => intro d θ; rfl
   | Hole n s => intro d θ; rfl
+  | Param pv ρ => intro d θ; rfl
   | Empty => intro d θ; rfl
   | Proj ps q ih =>
     intro d θ
@@ -1023,231 +1187,173 @@ theorem Multiset.map_filter_eq_of_factor {α β γ : Type*} {f : α → β} {p :
   · rw [ite_eq_left ha, ite_eq_left ((hp a b hab).mp ha), hg a b hab]
   · rw [ite_eq_right ha, ite_eq_right (fun hb => ha ((hp a b hab).mpr hb))]
 
-/-- Two contexts of an apply's right side agree **away from the aggregate
-columns of the left side**: on the left row's other columns and on the
-ambient context. -/
-def AgreeReg {c n₁ : ℕ} (κ₁ : Fin n₁ → ColKind) (γ γ' : Fin (n₁ + c) → T) : Prop :=
-  (∀ i, (κ₁ i).base ≠ ColKind.agg → γ (Fin.castAdd c i) = γ' (Fin.castAdd c i))
-    ∧ ∀ j, γ (Fin.natAdd n₁ j) = γ' (Fin.natAdd n₁ j)
+/-! ## Substitution keeps a query well-kinded
 
-/-- **An apply's right side reads no aggregate column of its left side**,
-in the plain semantics: two contexts agreeing away from those columns
-give the same answer. -/
-def AggQueryIn.ReadsRegParamsPlain {c n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
-    {κ₂ : Fin n₂ → ColKind} (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : Prop :=
-  ∀ (D : Database T) (γ γ' : Fin (n₁ + c) → T), AgreeReg κ₁ γ γ' →
-    q₂.evaluatePlain D γ = q₂.evaluatePlain D γ'
-
-/-- **An apply's right side reads no aggregate column of its left side**:
-in the plain semantics, in the plain semantics of its stripped form (the
-data part of its annotated reading), and in the annotated semantics over
-every semiring, up to finalization.
-
-The evaluators give the right side the deterministic value of an
-aggregate column (`GenRow.plainTuple`), where the semantics paper reads an
-aggregate parameter world by world, as an aggregate atom reads a column;
-on a right side satisfying this the two readings agree, the value being
-read nowhere. Reading it would also be an explosion in all but name: a
-rank computed by a window and read as a parameter compares two values
-with no selection, against a constant, by a difference. -/
-def AggQueryIn.ReadsRegParams {c n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
-    {κ₂ : Fin n₂ → ColKind} (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : Prop :=
-  AggQueryIn.ReadsRegParamsPlain κ₁ q₂ ∧ AggQueryIn.ReadsRegParamsPlain κ₁ q₂.stripAgg
-    ∧ ∀ (K' : Type) [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
-        (d : AnnotatedDatabase T K') (γ γ' : Fin (n₁ + c) → T), AgreeReg κ₁ γ γ' →
-        (q₂.evaluate d γ).map GenRow.fin = (q₂.evaluate d γ').map GenRow.fin
-
-/-- **No apply's right side reads an aggregate column of its left side**,
-in the plain semantics. -/
-def AggQueryIn.noAggParamPlain : {c n : ℕ} → {κ : Fin n → ColKind} →
-    {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noAggParamPlain
-  | _, _, _, _, .Sel _ q _ => q.noAggParamPlain
-  | _, _, _, _, .Prod q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
-  | _, _, _, _, @Apply _ _ _ _ κ₁ _ _ q₁ q₂ =>
-      q₁.noAggParamPlain ∧ q₂.noAggParamPlain ∧ AggQueryIn.ReadsRegParamsPlain κ₁ q₂
-  | _, _, _, _, .Sum q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
-  | _, _, _, _, .Dedup q => q.noAggParamPlain
-  | _, _, _, _, .Diff q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
-  | _, _, _, _, .Explode _ _ q => q.noAggParamPlain
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noAggParamPlain ∧ q₁.noAggParamPlain
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noAggParamPlain ∧ q₁.noAggParamPlain
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noAggParamPlain
-  | _, _, _, _, .GammaScalar _ _ q _ => q.noAggParamPlain
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noAggParamPlain
-  | _, _, _, _, .ProvSum _ _ _ q => q.noAggParamPlain
-  | _, _, _, _, .Retag _ q => q.noAggParamPlain
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noAggParamPlain
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noAggParamPlain
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noAggParamPlain
-
-/-- **No apply's right side reads an aggregate column of its left side**
-(`AggQueryIn.ReadsRegParams` at every apply). On such a query the
-evaluators' reading of an aggregate parameter, its deterministic value,
-is never used, which is what the random-world commutation needs of an
-apply, and what keeps the selection necessary. -/
-def AggQueryIn.noAggParam : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noAggParam
-  | _, _, _, _, .Sel _ q _ => q.noAggParam
-  | _, _, _, _, .Prod q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
-  | _, _, _, _, @Apply _ _ _ _ κ₁ _ _ q₁ q₂ =>
-      q₁.noAggParam ∧ q₂.noAggParam ∧ AggQueryIn.ReadsRegParams κ₁ q₂
-  | _, _, _, _, .Sum q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
-  | _, _, _, _, .Dedup q => q.noAggParam
-  | _, _, _, _, .Diff q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
-  | _, _, _, _, .Explode _ _ q => q.noAggParam
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noAggParam ∧ q₁.noAggParam
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noAggParam ∧ q₁.noAggParam
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noAggParam
-  | _, _, _, _, .GammaScalar _ _ q _ => q.noAggParam
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noAggParam
-  | _, _, _, _, .ProvSum _ _ _ q => q.noAggParam
-  | _, _, _, _, .Retag _ q => q.noAggParam
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noAggParam
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noAggParam
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noAggParam
+A substitution sends a parameter to a constant or to a parameter of the
+new context; it keeps the query well-kinded when it sends each parameter
+to one of the same kind, a constant being regular. -/
 
 omit [ValueType T] in
-/-- Contexts agreeing away from the aggregate columns of a left side that
-has none agree everywhere. -/
-theorem AgreeReg.eq_of_noAgg {c n₁ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    (hκ : ∀ i, (κ₁ i).base ≠ ColKind.agg) {γ γ' : Fin (n₁ + c) → T}
-    (h : AgreeReg κ₁ γ γ') : γ = γ' := by
-  funext m
-  induction m using Fin.addCases with
-  | left i => exact h.1 i (hκ i)
-  | right j => exact h.2 j
+theorem TermIn.outerOk_substMap {c d n : ℕ} (θ : Fin c → T ⊕ Fin d) {okc : Fin c → Prop}
+    {okd : Fin d → Prop} (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
+    ∀ t : TermIn T c n, t.outerOk okc → (t.substMap θ).outerOk okd
+  | .const _, _ => trivial
+  | .outer k, h => by
+    show TermIn.outerOk okd (Sum.elim TermIn.const TermIn.outer (θ k))
+    cases hk : θ k with
+    | inl a => trivial
+    | inr j => exact hθ k h j hk
+  | .index _, _ => trivial
+  | .add t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .sub t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .mul t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .caseWhen _ t₁ t₂ t₃ t₄, h => ⟨outerOk_substMap θ hθ t₁ h.1,
+      outerOk_substMap θ hθ t₂ h.2.1, outerOk_substMap θ hθ t₃ h.2.2.1,
+      outerOk_substMap θ hθ t₄ h.2.2.2⟩
+  | .coalesce t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
 
 omit [ValueType T] in
-/-- A substitution sending nothing to an aggregate column of the left side
-reads two such contexts alike. -/
-theorem AgreeReg.substVal_eq {c n₁ d : ℕ} {κ₁ : Fin n₁ → ColKind}
-    (θ : Fin d → T ⊕ Fin (n₁ + c))
-    (hθ : ∀ k i, θ k = Sum.inr (Fin.castAdd c i) → (κ₁ i).base ≠ ColKind.agg)
-    {γ γ' : Fin (n₁ + c) → T} (h : AgreeReg κ₁ γ γ') :
-    substVal θ γ = substVal θ γ' := by
-  funext k
-  unfold substVal
-  cases hk : θ k with
-  | inl a => rfl
-  | inr m =>
-    show γ m = γ' m
-    induction m using Fin.addCases with
-    | left i => exact h.1 i (hθ k i hk)
-    | right j => exact h.2 j
+theorem TermGIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    {okc : Fin c → Prop} {okd : Fin d → Prop}
+    (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
+    ∀ t : TermGIn T c κ, t.outerOk okc → (t.substMap θ).outerOk okd
+  | .const _, _ => trivial
+  | .outer k, h => by
+    show TermGIn.outerOk okd (Sum.elim TermGIn.const TermGIn.outer (θ k))
+    cases hk : θ k with
+    | inl a => trivial
+    | inr j => exact hθ k h j hk
+  | .index _ _, _ => trivial
+  | .provIndex _ _, _ => trivial
+  | .cmpAgg _ _ _ t, h => outerOk_substMap θ hθ t h
+  | .chiGate _ t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .add t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .sub t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .mul t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
+  | .caseWhen _ t₁ t₂ t₃ t₄, h => ⟨outerOk_substMap θ hθ t₁ h.1,
+      outerOk_substMap θ hθ t₂ h.2.1, outerOk_substMap θ hθ t₃ h.2.2.1,
+      outerOk_substMap θ hθ t₄ h.2.2.2⟩
+  | .coalesce t₁ t₂, h => ⟨outerOk_substMap θ hθ t₁ h.1, outerOk_substMap θ hθ t₂ h.2⟩
 
-/-- An apply whose left side has no aggregate column reads none. -/
-theorem AggQueryIn.readsRegParams_of_noAgg {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind} (hκ : ∀ i, (κ₁ i).base ≠ ColKind.agg)
-    (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : AggQueryIn.ReadsRegParams κ₁ q₂ :=
-  ⟨fun _ _ _ h => by rw [h.eq_of_noAgg hκ], fun _ _ _ h => by rw [h.eq_of_noAgg hκ],
-    fun _ _ _ _ _ _ _ h => by rw [h.eq_of_noAgg hκ]⟩
+omit [ValueType T] in
+theorem GenPredIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    {okc : Fin c → Prop} {okd : Fin d → Prop}
+    (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
+    ∀ φ : GenPredIn T c κ, φ.outerOk okc → (φ.substMap θ).outerOk okd
+  | .cmp _ t₁ t₂, h =>
+    ⟨TermGIn.outerOk_substMap θ hθ t₁ h.1, TermGIn.outerOk_substMap θ hθ t₂ h.2⟩
+  | .aggCmp _ _ _ t, h => TermGIn.outerOk_substMap θ hθ t h
+  | .aggRange _ _ _ t₁ _ t₂, h =>
+    ⟨TermGIn.outerOk_substMap θ hθ t₁ h.1, TermGIn.outerOk_substMap θ hθ t₂ h.2⟩
+  | .and φ ψ, h => ⟨outerOk_substMap θ hθ φ h.1, outerOk_substMap θ hθ ψ h.2⟩
+  | .or φ ψ, h => ⟨outerOk_substMap θ hθ φ h.1, outerOk_substMap θ hθ ψ h.2⟩
+  | .not φ, h => outerOk_substMap θ hθ φ h
 
-theorem AggQueryIn.readsRegParams_allReg {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
-    (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) :
-    AggQueryIn.ReadsRegParams (ColKind.allReg n₁) q₂ :=
-  AggQueryIn.readsRegParams_of_noAgg (fun _ => (by decide : ColKind.reg.base ≠ ColKind.agg)) q₂
+omit [ValueType T] in
+theorem ProjColIn.outerOk_substMap {c d n : ℕ} {κ : Fin n → ColKind} (θ : Fin c → T ⊕ Fin d)
+    {okc : Fin c → Prop} {okd : Fin d → Prop}
+    (hθ : ∀ k, okc k → ∀ j, θ k = Sum.inr j → okd j) :
+    ∀ p : ProjColIn T c κ, p.outerOk okc → (p.substMap θ).outerOk okd
+  | .term t, h => TermGIn.outerOk_substMap θ hθ t h
+  | .token _ _, _ => trivial
+  | .aggTerm _ _ _, _ => trivial
+  | .aggTermOf _ _ _, _ => trivial
+  | .provTerm t, h => TermGIn.outerOk_substMap θ hθ t h
 
-/-- **A substitution instance reading no aggregate column of the left
-side reads none.** -/
-theorem AggQueryIn.readsRegParams_substMap {c n₁ n₂ d : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind} (q : AggQueryIn T d n₂ κ₂)
-    (θ : Fin d → T ⊕ Fin (n₁ + c))
-    (hθ : ∀ k i, θ k = Sum.inr (Fin.castAdd c i) → (κ₁ i).base ≠ ColKind.agg) :
-    AggQueryIn.ReadsRegParams κ₁ (q.substMap θ) := by
-  refine ⟨fun D γ γ' h => ?_, fun D γ γ' h => ?_, fun K' _ _ _ dB γ γ' h => ?_⟩
-  · rw [AggQueryIn.evaluatePlain_substMap, AggQueryIn.evaluatePlain_substMap,
-      h.substVal_eq θ hθ]
-  · rw [AggQueryIn.stripAgg_substMap, AggQueryIn.evaluatePlain_substMap,
-      AggQueryIn.evaluatePlain_substMap, h.substVal_eq θ hθ]
-  · rw [AggQueryIn.evaluate_substMap, AggQueryIn.evaluate_substMap, h.substVal_eq θ hθ]
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.wellKinded_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) {ρc : Fin c → ColKind}
+    {HK : HoleKinds} : (q.castKind h).wellKinded ρc HK ↔ q.wellKinded ρc HK := by
+  subst h; exact Iff.rfl
 
-/-- A right side lifted from the ambient context reads nothing of the left
-row. -/
-theorem AggQueryIn.readsRegParams_applyOuter {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind} (q : AggQueryIn T c n₂ κ₂) :
-    AggQueryIn.ReadsRegParams κ₁
-      (q.substMap (fun j : Fin c => (Sum.inr (Fin.natAdd n₁ j) : T ⊕ Fin (n₁ + c)))) :=
-  AggQueryIn.readsRegParams_substMap q _ (fun k i hk => absurd (Sum.inr.inj hk)
-    (fun h => by
-      have := congrArg Fin.val h
-      simp only [Fin.val_natAdd, Fin.val_castAdd] at this
-      omega))
-
-theorem AggQueryIn.ReadsRegParams.plain {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind} {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂}
-    (h : AggQueryIn.ReadsRegParams κ₁ q₂) : AggQueryIn.ReadsRegParamsPlain κ₁ q₂ := h.1
-
-theorem AggQueryIn.ReadsRegParams.evaluate {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind} {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂}
-    (h : AggQueryIn.ReadsRegParams κ₁ q₂) (d : AnnotatedDatabase T K)
-    {γ γ' : Fin (n₁ + c) → T} (hγ : AgreeReg κ₁ γ γ') :
-    (q₂.evaluate d γ).map GenRow.fin = (q₂.evaluate d γ').map GenRow.fin :=
-  h.2.2 K d γ γ' hγ
-
-/-- **Stripping keeps the fence**, in the plain form the stripped query is
-read in. -/
-theorem AggQueryIn.noAggParamPlain_stripAgg :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noAggParam → q.stripAgg.noAggParamPlain := by
+omit [ValueType T] in
+/-- **Substitution keeps the query well-kinded**, sending each parameter to
+a constant (regular) or to a parameter of the same kind. -/
+theorem AggQueryIn.wellKinded_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      {d : ℕ} (θ : Fin c → T ⊕ Fin d) {ρc : Fin c → ColKind} {ρd : Fin d → ColKind}
+      {HK : HoleKinds},
+      (∀ k, (ρc k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (ρd j).base) (θ k)) →
+      q.wellKinded ρc HK → (q.substMap θ).wellKinded ρd HK := by
   intro c n κ l q
   induction q with
-  | Rel _ _ => exact fun _ => trivial
-  | Hole _ _ => exact fun _ => trivial
-  | Empty => exact fun _ => trivial
-  | Proj ps q ih => exact fun h => ih h
+  | Rel _ _ => intro d θ ρc ρd HK _ h; exact h
+  | Hole _ _ _ => intro d θ ρc ρd HK _ h; exact h
+  | Param pv ρ =>
+    intro d θ ρc ρd HK hθ h k
+    show (ρ k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (ρd j).base)
+      (_root_.Sum.elim Sum.inl θ (pv k))
+    rw [h k]
+    cases pv k with
+    | inl a => rfl
+    | inr j => exact hθ j
+  | Empty => intro d θ ρc ρd HK _ h; exact h
+  | Proj ps q ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    rw [AggQueryIn.substMap, AggQueryIn.wellKinded_castKind]
+    exact ⟨fun j => ProjColIn.outerOk_substMap θ hok (ps j) (h.1 j), ih θ hθ h.2⟩
   | Sel φ q hφ ih =>
-    intro h
-    rw [AggQueryIn.stripAgg]
-    by_cases hφ' : φ.hasAggAtom
-    · rw [ite_eq_left hφ']; exact ih h
-    · rw [ite_eq_right hφ']; exact ih h
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2.1, h.2.2.2.1⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Dedup q ih => exact fun h => ih h
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
-  | Explode k hk q ih => exact fun h => ih h
-  | Retag hk q ih => exact fun h => ih h
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | Gamma is ts fs q keep ord ih => exact fun h => ih h
-  | GammaScalar ts fs q ord ih => exact fun h => ih h
-  | GammaNest is his p f q ih => exact fun h => ih h
-  | ProvSum is his t q ih => exact fun h => ih h
-  | GammaTok is his ts fs a q keep ih => exact fun h => ih h
-  | Win P O o w t f q hrr dist keep ih => exact fun h => ih h
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
-
-@[simp] theorem AggQueryIn.noAggParam_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
-    (q.castKind h).noAggParam ↔ q.noAggParam := by
-  subst h; exact Iff.rfl
-
-@[simp] theorem AggQueryIn.noAggParamPlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
-    (q.castKind h).noAggParamPlain ↔ q.noAggParamPlain := by
-  subst h; exact Iff.rfl
-
-/-- **The fence carries over to anything reading alike**: in the plain
-semantics, in that of its stripped form, and up to finalization in the
-annotated semantics over every semiring. -/
-theorem AggQueryIn.ReadsRegParams.of_eval {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
-    {κ₂ : Fin n₂ → ColKind}
-    {p : AggQueryIn T (n₁ + c) n₂ κ₂} {p' : AggQueryIn T (n₁ + c) n₂ κ₂}
-    (hp : ∀ D γ, p'.evaluatePlain D γ = p.evaluatePlain D γ)
-    (hs : ∀ D γ, p'.stripAgg.evaluatePlain D γ = p.stripAgg.evaluatePlain D γ)
-    (ha : ∀ (K' : Type) [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
-      (d : AnnotatedDatabase T K') γ,
-        (p'.evaluate d γ).map GenRow.fin = (p.evaluate d γ).map GenRow.fin)
-    (h : AggQueryIn.ReadsRegParams κ₁ p) : AggQueryIn.ReadsRegParams κ₁ p' :=
-  ⟨fun D γ γ' hγ => by rw [hp, hp, h.1 D γ γ' hγ],
-    fun D γ γ' hγ => by rw [hs, hs, h.2.1 D γ γ' hγ],
-    fun K' _ _ _ d γ γ' hγ => by rw [ha, ha, h.2.2 K' d γ γ' hγ]⟩
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨GenPredIn.outerOk_substMap θ hok φ h.1, ih θ hθ h.2⟩
+  | Prod q₁ q₂ ih₁ ih₂ => intro d θ ρc ρd HK hθ h; exact ⟨ih₁ θ hθ h.1, ih₂ θ hθ h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    rename_i c' n₁ n₂ κ₁ κ₂ l₁
+    intro d θ ρc ρd HK hθ h
+    refine ⟨ih₁ θ hθ h.1, ih₂ _ (fun k => ?_) h.2⟩
+    refine Fin.addCases (fun i => ?_) (fun j => ?_) k
+    · rw [Fin.append_left, Fin.append_left]
+      show _ = (Fin.append κ₁ ρd (Fin.castAdd d i)).base
+      rw [Fin.append_left]
+    · rw [Fin.append_right, Fin.append_right, hθ j]
+      cases θ j with
+      | inl a => rfl
+      | inr m =>
+        show (ρd m).base = (Fin.append κ₁ ρd (Fin.natAdd n₁ m)).base
+        rw [Fin.append_right]
+  | Sum q₁ q₂ ih₁ ih₂ => intro d θ ρc ρd HK hθ h; exact ⟨ih₁ θ hθ h.1, ih₂ θ hθ h.2⟩
+  | Dedup q ih => intro d θ ρc ρd HK hθ h; exact ih θ hθ h
+  | Diff q₁ q₂ ih₁ ih₂ => intro d θ ρc ρd HK hθ h; exact ⟨ih₁ θ hθ h.1, ih₂ θ hθ h.2⟩
+  | Explode k hk q ih => intro d θ ρc ρd HK hθ h; exact ih θ hθ h
+  | Retag hk q ih => intro d θ ρc ρd HK hθ h; exact ih θ hθ h
+  | Mu s q₀ q₁ ih₀ ih₁ => intro d θ ρc ρd HK hθ h; exact ⟨ih₀ θ hθ h.1, ih₁ θ hθ h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro d θ ρc ρd HK hθ h; exact ⟨ih₀ θ hθ h.1, ih₁ θ hθ h.2⟩
+  | Gamma is ts fs q keep ord ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨fun j => TermIn.outerOk_substMap θ hok (ts j) (h.1 j), ih θ hθ h.2⟩
+  | GammaScalar ts fs q ord ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨fun j => TermIn.outerOk_substMap θ hok (ts j) (h.1 j), ih θ hθ h.2⟩
+  | GammaNest is his p f q ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨ProjColIn.outerOk_substMap θ hok p h.1, ih θ hθ h.2⟩
+  | ProvSum is his t q ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨TermGIn.outerOk_substMap θ hok t h.1, ih θ hθ h.2⟩
+  | GammaTok is his ts fs a q keep ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨fun j => TermIn.outerOk_substMap θ hok (ts j) (h.1 j),
+      TermGIn.outerOk_substMap θ hok a h.2.1, ih θ hθ h.2.2⟩
+  | Win P O o w t f q hrr dist keep ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨TermIn.outerOk_substMap θ hok t h.1, ih θ hθ h.2⟩
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro d θ ρc ρd HK hθ h
+    have hok : ∀ k, (ρc k).base ≠ ColKind.agg → ∀ j, θ k = Sum.inr j → (ρd j).base ≠ ColKind.agg :=
+      fun k hk j hj => by rw [hθ k, hj] at hk; exact hk
+    exact ⟨fun j => TermIn.outerOk_substMap θ hok (ts j) (h.1 j), ih θ hθ h.2⟩

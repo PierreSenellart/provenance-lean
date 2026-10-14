@@ -102,7 +102,8 @@ so the predicate reads `False` there, as it does for
 def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.WinsDerivable
   | _, _, _, _, .Sel _ q _ => q.WinsDerivable
@@ -157,7 +158,11 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
       ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
   | Hole n s =>
     exact fun _ _ hqs =>
-      ⟨AggQueryIn.Hole n s, trivial, hqs, fun _ _ => rfl⟩
+      ⟨AggQueryIn.Hole n s _, trivial, hqs, fun _ _ => rfl⟩
+  | Param pv ρ =>
+    exact fun hq _ _ => ⟨AggQueryIn.Param pv ρ,
+      ⟨mem_of_mem_insert (by decide) hq.1, mem_of_mem_insert (by decide) hq.2.1, mem_of_mem_insert
+          (by decide) hq.2.2⟩, trivial, fun _ _ => rfl⟩
   | Empty =>
     exact fun hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, fun _ _ => rfl⟩
@@ -305,7 +310,13 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
       ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
   | Hole n s =>
     exact fun _ _ hqs =>
-      ⟨AggQueryIn.Hole n s, trivial, hqs, fun _ _ => rfl⟩
+      ⟨AggQueryIn.Hole n s _, trivial, hqs, fun _ _ => rfl⟩
+  | Param pv ρ =>
+    exact fun _ hq _ => ⟨AggQueryIn.Param pv ρ,
+      ⟨mem_of_mem_insert (by decide) (mem_of_mem_insert (by decide) hq.1), mem_of_mem_insert
+          (by decide) (mem_of_mem_insert (by decide) hq.2.1),
+        mem_of_mem_insert (by decide) (mem_of_mem_insert (by decide) hq.2.2)⟩, trivial,
+            fun _ _ => rfl⟩
   | Empty =>
     exact fun _ hq _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) (mem_of_mem_insert (by decide) hq),
@@ -616,6 +627,7 @@ theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -837,6 +849,10 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
   induction q with
   | Rel n s => exact fun _ _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, fun _ _ => rfl⟩
   | Hole n s => exact fun hl => absurd hl (by simp)
+  | Param pv ρ =>
+    exact fun _ hq _ _ => ⟨AggQueryIn.Param pv ρ,
+      ⟨mem_of_mem_insert (by decide) hq.1, mem_of_mem_insert (by decide) hq.2.1, mem_of_mem_insert
+          (by decide) hq.2.2⟩, trivial, fun _ _ => rfl⟩
   | Empty =>
     exact fun _ hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, fun _ _ => rfl⟩
@@ -972,7 +988,8 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     (hp : OpKind.proj ∈ S) (hd : OpKind.diff ∈ S)
     (hap : OpKind.apply ∉ S) (hmb : OpKind.muBag ∉ S)
     (hms : OpKind.muSet ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), l = [] → c = 0 →
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+        l = [] → c = 0 →
       q.usesOnly (insert OpKind.sel S) → q.SwapReady → q.overSchema sch →
       ∃ q' : AggQueryIn T c n κ, q'.usesOnly S ∧ q'.overSchema sch
         ∧ q'.SwapReady ∧ ∀ (D : Database T) (γ : Fin c → T),
@@ -981,6 +998,10 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
   induction q with
   | Rel n s => exact fun _ _ _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial, fun _ _ => rfl⟩
   | Hole n s => exact fun hl => absurd hl (by simp)
+  | Param pv ρ =>
+    exact fun _ _ hq _ _ => ⟨AggQueryIn.Param pv ρ,
+      ⟨mem_of_mem_insert (by decide) hq.1, mem_of_mem_insert (by decide) hq.2.1, mem_of_mem_insert
+          (by decide) hq.2.2⟩, trivial, trivial, fun _ _ => rfl⟩
   | Empty =>
     exact fun _ _ hq _ _ => ⟨AggQueryIn.Empty,
       mem_of_mem_insert (by decide) hq, trivial, trivial, fun _ _ => rfl⟩

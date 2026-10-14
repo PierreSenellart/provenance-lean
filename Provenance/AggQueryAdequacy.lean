@@ -4,6 +4,7 @@
 -/
 import Provenance.AggQuery
 import Provenance.QueryAdequacy
+import Provenance.PlainBasis
 
 /-!
 # Data-part adequacy of the general evaluator
@@ -274,70 +275,77 @@ recursion the iterations repeat; the subqueries settle at the instances
 they are read at – a body at every round and at the empty round, an
 apply's right side at every row of its left. -/
 def AggQueryIn.AnnSettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → AnnotatedDatabase T K → (Fin c → T) → Prop
-  | _, _, _, _, .Rel _ _, _, _ => True
-  | _, _, _, _, .Hole _ _, _, _ => True
-  | _, _, _, _, .Empty, _, _ => True
-  | _, _, _, _, .Proj _ q, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .Sel _ q _, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .Prod q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
-  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂, d, γ =>
-      q₁.AnnSettlesAt d γ
-        ∧ ∀ u : Tuple T n₁, Multiset.Mem (q₁.evaluateAnnotated d γ).toPlain u →
-            q₂.AnnSettlesAt d (Fin.append u γ)
-  | _, _, _, _, .Sum q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
-  | _, _, _, _, .Dedup q, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .Diff q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
-  | _, _, _, _, .Explode _ _ q, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .Retag _ q, d, γ => q.AnnSettlesAt d γ
-  | _, n, _, _, .Mu s q₀ q₁, d, γ =>
-      q₀.AnnSettlesAt d γ
-        ∧ AggQueryIn.muStep s q₁ d γ 0 = 0
-        ∧ MuSettles (AggQueryIn.muStep s q₁ d γ) (q₀.evaluateAnnotated d γ)
-        ∧ (∀ k : ℕ, q₁.AnnSettlesAt
-            (d.assign s ((AggQueryIn.muStep s q₁ d γ)^[k] (q₀.evaluateAnnotated d γ))) γ)
-        ∧ q₁.AnnSettlesAt (d.assign s (0 : AnnotatedRelation T K n)) γ
-  | _, _, _, _, .MuSet s q₀ q₁, d, γ =>
-      q₀.AnnSettlesAt d γ
-        ∧ MuSetSettles (AggQueryIn.muSetStep s q₀ q₁ d γ)
-        ∧ ∀ k : ℕ, q₁.AnnSettlesAt (d.assign s (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) k)) γ
-  | _, _, _, _, .Gamma _ _ _ q _ _, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .GammaScalar _ _ q _, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .GammaNest _ _ _ _ q, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .ProvSum _ _ _ q, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _, d, γ => q.AnnSettlesAt d γ
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, d, γ => q.AnnSettlesAt d γ
+    AggQueryIn T c n κ l → AnnotatedDatabase T K → (Fin c → T) → EvalEnv T K → Prop
+  | _, _, _, _, .Rel _ _, _, _, _ => True
+  | _, _, _, _, .Hole _ _ _, _, _, _ => True
+  | _, _, _, _, .Param _ _, _, _, _ => True
+  | _, _, _, _, .Empty, _, _, _ => True
+  | _, _, _, _, .Proj _ q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .Sel _ q _, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .Prod q₁ q₂, d, γ, E => q₁.AnnSettlesAt d γ E ∧ q₂.AnnSettlesAt d γ E
+  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂, d, γ, E =>
+      q₁.AnnSettlesAt d γ E
+        ∧ ∀ x ∈ q₁.evaluate d γ E,
+            q₂.AnnSettlesAt d (Fin.append (GenRow.plainTuple x.fst) γ)
+              (E.withCtx (Fin.append x.fst (E.ctxAt _ γ)))
+  | _, _, _, _, .Sum q₁ q₂, d, γ, E => q₁.AnnSettlesAt d γ E ∧ q₂.AnnSettlesAt d γ E
+  | _, _, _, _, .Dedup q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .Diff q₁ q₂, d, γ, E => q₁.AnnSettlesAt d γ E ∧ q₂.AnnSettlesAt d γ E
+  | _, _, _, _, .Explode _ _ q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .Retag _ q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, n, _, _, .Mu s q₀ q₁, d, γ, E =>
+      q₀.AnnSettlesAt d γ E
+        ∧ AggQueryIn.muStep s q₁ d γ E 0 = 0
+        ∧ MuSettles (AggQueryIn.muStep s q₁ d γ E) (q₀.evaluate d γ E)
+        ∧ (∀ k : ℕ, q₁.AnnSettlesAt d γ
+            (E.assignHole s ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E))))
+        ∧ q₁.AnnSettlesAt d γ (E.assignHole s (0 : Multiset (GenRow T K n)))
+  | _, _, _, _, .MuSet s q₀ q₁, d, γ, E =>
+      q₀.AnnSettlesAt d γ E
+        ∧ MuSetSettles (AggQueryIn.muSetStep s q₀ q₁ d γ E)
+        ∧ ∀ k : ℕ, q₁.AnnSettlesAt d γ
+            (E.assignHole s ((muIter (AggQueryIn.muSetStep s q₀ q₁ d γ E) k).map
+              GenRow.ofAnnotated))
+  | _, _, _, _, .Gamma _ _ _ q _ _, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .GammaScalar _ _ q _, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .GammaNest _ _ _ _ q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .ProvSum _ _ _ q, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _, d, γ, E => q.AnnSettlesAt d γ E
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, d, γ, E => q.AnnSettlesAt d γ E
 
 /-- Settling everywhere settles at every instance. -/
 theorem AggQueryIn.recSettles_annSettlesAt :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.recSettles (K := K) → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T), q.AnnSettlesAt d γ := by
+      q.recSettles (K := K) → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
+        q.AnnSettlesAt d γ E := by
   intro c n κ l q
   induction q with
-  | Rel _ _ => exact fun _ _ _ => trivial
-  | Hole _ _ => exact fun _ _ _ => trivial
-  | Empty => exact fun _ _ _ => trivial
-  | Proj _ q ih => exact fun h d γ => ih h d γ
-  | Sel _ q _ ih => exact fun h d γ => ih h d γ
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, ih₂ h.2 d γ⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, fun u _ => ih₂ h.2 d _⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, ih₂ h.2 d γ⟩
-  | Dedup q ih => exact fun h d γ => ih h d γ
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, ih₂ h.2 d γ⟩
-  | Explode _ _ q ih => exact fun h d γ => ih h d γ
-  | Retag _ q ih => exact fun h d γ => ih h d γ
+  | Rel _ _ => exact fun _ _ _ _ => trivial
+  | Hole _ _ => exact fun _ _ _ _ => trivial
+  | Param pv ρ => exact fun _ _ _ _ => trivial
+  | Empty => exact fun _ _ _ _ => trivial
+  | Proj _ q ih => exact fun h d γ E => ih h d γ E
+  | Sel _ q _ ih => exact fun h d γ E => ih h d γ E
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun h d γ E => ⟨ih₁ h.1 d γ E, ih₂ h.2 d γ E⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h d γ E => ⟨ih₁ h.1 d γ E, fun _ _ => ih₂ h.2 d _ _⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun h d γ E => ⟨ih₁ h.1 d γ E, ih₂ h.2 d γ E⟩
+  | Dedup q ih => exact fun h d γ E => ih h d γ E
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h d γ E => ⟨ih₁ h.1 d γ E, ih₂ h.2 d γ E⟩
+  | Explode _ _ q ih => exact fun h d γ E => ih h d γ E
+  | Retag _ q ih => exact fun h d γ E => ih h d γ E
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    exact fun h d γ => ⟨ih₀ h.2.1 d γ, (h.1 d γ).1, (h.1 d γ).2, fun _ => ih₁ h.2.2 _ γ, ih₁ h.2.2 _ γ⟩
+    exact fun h d γ E => ⟨ih₀ h.2.1 d γ E, (h.1 d γ E).1, (h.1 d γ E).2,
+      fun _ => ih₁ h.2.2 _ γ _, ih₁ h.2.2 _ γ _⟩
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    exact fun h d γ => ⟨ih₀ h.2.1 d γ, h.1 d γ, fun _ => ih₁ h.2.2 _ γ⟩
-  | Gamma _ _ _ q _ _ ih => exact fun h d γ => ih h d γ
-  | GammaScalar _ _ q _ ih => exact fun h d γ => ih h d γ
-  | GammaNest _ _ _ _ q ih => exact fun h d γ => ih h d γ
-  | ProvSum _ _ _ q ih => exact fun h d γ => ih h d γ
-  | GammaTok _ _ _ _ _ q _ ih => exact fun h d γ => ih h d γ
-  | Win _ _ _ _ _ _ q _ _ _ ih => exact fun h d γ => ih h d γ
-  | WinExpr _ _ _ _ _ _ _ q _ ih => exact fun h d γ => ih h d γ
+    exact fun h d γ E => ⟨ih₀ h.2.1 d γ E, h.1 d γ E, fun _ => ih₁ h.2.2 _ γ _⟩
+  | Gamma _ _ _ q _ _ ih => exact fun h d γ E => ih h d γ E
+  | GammaScalar _ _ q _ ih => exact fun h d γ E => ih h d γ E
+  | GammaNest _ _ _ _ q ih => exact fun h d γ E => ih h d γ E
+  | ProvSum _ _ _ q ih => exact fun h d γ E => ih h d γ E
+  | GammaTok _ _ _ _ _ q _ ih => exact fun h d γ E => ih h d γ E
+  | Win _ _ _ _ _ _ q _ _ _ ih => exact fun h d γ E => ih h d γ E
+  | WinExpr _ _ _ _ _ _ _ q _ ih => exact fun h d γ E => ih h d γ E
 
 /-- `muSumFix_map` with the step commutation asked at the rounds only. -/
 theorem muSumFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : h 0 = 0)
@@ -388,6 +396,26 @@ theorem muFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : 
     rw [← hiter, ← hstep, hfix]
   rw [muFix, hiter, (muFix_eq_of_fix hfixP).symm]
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem EvalEnv.assignHole_holes_self (E : EvalEnv T K) (s : String) {n : ℕ}
+    (X : Multiset (GenRow T K n)) : (E.assignHole s X).holes s n = X := by
+  show (if h : s = s ∧ n = n then _ else _) = X
+  rw [dite_eq_left ⟨rfl, rfl⟩]
+  rfl
+
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The plain instance a recursion's body is read in agrees with the
+annotated one away from the bound names, the body's own included. -/
+theorem Database.agree_assign {d : AnnotatedDatabase T K} {D : Database T} {N : Set String}
+    (hD : ∀ (n' : ℕ) (s' : String), s' ∉ N →
+      D.find n' s' = (d.find n' s').map AnnotatedRelation.toPlain)
+    (s : String) {m : ℕ} (X : Relation T m) :
+    ∀ (n' : ℕ) (s' : String), s' ∉ insert s N →
+      (D.assign s X).find n' s' = (d.find n' s').map AnnotatedRelation.toPlain := by
+  intro n' s' hs'
+  rw [Database.find_assign_of_ne s s' X D (fun h => hs' (Or.inl h.2))]
+  exact hD n' s' (fun h => hs' (Or.inr h))
+
 /-- **Data-part adequacy of the general evaluator.** Forgetting the
 annotations of the general annotated evaluation yields the plain
 evaluation of the stripped query on the plain database.
@@ -399,75 +427,74 @@ world and no stripping recovers it. The readings that *are* world
 readings – the Boolean support and the random world – do cover it. The
 settling hypothesis is per instance (`AggQueryIn.AnnSettlesAt`): only the
 recursions the evaluation at `(d, γ)` runs need settle there. -/
-theorem AggQueryIn.evaluateAnnotated_toPlain :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (_hq : q.noExplode)
-      (d : AnnotatedDatabase T K) {γ : Fin c → T} (_hr : q.AnnSettlesAt d γ),
-    (q.evaluateAnnotated d γ).toPlain
-      = q.stripAgg.evaluatePlain d.toPlain γ := by
-  have hplain : ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (d : AnnotatedDatabase T K) {γ : Fin c → T},
-      (q.evaluateAnnotated d γ).toPlain
-        = (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst) := by
-    intro c n κ l q d γ
-    unfold AggQueryIn.evaluateAnnotated AnnotatedRelation.toPlain
-    rw [Multiset.map_map]
-    rfl
+theorem AggQueryIn.evaluate_toPlain_env :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noExplode → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
+      q.wellKinded ρc HK →
+      ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K) (D : Database T)
+        (N : Set String), E.Kinded γ ρc HK →
+      (∀ (n' : ℕ) (s' : String), s' ∉ N →
+        D.find n' s' = (d.find n' s').map AnnotatedRelation.toPlain) →
+      (∀ s' ∈ N, q.noMention s') →
+      (∀ p ∈ l, D.find p.2 p.1
+        = some ((E.holes p.1 p.2).map (fun r => GenRow.plainTuple r.fst))) →
+      q.AnnSettlesAt d γ E →
+      (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst)
+        = q.stripAgg.evaluatePlain D γ := by
   intro c n κ l q
   induction q with
   | Rel n s =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [AnnotatedDatabase.find_toPlain]
+    have hs : s ∉ N := fun h => hN s h rfl
+    rw [hD n s hs]
     cases hf : d.find n s
     · rfl
     · rw [Option.map_some, Multiset.map_map]
       rfl
-  | Hole n s =>
-    intro hq d γ hr
-    rw [hplain]
+  | Hole n s κ =>
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [AnnotatedDatabase.find_toPlain]
-    cases hf : d.find n s
-    · rfl
-    · rw [Option.map_some, Multiset.map_map]
-      rfl
+    rw [hE.hole_filter hwk, hH (s, n) (List.mem_singleton_self _)]
+  | Param pv ρ =>
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
+    rw [hE.paramRows_eq hwk, Multiset.map_singleton, hE.plainTuple_param]
   | Empty =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
     rfl
   | Proj ps q ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain, Multiset.map_map, Multiset.map_map]
+    rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr, Multiset.map_map, Multiset.map_map]
     apply Multiset.map_congr rfl
     intro r _
     funext j
     exact ProjColIn.collapseSum_eval (ps j) r.fst
   | Sel φ q _ ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg]
     by_cases hφ : φ.hasAggAtom
-    · rw [ite_eq_left hφ, ite_eq_left hφ, ← ih hq d hr, hplain, Multiset.map_map]
+    · rw [ite_eq_left hφ, ite_eq_left hφ, ← ih hq hh hwk.2 d E D N hE hD hN hH hr, Multiset.map_map]
       rfl
     · rw [ite_eq_right hφ, ite_eq_right hφ]
       simp only [AggQueryIn.evaluatePlain]
-      rw [← ih hq d hr, hplain]
+      rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
       exact map_filter_iff _ _ _
         (fun (r : GenRow T K _) => φ.holds_iff_holdsPlain r.fst) _
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih₁ hq.1 d hr.1, ← ih₂ hq.2 d hr.2, hplain, hplain]
+    rw [← ih₁ hq.1 hh.1 hwk.1 d E D N hE hD (fun s' h => (hN s' h).1)
+      (fun p hp => hH p (List.mem_append_left _ hp)) hr.1, ← ih₂ hq.2 hh.2 hwk.2 d E D N hE hD
+          (fun s' h => (hN s' h).2)
+      (fun p hp => hH p (List.mem_append_right _ hp)) hr.2]
     show Multiset.map _ (Multiset.map _ (Multiset.product _ _))
       = Multiset.map _ (Multiset.product
-          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₁.evaluate d γ))
-          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₂.evaluate d γ)))
+          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₁.evaluate d γ E))
+          (Multiset.map (fun r => GenRow.plainTuple r.fst) (q₂.evaluate d γ E)))
     rw [Multiset.map_map, product_map_map, Multiset.map_map]
     apply Multiset.map_congr rfl
     intro xy _
@@ -479,13 +506,15 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     · rw [Fin.append_left, Fin.append_left]
     · rw [Fin.append_right, Fin.append_right]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
-    rw [← ih₁ hq.1 d hr.1, hplain, Multiset.map_bind, Multiset.bind_map]
+    rw [← ih₁ hq.1 hh.1 hwk.1 d E D N hE hD (fun s' h => (hN s' h).1) hH hr.1,
+      Multiset.map_bind, Multiset.bind_map]
     refine Multiset.bind_congr (fun x hx => ?_)
-    rw [← ih₂ hq.2 d (hr.2 _ (by rw [hplain]; exact Multiset.mem_map_of_mem _ hx)), hplain,
+    rw [← ih₂ hq.2 hh.2 hwk.2 d _ D N
+      (hE.enter (fun k => AggQueryIn.evaluate_conform q₁ d x hx k)) hD
+      (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) (hr.2 x hx),
       Multiset.map_map, Multiset.map_map]
     refine Multiset.map_congr rfl (fun y _ => ?_)
     show GenRow.plainTuple (Fin.append x.fst y.fst)
@@ -496,15 +525,16 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     · rw [Fin.append_left, Fin.append_left]
     · rw [Fin.append_right, Fin.append_right]
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [Multiset.map_add, ← ih₁ hq.1 d hr.1, ← ih₂ hq.2 d hr.2, hplain, hplain]
+    rw [Multiset.map_add, ← ih₁ hq.1 hh.1 hwk.1 d E D N hE hD (fun s' h => (hN s' h).1)
+      (fun p hp => hH p (List.mem_append_left _ hp)) hr.1, ← ih₂ hq.2 hh.2 hwk.2 d E D N hE hD
+          (fun s' h => (hN s' h).2)
+      (fun p hp => hH p (List.mem_append_right _ hp)) hr.2]
   | Dedup q ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [Multiset.map_map, ← ih hq d hr, hplain]
+    rw [Multiset.map_map, ← ih hq hh hwk d E D N hE hD hN hH hr]
     refine Eq.trans
       (Multiset.map_congr rfl
         (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
@@ -512,56 +542,94 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     rfl
   | Explode k hk q ih => intro hq _ _ _; exact hq.elim
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro hq d γ hr
-    rw [hplain]
-    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
-      AggQueryIn.evaluatePlain]
-    rw [Multiset.map_map]
-    refine Eq.trans (Multiset.map_congr rfl
-      (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
-    refine Eq.trans (muSumFix_map_rounds (h := Multiset.map Prod.fst)
+    rename_i c' m κ'
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
+    simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
+    -- the rows of every round have the recursion's kinds
+    have hit : ∀ k, ∀ r ∈ (AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E),
+        GenRow.Conforms κ' r.fst := by
+      intro k
+      induction k with
+      | zero => exact fun r hr' k => AggQueryIn.evaluate_conform q₀ d r hr' k
+      | succ k _ =>
+        intro r hr'
+        rw [Function.iterate_succ_apply'] at hr'
+        exact fun k => AggQueryIn.evaluate_conform q₁ d r hr' k
+    have hbody : ∀ k, Multiset.map (fun r : GenRow T K m => GenRow.plainTuple r.fst)
+        (AggQueryIn.muStep s q₁ d γ E ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E)))
+        = q₁.stripAgg.evaluatePlain (D.assign s (Multiset.map
+            (fun r : GenRow T K m => GenRow.plainTuple r.fst)
+            ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E)))) γ := fun k =>
+      ih₁ hq.2 hh.2.2.2 hwk.2 d _ _ (insert s N) (hE.assignHole s (hit k))
+        (Database.agree_assign hD s _)
+        (fun s' h => (Set.mem_insert_iff.mp h).elim (fun he => he ▸ hh.2.1)
+          (fun hn => (hN s' hn).2))
+        (fun p hp => by
+          rw [List.mem_singleton.mp hp]
+          show (D.assign s _).find m s = _
+          rw [Database.find_assign, EvalEnv.assignHole_holes_self])
+        (hr.2.2.2.1 k)
+    refine (muSumFix_map_rounds (h := Multiset.map
+        (fun r : GenRow T K m => GenRow.plainTuple r.fst))
       (Multiset.map_zero _) (fun x y => Multiset.map_add _ x y)
-      (step := AggQueryIn.muStep s q₁ d γ)
-      (stepP := fun X => q₁.stripAgg.evaluatePlain (d.toPlain.assign s X) γ)
-      (M := (q₀.evaluate d γ).map GenRow.toAnnotated)
-      (fun k => ih₁ hq.2 (d.assign s _) (hr.2.2.2.1 k))
-      hr.2.1 hr.2.2.1) ?_
-    rw [show (Multiset.map Prod.fst
-        ((q₀.evaluate d γ).map GenRow.toAnnotated) : Multiset (Tuple T _))
-      = q₀.stripAgg.evaluatePlain d.toPlain γ from by
-        rw [← ih₀ hq.1 d hr.1]; rfl]
+      (step := AggQueryIn.muStep s q₁ d γ E)
+      (stepP := fun X => q₁.stripAgg.evaluatePlain (D.assign s X) γ)
+      (M := q₀.evaluate d γ E) hbody hr.2.1 hr.2.2.1).trans ?_
+    rw [ih₀ hq.1 hh.2.2.1 hwk.1 d E D N hE hD (fun s' h => (hN s' h).1)
+      (fun p hp => absurd hp List.not_mem_nil) hr.1]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro hq d γ hr
-    rw [hplain]
+    rename_i c' m
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
     rw [Multiset.map_map]
     refine Eq.trans (Multiset.map_congr rfl
       (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
     refine muFix_map_rounds (h := Multiset.map Prod.fst) (Multiset.map_zero _)
-      (step := AggQueryIn.muSetStep s q₀ q₁ d γ)
-      (stepP := fun X => (q₀.stripAgg.evaluatePlain d.toPlain γ
-        + q₁.stripAgg.evaluatePlain (d.toPlain.assign s X) γ).dedup)
+      (step := AggQueryIn.muSetStep s q₀ q₁ d γ E)
+      (stepP := fun X => (q₀.stripAgg.evaluatePlain D γ
+        + q₁.stripAgg.evaluatePlain (D.assign s X) γ).dedup)
       (fun k => ?_) hr.2.1
-    have h₀ : (Multiset.map Prod.fst (q₀.evaluateAnnotated d γ) : Multiset (Tuple T _))
-        = q₀.stripAgg.evaluatePlain d.toPlain γ :=
-      ih₀ hq.1 d hr.1
+    have hpl : ∀ (X : Multiset (GenRow T K m)),
+        Multiset.map Prod.fst (X.map GenRow.toAnnotated)
+          = X.map (fun r => GenRow.plainTuple r.fst) := fun X => by
+      rw [Multiset.map_map]; rfl
+    have h₀ : (Multiset.map Prod.fst (q₀.evaluateAnnotated d γ E) : Multiset (Tuple T _))
+        = q₀.stripAgg.evaluatePlain D γ := by
+      rw [AggQueryIn.evaluateAnnotated, hpl]
+      exact ih₀ hq.1 hh.2.2.1 hwk.1 d E D N hE hD (fun s' h => (hN s' h).1)
+        (fun p hp => absurd hp List.not_mem_nil) hr.1
+    set Xk := muIter (AggQueryIn.muSetStep s q₀ q₁ d γ E) k with hXk
+    have hof : (Xk.map GenRow.ofAnnotated).map (fun r : GenRow T K m => GenRow.plainTuple r.fst)
+        = Multiset.map Prod.fst Xk := by
+      rw [Multiset.map_map]
+      exact Multiset.map_congr rfl (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)
     have h₁ : (Multiset.map Prod.fst
-          (q₁.evaluateAnnotated (d.assign s (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) k)) γ)
+          (q₁.evaluateAnnotated d γ (E.assignHole s (Xk.map GenRow.ofAnnotated)))
           : Multiset (Tuple T _))
-        = q₁.stripAgg.evaluatePlain
-            (d.toPlain.assign s (Multiset.map Prod.fst
-              (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ) k))) γ :=
-      ih₁ hq.2 (d.assign s _) (hr.2.2 k)
+        = q₁.stripAgg.evaluatePlain (D.assign s (Multiset.map Prod.fst Xk)) γ := by
+      rw [AggQueryIn.evaluateAnnotated, hpl]
+      refine ih₁ hq.2 hh.2.2.2 hwk.2 d _ _ (insert s N)
+        (hE.assignHole s (fun r hr' k => ?_)) (Database.agree_assign hD s _)
+        (fun s' h => (Set.mem_insert_iff.mp h).elim (fun he => he ▸ hh.2.1)
+          (fun hn => (hN s' hn).2))
+        (fun p hp => by
+          rw [List.mem_singleton.mp hp]
+          show (D.assign s _).find m s = _
+          rw [Database.find_assign, EvalEnv.assignHole_holes_self, hof])
+        (hr.2.2 k)
+      obtain ⟨a, -, rfl⟩ := Multiset.mem_map.mp hr'
+      rfl
     show Multiset.map Prod.fst
         (AnnotatedRelation.dedupAnn (_ + _)) = _
     rw [AnnotatedRelation.dedupAnn, map_fst_groupByKey, Multiset.map_add,
       h₀, h₁]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg]
-    rw [Multiset.map_map, Multiset.map_map, Multiset.map_map, ← ih₁ hq.1 d hr.1, hplain]
+    rw [Multiset.map_map, Multiset.map_map, Multiset.map_map, ← ih₁ hq.1 hh.1 hwk.1 d E D N hE hD
+        (fun s' h => (hN s' h).1)
+      (fun p hp => hH p (List.mem_append_left _ hp)) hr.1]
     apply Multiset.map_congr rfl
     intro r _
     rfl
@@ -569,14 +637,13 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     -- one output row per input row; the data part of the added column is
     -- the token's deterministic reading, which is the plain aggregate over
     -- the frame of the plain relation
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
     have hin : Multiset.map (fun r : GenRow T K n' => GenRow.plainTuple r.fst)
-          (q.evaluate d γ)
-        = q.stripAgg.evaluatePlain d.toPlain γ := by
-      rw [← ih hq d hr, hplain]
+          (q.evaluate d γ E)
+        = q.stripAgg.evaluatePlain D γ := by
+      rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
     rw [Multiset.map_map, ← hin, Multiset.map_map]
     refine Multiset.map_congr rfl (fun x hx => ?_)
     funext k
@@ -584,7 +651,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     · -- the added column
       -- the relation the window reads: what it reads of each row
       set X : Multiset (AnnotatedTuple T K n') :=
-        Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ) with hX
+        Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ E) with hX
       have hmem : GenRow.readAnnotated κw x ∈ X :=
         Multiset.mem_map.mpr ⟨x, hx, rfl⟩
       dsimp only [Function.comp_apply, GenRow.plainTuple,
@@ -618,20 +685,19 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
   | @GammaScalar cI m n₂ ts fs q ord ih =>
     -- one row on each side; the data part is the aggregate over the whole
     -- input, which is what the token collapses to
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain]
+    rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
     have hview : AnnotatedRelation.toPlain
-        ((q.evaluate d γ).map GenRow.toAnnotated)
-        = (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst) := by
+        ((q.evaluate d γ E).map GenRow.toAnnotated)
+        = (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst) := by
       unfold AnnotatedRelation.toPlain
       rw [Multiset.map_map]
       rfl
     simp only [← hview, Multiset.map_singleton]
     -- the token collapses to the aggregate over the plain group sequence
     have hg := havingGroupOrd_map_fst (fun k : Fin 0 => k.elim0) ord
-      ((q.evaluate d γ).map GenRow.toAnnotated) (fun k : Fin 0 => k.elim0)
+      ((q.evaluate d γ E).map GenRow.toAnnotated) (fun k : Fin 0 => k.elim0)
     show (Multiset.ofList [_] : Relation T n₂) = Multiset.ofList [_]
     refine congrArg (fun u => (Multiset.ofList [u] : Relation T n₂)) ?_
     funext j
@@ -643,27 +709,26 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
     rw [show (Prod.fst ∘ fun p : AnnotatedTuple T K m => ((ts j).eval p.fst γ, p.snd))
           = ((fun v => (ts j).eval v γ) ∘ Prod.fst) from rfl, ← List.map_map, hg]
   | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain]
+    rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
     -- collapse the nested maps deterministically, outermost first
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
     conv_rhs => rw [Multiset.map_map]
     -- the plain view of the annotated intermediate relation
     have hview : AnnotatedRelation.toPlain
-        ((q.evaluate d γ).map GenRow.toAnnotated)
-        = (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst) := by
+        ((q.evaluate d γ E).map GenRow.toAnnotated)
+        = (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst) := by
       unfold AnnotatedRelation.toPlain
       rw [Multiset.map_map]
       rfl
     -- the key multisets coincide
-    have hkeys : ((q.evaluate d γ).map
+    have hkeys : ((q.evaluate d γ E).map
           ((fun u => (fun k => u (is k) : Tuple T n₁))
             ∘ (fun r : GenRow T K m => GenRow.plainTuple r.fst))).dedup
         = Multiset.map Prod.fst (Multiset.ofList (groupByKey
-            ((q.evaluate d γ).map
+            ((q.evaluate d γ E).map
               ((fun p => ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T K n₁))
                 ∘ GenRow.toAnnotated))).val) := by
@@ -685,7 +750,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       rw [AggValue.collapse_ofGroup]
       have hg := congrArg (List.map (fun v => (ts j).eval v γ))
         (havingGroupOrd_map_fst is ord
-          ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+          ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst)
       rw [List.map_map, hview] at hg
       exact congrArg (fs j) hg
     | some φ =>
@@ -696,15 +761,14 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       have hg := congrArg
         (fun L => (L.filter φ.keeps).map (fun v => (ts j).eval v γ))
         (havingGroupOrd_map_fst is ord
-          ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+          ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst)
       rw [hview] at hg
       exact congrArg (fs j) hg
   | @GammaNest cI m n₁ κ' is his p f q ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain]
+    rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
     conv_lhs => rw [Multiset.map_map]
     conv_rhs => rw [Multiset.map_map]
     refine Multiset.map_congr
@@ -727,10 +791,9 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       rw [NestedValue.collapse_innerValue]
       exact ProjColIn.collapseSum_eval p r₀.fst
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain]
+    rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
     conv_rhs => rw [Multiset.map_map]
@@ -752,24 +815,23 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       exact Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
         (fun _ _ => rfl)
   | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
-    intro hq d γ hr
-    rw [hplain]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
-    rw [← ih hq d hr, hplain]
+    rw [← ih hq hh hwk.2.2 d E D N hE hD hN hH hr]
     conv_lhs => rw [Multiset.map_map]
     conv_lhs => rw [Multiset.map_map]
     conv_rhs => rw [Multiset.map_map]
     have hview : AnnotatedRelation.toPlain
-        ((q.evaluate d γ).map GenRow.toAnnotated)
-        = (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst) := by
+        ((q.evaluate d γ E).map GenRow.toAnnotated)
+        = (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst) := by
       unfold AnnotatedRelation.toPlain
       rw [Multiset.map_map]
       rfl
-    have hkeys : ((q.evaluate d γ).map
+    have hkeys : ((q.evaluate d γ E).map
           ((fun u => (fun k => u (is k) : Tuple T n₁))
             ∘ (fun r : GenRow T K m => GenRow.plainTuple r.fst))).dedup
         = Multiset.map Prod.fst (Multiset.ofList (groupByKey
-            ((q.evaluate d γ).map
+            ((q.evaluate d γ E).map
               ((fun p => ((fun k => p.fst (is k), p.snd)
                   : AnnotatedTuple T K n₁))
                 ∘ GenRow.toAnnotated))).val) := by
@@ -798,7 +860,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
           rw [AggValue.collapse_ofGroup]
           have hg := congrArg (List.map (fun v => (ts j').eval v γ))
             (havingGroup_map_fst is
-              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+              ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst)
           rw [List.map_map, hview] at hg
           exact congrArg (fs j') hg
         | some φ =>
@@ -807,7 +869,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
           have hg := congrArg
             (fun L => (L.filter φ.keeps).map (fun v => (ts j').eval v γ))
             (havingGroup_map_fst is
-              ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst)
+              ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst)
           rw [hview] at hg
           exact congrArg (fs j') hg
     · show AggValue.collapseSum _ = _
@@ -820,23 +882,23 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       exact Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
         (fun _ _ => rfl)
   | Retag h q ih =>
-    intro hq d γ hr
-    rw [hplain]
-    show (q.evaluate d γ).map (fun r => GenRow.plainTuple r.fst)
-      = (q.stripAgg.evaluatePlain d.toPlain γ : Relation T _)
-    rw [← hplain]
-    exact ih hq d hr
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
+    show (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst)
+      = (q.stripAgg.evaluatePlain D γ : Relation T _)
+    exact ih hq hh hwk d E D N hE hD hN hH hr
   | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
     -- one output row per input occurrence, as for a single-frame window;
     -- the data part of the added column is the expression's collapse,
     -- which is each leaf's plain aggregate over its own frame
-    intro hq d γ hr
-    rw [hplain]
-    have hocc : OccFam.ofSorted (q.stripAgg.evaluatePlain d.toPlain γ)
-        = (OccFam.ofSorted ((q.evaluate d γ).map GenRow.toAnnotated)).plain := by
-      rw [← ih hq d hr]
+    intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
+    have hocc : OccFam.ofSorted (q.stripAgg.evaluatePlain D γ)
+        = (OccFam.ofSorted ((q.evaluate d γ E).map GenRow.toAnnotated)).plain := by
+      rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr,
+        show (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst)
+          = Multiset.map Prod.fst ((q.evaluate d γ E).map GenRow.toAnnotated) from by
+            rw [Multiset.map_map]; rfl]
       exact (ValueFrame.ofSorted_plain
-        (Multiset.map GenRow.toAnnotated (q.evaluate d γ))).symm
+        (Multiset.map GenRow.toAnnotated (q.evaluate d γ E))).symm
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [OccFam.toMultiset_map]
     refine congrArg OccFam.toMultiset ?_
@@ -849,3 +911,20 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
       exact ValueFrame.collapse_exprOfWhen P O o ws ts fs g keeps _ i γ
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
+
+/-- **The data part of the annotated evaluation is the plain evaluation of
+the stripped query**, for a query read with nothing bound but the
+database: a well-kinded, hygienic query with no explosion, wherever its
+recursions settle. -/
+theorem AggQueryIn.evaluateAnnotated_toPlain {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (hq : q.noExplode) (hh : q.hygienic)
+    (hwk : q.wellKinded (ColKind.allReg c) HoleKinds.empty)
+    (d : AnnotatedDatabase T K) {γ : Fin c → T} (hr : q.AnnSettlesAt d γ {}) :
+    (q.evaluateAnnotated d γ).toPlain = q.stripAgg.evaluatePlain d.toPlain γ := by
+  have h := AggQueryIn.evaluate_toPlain_env q hq hh hwk d {} d.toPlain ∅
+    (EvalEnv.kinded_empty γ) (fun n' s' _ => AnnotatedDatabase.find_toPlain n' s' d)
+    (fun _ h => absurd h (Set.notMem_empty _)) (fun p hp => absurd hp List.not_mem_nil) hr
+  rw [← h]
+  unfold AggQueryIn.evaluateAnnotated AnnotatedRelation.toPlain
+  rw [Multiset.map_map]
+  rfl

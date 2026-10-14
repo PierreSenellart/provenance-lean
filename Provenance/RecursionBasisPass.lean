@@ -138,7 +138,8 @@ theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
       exact ih q
 
 theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T)
+    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+        (D : Database T)
       (γ : Fin c → T), (q.explodeBelow m).SettlesAt D γ ↔ q.SettlesAt D γ := by
   intro m
   induction m with
@@ -167,7 +168,8 @@ omit [ValueType T] in
   rw [AggQueryIn.allRegOf, AggQueryIn.names_castKind, AggQueryIn.names_explodeBelow]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.noMention_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] theorem AggQueryIn.noMention_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (q : AggQueryIn T c n κ l) (s : String) : (q.allRegOf).noMention s ↔ q.noMention s := by
   rw [AggQueryIn.allRegOf, AggQueryIn.noMention_castKind, AggQueryIn.noMention_explodeBelow]
 
@@ -181,7 +183,8 @@ omit [ValueType T] in
     (q : AggQueryIn T c n κ l) (Θ : Set (SeqAggFunc T)) : (q.allRegOf).inSig Θ ↔ q.inSig Θ := by
   rw [AggQueryIn.allRegOf, AggQueryIn.inSig_castKind, AggQueryIn.inSig_explodeBelow]
 
-@[simp] theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.allRegOf).SettlesAt D γ ↔ q.SettlesAt D γ := by
   rw [AggQueryIn.allRegOf, AggQueryIn.settlesAt_castKind, AggQueryIn.settlesAt_explodeBelow]
@@ -607,11 +610,13 @@ end ProdSwapFacts
 omit [ValueType T] in
 /-- With no `⊎` at all, every `⊎` is all-regular. -/
 theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union ∉ S) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l), q.usesOnly S → q.sumsAllReg := by
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+        q.usesOnly S → q.sumsAllReg := by
   intro c n κ l q
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -811,6 +816,11 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       fun D γ _ => ⟨trivial, settlesAt_emptyRel n D γ, ?_⟩⟩
     rw [evaluatePlain_emptyRel]
     exact (add_zero (M := Multiset (Tuple T n)) _).symm
+  | Param pv ρ =>
+    intro hq hr hi hw f hf hfr sch hsch ho
+    exact ⟨fun _ => ⟨AggQueryIn.Param pv (ColKind.allReg _), ⟨⟨hempty, hproj, hgamma⟩, trivial,
+      trivial, fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h⟩,
+      fun D γ _ => ⟨trivial, rfl⟩⟩, fun _ _ hl _ => absurd hl (by simp)⟩
   | Empty =>
     intro hq hr hi hw f hf hfr sch hsch ho
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨hempty, trivial, trivial, fun _ _ h => h,

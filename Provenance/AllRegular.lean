@@ -400,7 +400,8 @@ unchanged by the nulling, so it keeps the same rows on both sides. -/
 def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.Retypable
   | _, _, _, _, .Sel _ q _ => q.Retypable
@@ -447,6 +448,7 @@ theorem AggQueryIn.retypable_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -480,7 +482,8 @@ what `AggQueryIn.exists_allReg` leaves behind. -/
 def AggQueryIn.SwapReady : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.SwapReady
   | _, _, κ, _, .Sel φ q _ =>
@@ -780,7 +783,10 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   induction q with
   | Rel n s => exact fun _ _ hqs => ⟨AggQueryIn.Rel n s, trivial, hqs, trivial, fun _ _ => rfl⟩
   | Hole n s =>
-    exact fun _ _ hqs => ⟨AggQueryIn.Hole n s, trivial, hqs, trivial, fun _ _ => rfl⟩
+    exact fun _ _ hqs => ⟨AggQueryIn.Hole n s _, trivial, hqs, trivial, fun _ _ => rfl⟩
+  | Param pv ρ =>
+    exact fun hq _ _ => ⟨AggQueryIn.Param pv (ColKind.allReg _), hq, trivial, trivial,
+      fun _ _ => rfl⟩
   | Empty =>
     exact fun hq _ _ => ⟨AggQueryIn.Empty, hq, trivial, trivial,
       fun _ _ => rfl⟩

@@ -45,6 +45,7 @@ theorem AggQueryIn.bind_of_body {s : String} {m : ℕ} :
     rw [Database.find_assign]
     show X = X.bind (fun t => {t}) + 0
     rw [Multiset.bind_singleton, Multiset.map_id', add_zero]
+  | Param pv ρ => exact fun hl => absurd hl (by simp)
   | Empty => exact fun hl => absurd hl (by simp)
   | Proj ps q ih =>
     intro hl hr D γ
@@ -178,7 +179,8 @@ theorem exists_path_of_mem_round (F : α → Multiset α) (M : Multiset α) :
 /-- **Following a path from a round forward**: the `i`-th row of a path
 whose start is in round `r` is in round `r + i`. -/
 theorem mem_round_of_path (F : α → Multiset α) (M : Multiset α) (p : ℕ → α) (j : ℕ)
-    (hp : ∀ i, LT.lt i j → p (i + 1) ∈ F (p i)) {r : ℕ} (hr : p 0 ∈ Nat.iterate (bindStep F) (r) M) :
+    (hp : ∀ i, LT.lt i j → p (i + 1) ∈ F (p i)) {r : ℕ} (hr : p 0 ∈ Nat.iterate (bindStep F)
+        (r) M) :
     ∀ i, i ≤ j → p i ∈ Nat.iterate (bindStep F) (r + i) M := by
   intro i
   induction i with
@@ -231,7 +233,8 @@ theorem bindStep_round_eq_zero_of_settles {m : ℕ} (F : Tuple T m → Multiset 
   have hround : ∀ i, i ≤ V.card ^ m → p i ∈ Nat.iterate (bindStep F) (i) M := fun i hi => by
     simpa using mem_round_of_path F M p _ hp (r := 0) (by simpa using hp0) i hi
   -- two rows of the path coincide
-  have hc : LT.lt (Fintype.piFinset (fun _ : Fin m => V)).card (Finset.range (V.card ^ m + 1)).card := by
+  have hc : LT.lt (Fintype.piFinset (fun _ : Fin m => V)).card (Finset.range
+      (V.card ^ m + 1)).card := by
     rw [Finset.card_range, Fintype.card_piFinset, Finset.prod_const, Finset.card_univ,
       Fintype.card_fin]
     exact Nat.lt_succ_self _
@@ -277,7 +280,8 @@ theorem AggQueryIn.mu_eq_muSum_of_valsIn {c m : ℕ} (s : String)
     (h0 : q₁.evaluatePlain (D.assign s (0 : Relation T m)) γ = 0)
     (hs : MuSettles (fun X => q₁.evaluatePlain (D.assign s X) γ) (q₀.evaluatePlain D γ))
     (hV : ∀ j, ∀ u, Multiset.Mem
-      (Nat.iterate (fun X : Multiset (Tuple T m) => (q₁.evaluatePlain (D.assign s X) γ : Multiset (Tuple T m))) j
+      (Nat.iterate (fun X : Multiset (Tuple T m) => (q₁.evaluatePlain (D.assign s X) γ : Multiset
+          (Tuple T m))) j
         (q₀.evaluatePlain D γ)) u → ∀ i, u i ∈ V) :
     ((AggQueryIn.Mu s q₀ q₁).evaluatePlain D γ : Multiset (Tuple T m))
       = muSum (fun X => q₁.evaluatePlain (D.assign s X) γ) (V.card ^ m) (q₀.evaluatePlain D γ) := by

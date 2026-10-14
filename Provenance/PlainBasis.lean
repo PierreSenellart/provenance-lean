@@ -74,10 +74,12 @@ which is what `thm:plainbasis`'s second half grades. A class set holding
 neither – `plainOps`, and every basis of `Provenance.BasisAssembly` –
 therefore excludes a recursive query exactly as before, so the six rows
 of the recursion-free classification are unchanged. -/
-def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => OpKind.empty ∈ S ∧ OpKind.proj ∈ S ∧ OpKind.gamma ∈ S
   | _, _, _, _, .Empty => OpKind.empty ∈ S
   | _, _, _, _, .Proj ps q =>
       (OpKind.proj ∈ S ∧ ∀ j, (ps j).sourceCol = true) ∧ q.usesOnly S
@@ -126,6 +128,7 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
   | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -184,6 +187,7 @@ theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun h => ⟨hSS h.1, hSS h.2.1, hSS h.2.2⟩
   | Empty => exact fun h => hSS h
   | Proj ps q ih => exact fun h => ⟨⟨hSS h.1.1, h.1.2⟩, ih h.2⟩
   | Sel φ q _ ih => exact fun h => ⟨hSS h.1, ih h.2⟩
@@ -289,10 +293,12 @@ def Schema.ofFn (f : String → Option ℕ) (N : Finset String) (h : ∀ s, f s 
     (h : ∀ s, f s ≠ none → s ∈ N) (s : String) : Schema.ofFn f N h s = f s := rfl
 
 /-- **The name `s` does not occur in the query.** -/
-def AggQueryIn.noMention (s : String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+def AggQueryIn.noMention (s : String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ s' => s' ≠ s
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.noMention s
   | _, _, _, _, .Sel _ q _ => q.noMention s
@@ -328,6 +334,7 @@ theorem AggQueryIn.noMention_substMap {s : String} :
   induction q with
   | Rel n s' => exact fun θ => Iff.rfl
   | Hole n s' => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -358,10 +365,12 @@ term is over the schema extended by that name – which its hole reads –
 and names it nowhere else (`AggQueryIn.noMention`): the hole is the one
 reference to the round, as the typing of the term asks, and a free
 reference to the bound name would be a second one. -/
-def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel n s => sch s = some n
-  | _, _, _, _, .Hole n s => sch s = some n
+  | _, _, _, _, .Hole n s _ => sch s = some n
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.overSchema sch
   | _, _, _, _, .Sel _ q _ => q.overSchema sch
@@ -459,6 +468,7 @@ theorem AggQueryIn.overSchema_substMap :
   induction q with
   | Rel n s => exact fun θ sch => Iff.rfl
   | Hole n s => exact fun θ sch => Iff.rfl
+  | Param pv ρ => exact fun θ sch => Iff.rfl
   | Empty => exact fun θ sch => Iff.rfl
   | Proj ps q ih =>
     intro d θ sch
@@ -516,6 +526,7 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
     intro h _
     have hnone : (none : Option ℕ) = some n := h
     exact (Option.some_ne_none n hnone.symm).elim
+  | Param pv ρ => intro _ hq; exact hq.1
   | Empty => intro _ h; exact h
   | Proj ps q ih => intro h hq; exact ih h hq.2
   | Sel φ q _ ih => intro h hq; exact ih h hq.2
@@ -641,7 +652,8 @@ which is what the row of `μ^⊎` reads. -/
 def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
     {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj ps q =>
       (∀ j, (ps j).noFun = true) ∧ q.inSig Θ
@@ -749,6 +761,9 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
     cases hf : D.find n s with
     | none => exact Nat.zero_le 1
     | some rn => exact hD n s rn hf
+  | Param pv ρ =>
+    intro _ D hD γ
+    simp only [AggQueryIn.evaluatePlain, Multiset.card_singleton, le_refl]
   | Empty => intro _ D hD γ; exact Nat.zero_le 1
   | Proj ps q ih =>
     intro hq D hD γ
@@ -844,10 +859,12 @@ makes every count inside the body one over a query without it.
 it reads it at: its leaves, less the one a body reads its own recursive
 name at – the name at the recursion's arity, which is bound. A leaf naming
 that name at another arity reads the instance and stays free. -/
-def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l →
+def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} → AggQueryIn T c n κ l →
     List (ℕ × String)
   | _, _, _, _, .Rel k s => [(k, s)]
-  | _, _, _, _, .Hole k s => [(k, s)]
+  | _, _, _, _, .Hole k s _ => [(k, s)]
+  | _, _, _, _, .Param _ _ => []
   | _, _, _, _, .Empty => []
   | _, _, _, _, .Proj _ q => q.leaves
   | _, _, _, _, .Sel _ q _ => q.leaves
@@ -884,6 +901,7 @@ theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
     intro _ p hp _
     rw [List.mem_singleton.mp hp]
     exact List.mem_singleton_self _
+  | Param pv ρ => exact fun _ p hp => absurd hp List.not_mem_nil
   | Empty => exact fun _ p hp => absurd hp List.not_mem_nil
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -966,6 +984,9 @@ theorem AggQueryIn.evaluatePlain_congr_find :
       = (match D'.find n s with
       | none => (0 : Relation T n) | some rn => rn)
     rw [h]
+  | Param pv ρ =>
+    intro D D' h γ
+    rfl
   | Empty => intro _ _ _ _; rfl
   | Proj ps q ih => intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih h]
   | Sel φ q _ ih => intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih h]
@@ -1079,6 +1100,9 @@ theorem AggQueryIn.evaluatePlain_congr_of_noMention {s : String} :
       = (match D'.find n s' with
       | none => (0 : Relation T n) | some rn => rn)
     rw [h n s' (Or.inr (List.mem_singleton_self _))]
+  | Param pv ρ =>
+    intro _ D D' h γ
+    rfl
   | Empty => intro _ _ _ _ _; rfl
   | Proj ps q ih =>
     intro hq D D' h γ; simp only [AggQueryIn.evaluatePlain, ih hq h]
@@ -1167,7 +1191,8 @@ duplicate elimination or difference.** -/
 def AggQueryIn.recGuarded (s : String) : {c n : ℕ} →
     {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.recGuarded s
   | _, _, _, _, .Sel _ q _ => q.recGuarded s
@@ -1198,6 +1223,7 @@ theorem AggQueryIn.recGuarded_of_noMention {s : String} :
   induction q with
   | Rel n s' => exact fun _ => trivial
   | Hole n s' => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -1256,7 +1282,8 @@ semantic condition the evaluator's binding of the name needs. -/
 def AggQueryIn.hygienic : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.hygienic
   | _, _, _, _, .Sel _ q _ => q.hygienic
@@ -1289,6 +1316,7 @@ theorem AggQueryIn.hygienic_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -1323,6 +1351,7 @@ theorem AggQueryIn.noMention_of_overSchema_none {s : String} :
     rw [hc, hs] at h'
     exact Option.some_ne_none n h'.symm
   | Hole n s' => exact fun _ _ _ => trivial
+  | Param pv ρ => exact fun _ _ _ => trivial
   | Empty => exact fun _ _ _ => trivial
   | Proj ps q ih => exact fun sch hs h => ih sch hs h
   | Sel φ q _ ih => exact fun sch hs h => ih sch hs h
@@ -1367,6 +1396,7 @@ theorem AggQueryIn.hygienic_of_overSchema :
   induction q with
   | Rel n s => exact fun _ _ => trivial
   | Hole n s => exact fun _ _ => trivial
+  | Param pv ρ => exact fun _ _ => trivial
   | Empty => exact fun _ _ => trivial
   | Proj ps q ih => exact fun sch h => ih sch h
   | Sel φ q _ ih => exact fun sch h => ih sch h
@@ -1488,7 +1518,8 @@ of which, so their constants do not reach the result. -/
 def AggQueryIn.constsIn (V : Finset T) : {c n : ℕ} →
     {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param pv _ => ∀ k a, pv k = Sum.inl a → a ∈ V
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj ps q =>
       (∀ j, (ps j).constsIn V) ∧ q.constsIn V
@@ -1622,7 +1653,9 @@ beside the instance and the context. -/
 def AggQueryIn.consts : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Finset T
   | _, _, _, _, .Rel _ _ => ∅
-  | _, _, _, _, .Hole _ _ => ∅
+  | _, _, _, _, .Hole _ _ _ => ∅
+  | _, _, _, _, .Param pv _ =>
+      Finset.univ.biUnion fun k => _root_.Sum.elim (fun a => {a}) (fun _ => ∅) (pv k)
   | _, _, _, _, .Empty => ∅
   | _, _, _, _, .Proj ps q => Union.union (Finset.univ.biUnion fun j => (ps j).consts) q.consts
   | _, _, _, _, .Sel _ q _ => q.consts
@@ -1665,7 +1698,8 @@ A query with no recursion settles everywhere. -/
 def AggQueryIn.SettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Database T → (Fin c → T) → Prop
   | _, _, _, _, .Rel _ _, _, _ => True
-  | _, _, _, _, .Hole _ _, _, _ => True
+  | _, _, _, _, .Hole _ _ _, _, _ => True
+  | _, _, _, _, .Param _ _, _, _ => True
   | _, _, _, _, .Empty, _, _ => True
   | _, _, _, _, .Proj _ q, D, γ => q.SettlesAt D γ
   | _, _, _, _, .Sel _ q _, D, γ => q.SettlesAt D γ
@@ -1770,6 +1804,7 @@ theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ _ _ => trivial
   | Hole n s => exact fun _ _ _ => trivial
+  | Param pv ρ => exact fun _ _ _ => trivial
   | Empty => exact fun _ _ _ => trivial
   | Proj ps q ih => exact fun hq D γ => ih hq.2 D γ
   | Sel φ q _ ih => exact fun hq D γ => ih hq.2 D γ
@@ -1815,6 +1850,7 @@ theorem AggQueryIn.settlesAt_of_noMention {s : String} :
   induction q with
   | Rel n s' => intro _ D D' _ _ _; exact trivial
   | Hole n s' => intro _ D D' _ _ _; exact trivial
+  | Param pv ρ => intro _ D D' _ _ _; exact trivial
   | Empty => intro _ D D' _ _ _; exact trivial
   | Proj ps q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Sel φ q _ ih => intro hq D D' h γ hs; exact ih hq h γ hs
@@ -1833,7 +1869,7 @@ theorem AggQueryIn.settlesAt_of_noMention {s : String} :
   | Explode k hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Retag hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Mu s' q₀ q₁ ih₀ ih₁ =>
-    rename_i c' n'
+    rename_i c' n' _
     intro hq D D' h γ hs
     have hstep : (fun Y : Multiset (Tuple T n') => q₁.evaluatePlain (D'.assign s' Y) γ)
         = (fun Y : Multiset (Tuple T n') => q₁.evaluatePlain (D.assign s' Y) γ) :=
@@ -2113,10 +2149,12 @@ name to the empty relation. The two lemmas below say that this is right:
 its negation makes `q` empty on every instance empty on `E`. The
 selection, the difference and the two operators of the rewritten world
 get the value that keeps the lemmas uniform; they are never reached. -/
-def AggQueryIn.NonzeroOn (E : Set String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+def AggQueryIn.NonzeroOn (E : Set String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ s => s ∉ E
-  | _, _, _, _, .Hole _ s => s ∉ E
+  | _, _, _, _, .Hole _ s _ => s ∉ E
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => False
   | _, _, _, _, .Proj _ q => q.NonzeroOn E
   | _, _, _, _, .Sel _ q _ => q.NonzeroOn E
@@ -2146,6 +2184,7 @@ theorem AggQueryIn.NonzeroOn.mono :
   induction q with
   | Rel n s => exact fun hE h hs => h (hE hs)
   | Hole n s => exact fun hE h hs => h (hE hs)
+  | Param pv ρ => exact fun _ _ => trivial
   | Empty => exact fun _ h => h
   | Proj ps q ih => exact fun hE h => ih hE h
   | Sel φ q _ ih => exact fun hE h => ih hE h
@@ -2245,6 +2284,9 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn {S : Set OpKind}
     cases hf : D.find n s with
     | none => rfl
     | some r => exact hD s n r hw hs hf
+  | Param pv ρ =>
+    intro _ sch E hw hnz
+    exact (hnz trivial).elim
   | Empty => exact fun _ _ _ _ _ _ _ _ _ => rfl
   | Proj ps q ih =>
     intro hq sch E hw hnz D γ hD hs
@@ -2397,6 +2439,10 @@ theorem AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn {S : Set OpKind}
     obtain ⟨r, hr, hne⟩ := hD s n hw hnz
     simp only [AggQueryIn.evaluatePlain, hr]
     exact hne
+  | Param pv ρ =>
+    intro _ sch E hw hnz D γ hD _
+    simp only [AggQueryIn.evaluatePlain]
+    exact Multiset.singleton_ne_zero _
   | Empty => exact fun _ _ _ _ h => h.elim
   | Proj ps q ih =>
     intro hq sch E hw hnz D γ hD hs
@@ -2605,7 +2651,8 @@ instance. -/
 def AggQueryIn.sizeBound : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → ℕ
   | _, _, _, _, .Rel _ _ => 1
-  | _, _, _, _, .Hole _ _ => 1
+  | _, _, _, _, .Hole _ _ _ => 1
+  | _, _, _, _, .Param _ _ => 1
   | _, _, _, _, .Empty => 0
   | _, _, _, _, .Proj _ q => q.sizeBound
   | _, _, _, _, .Sel _ q _ => q.sizeBound
@@ -2795,7 +2842,8 @@ column, a context value or a constant. -/
 def AggQueryIn.noFunCols : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj ps q => (∀ j, (ps j).noFun = true) ∧ q.noFunCols
   | _, _, _, _, .Sel _ q _ => q.noFunCols
@@ -2825,7 +2873,8 @@ recursion-free query (`recNoFun_of_usesOnly`). -/
 def AggQueryIn.recNoFun : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.recNoFun
   | _, _, _, _, .Sel _ q _ => q.recNoFun
@@ -2853,6 +2902,7 @@ theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun h => ⟨h.1, ih h.2⟩
   | Sel φ q _ ih => exact fun h => ih h.2
@@ -2881,6 +2931,7 @@ theorem AggQueryIn.recNoFun_of_noFunCols :
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun h => ih h.2
   | Sel φ q _ ih => exact fun h => ih h
@@ -2917,6 +2968,7 @@ theorem AggQueryIn.recNoFun_of_usesOnly {S : Set OpKind}
   induction q with
   | Rel n s => exact fun _ => trivial
   | Hole n s => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun hq => ih hq.2
   | Sel φ q _ ih => exact fun hq => ih hq.2
@@ -2985,6 +3037,9 @@ theorem AggQueryIn.pointwise_of_body {S : Set OpKind}
     · cases hw
       exact Finset.mem_union_left _ (Finset.mem_union_left _
         (Finset.mem_image_of_mem v (Finset.mem_univ i)))
+  | Param pv ρ =>
+    intro hl
+    exact absurd hl (by simp)
   | Empty => exact fun hl => absurd hl (by simp)
   | Proj ps q ih =>
     intro hl hq hr hnf D γ
@@ -3125,6 +3180,11 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
     cases hf : D.find n s with
     | none => exact Nat.zero_le _
     | some rn => exact le_trans (Database.card_le_size D hf) (Nat.le_succ _)
+  | Param pv ρ =>
+    intro _ _ _ D γ _
+    simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound, one_mul,
+      Multiset.card_singleton]
+    exact Nat.le_add_left _ _
   | Empty => intro _ _ _ D γ _; exact Nat.zero_le _
   | Proj ps q ih =>
     intro hq hr hsig D γ hs
@@ -3156,7 +3216,7 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
   | Explode k hk q ih => intro hq hr hsig D γ hs; exact ih hq hr hsig D γ hs
   | Retag hk q ih => intro hq hr hsig D γ hs; exact ih hq hr hsig D γ hs
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    rename_i c' n'
+    rename_i c' n' _
     intro hq hr hsig D γ hs
     obtain ⟨f, C, hX, hv⟩ :=
       AggQueryIn.pointwise_of_body hp ha q₁ rfl hq.2.2 hr.2.1 hsig.1 D γ
@@ -3525,7 +3585,8 @@ over an instance that has no duplicate. -/
 def AggQueryIn.multBound : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → ℕ
   | _, _, _, _, .Rel _ _ => 1
-  | _, _, _, _, .Hole _ _ => 1
+  | _, _, _, _, .Hole _ _ _ => 1
+  | _, _, _, _, .Param _ _ => 1
   | _, _, _, _, .Empty => 0
   | _, _, _, _, .Proj _ _ => 0
   | _, _, _, _, .Sel _ q _ => q.multBound
@@ -3666,6 +3727,9 @@ theorem AggQueryIn.affine_of_body {S : Set OpKind} (hpr : OpKind.proj ∉ S)
     rw [Database.find_assign]
     show Multiset.Mem X u ↔ _
     simp only [id, and_true, or_false]
+  | Param pv ρ =>
+    intro hl
+    exact absurd hl (by simp)
   | Empty => exact fun hl => absurd hl (by simp)
   | Proj ps q ih => intro _ hq; exact absurd hq.1.1 hpr
   | Sel φ q _ ih =>
@@ -3842,6 +3906,10 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
     | none => exact Nat.zero_le 1
     | some rn =>
       exact Multiset.nodup_iff_count_le_one.mp (hD n s rn hf) u
+  | Param pv ρ =>
+    intro _ _ D hD γ _ u
+    simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
+    exact Multiset.nodup_iff_count_le_one.mp (Multiset.nodup_singleton _) u
   | Empty => intro _ _ D hD γ _ u; exact Nat.zero_le 0
   | Proj ps q ih => intro hq; exact absurd hq.1.1 hpr
   | Sel φ q _ ih =>
@@ -6204,6 +6272,9 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     cases hf : D.find n s with
     | none => rfl
     | some rn => exact hD n s rn hf
+  | Param pv ρ =>
+    intro hq
+    exact absurd hq.2.2 hγ
   | Empty => intro _ D hD γ; rfl
   | Proj ps q ih =>
     intro hq D hD γ
@@ -6235,7 +6306,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     rfl
   | Explode k hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
-  | @Mu _ nm s q₀ q₁ ih₀ ih₁ =>
+  | @Mu _ nm _ s q₀ q₁ ih₀ ih₁ =>
     intro hq D hD γ
     show muSumFix (fun X => q₁.evaluatePlain (D.assign s X) γ)
         (q₀.evaluatePlain D γ) = 0

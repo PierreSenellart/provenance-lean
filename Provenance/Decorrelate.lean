@@ -623,6 +623,118 @@ theorem AggQueryIn.hasDecorrelation_empty {c : ℕ} {S : Set OpKind} {sch : Sche
   rw [Relation.hMul_eq_bind]
   rfl
 
+/-- The first value of a sequence: what an aggregate over a group of one
+row reads of it. -/
+def headAgg : SeqAggFunc T := fun L => L.headD 0
+
+/-- A parameter or a constant, as a term over the parameter relation. -/
+def pvTerm {c : ℕ} : T ⊕ Fin c → TermIn T 0 c := Sum.elim TermIn.const TermIn.index
+
+/-- The kinds of the grouping that rebuilds a parameter leaf. -/
+abbrev paramGammaKinds (c m : ℕ) : Fin (c + m) → ColKind :=
+  Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)
+
+/-- A parameter or a constant, as a regular term over that grouping. -/
+def pvTermG {c m : ℕ} : T ⊕ Fin c → TermGIn T 0 (paramGammaKinds c m) :=
+  Sum.elim TermGIn.const (fun j => TermGIn.index (Fin.castAdd m j)
+    (by simp only [paramGammaKinds, Fin.append_left]))
+
+/-- The column `k` of the rebuilt leaf: the aggregate column the grouping
+built for it where the leaf says aggregate, the parameter itself
+otherwise. -/
+def paramCol {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) (k : Fin m) :
+    ProjColIn T 0 (paramGammaKinds c m) :=
+  match ρ k with
+  | ColKind.reg => .term (pvTermG (pv k))
+  | ColKind.agg => .token (Fin.natAdd c k) (by simp only [paramGammaKinds, Fin.append_right])
+  | ColKind.prov => .provTerm (pvTermG (pv k))
+
+omit [ValueType T] in
+theorem paramCol_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) (k : Fin m) :
+    (paramCol (T := T) pv ρ k).kind = ρ k := by
+  unfold paramCol
+  split <;> (rename_i h; rw [h]; rfl)
+
+/-- The columns of the rebuilt leaf: the parameter row, then its own. -/
+def paramCols {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
+    Fin (c + m) → ProjColIn T 0 (paramGammaKinds c m) :=
+  Fin.addCases (fun j => .term (TermGIn.index (Fin.castAdd m j)
+      (by simp only [paramGammaKinds, Fin.append_left])))
+    (paramCol pv ρ)
+
+omit [ValueType T] in
+theorem paramCols_kind {c m : ℕ} (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
+    (fun i => (paramCols (T := T) pv ρ i).kind) = ColKind.liftKinds c ρ := by
+  funext i
+  refine Fin.addCases (fun j => ?_) (fun k => ?_) i
+  · simp only [paramCols, Fin.addCases_left, ProjColIn.kind, ColKind.liftKinds, Fin.append_left]
+    rfl
+  · simp only [paramCols, Fin.addCases_right, ColKind.liftKinds, Fin.append_right]
+    exact paramCol_kind pv ρ k
+
+/-- **A row of parameters** is the grouping of the parameter rows by all
+their columns – one row per group, the rows being distinct – its columns
+read off that row, an aggregate one through an aggregate that reads the
+one value of its group, so that the leaf's kinds come back. -/
+theorem AggQueryIn.hasDecorrelation_param {c m : ℕ} {S : Set OpKind} {sch : Schema}
+    (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
+    (P : AggQuery T c (ColKind.allReg c)) (hP : P.usesOnly S)
+    (hPs : P.overSchema sch) (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
+    (pv : Fin m → T ⊕ Fin c) (ρ : Fin m → ColKind) :
+    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Param pv ρ) := by
+  classical
+  refine ⟨(AggQueryIn.Proj (paramCols pv ρ)
+      (AggQueryIn.Gamma (fun k : Fin c => k) (fun k => pvTerm (pv k))
+        (fun _ => headAgg) P)).castKind (paramCols_kind pv ρ),
+    ?_, ?_, fun D => ?_⟩
+  · rw [AggQueryIn.usesOnly_castKind]
+    refine ⟨⟨hS (by simp [decorrOps]), fun i => ?_⟩, hg, hP⟩
+    refine Fin.addCases (fun j => ?_) (fun k => ?_) i
+    · simp only [paramCols, Fin.addCases_left]; rfl
+    · simp only [paramCols, Fin.addCases_right, paramCol]
+      split <;> rfl
+  · rw [AggQueryIn.overSchema_castKind]
+    exact hPs
+  rw [AggQueryIn.evaluatePlain_castKind]
+  show Multiset.map (fun u => (fun i => (paramCols pv ρ i).evalPlain u (fun _ => 0)))
+      ((AggQueryIn.Gamma (fun k : Fin c => k) (fun k => pvTerm (pv k))
+        (fun _ => headAgg) P).evaluatePlain D) = _
+  rw [AggQueryIn.evaluatePlain_Gamma_eq]
+  unfold Relation.slices
+  have hdd : (Multiset.map (fun u => (fun k => u k : Tuple T c)) (P.evaluatePlain D)).dedup
+      = P.evaluatePlain D := by
+    rw [show (fun u : Tuple T c => (fun k => u k : Tuple T c)) = id from rfl, Multiset.map_id]
+    exact Multiset.dedup_eq_self.mpr (hnd D)
+  rw [hdd, Multiset.map_map]
+  simp only [AggQueryIn.evaluatePlain, Multiset.map_singleton, Multiset.bind_singleton]
+  refine Multiset.map_congr rfl (fun g hg' => ?_)
+  -- a group is its one row
+  have hgrp : Relation.groupSeq (fun k : Fin c => k) (P.evaluatePlain D) g = [g] := by
+    unfold Relation.groupSeq
+    have hf : Multiset.filter (fun u : Tuple T c => ∀ k' : Fin c, u k' = g k')
+        (P.evaluatePlain D) = {g} := by
+      refine (Multiset.filter_congr (q := fun u : Tuple T c => u = g)
+        (fun u _ => ⟨fun h => funext h, fun h k' => by rw [h]⟩)).trans ?_
+      rw [Multiset.filter_eq', Multiset.count_eq_one_of_mem (hnd D) hg']
+      rfl
+    rw [hf]
+    have := sortList_coe ({g} : Multiset (Tuple T c))
+    exact Multiset.coe_eq_singleton.mp this
+  funext i
+  refine Fin.addCases (fun j => ?_) (fun k => ?_) i
+  · simp only [Function.comp, paramCols, Fin.addCases_left, ProjColIn.evalPlain,
+      TermGIn.evalPlain, Fin.append_left]
+  · simp only [Function.comp, paramCols, Fin.addCases_right, Fin.append_right, hgrp]
+    unfold paramCol
+    split
+    · simp only [ProjColIn.evalPlain]
+      cases pv k <;> simp [pvTermG, TermGIn.evalPlain, Fin.append_left]
+    · simp only [ProjColIn.evalPlain, Fin.append_right, List.map_cons, List.map_nil, headAgg,
+        List.headD_cons]
+      cases pv k <;> rfl
+    · simp only [ProjColIn.evalPlain]
+      cases pv k <;> simp [pvTermG, TermGIn.evalPlain, Fin.append_left]
+
 /-! ### The operators that act slice by slice -/
 
 /-- **A union** is the union of the decorrelations. -/
@@ -644,7 +756,8 @@ theorem AggQueryIn.hasDecorrelation_sum {c k : ℕ} {κ : Fin k → ColKind}
 /-- **A selection** is the selection on the lifted predicate: it reads
 the parameters as columns, and the rows it keeps in a slice are those
 the original keeps under that slice's parameters. -/
-theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_sel {c k : ℕ} {κ : Fin k → ColKind} {l : List
+    (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} {q : AggQueryIn T c k κ l}
     (φ : GenPredIn T c κ) (hφ : SelOK l φ) (h : AggQueryIn.HasDecorrelation S sch P q) :
@@ -730,7 +843,8 @@ theorem Relation.append_paramsOf {c k : ℕ} (x : Tuple T (c + k)) :
 
 /-- **A projection** keeps the parameters and reads each of its columns
 lifted: a column that read a parameter reads the column holding it. -/
-theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_proj {c k m : ℕ} {κ : Fin k → ColKind} {l : List
+    (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} {q : AggQueryIn T c k κ l}
     (ps : Tuple (ProjColIn T c κ) m) (hps : ∀ j, (ps j).sourceCol = true)
@@ -928,7 +1042,8 @@ theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Sc
 
 /-- **The alternatives reading of an aggregate column** likewise: it
 reads the column as a key and changes no row of the plain semantics. -/
-theorem AggQueryIn.hasDecorrelation_explode {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_explode {c k : ℕ} {κ : Fin k → ColKind} {l : List
+    (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (_hS : decorrOps ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} (i : Fin k)
     (hi : κ i = ColKind.agg) {q : AggQueryIn T c k κ l}
@@ -2809,6 +2924,10 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
     exact fun _ _ hqs P hPu hPs _ =>
       AggQueryIn.hasDecorrelation_rel hS P hPu hPs s hqs
   | Hole n s => exact fun hl => absurd hl (by simp)
+  | Param pv ρ =>
+    exact fun _ hq _ P hPu hPs hnd =>
+      AggQueryIn.hasDecorrelation_param hS
+        (mem_of_mem_insert_apply (by decide) hq.2.2) P hPu hPs hnd pv ρ
   | Empty =>
     exact fun _ _ _ P hPu hPs _ =>
       AggQueryIn.hasDecorrelation_empty hS P hPu hPs

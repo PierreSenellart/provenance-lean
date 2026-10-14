@@ -39,7 +39,8 @@ conjunction of its predicates, in the order they were written. -/
 def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → AggQueryIn T c n κ l
   | _, _, _, _, .Rel n s => .Rel n s
-  | _, _, _, _, .Hole n s => .Hole n s
+  | _, _, _, _, .Hole n s κ => .Hole n s κ
+  | _, _, _, _, .Param pv ρ => .Param pv ρ
   | _, _, _, _, .Empty => .Empty
   | _, _, _, _, .Proj ps q => .Proj ps q.normalize
   | _, _, _, _, .Sel φ q hφ =>
@@ -72,7 +73,8 @@ because there is no chain. -/
 def AggQueryIn.chainFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.chainFree
   | _, _, _, _, .Sel _ (.Sel _ _ _) _ => False
@@ -103,6 +105,7 @@ theorem AggQueryIn.normalize_chainFree :
   induction q with
   | Rel n s => trivial
   | Hole n s => trivial
+  | Param pv ρ => trivial
   | Empty => trivial
   | Proj ps q ih => exact ih
   | Sel φ q hφ ih =>
@@ -143,6 +146,7 @@ theorem AggQueryIn.normalize_id_of_chainFree :
   induction q with
   | Rel n s => intro _; rfl
   | Hole n s => intro _; rfl
+  | Param pv ρ => intro _; rfl
   | Empty => intro _; rfl
   | Proj ps q ih => intro h; rw [AggQueryIn.normalize, ih h]
   | Sel φ q hφ ih =>

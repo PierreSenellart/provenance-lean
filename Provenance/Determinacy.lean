@@ -243,7 +243,8 @@ read off the syntax. -/
 def AggQueryIn.DeterminateOn : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Database T → (Fin c → T) → Prop
   | _, _, _, _, .Rel _ _, _, _ => True
-  | _, _, _, _, .Hole _ _, _, _ => True
+  | _, _, _, _, .Hole _ _ _, _, _ => True
+  | _, _, _, _, .Param _ _, _, _ => True
   | _, _, _, _, .Empty, _, _ => True
   | _, _, _, _, .Proj _ q, D, γ => q.DeterminateOn D γ
   | _, _, _, _, .Sel _ q _, D, γ => q.DeterminateOn D γ
@@ -312,7 +313,8 @@ theorem AggQueryIn.evaluateChecked_eq_none {c n : ℕ} {κ : Fin n → ColKind} 
   unfold AggQueryIn.evaluateChecked
   exact ite_eq_right h
 
-theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.evaluateChecked D γ).isSome = true ↔ q.DeterminateOn D γ := by
   by_cases h : q.DeterminateOn D γ

@@ -32,9 +32,9 @@ def dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n)) :
 
 /-- The recursive term reads the round and keeps nothing. -/
 theorem evaluate_selFalse_hole {c n : ℕ} (s : String) (d : AnnotatedDatabase T K)
-    (γ : Fin c → T) (X : AnnotatedRelation T K n) :
+    (γ : Fin c → T) (E : EvalEnv T K) :
     (AggQueryIn.Sel (falsePred : GenPredIn T c (ColKind.allReg n)) (AggQueryIn.Hole n s)
-      (SelOK.of_noAggAtom rfl)).evaluate (d.assign s X) γ = 0 := by
+      (SelOK.of_noAggAtom rfl)).evaluate d γ E = 0 := by
   simp only [AggQueryIn.evaluate]
   have hfa : (falsePred : GenPredIn T c (ColKind.allReg n)).hasAggAtom = false := rfl
   rw [ite_eq_right (by rw [hfa]; exact Bool.false_ne_true)]
@@ -45,39 +45,41 @@ theorem evaluate_selFalse_hole {c n : ℕ} (s : String) (d : AnnotatedDatabase T
 /-- The round function of the recursion is constant: the deduplication of
 `q`. -/
 theorem muSetStep_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
-    (d : AnnotatedDatabase T K) (γ : Fin c → T) :
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
     AggQueryIn.muSetStep s q
         (AggQueryIn.Sel falsePred (AggQueryIn.Hole n s) (SelOK.of_noAggAtom rfl))
-        d γ
-      = fun _ => AnnotatedRelation.dedupAnn (q.evaluateAnnotated d γ) := by
+        d γ E
+      = fun _ => AnnotatedRelation.dedupAnn (q.evaluateAnnotated d γ E) := by
   funext X
   have hz : (AggQueryIn.Sel (falsePred : GenPredIn T c (ColKind.allReg n)) (AggQueryIn.Hole n s)
-      (SelOK.of_noAggAtom rfl)).evaluateAnnotated (d.assign s X) γ = 0 := by
+      (SelOK.of_noAggAtom rfl)).evaluateAnnotated d γ
+        (E.assignHole s (X.map GenRow.ofAnnotated)) = 0 := by
     simp only [AggQueryIn.evaluateAnnotated, evaluate_selFalse_hole, Multiset.map_zero]
   simp only [AggQueryIn.muSetStep, hz]
   show AnnotatedRelation.dedupAnn (@HAdd.hAdd (Multiset (AnnotatedTuple T K n))
     (Multiset (AnnotatedTuple T K n)) (Multiset (AnnotatedTuple T K n)) instHAdd
-    (q.evaluateAnnotated d γ) 0) = _
+    (q.evaluateAnnotated d γ E) 0) = _
   rw [add_zero]
 
 /-- **`ε(q) = μ^∪s.(q, σ_false(s))`, exactly.** -/
 theorem evaluate_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
-    (d : AnnotatedDatabase T K) (γ : Fin c → T) :
-    (dedupMu s q).evaluate d γ = (AggQueryIn.Dedup q).evaluate d γ := by
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) :
+    (dedupMu s q).evaluate d γ E = (AggQueryIn.Dedup q).evaluate d γ E := by
   rw [dedupMu, AggQueryIn.evaluate]
   refine Eq.trans (congrArg (Multiset.map GenRow.ofAnnotated) (muFix_congr
-    (step' := fun _ => AnnotatedRelation.dedupAnn ((q.evaluate d γ).map GenRow.toAnnotated))
+    (step' := fun _ => AnnotatedRelation.dedupAnn ((q.evaluate d γ E).map GenRow.toAnnotated))
     (fun X => ?_))) ?_
   · show AnnotatedRelation.dedupAnn (_ + ((AggQueryIn.Sel falsePred (AggQueryIn.Hole n s)
-      (SelOK.of_noAggAtom rfl)).evaluate (d.assign s X) γ).map GenRow.toAnnotated) = _
+      (SelOK.of_noAggAtom rfl)).evaluate d γ
+        (E.assignHole s (X.map GenRow.ofAnnotated))).map GenRow.toAnnotated) = _
     rw [evaluate_selFalse_hole, Multiset.map_zero, add_zero]
   · rw [muFix_eq_of_fix (j := 1) rfl]
     rfl
 
 /-- **And it settles**, at its second round. -/
 theorem annSettlesAt_dedupMu {c n : ℕ} (s : String) (q : AggQueryIn T c n (ColKind.allReg n))
-    (d : AnnotatedDatabase T K) (γ : Fin c → T) (h : q.AnnSettlesAt d γ) :
-    (dedupMu s q).AnnSettlesAt d γ := by
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (h : q.AnnSettlesAt d γ E) :
+    (dedupMu s q).AnnSettlesAt d γ E := by
   refine ⟨h, ⟨1, ?_⟩, fun _ => trivial⟩
   rw [muSetStep_dedupMu]
   rfl
@@ -89,7 +91,8 @@ supply split in three at each node. -/
 def dedupFree (f : ℕ → String) : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → AggQueryIn T c n κ l
   | _, _, _, _, .Rel n s => .Rel n s
-  | _, _, _, _, .Hole n s => .Hole n s
+  | _, _, _, _, .Hole n s κ => .Hole n s κ
+  | _, _, _, _, .Param pv ρ => .Param pv ρ
   | _, _, _, _, .Empty => .Empty
   | _, _, _, _, .Proj ps q => .Proj ps (dedupFree f q)
   | _, _, _, _, .Sel φ q hφ => .Sel φ (dedupFree f q) hφ
@@ -119,41 +122,44 @@ def dedupFree (f : ℕ → String) : {c n : ℕ} → {κ : Fin n → ColKind} �
 /-- **The pass changes no annotated evaluation.** -/
 theorem evaluate_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T),
-      (dedupFree f q).evaluate d γ = q.evaluate d γ := by
+      (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
+      (dedupFree f q).evaluate d γ E = q.evaluate d γ E := by
   intro c n κ l q
   induction q with
-  | Rel _ _ => exact fun _ _ _ => rfl
-  | Hole _ _ => exact fun _ _ _ => rfl
-  | Empty => exact fun _ _ _ => rfl
-  | Proj ps q ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | Sel φ q hφ ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | Prod q₁ q₂ ih₁ ih₂ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
-  | Apply q₁ q₂ ih₁ ih₂ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
-  | Sum q₁ q₂ ih₁ ih₂ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
+  | Rel _ _ => exact fun _ _ _ _ => rfl
+  | Hole _ _ _ => exact fun _ _ _ _ => rfl
+  | Param pv ρ => exact fun _ _ _ _ => rfl
+  | Empty => exact fun _ _ _ _ => rfl
+  | Proj ps q ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | Sel φ q hφ ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | Prod q₁ q₂ ih₁ ih₂ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
+  | Apply q₁ q₂ ih₁ ih₂ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
+  | Sum q₁ q₂ ih₁ ih₂ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
   | Dedup q ih =>
-    intro f d γ
+    intro f d γ E
     rw [dedupFree, evaluate_dedupMu, AggQueryIn.evaluate, AggQueryIn.evaluate, ih]
-  | Diff q₁ q₂ ih₁ ih₂ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
-  | Explode k hk q ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | Retag hk q ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | Mu s q₀ q₁ ih₀ ih₁ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₀, ih₁]
-  | MuSet s q₀ q₁ ih₀ ih₁ => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih₀, ih₁]
-  | Gamma is ts fs q keep ord ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | GammaScalar ts fs q ord ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | GammaNest is his p g q ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | ProvSum is his t q ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
-  | GammaTok is his ts fs a q keep ih => intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | Diff q₁ q₂ ih₁ ih₂ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₁, ih₂]
+  | Explode k hk q ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | Retag hk q ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | Mu s q₀ q₁ ih₀ ih₁ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₀, ih₁]
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih₀, ih₁]
+  | Gamma is ts fs q keep ord ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | GammaScalar ts fs q ord ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | GammaNest is his p g q ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | ProvSum is his t q ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
+  | GammaTok is his ts fs a q keep ih => intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate,
+        ih]
   | Win P O o w t g q hrr dist keep ih =>
-    intro f d γ; simp only [dedupFree, AggQueryIn.evaluate, ih]
+    intro f d γ E; simp only [dedupFree, AggQueryIn.evaluate, ih]
   | WinExpr P O o ws ts fs g q keeps ih =>
-    intro f d γ
+    intro f d γ E
     simp only [dedupFree, AggQueryIn.evaluate]
     rw [ih]
 
 theorem evaluateAnnotated_dedupFree {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
-    (q : AggQueryIn T c n κ l) (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T) :
-    (dedupFree f q).evaluateAnnotated d γ = q.evaluateAnnotated d γ := by
+    (q : AggQueryIn T c n κ l) (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T)
+    (E : EvalEnv T K) :
+    (dedupFree f q).evaluateAnnotated d γ E = q.evaluateAnnotated d γ E := by
   simp only [AggQueryIn.evaluateAnnotated, evaluate_dedupFree]
 
 /-! ### Its plain readings -/
@@ -182,6 +188,7 @@ theorem evaluatePlain_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ _ _ => rfl
   | Hole _ _ => exact fun _ _ _ => rfl
+  | Param pv ρ => exact fun _ _ _ => rfl
   | Empty => exact fun _ _ _ => rfl
   | Proj ps q ih => intro f D γ; simp only [dedupFree, AggQueryIn.evaluatePlain, ih]
   | Sel φ q hφ ih => intro f D γ; simp only [dedupFree, AggQueryIn.evaluatePlain, ih]
@@ -227,6 +234,7 @@ theorem evaluatePlain_stripAgg_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ _ _ => rfl
   | Hole _ _ => exact fun _ _ _ => rfl
+  | Param pv ρ => exact fun _ _ _ => rfl
   | Empty => exact fun _ _ _ => rfl
   | Proj ps q ih =>
     intro f D γ; simp only [dedupFree, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain, ih]
@@ -277,60 +285,60 @@ theorem evaluatePlain_stripAgg_dedupFree :
 /-- **The pass settles wherever the query does.** -/
 theorem annSettlesAt_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T),
-      q.AnnSettlesAt d γ → (dedupFree f q).AnnSettlesAt d γ := by
+      (f : ℕ → String) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K),
+      q.AnnSettlesAt d γ E → (dedupFree f q).AnnSettlesAt d γ E := by
   intro c n κ l q
   induction q with
-  | Rel _ _ => exact fun _ _ _ _ => trivial
-  | Hole _ _ => exact fun _ _ _ _ => trivial
-  | Empty => exact fun _ _ _ _ => trivial
-  | Proj ps q ih => exact fun f d γ h => ih f d γ h
-  | Sel φ q hφ ih => exact fun f d γ h => ih f d γ h
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f d γ h => ⟨ih₁ _ d γ h.1, ih₂ _ d γ h.2⟩
+  | Rel _ _ => exact fun _ _ _ _ _ => trivial
+  | Hole _ _ _ => exact fun _ _ _ _ _ => trivial
+  | Param pv ρ => exact fun _ _ _ _ _ => trivial
+  | Empty => exact fun _ _ _ _ _ => trivial
+  | Proj ps q ih => exact fun f d γ E h => ih f d γ E h
+  | Sel φ q hφ ih => exact fun f d γ E h => ih f d γ E h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f d γ E h => ⟨ih₁ _ d γ E h.1, ih₂ _ d γ E h.2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro f d γ h
-    refine ⟨ih₁ _ d γ h.1, fun u hu => ih₂ _ d _ (h.2 u ?_)⟩
-    rw [evaluateAnnotated_dedupFree] at hu
-    exact hu
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f d γ h => ⟨ih₁ _ d γ h.1, ih₂ _ d γ h.2⟩
-  | Dedup q ih => exact fun f d γ h => annSettlesAt_dedupMu _ _ d γ (ih _ d γ h)
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f d γ h => ⟨ih₁ _ d γ h.1, ih₂ _ d γ h.2⟩
-  | Explode k hk q ih => exact fun f d γ h => ih f d γ h
-  | Retag hk q ih => exact fun f d γ h => ih f d γ h
+    intro f d γ E h
+    refine ⟨ih₁ _ d γ E h.1, fun x hx => ih₂ _ d _ _ (h.2 x ?_)⟩
+    rw [evaluate_dedupFree] at hx
+    exact hx
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f d γ E h => ⟨ih₁ _ d γ E h.1, ih₂ _ d γ E h.2⟩
+  | Dedup q ih => exact fun f d γ E h => annSettlesAt_dedupMu _ _ d γ E (ih _ d γ E h)
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f d γ E h => ⟨ih₁ _ d γ E h.1, ih₂ _ d γ E h.2⟩
+  | Explode k hk q ih => exact fun f d γ E h => ih f d γ E h
+  | Retag hk q ih => exact fun f d γ E h => ih f d γ E h
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro f d γ h
+    intro f d γ E h
     obtain ⟨h₀, hz, hs, hk, hk0⟩ := h
-    have hst : AggQueryIn.muStep s (dedupFree (AggQueryIn.tri f 2) q₁) d γ
-        = AggQueryIn.muStep s q₁ d γ :=
-      funext (fun X => by simp only [AggQueryIn.muStep, evaluateAnnotated_dedupFree])
-    have hb : (dedupFree (AggQueryIn.tri f 1) q₀).evaluateAnnotated d γ
-        = q₀.evaluateAnnotated d γ :=
-      evaluateAnnotated_dedupFree _ _ d γ
+    have hst : AggQueryIn.muStep s (dedupFree (AggQueryIn.tri f 2) q₁) d γ E
+        = AggQueryIn.muStep s q₁ d γ E :=
+      funext (fun X => by simp only [AggQueryIn.muStep, evaluate_dedupFree])
+    have hb : (dedupFree (AggQueryIn.tri f 1) q₀).evaluate d γ E = q₀.evaluate d γ E :=
+      evaluate_dedupFree _ _ d γ E
     show (AggQueryIn.Mu s (dedupFree (AggQueryIn.tri f 1) q₀)
-      (dedupFree (AggQueryIn.tri f 2) q₁)).AnnSettlesAt d γ
-    refine ⟨ih₀ _ d γ h₀, ?_, ?_, fun k => ?_, ?_⟩
+      (dedupFree (AggQueryIn.tri f 2) q₁)).AnnSettlesAt d γ E
+    refine ⟨ih₀ _ d γ E h₀, ?_, ?_, fun k => ?_, ?_⟩
     · rw [hst]; exact hz
     · rw [hst, hb]; exact hs
-    · rw [hst, hb]; exact ih₁ _ _ γ (hk k)
-    · exact ih₁ _ _ γ hk0
+    · rw [hst, hb]; exact ih₁ _ _ γ _ (hk k)
+    · exact ih₁ _ _ γ _ hk0
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro f d γ h
+    intro f d γ E h
     obtain ⟨h₀, hs, hk⟩ := h
     have hst : AggQueryIn.muSetStep s (dedupFree (AggQueryIn.tri f 1) q₀)
-        (dedupFree (AggQueryIn.tri f 2) q₁) d γ = AggQueryIn.muSetStep s q₀ q₁ d γ :=
+        (dedupFree (AggQueryIn.tri f 2) q₁) d γ E = AggQueryIn.muSetStep s q₀ q₁ d γ E :=
       funext (fun X => by simp only [AggQueryIn.muSetStep, evaluateAnnotated_dedupFree])
     show (AggQueryIn.MuSet s (dedupFree (AggQueryIn.tri f 1) q₀)
-      (dedupFree (AggQueryIn.tri f 2) q₁)).AnnSettlesAt d γ
-    refine ⟨ih₀ _ d γ h₀, ?_, fun k => ?_⟩
+      (dedupFree (AggQueryIn.tri f 2) q₁)).AnnSettlesAt d γ E
+    refine ⟨ih₀ _ d γ E h₀, ?_, fun k => ?_⟩
     · rw [hst]; exact hs
-    · rw [hst]; exact ih₁ _ _ γ (hk k)
-  | Gamma is ts fs q keep ord ih => exact fun f d γ h => ih f d γ h
-  | GammaScalar ts fs q ord ih => exact fun f d γ h => ih f d γ h
-  | GammaNest is his p g q ih => exact fun f d γ h => ih f d γ h
-  | ProvSum is his t q ih => exact fun f d γ h => ih f d γ h
-  | GammaTok is his ts fs a q keep ih => exact fun f d γ h => ih f d γ h
-  | Win P O o w t g q hrr dist keep ih => exact fun f d γ h => ih f d γ h
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f d γ h => ih f d γ h
+    · rw [hst]; exact ih₁ _ _ γ _ (hk k)
+  | Gamma is ts fs q keep ord ih => exact fun f d γ E h => ih f d γ E h
+  | GammaScalar ts fs q ord ih => exact fun f d γ E h => ih f d γ E h
+  | GammaNest is his p g q ih => exact fun f d γ E h => ih f d γ E h
+  | ProvSum is his t q ih => exact fun f d γ E h => ih f d γ E h
+  | GammaTok is his ts fs a q keep ih => exact fun f d γ E h => ih f d γ E h
+  | Win P O o w t g q hrr dist keep ih => exact fun f d γ E h => ih f d γ E h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f d γ E h => ih f d γ E h
 
 /-! ## What the pass keeps -/
 
@@ -346,6 +354,8 @@ theorem usesOnly_dedupFree {S : Set OpKind} (hsel : OpKind.sel ∈ S) (hmu : OpK
   induction q with
   | Rel _ _ => exact fun _ h => h
   | Hole _ _ => exact fun _ h => h
+  | Param pv ρ => exact fun _ h => ⟨mem_diff_dedup h.1 (by decide),
+      mem_diff_dedup h.2.1 (by decide), mem_diff_dedup h.2.2 (by decide)⟩
   | Empty => exact fun _ h => mem_diff_dedup h (by decide)
   | Proj ps q ih => exact fun f h => ⟨⟨mem_diff_dedup h.1.1 (by decide), h.1.2⟩, ih f h.2⟩
   | Sel φ q hφ ih => exact fun f h => ⟨mem_diff_dedup h.1 (by decide), ih f h.2⟩
@@ -384,6 +394,7 @@ theorem inSig_dedupFree {Θ : Set (SeqAggFunc T)} :
   induction q with
   | Rel _ _ => exact fun _ h => h
   | Hole _ _ => exact fun _ h => h
+  | Param pv ρ => exact fun _ h => h
   | Empty => exact fun _ h => h
   | Proj ps q ih => exact fun f h => ⟨h.1, ih f h.2⟩
   | Sel φ q hφ ih => exact fun f h => ⟨h.1, ih f h.2⟩
@@ -411,6 +422,7 @@ theorem noExplode_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ h => h
   | Hole _ _ => exact fun _ h => h
+  | Param pv ρ => exact fun _ h => h
   | Empty => exact fun _ h => h
   | Proj ps q ih => exact fun f h => ih f h
   | Sel φ q hφ ih => exact fun f h => ih f h
@@ -438,6 +450,7 @@ theorem noMention_dedupFree {s : String} :
   induction q with
   | Rel _ _ => exact fun _ h => h
   | Hole _ _ => exact fun _ h => h
+  | Param pv ρ => exact fun _ h => h
   | Empty => exact fun _ h => h
   | Proj ps q ih => exact fun f h => ih f h
   | Sel φ q hφ ih => exact fun f h => ih f h
@@ -466,6 +479,7 @@ theorem names_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ x h => Or.inl h
   | Hole _ _ => exact fun _ x h => Or.inl h
+  | Param pv ρ => exact fun _ x h => Or.inl h
   | Empty => exact fun _ x h => Or.inl h
   | Proj ps q ih => exact fun f x h => ih f x h
   | Sel φ q hφ ih => exact fun f x h => ih f x h
@@ -533,6 +547,7 @@ theorem hygienic_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ _ _ h => h
   | Hole _ _ => exact fun _ _ _ h => h
+  | Param pv ρ => exact fun _ _ _ h => h
   | Empty => exact fun _ _ _ h => h
   | Proj ps q ih => exact fun f hf hfr h => ih f hf hfr h
   | Sel φ q hφ ih => exact fun f hf hfr h => ih f hf hfr h
@@ -597,6 +612,7 @@ theorem overSchema_dedupFree :
   induction q with
   | Rel _ _ => exact fun _ _ _ _ h => h
   | Hole _ _ => exact fun _ _ _ _ h => h
+  | Param pv ρ => exact fun _ _ _ _ h => h
   | Empty => exact fun _ _ _ _ h => h
   | Proj ps q ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
   | Sel φ q hφ ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
@@ -635,7 +651,7 @@ theorem overSchema_dedupFree :
   | Explode k hk q ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
   | Retag hk q ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    rename_i c' m
+    rename_i c' m _
     intro f hfr sch hsch h
     refine ⟨h.1, ih₀ _ (AggQueryIn.tri_fresh hfr
         (subset_trans Finset.subset_union_left (Finset.subset_insert _ _)) 1) sch
@@ -666,38 +682,40 @@ theorem overSchema_dedupFree :
   | Win P O o w t g q hrr dist keep ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f hfr sch hsch h => ih f hfr sch hsch h
 
-/-- **The pass reads no aggregate parameter where the query reads none**:
-it reads alike in every semantics. -/
-theorem noAggParam_dedupFree :
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The pass keeps the query well-kinded**: the set recursion reads its
+round through a regular hole. -/
+theorem wellKinded_dedupFree :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String), q.noAggParam → (dedupFree f q).noAggParam := by
+      (f : ℕ → String) {ρc : Fin c → ColKind} {HK : HoleKinds},
+      q.wellKinded ρc HK → (dedupFree f q).wellKinded ρc HK := by
   intro c n κ l q
   induction q with
-  | Rel _ _ => exact fun _ _ => trivial
-  | Hole _ _ => exact fun _ _ => trivial
-  | Empty => exact fun _ _ => trivial
-  | Proj ps q ih => exact fun f h => ih f h
-  | Sel φ q hφ ih => exact fun f h => ih f h
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ =>
-    exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2.1,
-      AggQueryIn.ReadsRegParams.of_eval (evaluatePlain_dedupFree q₂ _)
-        (evaluatePlain_stripAgg_dedupFree q₂ _)
-        (fun K' _ _ _ d γ => by rw [evaluate_dedupFree]) h.2.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Dedup q ih => exact fun f h => ⟨ih _ h, trivial⟩
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Explode k hk q ih => exact fun f h => ih f h
-  | Retag hk q ih => exact fun f h => ih f h
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
-  | Gamma is ts fs q keep ord ih => exact fun f h => ih f h
-  | GammaScalar ts fs q ord ih => exact fun f h => ih f h
-  | GammaNest is his p g q ih => exact fun f h => ih f h
-  | ProvSum is his t q ih => exact fun f h => ih f h
-  | GammaTok is his ts fs a q keep ih => exact fun f h => ih f h
-  | Win P O o w t g q hrr dist keep ih => exact fun f h => ih f h
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f h => ih f h
+  | Rel _ _ => intro _ _ _ h; exact h
+  | Hole _ _ _ => intro _ _ _ h; exact h
+  | Param _ _ => intro _ _ _ h; exact h
+  | Empty => intro _ _ _ h; exact h
+  | Proj ps q ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | Sel φ q hφ ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | Prod q₁ q₂ ih₁ ih₂ => intro f _ _ h; exact ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => intro f _ _ h; exact ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => intro f _ _ h; exact ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Dedup q ih =>
+    intro f ρc HK h
+    refine ⟨ih _ h, ⟨trivial, trivial⟩, fun k => ?_⟩
+    simp [HoleKinds.assign]
+  | Diff q₁ q₂ ih₁ ih₂ => intro f _ _ h; exact ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Explode k hk q ih => intro f _ _ h; exact ih f h
+  | Retag hk q ih => intro f _ _ h; exact ih f h
+  | Mu s q₀ q₁ ih₀ ih₁ => intro f _ _ h; exact ⟨ih₀ _ h.1, ih₁ _ h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => intro f _ _ h; exact ⟨ih₀ _ h.1, ih₁ _ h.2⟩
+  | Gamma is ts fs q keep ord ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | GammaScalar ts fs q ord ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | GammaNest is his p g q ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | ProvSum is his t q ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | GammaTok is his ts fs a q keep ih => intro f _ _ h; exact ⟨h.1, h.2.1, ih f h.2.2⟩
+  | Win P O o w t g q hrr dist keep ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
+  | WinExpr P O o ws ts fs g q keeps ih => intro f _ _ h; exact ⟨h.1, ih f h.2⟩
 
 /-! ## The sufficient half: `ε` is dispensable -/
 
@@ -712,5 +730,5 @@ theorem generatesAnn_dedupFree (sch : Schema) (cnt : SeqAggFunc T) :
   refine ⟨dedupFree f q, overSchema_dedupFree q f hfr sch hfsch ho,
     usesOnly_dedupFree (by simp [plainRecOps, plainOps, basisDD, basisOps])
       (by simp [plainRecOps]) q f hu,
-    inSig_dedupFree q f hi, noExplode_dedupFree q f ha, noAggParam_dedupFree q f hp, fun d γ hs =>
-      ⟨annSettlesAt_dedupFree q f d γ hs, evaluateAnnotated_dedupFree q f d γ⟩⟩
+    inSig_dedupFree q f hi, noExplode_dedupFree q f ha, wellKinded_dedupFree q f hp, fun d γ hs =>
+      ⟨annSettlesAt_dedupFree q f d γ {} hs, evaluateAnnotated_dedupFree q f d γ {}⟩⟩

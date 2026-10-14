@@ -51,7 +51,8 @@ included: what a fresh name has to avoid. -/
 def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Finset String
   | _, _, _, _, .Rel _ s => {s}
-  | _, _, _, _, .Hole _ s => {s}
+  | _, _, _, _, .Hole _ s _ => {s}
+  | _, _, _, _, .Param _ _ => ∅
   | _, _, _, _, .Empty => ∅
   | _, _, _, _, .Proj _ q => q.names
   | _, _, _, _, .Sel _ q _ => q.names
@@ -81,6 +82,7 @@ theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
   induction q with
   | Rel n s' => exact fun h h' => h (h' ▸ Finset.mem_singleton_self s')
   | Hole n s' => exact fun _ => trivial
+  | Param pv ρ => exact fun _ => trivial
   | Empty => exact fun _ => trivial
   | Proj ps q ih => exact fun h => ih h
   | Sel φ q _ ih => exact fun h => ih h
@@ -127,7 +129,8 @@ theorem Schema.update_comm (sch : Schema) {s s' : String} (h : s ≠ s') (m m' :
 omit [ValueType T] in
 /-- Declaring a name the query does not mention keeps it well-formed. -/
 theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {sch : Schema},
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+        (q : AggQueryIn T c n κ l) {sch : Schema},
       q.overSchema sch → s ∉ q.names → q.overSchema (sch.update s m) := by
   intro c n κ l q
   induction q with
@@ -141,6 +144,7 @@ theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
     have hne : s' ≠ s := fun h' => hn (h' ▸ Finset.mem_singleton_self s')
     show (if s' = s then some m else sch s') = some n
     rw [ite_eq_right hne]; exact h
+  | Param pv ρ => exact fun _ _ => trivial
   | Empty => exact fun _ _ => trivial
   | Proj ps q ih => exact fun h hn => ih h hn
   | Sel φ q _ ih => exact fun h hn => ih h hn
@@ -193,12 +197,14 @@ omit [ValueType T] in
   cases h; rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.hygienic_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] theorem AggQueryIn.hygienic_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) :
     (q.castKind h).hygienic ↔ q.hygienic := by
   cases h; exact Iff.rfl
 
-@[simp] theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] theorem AggQueryIn.settlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.castKind h).SettlesAt D γ ↔ q.SettlesAt D γ := by
   cases h; exact Iff.rfl
@@ -215,6 +221,7 @@ theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
     intro h
     obtain ⟨rfl, -⟩ := Prod.mk.inj (List.mem_singleton.mp h)
     exact Finset.mem_singleton_self _
+  | Param pv ρ => exact fun h => by simp at h
   | Empty => exact fun h => by simp at h
   | Proj ps q ih => exact ih
   | Sel φ q _ ih => exact ih
@@ -293,6 +300,7 @@ theorem AggQueryIn.names_substMap :
   induction q with
   | Rel n s => exact fun θ => rfl
   | Hole n s => exact fun θ => rfl
+  | Param pv ρ => exact fun θ => rfl
   | Empty => exact fun θ => rfl
   | Proj ps q ih =>
     intro d θ
@@ -343,6 +351,7 @@ theorem AggQueryIn.hygienic_substMap :
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
   | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -379,6 +388,7 @@ theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
   | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -421,6 +431,7 @@ theorem AggQueryIn.settlesAt_substMap :
   induction q with
   | Rel n s => exact fun θ D γ => Iff.rfl
   | Hole n s => exact fun θ D γ => Iff.rfl
+  | Param pv ρ => exact fun θ D γ => Iff.rfl
   | Empty => exact fun θ D γ => Iff.rfl
   | Proj ps q ih =>
     intro d θ D γ
@@ -465,6 +476,7 @@ theorem AggQueryIn.winsDerivable_substMap :
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
   | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -1178,6 +1190,47 @@ theorem noMention_emptyRel (n : ℕ) (s : String) : (emptyRel (T := T) (c := c) 
   rw [emptyRel, AggQueryIn.noMention_castKind]
   trivial
 
+/-- **An empty relation of any kinds**: a selection that keeps nothing,
+over the one constant row of a parameter leaf. A hole of aggregate kinds
+needs it, `emptyRel` having regular columns only. -/
+def emptyOf {n : ℕ} (κ : Fin n → ColKind) : AggQueryIn T c n κ :=
+  AggQueryIn.Sel (GenPredIn.cmp CompOp.syneq (.const 0) (.const ValueType.nonzero))
+    (AggQueryIn.Param (fun _ => _root_.Sum.inl 0) κ)
+
+theorem evaluatePlain_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
+    (emptyOf (c := c) κ).evaluatePlain D γ = 0 := by
+  simp only [emptyOf, AggQueryIn.evaluatePlain]
+  refine Multiset.filter_eq_nil.mpr (fun u _ => ?_)
+  show ¬ (CompOp.syneq.eval3 (0 : T) ValueType.nonzero = Kleene.true)
+  rw [CompOp.syneq_eval3_eq_true_iff]
+  exact fun h => ValueType.nonzero_ne_zero h.symm
+
+theorem settlesAt_emptyOf {n : ℕ} (κ : Fin n → ColKind) (D : Database T) (γ : Fin c → T) :
+    (emptyOf (c := c) κ).SettlesAt D γ := trivial
+
+theorem usesOnly_emptyOf {S : Set OpKind} (hS : sumMuOps ⊆ S) {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).usesOnly S :=
+  ⟨hS (by simp [sumMuOps]), hS (by simp [sumMuOps]), hS (by simp [sumMuOps]),
+    hS (by simp [sumMuOps])⟩
+
+theorem hygienic_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).hygienic := trivial
+
+theorem inSig_emptyOf (Θ : Set (SeqAggFunc T)) {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).inSig Θ := ⟨rfl, trivial⟩
+
+theorem winsDerivable_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).WinsDerivable := trivial
+
+theorem overSchema_emptyOf (sch : Schema) {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).overSchema sch := trivial
+
+theorem names_emptyOf {n : ℕ} (κ : Fin n → ColKind) :
+    (emptyOf (T := T) (c := c) κ).names = ∅ := rfl
+
+theorem noMention_emptyOf {n : ℕ} (κ : Fin n → ColKind) (s : String) :
+    (emptyOf (T := T) (c := c) κ).noMention s := trivial
+
 end AggQueryIn
 
 /-! ### The two recursions, given a split body -/
@@ -1221,10 +1274,10 @@ theorem Multiset.eq_zero_of_add_eq_zero_right {α : Type} {a b : Multiset α} (h
 the recursive name: where it settles, `qC` is empty – it would be in
 every round – so `q₁'` is the body at every round, and the recursion
 over `q₁'` and a base agreeing with its own is the same recursion. -/
-theorem AggQueryIn.mu_of_split {c n : ℕ} (s : String)
-    (q₀ q₀' : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
-    (qC : AggQueryIn T c n (ColKind.allReg n)) (hC : qC.noMention s)
+theorem AggQueryIn.mu_of_split {c n : ℕ} {κ κ' : Fin n → ColKind} (s : String)
+    (q₀ : AggQueryIn T c n κ) (q₀' : AggQueryIn T c n κ')
+    (q₁ : AggQueryIn T c n κ [(s, n)]) (q₁' : AggQueryIn T c n κ' [(s, n)])
+    (qC : AggQueryIn T c n κ') (hC : qC.noMention s)
     (D : Database T) (γ : Fin c → T) (hset : (AggQueryIn.Mu s q₀ q₁).SettlesAt D γ)
     (h₀ : q₀'.SettlesAt D γ ∧ q₀.evaluatePlain D γ = q₀'.evaluatePlain D γ)
     (h₁ : ∀ D' : Database T, q₁.SettlesAt D' γ → q₁'.SettlesAt D' γ ∧ qC.SettlesAt D' γ
@@ -1331,9 +1384,11 @@ theorem AggQueryIn.muSet_of_split {c n : ℕ} (s : String)
 (`AggQueryIn.Mu` is), so this is what the construction needs of a `⊎`
 it replaces; it is what the re-typing produces, every operator of its
 output being over all-regular children. -/
-def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
+def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
+    (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.sumsAllReg
   | _, _, _, _, .Sel _ q _ => q.sumsAllReg
@@ -1355,7 +1410,8 @@ def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sumsAllReg
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List (String × ℕ)}
+@[simp] theorem AggQueryIn.sumsAllReg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind} {l : List
+    (String × ℕ)}
     (h : κ = κ') (q : AggQueryIn T c n κ l) : (q.castKind h).sumsAllReg ↔ q.sumsAllReg := by
   cases h; exact Iff.rfl
 
@@ -1368,6 +1424,7 @@ theorem AggQueryIn.sumsAllReg_substMap :
   induction q with
   | Rel n s => exact fun θ => Iff.rfl
   | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
   | Empty => exact fun θ => Iff.rfl
   | Proj ps q ih =>
     intro d θ
@@ -1425,6 +1482,7 @@ theorem AggQueryIn.overSchema_of_update_of_noMention {s : String} {m : ℕ} :
     have hne : s' ≠ s := fun h => hl n (by rw [h]; exact List.mem_singleton_self _)
     have : (if s' = s then some m else sch s') = some n := ho
     rwa [ite_eq_right hne] at this
+  | Param pv ρ => exact fun _ _ _ => trivial
   | Empty => exact fun _ _ _ => trivial
   | Proj ps q ih => exact fun hl h ho => ih hl h ho
   | Sel φ q _ ih => exact fun hl h ho => ih hl h ho
@@ -1563,19 +1621,25 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
       fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
-  | Hole n s' =>
+  | Hole n s' κh =>
     intro hq hr hi hsa f hf hfr
     refine ⟨fun hl => absurd hl (by simp), fun s m hl _ => ?_⟩
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
-    refine ⟨AggQueryIn.Hole n _, emptyRel n, noMention_emptyRel n _,
+    refine ⟨AggQueryIn.Hole n _ κh, emptyOf κh, noMention_emptyOf κh _,
       ⟨trivial, trivial, trivial, id, fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h⟩,
-      ⟨usesOnly_emptyRel hS n, hygienic_emptyRel n, inSig_emptyRel Θ n,
-        fun _ => winsDerivable_emptyRel n, fun sch _ _ => overSchema_emptyRel sch n,
-        fun x hx => by rw [names_emptyRel] at hx; exact absurd hx (Finset.notMem_empty x),
-        fun s' _ _ => noMention_emptyRel n s'⟩,
-      fun D γ _ => ⟨trivial, settlesAt_emptyRel n D γ, ?_⟩⟩
-    rw [evaluatePlain_emptyRel]
+      ⟨usesOnly_emptyOf hS κh, hygienic_emptyOf κh, inSig_emptyOf Θ κh,
+        fun _ => winsDerivable_emptyOf κh, fun sch _ _ => overSchema_emptyOf sch κh,
+        fun x hx => by rw [names_emptyOf] at hx; exact absurd hx (Finset.notMem_empty x),
+        fun s' _ _ => noMention_emptyOf κh s'⟩,
+      fun D γ _ => ⟨trivial, settlesAt_emptyOf κh D γ, ?_⟩⟩
+    rw [evaluatePlain_emptyOf]
     exact (add_zero (M := Multiset (Tuple T n)) _).symm
+  | Param pv ρ =>
+    intro hq hr hi hsa f hf hfr
+    exact ⟨fun _ => ⟨AggQueryIn.Param pv ρ, ⟨⟨memS nofun hq.1, memS nofun hq.2.1,
+      memS nofun hq.2.2⟩, trivial, trivial, id, fun _ _ h => h,
+      fun x hx => Or.inl hx, fun _ _ h => h⟩, fun D γ _ => ⟨trivial, rfl⟩⟩,
+      fun _ _ hl _ => absurd hl (by simp)⟩
   | Empty =>
     intro hq hr hi hsa f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
@@ -2064,7 +2128,8 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset

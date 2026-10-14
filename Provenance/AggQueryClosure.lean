@@ -571,24 +571,28 @@ theorem GenPredIn.gateTerm_evalRew {n : ℕ} {κ : Fin n → ColKind} :
     | false =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ
+          (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ
+          (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
       rfl
   | .or φ ψ, hrf, neg, r, hnn => by
     cases neg with
     | false =>
       show TermGIn.evalRew (TermGIn.add _ _) _ = _
       show TermGIn.evalRew _ _ + TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 false r hnn, gateTerm_evalRew ψ
+          (Bool.and_eq_true_iff.mp hrf).2 false r hnn]
       rfl
     | true =>
       show TermGIn.evalRew (TermGIn.mul _ _) _ = _
       show TermGIn.evalRew _ _ * TermGIn.evalRew _ _ = _
-      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
+      rw [gateTerm_evalRew φ (Bool.and_eq_true_iff.mp hrf).1 true r hnn, gateTerm_evalRew ψ
+          (Bool.and_eq_true_iff.mp hrf).2 true r hnn]
       rfl
   | .aggRange _ _ _ _ _ _, hrf, _, _, _ => Bool.noConfusion hrf
   | .not φ, hrf, neg, r, hnn => gateTerm_evalRew φ hrf (!neg) r hnn
@@ -1485,7 +1489,8 @@ theorem AggQueryIn.diffBranchM_evaluateRew {n : ℕ}
     (AggQueryIn.diffBranchM q₁' qs).evaluateRew D
       = (A₁.filter (fun p => p.fst ∈ S)).map
           (fun p => ((fun k =>
-            Sum.inl (AnnotatedTuple.toComposite (⟨p.fst, p.snd - V p.fst⟩ : AnnotatedTuple T K n) k))
+            Sum.inl (AnnotatedTuple.toComposite (⟨p.fst,
+                p.snd - V p.fst⟩ : AnnotatedTuple T K n) k))
               : Tuple (GenValue (T ⊕ K) K) (n + 1))) := by
   unfold AggQueryIn.diffBranchM
   show AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) D = _
@@ -2095,7 +2100,7 @@ theorem AggQueryIn.rewritesTo_valid {n : ℕ} {κ : Fin n → ColKind}
     exact AggQueryIn.gammaRew_valid is ts fs qg hq d
   | selAgg φ hφ hrf hnn h₀ ih =>
     exact AggQueryIn.selAggRew_valid φ hφ hrf _ _ d
-      (fun r hr => AggQueryIn.evaluate_noNested _ hnn d r hr) ih
+      (fun r hr => AggQueryIn.evaluate_noNested _ hnn d {} EvalEnv.rowsSat_empty r hr) ih
   | gammaOf is ts fs keep h₀ ih =>
     exact AggQueryIn.gammaRewOf_valid is ts fs _ _ _ _ keep d _ rfl
       (AggQueryIn.provRel_of_toCompositeRow _ _ _ d ih)

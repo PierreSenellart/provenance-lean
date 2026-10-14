@@ -158,11 +158,13 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
     | none => 0
     | some rn => rn.map (fun t =>
         ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) n))
-  | _, n, _, _, .Hole _ s, D, _ =>
+  | _, n, _, _, .Hole _ s _, D, _ =>
     match D.find n s with
     | none => 0
     | some rn => rn.map (fun t =>
         ((fun k => Sum.inl (t k)) : Tuple (GenValue (T ⊕ K) K) n))
+  | _, _, _, _, @Param _ _ m pv _, _, γ =>
+    {((fun k => Sum.inl (_root_.Sum.elim id γ (pv k))) : Tuple (GenValue (T ⊕ K) K) m)}
   | _, _, _, _, .Empty, _, _ => 0
   | _, _, _, _, .Proj ps q, D, γ =>
     (q.evaluateRew D γ).map (fun u => (fun j => (ps j).evalRew u γ))
@@ -301,7 +303,8 @@ semantics through the `inl` embedding. -/
 def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
     {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj _ q => q.noGammaTok
   | _, _, _, _, .Sel _ q _ => q.noGammaTok
@@ -326,7 +329,8 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
 def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
     {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
   | _, _, _, _, .Empty => True
   | _, _, _, _, .Proj ps q => (∀ j, (ps j).chiFree) ∧ q.chiFree
   | _, _, _, _, .Sel φ q _ => φ.chiFree ∧ q.chiFree
@@ -476,6 +480,10 @@ theorem AggQueryIn.evaluateRew_plain :
     cases hf : D.find n s
     · rfl
     · rfl
+  | Param pv ρ =>
+    intro hq hc D γ
+    simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
+    rfl
   | Empty =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
@@ -699,7 +707,8 @@ theorem AggQueryIn.rewriting_noGammaTok :
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noGammaTok
   | _, _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ => trivial
   | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     rewriting_noGammaTok q hq.2
@@ -731,7 +740,8 @@ theorem AggQueryIn.rewriting_noFilter :
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).noFilter
   | _, _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ => trivial
   | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     rewriting_noFilter q hq.2
@@ -764,7 +774,8 @@ theorem AggQueryIn.rewriting_chiFree :
       ((q.rewriting hq
         : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKinds n))).chiFree
   | _, _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ => ⟨fun _ => trivial, trivial⟩
   | _, _, _, _, @AggQueryIn.Proj _ _ n m κ _ ps q, hq =>
     ⟨fun j => by

@@ -133,7 +133,8 @@ def AggQueryIn.strip :
     {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → (q : AggQueryIn T c n κ l) →
     q.classical → Query T n
   | _, n, _, _, .Rel _ s, _ => .Rel n s
-  | _, _, _, _, .Hole _ _, hq => False.elim hq
+  | _, _, _, _, .Hole _ _ _, hq => False.elim hq
+  | _, _, _, _, .Param _ _, hq => False.elim hq
   -- the classical syntax has no empty leaf, so the strip spells it as a
   -- selection that keeps nothing; both readings of it are empty on every
   -- instance, which is what the leaf denotes
@@ -159,7 +160,8 @@ theorem AggQueryIn.strip_source :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (hq : q.classical), (q.strip hq).source
   | _, _, _, _, .Rel _ _, _ => trivial
-  | _, _, _, _, .Hole _ _, hq => hq.elim
+  | _, _, _, _, .Hole _ _ _, hq => hq.elim
+  | _, _, _, _, .Param _ _, hq => hq.elim
   | _, _, _, _, .Empty, _ => trivial
   | _, _, _, _, .Proj _ q, hq => strip_source q hq.2
   | _, _, _, _, .Sel _ q _, hq => strip_source q hq.2
