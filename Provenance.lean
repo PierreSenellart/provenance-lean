@@ -60,6 +60,7 @@ import Provenance.RoundBound
 import Provenance.AnnotatedBasis
 import Provenance.AnnotatedDedup
 import Provenance.AnnotatedProd
+import Provenance.AnnotatedSum
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1246,9 +1247,24 @@ proven engine several general results reuse internally.
   (the congruences `AggQueryIn.FinEq.proj` … `winExpr`, the selection on
   an aggregate value through `GenAnn.finalize_sel`) and all that the
   annotated evaluation reads. The pass `prodFree` keeps the classes, the
-  signature, the well-formedness and the reading of every apply's
-  parameters (`AggQueryIn.noAggParam`), so the classes other than `ε` and
-  `×` generate the annotated algebra (`generatesAnn_dedupProdFree`)
+  signature, the well-formedness and the kinds (`AggQueryIn.wellKinded`),
+  so the classes other than `ε` and `×` generate the annotated algebra
+  (`generatesAnn_dedupProdFree`)
+- `Provenance.AnnotatedSum` – **`⊎` is dispensable in the annotated
+  algebra** as well: `q₁ ⊎ q₂` is two bag recursions over one driver row
+  (`AggQueryIn.sumByMuK`), the first listing `q₁`'s rows behind the
+  driver, the second adding `q₂`'s, each round re-tagging an operand's
+  rows; the operands may carry aggregate columns, a round of a bag
+  recursion being bound in the evaluation's environment, and the driver
+  row's aggregate columns hold a padding token that the construction
+  drops (`evaluate_sumByMuK_fin`, up to finalization). A `⊎` on the
+  recursive path of a body cannot be replaced where it stands, so the
+  pass splits such a body into a body and a closed query
+  (`AggQueryIn.exists_sumFreeAnn_aux`): at a bag recursion that settles
+  the closed part is empty (`mu_of_splitAnn`), at a set recursion it
+  moves into the base (`muSet_of_splitAnn`). So the classes other than
+  `ε`, `×` and `⊎` generate the annotated algebra
+  (`generatesAnn_dedupProdSumFree`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

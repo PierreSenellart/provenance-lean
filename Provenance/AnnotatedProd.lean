@@ -153,29 +153,56 @@ private theorem product_map_fin {α β γ δ : Type*} (f : α → γ) (g : β �
   rw [Multiset.map_map, Multiset.map_map]
   rfl
 
-namespace AggQueryIn.FinEq
+namespace AggQueryIn.FinAt
 
-theorem proj {c n m : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
-    (ps : Tuple (ProjColIn T c κ) m) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
-    (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps q') := by
-  intro d γ E E' hE
+/-! Agreement up to finalization at two given environments: what each
+operator makes of it, operator by operator. -/
+
+theorem toAnnotated {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T} {E E' : EvalEnv T K}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    (q.evaluate d γ E).map GenRow.toAnnotated = (q'.evaluate d γ E').map GenRow.toAnnotated :=
+  Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => by
+    obtain ⟨h₁, h₂⟩ := GenRow.fin_eq_iff.mp hab
+    unfold GenRow.toAnnotated
+    rw [h₁, h₂]) h
+
+theorem readAnnotated {c n : ℕ} (κ' : Fin n → ColKind) {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)}
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T} {E E' : EvalEnv T K}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    (q.evaluate d γ E).map (GenRow.readAnnotated κ') =
+      (q'.evaluate d γ E').map (GenRow.readAnnotated κ') :=
+  Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => by
+    obtain ⟨h₁, h₂⟩ := GenRow.fin_eq_iff.mp hab
+    unfold GenRow.readAnnotated
+    rw [h₁, h₂]) h
+
+theorem proj {c n m : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (ps : Tuple (ProjColIn T c κ) m)
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Proj ps q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Proj ps q').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, Multiset.map_map]
-  refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) (h d γ E E' hE)
+  refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) h
   obtain ⟨h₁, h₂⟩ := GenRow.fin_eq_iff.mp hab
   simp only [Function.comp, GenRow.fin]
   rw [GenAnn.finalize_cash' _ _ Multiset.inter_le_left,
     GenAnn.finalize_cash' _ _ Multiset.inter_le_left, h₁, h₂]
 
-theorem sel {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
-    (φ : GenPredIn T c κ) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
-    (hφ : SelOK l φ) (hφ' : SelOK l' φ) (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ q' hφ') := by
-  intro d γ E E' hE
+theorem sel {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (φ : GenPredIn T c κ)
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'} (hφ : SelOK l φ) (hφ' : SelOK l' φ)
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Sel φ q hφ).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Sel φ q' hφ').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate]
   by_cases hagg : φ.hasAggAtom
   · rw [ite_eq_left hagg, ite_eq_left hagg, Multiset.map_map, Multiset.map_map]
-    refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) (h d γ E E' hE)
+    refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) h
     obtain ⟨h₁, h₂⟩ := GenRow.fin_eq_iff.mp hab
     simp only [Function.comp, GenRow.fin]
     refine Prod.ext h₁ ?_
@@ -193,20 +220,21 @@ theorem sel {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
           = (R.map GenRow.fin).filter (fun x => φ.holds x.1 γ) := fun R => by
       rw [Multiset.filter_map]
       rfl
-    rw [hF, hF, h d γ E E' hE]
+    rw [hF, hF, h]
 
-theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
-    {l₁ l₂ l₁' l₂' : List (String × ℕ)}
-    {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
-    {q₂ : AggQueryIn T c n₂ κ₂ l₂} {q₂' : AggQueryIn T c n₂ κ₂ l₂'}
-    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Prod q₁ q₂) (AggQueryIn.Prod q₁' q₂') := by
-  intro d γ E E' hE
+theorem prod {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
+    {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'} {q₂ : AggQueryIn T c n₂ κ₂ l₂}
+    {q₂' : AggQueryIn T c n₂ κ₂ l₂'}
+    (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
+    (h₂ : (q₂.evaluate d γ E).map GenRow.fin = (q₂'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Prod q₁ q₂).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Prod q₁' q₂').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, Multiset.map_map]
   have hP : ((q₁.evaluate d γ E).product (q₂.evaluate d γ E)).map (fun p => (p.1.fin, p.2.fin))
       = ((q₁'.evaluate d γ E').product (q₂'.evaluate d γ E')).map (fun p => (p.1.fin,
           p.2.fin)) := by
-    rw [← product_map_fin, ← product_map_fin, h₁ d γ E E' hE, h₂ d γ E E' hE]
+    rw [← product_map_fin, ← product_map_fin, h₁, h₂]
   refine Multiset.map_eq_of_factor (fun a b hab => ?_) hP
   obtain ⟨a₁, a₂⟩ := a
   obtain ⟨b₁, b₂⟩ := b
@@ -218,19 +246,24 @@ theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n�
   simp only at h11 h12 h21 h22
   rw [h11, h12, h21, h22]
 
-theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
-    {l₁ l₁' : List (String × ℕ)}
+theorem apply {c n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {l₁ l₁' : List (String × ℕ)}
     {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
     {q₂ q₂' : AggQueryIn T (n₁ + c) n₂ κ₂}
-    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Apply q₁ q₂) (AggQueryIn.Apply q₁' q₂') := by
-  intro d γ E E' hE
+    (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
+    (h₂ : ∀ x ∈ q₁.evaluate d γ E,
+      (q₂.evaluate d (Fin.append (GenRow.plainTuple x.fst) γ)
+        (E.withCtx (Fin.append x.fst (E.ctxAt c γ)))).map GenRow.fin
+      = (q₂'.evaluate d (Fin.append (GenRow.plainTuple x.fst) γ)
+        (E'.withCtx (Fin.append x.fst (E'.ctxAt c γ)))).map GenRow.fin) :
+    ((AggQueryIn.Apply q₁ q₂).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Apply q₁' q₂').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, Multiset.map_bind]
-  refine (Multiset.bind_congr (fun x _ => ?_)).trans
-    (Multiset.bind_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) (h₁ d γ E E' hE))
+  refine (Multiset.bind_congr (fun x hx => ?_)).trans
+    (Multiset.bind_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) h₁)
   · rw [Multiset.map_map, Multiset.map_map]
     refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun y y' hy => ?_)
-      (h₂ d _ _ _ (hE.enter rfl _))
+      (h₂ x hx)
     obtain ⟨h1, h2⟩ := GenRow.fin_eq_iff.mp hy
     simp only [Function.comp, GenRow.fin]
     rw [GenAnn.finalize_mul', GenAnn.finalize_mul', h1, h2]
@@ -241,33 +274,39 @@ theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n�
     simp only [Function.comp, GenRow.fin]
     rw [GenAnn.finalize_mul', GenAnn.finalize_mul', h2]
 
-theorem sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
-    {q₁ : AggQueryIn T c n κ l₁} {q₁' : AggQueryIn T c n κ l₁'}
-    {q₂ : AggQueryIn T c n κ l₂} {q₂' : AggQueryIn T c n κ l₂'}
-    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Sum q₁ q₂) (AggQueryIn.Sum q₁' q₂') := by
-  intro d γ E E' hE
+theorem sum {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)} {q₁ : AggQueryIn T c n κ l₁}
+    {q₁' : AggQueryIn T c n κ l₁'} {q₂ : AggQueryIn T c n κ l₂} {q₂' : AggQueryIn T c n κ l₂'}
+    (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
+    (h₂ : (q₂.evaluate d γ E).map GenRow.fin = (q₂'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Sum q₁ q₂).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Sum q₁' q₂').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate]
-  rw [Multiset.map_add, Multiset.map_add, h₁ d γ E E' hE, h₂ d γ E E' hE]
+  rw [Multiset.map_add, Multiset.map_add, h₁, h₂]
 
-theorem dedup {c n : ℕ} {q q' : AggQueryIn T c n (ColKind.allReg n)}
-    (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Dedup q) (AggQueryIn.Dedup q') :=
-  fun d γ E E' hE => by simp only [AggQueryIn.evaluate, h.toAnnotated d γ hE]
+theorem dedup {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {q q' : AggQueryIn T c n (ColKind.allReg n)}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Dedup q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Dedup q').evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem diff {c n : ℕ} {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
-    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Diff q₁ q₂) (AggQueryIn.Diff q₁' q₂') :=
-  fun d γ E E' hE => by
-    simp only [AggQueryIn.evaluate, h₁.toAnnotated d γ hE, h₂.toAnnotated d γ hE]
+theorem diff {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
+    (h₁ : (q₁.evaluate d γ E).map GenRow.fin = (q₁'.evaluate d γ E').map GenRow.fin)
+    (h₂ : (q₂.evaluate d γ E).map GenRow.fin = (q₂'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Diff q₁ q₂).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Diff q₁' q₂').evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, (toAnnotated h₁), (toAnnotated h₂)]
 
-theorem explode {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n)
-    (hk : κ k = ColKind.agg) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
-    (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk q') := by
-  intro d γ E E' hE
+theorem explode {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n) (hk : κ k = ColKind.agg)
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Explode k hk q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Explode k hk q').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, Multiset.map_bind]
-  refine Multiset.bind_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) (h d γ E E' hE)
+  refine Multiset.bind_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) h
   obtain ⟨h1, h2⟩ := GenRow.fin_eq_iff.mp hab
   unfold GenRow.alternativesAt
   rw [h1]
@@ -278,13 +317,158 @@ theorem explode {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ
     simp only [Function.comp, GenRow.fin]
     rw [GenAnn.finalize_mul_base, GenAnn.finalize_mul_base, h2]
 
+theorem retag {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)} (hk : ∀ k, (κ k).base = (κ' k).base)
+    {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Retag hk q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Retag hk q').evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate]
+  exact h
+
+theorem gamma {c m n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
+    (keep : Fin n₂ → Option (Selection T m)) (ord : GroupOrder T m)
+    {q q' : AggQueryIn T c m (ColKind.allReg m)}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Gamma is ts fs q keep ord).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Gamma is ts fs q' keep ord).evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, toAnnotated h]
+
+theorem gammaScalar {c m n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
+    {q q' : AggQueryIn T c m (ColKind.allReg m)}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.GammaScalar ts fs q ord).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.GammaScalar ts fs q' ord).evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, toAnnotated h]
+
+theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    (t : TermGIn T c κ) {q q' : AggQueryIn T c m κ}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.ProvSum is his t q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.ProvSum is his t q').evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, toAnnotated h]
+
+theorem gammaTok {c m n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
+    (keep : Fin n₂ → Option (Selection T m)) {q q' : AggQueryIn T c m κ}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.GammaTok is his ts fs a q keep).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.GammaTok is his ts fs a q' keep).evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate, toAnnotated h]
+
+theorem win {c n m p : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) {q q' : AggQueryIn T c n κ}
+    (hrr : WinReadsReg κ P O t) (dist : Bool) (keep : Option (Selection T n))
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.Win P O o w t f q hrr dist keep).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Win P O o w t f q' hrr dist keep).evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate]
+  rw [readAnnotated κ h, Multiset.map_map, Multiset.map_map]
+  refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) h
+  obtain ⟨h1, h2⟩ := GenRow.fin_eq_iff.mp hab
+  simp only [Function.comp, GenRow.fin, ValueFrame.windowGenRow, GenRow.readAnnotated]
+  rw [h1, h2]
+
+theorem winExpr {c n m p qn : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin qn → ValueFrame T p)
+    (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T) (g : (Fin qn → T) → T)
+    (keeps : Fin qn → Option (Selection T n)) {q q' : AggQueryIn T c n (ColKind.allReg n)}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.WinExpr P O o ws ts fs g q keeps).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.WinExpr P O o ws ts fs g q' keeps).evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate]
+  rw [toAnnotated h]
+
+theorem gammaNest {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+    {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    (p : ProjColIn T c κ) (f : Multiset T → T) {q q' : AggQueryIn T c m κ}
+    (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
+    ((AggQueryIn.GammaNest is his p f q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.GammaNest is his p f q').evaluate d γ E').map GenRow.fin := by
+  simp only [AggQueryIn.evaluate]
+  have hk : (q.evaluate d γ E).map (fun row k => AggValue.collapseSum (row.1 (is k)))
+      = (q'.evaluate d γ E').map (fun row k => AggValue.collapseSum (row.1 (is k))) :=
+    Multiset.map_eq_of_factor (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1])
+        h
+  have hU : ∀ g : Tuple T n₁,
+      ((q.evaluate d γ E).filter (fun x => (fun k => AggValue.collapseSum (x.1 (is k))) = g)).map
+          (fun x => ((p.eval x.1 γ).innerValue, x.2.finalize))
+        = ((q'.evaluate d γ E').filter
+            (fun x => (fun k => AggValue.collapseSum (x.1 (is k))) = g)).map
+          (fun x => ((p.eval x.1 γ).innerValue, x.2.finalize)) := fun g =>
+    Multiset.map_filter_eq_of_factor (f := GenRow.fin)
+      (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1])
+      (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1, (GenRow.fin_eq_iff.mp hab).2])
+      h
+  rw [hk]
+  simp only [hU]
+
+end AggQueryIn.FinAt
+
+namespace AggQueryIn.FinEq
+
+theorem proj {c n m : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (ps : Tuple (ProjColIn T c κ) m) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (h : AggQueryIn.FinEq (K := K) q q') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.proj ps (h d γ E E' hE)
+
+theorem sel {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (φ : GenPredIn T c κ) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (hφ : SelOK l φ) (hφ' : SelOK l' φ) (h : AggQueryIn.FinEq (K := K) q q') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ q' hφ')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.sel φ hφ hφ' (h d γ E E' hE)
+
+theorem prod {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+    {l₁ l₂ l₁' l₂' : List (String × ℕ)}
+    {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
+    {q₂ : AggQueryIn T c n₂ κ₂ l₂} {q₂' : AggQueryIn T c n₂ κ₂ l₂'}
+    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Prod q₁ q₂) (AggQueryIn.Prod q₁' q₂')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.prod (h₁ d γ E E' hE) (h₂ d γ E E' hE)
+
+theorem apply {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+    {l₁ l₁' : List (String × ℕ)}
+    {q₁ : AggQueryIn T c n₁ κ₁ l₁} {q₁' : AggQueryIn T c n₁ κ₁ l₁'}
+    {q₂ q₂' : AggQueryIn T (n₁ + c) n₂ κ₂}
+    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Apply q₁ q₂) (AggQueryIn.Apply q₁' q₂')  :=
+  fun d γ E E' hE =>
+    AggQueryIn.FinAt.apply (h₁ d γ E E' hE) (fun _ _ => h₂ d _ _ _ (hE.enter rfl _))
+
+theorem sum {c n : ℕ} {κ : Fin n → ColKind} {l₁ l₂ l₁' l₂' : List (String × ℕ)}
+    {q₁ : AggQueryIn T c n κ l₁} {q₁' : AggQueryIn T c n κ l₁'}
+    {q₂ : AggQueryIn T c n κ l₂} {q₂' : AggQueryIn T c n κ l₂'}
+    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Sum q₁ q₂) (AggQueryIn.Sum q₁' q₂')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.sum (h₁ d γ E E' hE) (h₂ d γ E E' hE)
+
+theorem dedup {c n : ℕ} {q q' : AggQueryIn T c n (ColKind.allReg n)}
+    (h : AggQueryIn.FinEq (K := K) q q') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Dedup q) (AggQueryIn.Dedup q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.dedup (h d γ E E' hE)
+
+theorem diff {c n : ℕ} {q₁ q₁' q₂ q₂' : AggQueryIn T c n (ColKind.allReg n)}
+    (h₁ : AggQueryIn.FinEq (K := K) q₁ q₁') (h₂ : AggQueryIn.FinEq (K := K) q₂ q₂') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Diff q₁ q₂) (AggQueryIn.Diff q₁' q₂')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.diff (h₁ d γ E E' hE) (h₂ d γ E E' hE)
+
+theorem explode {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)} (k : Fin n)
+    (hk : κ k = ColKind.agg) {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (h : AggQueryIn.FinEq (K := K) q q') :
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.explode k hk (h d γ E E' hE)
+
 theorem retag {c n : ℕ} {κ κ' : Fin n → ColKind} {l l' : List (String × ℕ)}
     (hk : ∀ k, (κ k).base = (κ' k).base) {q : AggQueryIn T c n κ l}
     {q' : AggQueryIn T c n κ l'} (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk q') := by
-  intro d γ E E' hE
-  simp only [AggQueryIn.evaluate]
-  exact h d γ E E' hE
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.retag hk (h d γ E E' hE)
 
 theorem mu {c n : ℕ} {κ : Fin n → ColKind} (s : String) {q₀ q₀' : AggQueryIn T c n κ}
     {q₁ q₁' : AggQueryIn T c n κ [(s, n)]}
@@ -314,21 +498,21 @@ theorem gamma {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermI
     (ord : GroupOrder T m) {q q' : AggQueryIn T c m (ColKind.allReg m)}
     (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Gamma is ts fs q keep ord)
-      (AggQueryIn.Gamma is ts fs q' keep ord) :=
-  fun d γ E E' hE => by simp only [AggQueryIn.evaluate, h.toAnnotated d γ hE]
+      (AggQueryIn.Gamma is ts fs q' keep ord)  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.gamma is ts fs keep ord (h d γ E E' hE)
 
 theorem gammaScalar {c m n₂ : ℕ} (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     {q q' : AggQueryIn T c m (ColKind.allReg m)} (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.GammaScalar ts fs q ord)
-      (AggQueryIn.GammaScalar ts fs q' ord) :=
-  fun d γ E E' hE => by simp only [AggQueryIn.evaluate, h.toAnnotated d γ hE]
+      (AggQueryIn.GammaScalar ts fs q' ord)  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.gammaScalar ts fs ord (h d γ E E' hE)
 
 theorem provSum {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (t : TermGIn T c κ) {q q' : AggQueryIn T c m κ}
     (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.ProvSum is his t q) (AggQueryIn.ProvSum is his t q') :=
-  fun d γ E E' hE => by simp only [AggQueryIn.evaluate, h.toAnnotated d γ hE]
+    AggQueryIn.FinEq (K := K) (AggQueryIn.ProvSum is his t q) (AggQueryIn.ProvSum is his t q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.provSum is his t (h d γ E E' hE)
 
 theorem gammaTok {c m n₁ n₂ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (ts : Tuple (TermIn T c m) n₂)
@@ -336,56 +520,31 @@ theorem gammaTok {c m n₁ n₂ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin
     (keep : Fin n₂ → Option (Selection T m)) {q q' : AggQueryIn T c m κ}
     (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.GammaTok is his ts fs a q keep)
-      (AggQueryIn.GammaTok is his ts fs a q' keep) :=
-  fun d γ E E' hE => by simp only [AggQueryIn.evaluate, h.toAnnotated d γ hE]
+      (AggQueryIn.GammaTok is his ts fs a q' keep)  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.gammaTok is his ts fs a keep (h d γ E E' hE)
 
 theorem win {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     {q q' : AggQueryIn T c n κ} (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.Win P O o w t f q hrr dist keep)
-      (AggQueryIn.Win P O o w t f q' hrr dist keep) := by
-  intro d γ E E' hE
-  simp only [AggQueryIn.evaluate]
-  rw [h.readAnnotated κ d γ hE, Multiset.map_map, Multiset.map_map]
-  refine Multiset.map_eq_of_factor (f := GenRow.fin) (fun a b hab => ?_) (h d γ E E' hE)
-  obtain ⟨h1, h2⟩ := GenRow.fin_eq_iff.mp hab
-  simp only [Function.comp, GenRow.fin, ValueFrame.windowGenRow, GenRow.readAnnotated]
-  rw [h1, h2]
+      (AggQueryIn.Win P O o w t f q' hrr dist keep)  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.win P O o w t f hrr dist keep (h d γ E E' hE)
 
 theorem winExpr {c n m p qn : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (ws : Fin qn → ValueFrame T p) (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T)
     (g : (Fin qn → T) → T) (keeps : Fin qn → Option (Selection T n))
     {q q' : AggQueryIn T c n (ColKind.allReg n)} (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.WinExpr P O o ws ts fs g q keeps)
-      (AggQueryIn.WinExpr P O o ws ts fs g q' keeps) :=
-  fun d γ E E' hE => by
-    simp only [AggQueryIn.evaluate]
-    rw [h.toAnnotated d γ hE]
+      (AggQueryIn.WinExpr P O o ws ts fs g q' keeps)  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.winExpr P O o ws ts fs g keeps (h d γ E E' hE)
 
 theorem gammaNest {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (p : ProjColIn T c κ) (f : Multiset T → T)
     {q q' : AggQueryIn T c m κ} (h : AggQueryIn.FinEq (K := K) q q') :
     AggQueryIn.FinEq (K := K) (AggQueryIn.GammaNest is his p f q)
-      (AggQueryIn.GammaNest is his p f q') :=
-  fun d γ E E' hE => by
-    simp only [AggQueryIn.evaluate]
-    have hk : (q.evaluate d γ E).map (fun row k => AggValue.collapseSum (row.1 (is k)))
-        = (q'.evaluate d γ E').map (fun row k => AggValue.collapseSum (row.1 (is k))) :=
-      Multiset.map_eq_of_factor (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1])
-          (h d γ E E' hE)
-    have hU : ∀ g : Tuple T n₁,
-        ((q.evaluate d γ E).filter (fun x => (fun k => AggValue.collapseSum (x.1 (is k))) = g)).map
-            (fun x => ((p.eval x.1 γ).innerValue, x.2.finalize))
-          = ((q'.evaluate d γ E').filter
-              (fun x => (fun k => AggValue.collapseSum (x.1 (is k))) = g)).map
-            (fun x => ((p.eval x.1 γ).innerValue, x.2.finalize)) := fun g =>
-      Multiset.map_filter_eq_of_factor (f := GenRow.fin)
-        (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1])
-        (fun a b hab => by rw [(GenRow.fin_eq_iff.mp hab).1, (GenRow.fin_eq_iff.mp hab).2])
-        (h d γ E E' hE)
-    rw [hk]
-    simp only [hU]
+      (AggQueryIn.GammaNest is his p f q')  :=
+  fun d γ E E' hE => AggQueryIn.FinAt.gammaNest is his p f (h d γ E E' hE)
 
 /-- **Every query agrees with itself up to finalization**, in two
 environments agreeing up to finalization. -/
