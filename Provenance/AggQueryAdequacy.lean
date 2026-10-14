@@ -288,7 +288,7 @@ def AggQueryIn.AnnSettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : 
   | _, _, _, _, .Sum q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
   | _, _, _, _, .Dedup q, d, γ => q.AnnSettlesAt d γ
   | _, _, _, _, .Diff q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
-  | _, _, _, _, .Alt _ _ q, d, γ => q.AnnSettlesAt d γ
+  | _, _, _, _, .Explode _ _ q, d, γ => q.AnnSettlesAt d γ
   | _, _, _, _, .Retag _ q, d, γ => q.AnnSettlesAt d γ
   | _, n, _, _, .Mu s q₀ q₁, d, γ =>
       q₀.AnnSettlesAt d γ
@@ -325,7 +325,7 @@ theorem AggQueryIn.recSettles_annSettlesAt :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, ih₂ h.2 d γ⟩
   | Dedup q ih => exact fun h d γ => ih h d γ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h d γ => ⟨ih₁ h.1 d γ, ih₂ h.2 d γ⟩
-  | Alt _ _ q ih => exact fun h d γ => ih h d γ
+  | Explode _ _ q ih => exact fun h d γ => ih h d γ
   | Retag _ q ih => exact fun h d γ => ih h d γ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun h d γ => ⟨ih₀ h.2.1 d γ, (h.1 d γ).1, (h.1 d γ).2, fun _ => ih₁ h.2.2 _ γ, ih₁ h.2.2 _ γ⟩
@@ -392,7 +392,7 @@ theorem muFix_map_rounds {α β : Type} {h : Multiset α → Multiset β} (h0 : 
 annotations of the general annotated evaluation yields the plain
 evaluation of the stripped query on the plain database.
 
-The hypothesis excludes `Alt`, and must: an aggregate column read as a
+The hypothesis excludes `Explode`, and must: an aggregate column read as a
 key gives one row per value the column takes in *some* world, so the
 data part of the annotated evaluation is not the data part of any one
 world and no stripping recovers it. The readings that *are* world
@@ -400,7 +400,7 @@ readings – the Boolean support and the random world – do cover it. The
 settling hypothesis is per instance (`AggQueryIn.AnnSettlesAt`): only the
 recursions the evaluation at `(d, γ)` runs need settle there. -/
 theorem AggQueryIn.evaluateAnnotated_toPlain :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (_hq : q.altFree)
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (_hq : q.noExplode)
       (d : AnnotatedDatabase T K) {γ : Fin c → T} (_hr : q.AnnSettlesAt d γ),
     (q.evaluateAnnotated d γ).toPlain
       = q.stripAgg.evaluatePlain d.toPlain γ := by
@@ -510,7 +510,7 @@ theorem AggQueryIn.evaluateAnnotated_toPlain :
         (fun p _ => GenRow.plainTuple_ofAnnotated (K := K) p)) ?_
     rw [map_fst_groupByKey, Multiset.map_map]
     rfl
-  | Alt k hk q ih => intro hq _ _ _; exact hq.elim
+  | Explode k hk q ih => intro hq _ _ _; exact hq.elim
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq d γ hr
     rw [hplain]

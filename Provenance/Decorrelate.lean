@@ -928,12 +928,12 @@ theorem AggQueryIn.hasDecorrelation_retag {c k : ℕ} {S : Set OpKind} {sch : Sc
 
 /-- **The alternatives reading of an aggregate column** likewise: it
 reads the column as a key and changes no row of the plain semantics. -/
-theorem AggQueryIn.hasDecorrelation_alt {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_explode {c k : ℕ} {κ : Fin k → ColKind} {l : List (String × ℕ)} {S : Set OpKind} {sch : Schema}
     (_hS : decorrOps ⊆ S)
     {P : AggQuery T c (ColKind.allReg c)} (i : Fin k)
     (hi : κ i = ColKind.agg) {q : AggQueryIn T c k κ l}
     (h : AggQueryIn.HasDecorrelation S sch P q) :
-    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Alt i hi q) := by
+    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Explode i hi q) := by
   obtain ⟨q', hu, hos, hd⟩ := h
   have hagg : ColKind.liftKinds c κ (Fin.natAdd c i) = ColKind.agg :=
     (ColKind.liftKinds_col c κ i).trans hi
@@ -956,7 +956,7 @@ theorem AggQueryIn.hasDecorrelation_alt {c k : ℕ} {κ : Fin k → ColKind} {l 
         rw [Function.update_self, Function.update_self]
       · rw [Function.update_of_ne (fun hc => hii (Fin.natAdd_left_inj hc)),
           Function.update_of_ne hii, ColKind.liftKinds_col]
-  exact ⟨(AggQueryIn.Alt (Fin.natAdd c i) hagg q').castKind hkinds,
+  exact ⟨(AggQueryIn.Explode (Fin.natAdd c i) hagg q').castKind hkinds,
     (AggQueryIn.usesOnly_castKind _ _ _).mpr hu,
     (AggQueryIn.overSchema_castKind _ _).mpr hos,
     fun D => by
@@ -2716,9 +2716,9 @@ theorem AggQueryIn.hasDecorrelation_of_usesOnly {S : Set OpKind}
     exact fun _ hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_diff hS (ih₁ rfl hq.2.1 hqs.1 P hPu hPs hnd)
         (ih₂ rfl hq.2.2 hqs.2 P hPu hPs hnd)
-  | Alt i hi q ih =>
+  | Explode i hi q ih =>
     exact fun hl hq hqs P hPu hPs hnd =>
-      AggQueryIn.hasDecorrelation_alt hS i hi (ih hl hq hqs P hPu hPs hnd)
+      AggQueryIn.hasDecorrelation_explode hS i hi (ih hl hq hqs P hPu hPs hnd)
   | Retag hbase q ih =>
     exact fun hl hq hqs P hPu hPs hnd =>
       AggQueryIn.hasDecorrelation_retag hS hbase (ih hl hq hqs P hPu hPs hnd)

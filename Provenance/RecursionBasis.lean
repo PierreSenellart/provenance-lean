@@ -528,7 +528,7 @@ def AggQueryIn.noRec : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (S
   | _, _, _, _, .Sum q₁ q₂ => q₁.noRec ∧ q₂.noRec
   | _, _, _, _, .Dedup q => q.noRec
   | _, _, _, _, .Diff q₁ q₂ => q₁.noRec ∧ q₂.noRec
-  | _, _, _, _, .Alt _ _ q => q.noRec
+  | _, _, _, _, .Explode _ _ q => q.noRec
   | _, _, _, _, .Mu _ _ _ => False
   | _, _, _, _, .MuSet _ _ _ => False
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noRec
@@ -634,7 +634,7 @@ theorem AggQueryIn.exists_polyBound :
     obtain ⟨b, k, hb⟩ := ih₁ hq.1
     exact ⟨b, k, fun D γ => le_trans
       (Multiset.card_le_card (Multiset.filter_le _ _)) (hb D γ)⟩
-  | Alt k hk q ih => exact fun hq => ih hq
+  | Explode k hk q ih => exact fun hq => ih hq
   | Retag hk q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
@@ -942,7 +942,7 @@ theorem AggQueryIn.exists_valsIn {cnt : SeqAggFunc T} {g : ℕ → T}
     exact ⟨b, k, fun D γ V hD hγ hc hV =>
       Relation.valsIn_of_le (Multiset.filter_le _ _)
         (hb D γ V hD hγ hc.1 hV)⟩
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     refine fun hq hs => ?_
     obtain ⟨b, k', hb⟩ := ih hq hs
     exact ⟨b, k', fun D γ V hD hγ hc hV => hb D γ V hD hγ hc hV⟩
@@ -1112,7 +1112,7 @@ def AggQueryIn.recSimple : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.recSimple ∧ q₂.recSimple
   | _, _, _, _, .Dedup q => q.recSimple
   | _, _, _, _, .Diff q₁ q₂ => q₁.recSimple ∧ q₂.recSimple
-  | _, _, _, _, .Alt _ _ q => q.recSimple
+  | _, _, _, _, .Explode _ _ q => q.recSimple
   | _, _, _, _, .Mu _ _ _ => False
   | _, _, _, _, .MuSet s q₀ q₁ =>
       q₀.noRec ∧ q₁.noRec ∧ q₀.recGuarded s ∧ q₁.recGuarded s
@@ -1142,7 +1142,7 @@ theorem AggQueryIn.recSimple_of_noRec :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => hq.elim
   | Gamma is ts fs q keep ord ih => exact ih
@@ -1268,7 +1268,7 @@ theorem AggQueryIn.exists_valsIn_assign {cnt : SeqAggFunc T} {g : ℕ → T}
       AggQueryIn.evaluatePlain_assign_of_noMention X q₂ hrg.2 D γ]
     exact Relation.valsIn_of_le (Multiset.filter_le _ _)
       (hb D γ V hD hγ hc.1 hV)
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     refine fun hq hs hrg => ?_
     obtain ⟨b, k', hb⟩ := ih hq hs hrg
     exact ⟨b, k', fun D γ V hD hX hγ hc hV => hb D γ V hD hX hγ hc hV⟩
@@ -1521,7 +1521,7 @@ def AggQueryIn.aritiesLe (A : ℕ) : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, _, .Sum q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
   | _, _, _, _, .Dedup q => q.aritiesLe A
   | _, _, _, _, .Diff q₁ q₂ => q₁.aritiesLe A ∧ q₂.aritiesLe A
-  | _, _, _, _, .Alt _ _ q => q.aritiesLe A
+  | _, _, _, _, .Explode _ _ q => q.aritiesLe A
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.aritiesLe A ∧ q₁.aritiesLe A
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.aritiesLe A ∧ q₁.aritiesLe A
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.aritiesLe A
@@ -1577,7 +1577,7 @@ def AggQueryIn.maxArity : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Sum q₁ q₂ => max q₁.maxArity q₂.maxArity
   | _, _, _, _, .Dedup q => q.maxArity
   | _, _, _, _, .Diff q₁ q₂ => max q₁.maxArity q₂.maxArity
-  | _, _, _, _, .Alt _ _ q => q.maxArity
+  | _, _, _, _, .Explode _ _ q => q.maxArity
   | _, _, _, _, .Mu _ q₀ q₁ => max q₀.maxArity q₁.maxArity
   | _, _, _, _, .MuSet _ q₀ q₁ => max q₀.maxArity q₁.maxArity
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.maxArity
@@ -1605,7 +1605,7 @@ theorem AggQueryIn.aritiesLe_mono {A A' : ℕ} (h : A ≤ A') :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
   | Gamma is ts fs q keep ord ih => exact ih
@@ -1641,7 +1641,7 @@ theorem AggQueryIn.aritiesLe_maxArity :
   | Diff q₁ q₂ ih₁ ih₂ =>
     exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₁ ih₁,
       AggQueryIn.aritiesLe_mono (le_max_right _ _) q₂ ih₂⟩
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact ⟨AggQueryIn.aritiesLe_mono (le_max_left _ _) q₀ ih₀,
       AggQueryIn.aritiesLe_mono (le_max_right _ _) q₁ ih₁⟩
@@ -1936,7 +1936,7 @@ theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
         fun V hD hγ hc hV => Relation.valsIn_of_le (Multiset.filter_le _ _)
           ((hM D γ hs.1).2 V hD hγ (subset_trans Finset.subset_union_left hc) hV)⟩⟩,
       fun _ _ h _ => absurd h (by simp)⟩
-  | Alt k hk q ih => intro hq hr hsig ha; exact ih hq hr hsig ha
+  | Explode k hk q ih => intro hq hr hsig ha; exact ih hq hr hsig ha
   | Retag hk q ih => intro hq hr hsig ha; exact ih hq hr hsig ha
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ =>
@@ -2212,7 +2212,7 @@ theorem AggQueryIn.noRec_of_usesOnly {S : Set OpKind}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
-  | Alt k hk q ih => exact fun hq => ih hq
+  | Explode k hk q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
   | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2

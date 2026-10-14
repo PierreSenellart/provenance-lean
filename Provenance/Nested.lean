@@ -73,7 +73,7 @@ structure NestedValue (T K : Type) where
   aggregate becomes one of these when it is symmetric
   (`SeqAggFunc.onBag`), and an order-dependent outer aggregate has no
   nested reading at all – it goes through the alternatives
-  (`AggQueryIn.Alt`), after which nothing is nested. -/
+  (`AggQueryIn.Explode`), after which nothing is nested. -/
   agg : Multiset T → T
   /-- **The occurrences, as a bag**: per outer occurrence, what the term
   reads there and the occurrence's own annotation. What it reads is an

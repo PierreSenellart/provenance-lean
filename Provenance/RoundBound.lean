@@ -120,7 +120,7 @@ theorem AggQueryIn.bind_of_body {s : String} {m : ℕ} :
       rw [add_left_comm]
   | Dedup q ih => exact fun hl => absurd hl (by simp)
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hl hr D γ
     obtain ⟨F, C, h⟩ := ih hl hr D γ
     exact ⟨F, C, fun X => by rw [AggQueryIn.evaluatePlain]; exact h X⟩

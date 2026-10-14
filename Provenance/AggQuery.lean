@@ -717,7 +717,7 @@ token, and a plain term reading one would read it through its
 deterministic collapse – the value SQL prints for it, but not what it
 reads in a given world. A window asks this of its aggregate term
 (`WinReadsReg`); the way to read an aggregate column *as a value* is
-`AggQueryIn.Alt`, which turns it into a regular one. -/
+`AggQueryIn.Explode`, which turns it into a regular one. -/
 def TermIn.regOnly {c n : ℕ} (κ : Fin n → ColKind) : TermIn T c n → Bool
   | .const _ => true
   | .outer _ => true
@@ -754,7 +754,7 @@ in a world what the plain window reads of that world: an aggregate column
 can order two occurrences one way in one world and the other way in the
 next, so a window that read one would not commute with the possible
 worlds. Ordering or partitioning by an aggregate reads it as a key,
-through `AggQueryIn.Alt`. -/
+through `AggQueryIn.Explode`. -/
 def WinReadsReg {c n m p : ℕ} (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (t : TermIn T c n) : Prop :=
   (∀ k, (κ (P k)).base = ColKind.reg) ∧ (∀ k, (κ (O k)).base = ColKind.reg)
@@ -927,15 +927,23 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
       AggQueryIn T c n (ColKind.allReg n) →
       AggQueryIn T c n (ColKind.allReg n) [(s, n)] →
       AggQueryIn T c n (ColKind.allReg n)
-  /-- **Reading an aggregate column as a key.** Every operator here
-  that compares keys – `Dedup`, `Diff`, the grouping and partition
-  indices – takes regular columns, so a query that groups on a count
-  or deduplicates on an aggregate is written by first reading the
-  column as a key: the occurrence is replaced by its alternatives, one
-  per value the column takes, each carrying `[a ≐ v]`, and the column
-  becomes regular (`GenRow.alternativesAt`). Over a plain relation an
-  aggregate value is a value and this is the identity. -/
-  | Alt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → (k : Fin n) →
+  /-- **Exploding an aggregate column: reading it as a key.** Every
+  operator here that compares keys – `Dedup`, `Diff`, the grouping and
+  partition indices – takes regular columns, so a query that groups on
+  a count or deduplicates on an aggregate is written by first reading
+  the column as a key: the occurrence is replaced by its alternatives,
+  one per value the column takes, each carrying `[a ≐ v]`, and the
+  column becomes regular (`GenRow.alternativesAt`). This is ProvSQL's
+  `rewrite_explode_agg_value` (one row per value the aggregate takes
+  over the possible worlds) and the semantics paper's reading of an
+  aggregate column as a key, as against the reading as a value, which
+  the aggregate atoms and terms have world by world and which needs no
+  operator. Over a plain relation an aggregate value is a value and
+  this is the identity – it is a typing device there, charged to no
+  class by `usesOnly`; in the annotated semantics it is an operator of
+  its own, out of the language the annotated classification is about
+  (`noExplode`). -/
+  | Explode : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} → (k : Fin n) →
       κ k = ColKind.agg → AggQueryIn T c n κ l →
       AggQueryIn T c n (Function.update κ k ColKind.reg) l
   /-- The decomposed grouping operator `γ^≼`: group the (all-regular)
@@ -1004,7 +1012,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   order – that order is an order on plain tuples – so there is no
   sequence for an order-dependent `f` to read, and the outer aggregate is
   a function of the bag. An order-dependent outer aggregate has no
-  reading of this kind and needs none: it goes through `Alt`, after which
+  reading of this kind and needs none: it goes through `Explode`, after which
   the column read is regular and the aggregation is an ordinary `Gamma`.
 
   Where `p` reads a regular column the nesting degenerates – each
@@ -1106,7 +1114,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   aggregate column can order two peers one way in one world and the other
   way in the next, so a window reading one would not commute with the
   possible worlds. Ordering or partitioning *by* an aggregate reads it as
-  a key, through `AggQueryIn.Alt`. -/
+  a key, through `AggQueryIn.Explode`. -/
   | Win : {c n m p : ℕ} → {κ : Fin n → ColKind} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
       (w : ValueFrame T p) →
@@ -1842,7 +1850,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
   | _, _, _, _, Dedup q, d, γ =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ).map GenRow.toAnnotated
     (Multiset.ofList (groupByKey r).val).map GenRow.ofAnnotated
-  | _, _, _, _, Alt k _ q, d, γ =>
+  | _, _, _, _, Explode k _ q, d, γ =>
     (q.evaluate d γ).bind (fun r => r.alternativesAt k)
   | _, _, _, _, Mu s q₀ q₁, d, γ =>
     -- the rounds up to the first empty one, junk where none is empty
@@ -2266,7 +2274,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
         (Fin.append u v : Tuple T (n₁ + _))))
   | _, _, _, _, Sum q₁ q₂, d, γ => q₁.evaluatePlain d γ + q₂.evaluatePlain d γ
   | _, _, _, _, Dedup q, d, γ => (q.evaluatePlain d γ).dedup
-  | _, _, _, _, Alt _ _ q, d, γ => q.evaluatePlain d γ
+  | _, _, _, _, Explode _ _ q, d, γ => q.evaluatePlain d γ
   | _, _, _, _, Mu s q₀ q₁, d, γ =>
     muSumFix (fun X => q₁.evaluatePlain (d.assign s X) γ)
       (q₀.evaluatePlain d γ)
@@ -2545,7 +2553,7 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, Sum q₁ q₂ => Sum q₁.stripAgg q₂.stripAgg
   | _, _, _, _, Dedup q => Dedup q.stripAgg
   | _, _, _, _, Diff q₁ _ => q₁.stripAgg
-  | _, _, _, _, Alt k h q => Alt k h q.stripAgg
+  | _, _, _, _, Explode k h q => Explode k h q.stripAgg
   | _, _, _, _, Mu s q₀ q₁ => Mu s q₀.stripAgg q₁.stripAgg
   | _, _, _, _, MuSet s q₀ q₁ => MuSet s q₀.stripAgg q₁.stripAgg
   | _, _, _, _, Gamma is ts fs q keep ord => Gamma is ts fs q.stripAgg keep ord
@@ -2577,7 +2585,7 @@ def AggQueryIn.noProvSum : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
   | _, _, _, _, .Dedup q => q.noProvSum
   | _, _, _, _, .Diff q₁ q₂ => q₁.noProvSum ∧ q₂.noProvSum
-  | _, _, _, _, .Alt _ _ q => q.noProvSum
+  | _, _, _, _, .Explode _ _ q => q.noProvSum
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noProvSum ∧ q₁.noProvSum
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noProvSum
@@ -2594,30 +2602,30 @@ per value the column takes in *some* world, so the data part of the
 annotated evaluation is not the data part of any one world, and the
 annotation-forgetting adequacy of `evaluateAnnotated_toPlain` does not
 hold for it – unlike the readings that *are* world readings, the
-Boolean support and the random world, which `Alt` respects. -/
-def AggQueryIn.altFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
+Boolean support and the random world, which `Explode` respects. -/
+def AggQueryIn.noExplode {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} →
     {l : List (String × ℕ)} → AggQueryIn T' c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
   | _, _, _, _, .Hole _ _ => True
   | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.altFree
-  | _, _, _, _, .Sel _ q _ => q.altFree
-  | _, _, _, _, .Prod q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, _, .Apply q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, _, .Sum q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, _, .Dedup q => q.altFree
-  | _, _, _, _, .Diff q₁ q₂ => q₁.altFree ∧ q₂.altFree
-  | _, _, _, _, .Alt _ _ _ => False
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.altFree ∧ q₁.altFree
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.altFree
-  | _, _, _, _, .GammaScalar _ _ q _ => q.altFree
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.altFree
-  | _, _, _, _, .ProvSum _ _ _ q => q.altFree
-  | _, _, _, _, .Retag _ q => q.altFree
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.altFree
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.altFree
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.altFree
+  | _, _, _, _, .Proj _ q => q.noExplode
+  | _, _, _, _, .Sel _ q _ => q.noExplode
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noExplode ∧ q₂.noExplode
+  | _, _, _, _, .Apply q₁ q₂ => q₁.noExplode ∧ q₂.noExplode
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noExplode ∧ q₂.noExplode
+  | _, _, _, _, .Dedup q => q.noExplode
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noExplode ∧ q₂.noExplode
+  | _, _, _, _, .Explode _ _ _ => False
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noExplode ∧ q₁.noExplode
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noExplode ∧ q₁.noExplode
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noExplode
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noExplode
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noExplode
+  | _, _, _, _, .ProvSum _ _ _ q => q.noExplode
+  | _, _, _, _, .Retag _ q => q.noExplode
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noExplode
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noExplode
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noExplode
 
 /-! ## Join conditions on key columns -/
 
@@ -2845,7 +2853,7 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Sum q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
   | _, _, _, _, .Dedup q => q.noFilter
   | _, _, _, _, .Diff q₁ q₂ => q₁.noFilter ∧ q₂.noFilter
-  | _, _, _, _, .Alt _ _ q => q.noFilter
+  | _, _, _, _, .Explode _ _ q => q.noFilter
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noFilter ∧ q₁.noFilter
   | _, _, _, _, .Gamma _ _ _ q keep _ => (∀ j, keep j = none) ∧ q.noFilter
@@ -2899,7 +2907,7 @@ def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} → {l : L
   | _, _, _, _, .Sum q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
   | _, _, _, _, .Dedup q => q.noGammaNest
   | _, _, _, _, .Diff q₁ q₂ => q₁.noGammaNest ∧ q₂.noGammaNest
-  | _, _, _, _, .Alt _ _ q => q.noGammaNest
+  | _, _, _, _, .Explode _ _ q => q.noGammaNest
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaNest ∧ q₁.noGammaNest
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noGammaNest
@@ -2934,7 +2942,7 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .Sum q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
   | _, _, _, _, .Dedup q => q.recSettles
   | _, _, _, _, .Diff q₁ q₂ => q₁.recSettles ∧ q₂.recSettles
-  | _, _, _, _, .Alt _ _ q => q.recSettles
+  | _, _, _, _, .Explode _ _ q => q.recSettles
   | _, _, _, _, .Mu s q₀ q₁ =>
       (∀ (d : AnnotatedDatabase T K) γ,
           AggQueryIn.muStep s q₁ d γ 0 = 0
@@ -2980,7 +2988,7 @@ def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, _, .Sum q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
   | _, _, _, _, .Dedup q => q.nestInComplemented
   | _, _, _, _, .Diff q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, _, .Alt _ _ q => q.nestInComplemented
+  | _, _, _, _, .Explode _ _ q => q.nestInComplemented
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestInComplemented
@@ -3010,7 +3018,7 @@ theorem AggQueryIn.nestInComplemented_of_noGammaNest :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma is ts fs q keep ord ih => exact ih
@@ -3046,7 +3054,7 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
   | _, _, _, _, .Dedup q => q.nestOnce
   | _, _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, _, .Alt _ _ q => q.nestOnce
+  | _, _, _, _, .Explode _ _ q => q.nestOnce
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
@@ -3076,7 +3084,7 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Alt a b q ih => exact ih
+  | Explode a b q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma a b cc q kp od ih => exact ih
@@ -3110,7 +3118,7 @@ def AggQueryIn.noWinExpr : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
   | _, _, _, _, .Dedup q => q.noWinExpr
   | _, _, _, _, .Diff q₁ q₂ => q₁.noWinExpr ∧ q₂.noWinExpr
-  | _, _, _, _, .Alt _ _ q => q.noWinExpr
+  | _, _, _, _, .Explode _ _ q => q.noWinExpr
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noWinExpr ∧ q₁.noWinExpr
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noWinExpr
@@ -3148,7 +3156,7 @@ def AggQueryIn.framesContainSelf : {c n : ℕ} → {κ : Fin n → ColKind} → 
   | _, _, _, _, .Sum q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
   | _, _, _, _, .Dedup q => q.framesContainSelf
   | _, _, _, _, .Diff q₁ q₂ => q₁.framesContainSelf ∧ q₂.framesContainSelf
-  | _, _, _, _, .Alt _ _ q => q.framesContainSelf
+  | _, _, _, _, .Explode _ _ q => q.framesContainSelf
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.framesContainSelf ∧ q₁.framesContainSelf
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.framesContainSelf
@@ -3177,7 +3185,7 @@ theorem AggQueryIn.framesContainSelf_of_noWinExpr :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hw => ⟨ih₁ hw.1, ih₂ hw.2⟩
-  | Alt a b q ih => exact ih
+  | Explode a b q ih => exact ih
   | Mu a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun hw => ⟨ih₀ hw.1, ih₁ hw.2⟩
   | Gamma a b cc q kp od ih => exact ih
@@ -3304,7 +3312,7 @@ theorem AggQueryIn.evaluate_ordinaryTokens :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hn hfl d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
@@ -3517,7 +3525,7 @@ theorem AggQueryIn.evaluate_noNested :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hn d γ r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
@@ -3736,7 +3744,7 @@ theorem AggQueryIn.evaluate_conform :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     rfl
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro d γ r hr j
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr

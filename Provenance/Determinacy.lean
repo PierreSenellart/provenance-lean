@@ -255,7 +255,7 @@ def AggQueryIn.DeterminateOn : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, .Sum q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
   | _, _, _, _, .Dedup q, D, γ => q.DeterminateOn D γ
   | _, _, _, _, .Diff q₁ q₂, D, γ => q₁.DeterminateOn D γ ∧ q₂.DeterminateOn D γ
-  | _, _, _, _, .Alt _ _ q, D, γ => q.DeterminateOn D γ
+  | _, _, _, _, .Explode _ _ q, D, γ => q.DeterminateOn D γ
   | _, _, _, _, .Retag _ q, D, γ => q.DeterminateOn D γ
   | _, _, _, _, .Mu _ q₀ q₁, D, γ => q₀.DeterminateOn D γ ∧ q₁.DeterminateOn D γ
   | _, _, _, _, .MuSet _ q₀ q₁, D, γ =>

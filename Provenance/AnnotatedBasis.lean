@@ -25,7 +25,7 @@ annotated exactly when the stripped query's do plain
 (`AggQueryIn.settlesAt_stripAgg_of_annSettlesAt`,
 `AggQueryIn.annSettlesAt_of_settlesAt`). So a set generating the
 annotated algebra generates, in the plain semantics, every query with
-nothing to strip (`generatesAtAltFree_of_generatesAnn`), which every
+nothing to strip (`generatesAtNoExplode_of_generatesAnn`), which every
 witness of the plain rows is: `∅`, `Π`, `γ`, `μ^⊎`, `win`, `σ` and one
 of `×`/apply are in every set generating the annotated algebra over
 `ℕ` with the counting aggregate (`required_mem_of_generatesAnn`). The
@@ -84,7 +84,7 @@ def AggQueryIn.liftFaithful : {c n : ℕ} → {κ : Fin n → ColKind} → {l : 
   | _, _, _, _, .Sum q₁ q₂ => q₁.liftFaithful ∧ q₂.liftFaithful
   | _, _, _, _, .Dedup q => q.liftFaithful
   | _, _, _, _, .Diff _ _ => False
-  | _, _, _, _, .Alt _ _ q => q.liftFaithful
+  | _, _, _, _, .Explode _ _ q => q.liftFaithful
   | _, _, _, _, .Retag _ q => q.liftFaithful
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.liftFaithful ∧ q₁.liftFaithful
   | _, _, _, _, .MuSet _ _ _ => False
@@ -103,9 +103,9 @@ omit [ValueType T] in
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.altFree_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+@[simp] theorem AggQueryIn.noExplode_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
     {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
-    (q.castKind h).altFree ↔ q.altFree := by
+    (q.castKind h).noExplode ↔ q.noExplode := by
   cases h; exact Iff.rfl
 
 omit [ValueType T] in
@@ -126,7 +126,7 @@ theorem AggQueryIn.stripAgg_eq_of_liftFaithful :
   | Sum q₁ q₂ ih₁ ih₂ => intro h; rw [AggQueryIn.stripAgg, ih₁ h.1, ih₂ h.2]
   | Dedup q ih => intro h; rw [AggQueryIn.stripAgg, ih h]
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => intro h; rw [AggQueryIn.stripAgg, ih h]
+  | Explode k hk q ih => intro h; rw [AggQueryIn.stripAgg, ih h]
   | Retag hk q ih => intro h; rw [AggQueryIn.stripAgg, ih h]
   | Mu s q₀ q₁ ih₀ ih₁ => intro h; rw [AggQueryIn.stripAgg, ih₀ h.1, ih₁ h.2]
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -161,7 +161,7 @@ theorem AggQueryIn.usesOnly_stripAgg {S : Set OpKind} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨h.1, ih₁ h.2.1, ih₂ h.2.2⟩
   | Dedup q ih => exact fun h => ⟨h.1, ih h.2⟩
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.2.1
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Retag hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨h.1, ih₀ h.2.1, ih₁ h.2.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨h.1, ih₀ h.2.1, ih₁ h.2.2⟩
@@ -193,7 +193,7 @@ theorem AggQueryIn.inSig_stripAgg {Θ : Set (SeqAggFunc T)} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Retag hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
@@ -226,7 +226,7 @@ theorem AggQueryIn.noMention_stripAgg {s : String} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Retag hk q ih => exact fun h => ih h
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
@@ -259,7 +259,7 @@ theorem AggQueryIn.overSchema_stripAgg {sch : Schema} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Retag hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun h => ⟨h.1, ih₀ h.2.1, AggQueryIn.noMention_stripAgg q₁ h.2.2.1, ih₁ h.2.2.2⟩
@@ -274,9 +274,9 @@ theorem AggQueryIn.overSchema_stripAgg {sch : Schema} :
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
 
 omit [ValueType T] in
-theorem AggQueryIn.altFree_stripAgg :
+theorem AggQueryIn.noExplode_stripAgg :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.altFree → q.stripAgg.altFree := by
+      q.noExplode → q.stripAgg.noExplode := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun h => h
@@ -294,7 +294,7 @@ theorem AggQueryIn.altFree_stripAgg :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
-  | Alt k hk q ih => exact fun h => h.elim
+  | Explode k hk q ih => exact fun h => h.elim
   | Retag hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
@@ -366,7 +366,7 @@ theorem AggQueryIn.settlesAt_assign_zero_of_body {s : String} {m : ℕ} :
         ih₂ h₂ hr.2 D γ X h.2⟩
   | Dedup q ih => exact fun hl => absurd hl (by simp)
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
-  | Alt k hk q ih => exact fun hl hr D γ X h => ih hl hr D γ X h
+  | Explode k hk q ih => exact fun hl hr D γ X h => ih hl hr D γ X h
   | Retag hk q ih => exact fun hl hr D γ X h => ih hl hr D γ X h
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
@@ -394,7 +394,7 @@ evaluation's recursions settle, the stripped query's do on the data
 part. -/
 theorem AggQueryIn.settlesAt_stripAgg_of_annSettlesAt :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.altFree → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T),
+      q.noExplode → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T),
         q.AnnSettlesAt d γ → q.stripAgg.SettlesAt d.toPlain γ := by
   intro c n κ l q
   induction q with
@@ -417,7 +417,7 @@ theorem AggQueryIn.settlesAt_stripAgg_of_annSettlesAt :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq d γ hr => ⟨ih₁ hq.1 d γ hr.1, ih₂ hq.2 d γ hr.2⟩
   | Dedup q ih => exact fun hq d γ hr => ih hq d γ hr
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq d γ hr => ih₁ hq.1 d γ hr.1
-  | Alt k hk q ih => exact fun hq => hq.elim
+  | Explode k hk q ih => exact fun hq => hq.elim
   | Retag hk q ih => exact fun hq d γ hr => ih hq d γ hr
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
@@ -497,7 +497,7 @@ recursion is excluded by `liftFaithful`: its annotated rounds may keep
 changing where its plain rounds have stopped. -/
 theorem AggQueryIn.annSettlesAt_of_settlesAt :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.liftFaithful → q.altFree → q.hygienic → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T),
+      q.liftFaithful → q.noExplode → q.hygienic → ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T),
         q.SettlesAt d.toPlain γ → q.AnnSettlesAt d γ := by
   intro c n κ l q
   induction q with
@@ -519,7 +519,7 @@ theorem AggQueryIn.annSettlesAt_of_settlesAt :
     exact fun hf hq hh d γ hr => ⟨ih₁ hf.1 hq.1 hh.1 d γ hr.1, ih₂ hf.2 hq.2 hh.2 d γ hr.2⟩
   | Dedup q ih => exact fun hf hq hh d γ hr => ih hf hq hh d γ hr
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hf => hf.elim
-  | Alt k hk q ih => exact fun _ hq => hq.elim
+  | Explode k hk q ih => exact fun _ hq => hq.elim
   | Retag hk q ih => exact fun hf hq hh d γ hr => ih hf hq hh d γ hr
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
@@ -591,9 +591,9 @@ semantics paper's equality up to rows annotated `𝟘`. -/
 def GeneratesAnn (T : Type) [ValueType T] (K : Type) [CommSemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
-    q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt → q.altFree →
+    q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt → q.noExplode →
       ∃ q' : AggQuery T n κ,
-        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.altFree
+        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode
           ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), q.AnnSettlesAt d γ →
               q'.AnnSettlesAt d γ ∧ q'.evaluateAnnotated d γ = q.evaluateAnnotated d γ
 
@@ -608,8 +608,8 @@ theorem GeneratesAnn.mono {sch : Schema} {cnt : SeqAggFunc T} {S S' : Set OpKind
   obtain ⟨q', h₁, h₂, h₃, h₄, h₅⟩ := h q ho hu hi ha
   exact ⟨q', h₁, AggQueryIn.usesOnly_mono hSS q' h₂, h₃, h₄, h₅⟩
 
-theorem GeneratesAtAltFree.toGeneratesAt {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
-    {n : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ} (h : GeneratesAtAltFree T sch cnt S q) :
+theorem GeneratesAtNoExplode.toGeneratesAt {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+    {n : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ} (h : GeneratesAtNoExplode T sch cnt S q) :
     GeneratesAt T sch cnt S q := by
   intro ho hu hi
   obtain ⟨κ', q', h₁, h₂, h₃, -, h₅⟩ := h ho hu hi
@@ -620,13 +620,13 @@ algebra over `K` generates, plainly and without reading aggregate columns
 as keys, every faithful query – the matching query, stripped of its
 aggregate selections and differences, reads a plain instance annotated
 `𝟙` as the query does, on the data part. -/
-theorem generatesAtAltFree_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
+theorem generatesAtNoExplode_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnn T K sch cnt S) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-    (hf : q.liftFaithful) (ha : q.altFree) : GeneratesAtAltFree T sch cnt S q := by
+    (hf : q.liftFaithful) (ha : q.noExplode) : GeneratesAtNoExplode T sch cnt S q := by
   intro ho hu hi
   obtain ⟨q', ho', hu', hi', ha', he⟩ := h q ho hu hi ha
   refine ⟨κ, q'.stripAgg, AggQueryIn.overSchema_stripAgg q' ho', AggQueryIn.usesOnly_stripAgg q' hu',
-    AggQueryIn.inSig_stripAgg q' hi', AggQueryIn.altFree_stripAgg q' ha',
+    AggQueryIn.inSig_stripAgg q' hi', AggQueryIn.noExplode_stripAgg q' ha',
     AggQueryIn.Extends.of_settles (fun D γ hD => ?_)⟩
   have hann : q.AnnSettlesAt (D.liftOne (K := K)) γ :=
     AggQueryIn.annSettlesAt_of_settlesAt q hf ha (q.hygienic_of_overSchema _ ho) _ γ
@@ -648,70 +648,70 @@ theorem AggQueryIn.liftFaithful_unit : (AggQueryIn.unit : AggQuery T 0 _).liftFa
   rw [AggQueryIn.unit, AggQueryIn.liftFaithful_castKind]; exact trivial
 
 omit [ValueType T] in
-theorem AggQueryIn.altFree_unit : (AggQueryIn.unit : AggQuery T 0 _).altFree := by
-  rw [AggQueryIn.unit, AggQueryIn.altFree_castKind]; exact trivial
+theorem AggQueryIn.noExplode_unit : (AggQueryIn.unit : AggQuery T 0 _).noExplode := by
+  rw [AggQueryIn.unit, AggQueryIn.noExplode_castKind]; exact trivial
 
 theorem liftFaithful_selWitness : selWitness.liftFaithful := ⟨rfl, trivial⟩
-theorem altFree_selWitness : selWitness.altFree := trivial
+theorem noExplode_selWitness : selWitness.noExplode := trivial
 theorem liftFaithful_projWitness : projWitness.liftFaithful := trivial
-theorem altFree_projWitness : projWitness.altFree := trivial
+theorem noExplode_projWitness : projWitness.noExplode := trivial
 theorem liftFaithful_prodWitness : prodWitness.liftFaithful := ⟨trivial, trivial⟩
-theorem altFree_prodWitness : prodWitness.altFree := ⟨trivial, trivial⟩
+theorem noExplode_prodWitness : prodWitness.noExplode := ⟨trivial, trivial⟩
 theorem liftFaithful_chainWitness : chainWitness.liftFaithful := by
   simp [chainWitness, reachStep, AggQueryIn.liftFaithful, GenPredIn.hasAggAtom]
-theorem altFree_chainWitness : chainWitness.altFree := by
-  simp [chainWitness, reachStep, AggQueryIn.altFree]
+theorem noExplode_chainWitness : chainWitness.noExplode := by
+  simp [chainWitness, reachStep, AggQueryIn.noExplode]
 theorem liftFaithful_winWitness : WinRow.winWitness.liftFaithful := trivial
-theorem altFree_winWitness : WinRow.winWitness.altFree := trivial
+theorem noExplode_winWitness : WinRow.winWitness.noExplode := trivial
 theorem liftFaithful_ltWitness : ltWitness.liftFaithful := ⟨rfl, trivial⟩
-theorem altFree_ltWitness : ltWitness.altFree := trivial
+theorem noExplode_ltWitness : ltWitness.noExplode := trivial
 
 /-! ## The inherited rows -/
 
 /-- `∅` is in every set generating the annotated algebra over the empty schema. -/
 theorem empty_mem_of_generatesAnn {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnn T K Schema.empty cnt S) : OpKind.empty ∈ S :=
-  empty_mem_of_generatesAt (generatesAtAltFree_of_generatesAnn h _
-    AggQueryIn.liftFaithful_unit AggQueryIn.altFree_unit).toGeneratesAt
+  empty_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
+    AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit).toGeneratesAt
 
 /-- `γ` is in every set generating the annotated algebra. -/
 theorem gamma_mem_of_generatesAnn {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnn T K sch cnt S) : OpKind.gamma ∈ S :=
-  gamma_mem_of_generatesAt (generatesAtAltFree_of_generatesAnn h _
-    AggQueryIn.liftFaithful_unit AggQueryIn.altFree_unit).toGeneratesAt
+  gamma_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
+    AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit).toGeneratesAt
 
 /-- `Π` is in every set generating the annotated algebra over `ℕ`. -/
 theorem proj_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaS cnt S) : OpKind.proj ∈ S :=
-  proj_mem_of_generatesAt (generatesAtAltFree_of_generatesAnn h _
-    liftFaithful_projWitness altFree_projWitness).toGeneratesAt
+  proj_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
+    liftFaithful_projWitness noExplode_projWitness).toGeneratesAt
 
 /-- `×` or the apply is in every set generating the annotated algebra over `ℕ`. -/
 theorem prod_or_apply_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaR cnt S) : OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
-  prod_or_apply_mem_of_generatesAt (generatesAtAltFree_of_generatesAnn h _
-    liftFaithful_prodWitness altFree_prodWitness).toGeneratesAt
+  prod_or_apply_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
+    liftFaithful_prodWitness noExplode_prodWitness).toGeneratesAt
 
 /-- `μ^⊎` is in every set generating the annotated algebra over `ℕ`. -/
 theorem muBag_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount) {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaSE cnt S) : OpKind.muBag ∈ S :=
-  muBag_mem_of_generatesAt hcnt (generatesAtAltFree_of_generatesAnn h _
-    liftFaithful_chainWitness altFree_chainWitness).toGeneratesAt
+  muBag_mem_of_generatesAt hcnt (generatesAtNoExplode_of_generatesAnn h _
+    liftFaithful_chainWitness noExplode_chainWitness).toGeneratesAt
 
 /-- `win` is in every set generating the annotated algebra over `ℕ` with
 the counting aggregate. -/
 theorem win_mem_of_generatesAnn {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
-  win_mem_of_generatesAt (generatesAtAltFree_of_generatesAnn h _
-    liftFaithful_winWitness altFree_winWitness).toGeneratesAt
+  win_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnn h _
+    liftFaithful_winWitness noExplode_winWitness).toGeneratesAt
 
 /-- **`σ` is in every set generating the annotated algebra over `ℕ`**: the
 alternatives being out of the language, the selection row holds outright,
 with no difference to trade it for. -/
 theorem sel_mem_of_generatesAnn {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnn ℕ K schemaS cnt S) : OpKind.sel ∈ S :=
-  sel_mem_of_generatesAtAltFree (generatesAtAltFree_of_generatesAnn h _
-    liftFaithful_ltWitness altFree_ltWitness)
+  sel_mem_of_generatesAtNoExplode (generatesAtNoExplode_of_generatesAnn h _
+    liftFaithful_ltWitness noExplode_ltWitness)
 
 /-- **What every set generating the annotated algebra contains**, over
 `ℕ` with the counting aggregate and over every commutative m-semiring:

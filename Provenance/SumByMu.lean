@@ -60,7 +60,7 @@ def AggQueryIn.names : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (S
   | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.names q₂.names
   | _, _, _, _, .Dedup q => q.names
   | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.names q₂.names
-  | _, _, _, _, .Alt _ _ q => q.names
+  | _, _, _, _, .Explode _ _ q => q.names
   | _, _, _, _, .Retag _ q => q.names
   | _, _, _, _, .Mu s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
   | _, _, _, _, .MuSet s q₀ q₁ => insert s (Union.union q₀.names q₁.names)
@@ -97,7 +97,7 @@ theorem AggQueryIn.noMention_of_not_mem_names {s : String} :
   | Diff q₁ q₂ ih₁ ih₂ =>
     exact fun h => ⟨ih₁ (fun h' => h (Finset.mem_union_left _ h')),
       ih₂ (fun h' => h (Finset.mem_union_right _ h'))⟩
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Retag hk q ih => exact fun h => ih h
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     exact fun h => ⟨ih₀ (fun h' => h (Finset.mem_insert_of_mem (Finset.mem_union_left _ h'))),
@@ -157,7 +157,7 @@ theorem AggQueryIn.overSchema_update_of_not_mem_names {s : String} {m : ℕ} :
   | Diff q₁ q₂ ih₁ ih₂ =>
     exact fun h hn => ⟨ih₁ h.1 (fun h' => hn (Finset.mem_union_left _ h')),
       ih₂ h.2 (fun h' => hn (Finset.mem_union_right _ h'))⟩
-  | Alt k hk q ih => exact fun h hn => ih h hn
+  | Explode k hk q ih => exact fun h hn => ih h hn
   | Retag hk q ih => exact fun h hn => ih h hn
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro sch h hn
@@ -227,7 +227,7 @@ theorem AggQueryIn.mem_names_of_index {s : String} {m : ℕ} :
       (fun h => Finset.mem_union_left _ (ih₁ h)) (fun h => Finset.mem_union_right _ (ih₂ h))
   | Dedup q ih => exact fun h => by simp at h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => by simp at h
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => by simp at h
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => by simp at h
@@ -316,7 +316,7 @@ theorem AggQueryIn.names_substMap :
     intro d θ
     show Union.union _ _ = Union.union _ _
     rw [ih₁ θ, ih₂ θ]
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro d θ
@@ -354,7 +354,7 @@ theorem AggQueryIn.hygienic_substMap :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun θ => and_congr (AggQueryIn.noMention_substMap q₀ θ)
@@ -391,7 +391,7 @@ theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
@@ -438,7 +438,7 @@ theorem AggQueryIn.settlesAt_substMap :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
   | Dedup q ih => exact fun θ D γ => ih θ D γ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ D γ => and_congr (ih₁ θ D γ) (ih₂ θ D γ)
-  | Alt k hk q ih => exact fun θ D γ => ih θ D γ
+  | Explode k hk q ih => exact fun θ D γ => ih θ D γ
   | Retag hk q ih => exact fun θ D γ => ih θ D γ
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro d θ D γ
@@ -476,7 +476,7 @@ theorem AggQueryIn.winsDerivable_substMap :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
@@ -1342,7 +1342,7 @@ def AggQueryIn.sumsAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, n, κ, _, .Sum q₁ q₂ => κ = ColKind.allReg n ∧ q₁.sumsAllReg ∧ q₂.sumsAllReg
   | _, _, _, _, .Dedup q => q.sumsAllReg
   | _, _, _, _, .Diff q₁ q₂ => q₁.sumsAllReg ∧ q₂.sumsAllReg
-  | _, _, _, _, .Alt _ _ q => q.sumsAllReg
+  | _, _, _, _, .Explode _ _ q => q.sumsAllReg
   | _, _, _, _, .Retag _ q => q.sumsAllReg
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.sumsAllReg ∧ q₁.sumsAllReg
@@ -1379,7 +1379,7 @@ theorem AggQueryIn.sumsAllReg_substMap :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
@@ -1438,7 +1438,7 @@ theorem AggQueryIn.overSchema_of_update_of_noMention {s : String} {m : ℕ} :
       ih₂ (fun k hk => hl k (List.mem_append.mpr (Or.inr hk))) h.2 ho.2⟩
   | Dedup q ih => exact fun hl h ho => ih hl h ho
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl h ho => ⟨ih₁ hl h.1 ho.1, ih₂ hl h.2 ho.2⟩
-  | Alt k hk q ih => exact fun hl h ho => ih hl h ho
+  | Explode k hk q ih => exact fun hl h ho => ih hl h ho
   | Retag hk q ih => exact fun hl h ho => ih hl h ho
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro sch _ h ho
@@ -1909,15 +1909,15 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     obtain ⟨hs₁', he₁'⟩ := he₁ D γ hset.1
     obtain ⟨hs₂', he₂'⟩ := he₂ D γ hset.2
     exact ⟨⟨hs₁', hs₂'⟩, by simp only [AggQueryIn.evaluatePlain, he₁', he₂']⟩
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, hb⟩ := ih hq hr hi hsa f hf hfr
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
-      exact ⟨AggQueryIn.Alt k hk q', ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins,
+      exact ⟨AggQueryIn.Explode k hk q', ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins,
         hs.over, hs.names, hs.nom⟩, fun D γ hset => he D γ hset⟩
     · obtain ⟨q', qC, hCn, hs, hsC, he⟩ := hb s m hl hnm
-      exact ⟨AggQueryIn.Alt k hk q', AggQueryIn.Alt k hk qC, hCn,
+      exact ⟨AggQueryIn.Explode k hk q', AggQueryIn.Explode k hk qC, hCn,
         ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.wins, hs.over, hs.names, hs.nom⟩,
         ⟨hsC.usesOnly, hsC.hygienic, hsC.inSig, hsC.wins, hsC.over, hsC.names, hsC.nom⟩,
         fun D γ hset => he D γ hset⟩

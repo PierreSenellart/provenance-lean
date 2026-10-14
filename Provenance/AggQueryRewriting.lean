@@ -82,7 +82,7 @@ def AggQueryIn.classical : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Apply _ _ => False
   -- an aggregate column read as a key is not part of (R1)-(R5): the
   -- rewritten plan has no way to enumerate the values a token takes
-  | _, _, _, _, .Alt _ _ _ => False
+  | _, _, _, _, .Explode _ _ _ => False
   -- recursion is not part of (R1)-(R5): a rewritten body carries the
   -- provenance column, so the name bound by the rounds would have to be
   -- bound to the rewritten relation, and the fixpoint is then over a
@@ -123,7 +123,7 @@ theorem AggQueryIn.noGammaNest_of_classical :
     ⟨AggQueryIn.noGammaNest_of_classical q₁ hq.1,
       AggQueryIn.noGammaNest_of_classical q₂ hq.2⟩
   | _, _, _, _, .Apply _ _, hq => hq.elim
-  | _, _, _, _, .Alt _ _ _, hq => hq.elim
+  | _, _, _, _, .Explode _ _ _, hq => hq.elim
   | _, _, _, _, .Mu _ _ _, hq => hq.elim
   | _, _, _, _, .MuSet _ _ _, hq => hq.elim
   | _, _, _, _, .Gamma _ _ _ _ _ _, hq => hq.elim

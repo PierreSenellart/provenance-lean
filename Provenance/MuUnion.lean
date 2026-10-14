@@ -54,7 +54,7 @@ def AggQueryIn.recLinear (s : String) (n : ℕ) : {c m : ℕ} → {κ : Fin m �
         ∨ (l₁ = [] ∧ q₁.noMention s ∧ q₂.recLinear s n)
   | _, _, _, _, .Apply q₁ q₂ => q₁.recLinear s n ∧ q₂.noMention s
   | _, _, _, _, .Sum _ _ => False
-  | _, _, _, _, .Alt _ _ q => q.recLinear s n
+  | _, _, _, _, .Explode _ _ q => q.recLinear s n
   | _, _, _, _, .Retag _ q => q.recLinear s n
   | _, _, _, _, .Dedup _ => False
   | _, _, _, _, .Diff _ _ => False
@@ -88,7 +88,7 @@ theorem AggQueryIn.index_of_recLinear {s : String} {n : ℕ} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -148,7 +148,7 @@ theorem AggQueryIn.evaluatePlain_assign_bind_of_recLinear {s : String} {n : ℕ}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h D γ X => ih h D γ X
+  | Explode k hk q ih => exact fun h D γ X => ih h D γ X
   | Retag hk q ih => exact fun h D γ X => ih h D γ X
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -431,7 +431,7 @@ def AggQueryIn.substRel (s : String) {c n : ℕ} (ρ : AggQueryIn T c n (ColKind
   | _, _, _, .Apply q₁ q₂ => .Apply (substRel s ρ q₁) q₂
   | _, _, _, .Sum q₁ q₂ =>
       AggQueryIn.castIdx (subIdx_append s n _ _).symm (.Sum (substRel s ρ q₁) (substRel s ρ q₂))
-  | _, _, _, .Alt k hk q => .Alt k hk (substRel s ρ q)
+  | _, _, _, .Explode k hk q => .Explode k hk (substRel s ρ q)
   | _, _, _, .Retag hk q => .Retag hk (substRel s ρ q)
   | _, _, _, .Rel n' s' => .Rel n' s'
   | _, _, _, .Empty => .Empty
@@ -483,7 +483,7 @@ theorem AggQueryIn.substRel_of_noMention {s : String} {c n : ℕ}
       subst hl₁ hl₂
       rw [AggQueryIn.substRel, eq_of_heq (ih₁ ρ rfl h.1), eq_of_heq (ih₂ ρ rfl h.2)]
       exact HEq.rfl
-    | Alt k hk q ih =>
+    | Explode k hk q ih =>
       intro hl h
       subst hl
       rw [AggQueryIn.substRel, eq_of_heq (ih ρ rfl h)]
@@ -548,7 +548,7 @@ theorem AggQueryIn.evaluatePlain_substRel {s : String} {c n : ℕ}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h D γ => ih ρ h D γ
+  | Explode k hk q ih => exact fun h D γ => ih ρ h D γ
   | Retag hk q ih => exact fun h D γ => ih ρ h D γ
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -600,7 +600,7 @@ theorem AggQueryIn.noMention_substRel {s s' : String} {c n : ℕ}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hs => ih ρ hρ h hs
+  | Explode k hk q ih => exact fun h hs => ih ρ hρ h hs
   | Retag hk q ih => exact fun h hs => ih ρ hρ h hs
   | Mu s'' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s'' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -806,7 +806,7 @@ theorem recLinear_substMap {s : String} {n : ℕ} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => Iff.rfl
   | Dedup q ih => exact fun θ => Iff.rfl
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => Iff.rfl
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => Iff.rfl
@@ -854,7 +854,7 @@ theorem settlesAt_substRel {s : String} {c n : ℕ} (ρ : AggQueryIn T c n (ColK
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h D γ hρ hq => ih ρ h D γ hρ hq
+  | Explode k hk q ih => exact fun h D γ hρ hq => ih ρ h D γ hρ hq
   | Retag hk q ih => exact fun h D γ hρ hq => ih ρ h D γ hρ hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -898,7 +898,7 @@ theorem settlesAt_assign_of_subset {s : String} {n : ℕ} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h D γ _ _ hXX hq => ih h D γ hXX hq
+  | Explode k hk q ih => exact fun h D γ _ _ hXX hq => ih h D γ hXX hq
   | Retag hk q ih => exact fun h D γ _ _ hXX hq => ih h D γ hXX hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -1549,7 +1549,7 @@ theorem AggQueryIn.snd_mem_names_of_mem_leaves :
     intro p hp
     exact (List.mem_append.mp hp).elim (fun h => Finset.mem_union_left _ (ih₁ p h))
       (fun h => Finset.mem_union_right _ (ih₂ p h))
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro p hp
@@ -1601,7 +1601,7 @@ theorem AggQueryIn.find_of_mem_leaves_of_overSchema :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro sch ho p hp
     exact (List.mem_append.mp hp).elim (ih₁ ho.1 p) (ih₂ ho.2 p)
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro sch ho p hp
@@ -2049,7 +2049,7 @@ theorem usesOnly_substRel {S : Set OpKind} (hρ : ρ.usesOnly S) :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hq => ih ρ hρ h hq
+  | Explode k hk q ih => exact fun h hq => ih ρ hρ h hq
   | Retag hk q ih => exact fun h hq => ih ρ hρ h hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2087,7 +2087,7 @@ theorem hygienic_substRel (hρ : ρ.hygienic) :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hq => ih ρ hρ h hq
+  | Explode k hk q ih => exact fun h hq => ih ρ hρ h hq
   | Retag hk q ih => exact fun h hq => ih ρ hρ h hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2124,7 +2124,7 @@ theorem inSig_substRel {Θ : Set (SeqAggFunc T)} (hρ : ρ.inSig Θ) :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hq => ih ρ hρ h hq
+  | Explode k hk q ih => exact fun h hq => ih ρ hρ h hq
   | Retag hk q ih => exact fun h hq => ih ρ hρ h hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2162,7 +2162,7 @@ theorem sumsAllReg_substRel (hρ : ρ.sumsAllReg) :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hq => ih ρ hρ h hq
+  | Explode k hk q ih => exact fun h hq => ih ρ hρ h hq
   | Retag hk q ih => exact fun h hq => ih ρ hρ h hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2207,7 +2207,7 @@ theorem overSchema_substRel {sch : Schema} (hρ : ρ.overSchema sch) :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h hq => ih ρ hρ h hq
+  | Explode k hk q ih => exact fun h hq => ih ρ hρ h hq
   | Retag hk q ih => exact fun h hq => ih ρ hρ h hq
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2254,7 +2254,7 @@ theorem mem_names_substRel :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Alt k hk q ih => exact fun h x hx => ih ρ h x hx
+  | Explode k hk q ih => exact fun h x hx => ih ρ h x hx
   | Retag hk q ih => exact fun h x hx => ih ρ h x hx
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2590,7 +2590,7 @@ theorem recLinear_of_usesOnly {S : Set OpKind} (hSu : OpKind.union ∉ S) {s : S
   | Sum q₁ q₂ ih₁ ih₂ => exact fun _ _ hu => absurd hu.1 hSu
   | Dedup q ih => exact fun hl => absurd hl (by simp)
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
-  | Alt k hk q ih => exact fun hl hn hu => ih hl hn hu
+  | Explode k hk q ih => exact fun hl hn hu => ih hl hn hu
   | Retag hk q ih => exact fun hl hn hu => ih hl hn hu
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)

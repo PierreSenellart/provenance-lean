@@ -39,9 +39,9 @@ variable {T : Type} [ValueType T]
 /-! ## The same through the re-typing of a query's columns -/
 
 omit [ValueType T] in
-theorem AggQueryIn.names_altBelow {c n : ℕ} :
+theorem AggQueryIn.names_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      (q.altBelow m).names = q.names := by
+      (q.explodeBelow m).names = q.names := by
   intro m
   induction m with
   | zero =>
@@ -50,23 +50,23 @@ theorem AggQueryIn.names_altBelow {c n : ℕ} :
     rw [AggQueryIn.names_castKind]
   | succ m ih =>
     intro κ l q
-    unfold AggQueryIn.altBelow
+    unfold AggQueryIn.explodeBelow
     split
     · split
       · rw [AggQueryIn.names_castKind]
-        show (AggQueryIn.Alt _ _ (q.altBelow m)).names = _
+        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).names = _
         exact ih q
       · rw [AggQueryIn.names_castKind]
         exact ih q
-      · show (AggQueryIn.Retag _ (q.altBelow m)).names = _
+      · show (AggQueryIn.Retag _ (q.explodeBelow m)).names = _
         exact ih q
     · rw [AggQueryIn.names_castKind]
       exact ih q
 
 omit [ValueType T] in
-theorem AggQueryIn.noMention_altBelow {c n : ℕ} {s : String} :
+theorem AggQueryIn.noMention_explodeBelow {c n : ℕ} {s : String} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      (q.altBelow m).noMention s ↔ q.noMention s := by
+      (q.explodeBelow m).noMention s ↔ q.noMention s := by
   intro m
   induction m with
   | zero =>
@@ -75,23 +75,23 @@ theorem AggQueryIn.noMention_altBelow {c n : ℕ} {s : String} :
     rw [AggQueryIn.noMention_castKind]
   | succ m ih =>
     intro κ l q
-    unfold AggQueryIn.altBelow
+    unfold AggQueryIn.explodeBelow
     split
     · split
       · rw [AggQueryIn.noMention_castKind]
-        show (AggQueryIn.Alt _ _ (q.altBelow m)).noMention s ↔ _
+        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).noMention s ↔ _
         exact ih q
       · rw [AggQueryIn.noMention_castKind]
         exact ih q
-      · show (AggQueryIn.Retag _ (q.altBelow m)).noMention s ↔ _
+      · show (AggQueryIn.Retag _ (q.explodeBelow m)).noMention s ↔ _
         exact ih q
     · rw [AggQueryIn.noMention_castKind]
       exact ih q
 
 omit [ValueType T] in
-theorem AggQueryIn.hygienic_altBelow {c n : ℕ} :
+theorem AggQueryIn.hygienic_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      (q.altBelow m).hygienic ↔ q.hygienic := by
+      (q.explodeBelow m).hygienic ↔ q.hygienic := by
   intro m
   induction m with
   | zero =>
@@ -100,22 +100,22 @@ theorem AggQueryIn.hygienic_altBelow {c n : ℕ} :
     rw [AggQueryIn.hygienic_castKind]
   | succ m ih =>
     intro κ l q
-    unfold AggQueryIn.altBelow
+    unfold AggQueryIn.explodeBelow
     split
     · split
       · rw [AggQueryIn.hygienic_castKind]
-        show (AggQueryIn.Alt _ _ (q.altBelow m)).hygienic ↔ _
+        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).hygienic ↔ _
         exact ih q
       · rw [AggQueryIn.hygienic_castKind]
         exact ih q
-      · show (AggQueryIn.Retag _ (q.altBelow m)).hygienic ↔ _
+      · show (AggQueryIn.Retag _ (q.explodeBelow m)).hygienic ↔ _
         exact ih q
     · rw [AggQueryIn.hygienic_castKind]
       exact ih q
 
-theorem AggQueryIn.inSig_altBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
+theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      (q.altBelow m).inSig Θ ↔ q.inSig Θ := by
+      (q.explodeBelow m).inSig Θ ↔ q.inSig Θ := by
   intro m
   induction m with
   | zero =>
@@ -124,22 +124,22 @@ theorem AggQueryIn.inSig_altBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
     rw [AggQueryIn.inSig_castKind]
   | succ m ih =>
     intro κ l q
-    unfold AggQueryIn.altBelow
+    unfold AggQueryIn.explodeBelow
     split
     · split
       · rw [AggQueryIn.inSig_castKind]
-        show (AggQueryIn.Alt _ _ (q.altBelow m)).inSig Θ ↔ _
+        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).inSig Θ ↔ _
         exact ih q
       · rw [AggQueryIn.inSig_castKind]
         exact ih q
-      · show (AggQueryIn.Retag _ (q.altBelow m)).inSig Θ ↔ _
+      · show (AggQueryIn.Retag _ (q.explodeBelow m)).inSig Θ ↔ _
         exact ih q
     · rw [AggQueryIn.inSig_castKind]
       exact ih q
 
-theorem AggQueryIn.settlesAt_altBelow {c n : ℕ} :
+theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (D : Database T)
-      (γ : Fin c → T), (q.altBelow m).SettlesAt D γ ↔ q.SettlesAt D γ := by
+      (γ : Fin c → T), (q.explodeBelow m).SettlesAt D γ ↔ q.SettlesAt D γ := by
   intro m
   induction m with
   | zero =>
@@ -148,15 +148,15 @@ theorem AggQueryIn.settlesAt_altBelow {c n : ℕ} :
     rw [AggQueryIn.settlesAt_castKind]
   | succ m ih =>
     intro κ l q D γ
-    unfold AggQueryIn.altBelow
+    unfold AggQueryIn.explodeBelow
     split
     · split
       · rw [AggQueryIn.settlesAt_castKind]
-        show (AggQueryIn.Alt _ _ (q.altBelow m)).SettlesAt D γ ↔ _
+        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).SettlesAt D γ ↔ _
         exact ih q D γ
       · rw [AggQueryIn.settlesAt_castKind]
         exact ih q D γ
-      · show (AggQueryIn.Retag _ (q.altBelow m)).SettlesAt D γ ↔ _
+      · show (AggQueryIn.Retag _ (q.explodeBelow m)).SettlesAt D γ ↔ _
         exact ih q D γ
     · rw [AggQueryIn.settlesAt_castKind]
       exact ih q D γ
@@ -164,27 +164,27 @@ theorem AggQueryIn.settlesAt_altBelow {c n : ℕ} :
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.names_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : (q.allRegOf).names = q.names := by
-  rw [AggQueryIn.allRegOf, AggQueryIn.names_castKind, AggQueryIn.names_altBelow]
+  rw [AggQueryIn.allRegOf, AggQueryIn.names_castKind, AggQueryIn.names_explodeBelow]
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.noMention_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (s : String) : (q.allRegOf).noMention s ↔ q.noMention s := by
-  rw [AggQueryIn.allRegOf, AggQueryIn.noMention_castKind, AggQueryIn.noMention_altBelow]
+  rw [AggQueryIn.allRegOf, AggQueryIn.noMention_castKind, AggQueryIn.noMention_explodeBelow]
 
 omit [ValueType T] in
 @[simp] theorem AggQueryIn.hygienic_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : (q.allRegOf).hygienic ↔ q.hygienic := by
   rw [AggQueryIn.allRegOf, AggQueryIn.hygienic_castKind,
-    AggQueryIn.hygienic_altBelow]
+    AggQueryIn.hygienic_explodeBelow]
 
 @[simp] theorem AggQueryIn.inSig_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (Θ : Set (SeqAggFunc T)) : (q.allRegOf).inSig Θ ↔ q.inSig Θ := by
-  rw [AggQueryIn.allRegOf, AggQueryIn.inSig_castKind, AggQueryIn.inSig_altBelow]
+  rw [AggQueryIn.allRegOf, AggQueryIn.inSig_castKind, AggQueryIn.inSig_explodeBelow]
 
 @[simp] theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) (D : Database T) (γ : Fin c → T) :
     (q.allRegOf).SettlesAt D γ ↔ q.SettlesAt D γ := by
-  rw [AggQueryIn.allRegOf, AggQueryIn.settlesAt_castKind, AggQueryIn.settlesAt_altBelow]
+  rw [AggQueryIn.allRegOf, AggQueryIn.settlesAt_castKind, AggQueryIn.settlesAt_explodeBelow]
 
 /-! ## What re-typing a column keeps of the signature -/
 
@@ -620,7 +620,7 @@ theorem AggQueryIn.sumsAllReg_of_usesOnly {S : Set OpKind} (hu : OpKind.union �
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => absurd hq.1 hu
   | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
-  | Alt k hk q ih => exact fun hq => ih hq
+  | Explode k hk q ih => exact fun hq => ih hq
   | Retag hk q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
@@ -1243,7 +1243,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       simp only [AggQueryIn.evaluatePlain]
       rw [he₁', he₂']
     rw [hD, AggQueryIn.diff_plainEquiv_notIn cnt hcc q₁' q₂' D γ, ← evaluatePlain_notInDiffA, hpe]
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc, hbody⟩ := ih hq hr hi hw f hf hfr sch hsch ho
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩

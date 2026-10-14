@@ -111,7 +111,7 @@ def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, .Sum q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
   | _, _, _, _, .Dedup q => q.WinsDerivable
   | _, _, _, _, .Diff q₁ q₂ => q₁.WinsDerivable ∧ q₂.WinsDerivable
-  | _, _, _, _, .Alt _ _ q => q.WinsDerivable
+  | _, _, _, _, .Explode _ _ q => q.WinsDerivable
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.WinsDerivable ∧ q₁.WinsDerivable
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.WinsDerivable
@@ -218,10 +218,10 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
-  | Alt i hi q ih =>
+  | Explode i hi q ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq hd hqs
-    exact ⟨AggQueryIn.Alt i hi q', hu', hs',       fun D γ => he' D γ⟩
+    exact ⟨AggQueryIn.Explode i hi q', hu', hs',       fun D γ => he' D γ⟩
   | Retag hbase q ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq hd hqs
@@ -374,10 +374,10 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
-  | Alt i hi q ih =>
+  | Explode i hi q ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq hqs
-    exact ⟨AggQueryIn.Alt i hi q', hu', hs',       fun D γ => he' D γ⟩
+    exact ⟨AggQueryIn.Explode i hi q', hu', hs',       fun D γ => he' D γ⟩
   | Retag hbase q ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq hqs
@@ -624,7 +624,7 @@ theorem AggQueryIn.winsDerivable_of_usesOnly {S : Set OpKind}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
-  | Alt i hi q ih => exact fun hq => ih hq
+  | Explode i hi q ih => exact fun hq => ih hq
   | Retag hbase q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.2.1, ih₁ hq.2.2⟩
@@ -912,10 +912,10 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
-  | Alt i hi q ih =>
+  | Explode i hi q ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hl hq hw hqs
-    exact ⟨AggQueryIn.Alt i hi q', hu', hs', fun D γ => he' D γ⟩
+    exact ⟨AggQueryIn.Explode i hi q', hu', hs', fun D γ => he' D γ⟩
   | Retag hbase q ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hl hq hw hqs
@@ -1048,10 +1048,10 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
     simp only [AggQueryIn.evaluatePlain]
     rw [he₁ D γ]
     exact Multiset.filter_congr (fun t _ => by rw [he₂ D γ])
-  | Alt i hi q ih =>
+  | Explode i hi q ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hl hc hq hw hqs
-    exact ⟨AggQueryIn.Alt i hi q', hu', hs', hw', fun D γ => he' D γ⟩
+    exact ⟨AggQueryIn.Explode i hi q', hu', hs', hw', fun D γ => he' D γ⟩
   | Retag hbase q ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hl hc hq hw hqs

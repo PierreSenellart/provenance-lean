@@ -1866,7 +1866,7 @@ theorem AggQueryIn.evaluate_guarded :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro d γ r hr v hfin j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
@@ -3475,7 +3475,7 @@ theorem AggQueryIn.genRandomWorld_evaluate :
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
       genRandomWorld_allReg, ih hq hn hr d v]
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hn hr d v γ
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_bind_alternativesAt k v (q.evaluate d γ)

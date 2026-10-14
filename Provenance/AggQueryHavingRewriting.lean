@@ -171,7 +171,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
   -- an aggregate column read as a key is not a rewritten-world
   -- operator: the rewritten plan cannot enumerate a token's values, and
   -- on plain rows there is one alternative, so it is the identity here
-  | _, _, _, _, .Alt _ _ q, D, γ => q.evaluateRew D γ
+  | _, _, _, _, .Explode _ _ q, D, γ => q.evaluateRew D γ
   | _, _, _, _, .Mu s q₀ q₁, D, γ =>
     -- the rounds are relations of the rewritten schema, so each round is
     -- read back through the collapse that `Rel` embeds
@@ -310,7 +310,7 @@ def AggQueryIn.noGammaTok {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, _, .Sum q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
   | _, _, _, _, .Dedup q => q.noGammaTok
   | _, _, _, _, .Diff q₁ q₂ => q₁.noGammaTok ∧ q₂.noGammaTok
-  | _, _, _, _, .Alt _ _ q => q.noGammaTok
+  | _, _, _, _, .Explode _ _ q => q.noGammaTok
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noGammaTok ∧ q₁.noGammaTok
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noGammaTok
@@ -335,7 +335,7 @@ def AggQueryIn.chiFree {T' : Type} : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, _, .Sum q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
   | _, _, _, _, .Dedup q => q.chiFree
   | _, _, _, _, .Diff q₁ q₂ => q₁.chiFree ∧ q₂.chiFree
-  | _, _, _, _, .Alt _ _ q => q.chiFree
+  | _, _, _, _, .Explode _ _ q => q.chiFree
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.chiFree ∧ q₁.chiFree
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.chiFree
@@ -537,7 +537,7 @@ theorem AggQueryIn.evaluateRew_plain :
     congr 1
     exact congrArg (fun i : DecidableEq (Tuple (T ⊕ K) _) =>
       @Multiset.dedup _ i (q.evaluatePlain D γ)) (Subsingleton.elim _ _)
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     exact ih hq hc D γ

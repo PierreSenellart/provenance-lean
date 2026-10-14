@@ -2239,7 +2239,7 @@ theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') :
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     rw [groupByKey_mapAnnotatedRelation]
     exact rel_ofAnnotated_map h _
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro d γ hw hn hrec
     simp only [AggQueryIn.evaluate]
     exact rel_bind_of_rel (ih d γ hw hn hrec) (fun r' r hs => sim_alternativesAt h hs k)

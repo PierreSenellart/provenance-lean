@@ -20,7 +20,7 @@ invariants. The scope is the non-recursive queries: `Mu` and `MuSet` are
 partial operators whose value is the one their rounds settle at, and the
 locality row they belong to is a different argument.
 
-`Alt` and `Retag` are transparent here: both read their argument's plain
+`Explode` and `Retag` are transparent here: both read their argument's plain
 semantics unchanged (`AggQueryIn.evaluatePlain`), so a plain-semantics
 statement cannot see them, and they are in no class.
 -/
@@ -59,7 +59,7 @@ inductive OpKind where
   deriving DecidableEq, Repr
 
 /-- **The classes a query uses are among `S`.** A relation leaf is in no
-class, every operator is in its own, and `Alt` and `Retag` are in none,
+class, every operator is in its own, and `Explode` and `Retag` are in none,
 being transparent to the plain semantics.
 
 Two operators are `False`: this predicate carries the scope of the
@@ -91,7 +91,7 @@ def AggQueryIn.usesOnly (S : Set OpKind) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, _, .Dedup q => OpKind.dedup ∈ S ∧ q.usesOnly S
   | _, _, _, _, .Diff q₁ q₂ =>
       OpKind.diff ∈ S ∧ q₁.usesOnly S ∧ q₂.usesOnly S
-  | _, _, _, _, .Alt _ _ q => q.usesOnly S
+  | _, _, _, _, .Explode _ _ q => q.usesOnly S
   | _, _, _, _, .Retag _ q => q.usesOnly S
   | _, _, _, _, .Mu _ q₀ q₁ =>
       OpKind.muBag ∈ S ∧ q₀.usesOnly S ∧ q₁.usesOnly S
@@ -144,7 +144,7 @@ theorem AggQueryIn.usesOnly_substMap {S : Set OpKind} :
   | Dedup q ih => exact fun θ => and_congr Iff.rfl (ih θ)
   | Diff q₁ q₂ ih₁ ih₂ =>
     exact fun θ => and_congr Iff.rfl (and_congr (ih₁ θ) (ih₂ θ))
-  | Alt k h q ih => exact fun θ => ih θ
+  | Explode k h q ih => exact fun θ => ih θ
   | Retag h q ih => exact fun θ => ih θ
   | Mu s q₀ q₁ ih₀ ih₁ =>
       exact fun θ => and_congr Iff.rfl (and_congr (ih₀ θ) (ih₁ θ))
@@ -192,7 +192,7 @@ theorem AggQueryIn.usesOnly_mono {S S' : Set OpKind} (hSS : S ⊆ S') :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨hSS h.1, ih₁ h.2.1, ih₂ h.2.2⟩
   | Dedup q ih => exact fun h => ⟨hSS h.1, ih h.2⟩
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨hSS h.1, ih₁ h.2.1, ih₂ h.2.2⟩
-  | Alt k h q ih => exact fun hq => ih hq
+  | Explode k h q ih => exact fun hq => ih hq
   | Retag h q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ =>
       exact fun h => ⟨hSS h.1, ih₀ h.2.1, ih₁ h.2.2⟩
@@ -301,7 +301,7 @@ def AggQueryIn.noMention (s : String) : {c n : ℕ} → {κ : Fin n → ColKind}
   | _, _, _, _, .Sum q₁ q₂ => q₁.noMention s ∧ q₂.noMention s
   | _, _, _, _, .Dedup q => q.noMention s
   | _, _, _, _, .Diff q₁ q₂ => q₁.noMention s ∧ q₂.noMention s
-  | _, _, _, _, .Alt _ _ q => q.noMention s
+  | _, _, _, _, .Explode _ _ q => q.noMention s
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noMention s ∧ q₁.noMention s
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noMention s ∧ q₁.noMention s
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noMention s
@@ -339,7 +339,7 @@ theorem AggQueryIn.noMention_substMap {s : String} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
   | Dedup q ih => exact fun θ => ih θ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
-  | Alt k hk q ih => exact fun θ => ih θ
+  | Explode k hk q ih => exact fun θ => ih θ
   | Retag hk q ih => exact fun θ => ih θ
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
@@ -370,7 +370,7 @@ def AggQueryIn.overSchema (sch : Schema) : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, _, .Sum q₁ q₂ => q₁.overSchema sch ∧ q₂.overSchema sch
   | _, _, _, _, .Dedup q => q.overSchema sch
   | _, _, _, _, .Diff q₁ q₂ => q₁.overSchema sch ∧ q₂.overSchema sch
-  | _, _, _, _, .Alt _ _ q => q.overSchema sch
+  | _, _, _, _, .Explode _ _ q => q.overSchema sch
   | _, _, _, _, .Retag _ q => q.overSchema sch
   | _, n, _, _, .Mu s q₀ q₁ =>
       sch s = none ∧ q₀.overSchema sch ∧ q₁.noMention s ∧ q₁.overSchema (sch.update s n)
@@ -476,7 +476,7 @@ theorem AggQueryIn.overSchema_substMap :
   | Dedup q ih => exact fun θ sch => ih θ sch
   | Diff q₁ q₂ ih₁ ih₂ =>
     exact fun θ sch => and_congr (ih₁ θ sch) (ih₂ θ sch)
-  | Alt k h q ih => exact fun θ sch => ih θ sch
+  | Explode k h q ih => exact fun θ sch => ih θ sch
   | Retag h q ih => exact fun θ sch => ih θ sch
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun θ sch => and_congr Iff.rfl
@@ -524,7 +524,7 @@ theorem AggQueryIn.usesEmpty_of_overSchema_empty {S : Set OpKind} :
   | Sum q₁ q₂ ih₁ ih₂ => intro h hq; exact ih₁ h.1 hq.2.1
   | Dedup q ih => intro h hq; exact ih h hq.2
   | Diff q₁ q₂ ih₁ ih₂ => intro h hq; exact ih₁ h.1 hq.2.1
-  | Alt k hk q ih => intro h hq; exact ih h hq
+  | Explode k hk q ih => intro h hq; exact ih h hq
   | Retag hk q ih => intro h hq; exact ih h hq
   | Mu s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
   | MuSet s q₀ q₁ ih₀ ih₁ => intro h hq; exact ih₀ h.2.1 hq.2.1
@@ -651,7 +651,7 @@ def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
   | _, _, _, _, .Sum q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
   | _, _, _, _, .Dedup q => q.inSig Θ
   | _, _, _, _, .Diff q₁ q₂ => q₁.inSig Θ ∧ q₂.inSig Θ
-  | _, _, _, _, .Alt _ _ q => q.inSig Θ
+  | _, _, _, _, .Explode _ _ q => q.inSig Θ
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.inSig Θ ∧ q₁.inSig Θ
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.inSig Θ ∧ q₁.inSig Θ
   | _, _, _, _, .Gamma _ ts fs q keep _ =>
@@ -787,7 +787,7 @@ theorem AggQueryIn.card_le_one_of_thin {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain]
     exact le_trans (Multiset.card_le_card (Multiset.filter_le _ _))
       (ih₁ hq.2.1 D hD γ)
-  | Alt k hk q ih => intro hq D hD γ; exact ih hq D hD γ
+  | Explode k hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Mu s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ => intro hq; exact absurd hq.1 hms
@@ -856,7 +856,7 @@ def AggQueryIn.leaves : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
   | _, _, _, _, .Sum q₁ q₂ => q₁.leaves ++ q₂.leaves
   | _, _, _, _, .Dedup q => q.leaves
   | _, _, _, _, .Diff q₁ q₂ => q₁.leaves ++ q₂.leaves
-  | _, _, _, _, .Alt _ _ q => q.leaves
+  | _, _, _, _, .Explode _ _ q => q.leaves
   | _, _, _, _, .Retag _ q => q.leaves
   | _, n, _, _, .Mu s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
   | _, n, _, _, .MuSet s q₀ q₁ => q₀.leaves ++ q₁.leaves.filter (fun p => p ≠ (n, s))
@@ -905,7 +905,7 @@ theorem AggQueryIn.mem_index_of_mem_leaves {t : String} :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro h p hp hpt
     exact (List.mem_append.mp hp).elim (fun hp => ih₁ h.1 p hp hpt) (fun hp => ih₂ h.2 p hp hpt)
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro h p hp hpt
@@ -978,7 +978,7 @@ theorem AggQueryIn.evaluatePlain_congr_find :
   | Dedup q ih => intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih h]
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih₁ h, ih₂ h]
-  | Alt k hk q ih => intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih h]
+  | Explode k hk q ih => intro D D' h γ; simp only [AggQueryIn.evaluatePlain, ih h]
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro D D' h γ
     show muSumFix (fun X => q₁.evaluatePlain (D.assign s X) γ)
@@ -1098,7 +1098,7 @@ theorem AggQueryIn.evaluatePlain_congr_of_noMention {s : String} :
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq D D' h γ
     simp only [AggQueryIn.evaluatePlain, ih₁ hq.1 h, ih₂ hq.2 h]
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq D D' h γ; simp only [AggQueryIn.evaluatePlain, ih hq h]
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro hq D D' h γ
@@ -1176,7 +1176,7 @@ def AggQueryIn.recGuarded (s : String) : {c n : ℕ} →
   | _, _, _, _, .Sum q₁ q₂ => q₁.recGuarded s ∧ q₂.recGuarded s
   | _, _, _, _, .Dedup q => q.noMention s
   | _, _, _, _, .Diff q₁ q₂ => q₁.noMention s ∧ q₂.noMention s
-  | _, _, _, _, .Alt _ _ q => q.recGuarded s
+  | _, _, _, _, .Explode _ _ q => q.recGuarded s
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.recGuarded s ∧ q₁.recGuarded s
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.recGuarded s ∧ q₁.recGuarded s
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noMention s
@@ -1206,7 +1206,7 @@ theorem AggQueryIn.recGuarded_of_noMention {s : String} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.1, ih₂ hq.2⟩
   | Dedup q ih => exact fun hq => hq
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => hq
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hq => ⟨ih₀ hq.1, ih₁ hq.2⟩
   | Gamma is ts fs q keep ord ih => exact fun hq => hq
@@ -1242,7 +1242,7 @@ through the outer induction rather than through
 `AggQueryIn.exists_valsIn_assign`, which asks `noRec` of what it
 aggregates.
 
-`Alt` and `Retag` are on the list here though the document does not name
+`Explode` and `Retag` are on the list here though the document does not name
 them: they are the kind discipline's two operators, identities on plain
 relations, so they move no value and read no column.
 -/
@@ -1265,7 +1265,7 @@ def AggQueryIn.hygienic : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Sum q₁ q₂ => q₁.hygienic ∧ q₂.hygienic
   | _, _, _, _, .Dedup q => q.hygienic
   | _, _, _, _, .Diff q₁ q₂ => q₁.hygienic ∧ q₂.hygienic
-  | _, _, _, _, .Alt _ _ q => q.hygienic
+  | _, _, _, _, .Explode _ _ q => q.hygienic
   | _, _, _, _, .Mu s q₀ q₁ =>
       q₀.noMention s ∧ q₁.noMention s ∧ q₀.hygienic ∧ q₁.hygienic
   | _, _, _, _, .MuSet s q₀ q₁ =>
@@ -1297,7 +1297,7 @@ theorem AggQueryIn.hygienic_of_usesOnly {S : Set OpKind}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
-  | Alt k hk q ih => exact fun hq => ih hq
+  | Explode k hk q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
   | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2
@@ -1331,7 +1331,7 @@ theorem AggQueryIn.noMention_of_overSchema_none {s : String} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun sch hs h => ⟨ih₁ sch hs h.1, ih₂ sch hs h.2⟩
   | Dedup q ih => exact fun sch hs h => ih sch hs h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun sch hs h => ⟨ih₁ sch hs h.1, ih₂ sch hs h.2⟩
-  | Alt k hk q ih => exact fun sch hs h => ih sch hs h
+  | Explode k hk q ih => exact fun sch hs h => ih sch hs h
   | Retag hk q ih => exact fun sch hs h => ih sch hs h
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro sch hs h
@@ -1375,7 +1375,7 @@ theorem AggQueryIn.hygienic_of_overSchema :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun sch h => ⟨ih₁ sch h.1, ih₂ sch h.2⟩
   | Dedup q ih => exact fun sch h => ih sch h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun sch h => ⟨ih₁ sch h.1, ih₂ sch h.2⟩
-  | Alt k hk q ih => exact fun sch h => ih sch h
+  | Explode k hk q ih => exact fun sch h => ih sch h
   | Retag hk q ih => exact fun sch h => ih sch h
   | Mu s q₀ q₁ ih₀ ih₁ =>
     exact fun sch h => ⟨AggQueryIn.noMention_of_overSchema_none q₀ sch h.1 h.2.1, h.2.2.1,
@@ -1498,7 +1498,7 @@ def AggQueryIn.constsIn (V : Finset T) : {c n : ℕ} →
   | _, _, _, _, .Sum q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
   | _, _, _, _, .Dedup q => q.constsIn V
   | _, _, _, _, .Diff q₁ q₂ => q₁.constsIn V ∧ q₂.constsIn V
-  | _, _, _, _, .Alt _ _ q => q.constsIn V
+  | _, _, _, _, .Explode _ _ q => q.constsIn V
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.constsIn V ∧ q₁.constsIn V
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.constsIn V
@@ -1631,7 +1631,7 @@ def AggQueryIn.consts : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
   | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.consts q₂.consts
   | _, _, _, _, .Dedup q => q.consts
   | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.consts q₂.consts
-  | _, _, _, _, .Alt _ _ q => q.consts
+  | _, _, _, _, .Explode _ _ q => q.consts
   | _, _, _, _, .Mu _ q₀ q₁ => Union.union q₀.consts q₁.consts
   | _, _, _, _, .MuSet _ q₀ q₁ => Union.union q₀.consts q₁.consts
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.consts
@@ -1677,7 +1677,7 @@ def AggQueryIn.SettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
   | _, _, _, _, .Dedup q, D, γ => q.SettlesAt D γ
   | _, _, _, _, .Diff q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
-  | _, _, _, _, .Alt _ _ q, D, γ => q.SettlesAt D γ
+  | _, _, _, _, .Explode _ _ q, D, γ => q.SettlesAt D γ
   | _, _, _, _, .Retag _ q, D, γ => q.SettlesAt D γ
   | _, n, _, _, .Mu s q₀ q₁, D, γ =>
       q₀.SettlesAt D γ
@@ -1779,7 +1779,7 @@ theorem AggQueryIn.settlesAt_of_usesOnly {S : Set OpKind}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, ih₂ hq.2.2 D γ⟩
   | Dedup q ih => exact fun hq D γ => ih hq.2 D γ
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq D γ => ⟨ih₁ hq.2.1 D γ, ih₂ hq.2.2 D γ⟩
-  | Alt k hk q ih => exact fun hq D γ => ih hq D γ
+  | Explode k hk q ih => exact fun hq D γ => ih hq D γ
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
   | Gamma is ts fs q keep ord ih => exact fun hq D γ => ih hq.2 D γ
@@ -1830,7 +1830,7 @@ theorem AggQueryIn.settlesAt_of_noMention {s : String} :
   | Dedup q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq D D' h γ hs; exact ⟨ih₁ hq.1 h γ hs.1, ih₂ hq.2 h γ hs.2⟩
-  | Alt k hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
+  | Explode k hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Retag hk q ih => intro hq D D' h γ hs; exact ih hq h γ hs
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     rename_i c' n'
@@ -2125,7 +2125,7 @@ def AggQueryIn.NonzeroOn (E : Set String) : {c n : ℕ} → {κ : Fin n → ColK
   | _, _, _, _, .Sum q₁ q₂ => q₁.NonzeroOn E ∨ q₂.NonzeroOn E
   | _, _, _, _, .Dedup q => q.NonzeroOn E
   | _, _, _, _, .Diff q₁ _ => q₁.NonzeroOn E
-  | _, _, _, _, .Alt _ _ q => q.NonzeroOn E
+  | _, _, _, _, .Explode _ _ q => q.NonzeroOn E
   | _, _, _, _, .Retag _ q => q.NonzeroOn E
   | _, _, _, _, .Mu _ q₀ _ => q₀.NonzeroOn E
   | _, _, _, _, .MuSet s q₀ q₁ => q₀.NonzeroOn E ∨ q₁.NonzeroOn (insert s E)
@@ -2156,7 +2156,7 @@ theorem AggQueryIn.NonzeroOn.mono :
       (fun h => Or.inr (ih₂ hE h))
   | Dedup q ih => exact fun hE h => ih hE h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hE h => ih₁ hE h
-  | Alt k hk q ih => exact fun hE h => ih hE h
+  | Explode k hk q ih => exact fun hE h => ih hE h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hE h => ih₀ hE h
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     exact fun hE h => h.elim (fun h => Or.inl (ih₀ hE h))
@@ -2281,7 +2281,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_not_nonzeroOn {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, ih hq.2 sch E hw hnz D γ hD hs]
     rfl
   | Diff q₁ q₂ ih₁ ih₂ => intro hq; exact absurd hq.1 hdiff
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
   | Retag hk q ih =>
     intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
@@ -2439,7 +2439,7 @@ theorem AggQueryIn.evaluatePlain_ne_zero_of_nonzeroOn {S : Set OpKind}
     exact fun hc => ih hq.2 sch E hw hnz D γ hD hs
       ((Multiset.dedup_eq_zero_iff _).mp hc)
   | Diff q₁ q₂ ih₁ ih₂ => intro hq; exact absurd hq.1 hdiff
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
   | Retag hk q ih =>
     intro hq sch E hw hnz D γ hD hs; exact ih hq sch E hw hnz D γ hD hs
@@ -2614,7 +2614,7 @@ def AggQueryIn.sizeBound : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.sizeBound + q₂.sizeBound
   | _, _, _, _, .Dedup q => q.sizeBound
   | _, _, _, _, .Diff q₁ _ => q₁.sizeBound
-  | _, _, _, _, .Alt _ _ q => q.sizeBound
+  | _, _, _, _, .Explode _ _ q => q.sizeBound
   | _, _, _, _, .Retag _ q => q.sizeBound
   | c, n, _, _, .Mu _ q₀ q₁ => recBound c n q₁.consts.card * q₀.sizeBound
   | c, n, _, _, .MuSet _ q₀ q₁ =>
@@ -2804,7 +2804,7 @@ def AggQueryIn.noFunCols : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.noFunCols ∧ q₂.noFunCols
   | _, _, _, _, .Dedup q => q.noFunCols
   | _, _, _, _, .Diff q₁ q₂ => q₁.noFunCols ∧ q₂.noFunCols
-  | _, _, _, _, .Alt _ _ q => q.noFunCols
+  | _, _, _, _, .Explode _ _ q => q.noFunCols
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.noFunCols ∧ q₁.noFunCols
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noFunCols ∧ q₁.noFunCols
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.noFunCols
@@ -2834,7 +2834,7 @@ def AggQueryIn.recNoFun : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Sum q₁ q₂ => q₁.recNoFun ∧ q₂.recNoFun
   | _, _, _, _, .Dedup q => q.recNoFun
   | _, _, _, _, .Diff q₁ q₂ => q₁.recNoFun ∧ q₂.recNoFun
-  | _, _, _, _, .Alt _ _ q => q.recNoFun
+  | _, _, _, _, .Explode _ _ q => q.recNoFun
   | _, _, _, _, .Mu _ q₀ q₁ => q₁.noFunCols ∧ q₀.recNoFun ∧ q₁.recNoFun
   | _, _, _, _, .MuSet _ q₀ q₁ => q₁.noFunCols ∧ q₀.recNoFun ∧ q₁.recNoFun
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.recNoFun
@@ -2861,7 +2861,7 @@ theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma is ts fs q keep ord ih => exact fun h => ih h.2.2.2
@@ -2889,7 +2889,7 @@ theorem AggQueryIn.recNoFun_of_noFunCols :
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Dedup q ih => exact fun h => ih h
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Alt k hk q ih => exact fun h => ih h
+  | Explode k hk q ih => exact fun h => ih h
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨h.2, ih₀ h.1, ih₁ h.2⟩
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨h.2, ih₀ h.1, ih₁ h.2⟩
   | Gamma is ts fs q keep ord ih => exact fun h => ih h
@@ -2925,7 +2925,7 @@ theorem AggQueryIn.recNoFun_of_usesOnly {S : Set OpKind}
   | Sum q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
   | Dedup q ih => exact fun hq => ih hq.2
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hq => ⟨ih₁ hq.2.1, ih₂ hq.2.2⟩
-  | Alt k hk q ih => exact fun hq => ih hq
+  | Explode k hk q ih => exact fun hq => ih hq
   | Mu s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hmb
   | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hq => absurd hq.1 hms
   | Gamma is ts fs q keep ord ih => exact fun hq => ih hq.2
@@ -3038,7 +3038,7 @@ theorem AggQueryIn.pointwise_of_body {S : Set OpKind}
       · exact mem_union_right_mono (hv v w hw i) (Finset.subset_union_right)
   | Dedup q ih => exact fun hl => absurd hl (by simp)
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
-  | Alt k hk q ih => intro hl hq hr hnf D γ; exact ih hl hq hr hnf D γ
+  | Explode k hk q ih => intro hl hq hr hnf D γ; exact ih hl hq hr hnf D γ
   | Retag hk q ih => intro hl hq hr hnf D γ; exact ih hl hq hr hnf D γ
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
@@ -3153,7 +3153,7 @@ theorem AggQueryIn.card_le_sizeBound {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.sizeBound]
     exact le_trans (Multiset.card_le_card (Multiset.filter_le _ _))
       (ih₁ hq.2.1 hr.1 hsig.1 D γ hs.1)
-  | Alt k hk q ih => intro hq hr hsig D γ hs; exact ih hq hr hsig D γ hs
+  | Explode k hk q ih => intro hq hr hsig D γ hs; exact ih hq hr hsig D γ hs
   | Retag hk q ih => intro hq hr hsig D γ hs; exact ih hq hr hsig D γ hs
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' n'
@@ -3534,7 +3534,7 @@ def AggQueryIn.multBound : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => q₁.multBound + q₂.multBound
   | _, _, _, _, .Dedup _ => 1
   | _, _, _, _, .Diff q₁ _ => q₁.multBound
-  | _, _, _, _, .Alt _ _ q => q.multBound
+  | _, _, _, _, .Explode _ _ q => q.multBound
   | _, _, _, _, .Retag _ q => q.multBound
   | _, _, _, _, .Mu _ q₀ _ => q₀.multBound
   | _, _, _, _, .MuSet _ _ _ => 1
@@ -3750,7 +3750,7 @@ theorem AggQueryIn.affine_of_body {S : Set OpKind} (hpr : OpKind.proj ∉ S)
       exact affine_or_left
   | Dedup q ih => exact fun hl => absurd hl (by simp)
   | Diff q₁ q₂ ih₁ ih₂ => exact fun hl => absurd hl (by simp)
-  | Alt k hk q ih => intro hl hq hr D γ; exact ih hl hq hr D γ
+  | Explode k hk q ih => intro hl hq hr D γ; exact ih hl hq hr D γ
   | Retag hk q ih => intro hl hq hr D γ; exact ih hl hq hr D γ
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun hl => absurd hl (by simp)
@@ -3877,7 +3877,7 @@ theorem AggQueryIn.count_le_multBound {S : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, AggQueryIn.multBound]
     exact le_trans (Multiset.count_le_of_le u (Multiset.filter_le _ _))
       (ih₁ hq.2.1 hr.1 D hD γ hs.1 u)
-  | Alt k hk q ih => intro hq hr D hD γ hs u; exact ih hq hr D hD γ hs u
+  | Explode k hk q ih => intro hq hr D hD γ hs u; exact ih hq hr D hD γ hs u
   | Retag hk q ih => intro hq hr D hD γ hs u; exact ih hq hr D hD γ hs u
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hq hr D hD γ hs u
@@ -6233,7 +6233,7 @@ theorem AggQueryIn.evaluatePlain_eq_zero_of_allEmpty {S : Set OpKind}
     intro hq D hD γ
     simp only [AggQueryIn.evaluatePlain, ih₁ hq.2.1 D hD γ]
     rfl
-  | Alt k hk q ih => intro hq D hD γ; exact ih hq D hD γ
+  | Explode k hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | Retag hk q ih => intro hq D hD γ; exact ih hq D hD γ
   | @Mu _ nm s q₀ q₁ ih₀ ih₁ =>
     intro hq D hD γ

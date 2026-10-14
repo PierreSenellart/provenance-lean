@@ -5,7 +5,7 @@ import Mathlib.Tactic.FinCases
 # The selection row: `σ` is the only operator reading the order
 
 A query of the minimal universe that uses no selection and never reads
-an aggregate column as a key (`AggQueryIn.altFree`) is *order-blind*:
+an aggregate column as a key (`AggQueryIn.noExplode`) is *order-blind*:
 its regular columns commute with every injective map of the values that
 fixes the query's constants and the zero the aggregate columns are read
 as, whatever the map does to the order. Nothing but a selection reads the
@@ -22,7 +22,7 @@ witness is `σ_{#1<#2}(S)`: on the one-row instance `{(a, b)}` with
 `a` and `b` carries one instance to the other (`ltWitness_breaks`). So
 no selection-free query expresses it (`ltWitness_not_expressible`), and
 `σ` is in every basis whose produced queries read no aggregate column as
-a key (`sel_mem_of_generatesOnRecAltFree`).
+a key (`sel_mem_of_generatesOnRecNoExplode`).
 -/
 
 variable {T : Type} [ValueType T]
@@ -150,7 +150,7 @@ of `AggQueryIn.evaluatePlain_faithful`: the leaves of `D'` are those of
 theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.usesOnly S → q.inSig Θ → q.altFree →
+      q.usesOnly S → q.inSig Θ → q.noExplode →
       ∀ {τ : T → T}, Function.Injective τ → τ 0 = 0 →
       ∀ (D D' : Database T) (γ : Fin c → T),
         (∀ p ∈ q.leaves, D'.find p.1 p.2 = (D.find p.1 p.2).map (Relation.mapVals τ)) →
@@ -334,7 +334,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     show (τ ∘ u : Tuple T _) ∉ Multiset.map _ _ ↔ u ∉ _
     rw [not_iff_not]
     exact Multiset.mem_map_of_injective (Tuple.comp_injective hτ _)
-  | Alt k hk q ih => exact fun _ _ ha => ha.elim
+  | Explode k hk q ih => exact fun _ _ ha => ha.elim
   | Retag hk q ih =>
     intro hq hs ha τ hτ h0 D D' γ hD' hc
     have h := ih hq hs ha hτ h0 D D' γ hD' hc
@@ -631,7 +631,7 @@ on two fresh values `a < b` it answers alike, up to the swap, on
 `{(a, b)}` and on `{(b, a)}`, and the witness does not. -/
 theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) {κ : Fin 2 → ColKind} (q : AggQuery ℕ 2 κ)
-    (hq : q.usesOnly S) (hs : q.inSig Θ) (ha : q.altFree) :
+    (hq : q.usesOnly S) (hs : q.inSig Θ) (ha : q.noExplode) :
     ¬ ∀ D : Database ℕ, q.evaluatePlain D = ltWitness.evaluatePlain D := by
   intro heq
   obtain ⟨a, b, hab, haA, hbA, ha0, hb0⟩ := exists_two_fresh q.allConsts
@@ -666,31 +666,31 @@ theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
 
 /-- **Generation with no aggregate column read as a key**: the whole-algebra
 generation predicate (`GeneratesOnRec`) with the produced query also
-asked to be `altFree`. This is the scope of the annotated classification,
+asked to be `noExplode`. This is the scope of the annotated classification,
 where the alternatives are not an operator of the source language; over
 it the selection is in every basis, which the plain scope's "`−` for `σ`"
 construction escapes only by reading aggregate columns as keys. -/
-def GeneratesAtAltFree (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
+def GeneratesAtNoExplode (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
     (S : Set OpKind) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) : Prop :=
   q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
     ∃ (κ' : Fin n → ColKind) (q' : AggQuery T n κ'),
-      q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.altFree ∧ q'.Extends q
+      q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode ∧ q'.Extends q
 
 /-- The alternatives-free generation of every query of the algebra. -/
-def GeneratesOnRecAltFree (T : Type) [ValueType T] (sch : Schema)
+def GeneratesOnRecNoExplode (T : Type) [ValueType T] (sch : Schema)
     (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
-  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ), GeneratesAtAltFree T sch cnt S q
+  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ), GeneratesAtNoExplode T sch cnt S q
 
-theorem GeneratesOnRecAltFree.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
-    {S : Set OpKind} (h : GeneratesOnRecAltFree T sch cnt S) : GeneratesOnRec T sch cnt S := by
+theorem GeneratesOnRecNoExplode.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
+    {S : Set OpKind} (h : GeneratesOnRecNoExplode T sch cnt S) : GeneratesOnRec T sch cnt S := by
   intro n κ q ho hq hi
   obtain ⟨κ', q', h₁, h₂, h₃, -, h₅⟩ := h q ho hq hi
   exact ⟨κ', q', h₁, h₂, h₃, h₅⟩
 
 /-- **The selection row, in the scope where no aggregate column is read as
 a key**: `σ` is in every generating set. -/
-theorem sel_mem_of_generatesAtAltFree {cnt : SeqAggFunc ℕ} {S : Set OpKind}
-    (hS : GeneratesAtAltFree ℕ schemaS cnt S ltWitness) : OpKind.sel ∈ S := by
+theorem sel_mem_of_generatesAtNoExplode {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+    (hS : GeneratesAtNoExplode ℕ schemaS cnt S ltWitness) : OpKind.sel ∈ S := by
   by_contra hsel
   obtain ⟨κ', q', -, hu', hsig', ha', he⟩ := hS overSchema_ltWitness usesOnly_ltWitness
     (inSig_ltWitness _)
@@ -699,6 +699,6 @@ theorem sel_mem_of_generatesAtAltFree {cnt : SeqAggFunc ℕ} {S : Set OpKind}
 
 /-- **The selection row, in the scope where no aggregate column is read as
 a key**: `σ` is in every generating set. -/
-theorem sel_mem_of_generatesOnRecAltFree {cnt : SeqAggFunc ℕ} {S : Set OpKind}
-    (hS : GeneratesOnRecAltFree ℕ schemaS cnt S) : OpKind.sel ∈ S :=
-  sel_mem_of_generatesAtAltFree (hS _)
+theorem sel_mem_of_generatesOnRecNoExplode {cnt : SeqAggFunc ℕ} {S : Set OpKind}
+    (hS : GeneratesOnRecNoExplode ℕ schemaS cnt S) : OpKind.sel ∈ S :=
+  sel_mem_of_generatesAtNoExplode (hS _)

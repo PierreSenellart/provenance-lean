@@ -181,7 +181,7 @@ def AggQueryIn.allConsts : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Sum q₁ q₂ => Union.union q₁.allConsts q₂.allConsts
   | _, _, _, _, .Dedup q => q.allConsts
   | _, _, _, _, .Diff q₁ q₂ => Union.union q₁.allConsts q₂.allConsts
-  | _, _, _, _, .Alt _ _ q => q.allConsts
+  | _, _, _, _, .Explode _ _ q => q.allConsts
   | _, _, _, _, .Retag _ q => q.allConsts
   | _, _, _, _, .Mu _ q₀ q₁ => Union.union q₀.allConsts q₁.allConsts
   | _, _, _, _, .MuSet _ q₀ q₁ => Union.union q₀.allConsts q₁.allConsts
@@ -652,7 +652,7 @@ noncomputable def AggQueryIn.countValsAll : {c n : ℕ} → {κ : Fin n → ColK
   | _, _, _, _, .Sum q₁ q₂, D => Union.union (q₁.countValsAll D) (q₂.countValsAll D)
   | _, _, _, _, .Dedup q, D => q.countValsAll D
   | _, _, _, _, .Diff q₁ q₂, D => Union.union (q₁.countValsAll D) (q₂.countValsAll D)
-  | _, _, _, _, .Alt _ _ q, D => q.countValsAll D
+  | _, _, _, _, .Explode _ _ q, D => q.countValsAll D
   | _, _, _, _, .Retag _ q, D => q.countValsAll D
   | _, n, _, _, .Mu s q₀ q₁, D =>
       Union.union (q₀.countValsAll D)
@@ -787,7 +787,7 @@ theorem AggQueryIn.valsIn_evaluatePlain {Θ : Set (SeqAggFunc T)} :
     exact ih₁ hs.1 D γ V (fun p hp => hD p (List.mem_append_left _ hp)) hγ
       (fun a ha => hc a (Finset.mem_union_left _ ha)) (subset_trans Set.subset_union_left hV) u
       (Multiset.mem_of_mem_filter hu)
-  | Alt k hk q ih => exact fun hs D γ V hD hγ hc hV u hu => ih hs D γ V hD hγ hc hV u hu
+  | Explode k hk q ih => exact fun hs D γ V hD hγ hc hV u hu => ih hs D γ V hD hγ hc hV u hu
   | Retag hk q ih => exact fun hs D γ V hD hγ hc hV u hu => ih hs D γ V hD hγ hc hV u hu
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
@@ -1368,7 +1368,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
       rw [(h.row_eq_iff (hvals₂ v hv) (hvals₁ u hu)).mp hvu] at hv
       exact hv
     · exact fun hu' => ⟨u, hu', rfl⟩
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     exact ih hs h h0 h0W D D' γ hD' hD hγ hc hV
   | Retag hk q ih =>
@@ -1795,7 +1795,7 @@ noncomputable def AggQueryIn.countTypes (B : Finset T) : {c n : ℕ} → {κ : F
   | _, _, _, _, .Sum q₁ q₂, D => Union.union (q₁.countTypes B D) (q₂.countTypes B D)
   | _, _, _, _, .Dedup q, D => q.countTypes B D
   | _, _, _, _, .Diff q₁ q₂, D => Union.union (q₁.countTypes B D) (q₂.countTypes B D)
-  | _, _, _, _, .Alt _ _ q, D => q.countTypes B D
+  | _, _, _, _, .Explode _ _ q, D => q.countTypes B D
   | _, _, _, _, .Retag _ q, D => q.countTypes B D
   | _, _, _, _, .Mu _ q₀ q₁, D => Union.union (q₀.countTypes B D) (q₁.countTypes B D)
   | _, _, _, _, .MuSet _ q₀ q₁, D => Union.union (q₀.countTypes B D) (q₁.countTypes B D)
@@ -1968,7 +1968,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
       (fun p hp _ => hD p (List.mem_append_right _ hp) List.not_mem_nil)
       (fun a ha => hc a (Finset.mem_union_right _ ha))
     exact Set.union_subset (hmono h₁ Finset.subset_union_left) (hmono h₂ Finset.subset_union_right)
-  | Alt k hk q ih => exact fun hs hh hn D D' hD' hD hc => ih hs hh hn D D' hD' hD hc
+  | Explode k hk q ih => exact fun hs hh hn D D' hD' hD hc => ih hs hh hn D D' hD' hD hc
   | Retag hk q ih => exact fun hs hh hn D D' hD' hD hc => ih hs hh hn D D' hD' hD hc
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
@@ -2428,7 +2428,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
         (fun a ha => hc a (Finset.mem_union_left _ ha))
     · exact hb₂ B D hν h0 (fun p hp _ => hD p (List.mem_append_right _ hp) List.not_mem_nil)
         (fun a ha => hc a (Finset.mem_union_right _ ha))
-  | Alt k hk q ih => exact ih
+  | Explode k hk q ih => exact ih
   | Retag hk q ih => exact ih
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m

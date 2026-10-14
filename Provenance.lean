@@ -913,9 +913,9 @@ proven engine several general results reuse internally.
   vector being a syntactic index, and `AggQueryIn.exists_allReg` makes
   that into a theorem – every query is plain-equivalent to one all of
   whose columns are regular, using the same classes and naming the same
-  relations. `AggQueryIn.Alt` is the bridge (it reads an aggregate
+  relations. `AggQueryIn.Explode` is the bridge (it reads an aggregate
   column as a key and is the identity over a plain relation) and
-  `AggQueryIn.Retag` the one for a provenance column; `altBelow` applies
+  `AggQueryIn.Retag` the one for a provenance column; `explodeBelow` applies
   them column by column. Three readings of an aggregate column have
   exact regular counterparts – `GenPredIn.toReg` takes an aggregate atom
   to the same comparison and a range atom to its two, `ProjColIn.toReg`
@@ -1168,7 +1168,7 @@ proven engine several general results reuse internally.
   (`Poly.add_one_ne_X`)
 - `Provenance.SelRow` – **the selection is the only operator reading the
   order**: `AggQueryIn.evaluatePlain_orderBlind` says a query with no
-  selection, reading no aggregate column as a key (`altFree`), in a
+  selection, reading no aggregate column as a key (`noExplode`), in a
   signature with no function on values, commutes on its regular columns
   (`ColKind.readTuple`) with every injective map of the values fixing `0`
   and its constants, whatever the map does to the order – the
@@ -1178,8 +1178,8 @@ proven engine several general results reuse internally.
   `σ_{#1<#2}(S)` keeps `{(a, b)}` and not `{(b, a)}` (`ltWitness_breaks`),
   so no selection-free query expresses it (`ltWitness_not_expressible`),
   and `σ` is in every generating set whose produced queries read no
-  aggregate column as a key (`sel_mem_of_generatesOnRecAltFree`, against
-  `GeneratesOnRecAltFree`, the scope of the annotated classification)
+  aggregate column as a key (`sel_mem_of_generatesOnRecNoExplode`, against
+  `GeneratesOnRecNoExplode`, the scope of the annotated classification)
 - `Provenance.RoundBound` – **a bag recursion that settles does so
   within a bound read off its values**: a recursive term reads its hole
   once, so it is linear in the recursive relation
@@ -1212,7 +1212,7 @@ proven engine several general results reuse internally.
   for a `liftFaithful` query – no aggregate selection, no difference, no
   set recursion – at an instance annotated `𝟙`, `Database.liftOne`), so a
   set generating the annotated algebra over any `K` generates every
-  faithful query plainly (`generatesAtAltFree_of_generatesAnn`), which
+  faithful query plainly (`generatesAtNoExplode_of_generatesAnn`), which
   every witness of the plain rows is: `∅`, `Π`, `γ`, `μ^⊎`, `win`, `σ`
   and one of `×`/apply are in every such set
   (`required_mem_of_generatesAnn`), the selection row holding outright
@@ -1312,23 +1312,23 @@ proven engine several general results reuse internally.
   that family's factor" (`Having.supersede_test_iff`) and dropping it
   twice is dropping it once
 - `Provenance.Alternatives` – **aggregate columns read as keys**, the
-  operator being `AggQuery.Alt` in `Provenance.AggQuery`: it replaces
+  operator being `AggQuery.Explode` in `Provenance.AggQuery`: it replaces
   each occurrence by its alternatives and makes the column regular, so
   a `GROUP BY` on a count or a `DISTINCT` on an aggregate can be
   written at all – every key-comparing operator takes regular columns.
-  Over a plain relation an aggregate value is a value and `Alt` is the
+  Over a plain relation an aggregate value is a value and `Explode` is the
   identity. It is **world-faithful**: under a valuation exactly one
   alternative survives, the one whose value the column has in that
   world, and it specializes to what the occurrence specializes to, so
   the random-world commutation covers it. It is **not** data-part
   adequate, and cannot be: it gives one row per value the column takes
   in *some* world, so `AggQuery.evaluateAnnotated_toPlain` carries the
-  hypothesis `AggQuery.altFree`. It **commutes with homomorphisms**
+  hypothesis `AggQuery.noExplode`. It **commutes with homomorphisms**
   (`AggQuery.sim_alternativesAt`), since the values a token takes
   survive both the pushforward (`AggValue.vals_mapAnn`) and tie-block
   equivalence (`AggValue.vals_congr`) – both because `AggValue.vals`
   reads the occurrences only through their values
-  (`AggValue.vals_eq_valsOf`). `Alt` is outside the (R1)–(R5)
+  (`AggValue.vals_eq_valsOf`). `Explode` is outside the (R1)–(R5)
   fragment. **Several** aggregate columns compared as one key ask for a
   single atom on the tuple of values rather than two atoms conjoined.
   The two coincide where the columns come from *different groupings*,
@@ -1685,7 +1685,7 @@ proven engine several general results reuse internally.
   one and nothing nested is involved. The alternatives and their
   annotations are printed, one of them impossible, and with them the gap
   between a world's answer and the token's deterministic reading that
-  keeps `Alt` out of `AggQueryIn.evaluateAnnotated_toPlain`.
+  keeps `Explode` out of `AggQueryIn.evaluateAnnotated_toPlain`.
 - `Provenance.HavingExample` – worked examples on a three-occurrence group:
   the `SUM ≥ 5` possible-world provenance in `𝔹[X]` and its collapse to
   minimal worlds (both computed by kernel evaluation), and the

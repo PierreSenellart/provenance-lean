@@ -723,7 +723,7 @@ theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
     intro h D D' hD
     show Union.union _ _ = Union.union _ _
     rw [ih₁ h.1 hD, ih₂ h.2 hD]
-  | Alt k hk q ih => intro h D D' hD; exact ih h hD
+  | Explode k hk q ih => intro h D D' hD; exact ih h hD
   | Retag hk q ih => intro h D D' hD; exact ih h hD
   | Mu s' q₀ q₁ ih₀ ih₁ =>
     intro h D D' hD
@@ -1790,7 +1790,7 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       rw [eq_comm]
       exact Shape.rowAt_eq_shift hNd' (fun j => Or.inr ⟨t, ht, j, rfl⟩)
         (fun j => Or.inl ⟨s, hs', j, rfl⟩) hnd
-  | Alt k hk q ih =>
+  | Explode k hk q ih =>
     intro hq hs hh
     refine ⟨fun hl cγ => ?_, fun s m hl hn cγ W hW => ?_⟩
     · obtain ⟨N, L, b, hv, h⟩ := (ih hq hs hh).1 hl cγ

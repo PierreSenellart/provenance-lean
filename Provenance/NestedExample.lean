@@ -13,7 +13,7 @@ import Provenance.Semirings.Nat
 syntax reads it in two ways. This file writes the query both ways, on a
 relation whose two groups have different counts.
 
-**Through the alternatives** (`AggQueryIn.Alt`): read the aggregate
+**Through the alternatives** (`AggQueryIn.Explode`): read the aggregate
 column as a **key**, replacing each occurrence by its alternatives, one
 per value the column takes and each carrying `[a ≐ v]`. The column
 becomes regular, and every operator applies to a regular column – a
@@ -71,7 +71,7 @@ theorem inner_kind :
   rw [Fin.append_right]
 
 /-- Reading it as a key makes every column regular. -/
-theorem alt_kind :
+theorem explode_kind :
     Function.update
         (Fin.append (fun _ : Fin 1 => ColKind.reg) (fun _ : Fin 1 => ColKind.agg)
           : Fin (1 + 1) → ColKind) 1 ColKind.reg
@@ -95,7 +95,7 @@ with the inner count read as a key so that the outer `sum` aggregates a
 regular column. -/
 abbrev outer : AggQuery ℕ 1 (fun _ => ColKind.agg) :=
   AggQueryIn.GammaScalar ![TermIn.index 1] ![SeqAggFunc.sum]
-    ((AggQueryIn.Alt 1 inner_kind inner).castKind alt_kind)
+    ((AggQueryIn.Explode 1 inner_kind inner).castKind explode_kind)
 
 /-! ## What the two sides compute
 
@@ -108,7 +108,7 @@ theorem inner_plain :
 
 /-! **The outer aggregation, plainly**: `2 + 1 = 3`, which is SQL's
 `sum(count(*))`. Over a plain relation an aggregate value is a value and
-`Alt` is the identity, so the alternatives cost nothing here. -/
+`Explode` is the identity, so the alternatives cost nothing here. -/
 theorem outer_plain :
     (outer.evaluatePlain D).map (fun u => u 0)
       = (([3] : List ℕ) : Multiset ℕ) := by
@@ -119,8 +119,8 @@ theorem outer_plain :
 count can take, each carrying the group's annotation times `[c ≐ v]`. With
 every input row annotated `1` over `ℕ`, the group of `1`'s has a count of
 `2` and the group of `2` a count of `1`. -/
-theorem alt_annotated :
-    ((AggQueryIn.Alt 1 inner_kind inner).evaluateAnnotated dN).map
+theorem explode_annotated :
+    ((AggQueryIn.Explode 1 inner_kind inner).evaluateAnnotated dN).map
         (fun p => ((p.fst 0, p.fst 1), p.snd))
       = ((([((1, 1), 0), ((1, 2), 1), ((2, 1), 1)] : List ((ℕ × ℕ) × ℕ)))
           : Multiset _) := by
@@ -135,7 +135,7 @@ annotated `0`. The sum in a world is `2 + 1 = 3`, SQL's answer, and the
 *deterministic* reading of the token is `1 + 2 + 1 = 4`, which is no
 world's. That is what `def:zeq` means by equality after removal "of the
 occurrences annotated `𝟘` inside their aggregate values", and it is why
-`AggQueryIn.evaluateAnnotated_toPlain` excludes `Alt`: an aggregate
+`AggQueryIn.evaluateAnnotated_toPlain` excludes `Explode`: an aggregate
 column read as a key gives one row per value the column takes in *some*
 world, so the data part of the annotated evaluation is not the data part
 of any one world. -/
@@ -185,7 +185,7 @@ theorem outerNest_occs :
 
 /-! **Its deterministic reading is `3`** – and not the `4` the
 alternatives' token collapses to. Nothing is read twice here: the nested
-token keeps one row and reads it world by world, where `Alt` explodes the
+token keeps one row and reads it world by world, where `Explode` explodes the
 row into one per value its column takes. -/
 theorem outerNest_collapse :
     (outerNest.evaluate dN).map (fun r =>
