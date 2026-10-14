@@ -880,11 +880,22 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
 
   It is not derivable from the cross product once annotations are there:
   the product reads its right side once, the apply once per row of the
-  left, and it is the apply that a correlated subquery needs. -/
-  | Apply : {c n₁ n₂ : ℕ} → {κ₂ : Fin n₂ → ColKind} → {l : List (String × ℕ)} →
-      AggQueryIn T c n₁ (ColKind.allReg n₁) l →
+  left, and it is the apply that a correlated subquery needs.
+
+  The left side may carry aggregate columns, so that a product of two
+  token-carrying relations is an apply too. What the right side then reads
+  of such a column is its deterministic value (`GenRow.plainTuple`): the
+  semantics paper reads an aggregate parameter world by world, as an
+  aggregate atom reads a column, which this representation does not have,
+  so a right side reading an aggregate column of its left side
+  (`AggQueryIn.noAggParam` fails) is outside the semantics the paper
+  gives – a representation limit, like the all-regular input of
+  `WinExpr`. -/
+  | Apply : {c n₁ n₂ : ℕ} → {κ₁ : Fin n₁ → ColKind} → {κ₂ : Fin n₂ → ColKind} →
+      {l : List (String × ℕ)} →
+      AggQueryIn T c n₁ κ₁ l →
       AggQueryIn T (n₁ + c) n₂ κ₂ →
-      AggQueryIn T c (n₁ + n₂) (Fin.append (ColKind.allReg n₁) κ₂) l
+      AggQueryIn T c (n₁ + n₂) (Fin.append κ₁ κ₂) l
   /-- Union (all). -/
   | Sum : {c n : ℕ} → {κ : Fin n → ColKind} → {l₁ l₂ : List (String × ℕ)} →
       AggQueryIn T c n κ l₁ → AggQueryIn T c n κ l₂ → AggQueryIn T c n κ (l₁ ++ l₂)
@@ -1839,7 +1850,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
     ((q₁.evaluate d γ).product (q₂.evaluate d γ)).map (fun (x, y) =>
       ⟨Fin.append x.fst y.fst,
         ⟨x.snd.base * y.snd.base, x.snd.pending + y.snd.pending⟩⟩)
-  | _, _, _, _, @Apply _ _ n₁ _ _ _ q₁ q₂, d, γ =>
+  | _, _, _, _, @Apply _ _ n₁ _ _ _ _ q₁ q₂, d, γ =>
     -- the right side is read once per row of the left, under that row
     (q₁.evaluate d γ).bind (fun x =>
       (q₂.evaluate d (Fin.append (GenRow.plainTuple x.fst) γ)).map (fun y =>
@@ -2268,7 +2279,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
     @Multiset.filter _ (fun u => φ.holdsPlain u γ)
       (fun u => φ.decHoldsPlain u γ) (q.evaluatePlain d γ)
   | _, _, _, _, Prod q₁ q₂, d, γ => q₁.evaluatePlain d γ * q₂.evaluatePlain d γ
-  | _, _, _, _, @Apply _ _ n₁ _ _ _ q₁ q₂, d, γ =>
+  | _, _, _, _, @Apply _ _ n₁ _ _ _ _ q₁ q₂, d, γ =>
     (q₁.evaluatePlain d γ).bind (fun u =>
       (q₂.evaluatePlain d (Fin.append u γ)).map (fun v =>
         (Fin.append u v : Tuple T (n₁ + _))))

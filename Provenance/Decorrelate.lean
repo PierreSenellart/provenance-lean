@@ -2,7 +2,7 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.PlainBasis
+import Provenance.AllRegular
 
 /-!
 # Decorrelation: an apply read as a product
@@ -2515,6 +2515,112 @@ theorem Relation.applyJoin_slices {c n₁ n₂ : ℕ} (P : Multiset (Tuple T c))
     · rw [Fin.addCases_right, Fin.append_right, Fin.append_right,
         Fin.append_right]
 
+/-! ### A block read twice
+
+An apply's left side may carry aggregate columns, which its right side
+reads through their values; the join that puts the two decorrelations
+back together compares them, so it compares a copy of them read as
+values (`AggQueryIn.Explode`) and keeps the originals for the output. -/
+
+/-- The first copy of a doubled block, the rest of the row unmoved. -/
+def dupL (m X : ℕ) : Fin (m + X) → Fin ((m + m) + X) :=
+  Fin.addCases (fun i => Fin.castAdd X (Fin.castAdd m i))
+    (fun x => Fin.natAdd (m + m) x)
+
+/-- The second copy of a doubled block, the rest of the row unmoved. -/
+def dupR (m X : ℕ) : Fin (m + X) → Fin ((m + m) + X) :=
+  Fin.addCases (fun i => Fin.castAdd X (Fin.natAdd m i))
+    (fun x => Fin.natAdd (m + m) x)
+
+/-- A row with its first block doubled. -/
+def Tuple.dupBlock {m X : ℕ} (z : Tuple T (m + X)) : Tuple T ((m + m) + X) :=
+  Fin.append (Fin.append (fun i => z (Fin.castAdd X i)) (fun i => z (Fin.castAdd X i)))
+    (fun x => z (Fin.natAdd m x))
+
+omit [ValueType T] in
+theorem Tuple.dupBlock_dupL {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
+    z.dupBlock (dupL m X k) = z k := by
+  refine Fin.addCases (fun i => ?_) (fun x => ?_) k
+  · rw [dupL, Fin.addCases_left, Tuple.dupBlock, Fin.append_left, Fin.append_left]
+  · rw [dupL, Fin.addCases_right, Tuple.dupBlock, Fin.append_right]
+
+omit [ValueType T] in
+theorem Tuple.dupBlock_dupR {m X : ℕ} (z : Tuple T (m + X)) (k : Fin (m + X)) :
+    z.dupBlock (dupR m X k) = z k := by
+  refine Fin.addCases (fun i => ?_) (fun x => ?_) k
+  · rw [dupR, Fin.addCases_left, Tuple.dupBlock, Fin.append_left, Fin.append_right]
+  · rw [dupR, Fin.addCases_right, Tuple.dupBlock, Fin.append_right]
+
+omit [ValueType T] in
+theorem Tuple.dupBlock_append {m X : ℕ} (a : Tuple T m) (y : Tuple T X) :
+    Tuple.dupBlock (Fin.append a y : Tuple T (m + X))
+      = (Fin.append (Fin.append a a) y : Tuple T ((m + m) + X)) := by
+  funext k
+  refine Fin.addCases (fun i => ?_) (fun x => ?_) k
+  · rw [Tuple.dupBlock, Fin.append_left, Fin.append_left]
+    refine Fin.addCases (fun i' => ?_) (fun i' => ?_) i
+    · rw [Fin.append_left, Fin.append_left, Fin.append_left]
+    · rw [Fin.append_right, Fin.append_right, Fin.append_left]
+  · rw [Tuple.dupBlock, Fin.append_right, Fin.append_right, Fin.append_right]
+
+omit [ValueType T] in
+theorem regBelow_append_left {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
+    regBelow (Fin.append κ κ) m (Fin.castAdd m i) = ColKind.reg :=
+  ite_eq_left i.isLt
+
+omit [ValueType T] in
+theorem regBelow_append_right {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
+    regBelow (Fin.append κ κ) m (Fin.natAdd m i) = κ i := by
+  show (if (Fin.natAdd m i).val < m then ColKind.reg else Fin.append κ κ (Fin.natAdd m i)) = _
+  rw [ite_eq_right (fun h => absurd h (by simp)), Fin.append_right]
+
+omit [ValueType T] in
+private theorem dup_kind {m : ℕ} (κ : Fin m → ColKind) :
+    (fun j : Fin (m + m) =>
+      (AggQueryIn.carryCol (T := T) κ (Fin.addCases id id j)).kind) = Fin.append κ κ := by
+  funext j
+  rw [AggQueryIn.carryCol_kind]
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.addCases_left, Fin.append_left]; rfl
+  · rw [Fin.addCases_right, Fin.append_right]; rfl
+
+/-- **A query with its columns doubled, the first copy read as values.** -/
+def AggQueryIn.withRegCopy {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)}
+    (A : AggQueryIn T 0 m κ l) : AggQueryIn T 0 (m + m) (regBelow (Fin.append κ κ) m) l :=
+  ((AggQueryIn.Proj (fun j => AggQueryIn.carryCol κ (Fin.addCases id id j)) A).castKind
+    (dup_kind κ)).explodeBelow m
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.usesOnly_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+    {l : List (String × ℕ)} {S : Set OpKind} (A : AggQueryIn T 0 m κ l) :
+    A.withRegCopy.usesOnly S ↔ (OpKind.proj ∈ S ∧ A.usesOnly S) := by
+  rw [AggQueryIn.withRegCopy, AggQueryIn.usesOnly_explodeBelow, AggQueryIn.usesOnly_castKind]
+  exact ⟨fun h => ⟨h.1.1, h.2⟩,
+    fun h => ⟨⟨h.1, fun j => AggQueryIn.sourceCol_carryCol _ _⟩, h.2⟩⟩
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.overSchema_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+    {l : List (String × ℕ)} {sch : Schema} (A : AggQueryIn T 0 m κ l) :
+    A.withRegCopy.overSchema sch ↔ A.overSchema sch := by
+  rw [AggQueryIn.withRegCopy, AggQueryIn.overSchema_explodeBelow,
+    AggQueryIn.overSchema_castKind]
+  rfl
+
+theorem AggQueryIn.evaluatePlain_withRegCopy {m : ℕ} {κ : Fin m → ColKind}
+    {l : List (String × ℕ)} (A : AggQueryIn T 0 m κ l) (D : Database T) (γ : Fin 0 → T) :
+    A.withRegCopy.evaluatePlain D γ
+      = (A.evaluatePlain D γ).map (fun a => (Fin.append a a : Tuple T (m + m))) := by
+  rw [AggQueryIn.withRegCopy, AggQueryIn.evaluatePlain_explodeBelow,
+    AggQueryIn.evaluatePlain_castKind]
+  show Multiset.map (fun u => (fun j =>
+      (AggQueryIn.carryCol κ (Fin.addCases id id j)).evalPlain u γ))
+    (A.evaluatePlain D γ) = _
+  refine Multiset.map_congr rfl (fun a _ => funext (fun j => ?_))
+  rw [AggQueryIn.evalPlain_carryCol]
+  refine Fin.addCases (fun i => ?_) (fun i => ?_) j
+  · rw [Fin.addCases_left, Fin.append_left]; rfl
+  · rw [Fin.addCases_right, Fin.append_right]; rfl
+
 set_option maxHeartbeats 1000000 in
 /-- **An apply becomes a product.** The left side is decorrelated over
 `P`; the distinct rows of that decorrelation, with their blocks swapped,
@@ -2527,8 +2633,8 @@ hypothesis is the statement for *another* parameter relation: the
 recursion is on the query, over every parameter relation at once. -/
 theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S)
-    {κ₂ : Fin n₂ → ColKind} {P : AggQuery T c (ColKind.allReg c)}
-    {q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁)}
+    {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind} {P : AggQuery T c (ColKind.allReg c)}
+    {q₁ : AggQueryIn T c n₁ κ₁}
     {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂}
     (h₁ : AggQueryIn.HasDecorrelation S sch P q₁)
     (h₂ : ∀ P₂ : AggQuery T (n₁ + c) (ColKind.allReg (n₁ + c)),
@@ -2547,7 +2653,7 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
   set P₂ : AggQuery T (n₁ + c) (ColKind.allReg (n₁ + c)) :=
     (AggQueryIn.Proj (fun j => AggQueryIn.carryCol (ColKind.allReg (c + n₁))
         (swapSrc c n₁ j))
-      (AggQueryIn.Dedup (A.castKind (AggQueryIn.append_allReg c n₁)))).castKind
+      (AggQueryIn.Dedup A.allRegOf)).castKind
       (funext hswapKind) with hP₂def
   have hP₂eval : ∀ D : Database T, P₂.evaluatePlain D
       = ((A.evaluatePlain D).dedup).map (Relation.swapBlocks c n₁) := by
@@ -2556,8 +2662,8 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
     show Multiset.map (fun u => (fun j =>
         (AggQueryIn.carryCol (ColKind.allReg (c + n₁))
           (swapSrc c n₁ j)).evalPlain u (fun _ => 0)))
-        ((A.castKind (AggQueryIn.append_allReg c n₁)).evaluatePlain D).dedup = _
-    rw [AggQueryIn.evaluatePlain_castKind]
+        (A.allRegOf.evaluatePlain D (fun _ => 0)).dedup = _
+    rw [AggQueryIn.evaluatePlain_allRegOf]
     exact Multiset.map_congr rfl (fun x _ => funext (fun j => by
       rw [AggQueryIn.evalPlain_carryCol]
       rfl))
@@ -2566,77 +2672,96 @@ theorem AggQueryIn.hasDecorrelation_apply {c n₁ n₂ : ℕ} {S : Set OpKind} {
     exact ⟨⟨hS (by simp [decorrOps]),
         fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
       hS (by simp [decorrOps]),
-      (AggQueryIn.usesOnly_castKind _ _ _).mpr huA⟩
+      (AggQueryIn.usesOnly_allRegOf _).mpr huA⟩
   have hP₂sch : P₂.overSchema sch := by
     rw [hP₂def, AggQueryIn.overSchema_castKind]
-    exact (AggQueryIn.overSchema_castKind _ _).mpr hosA
+    exact (AggQueryIn.overSchema_allRegOf _).mpr hosA
   have hP₂nd : ∀ D : Database T, (P₂.evaluatePlain D).Nodup := by
     intro D
     rw [hP₂eval]
     exact (Multiset.nodup_dedup _).map Relation.swapBlocks_injective
   obtain ⟨B, huB, hosB, hdB⟩ := h₂ P₂ hP₂uses hP₂sch hP₂nd
-  -- the join: the left side's columns against the right side's
-  -- parameters
-  set κa : Fin ((c + n₁) + ((n₁ + c) + n₂)) → ColKind :=
-    Fin.append (ColKind.liftKinds c (ColKind.allReg n₁))
+  -- the join: a copy of the left side's columns read as values against
+  -- the right side's parameters, the originals kept for the output
+  set κa : Fin (((c + n₁) + (c + n₁)) + ((n₁ + c) + n₂)) → ColKind :=
+    Fin.append (regBelow (Fin.append (ColKind.liftKinds c κ₁) (ColKind.liftKinds c κ₁))
+        (c + n₁))
       (ColKind.liftKinds (n₁ + c) κ₂) with hκa
-  have hleftReg : ∀ k : Fin (c + n₁),
-      ColKind.liftKinds c (ColKind.allReg n₁) k = ColKind.reg :=
-    fun k => congrFun (AggQueryIn.append_allReg c n₁) k
   have hposL : ∀ l : Fin (n₁ + c),
-      κa (Fin.castAdd ((n₁ + c) + n₂) (swapSrc c n₁ l)) = ColKind.reg := by
+      κa (dupL (c + n₁) ((n₁ + c) + n₂)
+        (Fin.castAdd ((n₁ + c) + n₂) (swapSrc c n₁ l))) = ColKind.reg := by
     intro l
-    rw [hκa, Fin.append_left]
-    exact hleftReg _
+    rw [dupL, Fin.addCases_left, hκa, Fin.append_left]
+    exact regBelow_append_left _ _
   have hposR : ∀ l : Fin (n₁ + c),
-      κa (Fin.natAdd (c + n₁) (Fin.castAdd n₂ l)) = ColKind.reg := by
+      κa (dupL (c + n₁) ((n₁ + c) + n₂)
+        (Fin.natAdd (c + n₁) (Fin.castAdd n₂ l))) = ColKind.reg := by
     intro l
-    rw [hκa, Fin.append_right]
+    rw [dupL, Fin.addCases_right, hκa, Fin.append_right]
     exact ColKind.liftKinds_param (n₁ + c) κ₂ l
-  have hsrc : ∀ j, κa (applySrc c n₁ n₂ j)
-      = ColKind.liftKinds c
-          (Fin.append (ColKind.allReg n₁) κ₂) j := by
+  have hsrc : ∀ j, κa (dupR (c + n₁) ((n₁ + c) + n₂) (applySrc c n₁ n₂ j))
+      = ColKind.liftKinds c (Fin.append κ₁ κ₂) j := by
     intro j
     refine Fin.addCases (fun jp => ?_) (fun i => ?_) j
-    · show κa (applySrc c n₁ n₂ (Fin.castAdd (n₁ + n₂) jp)) = _
-      rw [applySrc, Fin.addCases_left, hκa, Fin.append_left, hleftReg,
-        ColKind.liftKinds_param]
-    · show κa (applySrc c n₁ n₂ (Fin.natAdd c i)) = _
+    · show κa (dupR _ _ (applySrc c n₁ n₂ (Fin.castAdd (n₁ + n₂) jp))) = _
+      rw [applySrc, Fin.addCases_left, dupR, Fin.addCases_left, hκa, Fin.append_left,
+        regBelow_append_right, ColKind.liftKinds_param, ColKind.liftKinds_param]
+    · show κa (dupR _ _ (applySrc c n₁ n₂ (Fin.natAdd c i))) = _
       rw [applySrc, Fin.addCases_right, ColKind.liftKinds_col]
       refine Fin.addCases (fun i₁ => ?_) (fun w => ?_) i
-      · rw [Fin.addCases_left, hκa, Fin.append_left, hleftReg, Fin.append_left]
-        rfl
-      · rw [Fin.addCases_right, hκa, Fin.append_right,
+      · rw [Fin.addCases_left, dupR, Fin.addCases_left, hκa, Fin.append_left,
+          regBelow_append_right, ColKind.liftKinds_col, Fin.append_left]
+      · rw [Fin.addCases_right, dupR, Fin.addCases_right, hκa, Fin.append_right,
           ColKind.liftKinds_col, Fin.append_right]
-  refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κa (applySrc c n₁ n₂ j))
+  refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κa
+        (dupR (c + n₁) ((n₁ + c) + n₂) (applySrc c n₁ n₂ j)))
       (AggQueryIn.Sel
-        (keyJoinCond (fun l : Fin (n₁ + c) =>
-            Fin.castAdd ((n₁ + c) + n₂) (swapSrc c n₁ l))
-          (fun l : Fin (n₁ + c) => Fin.natAdd (c + n₁) (Fin.castAdd n₂ l))
+        (keyJoinCond (fun l : Fin (n₁ + c) => dupL (c + n₁) ((n₁ + c) + n₂)
+            (Fin.castAdd ((n₁ + c) + n₂) (swapSrc c n₁ l)))
+          (fun l : Fin (n₁ + c) => dupL (c + n₁) ((n₁ + c) + n₂)
+            (Fin.natAdd (c + n₁) (Fin.castAdd n₂ l)))
           hposL hposR)
-        (AggQueryIn.Prod A B))).castKind
+        (AggQueryIn.Prod A.withRegCopy B))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κa _).trans (hsrc j))),
     ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
     exact ⟨⟨hS (by simp [decorrOps]),
         fun j => AggQueryIn.sourceCol_carryCol _ _⟩,
-      hS (by simp [decorrOps]), ⟨hS (by simp [decorrOps]), huA, huB⟩⟩
+      hS (by simp [decorrOps]), ⟨hS (by simp [decorrOps]),
+        (AggQueryIn.usesOnly_withRegCopy A).mpr ⟨hS (by simp [decorrOps]), huA⟩, huB⟩⟩
   · rw [AggQueryIn.overSchema_castKind]
-    exact ⟨hosA, hosB⟩
+    exact ⟨(AggQueryIn.overSchema_withRegCopy A).mpr hosA, hosB⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
-      (AggQueryIn.carryCol κa (applySrc c n₁ n₂ j)).evalPlain u (fun _ => 0)))
+      (AggQueryIn.carryCol κa (dupR (c + n₁) ((n₁ + c) + n₂)
+        (applySrc c n₁ n₂ j))).evalPlain u (fun _ => 0)))
       (Multiset.filter (fun u => (keyJoinCond _ _ hposL hposR).holdsPlain u)
-        (A.evaluatePlain D * B.evaluatePlain D)) = _
-  rw [Relation.hMul_eq_bind, hdB, hP₂eval, hdA]
+        (A.withRegCopy.evaluatePlain D * B.evaluatePlain D)) = _
+  rw [Relation.hMul_eq_bind, AggQueryIn.evaluatePlain_withRegCopy, Multiset.bind_map]
+  have hdup : ∀ M : Multiset (Tuple T (c + n₁)),
+      (M.bind (fun a => Multiset.map (fun v =>
+        (Fin.append (Fin.append a a : Tuple T ((c + n₁) + (c + n₁))) v
+          : Tuple T (((c + n₁) + (c + n₁)) + ((n₁ + c) + n₂))))
+        (B.evaluatePlain D)))
+      = (M.bind (fun a => Multiset.map (fun v =>
+          (Fin.append a v : Tuple T ((c + n₁) + ((n₁ + c) + n₂))))
+          (B.evaluatePlain D))).map Tuple.dupBlock := by
+    intro M
+    rw [Multiset.map_bind]
+    refine Multiset.bind_congr (fun a _ => ?_)
+    rw [Multiset.map_map]
+    exact Multiset.map_congr rfl (fun v _ => (Tuple.dupBlock_append a v).symm)
+  erw [hdup]
+  rw [Multiset.filter_map, Multiset.map_map, hdB, hP₂eval, hdA]
   refine Eq.trans ?_ (Eq.trans
     (Relation.applyJoin_slices (P.evaluatePlain D)
       (fun v => q₁.evaluatePlain D v) (fun z => q₂.evaluatePlain D z))
     (congrArg (Relation.slices (P.evaluatePlain D)) (funext (fun v => rfl))))
   refine congrArg₂ Multiset.map (funext (fun u => funext (fun j => ?_)))
     (Multiset.filter_congr (fun u _ => ?_))
-  · rw [AggQueryIn.evalPlain_carryCol]
-  · exact keyJoinCond_holdsPlain _ _ hposL hposR u
+  · rw [Function.comp_apply, AggQueryIn.evalPlain_carryCol, Tuple.dupBlock_dupR]
+  · rw [Function.comp_apply, keyJoinCond_holdsPlain]
+    simp only [Tuple.dupBlock_dupL]
 
 
 /-! ## The construction

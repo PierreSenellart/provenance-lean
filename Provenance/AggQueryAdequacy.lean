@@ -281,7 +281,7 @@ def AggQueryIn.AnnSettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : 
   | _, _, _, _, .Proj _ q, d, γ => q.AnnSettlesAt d γ
   | _, _, _, _, .Sel _ q _, d, γ => q.AnnSettlesAt d γ
   | _, _, _, _, .Prod q₁ q₂, d, γ => q₁.AnnSettlesAt d γ ∧ q₂.AnnSettlesAt d γ
-  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂, d, γ =>
+  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂, d, γ =>
       q₁.AnnSettlesAt d γ
         ∧ ∀ u : Tuple T n₁, Multiset.Mem (q₁.evaluateAnnotated d γ).toPlain u →
             q₂.AnnSettlesAt d (Fin.append u γ)

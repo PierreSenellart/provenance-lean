@@ -1670,7 +1670,7 @@ def AggQueryIn.SettlesAt : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Proj _ q, D, γ => q.SettlesAt D γ
   | _, _, _, _, .Sel _ q _, D, γ => q.SettlesAt D γ
   | _, _, _, _, .Prod q₁ q₂, D, γ => q₁.SettlesAt D γ ∧ q₂.SettlesAt D γ
-  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂, D, γ =>
+  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂, D, γ =>
       q₁.SettlesAt D γ
         ∧ ∀ u : Tuple T n₁, Multiset.Mem (q₁.evaluatePlain D γ) u →
             q₂.SettlesAt D (Fin.append u γ)

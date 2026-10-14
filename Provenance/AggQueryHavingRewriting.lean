@@ -191,7 +191,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
   | _, _, _, _, .Prod q₁ q₂, D, γ =>
     ((q₁.evaluateRew D γ).product (q₂.evaluateRew D γ)).map
       (fun (x, y) => Fin.append x y)
-  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂, D, γ =>
+  | _, _, _, _, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂, D, γ =>
     (q₁.evaluateRew D γ).bind (fun u =>
       (q₂.evaluateRew D
           (Fin.append (fun k => AggValue.collapseSum (u k)) γ)).map

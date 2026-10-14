@@ -1704,11 +1704,11 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     obtain ⟨hc₂, -⟩ := ih₂ hq.2.2 hr.2 hi.2 hsa.2 f hf hfr₂
     obtain ⟨q₂', hs₂, he₂⟩ := hc₂ rfl
     have hmem : ∀ (D : Database T) (γ : Fin _ → T) (l' : List (String × ℕ))
-        (p : AggQueryIn T _ _ (ColKind.allReg _) l'),
+        {κ' : Fin _ → ColKind} (p : AggQueryIn T _ _ κ' l'),
         q₁.evaluatePlain D γ = p.evaluatePlain D γ →
         ∀ u, Multiset.Mem (p.evaluatePlain D γ) u →
           Multiset.Mem (q₁.evaluatePlain D γ) u :=
-      fun D γ _ p he u hu => by rw [he]; exact hu
+      fun D γ _ _ p he u hu => by rw [he]; exact hu
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q₁', hs₁, he₁⟩ := hc₁ hl
       refine ⟨AggQueryIn.Apply q₁' q₂', ⟨⟨memS nofun hq.1, hs₁.usesOnly, hs₂.usesOnly⟩,

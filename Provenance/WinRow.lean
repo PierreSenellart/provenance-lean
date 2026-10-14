@@ -1573,7 +1573,7 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
             rw [AggQueryIn.evaluatePlain_assign_of_noMention _ q₁ hn.1]
             exact (h₁ n (le_trans (le_max_left _ _) hn')).2
   | Apply q₁ q₂ ih₁ ih₂ =>
-    rename_i c' n₁ n₂ κ₂ l'
+    rename_i c' n₁ n₂ κ₁ κ₂ l'
     intro hq hs hh
     -- the apply's value, given the right side's bag at each shape of the left
     have hval : ∀ (L₁ : PolyBag n₁) (F : Shape n₁ → PolyBag n₂) (D : Database ℕ)

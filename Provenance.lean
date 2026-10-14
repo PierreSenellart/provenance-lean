@@ -59,6 +59,7 @@ import Provenance.SelRow
 import Provenance.RoundBound
 import Provenance.AnnotatedBasis
 import Provenance.AnnotatedDedup
+import Provenance.AnnotatedProd
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1231,9 +1232,23 @@ proven engine several general results reuse internally.
   wherever the query does (`annSettlesAt_dedupFree`) and keeping the
   classes, the signature, the hygiene and the well-formedness. So the
   classes other than `ε` generate the annotated algebra
-  (`generatesAnn_dedupFree`). The products and the unions stay: the
-  apply's left side and the recursions' operands are all-regular by
-  typing, and nothing re-types an aggregate column without exploding it
+  (`generatesAnn_dedupFree`)
+- `Provenance.AnnotatedProd` – **`×` is dispensable in the annotated
+  algebra** too: a product is the apply of its left factor with its right
+  factor read under the ambient context (`evaluate_prodApply`, exactly),
+  an apply's left side carrying aggregate columns as freely as a
+  product's factor does. Where a recursive term's hole is in the right
+  factor, which an apply's right side cannot hold, the factors are
+  swapped and the columns put back by a projection (`finEq_prodSwap`),
+  which cashes some pending group factors and so agrees with the product
+  only up to finalization: the same rows, columns and finalized
+  annotations (`AggQueryIn.FinEq`), a relation every operator respects
+  (the congruences `AggQueryIn.FinEq.proj` … `winExpr`, the selection on
+  an aggregate value through `GenAnn.finalize_sel`) and all that the
+  annotated evaluation reads. The pass `prodFree` keeps the classes, the
+  signature, the well-formedness and the reading of every apply's
+  parameters (`AggQueryIn.noAggParam`), so the classes other than `ε` and
+  `×` generate the annotated algebra (`generatesAnn_dedupProdFree`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

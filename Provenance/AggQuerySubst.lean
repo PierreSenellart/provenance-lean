@@ -354,7 +354,7 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String
   | _, _, _, _, _, θ, .Sel φ q hφ =>
       .Sel (φ.substMap θ) (q.substMap θ) (SelOK.of_eq (GenPredIn.hasAggAtom_substMap θ φ) hφ)
   | _, _, _, _, _, θ, .Prod q₁ q₂ => .Prod (q₁.substMap θ) (q₂.substMap θ)
-  | _, d, _, _, _, θ, @AggQueryIn.Apply _ _ n₁ _ _ _ q₁ q₂ =>
+  | _, d, _, _, _, θ, @AggQueryIn.Apply _ _ n₁ _ _ _ _ q₁ q₂ =>
       .Apply (q₁.substMap θ)
         (q₂.substMap (Fin.append (fun k => Sum.inr (Fin.castAdd d k))
           (fun j => Sum.map id (Fin.natAdd n₁) (θ j))))
@@ -450,7 +450,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
     rw [ih₁ θ D γ, ih₂ θ D γ]
-  | @Apply cI n₁ n₂ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -752,7 +752,7 @@ theorem AggQueryIn.evaluate_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
     rw [ih₁ θ dB γ, ih₂ θ dB γ]
-  | @Apply cI n₁ n₂ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
     intro d θ dB γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate]
@@ -879,3 +879,375 @@ theorem AggQueryIn.evaluatePlain_Apply_subst {n₁ n₂ : ℕ}
   simp only [AggQueryIn.evaluatePlain]
   refine Multiset.bind_congr (fun u _ => ?_)
   rw [AggQueryIn.evaluatePlain_subst, Fin.append_nil]
+
+/-! ## Stripping commutes with substituting -/
+
+omit [ValueType T] in
+theorem AggQueryIn.stripAgg_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).stripAgg = q.stripAgg.castKind h := by
+  subst h; rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.stripAgg_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      {d : ℕ} (θ : Fin c → T ⊕ Fin d),
+      (q.substMap θ).stripAgg = q.stripAgg.substMap θ := by
+  intro c n κ l q
+  induction q with
+  | Rel n s => intro d θ; rfl
+  | Hole n s => intro d θ; rfl
+  | Empty => intro d θ; rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg_castKind, AggQueryIn.stripAgg,
+      AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | Sel φ q hφ ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg,
+      GenPredIn.hasAggAtom_substMap]
+    by_cases h : φ.hasAggAtom
+    · rw [ite_eq_left h, ite_eq_left h, ih]
+    · rw [ite_eq_right h, ite_eq_right h, ih, AggQueryIn.substMap]
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₁, ih₂,
+      AggQueryIn.substMap]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₁, ih₂,
+      AggQueryIn.substMap]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₁, ih₂,
+      AggQueryIn.substMap]
+  | Dedup q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₁]
+  | Explode k hk q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | Retag hk q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₀, ih₁,
+      AggQueryIn.substMap]
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih₀, ih₁,
+      AggQueryIn.substMap]
+  | Gamma is ts fs q keep ord ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | GammaScalar ts fs q ord ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | GammaNest is his p f q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | ProvSum is his t q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | GammaTok is his ts fs a q keep ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | Win P O o w t f q hrr dist keep ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.stripAgg, AggQueryIn.stripAgg, ih, AggQueryIn.substMap]
+
+/-! ## What an apply's right side reads of its left row -/
+
+/-- A row with its annotation finalized, its columns kept: what every
+reading of an annotated evaluation reads of a row. -/
+def GenRow.fin {n : ℕ} (r : GenRow T K n) : Tuple (GenValue T K) n × K :=
+  (r.fst, r.snd.finalize)
+
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
+theorem GenRow.fin_eq_iff {n : ℕ} {a b : GenRow T K n} :
+    a.fin = b.fin ↔ a.fst = b.fst ∧ a.snd.finalize = b.snd.finalize := Prod.ext_iff
+
+/-- Two bags agreeing under `f` agree under any `g` that `f` determines. -/
+theorem Multiset.map_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → γ}
+    (hfg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
+    R.map g = R'.map g := by
+  classical
+  by_cases hR : R = 0
+  · subst hR
+    have hR' : R' = 0 := Multiset.map_eq_zero.mp (by rw [← h, Multiset.map_zero])
+    rw [hR']
+  · obtain ⟨a₀, -⟩ := Multiset.exists_mem_of_ne_zero hR
+    let G : β → γ := fun y => if hy : ∃ a, f a = y then g (Classical.choose hy) else g a₀
+    have hG : ∀ a, G (f a) = g a := fun a => by
+      have hy : ∃ a', f a' = f a := ⟨a, rfl⟩
+      show (if hy : ∃ a', f a' = f a then g (Classical.choose hy) else g a₀) = g a
+      rw [dite_eq_left hy]
+      exact hfg _ _ (Classical.choose_spec hy)
+    have hS : ∀ S : Multiset α, S.map g = (S.map f).map G := fun S => by
+      rw [Multiset.map_map]
+      exact Multiset.map_congr rfl (fun a _ => (hG a).symm)
+    rw [hS R, hS R', h]
+
+/-- The same for a bind. -/
+theorem Multiset.bind_eq_of_factor {α β γ : Type*} {f : α → β} {g : α → Multiset γ}
+    (hfg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
+    R.bind g = R'.bind g := by
+  unfold Multiset.bind
+  rw [Multiset.map_eq_of_factor hfg h]
+
+/-- The same for a filter followed by a map. -/
+theorem Multiset.map_filter_eq_of_factor {α β γ : Type*} {f : α → β} {p : α → Prop}
+    [DecidablePred p] {g : α → γ} (hp : ∀ a b, f a = f b → (p a ↔ p b))
+    (hg : ∀ a b, f a = f b → g a = g b) {R R' : Multiset α} (h : R.map f = R'.map f) :
+    (R.filter p).map g = (R'.filter p).map g := by
+  have hb : ∀ S : Multiset α, (S.filter p).map g = S.bind (fun a => if p a then {g a} else 0) :=
+    fun S => by
+      induction S using Multiset.induction_on with
+      | empty => rfl
+      | cons a S ih =>
+        rw [Multiset.cons_bind, ← ih]
+        by_cases ha : p a
+        · rw [Multiset.filter_cons_of_pos _ ha, Multiset.map_cons, ite_eq_left ha,
+            Multiset.singleton_add]
+        · rw [Multiset.filter_cons_of_neg _ ha, ite_eq_right ha, zero_add]
+  rw [hb, hb]
+  refine Multiset.bind_eq_of_factor (fun a b hab => ?_) h
+  by_cases ha : p a
+  · rw [ite_eq_left ha, ite_eq_left ((hp a b hab).mp ha), hg a b hab]
+  · rw [ite_eq_right ha, ite_eq_right (fun hb => ha ((hp a b hab).mpr hb))]
+
+/-- Two contexts of an apply's right side agree **away from the aggregate
+columns of the left side**: on the left row's other columns and on the
+ambient context. -/
+def AgreeReg {c n₁ : ℕ} (κ₁ : Fin n₁ → ColKind) (γ γ' : Fin (n₁ + c) → T) : Prop :=
+  (∀ i, (κ₁ i).base ≠ ColKind.agg → γ (Fin.castAdd c i) = γ' (Fin.castAdd c i))
+    ∧ ∀ j, γ (Fin.natAdd n₁ j) = γ' (Fin.natAdd n₁ j)
+
+/-- **An apply's right side reads no aggregate column of its left side**,
+in the plain semantics: two contexts agreeing away from those columns
+give the same answer. -/
+def AggQueryIn.ReadsRegParamsPlain {c n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
+    {κ₂ : Fin n₂ → ColKind} (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : Prop :=
+  ∀ (D : Database T) (γ γ' : Fin (n₁ + c) → T), AgreeReg κ₁ γ γ' →
+    q₂.evaluatePlain D γ = q₂.evaluatePlain D γ'
+
+/-- **An apply's right side reads no aggregate column of its left side**:
+in the plain semantics, in the plain semantics of its stripped form (the
+data part of its annotated reading), and in the annotated semantics over
+every semiring, up to finalization.
+
+The evaluators give the right side the deterministic value of an
+aggregate column (`GenRow.plainTuple`), where the semantics paper reads an
+aggregate parameter world by world, as an aggregate atom reads a column;
+on a right side satisfying this the two readings agree, the value being
+read nowhere. Reading it would also be an explosion in all but name: a
+rank computed by a window and read as a parameter compares two values
+with no selection, against a constant, by a difference. -/
+def AggQueryIn.ReadsRegParams {c n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
+    {κ₂ : Fin n₂ → ColKind} (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : Prop :=
+  AggQueryIn.ReadsRegParamsPlain κ₁ q₂ ∧ AggQueryIn.ReadsRegParamsPlain κ₁ q₂.stripAgg
+    ∧ ∀ (K' : Type) [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
+        (d : AnnotatedDatabase T K') (γ γ' : Fin (n₁ + c) → T), AgreeReg κ₁ γ γ' →
+        (q₂.evaluate d γ).map GenRow.fin = (q₂.evaluate d γ').map GenRow.fin
+
+/-- **No apply's right side reads an aggregate column of its left side**,
+in the plain semantics. -/
+def AggQueryIn.noAggParamPlain : {c n : ℕ} → {κ : Fin n → ColKind} →
+    {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noAggParamPlain
+  | _, _, _, _, .Sel _ q _ => q.noAggParamPlain
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
+  | _, _, _, _, @Apply _ _ _ _ κ₁ _ _ q₁ q₂ =>
+      q₁.noAggParamPlain ∧ q₂.noAggParamPlain ∧ AggQueryIn.ReadsRegParamsPlain κ₁ q₂
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
+  | _, _, _, _, .Dedup q => q.noAggParamPlain
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noAggParamPlain ∧ q₂.noAggParamPlain
+  | _, _, _, _, .Explode _ _ q => q.noAggParamPlain
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noAggParamPlain ∧ q₁.noAggParamPlain
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noAggParamPlain ∧ q₁.noAggParamPlain
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noAggParamPlain
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noAggParamPlain
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noAggParamPlain
+  | _, _, _, _, .ProvSum _ _ _ q => q.noAggParamPlain
+  | _, _, _, _, .Retag _ q => q.noAggParamPlain
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noAggParamPlain
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noAggParamPlain
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noAggParamPlain
+
+/-- **No apply's right side reads an aggregate column of its left side**
+(`AggQueryIn.ReadsRegParams` at every apply). On such a query the
+evaluators' reading of an aggregate parameter, its deterministic value,
+is never used, which is what the random-world commutation needs of an
+apply, and what keeps the selection necessary. -/
+def AggQueryIn.noAggParam : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.noAggParam
+  | _, _, _, _, .Sel _ q _ => q.noAggParam
+  | _, _, _, _, .Prod q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
+  | _, _, _, _, @Apply _ _ _ _ κ₁ _ _ q₁ q₂ =>
+      q₁.noAggParam ∧ q₂.noAggParam ∧ AggQueryIn.ReadsRegParams κ₁ q₂
+  | _, _, _, _, .Sum q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
+  | _, _, _, _, .Dedup q => q.noAggParam
+  | _, _, _, _, .Diff q₁ q₂ => q₁.noAggParam ∧ q₂.noAggParam
+  | _, _, _, _, .Explode _ _ q => q.noAggParam
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noAggParam ∧ q₁.noAggParam
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noAggParam ∧ q₁.noAggParam
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noAggParam
+  | _, _, _, _, .GammaScalar _ _ q _ => q.noAggParam
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.noAggParam
+  | _, _, _, _, .ProvSum _ _ _ q => q.noAggParam
+  | _, _, _, _, .Retag _ q => q.noAggParam
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noAggParam
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.noAggParam
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.noAggParam
+
+omit [ValueType T] in
+/-- Contexts agreeing away from the aggregate columns of a left side that
+has none agree everywhere. -/
+theorem AgreeReg.eq_of_noAgg {c n₁ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    (hκ : ∀ i, (κ₁ i).base ≠ ColKind.agg) {γ γ' : Fin (n₁ + c) → T}
+    (h : AgreeReg κ₁ γ γ') : γ = γ' := by
+  funext m
+  induction m using Fin.addCases with
+  | left i => exact h.1 i (hκ i)
+  | right j => exact h.2 j
+
+omit [ValueType T] in
+/-- A substitution sending nothing to an aggregate column of the left side
+reads two such contexts alike. -/
+theorem AgreeReg.substVal_eq {c n₁ d : ℕ} {κ₁ : Fin n₁ → ColKind}
+    (θ : Fin d → T ⊕ Fin (n₁ + c))
+    (hθ : ∀ k i, θ k = Sum.inr (Fin.castAdd c i) → (κ₁ i).base ≠ ColKind.agg)
+    {γ γ' : Fin (n₁ + c) → T} (h : AgreeReg κ₁ γ γ') :
+    substVal θ γ = substVal θ γ' := by
+  funext k
+  unfold substVal
+  cases hk : θ k with
+  | inl a => rfl
+  | inr m =>
+    show γ m = γ' m
+    induction m using Fin.addCases with
+    | left i => exact h.1 i (hθ k i hk)
+    | right j => exact h.2 j
+
+/-- An apply whose left side has no aggregate column reads none. -/
+theorem AggQueryIn.readsRegParams_of_noAgg {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} (hκ : ∀ i, (κ₁ i).base ≠ ColKind.agg)
+    (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) : AggQueryIn.ReadsRegParams κ₁ q₂ :=
+  ⟨fun _ _ _ h => by rw [h.eq_of_noAgg hκ], fun _ _ _ h => by rw [h.eq_of_noAgg hκ],
+    fun _ _ _ _ _ _ _ h => by rw [h.eq_of_noAgg hκ]⟩
+
+theorem AggQueryIn.readsRegParams_allReg {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKind}
+    (q₂ : AggQueryIn T (n₁ + c) n₂ κ₂) :
+    AggQueryIn.ReadsRegParams (ColKind.allReg n₁) q₂ :=
+  AggQueryIn.readsRegParams_of_noAgg (fun _ => (by decide : ColKind.reg.base ≠ ColKind.agg)) q₂
+
+/-- **A substitution instance reading no aggregate column of the left
+side reads none.** -/
+theorem AggQueryIn.readsRegParams_substMap {c n₁ n₂ d : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} (q : AggQueryIn T d n₂ κ₂)
+    (θ : Fin d → T ⊕ Fin (n₁ + c))
+    (hθ : ∀ k i, θ k = Sum.inr (Fin.castAdd c i) → (κ₁ i).base ≠ ColKind.agg) :
+    AggQueryIn.ReadsRegParams κ₁ (q.substMap θ) := by
+  refine ⟨fun D γ γ' h => ?_, fun D γ γ' h => ?_, fun K' _ _ _ dB γ γ' h => ?_⟩
+  · rw [AggQueryIn.evaluatePlain_substMap, AggQueryIn.evaluatePlain_substMap,
+      h.substVal_eq θ hθ]
+  · rw [AggQueryIn.stripAgg_substMap, AggQueryIn.evaluatePlain_substMap,
+      AggQueryIn.evaluatePlain_substMap, h.substVal_eq θ hθ]
+  · rw [AggQueryIn.evaluate_substMap, AggQueryIn.evaluate_substMap, h.substVal_eq θ hθ]
+
+/-- A right side lifted from the ambient context reads nothing of the left
+row. -/
+theorem AggQueryIn.readsRegParams_applyOuter {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} (q : AggQueryIn T c n₂ κ₂) :
+    AggQueryIn.ReadsRegParams κ₁
+      (q.substMap (fun j : Fin c => (Sum.inr (Fin.natAdd n₁ j) : T ⊕ Fin (n₁ + c)))) :=
+  AggQueryIn.readsRegParams_substMap q _ (fun k i hk => absurd (Sum.inr.inj hk)
+    (fun h => by
+      have := congrArg Fin.val h
+      simp only [Fin.val_natAdd, Fin.val_castAdd] at this
+      omega))
+
+theorem AggQueryIn.ReadsRegParams.plain {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂}
+    (h : AggQueryIn.ReadsRegParams κ₁ q₂) : AggQueryIn.ReadsRegParamsPlain κ₁ q₂ := h.1
+
+theorem AggQueryIn.ReadsRegParams.evaluate {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂}
+    (h : AggQueryIn.ReadsRegParams κ₁ q₂) (d : AnnotatedDatabase T K)
+    {γ γ' : Fin (n₁ + c) → T} (hγ : AgreeReg κ₁ γ γ') :
+    (q₂.evaluate d γ).map GenRow.fin = (q₂.evaluate d γ').map GenRow.fin :=
+  h.2.2 K d γ γ' hγ
+
+/-- **Stripping keeps the fence**, in the plain form the stripped query is
+read in. -/
+theorem AggQueryIn.noAggParamPlain_stripAgg :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noAggParam → q.stripAgg.noAggParamPlain := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ => trivial
+  | Hole _ _ => exact fun _ => trivial
+  | Empty => exact fun _ => trivial
+  | Proj ps q ih => exact fun h => ih h
+  | Sel φ q hφ ih =>
+    intro h
+    rw [AggQueryIn.stripAgg]
+    by_cases hφ' : φ.hasAggAtom
+    · rw [ite_eq_left hφ']; exact ih h
+    · rw [ite_eq_right hφ']; exact ih h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2.1, h.2.2.2.1⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Dedup q ih => exact fun h => ih h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ih₁ h.1
+  | Explode k hk q ih => exact fun h => ih h
+  | Retag hk q ih => exact fun h => ih h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | Gamma is ts fs q keep ord ih => exact fun h => ih h
+  | GammaScalar ts fs q ord ih => exact fun h => ih h
+  | GammaNest is his p f q ih => exact fun h => ih h
+  | ProvSum is his t q ih => exact fun h => ih h
+  | GammaTok is his ts fs a q keep ih => exact fun h => ih h
+  | Win P O o w t f q hrr dist keep ih => exact fun h => ih h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
+
+@[simp] theorem AggQueryIn.noAggParam_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).noAggParam ↔ q.noAggParam := by
+  subst h; exact Iff.rfl
+
+@[simp] theorem AggQueryIn.noAggParamPlain_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).noAggParamPlain ↔ q.noAggParamPlain := by
+  subst h; exact Iff.rfl
+
+/-- **The fence carries over to anything reading alike**: in the plain
+semantics, in that of its stripped form, and up to finalization in the
+annotated semantics over every semiring. -/
+theorem AggQueryIn.ReadsRegParams.of_eval {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind}
+    {p : AggQueryIn T (n₁ + c) n₂ κ₂} {p' : AggQueryIn T (n₁ + c) n₂ κ₂}
+    (hp : ∀ D γ, p'.evaluatePlain D γ = p.evaluatePlain D γ)
+    (hs : ∀ D γ, p'.stripAgg.evaluatePlain D γ = p.stripAgg.evaluatePlain D γ)
+    (ha : ∀ (K' : Type) [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
+      (d : AnnotatedDatabase T K') γ,
+        (p'.evaluate d γ).map GenRow.fin = (p.evaluate d γ).map GenRow.fin)
+    (h : AggQueryIn.ReadsRegParams κ₁ p) : AggQueryIn.ReadsRegParams κ₁ p' :=
+  ⟨fun D γ γ' hγ => by rw [hp, hp, h.1 D γ γ' hγ],
+    fun D γ γ' hγ => by rw [hs, hs, h.2.1 D γ γ' hγ],
+    fun K' _ _ _ d γ γ' hγ => by rw [ha, ha, h.2.2 K' d γ γ' hγ]⟩

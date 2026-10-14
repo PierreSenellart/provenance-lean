@@ -5,7 +5,8 @@ import Mathlib.Tactic.FinCases
 # The selection row: `σ` is the only operator reading the order
 
 A query of the minimal universe that uses no selection and never reads
-an aggregate column as a key (`AggQueryIn.noExplode`) is *order-blind*:
+an aggregate column as a key (`AggQueryIn.noExplode`) or as an apply's
+parameter (`AggQueryIn.noAggParamPlain`) is *order-blind*:
 its regular columns commute with every injective map of the values that
 fixes the query's constants and the zero the aggregate columns are read
 as, whatever the map does to the order. Nothing but a selection reads the
@@ -22,7 +23,7 @@ witness is `σ_{#1<#2}(S)`: on the one-row instance `{(a, b)}` with
 `a` and `b` carries one instance to the other (`ltWitness_breaks`). So
 no selection-free query expresses it (`ltWitness_not_expressible`), and
 `σ` is in every basis whose produced queries read no aggregate column as
-a key (`sel_mem_of_generatesOnRecNoExplode`).
+a key or as a parameter (`sel_mem_of_generatesOnRecNoExplode`).
 -/
 
 variable {T : Type} [ValueType T]
@@ -140,7 +141,8 @@ theorem bind_reg {α : Type} {n : ℕ} {κ : Fin n → ColKind} {τ : T → T}
   rw [← Multiset.bind_map, hX, Multiset.bind_map, Multiset.bind_map]
 
 /-- **Order-blindness**: a query with no selection, reading no aggregate
-column as a key, in a signature with no function on values, commutes on
+column as a key or as an apply's parameter, in a signature with no
+function on values, commutes on
 its regular columns with every injective map of the values that fixes
 `0` and its constants – whatever the map does to the order. The
 aggregate columns are read as `0` on both sides (`ColKind.readTuple`),
@@ -150,7 +152,7 @@ of `AggQueryIn.evaluatePlain_faithful`: the leaves of `D'` are those of
 theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.usesOnly S → q.inSig Θ → q.noExplode →
+      q.usesOnly S → q.inSig Θ → q.noExplode → q.noAggParamPlain →
       ∀ {τ : T → T}, Function.Injective τ → τ 0 = 0 →
       ∀ (D D' : Database T) (γ : Fin c → T),
         (∀ p ∈ q.leaves, D'.find p.1 p.2 = (D.find p.1 p.2).map (Relation.mapVals τ)) →
@@ -161,7 +163,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
   intro c n κ l q
   induction q with
   | Rel n s =>
-    intro _ _ _ τ hτ h0 D D' γ hD' hc
+    intro _ _ _ _ τ hτ h0 D D' γ hD' hc
     have hf := hD' (n, s) (List.mem_singleton_self _)
     simp only [ColKind.map_readTuple_allReg]
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain]
@@ -175,7 +177,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
       rw [hf]
       rfl
   | Hole n s =>
-    intro _ _ _ τ hτ h0 D D' γ hD' hc
+    intro _ _ _ _ τ hτ h0 D D' γ hD' hc
     have hf := hD' (n, s) (List.mem_singleton_self _)
     simp only [ColKind.map_readTuple_allReg]
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain]
@@ -189,13 +191,13 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
       rw [hf]
       rfl
   | Empty =>
-    intro _ _ _ τ hτ h0 D D' γ hD' hc
+    intro _ _ _ _ τ hτ h0 D D' γ hD' hc
     simp only [AggQueryIn.evaluatePlain]
     rfl
   | Proj ps q ih =>
     rename_i c' k m κ' l'
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have ih' := ih hq.2 hs.2 ha hτ h0 D D' γ hD' (fun a ha => hc a (Finset.mem_union_right _ ha))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have ih' := ih hq.2 hs.2 ha hp hτ h0 D D' γ hD' (fun a ha => hc a (Finset.mem_union_right _ ha))
     have hcol : ∀ j, ∀ a ∈ (ps j).consts, τ a = a := fun j a ha =>
       hc a (Finset.mem_union_left _ (Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ _, ha⟩))
     -- the regular reading of a projected row, through the regular reading of the row
@@ -246,10 +248,12 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
   | Sel φ q hφ ih => exact fun hq => absurd hq.1 hsel
   | Prod q₁ q₂ ih₁ ih₂ =>
     rename_i c' n₁ n₂ κ₁ κ₂ l₁ l₂
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_left _ hp))
       (fun a ha => hc a (Finset.mem_union_left _ ha))
-    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_right _ hp))
+    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hp.2 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_right _ hp))
       (fun a ha => hc a (Finset.mem_union_right _ ha))
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain, Relation.hMul_eq_bind,
       Relation.hMul_eq_bind, Multiset.map_bind, Multiset.map_bind, Multiset.map_bind]
@@ -280,51 +284,73 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     refine Multiset.map_congr rfl (fun v _ => ?_)
     exact (Tuple.comp_append τ (ColKind.readTuple κ₁ u) (ColKind.readTuple κ₂ v)).symm
   | Apply q₁ q₂ ih₁ ih₂ =>
-    rename_i c' n₁ n₂ κ₂ l₁
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp))
+    rename_i c' n₁ n₂ κ₁ κ₂ l₁
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_left _ hp))
       (fun a ha => hc a (Finset.mem_union_left _ ha))
-    simp only [ColKind.map_readTuple_allReg] at h₁
-    rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain, h₁, Multiset.bind_map,
-      Multiset.map_bind, Multiset.map_bind, Multiset.map_bind]
-    have hin : ∀ (X : Multiset (Tuple T n₂)) (w : Tuple T n₁),
-        (X.map (fun v => (Fin.append w v : Tuple T (n₁ + n₂)))).map
-            (ColKind.readTuple (Fin.append (ColKind.allReg n₁) κ₂))
-          = (X.map (ColKind.readTuple κ₂)).map (fun v => (Fin.append w v : Tuple T (n₁ + n₂))) := by
-      intro X w
-      rw [Multiset.map_map, Multiset.map_map]
+    -- the right side reads its left row through what a reading of it keeps
+    have hreg : ∀ (E : Database T) (u : Tuple T n₁) (δ : Fin c' → T),
+        q₂.evaluatePlain E (Fin.append u δ)
+          = q₂.evaluatePlain E (Fin.append (ColKind.readTuple κ₁ u) δ) :=
+      fun E u δ => hp.2.2 E _ _ ⟨fun i hi => by
+          rw [Fin.append_left, Fin.append_left]
+          unfold ColKind.readTuple
+          split
+          · next h => exact absurd h hi
+          · rfl,
+        fun j => by rw [Fin.append_right, Fin.append_right]⟩
+    -- so the apply's reading is a bind over the left side's reading
+    have hbind : ∀ (E : Database T) (δ : Fin c' → T),
+        ((AggQueryIn.Apply q₁ q₂).evaluatePlain E δ : Multiset (Tuple T (n₁ + n₂))).map
+            (ColKind.readTuple (Fin.append κ₁ κ₂))
+          = ((q₁.evaluatePlain E δ : Multiset (Tuple T n₁)).map (ColKind.readTuple κ₁)).bind
+              (fun w => (q₂.evaluatePlain E (Fin.append w δ) : Multiset (Tuple T n₂)).map
+                (fun v => (Fin.append w (ColKind.readTuple κ₂ v) : Tuple T (n₁ + n₂)))) := by
+      intro E δ
+      rw [AggQueryIn.evaluatePlain, Multiset.map_bind, Multiset.bind_map]
+      refine Multiset.bind_congr (fun u _ => ?_)
+      rw [Multiset.map_map, hreg E u δ]
       refine Multiset.map_congr rfl (fun v _ => ?_)
-      show ColKind.readTuple (Fin.append (ColKind.allReg n₁) κ₂) (Fin.append w v) = _
-      rw [ColKind.readTuple_append, ColKind.readTuple_allReg]
-      rfl
-    refine Multiset.bind_congr (fun u _ => ?_)
-    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hτ h0 D D' (Fin.append u γ)
+      show ColKind.readTuple (Fin.append κ₁ κ₂) (Fin.append u v) = _
+      rw [ColKind.readTuple_append]
+    rw [hbind, hbind, h₁, Multiset.bind_map, Multiset.map_bind]
+    refine Multiset.bind_congr (fun w _ => ?_)
+    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hp.2.1 hτ h0 D D' (Fin.append w γ)
       (fun p hp => hD' p (List.mem_append_right _ hp))
       (fun a ha => hc a (Finset.mem_union_right _ ha))
-    rw [← Tuple.comp_append τ u γ, hin, hin, h₂]
-    simp only [Multiset.map_map]
+    rw [← Tuple.comp_append τ w γ]
+    have hsplit : (q₂.evaluatePlain D' (τ ∘ Fin.append w γ) : Multiset (Tuple T n₂)).map
+        (fun v => (Fin.append (τ ∘ w) (ColKind.readTuple κ₂ v) : Tuple T (n₁ + n₂)))
+        = ((q₂.evaluatePlain D' (τ ∘ Fin.append w γ) : Multiset (Tuple T n₂)).map
+            (ColKind.readTuple κ₂)).map (fun v => (Fin.append (τ ∘ w) v : Tuple T (n₁ + n₂))) := by
+      rw [Multiset.map_map]
+      rfl
+    rw [hsplit, h₂, Multiset.map_map, Multiset.map_map, Multiset.map_map]
     refine Multiset.map_congr rfl (fun v _ => ?_)
-    exact (Tuple.comp_append τ u (ColKind.readTuple κ₂ v)).symm
+    exact (Tuple.comp_append τ w (ColKind.readTuple κ₂ v)).symm
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain]
     show Multiset.map _ (_ + _) = Multiset.map _ (Multiset.map _ (_ + _))
     rw [Multiset.map_add, Multiset.map_add, Multiset.map_add,
-      ih₁ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp))
+      ih₁ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp))
         (fun a ha => hc a (Finset.mem_union_left _ ha)),
-      ih₂ hq.2.2 hs.2 ha.2 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_right _ hp))
+      ih₂ hq.2.2 hs.2 ha.2 hp.2 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_right _ hp))
         (fun a ha => hc a (Finset.mem_union_right _ ha))]
   | Dedup q ih =>
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have h := ih hq.2 hs ha hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have h := ih hq.2 hs ha hp hτ h0 D D' γ hD' hc
     simp only [ColKind.map_readTuple_allReg] at h ⊢
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain, h]
     exact Multiset.dedup_map_of_injOn (fun x _ y _ hxy => Tuple.comp_injective hτ _ hxy)
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have h₁ := ih₁ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_left _ hp))
       (fun a ha => hc a (Finset.mem_union_left _ ha))
-    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_right _ hp))
+    have h₂ := ih₂ hq.2.2 hs.2 ha.2 hp.2 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_right _ hp))
       (fun a ha => hc a (Finset.mem_union_right _ ha))
     simp only [ColKind.map_readTuple_allReg] at h₁ h₂ ⊢
     simp only [AggQueryIn.evaluatePlain]
@@ -336,15 +362,15 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     exact Multiset.mem_map_of_injective (Tuple.comp_injective hτ _)
   | Explode k hk q ih => exact fun _ _ ha => ha.elim
   | Retag hk q ih =>
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have h := ih hq hs ha hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have h := ih hq hs ha hp hτ h0 D D' γ hD' hc
     rw [AggQueryIn.evaluatePlain, AggQueryIn.evaluatePlain]
     rw [Multiset.map_congr rfl (fun u _ => ColKind.readTuple_congr_base hk u),
       Multiset.map_congr rfl (fun u _ => ColKind.readTuple_congr_base hk u)]
     exact h
   | Mu s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
     have hc₀ : ∀ a ∈ q₀.allConsts, τ a = a := fun a ha => hc a (Finset.mem_union_left _ ha)
     have hc₁ : ∀ a ∈ q₁.allConsts, τ a = a := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hbody : ∀ X : Relation T m,
@@ -352,7 +378,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
           = (q₁.evaluatePlain (D.assign s X) γ : Multiset (Tuple T m)).map
               (fun u => (τ ∘ u : Tuple T m)) := by
       intro X
-      have := ih₁ hq.2.2 hs.2 ha.2 hτ h0 (D.assign s X) (D'.assign s (Relation.mapVals τ X)) γ
+      have := ih₁ hq.2.2 hs.2 ha.2 hp.2 hτ h0 (D.assign s X) (D'.assign s (Relation.mapVals τ X)) γ
         (by
           rintro ⟨k, t⟩ hp
           by_cases hkt : k = m ∧ t = s
@@ -362,7 +388,8 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
             exact hD' (k, t) (List.mem_append_right _ (List.mem_filter.mpr ⟨hp,
               decide_eq_true (fun h => hkt (Prod.mk.inj h))⟩))) hc₁
       simpa only [ColKind.map_readTuple_allReg] using this
-    have hM := ih₀ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp)) hc₀
+    have hM := ih₀ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_left _ hp)) hc₀
     simp only [ColKind.map_readTuple_allReg] at hM ⊢
     obtain ⟨step, hstep⟩ : ∃ step : Multiset (Tuple T m) → Multiset (Tuple T m),
       step = fun X => q₁.evaluatePlain (D.assign s X) γ := ⟨_, rfl⟩
@@ -400,7 +427,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     exact hsum _ 0
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
     have hc₀ : ∀ a ∈ q₀.allConsts, τ a = a := fun a ha => hc a (Finset.mem_union_left _ ha)
     have hc₁ : ∀ a ∈ q₁.allConsts, τ a = a := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hbody : ∀ X : Relation T m,
@@ -408,7 +435,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
           = (q₁.evaluatePlain (D.assign s X) γ : Multiset (Tuple T m)).map
               (fun u => (τ ∘ u : Tuple T m)) := by
       intro X
-      have := ih₁ hq.2.2 hs.2 ha.2 hτ h0 (D.assign s X) (D'.assign s (Relation.mapVals τ X)) γ
+      have := ih₁ hq.2.2 hs.2 ha.2 hp.2 hτ h0 (D.assign s X) (D'.assign s (Relation.mapVals τ X)) γ
         (by
           rintro ⟨k, t⟩ hp
           by_cases hkt : k = m ∧ t = s
@@ -418,7 +445,8 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
             exact hD' (k, t) (List.mem_append_right _ (List.mem_filter.mpr ⟨hp,
               decide_eq_true (fun h => hkt (Prod.mk.inj h))⟩))) hc₁
       simpa only [ColKind.map_readTuple_allReg] using this
-    have hM := ih₀ hq.2.1 hs.1 ha.1 hτ h0 D D' γ (fun p hp => hD' p (List.mem_append_left _ hp)) hc₀
+    have hM := ih₀ hq.2.1 hs.1 ha.1 hp.1 hτ h0 D D' γ
+      (fun p hp => hD' p (List.mem_append_left _ hp)) hc₀
     simp only [ColKind.map_readTuple_allReg] at hM ⊢
     obtain ⟨step, hstep⟩ : ∃ step : Multiset (Tuple T m) → Multiset (Tuple T m),
       step = fun X => (q₀.evaluatePlain D γ + q₁.evaluatePlain (D.assign s X) γ).dedup := ⟨_, rfl⟩
@@ -456,8 +484,9 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     exact hiter _
   | Gamma is ts fs q keep ord ih =>
     rename_i c' m n₁ n₂
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have hr := ih hq.2 hs.2.2.2 ha hτ h0 D D' γ hD' (fun a ha => hc a (Finset.mem_union_right _ ha))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have hr := ih hq.2 hs.2.2.2 ha hp hτ h0 D D' γ hD'
+      (fun a ha => hc a (Finset.mem_union_right _ ha))
     simp only [ColKind.map_readTuple_allReg] at hr
     simp only [AggQueryIn.evaluatePlain]
     rw [hr, Multiset.map_map, Multiset.map_map, Multiset.map_map, Multiset.map_map]
@@ -486,7 +515,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     exact h0.symm
   | GammaScalar ts fs q ord ih =>
     rename_i c' m n₂
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
     simp only [AggQueryIn.evaluatePlain]
     show Multiset.map _ (Multiset.ofList [_]) = Multiset.map _ (Multiset.map _ (Multiset.ofList [_]))
     simp only [Multiset.map_coe, List.map_cons, List.map_nil]
@@ -496,8 +525,9 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
     exact h0.symm
   | GammaNest is his p f q ih =>
     rename_i c' m n₁ κ'
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have hr := ih hq.2 hs.2.2 ha hτ h0 D D' γ hD' (fun a ha => hc a (Finset.mem_union_right _ ha))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have hr := ih hq.2 hs.2.2 ha hp hτ h0 D D' γ hD'
+      (fun a ha => hc a (Finset.mem_union_right _ ha))
     simp only [AggQueryIn.evaluatePlain]
     -- a key reads regular columns, so it reads the regular reading of the row
     have hkey : ∀ u : Tuple T m, (fun k => u (is k) : Tuple T n₁)
@@ -541,8 +571,9 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     rename_i c' n' m' p' κ'
-    intro hq hs ha τ hτ h0 D D' γ hD' hc
-    have hr := ih hq.2 hs.2.2.2 ha hτ h0 D D' γ hD' (fun a ha => hc a (Finset.mem_union_right _ ha))
+    intro hq hs ha hp τ hτ h0 D D' γ hD' hc
+    have hr := ih hq.2 hs.2.2.2 ha hp hτ h0 D D' γ hD'
+      (fun a ha => hc a (Finset.mem_union_right _ ha))
     simp only [AggQueryIn.evaluatePlain]
     have hrow : ∀ (X : Multiset (Tuple T n')) (F : Tuple T n' → T),
         (X.map (fun u => (Fin.snoc u (F u) : Tuple T (n' + 1)))).map
@@ -625,13 +656,14 @@ theorem exists_two_fresh (A : Finset ℕ) :
     (Finset.mem_range.mpr (Nat.lt_succ_of_le (not_lt.mp hlt)))))
 
 /-- **No selection-free query expresses the witness.** A query over `ℕ`
-with no selection, reading no aggregate column as a key, in a signature
+with no selection, reading no aggregate column as a key or as an apply's
+parameter, in a signature
 with no function on values, is not plain-equivalent to `σ_{#1<#2}(S)`:
 on two fresh values `a < b` it answers alike, up to the swap, on
 `{(a, b)}` and on `{(b, a)}`, and the witness does not. -/
 theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
     (hsel : OpKind.sel ∉ S) {κ : Fin 2 → ColKind} (q : AggQuery ℕ 2 κ)
-    (hq : q.usesOnly S) (hs : q.inSig Θ) (ha : q.noExplode) :
+    (hq : q.usesOnly S) (hs : q.inSig Θ) (ha : q.noExplode) (hp : q.noAggParamPlain) :
     ¬ ∀ D : Database ℕ, q.evaluatePlain D = ltWitness.evaluatePlain D := by
   intro heq
   obtain ⟨a, b, hab, haA, hbA, ha0, hb0⟩ := exists_two_fresh q.allConsts
@@ -654,7 +686,7 @@ theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
       · exact (Equiv.swap_apply_right a b).symm
     · rw [find_dPair_ne a b hkt, find_dPair_ne b a hkt]
       rfl
-  have h := AggQueryIn.evaluatePlain_orderBlind hsel q hq hs ha (Equiv.swap a b).injective hτ0
+  have h := AggQueryIn.evaluatePlain_orderBlind hsel q hq hs ha hp (Equiv.swap a b).injective hτ0
     (dPair a b) (dPair b a) (fun _ => 0) hD' hτc
   have hγ : (Equiv.swap a b ∘ fun _ : Fin 0 => 0) = fun _ => 0 := funext (fun i => i.elim0)
   rw [hγ, heq, heq, evaluatePlain_ltWitness, evaluatePlain_ltWitness, ite_eq_left hab,
@@ -666,15 +698,19 @@ theorem ltWitness_not_expressible {Θ : Set (SeqAggFunc ℕ)} {S : Set OpKind}
 
 /-- **Generation with no aggregate column read as a key**: the whole-algebra
 generation predicate (`GeneratesOnRec`) with the produced query also
-asked to be `noExplode`. This is the scope of the annotated classification,
-where the alternatives are not an operator of the source language; over
-it the selection is in every basis, which the plain scope's "`−` for `σ`"
-construction escapes only by reading aggregate columns as keys. -/
+asked to be `noExplode` and `noAggParamPlain`. This is the scope of the
+annotated classification, where the alternatives are not an operator of the
+source language; over it the selection is in every basis, which the plain
+scope's "`−` for `σ`" construction escapes only by reading aggregate
+columns as keys. An apply's right side reading an aggregate column of its
+left side would escape it the same way: a window's rank read as a
+parameter compares two values against a constant with a difference. -/
 def GeneratesAtNoExplode (T : Type) [ValueType T] (sch : Schema) (cnt : SeqAggFunc T)
     (S : Set OpKind) {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) : Prop :=
   q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt →
     ∃ (κ' : Fin n → ColKind) (q' : AggQuery T n κ'),
-      q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode ∧ q'.Extends q
+      q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode
+        ∧ q'.noAggParamPlain ∧ q'.Extends q
 
 /-- The alternatives-free generation of every query of the algebra. -/
 def GeneratesOnRecNoExplode (T : Type) [ValueType T] (sch : Schema)
@@ -684,7 +720,7 @@ def GeneratesOnRecNoExplode (T : Type) [ValueType T] (sch : Schema)
 theorem GeneratesOnRecNoExplode.toGeneratesOnRec {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesOnRecNoExplode T sch cnt S) : GeneratesOnRec T sch cnt S := by
   intro n κ q ho hq hi
-  obtain ⟨κ', q', h₁, h₂, h₃, -, h₅⟩ := h q ho hq hi
+  obtain ⟨κ', q', h₁, h₂, h₃, -, -, h₅⟩ := h q ho hq hi
   exact ⟨κ', q', h₁, h₂, h₃, h₅⟩
 
 /-- **The selection row, in the scope where no aggregate column is read as
@@ -692,9 +728,9 @@ a key**: `σ` is in every generating set. -/
 theorem sel_mem_of_generatesAtNoExplode {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (hS : GeneratesAtNoExplode ℕ schemaS cnt S ltWitness) : OpKind.sel ∈ S := by
   by_contra hsel
-  obtain ⟨κ', q', -, hu', hsig', ha', he⟩ := hS overSchema_ltWitness usesOnly_ltWitness
+  obtain ⟨κ', q', -, hu', hsig', ha', hp', he⟩ := hS overSchema_ltWitness usesOnly_ltWitness
     (inSig_ltWitness _)
-  refine ltWitness_not_expressible hsel q' hu' hsig' ha' (fun D => ?_)
+  refine ltWitness_not_expressible hsel q' hu' hsig' ha' hp' (fun D => ?_)
   exact (he.settles D (fun _ => 0) (settlesAt_ltWitness D _)).2.symm
 
 /-- **The selection row, in the scope where no aggregate column is read as

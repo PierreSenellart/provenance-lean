@@ -86,7 +86,7 @@ theorem AggQueryIn.bind_of_body {s : String} {m : ℕ} :
       simp only [Multiset.map_add, Multiset.bind_add, Multiset.map_bind]
       rw [Multiset.bind_bind]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    rename_i c' n₁ n₂ κ₂ l₁
+    rename_i c' n₁ n₂ κ₁ κ₂ l₁
     intro hl hr D γ
     obtain ⟨F, C, h⟩ := ih₁ hl hr.1 D γ
     refine ⟨fun t => (F t).bind (fun a =>
