@@ -61,6 +61,8 @@ import Provenance.AnnotatedBasis
 import Provenance.AnnotatedDedup
 import Provenance.AnnotatedProd
 import Provenance.AnnotatedSum
+import Provenance.PathSum
+import Provenance.AnnotatedMuUnion
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1265,6 +1267,24 @@ proven engine several general results reuse internally.
   moves into the base (`muSet_of_splitAnn`). So the classes other than
   `ε`, `×` and `⊎` generate the annotated algebra
   (`generatesAnn_dedupProdSumFree`)
+- `Provenance.PathSum` – **linear recursions over a semiring, read path by
+  path**: the iterates of a set recursion `X ↦ ε(B ⊎ X ⊳ G)` are `ε` of the
+  truncated sums of its bag rounds (`iterate_stepK_eq`), a round's weights
+  are path sums (`y_eq_sum_pathsTo`), and a recursion that settles does so
+  within the size of a tuple set closed under its rounds, where the
+  semiring is absorptive or cancellative without zero divisors
+  (`iterate_succ_eq_of_settles`); a successor counter annotated `𝟙`
+  pairs each derivation with exactly one counter (`SimSpec.dedupK_rounds`)
+- `Provenance.AnnotatedMuUnion` – **`μ^∪` from `μ^⊎` and `ε` in the
+  annotated algebra**, where `δ` is the support map, no instance row is
+  annotated `𝟘` and the semiring is of `PathSum.SettlesEarly`: duplicate
+  elimination applies no `δ`, so the simulation of `Provenance.MuUnion`
+  carries over once its counter neither multiplies nor repeats
+  derivations – the counter values are grouped, so that their rows are
+  annotated `𝟙`, and a round moves to the *successor* counter, computed
+  by a difference (`AggQueryIn.simResultA`, `evaluate_simResultA`); the
+  pass replacing every set recursion is `AggQueryIn.muSetFreeA`, correct
+  wherever the query settles (`muSetFreeA_correct`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
