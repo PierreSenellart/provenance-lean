@@ -2721,4 +2721,1152 @@ theorem muSetFreeA_correct (cnt : SeqAggFunc T) (hcnt : cnt.ReadsCount)
     exact ⟨h₁, by simp only [muSetFreeA, evaluate, h₂]⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f _ hi => hi.elim
 
+/-! ## The classes the pass uses -/
+
+/-- The classes the simulation is written with. -/
+def simOps : Set OpKind :=
+  {OpKind.empty, OpKind.proj, OpKind.sel, OpKind.apply, OpKind.gamma, OpKind.diff,
+    OpKind.dedup, OpKind.muBag, OpKind.union}
+
+section Classes
+
+variable {c : ℕ} {S : Set OpKind} (hS : simOps ⊆ S)
+include hS
+
+omit [ValueType T] in
+theorem sumMuOps_subset_of_simOps : sumMuOps ⊆ S := fun o ho => hS (by
+  simp only [sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
+  rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;> simp [simOps])
+
+omit [ValueType T] in
+theorem usesOnly_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+    (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.usesOnly S) :
+    (keepCols cols q).usesOnly S := by
+  rw [keepCols, usesOnly_castKind]
+  exact ⟨⟨hS (by simp [simOps]), fun _ => rfl⟩, h⟩
+
+theorem usesOnly_valRel (ls : List (ℕ × String)) (cs : List T) :
+    (valRel (c := c) ls cs).usesOnly S := by
+  have hS' := sumMuOps_subset_of_simOps hS
+  have hproj : OpKind.proj ∈ S := hS (by simp [simOps])
+  refine ⟨hS (by simp [simOps]), ?_⟩
+  have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)), (∀ q ∈ l, q.usesOnly S) →
+      (listSum l).usesOnly S := by
+    intro l
+    induction l with
+    | nil => intro _; exact usesOnly_emptyRel hS' 1
+    | cons q l ih => exact fun h => ⟨hS (by simp [simOps]), h q List.mem_cons_self,
+        ih fun q' hq' => h q' (List.mem_cons_of_mem _ hq')⟩
+  refine key _ fun q hq => ?_
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, usesOnly_castKind]
+    exact ⟨⟨hproj, fun _ => rfl⟩, trivial⟩
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, usesOnly_castKind]
+    exact ⟨⟨hproj, fun _ => rfl⟩, usesOnly_unitC hS'⟩
+
+omit [ValueType T] in
+theorem usesOnly_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S) (K' : ℕ) :
+    (ctr EQ K').usesOnly S :=
+  usesOnly_pow _ (sumMuOps_subset_of_simOps hS) (usesOnly_dedupG _ (hS (by simp [simOps])) h) K'
+
+theorem usesOnly_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+    (K' : ℕ) : (ctrLt EQ K').usesOnly S :=
+  ⟨hS (by simp [simOps]), usesOnly_prodA _ _ (hS (by simp [simOps])) (usesOnly_ctr hS EQ h K')
+    (usesOnly_ctr hS EQ h K')⟩
+
+theorem usesOnly_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+    (K' : ℕ) : (ctrSucc EQ K').usesOnly S := by
+  have ha : OpKind.apply ∈ S := hS (by simp [simOps])
+  refine ⟨hS (by simp [simOps]), usesOnly_ctrLt hS EQ h K', ?_⟩
+  exact usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]), usesOnly_prodA _ _ ha
+    (usesOnly_prodA _ _ ha (usesOnly_ctr hS EQ h K') (usesOnly_ctr hS EQ h K'))
+    (usesOnly_ctr hS EQ h K')⟩
+
+theorem usesOnly_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+    (K' : ℕ) : (ctrLeast EQ K').usesOnly S :=
+  ⟨hS (by simp [simOps]), usesOnly_ctr hS EQ h K',
+    usesOnly_keepCols hS _ _ (usesOnly_ctrLt hS EQ h K')⟩
+
+theorem usesOnly_ctrNext (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.usesOnly S)
+    (n K' : ℕ) : (ctrNext EQ n K').usesOnly S :=
+  usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]),
+    (usesOnly_substMap _ _).2 (usesOnly_ctrSucc hS EQ h K')⟩
+
+theorem usesOnly_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
+    (h₀ : q₀'.usesOnly S) (h₁ : q₁'.usesOnly S) :
+    (muSetSim cnt s s' q₀ q₁ q₀' q₁').usesOnly S := by
+  have ha : OpKind.apply ∈ S := hS (by simp [simOps])
+  have hEQ := usesOnly_valRel (c := c) hS (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
+  refine ⟨hS (by simp [simOps]), usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]),
+    usesOnly_prodA _ _ ha h₀ (usesOnly_ctrLeast hS _ hEQ _), ?_⟩⟩
+  refine usesOnly_keepCols hS _ _ ((usesOnly_castKind _ _ S).2 ⟨ha, trivial,
+    usesOnly_prodA _ _ ha ?_ (usesOnly_ctrNext hS _ hEQ n _)⟩)
+  rw [usesOnly_castIdx]
+  refine usesOnly_substRel (S := S) (rowPv n _) ?_ _ ((recLinear_substMap q₁' _).2 hq₁')
+    ((usesOnly_substMap _ _).2 h₁)
+  exact ⟨hS (by simp [simOps]), hS (by simp [simOps]), hS (by simp [simOps])⟩
+
+end Classes
+
+omit [ValueType T] in
+private theorem memT {S : Set OpKind} {o : OpKind} (h : o ∈ S) (hne : o ≠ OpKind.muSet) :
+    o ∈ insert OpKind.union (S \ {OpKind.muSet}) :=
+  Set.mem_insert_of_mem _ ⟨h, fun h' => hne (Set.mem_singleton_iff.1 h')⟩
+
+/-- **The classes of the pass's output**: the input's, without the set
+recursion, with the union the counter values are written with. -/
+theorem usesOnly_muSetFreeA (cnt : SeqAggFunc T) {S : Set OpKind}
+    (hS : simOps ⊆ insert OpKind.union (S \ {OpKind.muSet})) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly S → q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
+        (muSetFreeA cnt f q).usesOnly (insert OpKind.union (S \ {OpKind.muSet})) := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ h _ _ => h
+  | Hole _ _ _ => exact fun _ h _ _ => h
+  | Param pv ρ => exact fun _ h _ _ => ⟨memT h.1 (by decide), memT h.2.1 (by decide),
+      memT h.2.2 (by decide)⟩
+  | Empty => exact fun _ h _ _ => memT h (by decide)
+  | Proj ps q ih => exact fun f h hu hh => ⟨⟨memT h.1.1 (by decide), h.1.2⟩, ih f h.2 hu.2 hh⟩
+  | Sel φ q hφ ih => exact fun f h hu hh => ⟨memT h.1 (by decide), ih f h.2 hu.2 hh⟩
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih₁ _ h.2.1 hu.2.1 hh.1, ih₂ _ h.2.2 hu.2.2 hh.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih₁ _ h.2.1 hu.2.1 hh.1, ih₂ _ h.2.2 hu.2.2 hh.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f _ hu _ => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f h hu hh => ⟨memT h.1 (by decide), ih f h.2 hu.2 hh⟩
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih₁ _ h.2.1 hu.2.1 hh.1, ih₂ _ h.2.2 hu.2.2 hh.2⟩
+  | Explode k hk q ih => exact fun f h hu hh => ih f h hu hh
+  | Retag hk q ih => exact fun f h hu hh => ih f h hu hh
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih₀ _ h.2.1 hu.2.1 hh.2.2.1, ih₁ _ h.2.2 hu.2.2 hh.2.2.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f h hu hh
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    exact usesOnly_muSetSim hS cnt s _ q₀ q₁ _ _
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+      (ih₀ _ h.2.1 hu.2.1 hh.2.2.1) (ih₁ _ h.2.2 hu.2.2 hh.2.2.2)
+  | Gamma is ts fs q keep ord ih => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih f h.2 hu.2 hh⟩
+  | GammaScalar ts fs q ord ih => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih f h.2 hu.2 hh⟩
+  | GammaNest is his p g q ih => exact fun f h hu hh => ⟨⟨memT h.1.1 (by decide), h.1.2⟩,
+      ih f h.2 hu.2 hh⟩
+  | ProvSum is his t q ih => exact fun f h => h.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f h => h.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih f h.2 hu.2 hh⟩
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f h hu hh => ⟨memT h.1 (by decide),
+      ih f h.2 hu.2 hh⟩
+
+/-! ## The signature of the pass's output -/
+
+section Signature
+
+variable {c : ℕ} {Θ : Set (SeqAggFunc T)}
+
+theorem noFun_halvesLt (K' : ℕ) : (halvesLt (T := T) (c := c) K').noFun = true := by
+  rw [halvesLt, OrderSpec.ltPredOn]
+  exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
+    (fun _ => rfl) (fun _ => rfl) _
+
+theorem noFun_midLt (K' : ℕ) : (midLt (T := T) (c := c) K').noFun = true := by
+  simp only [midLt, GenPredIn.noFun, Bool.and_eq_true]
+  refine ⟨?_, ?_⟩
+  · rw [OrderSpec.ltPredOn]
+    exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
+      (fun _ => rfl) (fun _ => rfl) _
+  · rw [OrderSpec.ltPredOn]
+    exact OrderSpec.noFun_ltPredOnOf (fun k => OrderCol.noFun_ltPred _ rfl rfl)
+      (fun _ => rfl) (fun _ => rfl) _
+
+theorem noFun_eqOuter (n K' : ℕ) : (eqOuter (T := T) (c := c) n K').noFun = true := by
+  unfold eqOuter
+  generalize List.finRange K' = ks
+  induction ks with
+  | nil => rfl
+  | cons k ks ih =>
+    simp only [List.map_cons, List.foldr_cons, GenPredIn.noFun, Bool.and_eq_true]
+    exact ⟨⟨rfl, rfl⟩, ih⟩
+
+theorem inSig_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+    (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.inSig Θ) : (keepCols cols q).inSig Θ := by
+  rw [keepCols, inSig_castKind]
+  exact ⟨fun _ => rfl, h⟩
+
+theorem inSig_valRel (ls : List (ℕ × String)) (cs : List T) :
+    (valRel (c := c) ls cs).inSig Θ := by
+  refine ⟨rfl, inSig_listSum _ fun q hq => ?_⟩
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, inSig_castKind]
+    exact ⟨fun _ => rfl, trivial⟩
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, inSig_castKind]
+    exact ⟨fun _ => rfl, inSig_unitC Θ⟩
+
+theorem inSig_ctr (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+    (ctr EQ K').inSig Θ :=
+  inSig_pow _ (inSig_dedupG _ h) K'
+
+theorem inSig_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+    (ctrLt EQ K').inSig Θ :=
+  ⟨noFun_halvesLt K', inSig_prodA _ _ (inSig_ctr EQ h K') (inSig_ctr EQ h K')⟩
+
+theorem inSig_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+    (ctrSucc EQ K').inSig Θ :=
+  ⟨inSig_ctrLt EQ h K', inSig_keepCols _ _ ⟨noFun_midLt K', inSig_prodA _ _
+    (inSig_prodA _ _ (inSig_ctr EQ h K') (inSig_ctr EQ h K')) (inSig_ctr EQ h K')⟩⟩
+
+theorem inSig_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (K' : ℕ) :
+    (ctrLeast EQ K').inSig Θ :=
+  ⟨inSig_ctr EQ h K', inSig_keepCols _ _ (inSig_ctrLt EQ h K')⟩
+
+theorem inSig_ctrNext (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h : EQ.inSig Θ) (n K' : ℕ) :
+    (ctrNext EQ n K').inSig Θ :=
+  inSig_keepCols _ _ ⟨noFun_eqOuter n K', (inSig_substMap _ _).2 (inSig_ctrSucc EQ h K')⟩
+
+theorem inSig_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
+    (h₀ : q₀'.inSig Θ) (h₁ : q₁'.inSig Θ) :
+    (muSetSim cnt s s' q₀ q₁ q₀' q₁').inSig Θ := by
+  have hEQ := inSig_valRel (c := c) (Θ := Θ) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
+  refine inSig_keepCols _ _ ⟨inSig_prodA _ _ h₀ (inSig_ctrLeast _ hEQ _), ?_⟩
+  refine inSig_keepCols _ _ ((inSig_castKind _ _ Θ).2 ⟨trivial,
+    inSig_prodA _ _ ?_ (inSig_ctrNext _ hEQ n _)⟩)
+  rw [inSig_castIdx]
+  refine inSig_substRel (Θ := Θ) (rowPv n _) ?_ _ ((recLinear_substMap q₁' _).2 hq₁')
+    ((inSig_substMap _ _).2 h₁)
+  trivial
+
+/-- **The pass keeps the signature.** -/
+theorem inSig_muSetFreeA (cnt : SeqAggFunc T) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.inSig Θ →
+        (muSetFreeA cnt f q).inSig Θ := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ _ h => h
+  | Hole _ _ _ => exact fun _ _ _ h => h
+  | Param _ _ => exact fun _ _ _ h => h
+  | Empty => exact fun _ _ _ h => h
+  | Proj ps q ih => exact fun f hu hh h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | Sel φ q hφ ih => exact fun f hu hh h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu hh h => ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f hu hh h => ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f hu hh h => ih f hu.2 hh h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu hh h => ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Explode k hk q ih => exact fun f hu hh h => ih f hu hh h
+  | Retag hk q ih => exact fun f hu hh h => ih f hu hh h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu hh h =>
+      ⟨ih₀ _ hu.2.1 hh.2.2.1 h.1, ih₁ _ hu.2.2 hh.2.2.2 h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh h
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    exact inSig_muSetSim cnt s _ q₀ q₁ _ _ ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+      (ih₀ _ hu.2.1 hh.2.2.1 h.1) (ih₁ _ hu.2.2 hh.2.2.2 h.2)
+  | Gamma is ts fs q keep ord ih => exact fun f hu hh h => ⟨h.1, h.2.1, h.2.2.1,
+      ih f hu.2 hh h.2.2.2⟩
+  | GammaScalar ts fs q ord ih => exact fun f hu hh h => ⟨h.1, h.2.1, ih f hu.2 hh h.2.2⟩
+  | GammaNest is his p g q ih => exact fun f hu hh h => ⟨h.1, h.2.1, ih f hu.2 hh h.2.2⟩
+  | ProvSum is his t q ih => exact fun f hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh h => ⟨h.1, h.2.1, h.2.2.1,
+      ih f hu.2 hh h.2.2.2⟩
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f _ _ h => h.elim
+
+end Signature
+
+/-! ## The kinds of the pass's output -/
+
+section Kinds
+
+variable {c : ℕ}
+
+theorem outerOk_ltPredOnOf {p m : ℕ} (ok : Fin c → Prop)
+    (base : Fin p → GenPredIn T c (ColKind.allReg m))
+    (x y : Fin p → TermGIn T c (ColKind.allReg m)) (hb : ∀ k, (base k).outerOk ok)
+    (hx : ∀ k, (x k).outerOk ok) (hy : ∀ k, (y k).outerOk ok) :
+    ∀ ks : List (Fin p), (OrderSpec.ltPredOnOf base x y ks).outerOk ok
+  | [] => ⟨trivial, trivial⟩
+  | k :: ks => ⟨⟨⟨hx k, hy k⟩, outerOk_ltPredOnOf ok base x y hb hx hy ks⟩, ⟨⟨hx k, hy k⟩, hb k⟩⟩
+
+theorem outerOk_ltPredOn {p m : ℕ} (ok : Fin c → Prop) (o : OrderSpec p)
+    (x y : Fin p → TermGIn T c (ColKind.allReg m)) (hx : ∀ k, (x k).outerOk ok)
+    (hy : ∀ k, (y k).outerOk ok) (ks : List (Fin p)) :
+    (OrderSpec.ltPredOn o x y ks).outerOk ok :=
+  outerOk_ltPredOnOf ok _ x y (fun k => by
+    show (OrderCol.ltPred (o k) (x k) (y k)).outerOk ok
+    unfold OrderCol.ltPred
+    split_ifs
+    · exact ⟨hy k, hx k⟩
+    · exact ⟨hx k, hy k⟩) hx hy ks
+
+theorem outerOk_halvesLt (ok : Fin c → Prop) (K' : ℕ) :
+    (halvesLt (T := T) (c := c) K').outerOk ok := by
+  unfold halvesLt
+  refine outerOk_ltPredOn ok _ _ _ ?_ ?_ _ <;> intro k <;> trivial
+
+theorem outerOk_midLt (ok : Fin c → Prop) (K' : ℕ) :
+    (midLt (T := T) (c := c) K').outerOk ok := by
+  unfold midLt
+  refine ⟨outerOk_ltPredOn ok _ _ _ ?_ ?_ _, outerOk_ltPredOn ok _ _ _ ?_ ?_ _⟩ <;>
+    intro k <;> trivial
+
+omit [ValueType T] in
+theorem wellKinded_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+    (q : AggQueryIn T c n (ColKind.allReg n) l) {ρc : Fin c → ColKind} {HK : HoleKinds}
+    (h : q.wellKinded ρc HK) : (keepCols cols q).wellKinded ρc HK := by
+  rw [keepCols, wellKinded_castKind]
+  exact ⟨fun _ => trivial, h⟩
+
+omit [ValueType T] in
+theorem hθ_applyOuter {m : ℕ} (κ' : Fin m → ColKind) (ρc : Fin c → ColKind) (k : Fin c) :
+    (ρc k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (Fin.append κ' ρc j).base)
+      (applyOuter T c m k) := by
+  show _ = (Fin.append κ' ρc (Fin.natAdd _ k)).base
+  rw [Fin.append_right]
+
+omit [ValueType T] in
+theorem wellKinded_prodA' {n₁ n₂ : ℕ} {l : List (String × ℕ)}
+    (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
+    {ρc : Fin c → ColKind} {HK : HoleKinds} (h₁ : q₁.wellKinded ρc HK)
+    (h₂ : q₂.wellKinded ρc HK) : (prodA q₁ q₂).wellKinded ρc HK := by
+  rw [prodA, wellKinded_castKind]
+  exact ⟨h₁, wellKinded_substMap _ _ (hθ_applyOuter _ ρc) h₂⟩
+
+theorem wellKinded_valRel (ls : List (ℕ × String)) (cs : List T) (ρc : Fin c → ColKind)
+    (HK : HoleKinds) : (valRel (c := c) ls cs).wellKinded ρc HK := by
+  refine ⟨⟨trivial, trivial⟩, ?_⟩
+  have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)), (∀ q ∈ l, q.wellKinded ρc HK) →
+      (listSum l).wellKinded ρc HK := by
+    intro l
+    induction l with
+    | nil =>
+      intro _
+      rw [listSum, emptyRel, wellKinded_castKind]
+      exact ⟨fun _ => trivial, trivial⟩
+    | cons q l ih => exact fun h => ⟨h q List.mem_cons_self,
+        ih fun q' hq' => h q' (List.mem_cons_of_mem _ hq')⟩
+  refine key _ fun q hq => ?_
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, wellKinded_castKind]
+    exact ⟨fun _ => trivial, trivial⟩
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, wellKinded_castKind]
+    refine ⟨fun _ => trivial, ?_⟩
+    show (unitC : AggQueryIn T c 0 _).wellKinded ρc HK
+    rw [unitC, wellKinded_castKind]
+    exact ⟨fun j => j.elim0, trivial⟩
+
+section Ctr
+
+variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) {ρc : Fin c → ColKind} {HK : HoleKinds}
+  (h : EQ.wellKinded ρc HK)
+include h
+
+omit [ValueType T] in
+theorem wellKinded_ctr (K' : ℕ) : (ctr EQ K').wellKinded ρc HK := by
+  induction K' with
+  | zero =>
+    rw [ctr, pow, unitC, wellKinded_castKind]
+    exact ⟨fun j => j.elim0, trivial⟩
+  | succ K' ih =>
+    rw [ctr, pow]
+    refine wellKinded_prodA' _ _ ih ?_
+    rw [dedupG, wellKinded_castKind]
+    exact ⟨fun j => j.elim0, h⟩
+
+theorem wellKinded_ctrLt (K' : ℕ) : (ctrLt EQ K').wellKinded ρc HK :=
+  ⟨outerOk_halvesLt _ K',
+    wellKinded_prodA' _ _ (wellKinded_ctr EQ h K') (wellKinded_ctr EQ h K')⟩
+
+theorem wellKinded_ctrSucc (K' : ℕ) : (ctrSucc EQ K').wellKinded ρc HK :=
+  ⟨wellKinded_ctrLt EQ h K', wellKinded_keepCols _ _
+    ⟨outerOk_midLt _ K',
+    wellKinded_prodA' _ _ (wellKinded_prodA' _ _ (wellKinded_ctr EQ h K')
+      (wellKinded_ctr EQ h K')) (wellKinded_ctr EQ h K')⟩⟩
+
+theorem wellKinded_ctrLeast (K' : ℕ) : (ctrLeast EQ K').wellKinded ρc HK :=
+  ⟨wellKinded_ctr EQ h K', wellKinded_keepCols _ _ (wellKinded_ctrLt EQ h K')⟩
+
+theorem wellKinded_ctrNext (n K' : ℕ) :
+    (ctrNext EQ n K').wellKinded (Fin.append (ColKind.allReg (n + K')) ρc) HK := by
+  refine wellKinded_keepCols _ _ ⟨?_, wellKinded_substMap _ _ (hθ_applyOuter _ ρc)
+    (wellKinded_ctrSucc EQ h K')⟩
+  unfold eqOuter
+  generalize hks : List.finRange K' = ks
+  clear hks
+  induction ks with
+  | nil => exact ⟨trivial, trivial⟩
+  | cons k ks ih =>
+    refine ⟨⟨trivial, ?_⟩, ih⟩
+    show (Fin.append (ColKind.allReg (n + K')) ρc (Fin.castAdd c (Fin.natAdd n k))).base
+      ≠ ColKind.agg
+    rw [Fin.append_left]
+    simp [ColKind.allReg, ColKind.base]
+
+end Ctr
+
+omit [ValueType T] in
+/-- **The substituted term is well-kinded** where the parameters it reads
+have the hole's kinds. -/
+theorem wellKinded_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
+    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
+      q.recLinear s n → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
+      (∀ k, (HK s n k).base = _root_.Sum.elim (fun _ => ColKind.reg) (fun j => (ρc j).base)
+        (pv k)) → ∀ HK' : HoleKinds, (substRel s pv q).wellKinded ρc HK' := by
+  intro m κ l q
+  induction q with
+  | Rel n' s' => exact fun h => h.elim
+  | Hole n' s' κh =>
+    rintro ⟨rfl, rfl⟩ ρc HK hw hpv HK'
+    rw [substRel, dite_eq_left ⟨rfl, rfl⟩, wellKinded_castIdx]
+    exact fun k => (hw k).trans (hpv k)
+  | Param pv ρ => exact fun h => h.elim
+  | Empty => exact fun h => h.elim
+  | Proj ps q ih => exact fun h ρc HK hw hpv HK' => ⟨hw.1, ih pv h hw.2 hpv HK'⟩
+  | Sel φ q _ ih => exact fun h ρc HK hw hpv HK' => ⟨hw.1, ih pv h.2 hw.2 hpv HK'⟩
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) ρc HK hw hpv HK'
+    · rw [substRel, wellKinded_castIdx, substRel_of_noMention pv q₂ h₂]
+      exact ⟨ih₁ pv h₁ hw.1 hpv HK', wellKinded_congr_holes q₂ ρc
+        (fun p hp => absurd hp List.not_mem_nil) hw.2⟩
+    · rw [substRel, wellKinded_castIdx, substRel_of_noMention pv q₁ h₁]
+      exact ⟨wellKinded_congr_holes q₁ ρc (fun p hp => absurd hp List.not_mem_nil) hw.1,
+        ih₂ pv h₂ hw.2 hpv HK'⟩
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    exact fun h ρc HK hw hpv HK' => ⟨ih₁ pv h.1 hw.1 hpv HK',
+      wellKinded_congr_holes q₂ _ (fun p hp => absurd hp List.not_mem_nil) hw.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
+  | Dedup q ih => exact fun h => h.elim
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
+  | Explode k hk q ih => exact fun h ρc HK hw hpv HK' => ih pv h hw hpv HK'
+  | Retag hk q ih => exact fun h ρc HK hw hpv HK' => ih pv h hw hpv HK'
+  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
+  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
+  | Gamma is ts fs q keep ord ih => exact fun h => h.elim
+  | GammaScalar ts fs q ord ih => exact fun h => h.elim
+  | GammaNest is his p fn q ih => exact fun h => h.elim
+  | ProvSum is his t q ih => exact fun h => h.elim
+  | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
+  | Win P O o w t fw q hrr dist keep ih => exact fun h => h.elim
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
+
+end Kinds
+
+section Kinds2
+
+variable {c : ℕ}
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem HoleKinds.assign_self_base (HK : HoleKinds) (s : String) {n : ℕ}
+    (κ : Fin n → ColKind) (k : Fin n) : ((HK.assign s κ) s n k).base = (κ k).base := by
+  unfold HoleKinds.assign
+  rw [dite_eq_left ⟨rfl, rfl⟩]
+  rfl
+
+theorem wellKinded_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
+    {ρc : Fin c → ColKind} {HK : HoleKinds} (h₀ : q₀'.wellKinded ρc HK)
+    (h₁ : q₁'.wellKinded ρc (HK.assign s (ColKind.allReg n))) :
+    (muSetSim cnt s s' q₀ q₁ q₀' q₁').wellKinded ρc HK := by
+  have hEQ := fun HK' => wellKinded_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) ρc HK'
+  refine wellKinded_keepCols _ _ ⟨wellKinded_prodA' _ _ h₀ (wellKinded_ctrLeast _ (hEQ HK) _), ?_⟩
+  refine wellKinded_keepCols _ _ ((wellKinded_castKind _ _).2 ⟨fun k => ?_,
+    wellKinded_prodA' _ _ ?_ (wellKinded_ctrNext _ (hEQ _) n _)⟩)
+  · rw [HoleKinds.assign_self_base]
+  · rw [wellKinded_castIdx]
+    refine wellKinded_substRel (rowPv n _) _ ((recLinear_substMap q₁' _).2 hq₁')
+      (wellKinded_substMap _ _ (hθ_applyOuter _ ρc) h₁) (fun k => ?_) _
+    rw [HoleKinds.assign_self_base]
+    show _ = (Fin.append (ColKind.allReg (n + _)) ρc (Fin.castAdd c (Fin.castAdd _ k))).base
+    rw [Fin.append_left]
+    rfl
+
+/-- **The pass keeps the kinds.** -/
+theorem wellKinded_muSetFreeA (cnt : SeqAggFunc T) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
+      ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
+        (muSetFreeA cnt f q).wellKinded ρc HK := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ _ _ _ h => h
+  | Hole _ _ _ => exact fun _ _ _ _ _ h => h
+  | Param _ _ => exact fun _ _ _ _ _ h => h
+  | Empty => exact fun _ _ _ _ _ h => h
+  | Proj ps q ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | Sel φ q hφ ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu hh _ _ h =>
+      ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f hu hh _ _ h =>
+      ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f hu hh _ _ h => ih f hu.2 hh h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu hh _ _ h =>
+      ⟨ih₁ _ hu.2.1 hh.1 h.1, ih₂ _ hu.2.2 hh.2 h.2⟩
+  | Explode k hk q ih => exact fun f hu hh _ _ h => ih f hu hh h
+  | Retag hk q ih => exact fun f hu hh _ _ h => ih f hu hh h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu hh _ _ h =>
+      ⟨ih₀ _ hu.2.1 hh.2.2.1 h.1, ih₁ _ hu.2.2 hh.2.2.2 h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh ρc HK h
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    exact wellKinded_muSetSim cnt s _ q₀ q₁ _ _
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+      (ih₀ _ hu.2.1 hh.2.2.1 h.1) (ih₁ _ hu.2.2 hh.2.2.2 h.2)
+  | Gamma is ts fs q keep ord ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | GammaScalar ts fs q ord ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | GammaNest is his p g q ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | ProvSum is his t q ih => exact fun f hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
+
+end Kinds2
+
+/-! ## The names of the pass's output -/
+
+section Names
+
+variable {c : ℕ}
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- Stripping names nothing new. -/
+theorem mem_names_of_stripAgg :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (x : String), x ∈ q.stripAgg.names → x ∈ q.names := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ h => h
+  | Hole _ _ _ => exact fun _ h => h
+  | Param _ _ => exact fun _ h => h
+  | Empty => exact fun _ h => h
+  | Proj _ q ih => exact fun x h => ih x h
+  | Sel φ q _ ih =>
+    intro x h
+    simp only [stripAgg] at h
+    split_ifs at h
+    · exact ih x h
+    · exact ih x h
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => Finset.mem_union_left _ (ih₁ x h)) (fun h => Finset.mem_union_right _ (ih₂ x h))
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => Finset.mem_union_left _ (ih₁ x h)) (fun h => Finset.mem_union_right _ (ih₂ x h))
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => Finset.mem_union_left _ (ih₁ x h)) (fun h => Finset.mem_union_right _ (ih₂ x h))
+  | Dedup q ih => exact fun x h => ih x h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun x h => Finset.mem_union_left _ (ih₁ x h)
+  | Explode _ _ q ih => exact fun x h => ih x h
+  | Retag _ q ih => exact fun x h => ih x h
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro x h
+    rcases Finset.mem_insert.1 h with h | h
+    · exact Finset.mem_insert.2 (Or.inl h)
+    · exact Finset.mem_insert_of_mem ((Finset.mem_union.1 h).elim
+        (fun h => Finset.mem_union_left _ (ih₀ x h)) (fun h => Finset.mem_union_right _ (ih₁ x h)))
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro x h
+    rcases Finset.mem_insert.1 h with h | h
+    · exact Finset.mem_insert.2 (Or.inl h)
+    · exact Finset.mem_insert_of_mem ((Finset.mem_union.1 h).elim
+        (fun h => Finset.mem_union_left _ (ih₀ x h)) (fun h => Finset.mem_union_right _ (ih₁ x h)))
+  | Gamma _ _ _ q _ _ ih => exact fun x h => ih x h
+  | GammaScalar _ _ q _ ih => exact fun x h => ih x h
+  | GammaNest _ _ _ _ q ih => exact fun x h => ih x h
+  | ProvSum _ _ _ q ih => exact fun x h => ih x h
+  | GammaTok _ _ _ _ _ q _ ih => exact fun x h => ih x h
+  | Win _ _ _ _ _ _ q _ _ _ ih => exact fun x h => ih x h
+  | WinExpr _ _ _ _ _ _ _ q _ ih => exact fun x h => ih x h
+
+theorem mem_names_valRel (ls : List (ℕ × String)) (cs : List T) (x : String)
+    (hx : x ∈ (valRel (c := c) ls cs).names) : ∃ p ∈ ls, x = p.2 := by
+  obtain ⟨q, hq, hx⟩ := mem_names_listSum _ x hx
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, hp, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, names_castKind] at hx
+    exact ⟨p, hp, Finset.mem_singleton.1 hx⟩
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, names_castKind] at hx
+    exact absurd ((names_unitC (T := T) (c := c)) ▸ hx) (Finset.notMem_empty x)
+
+section Ctr
+
+variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+
+omit [ValueType T] in
+theorem names_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+    (q : AggQueryIn T c n (ColKind.allReg n) l) : (keepCols cols q).names = q.names := by
+  rw [keepCols, names_castKind]; rfl
+
+omit [ValueType T] in
+theorem mem_names_ctr (K' : ℕ) (x : String) (h : x ∈ (ctr EQ K').names) : x ∈ EQ.names := by
+  have := mem_names_pow _ K' x h
+  rwa [names_dedupG] at this
+
+theorem mem_names_ctrLt (K' : ℕ) (x : String) (h : x ∈ (ctrLt EQ K').names) : x ∈ EQ.names := by
+  have h : x ∈ (prodA (ctr EQ K') (ctr EQ K')).names := h
+  rw [names_prodA] at h
+  exact (Finset.mem_union.1 h).elim (mem_names_ctr EQ K' x) (mem_names_ctr EQ K' x)
+
+theorem mem_names_ctrSucc (K' : ℕ) (x : String) (h : x ∈ (ctrSucc EQ K').names) :
+    x ∈ EQ.names := by
+  rcases Finset.mem_union.1 h with h | h
+  · exact mem_names_ctrLt EQ K' x h
+  · rw [ctrMid, names_keepCols] at h
+    have h : x ∈ (prodA (prodA (ctr EQ K') (ctr EQ K')) (ctr EQ K')).names := h
+    rw [names_prodA, names_prodA] at h
+    rcases Finset.mem_union.1 h with h | h
+    · exact (Finset.mem_union.1 h).elim (mem_names_ctr EQ K' x) (mem_names_ctr EQ K' x)
+    · exact mem_names_ctr EQ K' x h
+
+theorem mem_names_ctrLeast (K' : ℕ) (x : String) (h : x ∈ (ctrLeast EQ K').names) :
+    x ∈ EQ.names := by
+  rcases Finset.mem_union.1 h with h | h
+  · exact mem_names_ctr EQ K' x h
+  · rw [names_keepCols] at h
+    exact mem_names_ctrLt EQ K' x h
+
+theorem mem_names_ctrNext (n K' : ℕ) (x : String) (h : x ∈ (ctrNext EQ n K').names) :
+    x ∈ EQ.names := by
+  rw [ctrNext, names_keepCols] at h
+  have h : x ∈ ((ctrSucc EQ K').substMap (applyOuter T c (n + K'))).names := h
+  rw [names_substMap] at h
+  exact mem_names_ctrSucc EQ K' x h
+
+end Ctr
+
+theorem mem_names_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n) (x : String)
+    (hx : x ∈ (muSetSim cnt s s' q₀ q₁ q₀' q₁').names) :
+    x = s' ∨ x ∈ q₀'.names ∨ x ∈ q₁'.names ∨ x ∈ (MuSet s q₀ q₁).names := by
+  have hEQ : ∀ y, y ∈ (valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)).names →
+      y ∈ (MuSet s q₀ q₁).names := fun y hy => by
+    obtain ⟨p, hp, rfl⟩ := mem_names_valRel _ _ y hy
+    exact mem_names_of_stripAgg (MuSet s q₀ q₁) _ (snd_mem_names_of_mem_leaves _ p hp)
+  have hx : x ∈ (Mu s' (prodA q₀' (ctrLeast (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁))
+      (ctrWidth cnt s q₀ q₁))) (simBodyA s s' n (ctrWidth cnt s q₀ q₁)
+        (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)) q₁')).names := by
+    have := hx
+    simp only [muSetSim, simResultA, simA] at this
+    exact this
+  rcases Finset.mem_insert.1 hx with rfl | hx
+  · exact Or.inl rfl
+  rcases Finset.mem_union.1 hx with hx | hx
+  · rw [names_prodA] at hx
+    rcases Finset.mem_union.1 hx with hx | hx
+    · exact Or.inr (Or.inl hx)
+    · exact Or.inr (Or.inr (Or.inr (hEQ x (mem_names_ctrLeast _ _ x hx))))
+  · rw [simBodyA, names_keepCols, names_castKind] at hx
+    rcases Finset.mem_union.1 hx with hx | hx
+    · exact Or.inl (Finset.mem_singleton.1 hx)
+    rw [names_prodA, names_castIdx] at hx
+    rcases Finset.mem_union.1 hx with hx | hx
+    · rcases mem_names_substRel (rowPv n _) _ ((recLinear_substMap q₁' _).2 hq₁') x hx with
+        hx | hx
+      · rw [names_substMap] at hx
+        exact Or.inr (Or.inr (Or.inl hx))
+      · exact absurd hx (Finset.notMem_empty x)
+    · exact Or.inr (Or.inr (Or.inr (hEQ x (mem_names_ctrNext _ _ _ x hx))))
+
+/-- **The names of the pass's output**: the input's, and the supply's. -/
+theorem mem_names_muSetFreeA (cnt : SeqAggFunc T) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
+      ∀ x, x ∈ (muSetFreeA cnt f q).names → x ∈ q.names ∨ ∃ i, x = f i := by
+  have h3 : ∀ (f : ℕ → String) (j : ℕ) {x : String} {A : Finset String},
+      (x ∈ A ∨ ∃ i, x = tri f j i) → (x ∈ A ∨ ∃ i, x = f i) := fun f j x A h =>
+    h.imp_right fun ⟨i, hi⟩ => ⟨3 * i + j, hi⟩
+  have hu2 : ∀ {A B : Finset String} {x : String} (f : ℕ → String),
+      (x ∈ A ∨ ∃ i, x = f i) → (x ∈ Union.union A B ∨ ∃ i, x = f i) := fun f h =>
+    h.imp_left (Finset.mem_union_left _)
+  have hu3 : ∀ {A B : Finset String} {x : String} (f : ℕ → String),
+      (x ∈ B ∨ ∃ i, x = f i) → (x ∈ Union.union A B ∨ ∃ i, x = f i) := fun f h =>
+    h.imp_left (Finset.mem_union_right _)
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ _ x h => Or.inl h
+  | Hole _ _ _ => exact fun _ _ _ x h => Or.inl h
+  | Param _ _ => exact fun _ _ _ x h => Or.inl h
+  | Empty => exact fun _ _ _ x h => Or.inl h
+  | Proj ps q ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | Sel φ q hφ ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro f hu hh x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => hu2 f (h3 f 1 (ih₁ _ hu.2.1 hh.1 x h)))
+      (fun h => hu3 f (h3 f 2 (ih₂ _ hu.2.2 hh.2 x h)))
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro f hu hh x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => hu2 f (h3 f 1 (ih₁ _ hu.2.1 hh.1 x h)))
+      (fun h => hu3 f (h3 f 2 (ih₂ _ hu.2.2 hh.2 x h)))
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro f hu hh x h
+    exact (Finset.mem_union.1 h).elim
+      (fun h => hu2 f (h3 f 1 (ih₁ _ hu.2.1 hh.1 x h)))
+      (fun h => hu3 f (h3 f 2 (ih₂ _ hu.2.2 hh.2 x h)))
+  | Explode k hk q ih => exact fun f hu hh x h => ih f hu hh x h
+  | Retag hk q ih => exact fun f hu hh x h => ih f hu hh x h
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh x h
+    rcases Finset.mem_insert.1 h with rfl | h
+    · exact Or.inl (Finset.mem_insert_self _ _)
+    rcases Finset.mem_union.1 h with h | h
+    · exact (h3 f 1 (ih₀ _ hu.2.1 hh.2.2.1 x h)).imp_left
+        fun h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)
+    · exact (h3 f 2 (ih₁ _ hu.2.2 hh.2.2.2 x h)).imp_left
+        fun h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh x h
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    rcases mem_names_muSetSim cnt s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) x h with rfl | h | h | h
+    · exact Or.inr ⟨0, rfl⟩
+    · exact (h3 f 1 (ih₀ _ hu.2.1 hh.2.2.1 x h)).imp_left
+        fun h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)
+    · exact (h3 f 2 (ih₁ _ hu.2.2 hh.2.2.2 x h)).imp_left
+        fun h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)
+    · exact Or.inl h
+  | Gamma is ts fs q keep ord ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | GammaScalar ts fs q ord ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | GammaNest is his p g q ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | ProvSum is his t q ih => exact fun f hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh x h => ih f hu.2 hh x h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh x h => ih f hu.2 hh x h
+
+end Names
+
+/-! ## Hygiene and the schema of the pass's output -/
+
+section Hygiene
+
+variable {c : ℕ}
+
+omit [ValueType T] in
+theorem hygienic_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
+    (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.hygienic) : (keepCols cols q).hygienic := by
+  rw [keepCols, hygienic_castKind]; exact h
+
+omit [ValueType T] in
+theorem overSchema_keepCols {sch : Schema} {n m : ℕ} {l : List (String × ℕ)}
+    (cols : Fin m → Fin n) (q : AggQueryIn T c n (ColKind.allReg n) l) (h : q.overSchema sch) :
+    (keepCols cols q).overSchema sch := by
+  rw [keepCols, overSchema_castKind]; exact h
+
+theorem hygienic_valRel (ls : List (ℕ × String)) (cs : List T) :
+    (valRel (c := c) ls cs).hygienic := by
+  refine hygienic_listSum _ fun q hq => ?_
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, hygienic_castKind]; trivial
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, hygienic_castKind]; exact hygienic_unitC
+
+theorem overSchema_valRel {sch : Schema} (ls : List (ℕ × String)) (cs : List T)
+    (hls : ∀ p ∈ ls, sch p.2 = some p.1) : (valRel (c := c) ls cs).overSchema sch := by
+  refine overSchema_listSum _ fun q hq => ?_
+  rcases List.mem_append.1 hq with hq | hq
+  · obtain ⟨p, hp, hq⟩ := List.mem_flatMap.1 hq
+    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
+    rw [colRel, overSchema_castKind]; exact hls p hp
+  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
+    rw [constRel, overSchema_castKind]; exact overSchema_unitC sch
+
+section Ctr
+
+variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
+
+omit [ValueType T] in
+theorem hygienic_ctr (h : EQ.hygienic) (K' : ℕ) : (ctr EQ K').hygienic :=
+  hygienic_pow _ (hygienic_dedupG _ h) K'
+
+theorem hygienic_ctrLt (h : EQ.hygienic) (K' : ℕ) : (ctrLt EQ K').hygienic :=
+  hygienic_prodA _ _ (hygienic_ctr EQ h K') (hygienic_ctr EQ h K')
+
+theorem hygienic_ctrLeast (h : EQ.hygienic) (K' : ℕ) : (ctrLeast EQ K').hygienic :=
+  ⟨hygienic_ctr EQ h K', hygienic_keepCols _ _ (hygienic_ctrLt EQ h K')⟩
+
+theorem hygienic_ctrSucc (h : EQ.hygienic) (K' : ℕ) : (ctrSucc EQ K').hygienic :=
+  ⟨hygienic_ctrLt EQ h K', hygienic_keepCols _ _ (hygienic_prodA _ _
+    (hygienic_prodA _ _ (hygienic_ctr EQ h K') (hygienic_ctr EQ h K')) (hygienic_ctr EQ h K'))⟩
+
+theorem hygienic_ctrNext (h : EQ.hygienic) (n K' : ℕ) : (ctrNext EQ n K').hygienic :=
+  hygienic_keepCols _ _ ((hygienic_substMap _ _).2 (hygienic_ctrSucc EQ h K'))
+
+variable {sch : Schema} (h : EQ.overSchema sch)
+include h
+
+omit [ValueType T] in
+theorem overSchema_ctr (K' : ℕ) : (ctr EQ K').overSchema sch :=
+  overSchema_pow _ (overSchema_dedupG _ h) K'
+
+theorem overSchema_ctrLt (K' : ℕ) : (ctrLt EQ K').overSchema sch :=
+  overSchema_prodA _ _ (overSchema_ctr EQ h K') (overSchema_ctr EQ h K')
+
+theorem overSchema_ctrLeast (K' : ℕ) : (ctrLeast EQ K').overSchema sch :=
+  ⟨overSchema_ctr EQ h K', overSchema_keepCols _ _ (overSchema_ctrLt EQ h K')⟩
+
+theorem overSchema_ctrSucc (K' : ℕ) : (ctrSucc EQ K').overSchema sch :=
+  ⟨overSchema_ctrLt EQ h K', overSchema_keepCols _ _ (overSchema_prodA _ _
+    (overSchema_prodA _ _ (overSchema_ctr EQ h K') (overSchema_ctr EQ h K'))
+    (overSchema_ctr EQ h K'))⟩
+
+theorem overSchema_ctrNext (n K' : ℕ) : (ctrNext EQ n K').overSchema sch :=
+  overSchema_keepCols _ _ ((overSchema_substMap _ _ sch).2 (overSchema_ctrSucc EQ h K'))
+
+end Ctr
+
+/-- **The simulation is hygienic** where its own name is fresh. -/
+theorem hygienic_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
+    (h₀ : q₀'.hygienic) (h₁ : q₁'.hygienic) (hn₀ : q₀'.noMention s') (hn₁ : q₁'.noMention s')
+    (hls : (MuSet s q₀ q₁).noMention s') :
+    (muSetSim cnt s s' q₀ q₁ q₀' q₁').hygienic := by
+  have hls' : ∀ p ∈ ctrLeaves s q₀ q₁, p.2 ≠ s' :=
+    ne_of_noMention_of_mem_leaves _ (noMention_stripAgg (MuSet s q₀ q₁) hls)
+  have hEn := noMention_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) s' hls'
+  have hEh := hygienic_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
+  refine hygienic_keepCols _ _ ⟨noMention_prodA _ _ hn₀ (noMention_ctrLeast _ s' hEn _), ?_,
+    hygienic_prodA _ _ h₀ (hygienic_ctrLeast _ hEh _), ?_⟩
+  · rw [simBodyA, keepCols, noMention_castKind]
+    refine (noMention_castKind _ _).2
+      ⟨trivial, noMention_prodA _ _ ?_ (noMention_ctrNext _ s' hEn n _)⟩
+    rw [noMention_castIdx]
+    refine noMention_substRel (s := s) (s' := s') (rowPv n _) ?_ _
+      ((recLinear_substMap q₁' _).2 hq₁') (Or.inr ((noMention_substMap _ _).2 hn₁))
+    trivial
+  · refine hygienic_keepCols _ _ ((hygienic_castKind _ _).2
+      ⟨trivial, hygienic_prodA _ _ ?_ (hygienic_ctrNext _ hEh n _)⟩)
+    rw [hygienic_castIdx]
+    refine hygienic_substRel (rowPv n _) ?_ _ ((recLinear_substMap q₁' _).2 hq₁')
+      ((hygienic_substMap _ _).2 h₁)
+    trivial
+
+/-- **The simulation is well-formed over the schema** of its recursion,
+its own name being fresh. -/
+theorem overSchema_muSetSim (cnt : SeqAggFunc T) {n : ℕ} (s s' : String)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n))
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
+    (q₀' : AggQueryIn T c n (ColKind.allReg n))
+    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
+    {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ s) (h₀ : q₀'.overSchema sch)
+    (h₁ : q₁'.overSchema (sch.update s n)) (hn₁ : s' ∉ q₁'.names)
+    (hls : ∀ p ∈ ctrLeaves s q₀ q₁, sch p.2 = some p.1 ∧ p.2 ≠ s') :
+    (muSetSim cnt s s' q₀ q₁ q₀' q₁').overSchema sch := by
+  set EQ := valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) with hEQ
+  have hEo : EQ.overSchema sch := overSchema_valRel _ _ fun p hp => (hls p hp).1
+  have hEn : s' ∉ EQ.names := fun h => by
+    obtain ⟨p, hp, he⟩ := mem_names_valRel _ _ s' h
+    exact (hls p hp).2 he.symm
+  refine overSchema_keepCols _ _ ⟨hs', overSchema_prodA _ _ h₀ (overSchema_ctrLeast _ hEo _), ?_,
+    ?_⟩
+  · rw [simBodyA, keepCols, noMention_castKind]
+    refine (noMention_castKind _ _).2 ⟨trivial, noMention_prodA _ _ ?_
+      (noMention_ctrNext _ s' (noMention_of_not_mem_names _ hEn) n _)⟩
+    rw [noMention_castIdx]
+    refine noMention_substRel (s := s) (s' := s') (rowPv n _) ?_ _
+      ((recLinear_substMap q₁' _).2 hq₁')
+      (Or.inr ((noMention_substMap _ _).2 (noMention_of_not_mem_names _ hn₁)))
+    trivial
+  · refine overSchema_keepCols _ _ ((overSchema_castKind _ _).2
+      ⟨Schema.update_self sch s' _, overSchema_prodA _ _ ?_ ?_⟩)
+    · rw [overSchema_castIdx]
+      refine overSchema_substRel (rowPv n _) ?_ _ ((recLinear_substMap q₁' _).2 hq₁') ?_
+      · trivial
+      · rw [Schema.update_comm sch hss, overSchema_substMap]
+        exact overSchema_update_of_not_mem_names q₁' h₁ hn₁
+    · exact overSchema_update_of_not_mem_names _ (overSchema_ctrNext _ hEo n _)
+        (fun h => hEn (mem_names_ctrNext _ n _ s' h))
+
+end Hygiene
+
+section PassHygiene
+
+private theorem tri_fresh' {f : ℕ → String} {A B : Finset String} (hfr : ∀ i, f i ∉ B)
+    (hAB : ∀ x, x ∈ A → x ∈ B) (j : ℕ) : ∀ i, tri f j i ∉ A :=
+  fun _ h => hfr _ (hAB _ h)
+
+private theorem f0_notMem_tri2 {f : ℕ → String} (hf : Function.Injective f)
+    {A : Finset String} (hfr : f 0 ∉ A) {x : String} (hx : x ∈ A ∨ ∃ i, x = tri f 2 i) :
+    x ≠ f 0 := by
+  rintro rfl
+  rcases hx with h | ⟨i, hi⟩
+  · exact hfr h
+  · have := hf hi; simp at this
+
+/-- **The pass's output is hygienic**, its fresh names being fresh. -/
+theorem hygienic_muSetFreeA (cnt : SeqAggFunc T) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
+      (∀ i, f i ∉ q.names) → (muSetFreeA cnt f q).hygienic := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ h _ => h
+  | Hole _ _ _ => exact fun _ _ h _ => h
+  | Param _ _ => exact fun _ _ h _ => h
+  | Empty => exact fun _ _ h _ => h
+  | Proj ps q ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | Sel φ q hφ ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu hh hf =>
+      ⟨ih₁ _ hu.2.1 hh.1 (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1),
+        ih₂ _ hu.2.2 hh.2 (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2)⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f hu hh hf =>
+      ⟨ih₁ _ hu.2.1 hh.1 (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1),
+        ih₂ _ hu.2.2 hh.2 (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2)⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu hh hf =>
+      ⟨ih₁ _ hu.2.1 hh.1 (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1),
+        ih₂ _ hu.2.2 hh.2 (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2)⟩
+  | Explode k hk q ih => exact fun f hu hh hf => ih f hu hh hf
+  | Retag hk q ih => exact fun f hu hh hf => ih f hu hh hf
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh hf
+    exact ⟨(muSetFreeA_struct cnt q₀ _ hu.2.1 hh.2.2.1).1 s hh.1,
+      (muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).1 s hh.2.1,
+      ih₀ _ hu.2.1 hh.2.2.1 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1),
+      ih₁ _ hu.2.2 hh.2.2.2 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f hu hh hf
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    have hn : (MuSet s q₀ q₁).noMention (f 0) := noMention_of_not_mem_names _ (hf 0)
+    exact hygienic_muSetSim cnt s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+      (ih₀ _ hu.2.1 hh.2.2.1 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1))
+      (ih₁ _ hu.2.2 hh.2.2.2 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2))
+      ((muSetFreeA_struct cnt q₀ _ hu.2.1 hh.2.2.1).1 _ hn.1)
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).1 _ hn.2) hn
+  | Gamma is ts fs q keep ord ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | GammaScalar ts fs q ord ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | GammaNest is his p g q ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | ProvSum is his t q ih => exact fun f hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh hf => ih f hu.2 hh hf
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh hf => ih f hu.2 hh hf
+
+/-- **The pass's output is well-formed over the schema**, its fresh names
+being fresh for the query and undeclared by the schema. -/
+theorem overSchema_muSetFreeA (cnt : SeqAggFunc T) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), Function.Injective f → q.usesOnly (Set.univ \ {OpKind.union}) →
+      q.hygienic → (∀ i, f i ∉ q.names) → ∀ {sch : Schema}, (∀ i, sch (f i) = none) →
+      q.overSchema sch → (muSetFreeA cnt f q).overSchema sch := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ _ _ _ _ _ h => h
+  | Hole _ _ _ => exact fun _ _ _ _ _ _ _ h => h
+  | Param _ _ => exact fun _ _ _ _ _ _ _ h => h
+  | Empty => exact fun _ _ _ _ _ _ _ h => h
+  | Proj ps q ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | Sel φ q hφ ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hi hu hh hf _ hs h =>
+      ⟨ih₁ _ (tri_injective hi 1) hu.2.1 hh.1
+        (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1) (fun i => hs _) h.1,
+        ih₂ _ (tri_injective hi 2) hu.2.2 hh.2
+        (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2) (fun i => hs _) h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f hi hu hh hf _ hs h =>
+      ⟨ih₁ _ (tri_injective hi 1) hu.2.1 hh.1
+        (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1) (fun i => hs _) h.1,
+        ih₂ _ (tri_injective hi 2) hu.2.2 hh.2
+        (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2) (fun i => hs _) h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f _ hu => absurd hu.1 (by simp)
+  | Dedup q ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hi hu hh hf _ hs h =>
+      ⟨ih₁ _ (tri_injective hi 1) hu.2.1 hh.1
+        (tri_fresh' hf (fun _ h => Finset.mem_union_left _ h) 1) (fun i => hs _) h.1,
+        ih₂ _ (tri_injective hi 2) hu.2.2 hh.2
+        (tri_fresh' hf (fun _ h => Finset.mem_union_right _ h) 2) (fun i => hs _) h.2⟩
+  | Explode k hk q ih => exact fun f hi hu hh hf _ hs h => ih f hi hu hh hf hs h
+  | Retag hk q ih => exact fun f hi hu hh hf _ hs h => ih f hi hu hh hf hs h
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro f hi hu hh hf sch hs h
+    have hsf : ∀ i, f i ≠ s := fun i he => hf i (by rw [he]; exact Finset.mem_insert_self _ _)
+    exact ⟨h.1, ih₀ _ (tri_injective hi 1) hu.2.1 hh.2.2.1 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1) (fun i => hs _) h.2.1,
+      (muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).1 s h.2.2.1,
+      ih₁ _ (tri_injective hi 2) hu.2.2 hh.2.2.2 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
+        (fun i => by
+          rw [Schema.update_apply, ite_eq_right (show ¬ tri f 2 i = s from hsf _)]
+          exact hs _) h.2.2.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro f hi hu hh hf sch hs h
+    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
+    have hsf : ∀ i, f i ≠ s := fun i he => hf i (by rw [he]; exact Finset.mem_insert_self _ _)
+    have hfr₁ : ∀ i, tri f 2 i ∉ q₁.names := tri_fresh' hf
+      (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2
+    refine overSchema_muSetSim cnt s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct cnt q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) (hs 0) (hsf 0)
+      (ih₀ _ (tri_injective hi 1) hu.2.1 hh.2.2.1 (tri_fresh' hf
+        (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1) (fun i => hs _) h.2.1)
+      (ih₁ _ (tri_injective hi 2) hu.2.2 hh.2.2.2 hfr₁
+        (fun i => by
+          rw [Schema.update_apply, ite_eq_right (show ¬ tri f 2 i = s from hsf _)]
+          exact hs _) h.2.2.2)
+      (fun hm => f0_notMem_tri2 hi (fun h' => hf 0 (Finset.mem_insert_of_mem
+        (Finset.mem_union_right _ h'))) (mem_names_muSetFreeA cnt q₁ _ hu.2.2 hh.2.2.2 _ hm) rfl)
+      (fun p hp => ⟨find_of_mem_leaves_of_overSchema _ (overSchema_stripAgg (MuSet s q₀ q₁) h)
+        p hp, fun he => hf 0 (by
+          rw [← he]
+          exact mem_names_of_stripAgg (MuSet s q₀ q₁) _ (snd_mem_names_of_mem_leaves _ p hp))⟩)
+  | Gamma is ts fs q keep ord ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | GammaScalar ts fs q ord ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | GammaNest is his p g q ih => exact fun f hi hu hh hf _ hs h => ih f hi hu.2 hh hf hs h
+  | ProvSum is his t q ih => exact fun f _ hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f _ hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih =>
+    intro f hi hu hh hf _ hs h
+    exact ih f hi hu.2 hh hf hs h
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro f hi hu hh hf _ hs h
+    exact ih f hi hu.2 hh hf hs h
+
+end PassHygiene
+
 end AggQueryIn
+
+/-! ## The annotated basis with `ε` and without `μ^∪` -/
+
+/-- **The conjectured basis of the annotated algebra**:
+`{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` – the classes other than `×`, `⊎`
+and `μ^∪`. -/
+def annEpsOps : Set OpKind :=
+  ((plainRecOps \ {OpKind.prod}) \ {OpKind.union}) \ {OpKind.muSet}
+
+/-- **A set of classes generates the annotated algebra over the instances
+`P` admits**: `GeneratesAnn`, with the instances restricted. -/
+def GeneratesAnnOn (T : Type) [ValueType T] (K : Type) [CommSemiringWithMonus K]
+    [DecidableEq K] [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) (S : Set OpKind)
+    (P : AnnotatedDatabase T K → Prop) : Prop :=
+  ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
+    q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt → q.noExplode →
+      q.wellKinded (ColKind.allReg 0) HoleKinds.empty →
+      ∃ q' : AggQuery T n κ,
+        q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode
+          ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty
+          ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
+              q'.AnnSettlesAt d γ {} ∧ q'.evaluateAnnotated d γ = q.evaluateAnnotated d γ
+
+/-- **`μ^∪` is dispensable beside `μ^⊎` and `ε` in the annotated algebra**,
+where `δ` is the support map, no instance row is annotated `𝟘`
+(`AggQueryIn.CounterOK`), and the semiring settles its linear recursions
+within the size of their tuple sets (`PathSum.SettlesEarly`: absorptive,
+or `⊕` cancellative with no zero divisors – `ℕ`, `ℕ[X]`, the tropical,
+Viterbi and Łukasiewicz semirings). The classes
+`{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` then match every query of the
+annotated algebra in the minimal universe: the products are written as
+applies, the unions as bag recursions, and every set recursion as the
+successor-counter simulation of `AggQueryIn.muSetFreeA`, whose own unions
+are written as bag recursions in turn. -/
+theorem generatesAnnOn_annEpsOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
+    (hK : PathSum.SettlesEarly K) :
+    GeneratesAnnOn T K sch cnt annEpsOps AggQueryIn.CounterOK := by
+  intro n κ q ho hu hi ha hp
+  -- the products
+  have hu1 : (prodFree q).usesOnly (plainRecOps \ {OpKind.prod}) :=
+    usesOnly_prodFree (by simp [plainRecOps, plainOps, basisDD, basisOps])
+      (by simp [plainRecOps, plainOps, basisDD, basisOps]) q (by simp) hu
+  have ho1 := overSchema_prodFree q sch ho
+  have hi1 := inSig_prodFree q hi
+  have ha1 := noExplode_prodFree q ha
+  have hp1 := wellKinded_prodFree q hp
+  -- the unions, a first time
+  set S2 : Set OpKind := (plainRecOps \ {OpKind.prod}) \ {OpKind.union} with hS2
+  have hS2s : AggQueryIn.sumMuOps ⊆ S2 := by
+    intro o ho
+    simp only [AggQueryIn.sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;>
+      simp [hS2, plainRecOps, plainOps, basisDD, basisOps]
+  have hu1' : (prodFree q).usesOnly (insert OpKind.union S2) :=
+    AggQueryIn.usesOnly_mono (fun o h => by
+      by_cases hou : o = OpKind.union
+      · exact Or.inl hou
+      · exact Or.inr ⟨h, hou⟩) _ hu1
+  obtain ⟨f1, hf1, hf1s, hf1n⟩ := AggQueryIn.exists_freshSupply sch (prodFree q).names
+  obtain ⟨q2, hs2, hm2⟩ := (AggQueryIn.exists_sumFreeAnn_aux (K := K) hS2s
+    (Set.mem_singleton cnt) (prodFree q) hu1' (AggQueryIn.hygienic_of_overSchema _ sch ho1) hi1
+    f1 hf1 hf1n).1 rfl
+  have ho2 := hs2.over sch hf1s ho1
+  have hh2 := hs2.hygienic
+  have hi2 := hs2.inSig
+  have ha2 := hs2.noExplode ha1
+  have hp2 := hs2.wellKinded _ _ hp1
+  have hU2 : q2.usesOnly (Set.univ \ {OpKind.union}) :=
+    AggQueryIn.usesOnly_mono (fun o (h : o ∈ S2) => (⟨Set.mem_univ o, h.2⟩
+      : o ∈ Set.univ \ {OpKind.union})) _ hs2.usesOnly
+  -- the set recursions
+  obtain ⟨f2, hf2, hf2s, hf2n⟩ := AggQueryIn.exists_freshSupply sch q2.names
+  set q3 := AggQueryIn.muSetFreeA cnt f2 q2 with hq3
+  have hsim : AggQueryIn.simOps ⊆ insert OpKind.union (S2 \ {OpKind.muSet}) := by
+    intro o ho
+    simp only [AggQueryIn.simOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+      simp [hS2, plainRecOps, plainOps, basisDD, basisOps]
+  have hu3 := AggQueryIn.usesOnly_muSetFreeA cnt hsim q2 f2 hs2.usesOnly hU2 hh2
+  have hi3 := AggQueryIn.inSig_muSetFreeA cnt q2 f2 hU2 hh2 hi2
+  have ha3 := AggQueryIn.noExplode_muSetFreeA cnt q2 f2 hU2 hh2 ha2
+  have hp3 := AggQueryIn.wellKinded_muSetFreeA cnt q2 f2 hU2 hh2 hp2
+  have ho3 := AggQueryIn.overSchema_muSetFreeA cnt q2 f2 hf2 hU2 hh2 hf2n hf2s ho2
+  have hh3 := AggQueryIn.hygienic_muSetFreeA cnt q2 f2 hU2 hh2 hf2n
+  -- the unions, a second time
+  have hS4s : AggQueryIn.sumMuOps ⊆ S2 \ {OpKind.muSet} := by
+    intro o ho
+    simp only [AggQueryIn.sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;>
+      simp [hS2, plainRecOps, plainOps, basisDD, basisOps]
+  obtain ⟨f3, hf3, hf3s, hf3n⟩ := AggQueryIn.exists_freshSupply sch q3.names
+  obtain ⟨q4, hs4, hm4⟩ := (AggQueryIn.exists_sumFreeAnn_aux (K := K) hS4s
+    (Set.mem_singleton cnt) q3 hu3 hh3 hi3 f3 hf3 hf3n).1 rfl
+  refine ⟨q4, hs4.over sch hf3s ho3, hs4.usesOnly, hs4.inSig, hs4.noExplode ha3,
+    hs4.wellKinded _ _ hp3, fun d γ hd hset => ?_⟩
+  -- the matches, composed
+  have hs1 := annSettlesAt_prodFree q d γ {} {} (EvalEnv.FinRel.refl _) hset
+  have he1 : ((prodFree q).evaluate d γ {}).map GenRow.fin = (q.evaluate d γ {}).map GenRow.fin :=
+    finEq_prodFree q d γ {} {} (EvalEnv.FinRel.refl _)
+  obtain ⟨hs2', he2⟩ := hm2 d γ {} {} (EvalEnv.FinRel.refl _) hs1
+  obtain ⟨hs3, he3⟩ := AggQueryIn.muSetFreeA_correct cnt hcnt.readsCount hK q2 f2 hU2 hi2 hh2 ha2
+    hp2 d hd γ {} (EvalEnv.kinded_empty γ) hs2'
+  obtain ⟨hs4', he4⟩ := hm4 d γ {} {} (EvalEnv.FinRel.refl _) hs3
+  refine ⟨hs4', GenRow.map_toAnnotated_of_fin ?_⟩
+  rw [← he4, he3, ← he2, he1]

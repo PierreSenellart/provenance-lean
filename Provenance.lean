@@ -1284,7 +1284,10 @@ proven engine several general results reuse internally.
   annotated `𝟙`, and a round moves to the *successor* counter, computed
   by a difference (`AggQueryIn.simResultA`, `evaluate_simResultA`); the
   pass replacing every set recursion is `AggQueryIn.muSetFreeA`, correct
-  wherever the query settles (`muSetFreeA_correct`)
+  wherever the query settles (`muSetFreeA_correct`). Composed with the
+  passes for `×` and `⊎`, the classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}`
+  generate the annotated algebra over those instances and semirings
+  (`generatesAnnOn_annEpsOps`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
