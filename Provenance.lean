@@ -64,6 +64,7 @@ import Provenance.AnnotatedSum
 import Provenance.PathSum
 import Provenance.AnnotatedMuUnion
 import Provenance.AnnotatedChains
+import Provenance.AnnotatedDiffRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1302,6 +1303,13 @@ proven engine several general results reuse internally.
   each value it holds, so the *all-chains* counter absorbs nothing of a
   derivation through distinct tuples (`AggQueryIn.muSetSim_correct_chain`,
   `generatesAnn_annEpsOps_of_delta_id`)
+- `Provenance.AnnotatedDiffRow` – **`−` is necessary in the annotated
+  algebra**: over `ℕ × ℕ` (`NatPair`), every annotation a query without a
+  difference builds – a row's, its tokens' occurrences', a predicate's
+  provenance – is zero in one coordinate exactly where it is in the other,
+  that being kept by every operator but the difference
+  (`annIn_evaluate`, for any property `AnnClosed`
+  describes), and `R − S` gives `(0, 1)` (`diff_mem_of_generatesAnn`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
