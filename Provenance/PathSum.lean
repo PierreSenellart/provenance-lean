@@ -933,6 +933,372 @@ theorem SimSpec.dedupK_rounds (h : SimSpec lt cs B G B' G') {S : Finset α} (hS 
 
 end Counter
 
+section Chains
+
+/-! ### The all-chains counter
+
+Where `⊕` and `⊗` do not add copies – in an absorptive semiring – a
+simulation need not single out the successor of a counter: a round may
+pair each derived tuple with *every* counter above the current one. The
+base pairs each tuple with every counter, multiplying its weight by
+`bw c`, and a round from counter `c` to `c'` multiplies by `sw c c'`. Round
+`j` then sums, over the paths of `j` steps and the chains of `j + 1`
+counters, the path's weight times the chain's (`wt_rounds_ge`), and never
+weighs more than the recursion's round (`wt_rounds_le`). So `ε` of its
+rounds is the recursion's value as soon as every path through distinct
+tuples of non-zero weight is absorbed by the weight of some chain
+(`ChainSpec.dedupK_rounds`): a path through a cycle is absorbed by the
+path with the cycle cut. -/
+
+variable [CommSemiring R] [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R]
+  {β : Type} [DecidableEq β]
+
+/-- The hypotheses the all-chains simulation's rounds are read under: the
+counters listed in a strictly increasing order, the base pairing each
+tuple of `B` with every counter, its weight multiplied by `bw`, and a
+round pairing each tuple of `G t` with every counter above `c`, its weight
+multiplied by `sw`. -/
+structure ChainSpec (lt : β → β → Prop) (cs : List β) (bw : β → R) (sw : β → β → R)
+    (B : Multiset (α × R)) (G : α → Multiset (α × R)) (B' : Multiset ((α × β) × R))
+    (G' : α × β → Multiset ((α × β) × R)) : Prop where
+  sorted : cs.Pairwise lt
+  irrefl : ∀ c, ¬ lt c c
+  trans : ∀ a b c, lt a b → lt b c → lt a c
+  base_wt : ∀ t c, c ∈ cs → wt B' (t, c) = wt B t * bw c
+  base_supp : ∀ t c, (t, c) ∈ supp B' ↔ t ∈ supp B ∧ c ∈ cs
+  step_wt : ∀ t c, c ∈ cs → ∀ t' c', c' ∈ cs → lt c c' →
+    wt (G' (t, c)) (t', c') = wt (G t) t' * sw c c'
+  step_supp : ∀ t c, c ∈ cs → ∀ t' c',
+    (t', c') ∈ supp (G' (t, c)) ↔ t' ∈ supp (G t) ∧ c' ∈ cs ∧ lt c c'
+
+variable {lt : β → β → Prop} {cs : List β} {bw : β → R} {sw : β → β → R}
+  {B : Multiset (α × R)} {G : α → Multiset (α × R)} {B' : Multiset ((α × β) × R)}
+  {G' : α × β → Multiset ((α × β) × R)}
+
+/-! #### The order of an absorptive semiring -/
+
+omit [DecidableEq α] [IsOrderedAddMonoid R] in
+theorem le_one_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a ≤ 1 :=
+  le_iff_exists_add.2 ⟨1, by rw [add_comm a 1, habs a]⟩
+
+omit [DecidableEq α] [IsOrderedAddMonoid R] in
+theorem mul_le_mul_of_le_right' {a b : R} (h : a ≤ b) (c : R) : a * c ≤ b * c := by
+  obtain ⟨d, rfl⟩ := exists_add_of_le h
+  rw [add_mul]
+  exact le_self_add
+
+omit [DecidableEq α] [IsOrderedAddMonoid R] in
+theorem mul_le_mul_of_le' {a b c d : R} (h₁ : a ≤ b) (h₂ : c ≤ d) : a * c ≤ b * d :=
+  le_trans (mul_le_mul_of_le_right' h₁ c) (by
+    rw [mul_comm b c, mul_comm b d]; exact mul_le_mul_of_le_right' h₂ b)
+
+omit [DecidableEq α] [IsOrderedAddMonoid R] in
+theorem mul_le_left_of_abs (habs : ∀ a : R, 1 + a = 1) (a b : R) : a * b ≤ a := by
+  have := mul_le_mul_of_le' (le_refl a) (le_one_of_abs habs b)
+  rwa [mul_one] at this
+
+omit [DecidableEq α] [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+theorem add_self_of_abs (habs : ∀ a : R, 1 + a = 1) (a : R) : a + a = a := by
+  calc a + a = a * (1 + 1) := by rw [mul_add, mul_one]
+    _ = a := by rw [habs, mul_one]
+
+omit [DecidableEq α] in
+/-- **A sum of terms below `x` is below `x`**, `⊕` being idempotent. -/
+theorem sum_le_of_abs (habs : ∀ a : R, 1 + a = 1) {ι : Type} (s : Finset ι) (f : ι → R) (x : R)
+    (h : ∀ i ∈ s, f i ≤ x) : ∑ i ∈ s, f i ≤ x := by
+  classical
+  induction s using Finset.induction_on with
+  | empty => simp
+  | insert i s hi ih =>
+    rw [sum_insert hi, ← add_self_of_abs habs x]
+    exact add_le_add (h i (mem_insert_self i s))
+      (ih fun j hj => h j (mem_insert_of_mem hj))
+
+/-! #### The supports -/
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+theorem ChainSpec.supp_rounds (h : ChainSpec lt cs bw sw B G B' G') :
+    ∀ j t c, (t, c) ∈ supp (rounds B' G' j)
+      ↔ t ∈ supp (rounds B G j) ∧ ∃ i, j ≤ i ∧ ∃ hi : i < cs.length, cs[i] = c
+  | 0, t, c => by
+    simp only [rounds, h.base_supp, zero_le, true_and, List.mem_iff_getElem]
+  | j + 1, t', c' => by
+    simp only [rounds]
+    constructor
+    · intro hm
+      obtain ⟨⟨t, c⟩, hu, hv⟩ := mem_supp_lin.1 hm
+      obtain ⟨ht, i, hji, hi, rfl⟩ := (h.supp_rounds j t c).1 hu
+      obtain ⟨ht', hc', hlt⟩ := (h.step_supp t _ (List.getElem_mem hi) t' c').1 hv
+      obtain ⟨i', hi', rfl⟩ := List.mem_iff_getElem.1 hc'
+      refine ⟨mem_supp_lin.2 ⟨t, ht, ht'⟩, i', ?_, hi', rfl⟩
+      have := (sorted_lt_iff h.sorted h.irrefl h.trans hi hi').1 hlt
+      omega
+    · rintro ⟨ht', i', hji', hi', rfl⟩
+      obtain ⟨t, ht, ht'⟩ := mem_supp_lin.1 ht'
+      have hj : j < cs.length := by omega
+      refine mem_supp_lin.2 ⟨(t, cs[j]), (h.supp_rounds j t _).2 ⟨ht, j, le_rfl, hj, rfl⟩, ?_⟩
+      exact (h.step_supp t _ (List.getElem_mem hj) t' _).2
+        ⟨ht', List.getElem_mem hi', (sorted_lt_iff h.sorted h.irrefl h.trans hj hi').2 (by omega)⟩
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+theorem ChainSpec.supp_rounds_subset (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
+    (hS : Closed S B G) (j : ℕ) : supp (rounds B' G' j) ⊆ S ×ˢ cs.toFinset := by
+  rintro ⟨t, c⟩ hm
+  obtain ⟨ht, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
+  exact Finset.mem_product.2 ⟨hS.supp_rounds j ht, List.mem_toFinset.2 (List.getElem_mem hi)⟩
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+/-- **The all-chains simulation's rounds end at the number of counters.** -/
+theorem ChainSpec.rounds_eq_zero (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ}
+    (hj : cs.length ≤ j) : rounds B' G' j = 0 := by
+  have : supp (rounds B' G' j) = ∅ := by
+    ext ⟨t, c⟩
+    simp only [Finset.notMem_empty, iff_false]
+    intro hm
+    obtain ⟨-, i, hji, hi, -⟩ := (h.supp_rounds j t c).1 hm
+    omega
+  exact supp_eq_empty_iff.1 this
+
+/-! #### The weights -/
+
+/-- **A round of the simulation weighs no more than the recursion's**, in
+an absorptive semiring. -/
+theorem ChainSpec.wt_rounds_le (h : ChainSpec lt cs bw sw B G B' G')
+    (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) :
+    ∀ j t c, wt (rounds B' G' j) (t, c) ≤ wt (rounds B G j) t
+  | 0, t, c => by
+    simp only [rounds]
+    by_cases hc : c ∈ cs
+    · rw [h.base_wt t c hc]; exact mul_le_left_of_abs habs _ _
+    · rw [wt_eq_zero_of_notMem fun hm => hc ((h.base_supp t c).1 hm).2]; exact zero_le
+  | j + 1, t', c' => by
+    simp only [rounds]
+    rw [wt_lin, sum_map_mul_eq (fun p => wt (G' p) (t', c')) _ _ (h.supp_rounds_subset hS j),
+      wt_lin, sum_map_mul_eq (fun u => wt (G u) t') S _ (hS.supp_rounds j), sum_product]
+    refine Finset.sum_le_sum fun t _ => sum_le_of_abs habs _ _ _ fun c hc => ?_
+    have hc : c ∈ cs := List.mem_toFinset.1 hc
+    by_cases hm : (t', c') ∈ supp (G' (t, c))
+    · obtain ⟨-, hc', hlt⟩ := (h.step_supp t c hc t' c').1 hm
+      rw [h.step_wt t c hc t' c' hc' hlt]
+      exact mul_le_mul_of_le' (h.wt_rounds_le habs hS j t c) (mul_le_left_of_abs habs _ _)
+    · rw [wt_eq_zero_of_notMem hm, mul_zero]; exact zero_le
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+theorem ChainSpec.mem_cs_of_supp (h : ChainSpec lt cs bw sw B G B' G') {j : ℕ} {t : α} {c : β}
+    (hm : (t, c) ∈ supp (rounds B' G' j)) : c ∈ cs := by
+  obtain ⟨-, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
+  exact List.getElem_mem hi
+
+/-- **A round of the simulation weighs at least each path times each chain
+of counters of the same length**, the chain listed from its end, like the
+path. -/
+theorem ChainSpec.wt_rounds_ge (h : ChainSpec lt cs bw sw B G B' G') {S : Finset α}
+    (hS : Closed S B G) :
+    ∀ j t (l : List α) (ch : List β) (c : β), l ∈ pathsTo S j t → ch.length = l.length →
+      ch.Pairwise (fun a b => lt b a) → (∀ e ∈ ch, e ∈ cs) → ch.head? = some c →
+      pw (wt B) (fun u v => wt (G u) v) l * pw bw sw ch ≤ wt (rounds B' G' j) (t, c)
+  | 0, t, l, ch, c, hl, hlen, _, hcs, hc => by
+    obtain ⟨hl₁, hl₂, -⟩ := (mem_pathsTo S 0 t l).1 hl
+    match l, hl₁, hl₂, ch, hlen, hc with
+    | [u], _, hl₂, [e], _, hc =>
+      simp only [List.head?_cons, Option.some.injEq] at hl₂ hc
+      subst hl₂; subst hc
+      rw [rounds, h.base_wt u e (hcs e List.mem_cons_self)]
+      exact le_refl _
+  | j + 1, t, l, ch, c, hl, hlen, hsort, hcs, hc => by
+    obtain ⟨l', rfl⟩ := eq_cons_of_mem_pathsTo S hl
+    obtain ⟨hl₁, -, hlS⟩ := (mem_pathsTo S (j + 1) t (t :: l')).1 hl
+    match l', hl₁, ch, hlen, hc, hsort with
+    | u :: l₀, hl₁, e' :: e :: ch₀, hlen, hc, hsort =>
+      simp only [List.head?_cons, Option.some.injEq] at hc
+      subst hc
+      have hl₀ : u :: l₀ ∈ pathsTo S j u := (mem_pathsTo S j u _).2
+        ⟨by simp only [List.length_cons] at hl₁ ⊢; omega, rfl,
+          fun a ha => hlS a (List.mem_cons_of_mem _ ha)⟩
+      have hlt : lt e e' := List.rel_of_pairwise_cons hsort List.mem_cons_self
+      have hecs : e ∈ cs := hcs e (List.mem_cons_of_mem _ List.mem_cons_self)
+      have he'cs : e' ∈ cs := hcs e' List.mem_cons_self
+      have ih := h.wt_rounds_ge hS j u (u :: l₀) (e :: ch₀) e hl₀ (by simpa using hlen)
+        (List.Pairwise.of_cons hsort) (fun a ha => hcs a (List.mem_cons_of_mem _ ha)) rfl
+      simp only [rounds]
+      rw [wt_lin, sum_map_mul_eq (fun p => wt (G' p) (t, e')) _ _ (h.supp_rounds_subset hS j)]
+      have hmem : (u, e) ∈ S ×ˢ cs.toFinset :=
+        Finset.mem_product.2 ⟨hlS u (by simp), List.mem_toFinset.2 hecs⟩
+      refine le_trans ?_ (Finset.single_le_sum (fun _ _ => zero_le) hmem)
+      rw [h.step_wt u e hecs t e' he'cs hlt, pw, pw]
+      calc wt (G u) t * pw (wt B) (fun u v => wt (G u) v) (u :: l₀)
+            * (sw e e' * pw bw sw (e :: ch₀))
+          = pw (wt B) (fun u v => wt (G u) v) (u :: l₀) * pw bw sw (e :: ch₀)
+            * (wt (G u) t * sw e e') := by ring
+        _ ≤ _ := mul_le_mul_of_le_right' ih _
+
+/-- A path with its cycle cut is a path of fewer steps to the same tuple. -/
+theorem mem_pathsTo_cut {S : Finset α} {j : ℕ} {v : α} {l₁ : List α} {a : α} {l₂ l₃ : List α}
+    (hl : l₁ ++ a :: (l₂ ++ a :: l₃) ∈ pathsTo S j v) :
+    l₁ ++ a :: l₃ ∈ pathsTo S (j - (l₂.length + 1)) v ∧ l₂.length + 1 ≤ j := by
+  classical
+  obtain ⟨hlen, hh, hS⟩ := (mem_pathsTo S j v _).1 hl
+  simp only [List.length_append, List.length_cons] at hlen
+  refine ⟨(mem_pathsTo S _ v _).2 ⟨?_, ?_, ?_⟩, by omega⟩
+  · simp only [List.length_append, List.length_cons]; omega
+  · cases l₁ with
+    | nil => simpa using hh
+    | cons w t => simpa using hh
+  · intro c hc
+    apply hS
+    simp only [List.mem_append, List.mem_cons] at hc ⊢
+    tauto
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+/-- **A tuple of a round is in a round of fewer steps than the set it
+lives in.** -/
+theorem exists_short_round {S : Finset α} (hS : Closed S B G) :
+    ∀ j t, t ∈ supp (rounds B G j) → ∃ j' < S.card, j' ≤ j ∧ t ∈ supp (rounds B G j') := by
+  intro j
+  induction j using Nat.strong_induction_on with
+  | _ j ih =>
+    intro t ht
+    by_cases hj : j < S.card
+    · exact ⟨j, hj, le_rfl, ht⟩
+    · have hN := (mem_supp_rounds_iff hS j t).1 ht
+      obtain ⟨j₁, hj₁, hj₁'⟩ := exists_lt_ne_zero S _ _
+        (fun u hu => by
+          simp only [ite_eq_right_iff, one_ne_zero, imp_false]
+          exact fun h' => hu (hS.base h'))
+        (fun u hu v hv => by
+          simp only [ite_eq_right_iff, one_ne_zero, imp_false]
+          exact fun h' => hv (hS.step u hu h')) (Nat.le_of_not_lt hj) hN
+      obtain ⟨j', hj', hle, ht'⟩ := ih j₁ hj₁ t ((mem_supp_rounds_iff hS j₁ t).2 hj₁')
+      exact ⟨j', hj', by omega, ht'⟩
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+/-- **The rounds past `|S|` add nothing**, in an absorptive semiring. -/
+theorem x_stable (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) {N : ℕ}
+    (hN : S.card ≤ N) (v : α) :
+    ∀ k, x S (wt B) (fun u v => wt (G u) v) (N + k) v = x S (wt B) (fun u v => wt (G u) v) N v
+  | 0 => rfl
+  | k + 1 => by
+    have hbS : ∀ u, u ∉ S → wt B u = 0 := fun u hu =>
+      wt_eq_zero_of_notMem fun h' => hu (hS.base h')
+    have hgS : ∀ u ∈ S, ∀ v, v ∉ S → wt (G u) v = 0 := fun u hu v hv =>
+      wt_eq_zero_of_notMem fun h' => hv (hS.step u hu h')
+    rw [← Nat.add_assoc, x, sum_range_succ, ← x,
+      x_add_y_of_absorptive S _ _ habs hbS hgS (by omega) v, x_stable habs hS hN v k]
+
+/-- **The all-chains simulation computes the set recursion**, in an
+absorptive semiring: `ε` of the sum of any number `L ≥ |cs|` of its rounds,
+with the counters forgotten, is `ε` of the sum of the first `N ≥ |S|`
+rounds of the recursion, when there are at least `|S|` counters and the
+weight of every path through distinct tuples is `𝟘` or absorbed by that of
+a chain of as many counters. -/
+theorem ChainSpec.dedupK_rounds (h : ChainSpec lt cs bw sw B G B' G')
+    (habs : ∀ a : R, 1 + a = 1) {S : Finset α} (hS : Closed S B G) {N L : ℕ}
+    (hN : S.card ≤ N) (hcs : S.card ≤ cs.length) (hL : cs.length ≤ L)
+    (hgen : ∀ j t l, l ∈ pathsTo S j t → l.Nodup →
+      pw (wt B) (fun u v => wt (G u) v) l = 0 ∨ ∃ ch : List β, ch.length = l.length
+        ∧ ch.Pairwise (fun a b => lt b a) ∧ (∀ e ∈ ch, e ∈ cs)
+        ∧ pw (wt B) (fun u v => wt (G u) v) l * pw bw sw ch
+          = pw (wt B) (fun u v => wt (G u) v) l) :
+    dedupK ((∑ j ∈ range L, rounds B' G' j).map dropCtr) = dedupK (trunc B G N) := by
+  have hcnd : cs.Nodup := nodup_of_sorted h.sorted h.irrefl
+  have hmemL : ∀ k, ∀ p ∈ ∑ j ∈ range k, rounds B' G' j, p.1.2 ∈ cs.toFinset := by
+    intro k
+    induction k with
+    | zero => simp
+    | succ k ih =>
+      intro p hp
+      rw [sum_range_succ, Multiset.mem_add] at hp
+      rcases hp with hp | hp
+      · exact ih p hp
+      · exact (Finset.mem_product.1 (h.supp_rounds_subset hS k
+          (mem_supp.2 ⟨p, hp, rfl⟩))).2
+  have hsumW : ∀ (k : ℕ) (u : α × β), wt (∑ j ∈ range k, rounds B' G' j) u
+      = ∑ j ∈ range k, wt (rounds B' G' j) u := fun k u => wt_trunc B' G' k u
+  refine dedupK_congr ?_ fun t => ?_
+  · ext t
+    rw [mem_supp_map_dropCtr, mem_supp_trunc]
+    have hsum : ∀ (k : ℕ) (c : β), (t, c) ∈ supp (∑ j ∈ range k, rounds B' G' j)
+        ↔ ∃ j < k, (t, c) ∈ supp (rounds B' G' j) := fun k c =>
+      mem_supp_trunc (B := B') (G := G')
+    simp only [hsum, h.supp_rounds]
+    constructor
+    · rintro ⟨c, j, hj, ht, i, hji, hi, -⟩
+      obtain ⟨j', hj', -, ht'⟩ := exists_short_round hS j t ht
+      exact ⟨j', by omega, ht'⟩
+    · rintro ⟨j, hj, ht⟩
+      obtain ⟨j', hj', -, ht'⟩ := exists_short_round hS j t ht
+      exact ⟨cs[j'], j', by omega, ht', j', le_rfl, by omega, rfl⟩
+  · set g := fun u v => wt (G u) v with hg
+    rw [wt_map_dropCtr cs.toFinset _ (hmemL L), wt_trunc]
+    simp only [hsumW]
+    have hx : ∑ j ∈ range N, wt (rounds B G j) t = x S (wt B) g N t :=
+      sum_congr rfl fun j _ => wt_rounds hS j t
+    rw [hx]
+    set X := ∑ c ∈ cs.toFinset, ∑ j ∈ range L, wt (rounds B' G' j) (t, c) with hX
+    -- every round of the recursion is below its first `N` rounds
+    have hyN : ∀ j, y S (wt B) g j t ≤ x S (wt B) g N t := by
+      intro j
+      by_cases hj : j < N
+      · exact Finset.single_le_sum (f := fun j => y S (wt B) g j t) (fun _ _ => zero_le)
+          (mem_range.2 hj)
+      · obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le (Nat.le_of_not_lt hj)
+        rw [← x_stable habs hS hN t (k + 1), ← Nat.add_assoc, x, sum_range_succ]
+        exact le_add_self
+    -- every path is below the simulation's sum
+    have hpw : ∀ m j l, l.length ≤ m → l ∈ pathsTo S j t → pw (wt B) g l ≤ X := by
+      intro m
+      induction m with
+      | zero =>
+        intro j l hl hm
+        have := ((mem_pathsTo S j t l).1 hm).1
+        omega
+      | succ m ih =>
+        intro j l hl hm
+        by_cases hnd : l.Nodup
+        · rcases hgen j t l hm hnd with h0 | ⟨ch, hlen, hsort, hcs', habs'⟩
+          · rw [h0]; exact zero_le
+          · obtain ⟨c, ch', rfl⟩ : ∃ c ch', ch = c :: ch' := by
+              obtain ⟨hl₁, -, -⟩ := (mem_pathsTo S j t l).1 hm
+              match ch, hlen with
+              | [], hlen => simp at hlen; omega
+              | c :: ch', _ => exact ⟨c, ch', rfl⟩
+            have hlenj : (c :: ch').length = j + 1 := by
+              rw [hlen]; exact ((mem_pathsTo S j t l).1 hm).1
+            have hjL : j < L := by
+              have hnd' : (c :: ch').Nodup := hsort.imp fun {a b} hab he => by
+                subst he; exact h.irrefl a hab
+              have := List.toFinset_card_of_nodup hnd'
+              have hsub : (c :: ch').toFinset ⊆ cs.toFinset := fun a ha =>
+                List.mem_toFinset.2 (hcs' a (List.mem_toFinset.1 ha))
+              have := Finset.card_le_card hsub
+              rw [List.toFinset_card_of_nodup hcnd] at this
+              omega
+            have hcc : c ∈ cs.toFinset := List.mem_toFinset.2 (hcs' c List.mem_cons_self)
+            rw [← habs']
+            refine le_trans (h.wt_rounds_ge hS j t l (c :: ch') c hm hlen hsort hcs' rfl) ?_
+            refine le_trans (Finset.single_le_sum (f := fun j => wt (rounds B' G' j) (t, c))
+              (fun _ _ => zero_le) (mem_range.2 hjL)) ?_
+            exact Finset.single_le_sum (f := fun c => ∑ j ∈ range L, wt (rounds B' G' j) (t, c))
+              (fun _ _ => zero_le) hcc
+        · obtain ⟨l₁, a, l₂, l₃, rfl⟩ := exists_repeat l hnd
+          obtain ⟨hc, -⟩ := mem_pathsTo_cut hm
+          rw [pw_cut]
+          refine le_trans (mul_le_left_of_abs habs _ _) (ih _ _ ?_ hc)
+          simp only [List.length_append, List.length_cons] at hl ⊢
+          omega
+    refine le_antisymm ?_ ?_
+    · refine sum_le_of_abs habs _ _ _ fun c _ => sum_le_of_abs habs _ _ _ fun j _ => ?_
+      exact le_trans (h.wt_rounds_le habs hS j t c) (by rw [wt_rounds hS]; exact hyN j)
+    · refine sum_le_of_abs habs _ _ _ fun j _ => ?_
+      have hbS : ∀ u, u ∉ S → wt B u = 0 := fun u hu =>
+        wt_eq_zero_of_notMem fun h' => hu (hS.base h')
+      have hgS : ∀ u ∈ S, ∀ v, v ∉ S → wt (G u) v = 0 := fun u hu v hv =>
+        wt_eq_zero_of_notMem fun h' => hv (hS.step u hu h')
+      rw [y_eq_sum_pathsTo S _ _ hbS hgS]
+      exact sum_le_of_abs habs _ _ _ fun l hl => hpw _ j l le_rfl hl
+
+end Chains
+
 section WeightAlgebra
 
 /-! ### Weights of the usual constructions -/
