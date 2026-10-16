@@ -1731,7 +1731,7 @@ theorem annSettlesAt_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ → ColKin
     (x : Tuple (GenValue T K) n₁) (u : Fin n₁ → T) :
     (q.substMap (applyOuter T c n₁)).AnnSettlesAt dB (Fin.append u γ)
         (E.withCtx (Fin.append x (E.ctxAt c γ))) ↔ q.AnnSettlesAt dB γ E := by
-  rw [annSettlesAt_substMap, substVal_applyOuter]
+  rw [annSettlesAt_substMap _ _ (isRenaming_applyOuter _ _), substVal_applyOuter]
   constructor
   · exact annSettlesAt_congr_holes q dB γ (fun _ _ => rfl) (ctxAt_substEnv_applyOuter E γ x u)
   · exact annSettlesAt_congr_holes q dB γ (fun _ _ => rfl) (ctxAt_substEnv_applyOuter E γ x u).symm
@@ -2622,19 +2622,19 @@ noncomputable def muSetFreeA (ch : Bool) (f : ℕ → String) :
   | _, _, _, _, .MuSet s q₀ q₁ =>
       muSetSim ch s (f 0) q₀ q₁ (muSetFreeA ch (tri f 1) q₀)
         (muSetFreeA ch (tri f 2) q₁)
-  | _, _, _, _, .Gamma (lab := lab) is ts fs q keep ord =>
-      .Gamma (lab := lab) is ts fs (muSetFreeA ch f q) keep ord
-  | _, _, _, _, .GammaScalar (lab := lab) ts fs q ord =>
-      .GammaScalar (lab := lab) ts fs (muSetFreeA ch f q) ord
-  | _, _, _, _, .GammaNest (lab := lab) is his p g q =>
-      .GammaNest (lab := lab) is his p g (muSetFreeA ch f q)
+  | _, _, _, _, .Gamma (lab := lab) (rd := rd) is ts fs q keep ord =>
+      .Gamma (lab := lab) (rd := rd) is ts fs (muSetFreeA ch f q) keep ord
+  | _, _, _, _, .GammaScalar (lab := lab) (rd := rd) ts fs q ord =>
+      .GammaScalar (lab := lab) (rd := rd) ts fs (muSetFreeA ch f q) ord
+  | _, _, _, _, .GammaNest (lab := lab) (rd := rd) is his p g q =>
+      .GammaNest (lab := lab) (rd := rd) is his p g (muSetFreeA ch f q)
   | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (muSetFreeA ch f q)
-  | _, _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
-      .GammaTok (lab := lab) is his ts fs a (muSetFreeA ch f q) keep
-  | _, _, _, _, .Win (lab := lab) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) P O o w t g (muSetFreeA ch f q) hrr dist keep
-  | _, _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) P O o ws ts fs g (muSetFreeA ch f q) keeps
+  | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
+      .GammaTok (lab := lab) (rd := rd) is his ts fs a (muSetFreeA ch f q) keep
+  | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
+      .Win (lab := lab) (rd := rd) P O o w t g (muSetFreeA ch f q) hrr dist keep
+  | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (muSetFreeA ch f q) keeps
 
 /-- **The pass keeps a name unmentioned, and a recursive term linear.** The
 two go together: a product's closed side must stay unmentioning, and a set

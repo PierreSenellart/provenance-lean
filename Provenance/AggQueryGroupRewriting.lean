@@ -50,7 +50,8 @@ variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
 
 /-- Transport the identity of an occurrence family to the composite value
 domain: the key's values are embedded by `Sum.inl`. -/
-def FamId.toComposite (φ : FamId T) : FamId (T ⊕ K) := (φ.1, φ.2.map Sum.inl)
+def FamId.toComposite (φ : FamId T) : FamId (T ⊕ K) :=
+  (φ.1, φ.2.1.map Sum.inl, φ.2.2.map Sum.inl)
 
 /-- Transport a symbolic aggregate token to the composite value domain:
 the aggregated values are embedded by `Sum.inl`, the aggregate function is
@@ -70,7 +71,7 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
           (U.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
   unfold AggValue.toComposite AggValue.ofGroup
-  refine congrArg (fun l => (AggValue.mk _ l false (0, []) : AggValue (T ⊕ K) K)) ?_
+  refine congrArg (fun l => (AggValue.mk _ l false (0, [], []) : AggValue (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
@@ -182,7 +183,7 @@ theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
   unfold AggExpr.toComposite AggExpr.ofGroupWhenRew AggExpr.ofGroupWhen
     AggExpr.ofSeqWhen
   refine congrArg (fun l => (AggExpr.mk 1 l (fun _ => f.liftComposite)
-    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) (0, [])
+    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) (0, [], [])
       : AggExpr (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
@@ -392,12 +393,13 @@ def AggQueryIn.gammaRewOf {m n₁ n₂ : ℕ} {κ' : Fin (m + 1) → ColKind}
     (hkey : ∀ k, κ' ((is k).castLE (Nat.le_succ m)) = ColKind.reg)
     (hprov : κ' (Fin.last m) = ColKind.prov)
     (q' : AggQuery (T ⊕ K) (m + 1) κ')
-    (keep : Fin n₂ → Option (Selection T m) := fun _ => none) (lab : ℕ := 0) :
+    (keep : Fin n₂ → Option (Selection T m) := fun _ => none) (lab : ℕ := 0)
+    (rd : Fin 0 → Bool := fun _ => false) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
   AggQueryIn.Retag
     (fun k => congrArg ColKind.base
       (congrFun (ColKind.gammaTok_rew_kinds_of (n₂ := n₂) is hkey) k))
-    (AggQueryIn.GammaTok (lab := lab)
+    (AggQueryIn.GammaTok (lab := lab) (rd := rd)
       (fun k => (is k).castLE (Nat.le_succ m))
       (fun k => by
         rw [hkey k]
@@ -421,12 +423,13 @@ subquery; the general form takes any query of the rewritten world that
 computes the subquery's rows. -/
 def AggQueryIn.gammaRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) (lab : ℕ := 0) :
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) (lab : ℕ := 0)
+    (rd : Fin 0 → Bool := fun _ => false) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
   AggQueryIn.gammaRewOf is ts fs
     (fun k => ColKind.rewKinds_lt (is k).isLt)
     (ColKind.rewKinds_of_not_lt (lt_irrefl m))
-    (qg.rewriting hq) (lab := lab)
+    (qg.rewriting hq) (lab := lab) (rd := rd)
 
 /-! ## Correctness -/
 
@@ -435,7 +438,7 @@ the general framework's rule (R5) over any rewritten subquery: what is
 asked of the subquery is only that the rewritten world's query compute
 its rows, as the pairs of a plain tuple and the annotation its
 provenance column carries. The grouping itself is the same. -/
-theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {m n₁ n₂ : ℕ}
+theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
     {κ' : Fin (m + 1) → ColKind}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
@@ -451,8 +454,9 @@ theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {m n₁ n₂ : ℕ}
         (q'.evaluateRew d.toComposite)
       = R.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) :
-    ((AggQueryIn.Gamma (lab := lab) is ts fs qg keep).evaluate d).map GenRow.toCompositeRow
-      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q' keep lab).evaluateRew
+    ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg keep).evaluate
+        d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRewOf is ts fs hkey hprov q' keep lab rd).evaluateRew
           d.toComposite := by
   simp only [AggQueryIn.evaluate]
   rw [hR]
@@ -542,13 +546,13 @@ framework's rule (R5): for a classical subquery, the general evaluator's
 grouping, embedded row-wise into the composite domain (tokens included,
 finalized annotation appended), is computed by the rewritten world's
 token-building grouping over the classically rewritten subquery. -/
-theorem AggQueryIn.gammaRew_valid {lab : ℕ} {m n₁ n₂ : ℕ}
+theorem AggQueryIn.gammaRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
     (hq : qg.classical) (d : AnnotatedDatabase T K) :
-    ((AggQueryIn.Gamma (lab := lab) is ts fs qg).evaluate d).map GenRow.toCompositeRow
-      = (AggQueryIn.gammaRew is ts fs qg hq lab).evaluateRew d.toComposite :=
-  AggQueryIn.gammaRewOf_valid (lab := lab) is ts fs qg
+    ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg).evaluate d).map GenRow.toCompositeRow
+      = (AggQueryIn.gammaRew is ts fs qg hq lab rd).evaluateRew d.toComposite :=
+  AggQueryIn.gammaRewOf_valid (lab := lab) (rd := rd) is ts fs qg
     (fun k => ColKind.rewKinds_lt (is k).isLt)
     (ColKind.rewKinds_of_not_lt (lt_irrefl m)) (qg.rewriting hq)
     (fun _ => none) d

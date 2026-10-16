@@ -91,7 +91,8 @@ def qgPersonnel : AggQuery String 4 (ColKind.allReg 4) :=
 
 /- This query counts persons by city: `γ_{city}[1 : SUM]`. Its output has
 one regular column (the group key) and one *aggregate-token* column. -/
-def qgCount := AggQueryIn.Gamma (lab := 0) ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+def qgCount := AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![3] ![TermIn.const
+    "1"] ![SeqAggFunc.sum]
   qgPersonnel
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/

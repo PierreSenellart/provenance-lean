@@ -91,7 +91,8 @@ abbrev AggQueryIn.havingSite {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (op : CompOp) (l : Fin n₂) (s : Term T n₁)
     (qg : AggQuery T m (ColKind.allReg m)) :
     AggQuery T (n₁ + n₂) (ColKind.gammaKinds n₁ n₂) :=
-  AggQueryIn.Sel (GenPredIn.fusedCmp op l s) (AggQueryIn.Gamma (lab := 0) is ts fs qg)
+  AggQueryIn.Sel (GenPredIn.fusedCmp op l s) (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) is
+      ts fs qg)
 
 /-- **Closed form of the fused `HAVING` site.** On its fragment – one
 aggregate comparison directly above the grouping – the general evaluator
@@ -141,9 +142,9 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst
         (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-          (Having.havingGroup is A kv.fst))).setFam (0, List.ofFn kv.fst))).trans
+          (Having.havingGroup is A kv.fst))).setFam (0, List.ofFn kv.fst, []))).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst)
+        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst, [])
           (AggTok.tok (AggValue.ofGroup (fs j) (ts j) (Having.havingGroup is A kv.fst)))).trans
           (AggValue.collapse_ofGroup (fs j) (ts j) _)))
   · -- annotation: the predicate provenance of the comparison

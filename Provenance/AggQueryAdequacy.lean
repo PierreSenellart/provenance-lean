@@ -633,7 +633,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
     apply Multiset.map_congr rfl
     intro r _
     rfl
-  | @Win cI n' m' p' κw _lab P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
     -- one output row per input row; the data part of the added column is
     -- the token's deterministic reading, which is the plain aggregate over
     -- the frame of the plain relation
@@ -682,7 +682,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
         ValueFrame.windowGenRow]
       rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       rfl
-  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab _rd ts fs q ord ih =>
     -- one row on each side; the data part is the aggregate over the whole
     -- input, which is what the token collapses to
     intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
@@ -708,7 +708,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
     -- projecting the group and then evaluating is evaluating the projection
     rw [show (Prod.fst ∘ fun p : AnnotatedTuple T K m => ((ts j).eval p.fst γ, p.snd))
           = ((fun v => (ts j).eval v γ) ∘ Prod.fst) from rfl, ← List.map_map, hg]
-  | @Gamma cI m n₁ n₂ _lab is ts fs q keep ord ih =>
+  | @Gamma cI m n₁ n₂ _lab _rd is ts fs q keep ord ih =>
     intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih hq hh hwk.2 d E D N hE hD hN hH hr]
@@ -764,7 +764,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
           ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst)
       rw [hview] at hg
       exact congrArg (fs j) hg
-  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
+  | @GammaNest cI m n₁ κ' _lab _rd is his p f q ih =>
     intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg,
       AggQueryIn.evaluatePlain]
@@ -814,7 +814,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
         Multiset.map_map]
       exact Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
         (fun _ _ => rfl)
-  | @GammaTok cI m n₁ n₂ κ' _lab is his ts fs a q keep ih =>
+  | @GammaTok cI m n₁ n₂ κ' _lab _rd is his ts fs a q keep ih =>
     intro hq hh ρc HK hwk d γ E D N hE hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.stripAgg, AggQueryIn.evaluatePlain]
     rw [← ih hq hh hwk.2.2 d E D N hE hD hN hH hr]
@@ -886,7 +886,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
     show (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst)
       = (q.stripAgg.evaluatePlain D γ : Relation T _)
     exact ih hq hh hwk d E D N hE hD hN hH hr
-  | @WinExpr cI n' m' p' na _lab P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab _rd P O o ws ts fs g q keeps ih =>
     -- one output row per input occurrence, as for a single-frame window;
     -- the data part of the added column is the expression's collapse,
     -- which is each leaf's plain aggregate over its own frame

@@ -326,23 +326,27 @@ theorem retag {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' :
   simp only [AggQueryIn.evaluate]
   exact h
 
-theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (keep : Fin n₂ → Option (Selection T m)) (ord : GroupOrder T m)
     {q q' : AggQueryIn T c m (ColKind.allReg m)}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.Gamma (lab := lab) is ts fs q' keep ord).evaluate d γ E').map GenRow.fin := by
+    ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q' keep ord).evaluate d γ
+          E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     {q q' : AggQueryIn T c m (ColKind.allReg m)}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.GammaScalar (lab := lab) ts fs q' ord).evaluate d γ E').map GenRow.fin := by
+    ((AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q' ord).evaluate d γ
+          E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
 theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
@@ -353,24 +357,28 @@ theorem provSum {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} 
       = ((AggQueryIn.ProvSum is his t q').evaluate d γ E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (keep : Fin n₂ → Option (Selection T m)) {q q' : AggQueryIn T c m κ}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.GammaTok (lab := lab) is his ts fs a q keep).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.GammaTok (lab := lab) is his ts fs a q' keep).evaluate d γ
+    ((AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q keep).evaluate d γ
+        E).map GenRow.fin
+      = ((AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q' keep).evaluate d γ
           E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate, toAnnotated h]
 
-theorem win {lab : ℕ} {c n m p : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : EvalEnv T K}
+theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+    {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) {q q' : AggQueryIn T c n κ}
     (hrr : WinReadsReg κ P O t) (dist : Bool) (keep : Option (Selection T n))
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.Win (lab := lab) P O o w t f q' hrr dist keep).evaluate d γ
+    ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ
+        E).map GenRow.fin
+      = ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep).evaluate d γ
           E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate]
   rw [readAnnotated κ h, Multiset.map_map, Multiset.map_map]
@@ -379,25 +387,29 @@ theorem win {lab : ℕ} {c n m p : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c 
   simp only [Function.comp, GenRow.fin, ValueFrame.windowGenRow, GenRow.readAnnotated]
   rw [h1, h2]
 
-theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin qn → ValueFrame T p)
     (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T) (g : (Fin qn → T) → T)
     (keeps : Fin qn → Option (Selection T n)) {q q' : AggQueryIn T c n (ColKind.allReg n)}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.WinExpr (lab := lab) P O o ws ts fs g q keeps).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.WinExpr (lab := lab) P O o ws ts fs g q' keeps).evaluate d γ
+    ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluate d γ
+        E).map GenRow.fin
+      = ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q' keeps).evaluate d γ
           E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate]
   rw [toAnnotated h]
 
-theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T}
+theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K}
+    {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) {q q' : AggQueryIn T c m κ}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin) :
-    ((AggQueryIn.GammaNest (lab := lab) is his p f q).evaluate d γ E).map GenRow.fin
-      = ((AggQueryIn.GammaNest (lab := lab) is his p f q').evaluate d γ E').map GenRow.fin := by
+    ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluate d γ E).map GenRow.fin
+      = ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q').evaluate d γ
+          E').map GenRow.fin := by
   simp only [AggQueryIn.evaluate]
   have hk : (q.evaluate d γ E).map (fun row k => AggValue.collapseSum (row.1 (is k)))
       = (q'.evaluate d γ E').map (fun row k => AggValue.collapseSum (row.1 (is k))) :=
@@ -501,19 +513,20 @@ theorem muSet {c n : ℕ} (s : String) {q₀ q₀' : AggQueryIn T c n (ColKind.a
     = ((muFix (AggQueryIn.muSetStep s q₀' q₁' d γ E')).map GenRow.ofAnnotated).map GenRow.fin
   rw [hst]
 
-theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
+theorem gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tuple (Fin m) n₁)
+    (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (keep : Fin n₂ → Option (Selection T m))
     (ord : GroupOrder T m) {q q' : AggQueryIn T c m (ColKind.allReg m)}
     (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord)
-      (AggQueryIn.Gamma (lab := lab) is ts fs q' keep ord)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord)
+      (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q' keep ord)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gamma is ts fs keep ord (h d γ E E' hE)
 
-theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} (ts : Tuple (TermIn T c m) n₂)
+theorem gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool} (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (ord : GroupOrder T m)
     {q q' : AggQueryIn T c m (ColKind.allReg m)} (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaScalar (lab := lab) ts fs q ord)
-      (AggQueryIn.GammaScalar (lab := lab) ts fs q' ord)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord)
+      (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q' ord)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gammaScalar ts fs ord (h d γ E E' hE)
 
 theorem provSum {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
@@ -522,38 +535,41 @@ theorem provSum {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n�
     AggQueryIn.FinEq (K := K) (AggQueryIn.ProvSum is his t q) (AggQueryIn.ProvSum is his t q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.provSum is his t (h d γ E E' hE)
 
-theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
+theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
+    (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
     (keep : Fin n₂ → Option (Selection T m)) {q q' : AggQueryIn T c m κ}
     (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaTok (lab := lab) is his ts fs a q keep)
-      (AggQueryIn.GammaTok (lab := lab) is his ts fs a q' keep)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q keep)
+      (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q' keep)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gammaTok is his ts fs a keep (h d γ E E' hE)
 
-theorem win {lab : ℕ} {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
+theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     {q q' : AggQueryIn T c n κ} (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep)
-      (AggQueryIn.Win (lab := lab) P O o w t f q' hrr dist keep)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep)
+      (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.win P O o w t f hrr dist keep (h d γ E E' hE)
 
-theorem winExpr {lab : ℕ} {c n m p qn : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
+    (O : Tuple (Fin n) p)
     (o : OrderSpec p)
     (ws : Fin qn → ValueFrame T p) (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T)
     (g : (Fin qn → T) → T) (keeps : Fin qn → Option (Selection T n))
     {q q' : AggQueryIn T c n (ColKind.allReg n)} (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.WinExpr (lab := lab) P O o ws ts fs g q keeps)
-      (AggQueryIn.WinExpr (lab := lab) P O o ws ts fs g q' keeps)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps)
+      (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q' keeps)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.winExpr P O o ws ts fs g keeps (h d γ E E' hE)
 
-theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁)
+theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
+    (is : Tuple (Fin m) n₁)
     (his : ∀ k, κ (is k) ≠ ColKind.agg) (p : ProjColIn T c κ) (f : Multiset T → T)
     {q q' : AggQueryIn T c m κ} (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaNest (lab := lab) is his p f q)
-      (AggQueryIn.GammaNest (lab := lab) is his p f q')  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q)
+      (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q')  :=
   fun d γ E E' hE => AggQueryIn.FinAt.gammaNest is his p f (h d γ E E' hE)
 
 /-- **Every query agrees with itself up to finalization**, in two
@@ -681,31 +697,40 @@ theorem AggQueryIn.annSettlesAt_finRel :
 
 /-! ## Substitution keeps the fences and the settling -/
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The substitution an apply's right side reads its ambient context
+through is a renaming. -/
+theorem isRenaming_applyOuter (c n : ℕ) : IsRenaming (applyOuter T c n) :=
+  ⟨Fin.natAdd n, fun a b h => by simp only [Fin.lt_def, Fin.val_natAdd] at h ⊢; omega,
+    fun _ => rfl⟩
+
 theorem AggQueryIn.evaluateAnnotated_substMap {c n : ℕ} {κ : Fin n → ColKind}
-    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ} (θ : Fin c → T ⊕ Fin d)
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ :
+        IsRenaming θ)
     (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K) :
     (q.substMap θ).evaluateAnnotated dB γ E
       = q.evaluateAnnotated dB (substVal θ γ) (E.substEnv θ γ) := by
   unfold AggQueryIn.evaluateAnnotated
-  rw [AggQueryIn.evaluate_substMap]
+  rw [AggQueryIn.evaluate_substMap _ _ hθ]
 
 theorem AggQueryIn.muStep_substMap {c n : ℕ} {κ : Fin n → ColKind} (s : String)
-    (q₁ : AggQueryIn T c n κ [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (q₁ : AggQueryIn T c n κ [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ : IsRenaming θ)
     (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K) :
     AggQueryIn.muStep s (q₁.substMap θ) dB γ E
       = AggQueryIn.muStep s q₁ dB (substVal θ γ) (E.substEnv θ γ) := by
   funext X
-  exact AggQueryIn.evaluate_substMap q₁ θ dB γ _
+  exact AggQueryIn.evaluate_substMap q₁ θ hθ dB γ _
 
 theorem AggQueryIn.muSetStep_substMap {c n : ℕ} (s : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d)
+    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) {d : ℕ} (θ : Fin c → T ⊕ Fin d) (hθ :
+        IsRenaming θ)
     (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K) :
     AggQueryIn.muSetStep s (q₀.substMap θ) (q₁.substMap θ) dB γ E
       = AggQueryIn.muSetStep s q₀ q₁ dB (substVal θ γ) (E.substEnv θ γ) := by
   funext X
   unfold AggQueryIn.muSetStep
-  rw [AggQueryIn.evaluateAnnotated_substMap, AggQueryIn.evaluateAnnotated_substMap,
+  rw [AggQueryIn.evaluateAnnotated_substMap _ _ hθ, AggQueryIn.evaluateAnnotated_substMap _ _ hθ,
     EvalEnv.substEnv_assignHole]
 
 theorem AggQueryIn.annSettlesAt_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
@@ -748,49 +773,51 @@ theorem AggQueryIn.wellKinded_castIdx {c n : ℕ} {κ : Fin n → ColKind}
 valuation and the environment the substitution induces. -/
 theorem AggQueryIn.annSettlesAt_substMap :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
-      (θ : Fin c → T ⊕ Fin d) (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E : EvalEnv T K),
+      (θ : Fin c → T ⊕ Fin d) (_hθ : IsRenaming θ) (dB : AnnotatedDatabase T K) (γ : Fin d → T) (E
+          : EvalEnv T K),
       (q.substMap θ).AnnSettlesAt dB γ E ↔ q.AnnSettlesAt dB (substVal θ γ) (E.substEnv θ γ) := by
   intro c n κ l q
   induction q with
-  | Rel n s => exact fun θ dB γ E => Iff.rfl
-  | Hole n s _ => exact fun θ dB γ E => Iff.rfl
-  | Param pv ρ => exact fun θ dB γ E => Iff.rfl
-  | Empty => exact fun θ dB γ E => Iff.rfl
+  | Rel n s => exact fun θ hθ dB γ E => Iff.rfl
+  | Hole n s _ => exact fun θ hθ dB γ E => Iff.rfl
+  | Param pv ρ => exact fun θ hθ dB γ E => Iff.rfl
+  | Empty => exact fun θ hθ dB γ E => Iff.rfl
   | Proj ps q ih =>
-    intro d θ dB γ E
+    intro d θ hθ dB γ E
     rw [AggQueryIn.substMap, AggQueryIn.annSettlesAt_castKind]
-    exact ih θ dB γ E
-  | Sel φ q _ ih => exact fun θ dB γ E => ih θ dB γ E
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ dB γ E => and_congr (ih₁ θ dB γ E) (ih₂ θ dB γ E)
+    exact ih θ hθ dB γ E
+  | Sel φ q _ ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ hθ dB γ E => and_congr (ih₁ θ hθ dB γ E) (ih₂ θ hθ dB γ E)
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro d θ dB γ E
-    refine and_congr (ih₁ θ dB γ E) ?_
-    rw [AggQueryIn.evaluate_substMap]
+    intro d θ hθ dB γ E
+    refine and_congr (ih₁ θ hθ dB γ E) ?_
+    rw [AggQueryIn.evaluate_substMap _ _ hθ]
     refine forall_congr' fun x => imp_congr Iff.rfl ?_
-    rw [ih₂ _ dB (Fin.append (GenRow.plainTuple x.fst) γ), substVal_append]
+    rw [ih₂ _ hθ.lift dB (Fin.append (GenRow.plainTuple x.fst) γ), substVal_append]
     simp only [EvalEnv.substEnv, EvalEnv.ctxAt_withCtx, EvalEnv.withCtx_withCtx, substCtx_append]
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ dB γ E => and_congr (ih₁ θ dB γ E) (ih₂ θ dB γ E)
-  | Dedup q ih => exact fun θ dB γ E => ih θ dB γ E
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ dB γ E => and_congr (ih₁ θ dB γ E) (ih₂ θ dB γ E)
-  | Explode k hk q ih => exact fun θ dB γ E => ih θ dB γ E
-  | Retag hk q ih => exact fun θ dB γ E => ih θ dB γ E
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ hθ dB γ E => and_congr (ih₁ θ hθ dB γ E) (ih₂ θ hθ dB γ E)
+  | Dedup q ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ hθ dB γ E => and_congr (ih₁ θ hθ dB γ E) (ih₂ θ hθ dB γ E)
+  | Explode k hk q ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | Retag hk q ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro d θ dB γ E
+    intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.AnnSettlesAt, AggQueryIn.muStep_substMap,
-      AggQueryIn.evaluate_substMap, ih₀ θ, ih₁ θ, EvalEnv.substEnv_assignHole]
+    simp only [AggQueryIn.AnnSettlesAt, AggQueryIn.muStep_substMap (hθ := hθ),
+      AggQueryIn.evaluate_substMap (_hθ := hθ), ih₀ θ hθ, ih₁ θ hθ, EvalEnv.substEnv_assignHole]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro d θ dB γ E
+    intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    simp only [AggQueryIn.AnnSettlesAt, AggQueryIn.muSetStep_substMap, ih₀ θ, ih₁ θ,
+    simp only [AggQueryIn.AnnSettlesAt, AggQueryIn.muSetStep_substMap (hθ := hθ), ih₀ θ hθ,
+      ih₁ θ hθ,
       EvalEnv.substEnv_assignHole]
-  | Gamma is ts fs q keep ord ih => exact fun θ dB γ E => ih θ dB γ E
-  | GammaScalar ts fs q ord ih => exact fun θ dB γ E => ih θ dB γ E
-  | GammaNest is his p fn q ih => exact fun θ dB γ E => ih θ dB γ E
-  | ProvSum is his t q ih => exact fun θ dB γ E => ih θ dB γ E
-  | GammaTok is his ts fs a q keep ih => exact fun θ dB γ E => ih θ dB γ E
-  | Win P O o w t fw q hrr dist keep ih => exact fun θ dB γ E => ih θ dB γ E
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ dB γ E => ih θ dB γ E
+  | Gamma is ts fs q keep ord ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | GammaScalar ts fs q ord ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | GammaNest is his p fn q ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | ProvSum is his t q ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | GammaTok is his ts fs a q keep ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ hθ dB γ E => ih θ hθ dB γ E
 
 omit [ValueType T] in
 theorem AggQueryIn.noExplode_substMap :
@@ -941,7 +968,7 @@ theorem AggQueryIn.evaluate_applyOuter {c n₁ n₂ : ℕ} {κ₂ : Fin n₂ →
     (q₂.substMap (applyOuter T c n₁)).evaluate dB (Fin.append u γ)
         (E.withCtx (Fin.append x (E.ctxAt c γ)))
       = q₂.evaluate dB γ E := by
-  rw [AggQueryIn.evaluate_substMap, substVal_applyOuter]
+  rw [AggQueryIn.evaluate_substMap _ _ (isRenaming_applyOuter c n₁), substVal_applyOuter]
   exact AggQueryIn.evaluate_congr_env q₂ dB γ rfl (ctxAt_substEnv_applyOuter E γ x u)
 
 /-- **The product is the apply of its left factor with its right factor
@@ -1067,12 +1094,14 @@ theorem annSettlesAt_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} 
   split_ifs with hl₂ hl₁
   · rw [AggQueryIn.annSettlesAt_castIdx]
     refine ⟨h₁, fun x _ => ?_⟩
-    rw [AggQueryIn.annSettlesAt_substMap, substVal_applyOuter, AggQueryIn.annSettlesAt_castIdx]
+    rw [AggQueryIn.annSettlesAt_substMap _ _ (isRenaming_applyOuter _ _), substVal_applyOuter,
+        AggQueryIn.annSettlesAt_castIdx]
     exact AggQueryIn.annSettlesAt_finRel _ dB γ
       ⟨(ctxAt_substEnv_applyOuter E γ _ _).symm, fun _ _ => rfl⟩ h₂
   · rw [AggQueryIn.annSettlesAt_castIdx, AggQueryIn.annSettlesAt_castKind]
     refine ⟨h₂, fun x _ => ?_⟩
-    rw [AggQueryIn.annSettlesAt_substMap, substVal_applyOuter, AggQueryIn.annSettlesAt_castIdx]
+    rw [AggQueryIn.annSettlesAt_substMap _ _ (isRenaming_applyOuter _ _), substVal_applyOuter,
+        AggQueryIn.annSettlesAt_castIdx]
     exact AggQueryIn.annSettlesAt_finRel _ dB γ
       ⟨(ctxAt_substEnv_applyOuter E γ _ _).symm, fun _ _ => rfl⟩ h₁
   · exact ⟨h₁, h₂⟩
@@ -1187,19 +1216,19 @@ def prodFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String ×
   | _, _, _, _, .Retag h q => .Retag h (prodFree q)
   | _, _, _, _, .Mu s q₀ q₁ => .Mu s (prodFree q₀) (prodFree q₁)
   | _, _, _, _, .MuSet s q₀ q₁ => .MuSet s (prodFree q₀) (prodFree q₁)
-  | _, _, _, _, .Gamma (lab := lab) is ts fs q keep ord =>
-      .Gamma (lab := lab) is ts fs (prodFree q) keep ord
-  | _, _, _, _, .GammaScalar (lab := lab) ts fs q ord =>
-      .GammaScalar (lab := lab) ts fs (prodFree q) ord
-  | _, _, _, _, .GammaNest (lab := lab) is his p g q =>
-      .GammaNest (lab := lab) is his p g (prodFree q)
+  | _, _, _, _, .Gamma (lab := lab) (rd := rd) is ts fs q keep ord =>
+      .Gamma (lab := lab) (rd := rd) is ts fs (prodFree q) keep ord
+  | _, _, _, _, .GammaScalar (lab := lab) (rd := rd) ts fs q ord =>
+      .GammaScalar (lab := lab) (rd := rd) ts fs (prodFree q) ord
+  | _, _, _, _, .GammaNest (lab := lab) (rd := rd) is his p g q =>
+      .GammaNest (lab := lab) (rd := rd) is his p g (prodFree q)
   | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (prodFree q)
-  | _, _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
-      .GammaTok (lab := lab) is his ts fs a (prodFree q) keep
-  | _, _, _, _, .Win (lab := lab) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) P O o w t g (prodFree q) hrr dist keep
-  | _, _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) P O o ws ts fs g (prodFree q) keeps
+  | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
+      .GammaTok (lab := lab) (rd := rd) is his ts fs a (prodFree q) keep
+  | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
+      .Win (lab := lab) (rd := rd) P O o w t g (prodFree q) hrr dist keep
+  | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (prodFree q) keeps
 
 /-- **The pass agrees with the query up to finalization.** -/
 theorem finEq_prodFree :
@@ -1226,8 +1255,10 @@ theorem finEq_prodFree :
   | GammaScalar ts fs q ord ih => exact AggQueryIn.FinEq.gammaScalar ts fs ord ih
   | GammaNest is his p g q ih => exact AggQueryIn.FinEq.gammaNest is his p g ih
   | ProvSum is his t q ih => exact AggQueryIn.FinEq.provSum is his t ih
-  | GammaTok is his ts fs a q keep ih => exact AggQueryIn.FinEq.gammaTok is his ts fs a keep ih
-  | Win P O o w t g q hrr dist keep ih => exact AggQueryIn.FinEq.win P O o w t g hrr dist keep ih
+  | GammaTok is his ts fs a q keep ih =>
+    exact AggQueryIn.FinEq.gammaTok is his ts fs a keep ih
+  | Win P O o w t g q hrr dist keep ih =>
+    exact AggQueryIn.FinEq.win P O o w t g hrr dist keep ih
   | WinExpr P O o ws ts fs g q keeps ih =>
     exact AggQueryIn.FinEq.winExpr P O o ws ts fs g keeps ih
 

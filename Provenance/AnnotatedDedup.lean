@@ -111,19 +111,19 @@ def dedupFree (f : ℕ → String) : {c n : ℕ} → {κ : Fin n → ColKind} �
       .Mu s (dedupFree (AggQueryIn.tri f 1) q₀) (dedupFree (AggQueryIn.tri f 2) q₁)
   | _, _, _, _, .MuSet s q₀ q₁ =>
       .MuSet s (dedupFree (AggQueryIn.tri f 1) q₀) (dedupFree (AggQueryIn.tri f 2) q₁)
-  | _, _, _, _, .Gamma (lab := lab) is ts fs q keep ord =>
-      .Gamma (lab := lab) is ts fs (dedupFree f q) keep ord
-  | _, _, _, _, .GammaScalar (lab := lab) ts fs q ord =>
-      .GammaScalar (lab := lab) ts fs (dedupFree f q) ord
-  | _, _, _, _, .GammaNest (lab := lab) is his p g q =>
-      .GammaNest (lab := lab) is his p g (dedupFree f q)
+  | _, _, _, _, .Gamma (lab := lab) (rd := rd) is ts fs q keep ord =>
+      .Gamma (lab := lab) (rd := rd) is ts fs (dedupFree f q) keep ord
+  | _, _, _, _, .GammaScalar (lab := lab) (rd := rd) ts fs q ord =>
+      .GammaScalar (lab := lab) (rd := rd) ts fs (dedupFree f q) ord
+  | _, _, _, _, .GammaNest (lab := lab) (rd := rd) is his p g q =>
+      .GammaNest (lab := lab) (rd := rd) is his p g (dedupFree f q)
   | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (dedupFree f q)
-  | _, _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
-      .GammaTok (lab := lab) is his ts fs a (dedupFree f q) keep
-  | _, _, _, _, .Win (lab := lab) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) P O o w t g (dedupFree f q) hrr dist keep
-  | _, _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) P O o ws ts fs g (dedupFree f q) keeps
+  | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
+      .GammaTok (lab := lab) (rd := rd) is his ts fs a (dedupFree f q) keep
+  | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
+      .Win (lab := lab) (rd := rd) P O o w t g (dedupFree f q) hrr dist keep
+  | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (dedupFree f q) keeps
 
 /-- **The pass changes no annotated evaluation.** -/
 theorem evaluate_dedupFree :

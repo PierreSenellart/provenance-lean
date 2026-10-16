@@ -418,24 +418,28 @@ def _root_.AnnotatedRelation.annTotal (r : AnnotatedRelation T K n) : K :=
 
 /-- The token a match count builds on a row `u` of the left arm: the
 scalar count, over the column `kap`, of the rows of `Q` that `φ` matches
-`u` with. -/
+`u` with. Its family is the count's, and records the values of `u` the
+count reads. -/
 noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
     (φ : GenPredIn T k (ColKind.allReg l))
     (Q : AggQueryIn T k l (ColKind.allReg l))
     (d : AnnotatedDatabase T K) (u : Tuple T k) : AggValue T K :=
-  AggValue.ofScalarGroup cnt (TermIn.index (c := 0) kap)
-    (Having.havingGroup (fun i : Fin 0 => i.elim0)
-      ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0))
+  { AggValue.ofScalarGroup cnt (TermIn.index (c := 0) kap)
+      (Having.havingGroup (fun i : Fin 0 => i.elim0)
+        ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0)) with
+    fam := (0, [], ctxKey (Sel φ Q).readsOuter
+      u) }
 
 /-- A scalar aggregation on one `(term, aggregate)` pair produces the one
 row that carries its token. -/
-theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} (t : TermIn T c m)
+theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (t : TermIn T c m)
     (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) :
-    (GammaScalar (lab := lab) ![t] ![cnt] q).evaluate d γ
+    (GammaScalar (lab := lab) (rd := rd) ![t] ![cnt] q).evaluate d γ
       = {(⟨fun _ : Fin 1 => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup cnt t
             (Having.havingGroup (fun i : Fin 0 => i.elim0)
-              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)).setFam (lab, [])),
+              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)).setFam
+                (lab, [], ctxKey rd γ)),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
     Having.havingGroupOrd_unord, Matrix.cons_val_fin_one]
@@ -828,7 +832,7 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
             (fun _ : Fin 1 => Sum.inr ((AggTok.expr (AggExpr.ofGroupWhen f t
               φ.keeps (Having.havingGroup is
                 ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)).setFam
-                  (0, List.ofFn kv.fst))),
+                  (0, List.ofFn kv.fst, ctxKey (fun _ => false) γ))),
           ⟨1, {(Having.havingGroup is
               ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩⟩
           : GenRow T K (n₁ + 1))) := by

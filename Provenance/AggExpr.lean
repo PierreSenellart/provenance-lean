@@ -1020,7 +1020,7 @@ def ofSeqWhen [ValueType T] {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
   aggs := fun _ => f
   scalar := fun _ => sc
   g := fun v => v 0
-  fam := (0, [])
+  fam := (0, [], [])
 
 /-- **A filtered `DISTINCT` aggregate of an occurrence sequence.** The
 occurrences the clause keeps are merged by value – one occurrence per
@@ -1049,7 +1049,7 @@ def ofSeqDistWhen [ValueType T] [AddCommMonoid K] {c m : ℕ}
   aggs := fun _ => f
   scalar := fun _ => sc
   g := fun v => v 0
-  fam := (0, [])
+  fam := (0, [], [])
 
 section OfSeqDistWhen
 

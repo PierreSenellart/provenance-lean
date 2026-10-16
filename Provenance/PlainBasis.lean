@@ -4099,10 +4099,10 @@ would need the sorted aggregation the syntax does not have. -/
 column with no aggregate. The keys a grouping emits are the distinct rows
 of its input, and with no aggregate nothing is appended to them, so `ε`
 is in no basis that holds `γ`. -/
-theorem AggQueryIn.dedup_plainEquiv_gamma {lab : ℕ} {c n : ℕ}
+theorem AggQueryIn.dedup_plainEquiv_gamma {lab : ℕ} {c n : ℕ} {rd : Fin c → Bool}
     (q : AggQueryIn T c n (ColKind.allReg n)) :
     (AggQueryIn.Dedup q).PlainEquiv
-      (AggQueryIn.Gamma (lab := lab) (fun k : Fin n => k) (fun j : Fin 0 => j.elim0)
+      (AggQueryIn.Gamma (lab := lab) (rd := rd) (fun k : Fin n => k) (fun j : Fin 0 => j.elim0)
         (fun j : Fin 0 => j.elim0) q) := by
   intro D γ
   show (q.evaluatePlain D γ).dedup
@@ -4185,7 +4185,8 @@ def AggQueryIn.tagAgg (cnt : SeqAggFunc T)
     AggQueryIn T c (k + 1)
       (Fin.append (fun _ : Fin k => ColKind.reg)
         (fun _ : Fin 1 => ColKind.agg)) :=
-  .Gamma (lab := 0) (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last k)] ![cnt]
+  .Gamma (lab := 0) (rd := fun _ => false) (fun i : Fin k => i.castSucc) ![TermIn.index (Fin.last
+      k)] ![cnt]
     (AggQueryIn.tagUnion q₁ q₂) ![some AggQueryIn.rightTag]
 
 /-- The kinds of the product the construction selects on. -/
@@ -4922,10 +4923,10 @@ theorem outerKeyCond_holdsPlain {c n' m' : ℕ} {κ : Fin n' → ColKind}
   rw [Multiset.filter_eq_self.mpr (fun u _ => fun k => k.elim0)]
 
 /-- A scalar aggregation with one aggregate has one row, holding it. -/
-private theorem gammaScalar_one {lab : ℕ} {c m' : ℕ} (t' : TermIn T c m')
+private theorem gammaScalar_one {lab : ℕ} {c m' : ℕ} {rd : Fin c → Bool} (t' : TermIn T c m')
     (f : SeqAggFunc T) (q' : AggQueryIn T c m' (ColKind.allReg m'))
     (ord : GroupOrder T m') (D : Database T) (γ : Fin c → T) :
-    (AggQueryIn.GammaScalar (lab := lab) ![t'] ![f] q' ord).evaluatePlain D γ
+    (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ![t'] ![f] q' ord).evaluatePlain D γ
       = ({fun _ : Fin 1 => f ((Relation.groupSeqOrd
           (fun k : Fin 0 => k.elim0) ord (q'.evaluatePlain D γ)
           (fun k : Fin 0 => k.elim0)).map (fun v => t'.eval v γ))}
@@ -4984,7 +4985,8 @@ def winByApplyOn {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   AggQueryIn.castKind (winApplyKinds n)
     (AggQueryIn.Apply q
-      (AggQueryIn.GammaScalar (lab := 0) ![t.substMap (applyOuter T c n)] ![f]
+      (AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ![t.substMap (applyOuter T c n)]
+          ![f]
         (AggQueryIn.Sel (GenPredIn.and
             (outerKeyCond P (fun _ => rfl) (fun k => Fin.castAdd c (P k))) ψ)
           (qf.substMap (applyOuter T c n)))
@@ -6002,7 +6004,7 @@ reads them, and a `DISTINCT` window is the same with `f^distinct` as the
 aggregate. The selection's predicate therefore has to hold exactly where
 the frame condition holds *and* the clause keeps the row, which is a
 conjunction of two predicates of the language. -/
-theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {κ' : Fin n → ColKind}
+theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {κ' : Fin n → ColKind}
     (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
@@ -6022,7 +6024,8 @@ theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {κ' : Fin n → ColKin
     (D : Database T) (γ : Fin c → T) :
     (winByApplyOn P O o ψ t (if dist then f.distinct else f) q
         qf).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) P O o w t f qo hrr dist keep).evaluatePlain D γ := by
+      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f qo hrr dist
+          keep).evaluatePlain D γ := by
   rw [winByApplyOn, AggQueryIn.evaluatePlain_castKind]
   show (q.evaluatePlain D γ).bind (fun u =>
       ((AggQueryIn.GammaScalar ![t.substMap (applyOuter T c n)]
@@ -6134,7 +6137,7 @@ theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {κ' : Fin n → ColKin
 
 /-- The all-regular case, which is the shape `prop:winderived` states:
 there the frame reads the input itself. -/
-theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
+theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
@@ -6146,7 +6149,7 @@ theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
     (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) :
     (winByApply P O o ψ t (if dist then f.distinct else f) q).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) P O o w t f q (winReadsReg_allReg P O t) dist
+      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q (winReadsReg_allReg P O t) dist
           keep).evaluatePlain D γ :=
   evaluatePlain_winByApplyOn P O o hc ψ t f dist keep hρ
     (winReadsReg_allReg P O t) q q q (fun _ _ => rfl)
@@ -6158,7 +6161,7 @@ aggregate is then the window's value. This is the plain form, with
 neither `DISTINCT` nor a `FILTER` clause;
 `evaluatePlain_winByApplyOf` has both. -/
 
-theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
+theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
@@ -6168,9 +6171,9 @@ theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
     (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) :
     (winByApply P O o ψ t f q).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) P O o w t f q
+      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q
           (winReadsReg_allReg P O t)).evaluatePlain D γ := by
-  have h := evaluatePlain_winByApplyOf (lab := lab) P O o hc ψ t f false none
+  have h := evaluatePlain_winByApplyOf (lab := lab) (rd := rd) P O o hc ψ t f false none
     (fun y u γ => by
       rw [hρ y u γ]
       exact (and_iff_left rfl).symm) q D γ
@@ -6218,7 +6221,7 @@ theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
 
 /-- **A window is expressible without one** (`prop:winderived`), as the
 equivalence of queries the classification uses. -/
-theorem plainEquiv_winByApply {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
+theorem plainEquiv_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
@@ -6226,7 +6229,7 @@ theorem plainEquiv_winByApply {lab : ℕ} {c : ℕ} (P : Tuple (Fin n) m)
         ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) :
-    (AggQueryIn.Win (lab := lab) P O o w t f q
+    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q
         (winReadsReg_allReg P O t)).PlainEquiv (winByApply P O o ψ t f q) :=
   fun D γ => (evaluatePlain_winByApply P O o hc ψ hρ t f q D γ).symm
 

@@ -154,7 +154,7 @@ def winByJoin (P : Tuple (Fin n) m) (t : Term T n) (f : SeqAggFunc T)
       (AggQueryIn.Sel
         (keyJoinCond (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
           (fun k => winLeftPos_kind (P k)) winKeyPos_kind)
-        (AggQueryIn.Prod q (AggQueryIn.Gamma (lab := 0) P ![t] ![f] q))))
+        (AggQueryIn.Prod q (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) P ![t] ![f] q))))
 
 /-! ## Over plain relations -/
 
@@ -178,12 +178,12 @@ partition, and keeps that group's aggregate.
 The join is written with `IS NOT DISTINCT FROM` on the partition key, which
 is the syntactic equality a window partitions by: two rows with a null key
 are one partition, and land in one group. -/
-theorem evaluatePlain_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+theorem evaluatePlain_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
-      = (AggQueryIn.Win (lab := lab) P O o (ValueFrame.whole : ValueFrame T p) t f q
+      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.whole : ValueFrame T p) t f q
           (winReadsReg_allReg P O t)).evaluatePlain d := by
   rw [winByJoin, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain_Win_eq]
   simp only [AggQueryIn.evaluatePlain]
@@ -263,25 +263,25 @@ window never produces, and the two agree only because the group of a row
 *contains that row* – so the factor reads `α ⊗ δ(α ⊕ β')`, which is `α` by
 δ-absorption. A frame excluding the current row would have no such identity,
 and no such rewriting. -/
-theorem evaluate_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map
         (fun r => (fun k => AggValue.eraseFamSum (r.fst k), r.snd.finalize))
-      = ((AggQueryIn.Win (lab := lab) P O o (ValueFrame.whole : ValueFrame T p) t f q
+      = ((AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.whole : ValueFrame T p) t f q
           (winReadsReg_allReg P O t)).evaluate d).map
           (fun r => (fun k => AggValue.eraseFamSum (r.fst k), r.snd.finalize)) := by
   have hagg : (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)
       (fun k => winLeftPos_kind (P k)) winKeyPos_kind).hasAggAtom = false :=
     keyJoinCond_hasAggAtom _ _ _ _
   -- the grouping, written as one row per distinct partition key
-  have hGamma : (AggQueryIn.Gamma (lab := 0) P ![t] ![f] q).evaluate d
+  have hGamma : (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) P ![t] ![f] q).evaluate d
       = Multiset.map (fun g : Tuple T m =>
           ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
               (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
                 (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                  (0, List.ofFn g))),
+                  (0, List.ofFn g, []))),
             ⟨1, {(Having.havingGroup P (q.evaluateAnnotated d) g).map Prod.snd}⟩)
             : GenRow T K (m + 1)))
         ((Multiset.map (fun p : AnnotatedTuple T K n => Tuple.key P p.fst)
@@ -314,7 +314,7 @@ theorem evaluate_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) 
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
             (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
               (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                (0, List.ofFn g))),
+                (0, List.ofFn g, []))),
           ⟨1, {(Having.havingGroup P (q.evaluateAnnotated d) g).map Prod.snd}⟩)
           : GenRow T K (m + 1)))
       _ _ (fun r g => by
@@ -327,7 +327,7 @@ theorem evaluate_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) 
             (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
               (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
                 (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                  (0, List.ofFn g))))
+                  (0, List.ofFn g, []))))
             (Fin.castAdd 1 k) = g k := by
           intro k
           unfold GenRow.plainTuple
@@ -370,10 +370,10 @@ theorem evaluate_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) 
         (Fin.append (fun k => (Sum.inl (Tuple.key P (GenRow.plainTuple r.fst) k)
             : GenValue T K))
           (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j) U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst))))))))
+            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), []))))))
       = (Fin.snoc (fun k => (Sum.inl ((GenRow.toAnnotated r).fst k) : GenValue T K))
           (Sum.inr ((AggTok.tok (AggValue.ofGroup f t U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)))))
+            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), [])))
             : Tuple (GenValue T K) (n + 1)) := by
     funext j
     induction j using Fin.lastCases with
@@ -409,7 +409,7 @@ theorem evaluate_winByJoin {lab : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) 
         (Fin.append (fun k => (Sum.inl (Tuple.key P (GenRow.plainTuple r.fst) k)
             : GenValue T K))
           (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j) U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst))))))))
+            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), []))))))
       = {U.map Prod.snd} := by
     rw [hu', tokenLists_snoc]
     show {List.map Prod.snd (List.map (fun p => (t.eval p.fst, p.snd)) U)} = _

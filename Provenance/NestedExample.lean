@@ -59,7 +59,7 @@ abbrev dN : AnnotatedDatabase ℕ ℕ :=
 /-- `SELECT a, count(*) FROM R GROUP BY a`. -/
 abbrev inner : AggQuery ℕ (1 + 1)
     (Fin.append (fun _ : Fin 1 => ColKind.reg) (fun _ : Fin 1 => ColKind.agg)) :=
-  AggQueryIn.Gamma (lab := 0) ![0] ![TermIn.const 1] ![SeqAggFunc.count]
+  AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![0] ![TermIn.const 1] ![SeqAggFunc.count]
     (AggQueryIn.Rel 1 "R")
 
 /-- The count column is the second one, and it is an aggregate column. -/
@@ -94,7 +94,7 @@ theorem explode_kind :
 with the inner count read as a key so that the outer `sum` aggregates a
 regular column. -/
 abbrev outer : AggQuery ℕ 1 (fun _ => ColKind.agg) :=
-  AggQueryIn.GammaScalar (lab := 0) ![TermIn.index 1] ![SeqAggFunc.sum]
+  AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ![TermIn.index 1] ![SeqAggFunc.sum]
     ((AggQueryIn.Explode 1 inner_kind inner).castKind explode_kind)
 
 /-! ## What the two sides compute
@@ -159,7 +159,8 @@ outer aggregate is `sum` read off the bag of them (`SeqAggFunc.onBag`,
 the aggregate being symmetric). -/
 abbrev outerNest : AggQuery ℕ (0 + 1)
     (Fin.append (fun k : Fin 0 => k.elim0) (fun _ : Fin 1 => ColKind.agg)) :=
-  AggQueryIn.GammaNest (lab := 0) (fun k : Fin 0 => k.elim0) (fun k => k.elim0)
+  AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) (fun k =>
+      k.elim0)
     (ProjColIn.token 1 inner_kind)
     (SeqAggFunc.sum.onBag SeqAggFunc.sum_symmetric) inner
 

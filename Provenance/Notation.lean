@@ -261,9 +261,11 @@ macro_rules
       -- no keys is not a grouping with none: it is SQL's scalar
       -- aggregation, whose single row survives an empty input
       if ks.getElems.isEmpty then
-        `(AggQueryIn.GammaScalar (lab := 0) ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+        `(AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ![$ts,*] ![$fs,*] (allReg
+            (ra_query% $q)))
       else
-        `(AggQueryIn.Gamma (lab := 0) ![$keys,*] ![$ts,*] ![$fs,*] (allReg (ra_query% $q)))
+        `(AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) ![$keys,*] ![$ts,*] ![$fs,*] (allReg
+            (ra_query% $q)))
   | `(ra_query% ⊞[$ps,* ; $os,* ; $o:term ; $w:term ; $a:raAgg] $q:raQuery) => do
       let keys ← ps.getElems.mapM fun k => match k with
         | `(raCol| #$i:num) => `(($i : Fin _))
@@ -273,7 +275,8 @@ macro_rules
         | _ => Lean.Macro.throwUnsupported
       match a with
       | `(raAgg| $t:raTerm : $f:term) =>
-          `(AggQueryIn.Win (lab := 0) ![$keys,*] ![$ords,*] $o $w (ra_cterm% $t) $f
+          `(AggQueryIn.Win (lab := 0) (rd := fun _ => false) ![$keys,*] ![$ords,*] $o $w (ra_cterm%
+              $t) $f
               (allReg (ra_query% $q)) (winReadsReg_allReg _ _ _))
       | _ => Lean.Macro.throwUnsupported
   | `(ra_query% $a:raQuery ∖ $b:raQuery) =>

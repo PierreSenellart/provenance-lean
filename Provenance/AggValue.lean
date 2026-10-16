@@ -53,8 +53,10 @@ statically which columns hold which arm.
 -/
 
 /-- **The identity of an occurrence family**: the label of the operator
-that produced it and a key telling its groups (or rows) apart. -/
-abbrev FamId (T : Type) := ℕ × List T
+that produced it, a key telling its groups (or rows) apart, and the values
+of the apply parameters the operator reads – an operator evaluated on the
+same inputs producing the same occurrences. -/
+abbrev FamId (T : Type) := ℕ × List T × List T
 
 /-- A symbolic aggregate token: an aggregate function together with the
 (≼-sorted) occurrence payload of the originating group – for each
@@ -94,7 +96,7 @@ term `t` with `f`: the projection of the group payload. -/
 def ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m))
     (γ : Fin c → T := fun _ => 0) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, (0, [])⟩
+  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, (0, [], [])⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=

@@ -52,7 +52,8 @@ def genCountHavingSite (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
       (fun _ : Fin 1 => ProjColIn.term
         ((TermIn.index (⟨0, by omega⟩ : Fin 1)).toGenKey 1))
       (AggQueryIn.Sel (GenPredIn.fusedCmp op (0 : Fin 1) (TermIn.const (C + 1)))
-        (AggQueryIn.Gamma (lab := 0) keyIdx ts' (fun _ => SeqAggFunc.count) g)))
+        (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) keyIdx ts' (fun _ => SeqAggFunc.count)
+            g)))
 
 omit [HasAltLinearOrder K] in
 /-- A projection whose columns are all regular terms embeds each row:
@@ -148,12 +149,12 @@ inductive GenCountHavingRewrite (d : AnnotatedDatabase ℕ K) :
       GenCountHavingRewrite d q₁ q₁' → GenCountHavingRewrite d q₂ q₂' →
       GenCountHavingRewrite d (AggQueryIn.Diff q₁ q₂)
         (AggQueryIn.Diff q₁' q₂')
-  | gamma {lab m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) n₂)
+  | gamma {lab m n₁ n₂ : ℕ} {rd} (is : Tuple (Fin m) n₁) (ts : Tuple (Term ℕ m) n₂)
       (fs : Tuple (SeqAggFunc ℕ) n₂)
       {q q' : AggQuery ℕ m (ColKind.allReg m)} :
       GenCountHavingRewrite d q q' →
-      GenCountHavingRewrite d (AggQueryIn.Gamma (lab := lab) is ts fs q)
-        (AggQueryIn.Gamma (lab := lab) is ts fs q')
+      GenCountHavingRewrite d (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q)
+        (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q')
   | site (ts' : Tuple (Term ℕ 3) 1) (op : CompOp) (C : ℕ)
       {g g' : AggQuery ℕ 3 (ColKind.allReg 3)} (q' : Query ℕ 3)
       (hq' : q'.source) :
@@ -183,7 +184,7 @@ theorem GenCountHavingRewrite.evaluateGen_eq
   | sum _ _ ih₁ ih₂ => simp only [AggQueryIn.evaluate]; rw [ih₁, ih₂]
   | dedup _ ih => simp only [AggQueryIn.evaluate]; rw [ih]
   | diff _ _ ih₁ ih₂ => simp only [AggQueryIn.evaluate]; rw [ih₁, ih₂]
-  | gamma is ts fs _ ih => simp only [AggQueryIn.evaluate]; rw [ih]
+  | gamma is ts fs _ ih => simp only [AggQueryIn.evaluate, ctxKey_zero]; rw [ih]
   | @site ts' op C g g' q' hq' _ hbridge hnodup ih =>
     have hbridge' : g.evaluateAnnotated d
         = q'.evaluateAnnotated hq' d := by

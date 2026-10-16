@@ -684,7 +684,8 @@ theorem AggQueryIn.hasDecorrelation_param {c m : ℕ} {S : Set OpKind} {sch : Sc
     AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Param pv ρ) := by
   classical
   refine ⟨(AggQueryIn.Proj (paramCols pv ρ)
-      (AggQueryIn.Gamma (lab := 0) (fun k : Fin c => k) (fun k => pvTerm (pv k))
+      (AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) (fun k : Fin c => k) (fun k => pvTerm
+          (pv k))
         (fun _ => headAgg) P)).castKind (paramCols_kind pv ρ),
     ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]
@@ -1475,7 +1476,8 @@ set_option maxHeartbeats 1000000 in
 /-- **A grouped aggregation** groups by the parameters as well: each
 group is one slice's group, read in the same order, so the aggregates
 read what they read there. -/
-theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool}
+    {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
     {P : AggQuery T c (ColKind.allReg c)}
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
@@ -1484,7 +1486,8 @@ theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {S :
     {q : AggQueryIn T c m (ColKind.allReg m)}
     (keep : Fin n₂ → Option (Selection T m)) (ord : GroupOrder T m)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
-    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord) := by
+    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
+        ord) := by
   classical
   obtain ⟨q', hu, hos, hd⟩ := h
   set κg : Fin ((c + n₁) + n₂) → ColKind :=
@@ -1506,7 +1509,8 @@ theorem AggQueryIn.hasDecorrelation_gamma {lab : ℕ} {c m n₁ n₂ : ℕ} {S :
       · rw [Fin.addCases_left, hκg, Fin.append_left, Fin.append_left]
       · rw [Fin.addCases_right, hκg, Fin.append_right, Fin.append_right]
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κg (gammaSrc c n₁ n₂ j))
-      (AggQueryIn.Gamma (lab := 0) (groupKey c is) (fun j => (ts j).lift) fs
+      (AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) (groupKey c is) (fun j => (ts j).lift)
+          fs
         (q'.castKind (AggQueryIn.append_allReg c m))
         (fun j => (keep j).map (Selection.shift c)) (ord.lift c))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κg _).trans (hsrc j))),
@@ -1703,7 +1707,8 @@ theorem Relation.groupSeqOrd_paramsKey {c m : ℕ} (P : Multiset (Tuple T c))
 decorrelation by the parameters gives those whose slice is non-empty;
 the others are the parameter rows the slices do not reach, carrying each
 aggregate's value on no input. -/
-theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {S : Set OpKind}
+theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {rd : Fin c → Bool}
+    {S : Set OpKind}
     {sch : Schema}
     (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
     {P : AggQuery T c (ColKind.allReg c)} (hPu : P.usesOnly S)
@@ -1712,7 +1717,8 @@ theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {S 
     (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     {q : AggQueryIn T c m (ColKind.allReg m)} (ord : GroupOrder T m)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
-    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaScalar (lab := lab) ts fs q ord) := by
+    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q
+        ord) := by
   obtain ⟨q', hu, hos, hd⟩ := h
   -- the parameters of the decorrelated rows, as a query
   set paramCols : Tuple (ProjCol T (ColKind.liftKinds c (ColKind.allReg m))) c :=
@@ -1724,11 +1730,12 @@ theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {S 
   set missing : AggQuery T c (ColKind.allReg c) :=
     AggQueryIn.Diff P reached with hmissing
   refine ⟨AggQueryIn.Sum
-      (AggQueryIn.Gamma (lab := 0) (fun j : Fin c => Fin.castAdd m j)
+      (AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) (fun j : Fin c => Fin.castAdd m j)
         (fun j => (ts j).lift) fs
         (q'.castKind (AggQueryIn.append_allReg c m)) (fun _ => none)
         (ord.lift c))
-      (AggQueryIn.Gamma (lab := 0) (fun j : Fin c => j) (fun _ => TermIn.const 0)
+      (AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) (fun j : Fin c => j) (fun _ =>
+          TermIn.const 0)
         (fun j => fun _ => fs j []) missing), ?_, ?_, fun D => ?_⟩
   · refine ⟨hS (by simp [decorrOps]), ⟨hg, ?_⟩, ⟨hg, ?_⟩⟩
     · exact (AggQueryIn.usesOnly_castKind _ _ _).mpr hu
@@ -1760,11 +1767,11 @@ theorem AggQueryIn.hasDecorrelation_gammaScalar {lab : ℕ} {c m n₂ : ℕ} {S 
       (Relation.filter_notMem_paramsOf_slices Pr f)
     exact not_congr (Iff.of_eq (congrArg (fun S => v ∈ S) hreach))
   -- the `Gamma` case of the plain evaluator, with the clauses it carries
-  have hgamma : ∀ {lab m' n₁' n₂' : ℕ} (js : Tuple (Fin m') n₁')
+  have hgamma : ∀ {lab m' n₁' n₂' : ℕ} {rd : Fin 0 → Bool} (js : Tuple (Fin m') n₁')
       (ts' : Tuple (TermIn T 0 m') n₂') (fs' : Tuple (SeqAggFunc T) n₂')
       (qq : AggQuery T m' (ColKind.allReg m'))
       (kp : Fin n₂' → Option (Selection T m')) (od : GroupOrder T m'),
-      (AggQueryIn.Gamma (lab := lab) js ts' fs' qq kp od).evaluatePlain D
+      (AggQueryIn.Gamma (lab := lab) (rd := rd) js ts' fs' qq kp od).evaluatePlain D
         = ((qq.evaluatePlain D).map
             (fun u => (fun k => u (js k) : Tuple T n₁'))).dedup.map
           (fun g => Fin.append g (fun j => (fs' j)
@@ -2125,7 +2132,8 @@ then lies inside one slice, so a frame is a frame of that slice and the
 column takes the value it takes there. The frames are asked to contain
 their current row, which is what `thm:plainbasis` asks of the windows it
 covers. -/
-theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {κ : Fin n → ColKind}
+theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c → Bool}
+    {κ : Fin n → ColKind}
     {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S) (hw : OpKind.win ∈ S)
     {P : AggQuery T c (ColKind.allReg c)}
@@ -2136,7 +2144,7 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {κ : Fin n
     (dist : Bool) (keep : Option (Selection T n))
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P
-      (AggQueryIn.Win (lab := lab) P' O o w t f q hrr dist keep) := by
+      (AggQueryIn.Win (lab := lab) (rd := rd) P' O o w t f q hrr dist keep) := by
   classical
   obtain ⟨q', hu, hos, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
@@ -2145,7 +2153,8 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {κ : Fin n
       = ColKind.liftKinds c (Fin.snoc κ ColKind.agg) j :=
     fun j => ColKind.snoc_winSrc κ (κ' := ColKind.liftKinds c κ) rfl j
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κw (winSrc c n j))
-      (AggQueryIn.Win (lab := 0) (winPart c P') (winOrd c O) o w t.lift f q'
+      (AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) (winPart c P') (winOrd c O) o w t.lift f
+          q'
         (winReadsReg_lift hrr) dist
         (keep.map (Selection.shift c)))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κw _).trans (hsrc j))),
@@ -2209,7 +2218,8 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {κ : Fin n
 same way: the parameters join the partition, every leaf reads its own
 frame of the slice, and the leaves' values are combined as before. Each
 frame is asked to contain its current row. -/
-theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {S : Set OpKind}
+theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {rd : Fin c → Bool}
+    {S : Set OpKind}
     {sch : Schema}
     (hS : decorrOps ⊆ S) (hw : OpKind.win ∈ S)
     {P : AggQuery T c (ColKind.allReg c)}
@@ -2221,13 +2231,13 @@ theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {S :
     (keeps : Fin na → Option (Selection T n))
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P
-      (AggQueryIn.WinExpr (lab := lab) P' O o ws ts fs g q keeps) := by
+      (AggQueryIn.WinExpr (lab := lab) (rd := rd) P' O o ws ts fs g q keeps) := by
   classical
   obtain ⟨q', hu, hos, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
     Fin.snoc (ColKind.allReg (c + n)) ColKind.agg with hκw
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κw (winSrc c n j))
-      (AggQueryIn.WinExpr (lab := 0) (winPart c P') (winOrd c O) o ws
+      (AggQueryIn.WinExpr (lab := 0) (rd := (fun _ => false)) (winPart c P') (winOrd c O) o ws
         (fun l => (ts l).lift) fs g (q'.castKind (AggQueryIn.append_allReg c n))
         (fun l => (keeps l).map (Selection.shift c)))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κw _).trans
@@ -2345,7 +2355,8 @@ set_option maxHeartbeats 1000000 in
 /-- **A second-level aggregation** decorrelates as a grouped one does:
 the parameters join the key, and the group at each key is one slice's
 group, whose rows the aggregate reads through the lifted column. -/
-theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {S : Set OpKind} {sch : Schema}
+theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool}
+    {S : Set OpKind} {sch : Schema}
     (hS : decorrOps ⊆ S) (hg : OpKind.gamma ∈ S)
     {κ : Fin m → ColKind} {P : AggQuery T c (ColKind.allReg c)}
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
@@ -2353,7 +2364,8 @@ theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {S : 
     (pc : ProjColIn T c κ) (f : Multiset T → T)
     {q : AggQueryIn T c m κ} (hpc : pc.sourceCol = true)
     (h : AggQueryIn.HasDecorrelation S sch P q) :
-    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaNest (lab := lab) is his pc f q) := by
+    AggQueryIn.HasDecorrelation S sch P (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his pc f
+        q) := by
   classical
   obtain ⟨q', hu, hos, hd⟩ := h
   have his' : ∀ k, ColKind.liftKinds c κ (groupKey c is k) ≠ ColKind.agg := by
@@ -2385,7 +2397,8 @@ theorem AggQueryIn.hasDecorrelation_gammaNest {lab : ℕ} {c m n₁ : ℕ} {S : 
           Fin.append_right, ColKind.liftKinds_col]
       · rw [Fin.addCases_right, hκn, Fin.append_right, Fin.append_right]
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κn (gammaSrc c n₁ 1 j))
-      (AggQueryIn.GammaNest (lab := 0) (groupKey c is) his' pc.lift f q')).castKind
+      (AggQueryIn.GammaNest (lab := 0) (rd := (fun _ => false)) (groupKey c is) his' pc.lift f
+          q')).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κn _).trans (hsrc j))),
     ?_, ?_, fun D => ?_⟩
   · rw [AggQueryIn.usesOnly_castKind]

@@ -576,7 +576,7 @@ def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
 general query. -/
 abbrev site (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂)
     (qg : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ (1 + n₂) (ColKind.gammaKinds 1 n₂) :=
-  AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma (lab := 0) keyIdx ts fs qg)
+  AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) keyIdx ts fs qg)
 
 theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom = true
   | countGe _ _ => rfl
@@ -743,9 +743,9 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
   refine Prod.ext ?_ ?_
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-        (havingGroupOrd keyIdx GroupOrder.unord A kv.fst))).setFam (0, List.ofFn kv.fst))).trans
+        (havingGroupOrd keyIdx GroupOrder.unord A kv.fst))).setFam (0, List.ofFn kv.fst, []))).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst)
+        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst, [])
           (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
             (havingGroupOrd keyIdx GroupOrder.unord A kv.fst)))).trans
           (AggValue.collapse_ofGroup (fs j) (ts j) _)))

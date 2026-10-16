@@ -1179,7 +1179,7 @@ occurrences, and `ann_worldOf` says a world of it carries exactly
 of the token with no occurrence whose aggregate is `v`. Its only world is
 the empty one, and it contributes no occurrence. -/
 def constInner (v : T) : AggExpr T K :=
-  AggExpr.ofValue ⟨fun _ => v, [], true, (0, [])⟩
+  AggExpr.ofValue ⟨fun _ => v, [], true, (0, [], [])⟩
 
 /-- **The nested value of an ordinary token**: nothing is nested, each
 occurrence carrying a value rather than a family. The token's aggregate
@@ -1675,7 +1675,7 @@ omit [ValueType T] in
 /-- **A lifted value with its family forgotten**: what two queries that
 compute the same values through different operators agree on. -/
 def eraseFamSum : T ⊕ AggTok T K → T ⊕ AggTok T K :=
-  Sum.map id (AggTok.setFam (0, []))
+  Sum.map id (AggTok.setFam (0, [], []))
 
 omit [ValueType T] in
 @[simp] theorem eraseFamSum_inl (v : T) :

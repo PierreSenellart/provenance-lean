@@ -121,7 +121,7 @@ def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, .ProvSum _ _ _ q => q.WinsDerivable
   | _, _, _, _, .Retag _ q => q.WinsDerivable
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.WinsDerivable
-  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _lab _ _ _ w _ _ q _ _ _ =>
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _lab _rd _ _ _ w _ _ q _ _ _ =>
       (∀ i, κ' i = ColKind.reg) ∧ w.ContainsSelf ∧ q.WinsDerivable
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
@@ -238,28 +238,28 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
   | Gamma is ts fs q keep ord ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd hqs
-    refine ⟨AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord,
+    refine ⟨AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) is ts fs q' keep ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd hqs
-    refine ⟨AggQueryIn.GammaScalar (lab := 0) ts fs q' ord,
+    refine ⟨AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ts fs q' ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc f q ih =>
     intro hq hd hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd hqs
-    refine ⟨AggQueryIn.GammaNest (lab := 0) is his pc f q',
+    refine ⟨AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) is his pc f q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
-  | @Win cw nw _mw _pw _κw _lab P' O o w t f q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw _lab _rd P' O o w t f q hrr dist keep ih =>
     intro hq hd hqs
     obtain ⟨hreg, hcs, hd'⟩ := hd
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd' hqs
@@ -274,7 +274,8 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
       overSchema_winByApply P' O o ψ t _ hs',
             fun D γ => ?_⟩
     refine Eq.trans ?_
-      (evaluatePlain_winByApplyOf (lab := 0) P' O o hcs ψ t f dist keep hψ q' D γ).symm
+      (evaluatePlain_winByApplyOf (lab := 0) (rd := fun _ => false) P' O o hcs ψ t f dist keep hψ
+          q' D γ).symm
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
     rfl
@@ -355,7 +356,8 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
     -- duplicate elimination is the grouping on every column
-    refine ⟨(AggQueryIn.Gamma (lab := 0) (fun k => k) (fun j : Fin 0 => j.elim0)
+    refine ⟨(AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) (fun k => k) (fun j : Fin 0 =>
+        j.elim0)
         (fun j : Fin 0 => j.elim0) q').castKind ?_, ?_, ?_,
       fun D γ => ?_⟩
     · funext j
@@ -402,19 +404,22 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
   | Gamma is ts fs q keep ord ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord, ⟨hg, hu'⟩, hs', fun D γ => ?_⟩
+    refine ⟨AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) is ts fs q' keep ord, ⟨hg, hu'⟩,
+        hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.GammaScalar (lab := 0) ts fs q' ord, ⟨hg, hu'⟩, hs', fun D γ => ?_⟩
+    refine ⟨AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ts fs q' ord, ⟨hg, hu'⟩, hs',
+        fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc fn q ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.GammaNest (lab := 0) is his pc fn q', ⟨⟨hg, hq.1.2⟩, hu'⟩, hs',
+    refine ⟨AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) is his pc fn q', ⟨⟨hg, hq.1.2⟩,
+        hu'⟩, hs',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -423,7 +428,7 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.Win (lab := 0) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
       ⟨mem_of_mem_insert (by decide)
         (mem_of_mem_insert (by decide) hq.1), hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -431,7 +436,7 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
       ⟨mem_of_mem_insert (by decide)
         (mem_of_mem_insert (by decide) hq.1), hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -943,21 +948,21 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
   | Gamma is ts fs q keep ord ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord,
+    refine ⟨AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) is ts fs q' keep ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.GammaScalar (lab := 0) ts fs q' ord,
+    refine ⟨AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ts fs q' ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc fn q ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.GammaNest (lab := 0) is his pc fn q',
+    refine ⟨AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) is his pc fn q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -967,14 +972,14 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.Win (lab := 0) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -1084,21 +1089,21 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
   | Gamma is ts fs q keep ord ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord,
+    refine ⟨AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) is ts fs q' keep ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaScalar ts fs q ord ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.GammaScalar (lab := 0) ts fs q' ord,
+    refine ⟨AggQueryIn.GammaScalar (lab := 0) (rd := fun _ => false) ts fs q' ord,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | GammaNest is his pc fn q ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.GammaNest (lab := 0) is his pc fn q',
+    refine ⟨AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) is his pc fn q',
       ⟨⟨mem_of_mem_insert (by decide) hq.1.1, hq.1.2⟩, hu'⟩, hs', hw',
       fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -1108,14 +1113,14 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.Win (lab := 0) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -1239,34 +1244,35 @@ two `RANGE` frames. Nothing is asked of the frame condition, which
 of the domain. -/
 
 /-- **A window over the whole partition is derivable.** -/
-theorem AggQueryIn.winsDerivable_win_whole {lab : ℕ} {c n m p : ℕ} (P : Tuple (Fin n) m)
+theorem AggQueryIn.winsDerivable_win_whole {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
+    (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) P O o ValueFrame.whole t f q
+    (AggQueryIn.Win (lab := lab) (rd := rd) P O o ValueFrame.whole t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.containsSelf_whole, hq⟩
 
 /-- **And one over `RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT
 ROW`.** -/
-theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ}
+theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) P O o (ValueFrame.rangeUpTo o) t f q
+    (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.rangeUpTo o) t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.rangeUpTo_containsSelf o, hq⟩
 
 /-- **And one over the same frame excluding the current row's peers**
 (`EXCLUDE GROUP`), which is what a running total that must not read its
 own row needs. -/
-theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ}
+theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) P O o (ValueFrame.rangeBefore o) t f q
+    (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.rangeBefore o) t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.rangeBefore_containsSelf o, hq⟩
 

@@ -225,7 +225,7 @@ abbrev avgAgg : SeqAggFunc V :=
 /-- `rank() OVER (PARTITION BY d.dept ORDER BY e.salary DESC)`, as the
 count of the rows ahead – the rank is one more. Column `5`. -/
 abbrev rankWin : AggQueryIn V 0 6 (Fin.snoc (ColKind.allReg 5) ColKind.agg) :=
-  AggQueryIn.Win (lab := 0) ![0] ![4] ![OrderCol.DESC]
+  AggQueryIn.Win (lab := 0) (rd := fun _ => false) ![0] ![4] ![OrderCol.DESC]
     (ValueFrame.rangeBefore ![OrderCol.DESC]) (TermIn.const 1) cnt q1
     (winReadsReg_allReg _ _ _)
 
@@ -236,7 +236,8 @@ abbrev κ6 : Fin 6 → ColKind := Fin.snoc (ColKind.allReg 5) ColKind.agg
 /-- `avg(e.salary) OVER (PARTITION BY d.dept)` beside it, carrying the
 rank column through. Column `6`. -/
 abbrev bothWins : AggQueryIn V 0 7 (Fin.snoc κ6 ColKind.agg) :=
-  AggQueryIn.Win (lab := 0) ![0] (fun k : Fin 0 => k.elim0) OrderSpec.unordered
+  AggQueryIn.Win (lab := 0) (rd := fun _ => false) ![0] (fun k : Fin 0 =>
+      k.elim0) OrderSpec.unordered
     ValueFrame.whole (TermIn.index 4) avgAgg rankWin
     ⟨by decide, fun k => k.elim0, by decide⟩
 
@@ -254,7 +255,7 @@ abbrev κ7 : Fin 7 → ColKind := Fin.snoc κ6 ColKind.agg
 /-- How many rows sort strictly ahead of a row's peers, over the
 windowed relation: `rank - 1` in the total order the `ORDER BY` names. -/
 abbrev aheadQ : AggQueryIn V 0 8 (Fin.snoc κ7 ColKind.agg) :=
-  AggQueryIn.Win (lab := 0) (fun k : Fin 0 => k.elim0) ocols ord3
+  AggQueryIn.Win (lab := 0) (rd := fun _ => false) (fun k : Fin 0 => k.elim0) ocols ord3
     (ValueFrame.rangeBefore ord3) (TermIn.const 1) cnt bothWins
     ⟨fun k => k.elim0, by decide, by decide⟩
 

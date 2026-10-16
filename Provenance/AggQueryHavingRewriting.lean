@@ -209,7 +209,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
     ((((q₁.evaluateRew D γ).map
         (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) _))).filter
       (fun t => t ∉ r₂)).map (fun t => (fun k => Sum.inl (t k))))
-  | _, _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ _lab is ts fs q keep ord, D, γ =>
+  | _, _, _, _, @AggQueryIn.Gamma _ _ m n₁ n₂ _lab _rd is ts fs q keep ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     let keys := (r.map
@@ -221,14 +221,14 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun j => (fs j)
         ((Relation.groupSeqOptOrd is ord r g (keep j)).map
           (fun v => (ts j).eval v γ))) k)))
-  | _, _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ _lab ts fs q ord, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ m n₂ _lab _rd ts fs q ord, D, γ =>
     let r : Relation (T ⊕ K) m := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) m))
     (Multiset.ofList [(fun j => Sum.inl ((fs j)
       ((Relation.groupSeqOrd (fun k : Fin 0 => k.elim0) ord r
         (fun k : Fin 0 => k.elim0)).map (fun v => (ts j).eval v γ)))
       : Tuple (GenValue (T ⊕ K) K) n₂)])
-  | _, _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ _lab is _his p f q, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaNest _ _ m n₁ _κ _lab _rd is _his p f q, D, γ =>
     -- second-level aggregation is not rewritten: as for a grouping, the
     -- rewritten world reads it through the plain semantics of the
     -- composite domain
@@ -239,7 +239,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun k => Sum.inl (Fin.append g (fun _ : Fin 1 =>
         f ((r.filter (fun u => key u = g)).map
           (fun u => p.evalPlain u γ))) k)))
-  | _, _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' _lab P O o w t f q _hrr dist keep,
+  | _, _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' _lab _rd P O o w t f q _hrr dist keep,
       D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
@@ -252,7 +252,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
               (ColKind.readTuple κ' u) γ)
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
-  | _, _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na _lab P O o ws ts fs g q keeps, D, γ =>
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na _lab _rd P O o ws ts fs g q keeps, D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
     r.map (fun u : Tuple (T ⊕ K) n' =>
@@ -273,7 +273,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
           (((r.filter (fun u => ∀ k' : Fin n₁,
               GenRow.plainTuple u (is k') = g k')).map
             (fun u => t.evalRew u γ)).fold addFn 0)))
-  | _, _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ lab is _his ts fs a q keep, D, γ =>
+  | _, _, _, _, @AggQueryIn.GammaTok _ _ m n₁ n₂ _κ lab rd is _his ts fs a q keep, D, γ =>
     let r := q.evaluateRew D γ
     let ar : AnnotatedRelation (T ⊕ K) K m :=
       r.map (fun u => (GenRow.plainTuple u, (a.evalRew u γ).annPart))
@@ -290,7 +290,9 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
                   (Having.havingGroup is ar g) γ)
               | some φ => AggTok.expr (AggExpr.ofGroupWhenRew (T := T) (fs j)
                   (ts j) φ.keeps (Having.havingGroup is ar g) γ)).setFam
-                (lab, List.ofFn g))))
+                (lab, List.ofFn g,
+                  ctxKey rd
+                    γ))))
           (fun _ : Fin 1 => Sum.inl
             (Sum.inr (SemiringWithMonus.delta
               ((Having.havingGroup is ar g).map Prod.snd).sum))))
@@ -576,7 +578,7 @@ theorem AggQueryIn.evaluateRew_plain :
             Multiset.instMembership (q₂.evaluatePlain D γ) t) =>
         @Multiset.filter _ _ i (q₁.evaluatePlain D γ))
         (Subsingleton.elim _ _))
-  | @Gamma cI m n₁ n₂ _lab is ts fs q keep ord ih =>
+  | @Gamma cI m n₁ n₂ _lab _rd is ts fs q keep ord ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
@@ -585,12 +587,12 @@ theorem AggQueryIn.evaluateRew_plain :
       @Multiset.dedup _ i (Multiset.map
         (fun u (k : Fin n₁) => u (is k)) (q.evaluatePlain D γ)))
       (Subsingleton.elim _ _)
-  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab _rd ts fs q ord ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc D γ, map_plainTuple_map_inl]
     rfl
-  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
+  | @GammaNest cI m n₁ κ' _lab _rd is his p f q ih =>
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain]
     rw [ih hq hc.2 D γ, map_plainTuple_map_inl, Multiset.map_map]
@@ -633,14 +635,14 @@ theorem AggQueryIn.evaluateRew_plain :
   | GammaTok is his ts fs a q keep ih =>
     intro hq hc D γ
     exact hq.elim
-  | @Win cI n' m' p' κw _lab P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
     -- a window reads the collapsed rows, which the embedding leaves
     -- alone, and its `FILTER` clause cuts the frame on both sides
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq_opt]
     rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
-  | @WinExpr cI n' m' p' na _lab P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab _rd P O o ws ts fs g q keeps ih =>
     -- and so does a multi-frame one, leaf by leaf, clause and all
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew,

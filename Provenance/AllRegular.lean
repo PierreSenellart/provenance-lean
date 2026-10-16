@@ -419,7 +419,7 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .ProvSum _ _ _ q => q.Retypable
   | _, _, _, _, .Retag _ q => q.Retypable
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
-  | c, _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _lab _ O o _ t fn q _ dist keep =>
+  | c, _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _lab _rd _ O o _ t fn q _ dist keep =>
       ((∀ i, κ' i = ColKind.reg)
           ∨ ((∀ (D : Database T) (γ : Fin c → T),
                 (if dist then fn.distinct else fn).Symmetric
@@ -887,7 +887,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   | Gamma is ts fs q keep ord ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨(AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord).allRegOf, ?_, ?_, ?_,
+    refine ⟨(AggQueryIn.Gamma (lab := 0) (rd := (fun _ => false)) is ts fs q' keep ord).allRegOf,
+        ?_, ?_, ?_,
       fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact ⟨hq.1, hu'⟩
@@ -901,7 +902,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   | GammaScalar ts fs q ord ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨(AggQueryIn.GammaScalar (lab := 0) ts fs q' ord).allRegOf, ?_, ?_, ?_,
+    refine ⟨(AggQueryIn.GammaScalar (lab := 0) (rd := (fun _ => false)) ts fs q' ord).allRegOf, ?_,
+        ?_, ?_,
       fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact ⟨hq.1, hu'⟩
@@ -915,7 +917,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   | GammaNest is his pc fn q ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨(AggQueryIn.GammaNest (lab := 0) is (fun k hc => ColKind.noConfusion hc)
+    refine ⟨(AggQueryIn.GammaNest (lab := 0) (rd := (fun _ => false)) is (fun k hc =>
+        ColKind.noConfusion hc)
       pc.toReg fn q').allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact ⟨⟨hq.1.1, by rw [show (pc.toReg).sourceCol = true from by
@@ -943,7 +946,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
     · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
       have hκ := funext hreg
       subst hκ
-      refine ⟨(AggQueryIn.Win (lab := 0) P' O o w t fn q' (winReadsReg_allReg P' O t) dist
+      refine ⟨(AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) P' O o w t fn q'
+          (winReadsReg_allReg P' O t) dist
         keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
       · rw [AggQueryIn.usesOnly_allRegOf]
         exact ⟨hq.1, hu'⟩
@@ -956,7 +960,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
         rw [he' D γ]
         rfl
     · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
-      refine ⟨(AggQueryIn.Win (lab := 0) P' O o w t fn q' (winReadsReg_allReg P' O t) dist
+      refine ⟨(AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) P' O o w t fn q'
+          (winReadsReg_allReg P' O t) dist
         keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
       · rw [AggQueryIn.usesOnly_allRegOf]
         exact ⟨hq.1, hu'⟩
@@ -980,7 +985,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨(AggQueryIn.WinExpr (lab := 0) P' O o ws ts fs g q' keeps).allRegOf, ?_, ?_,
+    refine ⟨(AggQueryIn.WinExpr (lab := 0) (rd := (fun _ => false)) P' O o ws ts fs g q'
+        keeps).allRegOf, ?_, ?_,
       ?_, fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact ⟨hq.1, hu'⟩

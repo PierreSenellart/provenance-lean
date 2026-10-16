@@ -663,27 +663,31 @@ noncomputable def AggQueryIn.countValsAll : {c n : ℕ} → {κ : Fin n → ColK
   | _, n, _, _, .MuSet s q₀ q₁, D =>
       Union.union (q₀.countValsAll D)
         (Set.iUnion (fun X : Relation T n => q₁.countValsAll (D.assign s X)))
-  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ n₂ lab is ts fs q keep ord, D =>
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ n₂ lab rd is ts fs q keep ord, D =>
       Union.union (q.countValsAll D)
         {v | ∃ (γ : Fin _ → T) (u : Tuple T (n₁ + n₂)),
-          Multiset.Mem ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).evaluatePlain D γ) u
+          Multiset.Mem ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep
+              ord).evaluatePlain D γ) u
             ∧ ∃ j : Fin n₂, v = u (Fin.natAdd n₁ j)}
-  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ n₂ lab ts fs q ord, D =>
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ n₂ lab rd ts fs q ord, D =>
       Union.union (q.countValsAll D)
         {v | ∃ (γ : Fin _ → T) (u : Tuple T n₂),
-          Multiset.Mem ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).evaluatePlain D γ) u
+          Multiset.Mem ((AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord).evaluatePlain
+              D γ) u
             ∧ ∃ j : Fin n₂, v = u j}
-  | _, _, _, _, @AggQueryIn.GammaNest _ _ _ n₁ _ lab is his p f q, D =>
+  | _, _, _, _, @AggQueryIn.GammaNest _ _ _ n₁ _ lab rd is his p f q, D =>
       Union.union (q.countValsAll D)
         {v | ∃ (γ : Fin _ → T) (u : Tuple T (n₁ + 1)),
-          Multiset.Mem ((AggQueryIn.GammaNest (lab := lab) is his p f q).evaluatePlain D γ) u
+          Multiset.Mem ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluatePlain D
+              γ) u
             ∧ v = u (Fin.natAdd n₁ 0)}
   | _, _, _, _, .ProvSum _ _ _ q, D => q.countValsAll D
   | _, _, _, _, .GammaTok _ _ _ _ _ q _, D => q.countValsAll D
-  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab P O o w t f q hrr dist keep, D =>
+  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w t f q hrr dist keep, D =>
       Union.union (q.countValsAll D)
         {v | ∃ (γ : Fin _ → T) (u : Tuple T (n + 1)),
-          Multiset.Mem ((AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep).evaluatePlain D
+          Multiset.Mem ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist
+              keep).evaluatePlain D
               γ) u
             ∧ v = u (Fin.last n)}
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D => q.countValsAll D
@@ -1061,7 +1065,7 @@ variable {τ : T → T} {W : Set T}
 /-- **A grouping of a mapped relation**: the mapped keys, each with the
 counts of its group, which the map preserves. -/
 theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
-    {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
+    {c m n₁ n₂ : ℕ} {rd1 rd2 : Fin c → Bool} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (hfs : ∀ j, fs j = cnt) (hts : ∀ j, (ts j).noFun = true)
     (hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W)
     (keep : Fin n₂ → Option (Selection T m)) (hk : ∀ j, Selection.noFunOpt (keep j) = true)
@@ -1070,9 +1074,9 @@ theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (
     (hγ : ∀ j, γ j ∈ W) (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
     (hr : (q.evaluatePlain D' (τ ∘ γ) : Multiset (Tuple T m))
       = (q.evaluatePlain D γ : Multiset (Tuple T m)).map (fun u => (τ ∘ u : Tuple T m))) :
-    ((AggQueryIn.Gamma (lab := lab1) is ts fs q keep ord).evaluatePlain D' (τ ∘ γ)
+    ((AggQueryIn.Gamma (lab := lab1) (rd := rd1) is ts fs q keep ord).evaluatePlain D' (τ ∘ γ)
         : Multiset (Tuple T (n₁ + n₂)))
-      = ((AggQueryIn.Gamma (lab := lab2) is ts fs q keep ord).evaluatePlain D γ
+      = ((AggQueryIn.Gamma (lab := lab2) (rd := rd2) is ts fs q keep ord).evaluatePlain D γ
           : Multiset (Tuple T (n₁ + n₂))).map
           (fun u => Fin.append (τ ∘ (fun i => u (Fin.castAdd n₂ i)) : Tuple T n₁)
             (fun j => u (Fin.natAdd n₁ j))) := by
@@ -1104,15 +1108,16 @@ theorem gamma_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (
 counts only. -/
 theorem gammaScalar_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
     (hcnt : cnt.ReadsCount)
-    {c m n₂ : ℕ} (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
+    {c m n₂ : ℕ} {rd1 rd2 : Fin c → Bool} (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T)
+        n₂)
     (hfs : ∀ j, fs j = cnt) (hts : ∀ j, (ts j).noFun = true)
     (hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W) (ord : GroupOrder T m)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D D' : Database T) {γ : Fin c → T}
     (hγ : ∀ j, γ j ∈ W) (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
     (hr : (q.evaluatePlain D' (τ ∘ γ) : Multiset (Tuple T m))
       = (q.evaluatePlain D γ : Multiset (Tuple T m)).map (fun u => (τ ∘ u : Tuple T m))) :
-    (AggQueryIn.GammaScalar (lab := lab1) ts fs q ord).evaluatePlain D' (τ ∘ γ)
-      = (AggQueryIn.GammaScalar (lab := lab2) ts fs q ord).evaluatePlain D γ := by
+    (AggQueryIn.GammaScalar (lab := lab1) (rd := rd1) ts fs q ord).evaluatePlain D' (τ ∘ γ)
+      = (AggQueryIn.GammaScalar (lab := lab2) (rd := rd2) ts fs q ord).evaluatePlain D γ := by
   have hvac : ∀ (S : Multiset (Tuple T m)) (P : Tuple T m → Fin 0 → Prop)
       [DecidablePred fun u => ∀ k', P u k'], S.filter (fun u => ∀ k', P u k') = S :=
     fun S P _ => Multiset.filter_eq_self.mpr (fun u _ k' => k'.elim0)
@@ -1133,15 +1138,18 @@ theorem gammaScalar_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFun
 count: the mapped keys with the same counts. -/
 theorem gammaNest_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T}
     (hcnt : cnt.ReadsCount)
-    {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    {c m n₁ : ℕ} {rd1 rd2 : Fin c → Bool} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k,
+        κ (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (hp : p.noFun = true) (hcp : ∀ a ∈ p.consts, τ a = a ∧ a ∈ W)
     (hsym : cnt.Symmetric) (q : AggQueryIn T c m κ) (D D' : Database T) {γ : Fin c → T}
     (hγ : ∀ j, γ j ∈ W) (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
     (hr : (q.evaluatePlain D' (τ ∘ γ) : Multiset (Tuple T m))
       = (q.evaluatePlain D γ : Multiset (Tuple T m)).map (fun u => (τ ∘ u : Tuple T m))) :
-    ((AggQueryIn.GammaNest (lab := lab1) is his p (cnt.onBag hsym) q).evaluatePlain D' (τ ∘ γ)
+    ((AggQueryIn.GammaNest (lab := lab1) (rd := rd1) is his p (cnt.onBag hsym) q).evaluatePlain D'
+        (τ ∘ γ)
         : Multiset (Tuple T (n₁ + 1)))
-      = ((AggQueryIn.GammaNest (lab := lab2) is his p (cnt.onBag hsym) q).evaluatePlain D γ
+      = ((AggQueryIn.GammaNest (lab := lab2) (rd := rd2) is his p (cnt.onBag hsym) q).evaluatePlain
+          D γ
           : Multiset (Tuple T (n₁ + 1))).map
           (fun u => Fin.append (τ ∘ (fun i => u (Fin.castAdd 1 i)) : Tuple T n₁)
             (fun j => u (Fin.natAdd n₁ j))) := by
@@ -1181,7 +1189,8 @@ theorem gammaNest_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc 
 rows, each with the count of its frame. -/
 theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     (h0 : τ 0 = 0)
-    (h0W : (0 : T) ∈ W) {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
+    (h0W : (0 : T) ∈ W) {c n m p : ℕ} {rd1 rd2 : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple
+        (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (ht : t.noFun = true) (hct : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W) (f : SeqAggFunc T)
     {dist : Bool} (hfc : (if dist then f.distinct else f) = cnt) (keep : Option (Selection T n))
@@ -1191,9 +1200,9 @@ theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hc
     (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
     (hr : (q.evaluatePlain D' (τ ∘ γ) : Multiset (Tuple T n))
       = (q.evaluatePlain D γ : Multiset (Tuple T n)).map (fun u => (τ ∘ u : Tuple T n))) :
-    ((AggQueryIn.Win (lab := lab1) P O o w t f q hrr dist keep).evaluatePlain D' (τ ∘ γ)
+    ((AggQueryIn.Win (lab := lab1) (rd := rd1) P O o w t f q hrr dist keep).evaluatePlain D' (τ ∘ γ)
         : Multiset (Tuple T (n + 1)))
-      = ((AggQueryIn.Win (lab := lab2) P O o w t f q hrr dist keep).evaluatePlain D γ
+      = ((AggQueryIn.Win (lab := lab2) (rd := rd2) P O o w t f q hrr dist keep).evaluatePlain D γ
           : Multiset (Tuple T (n + 1))).map
           (fun u => Fin.snoc (τ ∘ Fin.init u : Tuple T n) (u (Fin.last n))) := by
   have hXW : ∀ v ∈ (q.evaluatePlain D γ : Multiset (Tuple T n)).map (ColKind.readTuple κ),
@@ -1575,7 +1584,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
     rw [hidx]
     exact hiter _
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m n₁ n₂ _
+    rename_i c' m n₁ n₂ _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     have hcq : ∀ a ∈ q.allConsts, τ a = a ∧ a ∈ W := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W := fun j a ha =>
@@ -1600,7 +1609,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
       rw [Fin.append_right]
       exact (hV _ (Set.mem_union_right _ ⟨γ, u, hu, j, rfl⟩)).1.symm
   | GammaScalar ts fs q ord ih =>
-    rename_i c' m n₂ _
+    rename_i c' m n₂ _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     have hcq : ∀ a ∈ q.allConsts, τ a = a ∧ a ∈ W := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hcts : ∀ j, ∀ a ∈ (ts j).consts, τ a = a ∧ a ∈ W := fun j a ha =>
@@ -1617,7 +1626,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
     funext j
     exact (hV _ (Set.mem_union_right _ ⟨γ, u, hu, j, rfl⟩)).1
   | GammaNest is his p f q ih =>
-    rename_i c' m n₁ κ' _
+    rename_i c' m n₁ κ' _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     obtain ⟨hp, ⟨g', hsym, hmem, rfl⟩, hsq⟩ := hs
     obtain rfl := Set.mem_singleton_iff.mp hmem
@@ -1640,7 +1649,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _
+    rename_i c' n' m' p' κ' _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     obtain ⟨ht, hf, hk, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, τ a = a ∧ a ∈ W := fun a ha => hc a (Finset.mem_union_right _ ha)
@@ -1835,25 +1844,28 @@ noncomputable def AggQueryIn.countTypes (B : Finset T) : {c n : ℕ} → {κ : F
   | _, _, _, _, .Retag _ q, D => q.countTypes B D
   | _, _, _, _, .Mu _ q₀ q₁, D => Union.union (q₀.countTypes B D) (q₁.countTypes B D)
   | _, _, _, _, .MuSet _ q₀ q₁, D => Union.union (q₀.countTypes B D) (q₁.countTypes B D)
-  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ n₂ lab is ts fs q keep ord, D =>
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ n₁ n₂ lab rd is ts fs q keep ord, D =>
       Union.union (q.countTypes B D)
-        ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).repVals (Union.union B (q.countTypes B
+        ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord).repVals (Union.union B
+            (q.countTypes B
             D))
           (Finset.univ.image (Fin.natAdd n₁ : Fin n₂ → Fin (n₁ + n₂))) D)
-  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ _ lab ts fs q ord, D =>
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ _ lab rd ts fs q ord, D =>
       Union.union (q.countTypes B D)
-        ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).repVals (Union.union B (q.countTypes B
+        ((AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord).repVals (Union.union B
+            (q.countTypes B
             D))
           Finset.univ D)
-  | _, _, _, _, @AggQueryIn.GammaNest _ _ _ n₁ _ lab is his p f q, D =>
+  | _, _, _, _, @AggQueryIn.GammaNest _ _ _ n₁ _ lab rd is his p f q, D =>
       Union.union (q.countTypes B D)
-        ((AggQueryIn.GammaNest (lab := lab) is his p f q).repVals (Union.union B (q.countTypes B D))
+        ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).repVals (Union.union B
+            (q.countTypes B D))
           {Fin.natAdd n₁ 0} D)
   | _, _, _, _, .ProvSum _ _ _ q, D => q.countTypes B D
   | _, _, _, _, .GammaTok _ _ _ _ _ q _, D => q.countTypes B D
-  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab P O o w t f q hrr dist keep, D =>
+  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w t f q hrr dist keep, D =>
       Union.union (q.countTypes B D)
-        ((AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep).repVals (Union.union B
+        ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).repVals (Union.union B
             (q.countTypes B D))
           {Fin.last n} D)
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D => q.countTypes B D
@@ -2067,7 +2079,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     exact Set.union_subset (hmono h₀ Finset.subset_union_left)
       (Set.iUnion_subset (fun X => hmono (h₁ X) Finset.subset_union_right))
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m n₁ n₂ lab
+    rename_i c' m n₁ n₂ lab rd
     intro hs hh hn D D' hD' hD hc
     have hcq : ∀ a ∈ q.allConsts, a ∈ B := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hD'q : ∀ p ∈ q.leaves, D'.find p.1 p.2 = D.find p.1 p.2 :=
@@ -2084,7 +2096,8 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hfix : ∀ a ∈ B, τ a = a ∧ a ∈ (↑(Union.union B
         (q.countTypes B D)) ∪ Set.range γ : Set T) :=
       fun a ha => ⟨hτS a (hBS ha), Set.mem_union_left _ (hBS ha)⟩
-    have hG := h.gamma_map (lab1 := lab) (lab2 := lab) hcnt is ts fs (fun j =>
+    have hG := h.gamma_map (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 := rd) hcnt is ts fs (fun j
+        =>
         Set.mem_singleton_iff.mp (hs.2.1 j)) hs.1
       (fun j a ha => hfix a (hc a (Finset.mem_union_left _ (Finset.mem_union_left _
         (Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ _, ha⟩))))) keep hs.2.2.1
@@ -2103,7 +2116,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     exact Finset.mem_coe.mpr (Finset.mem_union_right _ (Finset.mem_union_right _
       (Finset.mem_biUnion.mpr ⟨ordType _ γ, Finset.mem_univ _, hmem⟩)))
   | GammaScalar ts fs q ord ih =>
-    rename_i c' m n₂ lab
+    rename_i c' m n₂ lab rd
     intro hs hh hn D D' hD' hD hc
     have hcq : ∀ a ∈ q.allConsts, a ∈ B := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hD'q : ∀ p ∈ q.leaves, D'.find p.1 p.2 = D.find p.1 p.2 :=
@@ -2120,13 +2133,15 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hfix : ∀ a ∈ B, τ a = a ∧ a ∈ (↑(Union.union B
         (q.countTypes B D)) ∪ Set.range γ : Set T) :=
       fun a ha => ⟨hτS a (hBS ha), Set.mem_union_left _ (hBS ha)⟩
-    have hG := h.gammaScalar_map (lab1 := lab) (lab2 := lab) hcnt ts fs (fun j =>
+    have hG := h.gammaScalar_map (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 :=
+        rd) hcnt ts fs (fun j =>
         Set.mem_singleton_iff.mp (hs.2.1 j)) hs.1
       (fun j a ha => hfix a (hc a (Finset.mem_union_left _
         (Finset.mem_biUnion.mpr ⟨j, Finset.mem_univ _, ha⟩)))) ord q D' D
       (fun j => Set.mem_union_right _ ⟨j, rfl⟩) hvals hr
     rw [hcomp] at hG
-    have hu' : Multiset.Mem ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).evaluatePlain D
+    have hu' : Multiset.Mem ((AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q
+        ord).evaluatePlain D
         (ordRep (Union.union B (q.countTypes B D)) c'
           (ordType (Union.union B (q.countTypes B D)) γ))) u := by
       rw [hG]; exact hu
@@ -2134,7 +2149,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
       (Finset.mem_biUnion.mpr ⟨ordType _ γ, Finset.mem_univ _,
         Relation.mem_valsAtCols hu' (Finset.mem_univ j)⟩)))
   | GammaNest is his p f q ih =>
-    rename_i c' m n₁ κ' lab
+    rename_i c' m n₁ κ' lab rd
     intro hs hh hn D D' hD' hD hc
     obtain ⟨hp, ⟨g', hsym, hmem, rfl⟩, hsq⟩ := hs
     obtain rfl := Set.mem_singleton_iff.mp hmem
@@ -2153,7 +2168,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hfix : ∀ a ∈ B, τ a = a ∧ a ∈ (↑(Union.union B
         (q.countTypes B D)) ∪ Set.range γ : Set T) :=
       fun a ha => ⟨hτS a (hBS ha), Set.mem_union_left _ (hBS ha)⟩
-    have hG := h.gammaNest_map (lab1 := lab) (lab2 := lab) hcnt is his p hp
+    have hG := h.gammaNest_map (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 := rd) hcnt is his p hp
       (fun a ha => hfix a (hc a (Finset.mem_union_left _ ha))) hsym q D' D
       (fun j => Set.mem_union_right _ ⟨j, rfl⟩) hvals hr
     rw [hcomp] at hG
@@ -2168,7 +2183,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' lab
+    rename_i c' n' m' p' κ' lab rd
     intro hs hh hn D D' hD' hD hc
     obtain ⟨ht, hf, hk, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, a ∈ B := fun a ha => hc a (Finset.mem_union_right _ ha)
@@ -2190,7 +2205,8 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hfix : ∀ a ∈ B, τ a = a ∧ a ∈ (↑(Union.union B
         (q.countTypes B D)) ∪ Set.range γ : Set T) :=
       fun a ha => ⟨hτS a (hBS ha), Set.mem_union_left _ (hBS ha)⟩
-    have hG := h.win_map (lab1 := lab) (lab2 := lab) hcnt h0τ h0W P O o w t ht
+    have hG := h.win_map (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 :=
+        rd) hcnt h0τ h0W P O o w t ht
       (fun a ha => hfix a (hc a (Finset.mem_union_left _
           (Finset.mem_union_left _ ha)))) f hfc keep hk
       (fun a ha => hfix a (hc a (Finset.mem_union_left _ (Finset.mem_union_right _ ha)))) q hrr D' D
@@ -2304,14 +2320,14 @@ theorem AggQueryIn.valsIn_of_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCo
 theorem AggQueryIn.card_gamma_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
-    {c m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
+    {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂) (q : AggQueryIn T c m (ColKind.allReg m))
     (keep : Fin n₂ → Option (Selection T m)) (ord : GroupOrder T m) (hs : q.inSig {cnt})
     (hh : q.hygienic) (D : Database T)
     (hD : ∀ p ∈ q.leaves, ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
       ∀ u, Multiset.Mem r u → ∀ j, u j ∈ B)
     (hc : ∀ a ∈ q.allConsts, a ∈ B) (γ : Fin c → T) :
-    Multiset.card ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).evaluatePlain D γ
+    Multiset.card ((AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord).evaluatePlain D γ
       : Multiset (Tuple T (n₁ + n₂))) ≤ ((Union.union B (q.countTypes B D)).card + c) ^ n₁ := by
   have hvals := AggQueryIn.valsIn_of_countTypes hcnt hν h0 q hs hh D hD hc γ
   simp only [AggQueryIn.evaluatePlain]
@@ -2329,13 +2345,14 @@ theorem AggQueryIn.card_gamma_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.Re
 theorem AggQueryIn.card_gammaNest_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
-    {c m n₁ : ℕ} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind} (is : Tuple (Fin m) n₁) (his : ∀ k, κ
+        (is k) ≠ ColKind.agg)
     (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ) (hs : q.inSig {cnt})
     (hh : q.hygienic) (D : Database T)
     (hD : ∀ p ∈ q.leaves, ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
       ∀ u, Multiset.Mem r u → ∀ j, u j ∈ B)
     (hc : ∀ a ∈ q.allConsts, a ∈ B) (γ : Fin c → T) :
-    Multiset.card ((AggQueryIn.GammaNest (lab := lab) is his p f q).evaluatePlain D γ
+    Multiset.card ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluatePlain D γ
       : Multiset (Tuple T (n₁ + 1))) ≤ ((Union.union B (q.countTypes B D)).card + c) ^ n₁ := by
   have hvals := AggQueryIn.valsIn_of_countTypes hcnt hν h0 q hs hh D hD hc γ
   simp only [AggQueryIn.evaluatePlain]
@@ -2354,14 +2371,16 @@ its input: it is a function of the row's regular columns. -/
 theorem AggQueryIn.card_win_vals_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCount)
     {B : Finset T}
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
-    {c n m p : ℕ} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin
+        n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (hs : q.inSig {cnt}) (hh : q.hygienic) (D : Database T)
     (hD : ∀ p ∈ q.leaves, ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
       ∀ u, Multiset.Mem r u → ∀ j, u j ∈ B)
     (hc : ∀ a ∈ q.allConsts, a ∈ B) (γ : Fin c → T) :
-    (Relation.valsAtCols ((AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep).evaluatePlain D
+    (Relation.valsAtCols ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist
+        keep).evaluatePlain D
         γ
         : Multiset (Tuple T (n + 1))) {Fin.last n}).card
       ≤ ((Union.union B (q.countTypes B D)).card + c + 1) ^ n := by
@@ -2519,7 +2538,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
       exact hD (k, t) (List.mem_append_right _ (List.mem_filter.mpr ⟨hp, decide_eq_true hne⟩))
         List.not_mem_nil
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m n₁ n₂ _
+    rename_i c' m n₁ n₂ _ _
     intro hs hh hn
     obtain ⟨fq, hfq, hb⟩ := ih hs.2.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c'))
@@ -2546,7 +2565,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
     · refine Nat.mul_le_mul (Nat.mul_le_mul_right _ (Nat.pow_le_pow_left (by omega) _))
         (Nat.mul_le_mul_left _ (Nat.pow_le_pow_left (by omega) _))
   | GammaScalar ts fs q ord ih =>
-    rename_i c' m n₂ _
+    rename_i c' m n₂ _ _
     intro hs hh hn
     obtain ⟨fq, hfq, hb⟩ := ih hs.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c')) * n₂,
@@ -2569,7 +2588,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
       rw [Multiset.coe_card, List.length_singleton, Nat.mul_one]
     · exact Nat.mul_le_mul_right _ (Nat.mul_le_mul_right _ (Nat.pow_le_pow_left (by omega) _))
   | GammaNest is his p f q ih =>
-    rename_i c' m n₁ κ' _
+    rename_i c' m n₁ κ' _ _
     intro hs hh hn
     obtain ⟨fq, hfq, hb⟩ := ih hs.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c'))
@@ -2597,7 +2616,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _
+    rename_i c' n' m' p' κ' _ _
     intro hs hh hn
     obtain ⟨fq, hfq, hb⟩ := ih hs.2.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c'))

@@ -2448,7 +2448,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d γ E' E hE hw hn hrec
     exact ih d γ E' E hE hw hn hrec
-  | @Win cI nI mI pI κw _lab P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw _lab _rd P O o w t f q hrr dist keep ih =>
     -- one output row per input row; the row's own columns and its
     -- annotation are carried across unchanged, and the token differs only
     -- by a tie-block permutation – which a `FILTER` clause keeps, reading
@@ -2494,7 +2494,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       exact hs.1 k'
-  | @GammaTok cI mI nI₁ nI₂ κ' _lab is his ts fs a q keep ih =>
+  | @GammaTok cI mI nI₁ nI₂ κ' _lab _rd is his ts fs a q keep ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2624,7 +2624,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     congr 1
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
-  | @GammaScalar cI mI nI₂ _lab ts fs q ord ih =>
+  | @GammaScalar cI mI nI₂ _lab _rd ts fs q ord ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2648,7 +2648,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
       (ofGroupOrd_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0)
         ord X (fun i : Fin 0 => i.elim0))⟩
-  | @GammaNest cI mI nI₁ κ' _lab is his p f q ih =>
+  | @GammaNest cI mI nI₁ κ' _lab _rd is his p f q ih =>
     -- one output row per key, and the keys are the columns' deterministic
     -- values, which a simulation keeps. For one key the two groups are
     -- related row for row, so their occurrences carry pushed annotations
@@ -2738,7 +2738,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         exact map_eq_of_rel hgroup (fun r' r hs => hs.2)]
       exact (map_multiset_sum h.toRingHom _).symm
 
-  | @Gamma cI mI nI₁ nI₂ _lab is ts fs q keep ord ih =>
+  | @Gamma cI mI nI₁ nI₂ _lab _rd is ts fs q keep ord ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2808,7 +2808,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroupOrd_annSum_hom h is ord X kv.fst,
         SemiringWithMonusHom.map_delta]
-  | @WinExpr cI nI mI pI qI _lab P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab _rd P O o ws ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
     -- index that family by their own sorted order, so they are compared
     -- through a bijection of indices rather than index by index; the

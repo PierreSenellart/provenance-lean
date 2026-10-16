@@ -379,19 +379,21 @@ def winKept {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : Order
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (keep : Option (Selection T n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   (AggQueryIn.Proj (keptCols n)
-    (AggQueryIn.Win (lab := 0) (castCols n P) (castCols n O) o w (t.widen n) f (doubled κ q)
+    (AggQueryIn.Win (lab := 0) (rd := fun _ => false) (castCols n P) (castCols n O) o w (t.widen n)
+        f (doubled κ q)
       (winReadsReg_allReg _ _ _) dist (keep.map (fun φ => φ.widen n)))).castKind (keptCols_kinds n)
 
 /-- **It computes the window**, whatever the kinds of the input it stands
 for, as long as the rows agree. -/
-theorem evaluatePlain_winKept {lab : ℕ} {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+theorem evaluatePlain_winKept {lab : ℕ} {rd} {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     {κ : Fin n → ColKind} (q₀ : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (keep : Option (Selection T n))
     (D : Database T) (γ : Fin c → T)
     (hq : (q₀.evaluatePlain D γ : Multiset (Tuple T n)) = q.evaluatePlain D γ) :
     (winKept P O o w t f κ q dist keep).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) P O o w t f q₀ hrr dist keep).evaluatePlain D γ := by
+      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q₀ hrr dist
+          keep).evaluatePlain D γ := by
   rw [winKept, AggQueryIn.evaluatePlain_castKind]
   simp only [AggQueryIn.evaluatePlain]
   rw [evaluatePlain_doubled, ColKind.map_readTuple_allReg, Multiset.map_map, Multiset.map_map,
