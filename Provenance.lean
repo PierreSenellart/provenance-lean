@@ -65,6 +65,7 @@ import Provenance.PathSum
 import Provenance.AnnotatedMuUnion
 import Provenance.AnnotatedChains
 import Provenance.AnnotatedDiffRow
+import Provenance.AnnotatedEpsRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1310,6 +1311,12 @@ proven engine several general results reuse internally.
   that being kept by every operator but the difference
   (`annIn_evaluate`, for any property `AnnClosed`
   describes), and `R − S` gives `(0, 1)` (`diff_mem_of_generatesAnn`)
+- `Provenance.AnnotatedEpsRow` – **`ε` or `μ^∪` is necessary in the
+  annotated algebra**: over `ℕ`, without them every annotation a query of
+  the minimal signature builds is at most `𝟙` when the instance's are
+  (`le1_evaluate`) – the joint reading of a selection weighs its worlds at
+  most `𝟙` together (`GenPredIn.predsemJ_le_one`) – and `ε` of a relation
+  holding one tuple twice gives `2` (`dedup_or_muSet_mem_of_generatesAnn`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

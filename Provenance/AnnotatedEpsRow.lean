@@ -1,0 +1,573 @@
+/-
+  Released under the MIT license as described in the file LICENSE.
+  Authors: Pierre Senellart
+-/
+import Provenance.AnnotatedDiffRow
+
+/-!
+# Duplicate elimination is necessary in the annotated algebra
+
+A set of classes that generates the annotated algebra over `ℕ` contains
+`ε` or `μ^∪`. The invariant is that, without them, every annotation a
+query builds is at most `𝟙` as soon as the instance's are. Products, `δ`
+(the support map), a difference and `𝟙 ⊖ s` keep it; a sum does not, and
+the evaluator adds annotations in three places only:
+
+* `ε` and `μ^∪`, which sum the annotations of the copies of a tuple;
+* a `DISTINCT` window, which merges the occurrences of one value – out of
+  the minimal signature, `count` not being its own distinct version
+  (`count_distinct_ne`);
+* the joint reading of a selection on aggregate values, a sum over the
+  worlds of the families it reads. There the sum of the worlds' weights is
+  at most `𝟙` (`GenPredIn.predsemJ_le_one`): `ℕ` is complemented, so a
+  world's weight is a product over the occurrences and the sum over all
+  worlds factors into `∏ (a + (𝟙 ⊖ a))`, which is `𝟙` where every `a` is.
+
+`ε` of a relation holding one tuple twice, annotated `𝟙`, gives `2`
+(`dedup_or_muSet_mem_of_generatesAnn`).
+-/
+
+/-! ## The weight of a world, over `ℕ` -/
+
+section Weights
+
+theorem nat_delta_le_one (a : ℕ) : SemiringWithMonus.delta a ≤ 1 := by
+  rcases Nat.eq_zero_or_pos a with rfl | h
+  · rw [SemiringWithMonus.delta_zero]; exact Nat.zero_le 1
+  · have := SemiringWithMonus.delta_natCast_pos (α := ℕ) h
+    rw [Nat.cast_id] at this
+    rw [this]
+
+theorem nat_one_sub_le_one (a : ℕ) : ((1 : ℕ) - a : ℕ) ≤ 1 := Nat.sub_le 1 a
+
+theorem nat_add_one_sub (a : ℕ) (h : a ≤ 1) : (a + ((1 : ℕ) - a) : ℕ) = 1 := by omega
+
+theorem nat_mul_le_one {a b : ℕ} (ha : a ≤ 1) (hb : b ≤ 1) : a * b ≤ 1 := by
+  calc a * b ≤ 1 * 1 := Nat.mul_le_mul ha hb
+    _ = 1 := rfl
+
+theorem nat_mprod_le_one : ∀ s : Multiset ℕ, (∀ a ∈ s, a ≤ 1) → s.prod ≤ 1 := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty => intro _; exact le_refl 1
+  | cons a s ih =>
+    intro h
+    rw [Multiset.prod_cons]
+    exact nat_mul_le_one (h a (Multiset.mem_cons_self a s))
+      (ih fun b hb => h b (Multiset.mem_cons_of_mem hb))
+
+theorem nat_fprod_le_one {ι : Type} (s : Finset ι) (f : ι → ℕ) (h : ∀ i ∈ s, f i ≤ 1) :
+    ∏ i ∈ s, f i ≤ 1 := by
+  unfold Finset.prod
+  exact nat_mprod_le_one _ fun a ha => by
+    obtain ⟨i, hi, rfl⟩ := Multiset.mem_map.1 ha
+    exact h i hi
+
+/-- `𝟙 ⊖ Σ` is `∏ (𝟙 ⊖ ·)` over a finite set, `ℕ` being complemented. -/
+theorem nat_one_sub_fsum {ι : Type} (s : Finset ι) (f : ι → ℕ) :
+    ((1 : ℕ) - ∑ i ∈ s, f i : ℕ) = ∏ i ∈ s, ((1 : ℕ) - f i : ℕ) := by
+  unfold Finset.sum Finset.prod
+  rw [monus_multiset_sum Nat.complemented, Multiset.map_map]
+  rfl
+
+/-- **The worlds of a flat family weigh `𝟙` together** when every
+occurrence is annotated at most `𝟙`. -/
+theorem nat_sum_worldAnn {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1) :
+    ∑ W : Finset (Fin N), (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i) = 1 := by
+  have hprod := Finset.prod_add α (fun i => 1 - α i) (Finset.univ : Finset (Fin N))
+  rw [Finset.powerset_univ] at hprod
+  calc ∑ W : Finset (Fin N), (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i)
+      = ∑ W : Finset (Fin N), (∏ i ∈ W, α i) * ∏ i ∈ Finset.univ \ W, (1 - α i) := by
+        refine Finset.sum_congr rfl fun W _ => ?_
+        rw [nat_one_sub_fsum, Finset.compl_eq_univ_sdiff]
+    _ = ∏ i, (α i + (1 - α i)) := hprod.symm
+    _ = 1 := Finset.prod_eq_one fun i _ => nat_add_one_sub _ (h i)
+
+theorem nat_sum_worldAnn_le {N : ℕ} (α : Fin N → ℕ) (h : ∀ i, α i ≤ 1)
+    (F : Finset (Finset (Fin N))) :
+    ∑ W ∈ F, (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i) ≤ 1 := by
+  calc ∑ W ∈ F, (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i)
+      ≤ ∑ W : Finset (Fin N), (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i) :=
+        Finset.sum_le_sum_of_subset (f := fun W => (∏ i ∈ W, α i) * (1 - ∑ i ∈ Wᶜ, α i))
+          (Finset.subset_univ F)
+    _ = 1 := nat_sum_worldAnn α h
+
+theorem nat_sum_filter_le {α : Type} (s : Multiset α) (p : α → Prop) [DecidablePred p]
+    (f : α → ℕ) : ((s.filter p).map f).sum ≤ (s.map f).sum := by
+  conv_rhs => rw [← Multiset.filter_add_not p s]
+  rw [Multiset.map_add, Multiset.sum_add]
+  exact Nat.le_add_right _ _
+
+theorem nat_sum_product {α β : Type} (s : Multiset α) (t : Multiset β) (f : α → ℕ)
+    (g : β → ℕ) : ((s ×ˢ t).map (fun p => f p.1 * g p.2)).sum
+      = (s.map f).sum * (t.map g).sum := by
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | cons a s ih =>
+    rw [Multiset.cons_product, Multiset.map_add, Multiset.sum_add, ih, Multiset.map_map,
+      Multiset.map_cons, Multiset.sum_cons, add_mul]
+    congr 1
+    rw [← Multiset.sum_map_mul_left]
+    rfl
+
+end Weights
+
+/-! ## The worlds of a selection weigh at most `𝟙` together -/
+
+section JointWeights
+
+variable {T : Type} [ValueType T]
+
+/-- The weight of a world: its present product times `𝟙 ⊖` its absent sum. -/
+def worldWeight {n : ℕ} (w : ℕ × ℕ × (Fin n → Option T)) : ℕ := w.1 * ((1 : ℕ) - w.2.1 : ℕ)
+
+omit [ValueType T] in
+theorem worldWeight_combineW {n : ℕ} (w₁ w₂ : ℕ × ℕ × (Fin n → Option T)) :
+    worldWeight (combineW w₁ w₂) = worldWeight w₁ * worldWeight w₂ := by
+  unfold worldWeight combineW
+  dsimp only
+  rw [Nat.complemented, mul_mul_mul_comm]
+
+omit [ValueType T] in
+/-- **The worlds of a bag of occurrences, weighed**: the sum factors into
+one sum per occurrence. -/
+theorem nat_sum_foldr_addOcc (g : NestedValue.WorldOcc T ℕ → ℕ) :
+    ∀ s : Multiset (AggExpr T ℕ × ℕ),
+      ((Multiset.foldr NestedValue.addOcc {0} s).map (fun W => (W.map g).prod)).sum
+        = (s.map (fun o => ((NestedValue.decisions o).map g).sum)).prod := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty => simp
+  | cons o s ih =>
+    rw [Multiset.foldr_cons, NestedValue.addOcc, Multiset.map_bind, Multiset.sum_bind,
+      Multiset.map_cons, Multiset.prod_cons, ← ih, ← Multiset.sum_map_mul_right]
+    refine congrArg Multiset.sum (Multiset.map_congr rfl fun d _ => ?_)
+    rw [Multiset.map_map, ← Multiset.sum_map_mul_left]
+    refine congrArg Multiset.sum (Multiset.map_congr rfl fun W _ => ?_)
+    simp only [Function.comp_apply, Multiset.map_cons, Multiset.prod_cons]
+
+omit [ValueType T] in
+/-- One occurrence's decisions weigh `𝟙` together. -/
+theorem nat_sum_decisions (o : AggExpr T ℕ × ℕ) (ho : o.2 ≤ 1)
+    (hi : ∀ j, o.1.anns j ≤ 1) :
+    ((NestedValue.decisions o).map (fun d : NestedValue.WorldOcc T ℕ =>
+      (if d.present = true then d.occ.2 else ((1 : ℕ) - d.occ.2 : ℕ))
+        * ((∏ j ∈ d.sub, d.occ.1.anns j)
+          * ((1 : ℕ) - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j : ℕ)))).sum = 1 := by
+  unfold NestedValue.decisions
+  rw [Multiset.map_map]
+  change ∑ c : Bool × Finset (Fin o.1.occs.length), _ = 1
+  rw [Fintype.sum_prod_type, Fintype.sum_bool]
+  simp only [Function.comp_apply, ite_true, Bool.false_eq_true, ite_false]
+  rw [← Finset.mul_sum, ← Finset.mul_sum, ← add_mul, nat_add_one_sub _ ho, one_mul]
+  exact nat_sum_worldAnn _ hi
+
+omit [ValueType T] in
+/-- **The worlds of a nested value weigh `𝟙` together** when every
+annotation, outer or inner, is at most `𝟙`. -/
+theorem NestedValue.nat_sum_worlds_ann (a : NestedValue T ℕ)
+    (h : ∀ o ∈ a.occs, o.2 ≤ 1 ∧ ∀ j, o.1.anns j ≤ 1) :
+    (a.worlds.map NestedValue.World.ann).sum = 1 := by
+  unfold NestedValue.worlds
+  rw [Multiset.map_map]
+  simp only [Function.comp_def, NestedValue.World.ann_split Nat.complemented]
+  rw [nat_sum_foldr_addOcc]
+  refine Multiset.prod_eq_one fun x hx => ?_
+  obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.1 hx
+  exact nat_sum_decisions o (h o ho).1 (h o ho).2
+
+omit [ValueType T] in
+/-- **The worlds of one family weigh at most `𝟙` together.** -/
+theorem classWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (M : List (Fin n))
+    (x₀ : AggTok T ℕ) (h : x₀.AnnsIn (· ≤ 1)) :
+    ((classWorlds u M x₀).map worldWeight).sum ≤ 1 := by
+  cases x₀ with
+  | nest a =>
+    simp only [classWorlds, Multiset.map_map]
+    calc _ ≤ (a.worlds.map NestedValue.World.ann).sum :=
+          nat_sum_filter_le a.worlds _ NestedValue.World.ann
+      _ = 1 := NestedValue.nat_sum_worlds_ann a fun o ho =>
+          ⟨(h o ho).1, (h o ho).2.anns⟩
+  | tok a =>
+    rw [classWorlds_of_not_nest u M _ rfl, Multiset.map_map]
+    have ha : (AggTok.tok a).flatExpr.AnnsIn (· ≤ 1) := AggExpr.annsIn_ofValue h
+    exact nat_sum_worldAnn_le _ ha.anns _
+  | expr e =>
+    rw [classWorlds_of_not_nest u M _ rfl, Multiset.map_map]
+    have ha : (AggTok.expr e).flatExpr.AnnsIn (· ≤ 1) := h
+    exact nat_sum_worldAnn_le _ ha.anns _
+
+open Classical in
+/-- **The joint worlds of a row weigh at most `𝟙` together.** -/
+theorem jointWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (cols : List (Fin n))
+    (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn (· ≤ 1)) :
+    ((jointWorlds u cols).map worldWeight).sum ≤ 1 := by
+  unfold jointWorlds
+  generalize ((tokCols u cols).map (fun p => p.2.classKey)).dedup = L
+  induction L with
+  | nil => simp [worldWeight]
+  | cons φ L ih =>
+    simp only [List.foldr_cons]
+    split
+    · exact ih
+    · rename_i p₀ hf
+      have hp₀ := mem_tokCols (List.mem_of_find?_eq_some hf)
+      rw [Multiset.map_map]
+      simp only [Function.comp_def, worldWeight_combineW]
+      rw [nat_sum_product]
+      exact nat_mul_le_one (classWorlds_weight_le u _ _ (hu _ _ hp₀.2)) ih
+
+/-- **A selection's joint reading is at most `𝟙`** over `ℕ` when every
+token of the row carries annotations at most `𝟙`. -/
+theorem GenPredIn.predsemJ_le_one {c n : ℕ} {κ : Fin n → ColKind} (φ : GenPredIn T c κ)
+    (neg : Bool) (u : Tuple (GenValue T ℕ) n) (γ : Fin c → T)
+    (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn (· ≤ 1)) : φ.predsemJ neg u γ ≤ 1 := by
+  unfold GenPredIn.predsemJ
+  refine le_trans (Multiset.sum_map_le_sum_map _ worldWeight fun w _ => ?_)
+    (jointWorlds_weight_le u _ hu)
+  unfold worldWeight
+  split_ifs
+  all_goals first | exact le_of_eq (mul_one _) | (rw [mul_zero]; exact Nat.zero_le _)
+
+end JointWeights
+
+/-! ## Every annotation a query without `ε` and `μ^∪` builds is at most `𝟙` -/
+
+section Evaluate
+
+variable {T : Type} [ValueType T]
+
+/-- **A row's annotations are at most `𝟙`**: its concrete part and every
+annotation the tokens it holds carry. Its pending factors are read only
+through `δ`, which is at most `𝟙` whatever it reads. -/
+def GenRow.Le1 {n : ℕ} (r : GenRow T ℕ n) : Prop :=
+  r.snd.base ≤ 1 ∧ ∀ k a, r.fst k = Sum.inr a → a.AnnsIn (· ≤ 1)
+
+omit [ValueType T] in
+theorem GenRow.Le1.finalize {n : ℕ} {r : GenRow T ℕ n} (h : r.Le1) : r.snd.finalize ≤ 1 :=
+  nat_mul_le_one h.1 (nat_mprod_le_one _ fun a ha => by
+    obtain ⟨l, -, rfl⟩ := Multiset.mem_map.1 ha
+    exact nat_delta_le_one _)
+
+omit [ValueType T] in
+theorem GenRow.le1_ofAnnotated {n : ℕ} {p : AnnotatedTuple T ℕ n} (h : p.2 ≤ 1) :
+    (GenRow.ofAnnotated p).Le1 :=
+  ⟨h, fun k a hk => by simp [GenRow.ofAnnotated] at hk⟩
+
+theorem annsIn_tokenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (X : AnnotatedRelation T ℕ n) (x : AnnotatedTuple T ℕ n) (γ : Fin c → T)
+    (hX : ∀ q ∈ X, q.2 ≤ 1) (hx : x.2 ≤ 1) :
+    (ValueFrame.tokenOfDist P O o w t f false X x γ).AnnsIn (· ≤ 1) := by
+  have hU : ∀ q ∈ ValueFrame.frameListOf (α := AnnotatedTuple T ℕ n) Prod.fst P O o w X x,
+      q.2 ≤ 1 := fun q hq => by
+    rcases mem_frameListOf _ P O o w X x q hq with rfl | hq
+    · exact hx
+    · exact hX q hq
+  simp only [ValueFrame.tokenOfDist, Bool.false_eq_true, ite_false]
+  unfold ValueFrame.tokenOf
+  split_ifs
+  · exact AggValue.annsIn_ofGroup (Q := (· ≤ 1)) f t _ γ hU
+  · exact AggValue.annsIn_ofScalarGroup (Q := (· ≤ 1)) f t _ γ hU
+
+theorem annsIn_exprWhenOf_le1 {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (keep : Tuple T n → Bool) (X : AnnotatedRelation T ℕ n) (x : AnnotatedTuple T ℕ n)
+    (γ : Fin c → T) (hX : ∀ q ∈ X, q.2 ≤ 1) (hx : x.2 ≤ 1) :
+    (ValueFrame.exprWhenOf P O o w t f false keep X x γ).AnnsIn (· ≤ 1) := by
+  have hU : ∀ q ∈ ValueFrame.frameListOf (α := AnnotatedTuple T ℕ n) Prod.fst P O o w X x,
+      q.2 ≤ 1 := fun q hq => by
+    rcases mem_frameListOf _ P O o w X x q hq with rfl | hq
+    · exact hx
+    · exact hX q hq
+  simp only [ValueFrame.exprWhenOf, Bool.false_eq_true, ite_false]
+  exact AggExpr.annsIn_ofSeqWhen (Q := (· ≤ 1)) f t keep _ _ γ hU
+
+/-- **Without `ε`, `μ^∪` and `DISTINCT` aggregates, every annotation a
+query builds is at most `𝟙`** over `ℕ`, as soon as the instance's, the
+context's tokens' and the rounds the holes are bound to are. -/
+theorem le1_evaluate {d : AnnotatedDatabase T ℕ} {S : Set OpKind} (hS₁ : OpKind.dedup ∉ S)
+    (hS₂ : OpKind.muSet ∉ S) {Θ : Set (SeqAggFunc T)} (hΘ : ∀ f : SeqAggFunc T, f.distinct ∉ Θ)
+    (hD : ∀ k t (r : AnnotatedRelation T ℕ k), d.find k t = some r → ∀ a ∈ r, a.2 ≤ 1) :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.usesOnly S → q.inSig Θ → q.noExplode →
+      ∀ (γ : Fin c → T) (E : EvalEnv T ℕ),
+      (∀ k a, E.ctxAt c γ k = Sum.inr a → a.AnnsIn (· ≤ 1)) →
+      (∀ p ∈ l, ∀ r ∈ E.holes p.1 p.2, r.Le1) →
+      ∀ r ∈ q.evaluate d γ E, r.Le1 := by
+  intro c n κ l q
+  induction q with
+  | Rel n s =>
+    intro _ _ _ γ E _ _ r hr
+    revert hr
+    simp only [AggQueryIn.evaluate]
+    cases hf : d.find n s with
+    | none => intro hr; exact absurd hr (Multiset.notMem_zero r)
+    | some rn =>
+      intro hr
+      obtain ⟨a, ha, rfl⟩ := Multiset.mem_map.1 hr
+      exact GenRow.le1_ofAnnotated (hD n s rn hf a ha)
+  | Hole n s κ =>
+    intro _ _ _ γ E _ hH r hr
+    exact hH (s, n) (List.mem_singleton_self _) r (Multiset.mem_of_mem_filter hr)
+  | Param pv ρ =>
+    intro _ _ _ γ E hctx _ r hr
+    simp only [AggQueryIn.evaluate, EvalEnv.paramRows] at hr
+    split at hr
+    · rw [Multiset.mem_singleton] at hr
+      subst hr
+      refine ⟨le_refl 1, fun k a hk => ?_⟩
+      revert hk
+      show _root_.Sum.elim Sum.inl (E.ctxAt _ γ) (pv k) = Sum.inr a → a.AnnsIn (· ≤ 1)
+      cases pv k with
+      | inl v => intro hk; simp at hk
+      | inr j => intro hk; exact hctx j a hk
+    · exact absurd hr (Multiset.notMem_zero r)
+  | Empty => intro _ _ _ _ _ _ _ r hr; exact absurd hr (Multiset.notMem_zero r)
+  | Proj ps q ih =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hr
+    obtain ⟨hb, ht⟩ := ih hu.2 hi.2 hx γ E hctx hH r₀ hr₀
+    refine ⟨nat_mul_le_one hb (nat_mprod_le_one _ fun a ha => ?_),
+      fun j a hj => ProjColIn.annsIn_eval (ps j) γ ht hj⟩
+    obtain ⟨l, -, rfl⟩ := Multiset.mem_map.1 ha
+    exact nat_delta_le_one _
+  | Sel φ q hφ ih =>
+    intro hu hi hx γ E hctx hH r hr
+    have ih' := ih hu.2 hi.2 hx γ E hctx hH
+    dsimp only [AggQueryIn.evaluate] at hr
+    by_cases hagg : φ.hasAggAtom = true
+    · rw [ite_eq_left hagg] at hr
+      obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hr
+      obtain ⟨hb, ht⟩ := ih' r₀ hr₀
+      exact ⟨nat_mul_le_one hb (GenPredIn.predsemJ_le_one φ false r₀.fst γ ht), ht⟩
+    · rw [ite_eq_right hagg] at hr
+      exact ih' r (Multiset.mem_of_mem_filter hr)
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨⟨x, y⟩, hxy, rfl⟩ := Multiset.mem_map.1 hr
+    obtain ⟨hxm, hym⟩ := Multiset.mem_product.1 hxy
+    obtain ⟨bx, tx⟩ := ih₁ hu.2.1 hi.1 hx.1 γ E hctx
+      (fun p hp => hH p (List.mem_append_left _ hp)) x hxm
+    obtain ⟨b_y, ty⟩ := ih₂ hu.2.2 hi.2 hx.2 γ E hctx
+      (fun p hp => hH p (List.mem_append_right _ hp)) y hym
+    refine ⟨nat_mul_le_one bx b_y, fun k a hk => ?_⟩
+    refine Fin.addCases (fun i hk => ?_) (fun i hk => ?_) k hk
+    · simp only [Fin.append_left] at hk; exact tx i a hk
+    · simp only [Fin.append_right] at hk; exact ty i a hk
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    rename_i c' n₁ n₂ κ₁ κ₂ l'
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨x, hxm, hr⟩ := Multiset.mem_bind.1 hr
+    obtain ⟨y, hym, rfl⟩ := Multiset.mem_map.1 hr
+    obtain ⟨bx, tx⟩ := ih₁ hu.2.1 hi.1 hx.1 γ E hctx hH x hxm
+    obtain ⟨b_y, ty⟩ := ih₂ hu.2.2 hi.2 hx.2 _ _ (fun k a hk => by
+      rw [EvalEnv.ctxAt_withCtx] at hk
+      revert hk
+      refine Fin.addCases (fun i => ?_) (fun i => ?_) k
+      · rw [Fin.append_left]; exact tx i a
+      · rw [Fin.append_right]; exact hctx i a) (fun p hp => absurd hp List.not_mem_nil) y hym
+    refine ⟨nat_mul_le_one bx b_y, fun k a hk => ?_⟩
+    refine Fin.addCases (fun i hk => ?_) (fun i hk => ?_) k hk
+    · simp only [Fin.append_left] at hk; exact tx i a hk
+    · simp only [Fin.append_right] at hk; exact ty i a hk
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    rcases Multiset.mem_add.1 hr with hr | hr
+    · exact ih₁ hu.2.1 hi.1 hx.1 γ E hctx (fun p hp => hH p (List.mem_append_left _ hp)) r hr
+    · exact ih₂ hu.2.2 hi.2 hx.2 γ E hctx (fun p hp => hH p (List.mem_append_right _ hp)) r hr
+  | Dedup q ih => exact fun hu => absurd hu.1 hS₁
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 hr
+    obtain ⟨p₀, hp₀, rfl⟩ := Multiset.mem_map.1 hp
+    obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hp₀
+    refine GenRow.le1_ofAnnotated (le_trans (Nat.sub_le _ _) ?_)
+    exact (ih₁ hu.2.1 hi.1 hx.1 γ E hctx hH r₀ hr₀).finalize
+  | Explode k hk q ih => exact fun _ _ hx => hx.elim
+  | Retag hk q ih =>
+    intro hu hi hx γ E hctx hH r hr
+    exact ih hu hi hx γ E hctx hH r hr
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    refine forall_mem_muSumFix (P := GenRow.Le1) (fun X hX y hy => ?_)
+      (ih₀ hu.2.1 hi.1 hx.1 γ E hctx (fun p hp => absurd hp List.not_mem_nil)) r hr
+    refine ih₁ hu.2.2 hi.2 hx.2 γ _ (by simpa only [EvalEnv.ctxAt_assignHole] using hctx)
+      (fun p hp r' hr' => ?_) y hy
+    obtain rfl := List.mem_singleton.1 hp
+    dsimp only at hr'
+    rw [EvalEnv.assignHole_holes_self] at hr'
+    exact hX r' hr'
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun hu => absurd hu.1 hS₂
+  | Gamma is ts fs q keep ord ih =>
+    rename_i c' m n₁ n₂ _ _
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨kv, hkv, rfl⟩ := Multiset.mem_map.1 hr
+    set R := (q.evaluate d γ E).map GenRow.toAnnotated with hR
+    have hRb : ∀ p ∈ R, p.2 ≤ 1 := by
+      intro p hp
+      obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hp
+      exact (ih hu.2 hi.2.2.2 hx γ E hctx hH r₀ hr₀).finalize
+    have hU : ∀ x ∈ Having.havingGroupOrd is ord R kv.1, x.2 ≤ 1 := by
+      intro x hx'
+      rw [Having.mem_havingGroupOrd, ← Multiset.mem_coe, Having.havingGroup_coe] at hx'
+      exact hRb x (Multiset.mem_of_mem_filter hx')
+    refine ⟨le_refl 1, fun k a hk => ?_⟩
+    refine Fin.addCases (fun i hk => ?_) (fun i hk => ?_) k hk
+    · simp only [Fin.append_left] at hk; simp at hk
+    · simp only [Fin.append_right, Sum.inr.injEq] at hk
+      subst hk
+      rw [AggTok.AnnsIn_setFam]
+      split
+      · exact AggValue.annsIn_ofGroup (Q := (· ≤ 1)) _ _ _ γ hU
+      · exact AggExpr.annsIn_ofSeqWhen (Q := (· ≤ 1)) _ _ _ _ _ γ hU
+  | GammaScalar ts fs q ord ih =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate, Multiset.mem_singleton] at hr
+    subst hr
+    refine ⟨le_refl 1, fun k a hk => ?_⟩
+    simp only [Sum.inr.injEq] at hk
+    subst hk
+    rw [AggTok.AnnsIn_setFam]
+    refine AggValue.annsIn_ofScalarGroup (Q := (· ≤ 1)) _ _ _ γ fun x hx' => ?_
+    rw [Having.mem_havingGroupOrd, ← Multiset.mem_coe, Having.havingGroup_coe] at hx'
+    obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 (Multiset.mem_of_mem_filter hx')
+    exact (ih hu.2 hi.2.2 hx γ E hctx hH r₀ hr₀).finalize
+  | GammaNest is his p g q ih =>
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨gk, -, rfl⟩ := Multiset.mem_map.1 hr
+    have hb := ih hu.2 hi.2.2 hx γ E hctx hH
+    refine ⟨le_refl 1, fun k a hk => ?_⟩
+    refine Fin.addCases (fun i hk => ?_) (fun i hk => ?_) k hk
+    · simp only [Fin.append_left] at hk; simp at hk
+    · simp only [Fin.append_right, Sum.inr.injEq] at hk
+      subst hk
+      intro o ho
+      obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
+      have hrow' := hb row (Multiset.mem_of_mem_filter hrow)
+      exact ⟨hrow'.finalize, GenValue.annsIn_innerValue _ fun a ha =>
+        ProjColIn.annsIn_eval p γ hrow'.2 ha⟩
+  | ProvSum is his t q ih => exact fun hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih =>
+    rename_i c' n' m' p' κ' _ _
+    intro hu hi hx γ E hctx hH r hr
+    simp only [AggQueryIn.evaluate] at hr
+    obtain ⟨x, hxm, rfl⟩ := Multiset.mem_map.1 hr
+    have hdist : dist = false := by
+      cases dist with
+      | false => rfl
+      | true => exact absurd hi.2.1 (hΘ g)
+    subst hdist
+    have hb := ih hu.2 hi.2.2.2 hx γ E hctx hH
+    have hX : ∀ y ∈ (q.evaluate d γ E).map (GenRow.readAnnotated κ'), y.2 ≤ 1 := by
+      intro y hy
+      obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hy
+      exact (hb r₀ hr₀).finalize
+    obtain ⟨bx, tx⟩ := hb x hxm
+    refine ⟨bx, fun k a hk => ?_⟩
+    simp only [ValueFrame.windowGenRow] at hk
+    refine Fin.lastCases (fun hk => ?_) (fun i hk => ?_) k hk
+    · rw [Fin.snoc_last, Sum.inr.injEq] at hk
+      subst hk
+      rw [AggTok.AnnsIn_setFam]
+      split
+      · exact annsIn_tokenOf_le1 P O o w t g _ _ γ hX ((hb x hxm).finalize)
+      · exact annsIn_exprWhenOf_le1 P O o w t g _ _ _ γ hX ((hb x hxm).finalize)
+    · rw [Fin.snoc_castSucc] at hk; exact tx i a hk
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun _ hi => hi.elim
+
+end Evaluate
+
+/-! ## The witness -/
+
+/-- **`count` is not its own distinct version**: on `[0, 0]` the one
+reads `2`, the other `1`. So a `DISTINCT` window is out of the minimal
+signature. -/
+theorem count_distinct_ne (f : SeqAggFunc ℕ) : f.distinct ∉ ({SeqAggFunc.count} : Set _) := by
+  intro h
+  rw [Set.mem_singleton_iff] at h
+  have h₂ : f.distinct [0, 0] = 2 := by rw [h]; rfl
+  have h₁ : f.distinct [0] = 1 := by rw [h]; rfl
+  have he : f.distinct [0, 0] = f.distinct [0] := by
+    unfold SeqAggFunc.distinct
+    congr 2
+  omega
+
+/-- **`ε(R)`.** -/
+def epsWitness : AggQuery ℕ 1 (ColKind.allReg 1) := AggQueryIn.Dedup (AggQueryIn.Rel 1 "R")
+
+/-- **The instance it tells apart from every query without `ε` and `μ^∪`**:
+`R` holds `0` twice, annotated `𝟙`. -/
+def dEps : AnnotatedDatabase ℕ ℕ :=
+  AnnotatedDatabase.assign "R"
+    (({(((fun _ => 0) : Tuple ℕ 1), 1), (((fun _ => 0) : Tuple ℕ 1), 1)}
+      : Multiset (AnnotatedTuple ℕ ℕ 1)) : AnnotatedRelation ℕ ℕ 1) []
+
+theorem dEps_le1 : ∀ k t (r : AnnotatedRelation ℕ ℕ k), dEps.find k t = some r →
+    ∀ a ∈ r, a.2 ≤ 1 := by
+  intro k t r hr a ha
+  unfold dEps at hr
+  by_cases h₁ : k = 1 ∧ t = "R"
+  · obtain ⟨rfl, rfl⟩ := h₁
+    rw [AnnotatedDatabase.find_assign, Option.some.injEq] at hr
+    subst hr
+    have : a.2 = 1 := by
+      rcases Multiset.mem_cons.1 ha with rfl | ha
+      · rfl
+      · rw [Multiset.mem_singleton] at ha; subst ha; rfl
+    rw [this]
+  · rw [AnnotatedDatabase.find_assign_of_ne _ _ _ _ h₁] at hr
+    exact absurd hr (by
+      rw [show AnnotatedDatabase.find k t ([] : AnnotatedDatabase ℕ ℕ) = none from rfl]
+      simp)
+
+/-- **`ε(R)` there holds `0` annotated `2`.** -/
+theorem mem_evaluateAnnotated_epsWitness :
+    ((((fun _ => 0) : Tuple ℕ 1), 2) : AnnotatedTuple ℕ ℕ 1)
+      ∈ epsWitness.evaluateAnnotated dEps (fun _ => 0) := by
+  show _ ∈ epsWitness.ann dEps (fun _ => 0) {}
+  rw [epsWitness, AggQueryIn.ann_dedup, AggQueryIn.ann_Rel, dEps, AnnotatedDatabase.find_assign]
+  dsimp only
+  unfold PathSum.dedupK
+  refine Multiset.mem_map.2 ⟨(fun _ => 0), Multiset.mem_dedup.2 (Multiset.mem_map.2
+    ⟨_, Multiset.mem_cons_self _ _, rfl⟩), ?_⟩
+  refine Prod.ext rfl ?_
+  dsimp only
+  unfold PathSum.wt
+  rfl
+
+theorem overSchema_epsWitness : epsWitness.overSchema schemaR := by
+  simp [epsWitness, AggQueryIn.overSchema, schemaR_apply]
+
+theorem usesOnly_epsWitness : epsWitness.usesOnly plainRecOps :=
+  ⟨by simp [plainRecOps, plainOps, basisDD, basisOps], trivial⟩
+
+/-- **`ε` or `μ^∪` is in every set generating the annotated algebra over
+`ℕ`**: without them every annotation a query of the minimal signature
+builds is at most `𝟙` when the instance's are (`le1_evaluate`), and
+`ε(R)` gives `2` on `dEps`. -/
+theorem dedup_or_muSet_mem_of_generatesAnn {S : Set OpKind}
+    (h : GeneratesAnn ℕ ℕ schemaR SeqAggFunc.count S) :
+    OpKind.dedup ∈ S ∨ OpKind.muSet ∈ S := by
+  by_contra hS
+  rw [not_or] at hS
+  obtain ⟨q', -, hu', hi', ha', -, hm⟩ := h epsWitness overSchema_epsWitness
+    usesOnly_epsWitness trivial trivial trivial
+  obtain ⟨-, he⟩ := hm dEps (fun _ => 0) trivial
+  have hmem := mem_evaluateAnnotated_epsWitness
+  rw [← he] at hmem
+  obtain ⟨r, hr, hre⟩ := Multiset.mem_map.1 hmem
+  have hz := (le1_evaluate hS.1 hS.2 count_distinct_ne dEps_le1 q' hu' hi' ha'
+    (fun _ => 0) {} (fun k => k.elim0) (fun p hp => absurd hp List.not_mem_nil)
+    r hr).finalize
+  have hfin : r.snd.finalize = 2 := congrArg Prod.snd hre
+  omega
