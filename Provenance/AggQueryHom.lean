@@ -921,6 +921,13 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
         ∧ e'.worldStats = e.worldStats
   | _, _ => False
 
+/-- **The equivalence does not read the family** a value is stamped
+with. -/
+theorem GenValue.Equiv.setFam {x' x : AggTok T K}
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (φ' φ : FamId T) :
+    GenValue.Equiv (Sum.inr (x'.setFam φ')) (Sum.inr (x.setFam φ)) := by
+  cases x' <;> cases x <;> exact h
+
 /-- A regular value is equivalent to no token. -/
 theorem GenValue.Equiv.not_inl_inr {w : T} {x : AggTok T K} :
     ¬ GenValue.Equiv (Sum.inl w) (Sum.inr x) := by
@@ -1056,18 +1063,18 @@ theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
 /-- **Two expression columns over tie-permuted families are
 equivalent**: the four readings `GenValue.Equiv` asks of them are
 exactly `AggExpr.readings_congr`'s bundle. -/
-theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ}
+theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) {sc₁ sc₂ : Fin q → Bool} (hsc : sc₁ = sc₂)
     (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
     GenValue.Equiv
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g)) : GenValue T K)
-      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g))) := by
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₁ aggs sc₁ g φ₁)) : GenValue T K)
+      (Sum.inr (AggTok.expr (AggExpr.mk q occs₂ aggs sc₂ g φ₂))) := by
   subst hsc
-  obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr aggs sc₁ g h
-  exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr aggs sc₁ g h⟩
+  obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h
+  exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h⟩
 
 /-- **Equivalent columns give a nested value the same statistics.** The
 inner reading of a column is its own expression where it holds one, the
@@ -1531,7 +1538,8 @@ theorem tokenOfDist_mapAnn_equiv (h : SemiringWithMonusHom K K')
   cases dist
   · exact ⟨hagg, hsc, htie⟩
   · simp only [ite_true]
-    rw [AggValue.mergeByValue_congr hagg hsc htie,
+    rw [AggValue.mergeByValue_congr hagg hsc
+        ((ValueFrame.tokenOf_fam ..).trans (ValueFrame.tokenOf_fam P O o w t f X x γ).symm) htie,
       AggValue.mergeByValue_map (map_zero h.toRingHom)
         (fun x y => map_add h.toRingHom x y)]
     exact ⟨rfl, rfl, TiePerm.refl _ _⟩
@@ -2440,7 +2448,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
   | Retag hκ q ih =>
     intro d γ E' E hE hw hn hrec
     exact ih d γ E' E hE hw hn hrec
-  | @Win cI nI mI pI κw P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw _lab P O o w t f q hrr dist keep ih =>
     -- one output row per input row; the row's own columns and its
     -- annotation are carried across unchanged, and the token differs only
     -- by a tie-block permutation – which a `FILTER` clause keeps, reading
@@ -2486,7 +2494,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       exact hs.1 k'
-  | @GammaTok cI mI nI₁ nI₂ κ' is his ts fs a q keep ih =>
+  | @GammaTok cI mI nI₁ nI₂ κ' _lab is his ts fs a q keep ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2616,7 +2624,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     congr 1
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
-  | @GammaScalar cI mI nI₂ ts fs q ord ih =>
+  | @GammaScalar cI mI nI₂ _lab ts fs q ord ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2640,7 +2648,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
       (ofGroupOrd_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0)
         ord X (fun i : Fin 0 => i.elim0))⟩
-  | @GammaNest cI mI nI₁ κ' is his p f q ih =>
+  | @GammaNest cI mI nI₁ κ' _lab is his p f q ih =>
     -- one output row per key, and the keys are the columns' deterministic
     -- values, which a simulation keeps. For one key the two groups are
     -- related row for row, so their occurrences carry pushed annotations
@@ -2730,7 +2738,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         exact map_eq_of_rel hgroup (fun r' r hs => hs.2)]
       exact (map_multiset_sum h.toRingHom _).symm
 
-  | @Gamma cI mI nI₁ nI₂ is ts fs q keep ord ih =>
+  | @Gamma cI mI nI₁ nI₂ _lab is ts fs q keep ord ih =>
     intro d γ E' E hE hw hn hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
@@ -2800,7 +2808,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroupOrd_annSum_hom h is ord X kv.fst,
         SemiringWithMonusHom.map_delta]
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab P O o ws ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
     -- index that family by their own sorted order, so they are compared
     -- through a bijection of indices rather than index by index; the
@@ -2842,8 +2850,8 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     · dsimp only
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
-        exact exprOfWhen_mapAnn_equiv h P O o hw.1 ts fs g keeps γ
-          (congrArg Prod.fst (he i)) hmul'
+        exact (exprOfWhen_mapAnn_equiv h P O o hw.1 ts fs g keeps γ
+          (congrArg Prod.fst (he i)) hmul').setFam _ _
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
         exact congrArg (fun y : AnnotatedTuple T K' nI => y.fst k') (he i)
     · dsimp only

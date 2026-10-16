@@ -576,7 +576,7 @@ def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
 general query. -/
 abbrev site (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂)
     (qg : AggQuery ℕ 3 (ColKind.allReg 3)) : AggQuery ℕ (1 + n₂) (ColKind.gammaKinds 1 n₂) :=
-  AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma keyIdx ts fs qg)
+  AggQueryIn.Sel ψ.toGenPred (AggQueryIn.Gamma (lab := 0) keyIdx ts fs qg)
 
 theorem toGenPred_hasAggAtom : ∀ ψ : MonoCond n₂, ψ.toGenPred.hasAggAtom = true
   | countGe _ _ => rfl
@@ -638,33 +638,35 @@ omit [HasAltLinearOrder K] in
 the group `g` is `HavingPred.prov` of the condition on the group
 sequence. -/
 theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
-    (U : List (AnnotatedTuple ℕ K 3)) (g : Tuple ℕ 1) :
+    (U : List (AnnotatedTuple ℕ K 3)) (g : Tuple ℕ 1) (φ : FamId ℕ) :
     ∀ ψ : MonoCond n₂,
       ψ.toGenPred.predsem false
         (Fin.append (fun k => (Sum.inl (g k) : GenValue ℕ K))
-          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U))))
+          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam φ)))
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false, AggTok.predProvOf_setFam]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.ge _
   | countGt l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false, AggTok.predProvOf_setFam]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U CompOp.gt _
   | exist l op c => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
-      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false]
+      TermIn.toGenKey_eval, Bool.false_eq_true, ite_false, AggTok.predProvOf_setFam]
     exact AggValue.predProv_ofGroup (fs l) (ts l) U op _
   | and ψ₁ ψ₂ => by
     show (if false = true then _ else
         ψ₁.toGenPred.predsem false _ * ψ₂.toGenPred.predsem false _) = _
-    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g φ ψ₁, toGenPred_predsem ts fs
+        U g φ ψ₂]
     rfl
   | or ψ₁ ψ₂ => by
     show (if false = true then _ else
         ψ₁.toGenPred.predsem false _ + ψ₂.toGenPred.predsem false _) = _
-    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g ψ₁, toGenPred_predsem ts fs U g ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_predsem ts fs U g φ ψ₁, toGenPred_predsem ts fs
+        U g φ ψ₂]
     rfl
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -740,10 +742,13 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
   unfold GenRow.toAnnotated
   refine Prod.ext ?_ ?_
   · -- data part: whole-group aggregate values
-    exact (GenRow.plainTuple_append kv.fst _).trans
+    exact (GenRow.plainTuple_append kv.fst (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
+        (havingGroupOrd keyIdx GroupOrder.unord A kv.fst))).setFam (0, List.ofFn kv.fst))).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => AggTok.collapse_tok _ ▸
-          AggValue.collapse_ofGroup (fs j) (ts j) _))
+        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst)
+          (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
+            (havingGroupOrd keyIdx GroupOrder.unord A kv.fst)))).trans
+          (AggValue.collapse_ofGroup (fs j) (ts j) _)))
   · -- annotation: the fused provenance of the condition
     show GenAnn.finalize ⟨1 * _, _⟩ = _
     rw [ite_eq_left (toGenPred_entailsExistence ψ)]
@@ -764,10 +769,10 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
           simp [Fin.append_left, Fin.append_right]
       all_goals
       · intro l
-        simp only [Fin.append_right, AggTok.annList_tok,
+        simp only [Fin.append_right, AggTok.annList_setFam, AggTok.annList_tok,
           AggValue.annList_ofGroup, Having.havingGroupOrd_unord]
     · rw [one_mul]
-      exact toGenPred_predsem ts fs _ kv.fst ψ
+      exact toGenPred_predsem ts fs _ kv.fst _ ψ
 
 /-- **The key-projected fused site of a monotone condition** is one row per
 group key of the base query, annotated with the fused provenance of the

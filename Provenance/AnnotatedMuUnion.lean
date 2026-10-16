@@ -2622,16 +2622,19 @@ noncomputable def muSetFreeA (ch : Bool) (f : ℕ → String) :
   | _, _, _, _, .MuSet s q₀ q₁ =>
       muSetSim ch s (f 0) q₀ q₁ (muSetFreeA ch (tri f 1) q₀)
         (muSetFreeA ch (tri f 2) q₁)
-  | _, _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs (muSetFreeA ch f q) keep ord
-  | _, _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs (muSetFreeA ch f q) ord
-  | _, _, _, _, .GammaNest is his p g q => .GammaNest is his p g (muSetFreeA ch f q)
+  | _, _, _, _, .Gamma (lab := lab) is ts fs q keep ord =>
+      .Gamma (lab := lab) is ts fs (muSetFreeA ch f q) keep ord
+  | _, _, _, _, .GammaScalar (lab := lab) ts fs q ord =>
+      .GammaScalar (lab := lab) ts fs (muSetFreeA ch f q) ord
+  | _, _, _, _, .GammaNest (lab := lab) is his p g q =>
+      .GammaNest (lab := lab) is his p g (muSetFreeA ch f q)
   | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (muSetFreeA ch f q)
-  | _, _, _, _, .GammaTok is his ts fs a q keep =>
-      .GammaTok is his ts fs a (muSetFreeA ch f q) keep
-  | _, _, _, _, .Win P O o w t g q hrr dist keep =>
-      .Win P O o w t g (muSetFreeA ch f q) hrr dist keep
-  | _, _, _, _, .WinExpr P O o ws ts fs g q keeps =>
-      .WinExpr P O o ws ts fs g (muSetFreeA ch f q) keeps
+  | _, _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
+      .GammaTok (lab := lab) is his ts fs a (muSetFreeA ch f q) keep
+  | _, _, _, _, .Win (lab := lab) P O o w t g q hrr dist keep =>
+      .Win (lab := lab) P O o w t g (muSetFreeA ch f q) hrr dist keep
+  | _, _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) P O o ws ts fs g (muSetFreeA ch f q) keeps
 
 /-- **The pass keeps a name unmentioned, and a recursive term linear.** The
 two go together: a product's closed side must stay unmentioning, and a set

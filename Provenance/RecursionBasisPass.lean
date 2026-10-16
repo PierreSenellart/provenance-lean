@@ -1180,7 +1180,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       refine Fin.addCases (fun k => ?_) (fun z => z.elim0) j
       rw [Fin.append_left]
       rfl
-    refine ⟨fun _ => ⟨(AggQueryIn.Gamma (fun k => k) (fun j : Fin 0 => j.elim0)
+    refine ⟨fun _ => ⟨(AggQueryIn.Gamma (lab := 0) (fun k => k) (fun j : Fin 0 => j.elim0)
         (fun j : Fin 0 => j.elim0) q').castKind hκ, ?_, fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     · exact { usesOnly := by
@@ -1370,7 +1370,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨(AggQueryIn.Gamma is ts fs q' keep ord).allRegOf, ?_, fun D γ hset => ?_⟩,
+    refine ⟨fun _ => ⟨(AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord).allRegOf, ?_, fun D γ hset
+        => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     · exact { usesOnly := by
                 rw [AggQueryIn.usesOnly_allRegOf]
@@ -1399,7 +1400,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨(AggQueryIn.GammaScalar ts fs q' ord).allRegOf, ?_, fun D γ hset => ?_⟩,
+    refine ⟨fun _ => ⟨(AggQueryIn.GammaScalar (lab := 0) ts fs q' ord).allRegOf, ?_, fun D γ hset
+        => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     · exact { usesOnly := by
                 rw [AggQueryIn.usesOnly_allRegOf]
@@ -1428,7 +1430,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     intro hq hr hi hw f hf hfr sch hsch ho
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hw f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨(AggQueryIn.GammaNest is (fun k hc => ColKind.noConfusion hc)
+    refine ⟨fun _ => ⟨(AggQueryIn.GammaNest (lab := 0) is (fun k hc => ColKind.noConfusion hc)
         pc.toReg fn q').allRegOf, ?_, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     · exact { usesOnly := by
                 rw [AggQueryIn.usesOnly_allRegOf]
@@ -1463,7 +1465,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         exact (ProjColIn.evalPlain_toReg pc hq.1.2 u γ).symm
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
-  | @Win cw nw _mw _pw _κw P' O o w t fw q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw _lab P' O o w t fw q hrr dist keep ih =>
     intro hq hr hi hw f hf hfr sch hsch ho
     by_cases hwin : OpKind.win ∈ S
     · -- the target keeps windows: the window over the re-typed child, through the doubling
@@ -1529,7 +1531,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       refine ⟨by rw [AggQueryIn.settlesAt_allRegOf, settlesAt_winByApply]; exact hs', ?_⟩
       rw [AggQueryIn.evaluatePlain_allRegOf]
       refine Eq.trans ?_
-        (evaluatePlain_winByApplyOf P' O o hcs ψ t fw dist keep hψ q' D γ).symm
+        (evaluatePlain_winByApplyOf (lab := 0) P' O o hcs ψ t fw dist keep hψ q' D γ).symm
       simp only [AggQueryIn.evaluatePlain]
       rw [he']
       rfl

@@ -231,6 +231,11 @@ def AggTok.AnnsIn (Q : K → Prop) : AggTok T K → Prop
   | .nest a => a.AnnsIn Q
   | .expr e => e.AnnsIn Q
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem AggTok.AnnsIn_setFam (Q : K → Prop) (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).AnnsIn Q ↔ x.AnnsIn Q := by
+  cases x <;> exact Iff.rfl
+
 section Tokens
 
 variable {Q : K → Prop}
@@ -688,7 +693,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 hr
     exact GenRow.annIn_ofAnnotated (hit _ p hp)
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m n₁ n₂
+    rename_i c' m n₁ n₂ _
     intro hu hi hx γ E hctx hH r hr
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, hkv, rfl⟩ := Multiset.mem_map.1 hr
@@ -711,6 +716,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
       · simp only [Fin.append_left] at hk; simp at hk
       · simp only [Fin.append_right, Sum.inr.injEq] at hk
         subst hk
+        rw [AggTok.AnnsIn_setFam]
         split
         · exact AggValue.annsIn_ofGroup _ _ _ γ hU
         · exact AggExpr.annsIn_ofSeqWhen _ _ _ _ _ γ hU
@@ -721,6 +727,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     refine ⟨hQ.one, fun l hl => absurd hl (Multiset.notMem_zero l), fun k a hk => ?_⟩
     simp only [Sum.inr.injEq] at hk
     subst hk
+    rw [AggTok.AnnsIn_setFam]
     refine AggValue.annsIn_ofScalarGroup _ _ _ γ fun x hx' => ?_
     rw [Having.mem_havingGroupOrd, ← Multiset.mem_coe, Having.havingGroup_coe] at hx'
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 (Multiset.mem_of_mem_filter hx')
@@ -756,7 +763,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
   | Win P O o w t g q hrr dist keep ih =>
-    rename_i c' n' m' p' κ'
+    rename_i c' n' m' p' κ' _
     intro hu hi hx γ E hctx hH r hr
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hxm, rfl⟩ := Multiset.mem_map.1 hr
@@ -771,6 +778,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     refine Fin.lastCases (fun hk => ?_) (fun i hk => ?_) k hk
     · rw [Fin.snoc_last, Sum.inr.injEq] at hk
       subst hk
+      rw [AggTok.AnnsIn_setFam]
       split
       · exact annsIn_tokenOfDist hQ P O o w t g dist _ _ γ hX ((hb x hxm).finalize hQ)
       · exact annsIn_exprWhenOf hQ P O o w t g dist _ _ _ γ hX ((hb x hxm).finalize hQ)

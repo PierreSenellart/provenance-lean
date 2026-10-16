@@ -566,12 +566,12 @@ theorem mergeOccs_congr {l l' : List (T × K)}
 omit [DecidableEq K] in
 /-- The same on a token, whose aggregate and convention are its own. -/
 theorem mergeByValue_congr {a b : AggValue T K} (hagg : a.agg = b.agg)
-    (hsc : a.scalar = b.scalar)
+    (hsc : a.scalar = b.scalar) (hfam : a.fam = b.fam)
     (h : TiePerm (fun p q : T × K => p.1 = q.1) a.occs b.occs) :
     mergeByValue a = mergeByValue b := by
   unfold mergeByValue
   simp only [AggValue.mk.injEq]
-  exact ⟨hagg, mergeOccs_congr h, hsc⟩
+  exact ⟨hagg, mergeOccs_congr h, hsc, hfam⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- The deterministic reading of a token only depends on the value sequence,
@@ -1015,13 +1015,14 @@ semantically invisible, as `AggValue.predProvWith_congr` does for one
 token. The two halves of the equivalence are both needed: swapping
 occurrences that different leaves read would hand a leaf a value it does
 not read. -/
-theorem predProvWith_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+theorem predProvWith_congr {φ₁ φ₂ : FamId T}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂)
     (P : T → Kleene) :
-    (AggExpr.mk q occs₁ aggs sc g).predProvWith P
-      = (AggExpr.mk q occs₂ aggs sc g).predProvWith P := by
+    (AggExpr.mk q occs₁ aggs sc g φ₁).predProvWith P
+      = (AggExpr.mk q occs₂ aggs sc g φ₂).predProvWith P := by
   rw [predProvWith_eq_exprProvAux, predProvWith_eq_exprProvAux]
   exact exprProvAux_congr aggs sc g P h _ 0 _
 
@@ -1031,19 +1032,20 @@ expression alone.** The collapse and the values read the stripped family
 and the predicate provenance is `predProvWith_congr`. These four are what
 an aggregate column owes, so this is the bundle a simulation of two
 expression columns asks for. -/
-theorem readings_congr {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+theorem readings_congr {φ₁ φ₂ : FamId T}
+    {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
-    (AggExpr.mk q occs₁ aggs sc g).collapse
-        = (AggExpr.mk q occs₂ aggs sc g).collapse
-      ∧ (AggExpr.mk q occs₁ aggs sc g).isScalar
-        = (AggExpr.mk q occs₂ aggs sc g).isScalar
-      ∧ (AggExpr.mk q occs₁ aggs sc g).vals
-        = (AggExpr.mk q occs₂ aggs sc g).vals
+    (AggExpr.mk q occs₁ aggs sc g φ₁).collapse
+        = (AggExpr.mk q occs₂ aggs sc g φ₂).collapse
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁).isScalar
+        = (AggExpr.mk q occs₂ aggs sc g φ₂).isScalar
+      ∧ (AggExpr.mk q occs₁ aggs sc g φ₁).vals
+        = (AggExpr.mk q occs₂ aggs sc g φ₂).vals
       ∧ ∀ P : T → Kleene,
-        (AggExpr.mk q occs₁ aggs sc g).predProvWith P
-          = (AggExpr.mk q occs₂ aggs sc g).predProvWith P := by
+        (AggExpr.mk q occs₁ aggs sc g φ₁).predProvWith P
+          = (AggExpr.mk q occs₂ aggs sc g φ₂).predProvWith P := by
   have hstrip : occs₁.map (fun z => (z.fst, z.snd.snd))
       = occs₂.map (fun z => (z.fst, z.snd.snd)) :=
     TiePerm.map_eq_of_eqv (fun hz => Prod.ext_iff.mpr ⟨hz.1, hz.2⟩) h
@@ -1236,13 +1238,13 @@ permutation of the family**: they are the recursion's
 (`AggExpr.worldStats_eq_subStats`), and the recursion is
 (`AggExpr.subStats_congr`). This is what an aggregate column owes a
 nested value that reads it, beside the four readings. -/
-theorem worldStats_congr {q : ℕ}
+theorem worldStats_congr {q : ℕ} {φ₁ φ₂ : FamId T}
     {occs₁ occs₂ : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
     (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
     (h : TiePerm (fun z z' => z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
       occs₁ occs₂) :
-    (AggExpr.mk q occs₁ aggs sc g).worldStats
-      = (AggExpr.mk q occs₂ aggs sc g).worldStats := by
+    (AggExpr.mk q occs₁ aggs sc g φ₁).worldStats
+      = (AggExpr.mk q occs₂ aggs sc g φ₂).worldStats := by
   rw [AggExpr.worldStats_eq_subStats, AggExpr.worldStats_eq_subStats,
     subStats_congr h]
   rfl

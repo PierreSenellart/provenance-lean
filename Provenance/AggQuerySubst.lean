@@ -366,24 +366,24 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String
   | _, _, _, _, _, θ, .Mu s q₀ q₁ => .Mu s (q₀.substMap θ) (q₁.substMap θ)
   | _, _, _, _, _, θ, .MuSet s q₀ q₁ =>
       .MuSet s (q₀.substMap θ) (q₁.substMap θ)
-  | _, _, _, _, _, θ, .Gamma is ts fs q keep ord =>
-      .Gamma is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep ord
-  | _, _, _, _, _, θ, .GammaScalar ts fs q ord =>
-      .GammaScalar (fun j => (ts j).substMap θ) fs (q.substMap θ) ord
-  | _, _, _, _, _, θ, .GammaNest is his p f q =>
-      .GammaNest is his (p.substMap θ) f (q.substMap θ)
+  | _, _, _, _, _, θ, .Gamma (lab := lab) is ts fs q keep ord =>
+      .Gamma (lab := lab) is (fun j => (ts j).substMap θ) fs (q.substMap θ) keep ord
+  | _, _, _, _, _, θ, .GammaScalar (lab := lab) ts fs q ord =>
+      .GammaScalar (lab := lab) (fun j => (ts j).substMap θ) fs (q.substMap θ) ord
+  | _, _, _, _, _, θ, .GammaNest (lab := lab) is his p f q =>
+      .GammaNest (lab := lab) is his (p.substMap θ) f (q.substMap θ)
   | _, _, _, _, _, θ, .ProvSum is his t q =>
       .ProvSum is his (t.substMap θ) (q.substMap θ)
   | _, _, _, _, _, θ, .Retag h q => .Retag h (q.substMap θ)
-  | _, _, _, _, _, θ, .GammaTok is his ts fs a q keep =>
-      .GammaTok is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
+  | _, _, _, _, _, θ, .GammaTok (lab := lab) is his ts fs a q keep =>
+      .GammaTok (lab := lab) is his (fun j => (ts j).substMap θ) fs (a.substMap θ)
         (q.substMap θ) keep
-  | _, _, _, _, _, θ, .Win P O o w t f q hrr dist keep =>
-      .Win P O o w (t.substMap θ) f (q.substMap θ)
+  | _, _, _, _, _, θ, .Win (lab := lab) P O o w t f q hrr dist keep =>
+      .Win (lab := lab) P O o w (t.substMap θ) f (q.substMap θ)
         ⟨hrr.1, hrr.2.1, by rw [TermIn.regOnly_substMap]; exact hrr.2.2⟩
         dist keep
-  | _, _, _, _, _, θ, .WinExpr P O o ws ts fs g q keeps =>
-      .WinExpr P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
+  | _, _, _, _, _, θ, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) P O o ws (fun l => (ts l).substMap θ) fs g (q.substMap θ) keeps
 termination_by structural q
 
 /-- Close a query: give every outer column a value, written `q[u]`. -/
@@ -619,7 +619,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain, ih₀, ih₁]
-  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
+  | @Gamma cI m n₁ n₂ _lab is ts fs q keep ord ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -627,7 +627,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     refine Multiset.map_congr rfl (fun g _ => ?_)
     refine congrArg (Fin.append g) (funext fun j => congrArg (fs j) ?_)
     exact List.map_congr_left (fun v _ => TermIn.eval_substMap θ (ts j) v γ)
-  | @GammaScalar cI m n₂ ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -636,7 +636,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     funext j
     exact congrArg (fs j)
       (List.map_congr_left (fun v _ => TermIn.eval_substMap θ (ts j) v γ))
-  | @GammaNest cI m n₁ κ' is his p f q ih =>
+  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -655,7 +655,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     exact congrArg (Multiset.fold addFn 0)
       (Multiset.map_congr rfl (fun u _ => TermGIn.evalPlain_substMap θ t u γ))
   | Retag h q ih => intro d θ D γ; rw [AggQueryIn.substMap]; exact ih θ D γ
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
+  | @GammaTok cI m n₁ n₂ κ' _lab is his ts fs a q keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -669,7 +669,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
       exact congrArg (Multiset.fold addFn 0)
         (Multiset.map_congr rfl
           (fun u _ => TermGIn.evalPlain_substMap θ a u γ))
-  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab P O o w t f q hrr dist keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -679,7 +679,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     rcases keep with _ | φ <;>
       exact congrArg (if dist then f.distinct else f)
         (List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ))
-  | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab P O o ws ts fs g q keeps ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -803,15 +803,15 @@ omit [DecidableEq K] in
 /-- **The row a window adds, under a substitution**: the substitution
 reaches the aggregated term and nothing else, the row's own columns and
 its annotation going through untouched. -/
-theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ}
+theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ} (lab : ℕ)
     (θ : Fin c → T ⊕ Fin d) (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
     (f : SeqAggFunc T) (keep : Option (Selection T n))
     (X : AnnotatedRelation T K n) (x : GenRow T K n) (γ : Fin d → T)
     (dist : Bool) :
-    ValueFrame.windowGenRow κ P O o w (t.substMap θ) f keep X x γ dist
-      = ValueFrame.windowGenRow κ P O o w t f keep X x (substVal θ γ) dist := by
+    ValueFrame.windowGenRow lab κ P O o w (t.substMap θ) f keep X x γ dist
+      = ValueFrame.windowGenRow lab κ P O o w t f keep X x (substVal θ γ) dist := by
   unfold ValueFrame.windowGenRow
   rcases keep with _ | φ
   · dsimp only
@@ -932,18 +932,18 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ih₀, ih₁, EvalEnv.substEnv_assignHole]
-  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
+  | @Gamma cI m n₁ n₂ _lab is ts fs q keep ord ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap]
     rw [ih θ dB γ E]
-  | @GammaScalar cI m n₂ ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofScalarGroup_substMap]
     rw [ih θ dB γ E]
-  | @GammaNest cI m n₁ κ' is his p f q ih =>
+  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ProjColIn.eval_substMap]
@@ -954,18 +954,18 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, TermGIn.evalPlain_substMap]
     rw [ih θ dB γ E]
   | Retag h q ih => intro d θ dB γ E; rw [AggQueryIn.substMap]; exact ih θ dB γ E
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a q keep ih =>
+  | @GammaTok cI m n₁ n₂ κ' _lab is his ts fs a q keep ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
     rw [ih θ dB γ E]
-  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab P O o w t f q hrr dist keep ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.windowGenRow_substMap]
     rw [ih θ dB γ E]
-  | @WinExpr cI n' m' p' na P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab P O o ws ts fs g q keeps ih =>
     intro d θ dB γ E
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, ValueFrame.exprOfWhen_substMap]

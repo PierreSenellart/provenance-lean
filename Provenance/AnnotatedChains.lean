@@ -633,7 +633,7 @@ theorem rowBd_evaluate {Bd : T → K → Prop} (hB : BdClosed Bd)
     obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 hr
     exact rowBd_ofAnnotated (hit _ p hp)
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m n₁ n₂
+    rename_i c' m n₁ n₂ _
     intro hi hx ρc HK hw F hc hD γ E hγ hctx hH r hr
     simp only [evaluate] at hr
     obtain ⟨kv, hkv, rfl⟩ := Multiset.mem_map.1 hr
@@ -682,7 +682,7 @@ theorem rowBd_evaluate {Bd : T → K → Prop} (hB : BdClosed Bd)
     intro k v hk
     exact absurd hk (by simp)
   | GammaNest is his p g q ih =>
-    rename_i c' m n₁ κ'
+    rename_i c' m n₁ κ' _
     intro hi hx ρc HK hw F hc hD γ E hγ hctx hH r hr
     simp only [evaluate] at hr
     obtain ⟨gk, hgk, rfl⟩ := Multiset.mem_map.1 hr

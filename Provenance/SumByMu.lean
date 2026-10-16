@@ -510,7 +510,7 @@ variable {c k : ℕ}
 /-- The unit relation in a context of `c` outer columns: one empty row,
 the scalar aggregation of the empty relation with no aggregate. -/
 def unitC : AggQueryIn T c 0 (ColKind.allReg 0) :=
-  (AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
+  (AggQueryIn.GammaScalar (lab := 0) (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
       (AggQueryIn.Empty : AggQueryIn T c 0 (ColKind.allReg 0))).castKind
     (funext fun j => j.elim0)
 
@@ -2110,7 +2110,8 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Gamma is ts fs q' keep ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.Gamma (lab := 0) is ts fs q' keep ord, ⟨⟨memS nofun hq.1,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
@@ -2119,7 +2120,8 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.GammaScalar ts fs q' ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.GammaScalar (lab := 0) ts fs q' ord, ⟨⟨memS nofun hq.1,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset
@@ -2128,7 +2130,7 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.GammaNest (lab := 0) is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.wins, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
@@ -2140,7 +2142,8 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Win P O o w t fw q' hrr dist keep, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.Win (lab := 0) P O o w t fw q' hrr dist keep, ⟨⟨memS nofun hq.1,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
       fun hw => ⟨hw.1, hw.2.1, hs.wins hw.2.2⟩, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩

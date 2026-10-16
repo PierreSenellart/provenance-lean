@@ -291,7 +291,7 @@ def driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
   (AggQueryIn.Proj
     (Fin.cons (α := fun _ => ProjColIn T c (fun _ : Fin k => ColKind.agg))
       (ProjColIn.term (TermGIn.const t)) (padColK κ))
-    (AggQueryIn.GammaScalar (fun _ : Fin k => TermIn.const 0) (fun _ => cnt)
+    (AggQueryIn.GammaScalar (lab := 0) (fun _ : Fin k => TermIn.const 0) (fun _ => cnt)
       (AggQueryIn.Empty : AggQueryIn T c 0 (ColKind.allReg 0)))).castKind
     (driverCols_kind κ t)
 
@@ -1861,30 +1861,36 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         (fun hC => ⟨annSettlesAt_sumByMuK _ _ cnt q₀' qC d γ E' h₀.1 hC,
           evaluate_sumByMuK_fin _ _ cnt q₀' qC d γ E'⟩)
   | Gamma is ts fs q keep ord ih =>
+    rename_i lab
     intro hq hr hi f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Gamma is ts fs q' keep ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.Gamma (lab := lab) is ts fs q' keep ord, ⟨⟨memS nofun hq.1,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.noExplode,
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gamma is ts fs keep ord he'⟩
   | GammaScalar ts fs q ord ih =>
+    rename_i lab
     intro hq hr hi f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.GammaScalar ts fs q' ord, ⟨⟨memS nofun hq.1, hs.usesOnly⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.GammaScalar (lab := lab) ts fs q' ord, ⟨⟨memS nofun hq.1,
+        hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gammaScalar ts fs ord he'⟩
   | GammaNest is his p fn q ih =>
+    rename_i lab
     intro hq hr hi f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.GammaNest is his p fn q', ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩,
+    refine ⟨fun _ => ⟨AggQueryIn.GammaNest (lab := lab) is his p fn q', ⟨⟨⟨memS nofun hq.1.1,
+        hq.1.2⟩,
         hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
@@ -1893,10 +1899,11 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t fw q hrr dist keep ih =>
+    rename_i lab
     intro hq hr hi f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Win P O o w t fw q' hrr dist keep,
+    refine ⟨fun _ => ⟨AggQueryIn.Win (lab := lab) P O o w t fw q' hrr dist keep,
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
         hs.nom⟩, fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩

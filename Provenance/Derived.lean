@@ -546,7 +546,7 @@ def matchCount (cnt : SeqAggFunc T) (kap : Fin l)
     (R : AggQuery T k (ColKind.allReg k))
     (Q : AggQueryIn T k l (ColKind.allReg l)) :
     AggQuery T (k + 1) (countKinds k) :=
-  Apply R (GammaScalar ![TermIn.index kap] ![cnt] (Sel φ Q))
+  Apply R (GammaScalar (lab := 0) ![TermIn.index kap] ![cnt] (Sel φ Q))
 
 /-- The projection that keeps the left arm's columns and drops the
 count. -/
@@ -602,7 +602,7 @@ def firstValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
+  Win (lab := 0) P O o w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `last_value(t)`: the same frame, read backwards. Only the reading
 order is reversed – the frame is an argument, so a frame the clause
@@ -611,7 +611,7 @@ def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
+  Win (lab := 0) P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `lag(t)`: `last_value` over the rows strictly before the current
 row's peers. -/
@@ -633,7 +633,7 @@ def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (w : ValueFrame T p) (i : ℕ) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t (SeqAggFunc.pickNth i) q (winReadsReg_allReg P O t)
+  Win (lab := 0) P O o w t (SeqAggFunc.pickNth i) q (winReadsReg_allReg P O t)
 
 /-- `lag(t, i+1)`: the value `i + 1` rows before the current row's
 peers, the frame of `lag` read backwards from its end. -/
@@ -731,7 +731,7 @@ def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
   (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
-    (Win P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
+    (Win (lab := 0) P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
       hrr)).castKind (funext (overWindow_kind κ _))
 
 /-- **What a rank computes over plain relations**: each row of the input,
@@ -770,7 +770,7 @@ def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0))) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
   (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
-    (Win P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
+    (Win (lab := 0) P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0)) cnt q
       hrr true)).castKind (funext (overWindow_kind κ _))
 
 /-- **What a dense rank computes over plain relations**: one plus the
@@ -821,7 +821,7 @@ def percentRank [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr P O o
+  AggQueryIn.WinExpr (lab := 0) P O o
     ![ValueFrame.rangeBefore o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => if v 1 = 1 then 0 else divide (v 0) (v 1 - 1)) q
@@ -833,7 +833,7 @@ def cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr P O o
+  AggQueryIn.WinExpr (lab := 0) P O o
     ![ValueFrame.rangeUpTo o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => divide (v 0) (v 1)) q
@@ -847,7 +847,7 @@ def ntile [One T] (cnt : SeqAggFunc T) (bucket : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr P O o
+  AggQueryIn.WinExpr (lab := 0) P O o
     ![ValueFrame.rangeBefore o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => bucket (v 1) (1 + v 0)) q
@@ -1148,7 +1148,7 @@ def gammaSet (is : Tuple (Fin k) m) (ts : Tuple (TermIn T c k) na)
     AggQueryIn T c (m + na)
       (Fin.append (fun _ : Fin m => ColKind.reg)
         (fun _ : Fin na => ColKind.agg)) :=
-  (Proj (gsCol S na) (Gamma (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs q)).castKind
+  (Proj (gsCol S na) (Gamma (lab := 0) (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs q)).castKind
     (funext (gsCol_kind S na))
 
 /-- **Grouping sets**: the union of the aggregations over each set of the
@@ -1173,12 +1173,12 @@ def gsRow (S : Finset (Fin m)) (na : ℕ) (v : Tuple T (S.card + na)) :
 
 /-- **What one grouping set computes over plain relations**: the rows of
 the aggregation on the indices it keeps, padded. -/
-theorem evaluatePlain_gammaSet (is : Tuple (Fin k) m)
+theorem evaluatePlain_gammaSet {lab : ℕ} (is : Tuple (Fin k) m)
     (ts : Tuple (TermIn T c k) na) (fs : Tuple (SeqAggFunc T) na)
     (S : Finset (Fin m)) (q : AggQueryIn T c k (ColKind.allReg k))
     (D : Database T) {γ : Fin c → T} :
     (gammaSet is ts fs S q).evaluatePlain D γ
-      = ((Gamma (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs
+      = ((Gamma (lab := lab) (fun a => is ((S.orderIsoOfFin rfl) a)) ts fs
           q).evaluatePlain D γ).map (gsRow S na) := by
   rw [gammaSet, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain]
   refine Multiset.map_congr rfl (fun v _ => funext fun j => ?_)
@@ -1324,19 +1324,19 @@ def gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     (f : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m)) :
     AggQueryIn T c (n₁ + 1)
       (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
-  Gamma (fun k => k.castSucc) ![TermIn.index (Fin.last n₁)] ![f]
+  Gamma (lab := 0) (fun k => k.castSucc) ![TermIn.index (Fin.last n₁)] ![f]
     (Dedup ((Proj (distinctCols is t) q).castKind (funext (distinctCols_kind is t))))
 
 /-- **What a `DISTINCT` aggregate computes over plain relations**: the
 aggregate, read through `SeqAggFunc.distinct`, of the term over each
 group. The aggregate has to be symmetric, the two readings sequencing the
 distinct values of a group differently. -/
-theorem evaluatePlain_gammaDistinct (is : Tuple (Fin m) n₁) (t : TermIn T c m)
+theorem evaluatePlain_gammaDistinct {lab : ℕ} (is : Tuple (Fin m) n₁) (t : TermIn T c m)
     {f : SeqAggFunc T} (hf : f.Symmetric)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
     (gammaDistinct is t f q).evaluatePlain D γ
-      = (Gamma is ![t] ![f.distinct] q).evaluatePlain D γ := by
+      = (Gamma (lab := lab) is ![t] ![f.distinct] q).evaluatePlain D γ := by
   simp only [gammaDistinct, AggQueryIn.evaluatePlain, evaluatePlain_distinctProj]
   rw [keys_distinctRow]
   refine Multiset.map_congr rfl (fun g _ => ?_)
@@ -1352,19 +1352,19 @@ the term alone. -/
 def gammaScalarDistinct (t : TermIn T c m) (f : SeqAggFunc T)
     (q : AggQueryIn T c m (ColKind.allReg m)) :
     AggQueryIn T c 1 (fun _ => ColKind.agg) :=
-  GammaScalar ![TermIn.index (Fin.last 0)] ![f]
+  GammaScalar (lab := 0) ![TermIn.index (Fin.last 0)] ![f]
     (Dedup ((Proj (distinctCols (fun k : Fin 0 => k.elim0) t) q).castKind
       (funext (distinctCols_kind _ t))))
 
 /-- **What a `DISTINCT` aggregate without grouping computes over plain
 relations**: the aggregate of the distinct values of the term over the
 whole input. -/
-theorem evaluatePlain_gammaScalarDistinct (t : TermIn T c m)
+theorem evaluatePlain_gammaScalarDistinct {lab : ℕ} (t : TermIn T c m)
     {f : SeqAggFunc T} (hf : f.Symmetric)
     (q : AggQueryIn T c m (ColKind.allReg m)) (D : Database T)
     {γ : Fin c → T} :
     (gammaScalarDistinct t f q).evaluatePlain D γ
-      = (GammaScalar ![t] ![f.distinct] q).evaluatePlain D γ := by
+      = (GammaScalar (lab := lab) ![t] ![f.distinct] q).evaluatePlain D γ := by
   simp only [gammaScalarDistinct, AggQueryIn.evaluatePlain,
     evaluatePlain_distinctProj]
   refine congrArg (fun u => (Multiset.ofList [u] : Relation T 1)) (funext fun j => ?_)
@@ -1467,7 +1467,7 @@ def gammaFilter {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (op : CompOp)
     (q : AggQueryIn T c m (ColKind.allReg m)) :
     AggQueryIn T c (n₁ + 1)
       (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
-  Gamma is ![filterTerm op t₁ t₂ t] ![f] q
+  Gamma (lab := 0) is ![filterTerm op t₁ t₂ t] ![f] q
 
 /-- **A window aggregate with a `FILTER` clause.** -/
 def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
@@ -1475,7 +1475,7 @@ def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
     (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w (filterTerm op t₁ t₂ t) f q
+  Win (lab := 0) P O o w (filterTerm op t₁ t₂ t) f q
     (winReadsReg_allReg P O _)
 
 /-- **What a filtered null-skipping aggregation computes over plain
@@ -1560,7 +1560,7 @@ def gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
     (q : AggQueryIn T c m (ColKind.allReg m)) :
     AggQueryIn T c (n₁ + 1)
       (Fin.append (fun _ => ColKind.reg) (fun _ => ColKind.agg)) :=
-  Gamma is ![t] ![f] q (fun _ => some φ)
+  Gamma (lab := 0) is ![t] ![f] q (fun _ => some φ)
 
 /-- **What a filtered aggregation computes over plain relations**: each
 group's aggregate reads the rows of the group the clause keeps. No
@@ -1592,7 +1592,7 @@ def winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool := false) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win P O o w t f q (winReadsReg_allReg P O t) dist (some φ)
+  Win (lab := 0) P O o w t f q (winReadsReg_allReg P O t) dist (some φ)
 
 /-- **What a filtered window aggregate computes over plain relations**:
 each row's aggregate reads the rows of its frame the clause keeps. No
@@ -1634,7 +1634,7 @@ scalar aggregation of the empty relation with no aggregate – PostgreSQL's
 `SELECT;` – and the row it emits exists on its own: no group, so no
 group-existence factor. -/
 def unit : AggQuery T 0 (ColKind.allReg 0) :=
-  (AggQueryIn.GammaScalar (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
+  (AggQueryIn.GammaScalar (lab := 0) (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
       (AggQueryIn.Empty : AggQuery T 0 (ColKind.allReg 0))).castKind
     (funext fun j => j.elim0)
 

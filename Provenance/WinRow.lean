@@ -34,7 +34,7 @@ def wholeExcludeSelf : ValueFrame ℕ 0 := ⟨FrameCond.whole, false⟩
 
 /-- **The witness**: `count(#1) OVER (EXCLUDE CURRENT ROW)` on `R`. -/
 def winWitness : AggQuery ℕ (1 + 1) (Fin.snoc (ColKind.allReg 1) ColKind.agg) :=
-  AggQueryIn.Win (fun i : Fin 0 => i.elim0) (fun i : Fin 0 => i.elim0) (OrderSpec.asc 0)
+  AggQueryIn.Win (lab := 0) (fun i : Fin 0 => i.elim0) (fun i : Fin 0 => i.elim0) (OrderSpec.asc 0)
     wholeExcludeSelf (TermIn.index 0) SeqAggFunc.count (AggQueryIn.Rel 1 "R")
     (winReadsReg_allReg _ _ _)
 
@@ -2090,31 +2090,34 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       unfold muFix
       erw [hK', hiter]
   | Gamma is ts fs q keep ord ih =>
-    rename_i c' m' n₁ n₂
+    rename_i c' m' n₁ n₂ lab
     intro hq hs hh
     refine ⟨fun hl cγ => ?_, fun s m hl => absurd hl (by simp)⟩
     obtain ⟨N, L, b, hv, h⟩ := (ih hq.2 hs.2.2.2 hh).1 rfl cγ
     have hfs : ∀ j, fs j = SeqAggFunc.count := fun j => Set.mem_singleton_iff.mp (hs.2.1 j)
     obtain ⟨Nd, hNd⟩ := exists_decided (((PolyBag.vals_finite L).union
-      (Cset_finite (AggQueryIn.Gamma is ts fs q keep ord).allConsts)).union (Set.finite_range cγ))
+      (Cset_finite (AggQueryIn.Gamma (lab := lab) is ts fs q keep
+          ord).allConsts)).union (Set.finite_range cγ))
     obtain ⟨N', hN'⟩ : ∃ N', N' = max (max N Nd) 1 := ⟨_, rfl⟩
     have hNN : N ≤ N' := hN' ▸ le_trans (le_max_left _ _) (le_max_left _ _)
     have hNdN : Nd ≤ N' := hN' ▸ le_trans (le_max_right _ _) (le_max_left _ _)
     have h1N : 1 ≤ N' := hN' ▸ le_max_right _ _
     have hV : Decided (Union.union (Union.union (PolyBag.vals L)
-      (Cset (AggQueryIn.Gamma is ts fs q keep ord).allConsts)) (Set.range cγ)) N' := hNd.mono hNdN
+      (Cset (AggQueryIn.Gamma (lab := lab) is ts fs q keep
+          ord).allConsts)) (Set.range cγ)) N' := hNd.mono hNdN
     have hVL : ∀ s ∈ L, ∀ j, s.row j ∈ Union.union (Union.union (PolyBag.vals L)
-        (Cset (AggQueryIn.Gamma is ts fs q keep ord).allConsts)) (Set.range cγ) :=
+        (Cset (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).allConsts)) (Set.range cγ) :=
       fun s hs' j => Or.inl (Or.inl ⟨s, hs', j, rfl⟩)
-    have hcA : (AggQueryIn.Gamma is ts fs q keep ord).allConsts
+    have hcA : (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).allConsts
         = Union.union (Union.union (TermIn.constsFam ts)
           (Finset.univ.biUnion (fun j => Selection.constsOpt (keep j)))) q.allConsts := by
       rw [AggQueryIn.allConsts]
     have hVk : ∀ j, Cset (Selection.constsOpt (keep j)) ⊆ Union.union (Union.union (PolyBag.vals L)
-        (Cset (AggQueryIn.Gamma is ts fs q keep ord).allConsts)) (Set.range cγ) := by
+        (Cset (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).allConsts)) (Set.range cγ) := by
       intro j
       refine subset_trans (Cset_mono (A := Selection.constsOpt (keep j))
-        (A' := (AggQueryIn.Gamma is ts fs q keep ord).allConsts) ?_) (fun p hp => Or.inl
+        (A' := (AggQueryIn.Gamma (lab := lab) is ts fs q keep
+            ord).allConsts) ?_) (fun p hp => Or.inl
             (Or.inr hp))
       rw [hcA]
       intro a ha
@@ -2136,7 +2139,8 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       rw [hOUT] at ht
       obtain ⟨g, -, rfl⟩ := List.mem_map.mp ht
       rfl
-    have heval : ∀ n ≥ N', ((AggQueryIn.Gamma is ts fs q keep ord).evaluatePlain (dRep n)
+    have heval : ∀ n ≥ N', ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).evaluatePlain (dRep
+        n)
         (ctxAt cγ n) : Multiset (Tuple ℕ (n₁ + n₂))) = PolyBag.inst OUT n := by
       intro n hn
       have hNn : N ≤ n := le_trans hNN hn
@@ -2183,23 +2187,25 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     rintro p ⟨t, ht, j, rfl⟩
     rw [hOUT] at ht
     obtain ⟨g, hg, rfl⟩ := List.mem_map.mp ht
-    show Fin.append g.row (cnt g.row) j ∈ Univ (AggQueryIn.Gamma is ts fs q keep ord) cγ
+    show Fin.append g.row (cnt g.row) j ∈ Univ (AggQueryIn.Gamma (lab := lab) is ts fs q keep
+        ord) cγ
     refine Fin.addCases (fun i => ?_) (fun i => ?_) j
     · rw [Fin.append_left]
-      exact Univ_mono (q := AggQueryIn.Gamma is ts fs q keep ord) (q' := q)
+      exact Univ_mono (q := AggQueryIn.Gamma (lab := lab) is ts fs q keep ord) (q' := q)
         (by rw [hcA]; intro a ha; exact Finset.mem_union_right _ ha)
             (fun _ => Set.subset_union_left)
         cγ (hv (hKLv ⟨g, hg, i, rfl⟩))
     · rw [Fin.append_right]
       refine Or.inr ⟨N', fun n hn => Or.inr ⟨ctxAt cγ n,
         (⟨1, Fin.append g.row (cnt g.row)⟩ : Shape (n₁ + n₂)).rowAt n, ?_, i, ?_⟩⟩
-      · show Multiset.Mem ((AggQueryIn.Gamma is ts fs q keep ord).evaluatePlain (dRep n)
+      · show Multiset.Mem ((AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).evaluatePlain (dRep
+          n)
           (ctxAt cγ n) : Multiset (Tuple ℕ (n₁ + n₂))) _
         rw [heval n hn]
         exact PolyBag.mem_inst.mpr ⟨_, hOUT ▸ List.mem_map.mpr ⟨g, hg, rfl⟩, by simp, rfl⟩
       · rw [Shape.rowAt_append, Fin.append_right]
   | GammaScalar ts fs q ord ih =>
-    rename_i c' m' n₂
+    rename_i c' m' n₂ lab
     intro hq hs hh
     refine ⟨fun hl cγ => ?_, fun s m hl => absurd hl (by simp)⟩
     obtain ⟨N, L, b, hv, h⟩ := (ih hq.2 hs.2.2 hh).1 rfl cγ
@@ -2213,7 +2219,7 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     have hvac : ∀ (S : Multiset (Tuple ℕ m')) (P : Tuple ℕ m' → Fin 0 → Prop)
         [DecidablePred fun u => ∀ k', P u k'], S.filter (fun u => ∀ k', P u k') = S :=
       fun S P _ => Multiset.filter_eq_self.mpr (fun u _ k' => k'.elim0)
-    have heval : ∀ n ≥ N, ((AggQueryIn.GammaScalar ts fs q ord).evaluatePlain (dRep n)
+    have heval : ∀ n ≥ N, ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).evaluatePlain (dRep n)
         (ctxAt cγ n) : Multiset (Tuple ℕ n₂)) = PolyBag.inst OUT n := by
       intro n hn
       simp only [AggQueryIn.evaluatePlain]
@@ -2234,12 +2240,12 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     rw [ht]
     refine Or.inr ⟨N, fun n hn => Or.inr ⟨ctxAt cγ n, fun _ => ((L.map Shape.mult).sum).eval n,
       ?_, j, rfl⟩⟩
-    show Multiset.Mem ((AggQueryIn.GammaScalar ts fs q ord).evaluatePlain (dRep n)
+    show Multiset.Mem ((AggQueryIn.GammaScalar (lab := lab) ts fs q ord).evaluatePlain (dRep n)
       (ctxAt cγ n) : Multiset (Tuple ℕ n₂)) _
     rw [heval n hn, hOUT]
     exact PolyBag.mem_inst.mpr ⟨_, List.mem_singleton_self _, by simp, rfl⟩
   | GammaNest is his p f q ih =>
-    rename_i c' m' n₁ κ'
+    rename_i c' m' n₁ κ' lab
     intro hq hs hh
     refine ⟨fun hl cγ => ?_, fun s m hl => absurd hl (by simp)⟩
     obtain ⟨hp, ⟨g', hsym, hmem, rfl⟩, hsq⟩ := hs
@@ -2251,7 +2257,8 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     have hNdN : Nd ≤ N' := hN' ▸ le_trans (le_max_right _ _) (le_max_left _ _)
     have h1N : 1 ≤ N' := hN' ▸ le_max_right _ _
     have hV : Decided (PolyBag.vals L) N' := hNd.mono hNdN
-    have hcA : (AggQueryIn.GammaNest is his p (SeqAggFunc.count.onBag hsym) q).allConsts
+    have hcA : (AggQueryIn.GammaNest (lab := lab) is his p (SeqAggFunc.count.onBag hsym)
+        q).allConsts
         = Union.union p.consts q.allConsts := by
       rw [AggQueryIn.allConsts]
     obtain ⟨KL, hKL⟩ : ∃ KL : PolyBag n₁, KL = dedupAt N' (PolyBag.mapRows (Tuple.key is) L) :=
@@ -2269,7 +2276,8 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
       rw [hOUT] at ht
       obtain ⟨g, -, rfl⟩ := List.mem_map.mp ht
       rfl
-    have heval : ∀ n ≥ N', ((AggQueryIn.GammaNest is his p (SeqAggFunc.count.onBag hsym)
+    have heval : ∀ n ≥ N', ((AggQueryIn.GammaNest (lab := lab) is his p (SeqAggFunc.count.onBag
+        hsym)
         q).evaluatePlain (dRep n) (ctxAt cγ n) : Multiset (Tuple ℕ (n₁ + 1)))
         = PolyBag.inst OUT n := by
       intro n hn
@@ -2310,17 +2318,18 @@ theorem sym_aux {S : Set OpKind} (hwin : OpKind.win ∉ S) :
     rw [hOUT] at ht
     obtain ⟨g, hg, rfl⟩ := List.mem_map.mp ht
     show Fin.append g.row (fun _ => cnt g.row) j
-      ∈ Univ (AggQueryIn.GammaNest is his p (SeqAggFunc.count.onBag hsym) q) cγ
+      ∈ Univ (AggQueryIn.GammaNest (lab := lab) is his p (SeqAggFunc.count.onBag hsym) q) cγ
     refine Fin.addCases (fun i => ?_) (fun i => ?_) j
     · rw [Fin.append_left]
-      exact Univ_mono (q := AggQueryIn.GammaNest is his p (SeqAggFunc.count.onBag hsym) q) (q' := q)
+      exact Univ_mono (q := AggQueryIn.GammaNest (lab := lab) is his p (SeqAggFunc.count.onBag
+          hsym) q) (q' := q)
         (by rw [hcA]; intro a ha; exact Finset.mem_union_right _ ha)
             (fun _ => Set.subset_union_left)
         cγ (hv (hKLv ⟨g, hg, i, rfl⟩))
     · rw [Fin.append_right]
       refine Or.inr ⟨N', fun n hn => Or.inr ⟨ctxAt cγ n,
         (⟨1, Fin.append g.row (fun _ => cnt g.row)⟩ : Shape (n₁ + 1)).rowAt n, ?_, ?_⟩⟩
-      · show Multiset.Mem ((AggQueryIn.GammaNest is his p (SeqAggFunc.count.onBag hsym)
+      · show Multiset.Mem ((AggQueryIn.GammaNest (lab := lab) is his p (SeqAggFunc.count.onBag hsym)
           q).evaluatePlain (dRep n) (ctxAt cγ n) : Multiset (Tuple ℕ (n₁ + 1))) _
         rw [heval n hn]
         exact PolyBag.mem_inst.mpr ⟨_, hOUT ▸ List.mem_map.mpr ⟨g, hg, rfl⟩, by simp, rfl⟩

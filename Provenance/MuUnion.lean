@@ -447,13 +447,16 @@ def AggQueryIn.substRel (s : String) {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
   | _, _, _, .Diff q₁ q₂ => .Diff q₁ q₂
   | _, _, _, .Mu s' q₀ q₁ => .Mu s' q₀ q₁
   | _, _, _, .MuSet s' q₀ q₁ => .MuSet s' q₀ q₁
-  | _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q keep ord
-  | _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q ord
-  | _, _, _, .GammaNest is his p f q => .GammaNest is his p f q
+  | _, _, _, .Gamma (lab := lab) is ts fs q keep ord => .Gamma (lab := lab) is ts fs q keep ord
+  | _, _, _, .GammaScalar (lab := lab) ts fs q ord => .GammaScalar (lab := lab) ts fs q ord
+  | _, _, _, .GammaNest (lab := lab) is his p f q => .GammaNest (lab := lab) is his p f q
   | _, _, _, .ProvSum is his t q => .ProvSum is his t q
-  | _, _, _, .GammaTok is his ts fs a q keep => .GammaTok is his ts fs a q keep
-  | _, _, _, .Win P O o w t f q hrr dist keep => .Win P O o w t f q hrr dist keep
-  | _, _, _, .WinExpr P O o ws ts fs g q keeps => .WinExpr P O o ws ts fs g q keeps
+  | _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
+      .GammaTok (lab := lab) is his ts fs a q keep
+  | _, _, _, .Win (lab := lab) P O o w t f q hrr dist keep =>
+      .Win (lab := lab) P O o w t f q hrr dist keep
+  | _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) P O o ws ts fs g q keeps
 
 omit [ValueType T] in
 /-- A closed query not mentioning the name is unchanged. -/
@@ -1181,7 +1184,8 @@ theorem dedupG_kinds (n : ℕ) :
 aggregate: the shape the bases without `ε` use. -/
 def dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c n (ColKind.allReg n) :=
-  (AggQueryIn.Gamma (fun k => k) (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0) q).castKind
+  (AggQueryIn.Gamma (lab := 0) (fun k => k) (fun j : Fin 0 => j.elim0) (fun j : Fin 0 => j.elim0)
+      q).castKind
     (dedupG_kinds n)
 
 theorem evaluatePlain_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)

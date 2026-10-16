@@ -327,12 +327,12 @@ theorem AggQueryIn.evaluateChecked_isSome_iff {c n : ℕ} {κ : Fin n → ColKin
 answers, the column it computes is the value *every* listing of the
 frame in the clause's order gives – so the listing the evaluator happens
 to take decides nothing. -/
-theorem AggQueryIn.windowValue_eq_of_listing_of_determinateOn {c n m p : ℕ}
+theorem AggQueryIn.windowValue_eq_of_listing_of_determinateOn {lab : ℕ} {c n m p : ℕ}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (D : Database T) (γ : Fin c → T)
-    (hdet : (AggQueryIn.Win P O o w t f q hrr dist keep).DeterminateOn D γ)
+    (hdet : (AggQueryIn.Win (lab := lab) P O o w t f q hrr dist keep).DeterminateOn D γ)
     {u : Tuple T n} (hu : u ∈ q.readRows D γ) (L : List (Tuple T n))
     (hL : (↑L : Multiset (Tuple T n))
       = ValueFrame.frameOf (α := Tuple T n) id P O w (q.readRows D γ) u)
@@ -348,13 +348,13 @@ theorem AggQueryIn.windowValue_eq_of_listing_of_determinateOn {c n m p : ℕ}
 
 /-- **And at a grouping**: the aggregate's value on any listing of the
 group in the clause's order is the one the evaluator computes. -/
-theorem AggQueryIn.gammaAgg_eq_of_listing_of_determinateOn {c k n₁ n₂ : ℕ}
+theorem AggQueryIn.gammaAgg_eq_of_listing_of_determinateOn {lab : ℕ} {c k n₁ n₂ : ℕ}
     (is : Tuple (Fin k) n₁) (ts : Tuple (TermIn T c k) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
     (q : AggQueryIn T c k (ColKind.allReg k))
     (keep : Fin n₂ → Option (Selection T k)) (ord : GroupOrder T k)
     (D : Database T) (γ : Fin c → T)
-    (hdet : (AggQueryIn.Gamma is ts fs q keep ord).DeterminateOn D γ)
+    (hdet : (AggQueryIn.Gamma (lab := lab) is ts fs q keep ord).DeterminateOn D γ)
     (j : Fin n₂) (g : Tuple T n₁) (L : List (Tuple T k))
     (hperm : L.Perm (Relation.groupSeq is (q.evaluatePlain D γ) g))
     (hsorted : ord.SortedBy L) :

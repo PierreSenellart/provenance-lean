@@ -901,6 +901,14 @@ def tokenOf {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     AggValue.ofScalarGroup f t
       (frameListOf (α := AnnotatedTuple T K n) Prod.fst P O o w X x) γ
 
+/-- A window's token is built in no family: the operator stamps one. -/
+@[simp] theorem tokenOf_fam {c : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
+    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n) (γ : Fin c → T) :
+    (tokenOf P O o w t f X x γ).fam = (0, []) := by
+  unfold tokenOf
+  split <;> rfl
+
 /-- The relation-level counterpart of `ValueFrame.tokenDist`. -/
 def tokenOfDist [AddCommMonoid K] {c : ℕ} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
@@ -1582,6 +1590,7 @@ def exprOfVals (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   aggs := fs
   scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
   g := g
+  fam := (0, [])
 
 /-- **The same with a `FILTER` clause on each leaf**: the family and the
 frames are the ones `exprOfVals` builds – a clause changes neither – and
@@ -1611,6 +1620,7 @@ def exprOfValsWhen (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
   aggs := fs
   scalar := fun l => !(ws l).s (Tuple.key O (r.row i).fst)
   g := g
+  fam := (0, [])
 
 /-- **No clause is the unfiltered expression**, so everything proved of
 `exprOfVals` applies to a window whose leaves carry none. -/

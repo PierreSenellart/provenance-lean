@@ -429,13 +429,13 @@ noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
 
 /-- A scalar aggregation on one `(term, aggregate)` pair produces the one
 row that carries its token. -/
-theorem evaluate_GammaScalar_one {c m : ℕ} (t : TermIn T c m)
+theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} (t : TermIn T c m)
     (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) :
-    (GammaScalar ![t] ![cnt] q).evaluate d γ
-      = {(⟨fun _ : Fin 1 => Sum.inr (AggTok.tok (AggValue.ofScalarGroup cnt t
+    (GammaScalar (lab := lab) ![t] ![cnt] q).evaluate d γ
+      = {(⟨fun _ : Fin 1 => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup cnt t
             (Having.havingGroup (fun i : Fin 0 => i.elim0)
-              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)),
+              (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)).setFam (lab, [])),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
     Having.havingGroupOrd_unord, Matrix.cons_val_fin_one]
@@ -825,9 +825,10 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
             (fun p => ((fun k => p.fst (is k), p.snd)
               : AnnotatedTuple T K n₁)))).val).map (fun kv =>
         (⟨Fin.append (fun k => Sum.inl (kv.fst k))
-            (fun _ : Fin 1 => Sum.inr (AggTok.expr (AggExpr.ofGroupWhen f t
+            (fun _ : Fin 1 => Sum.inr ((AggTok.expr (AggExpr.ofGroupWhen f t
               φ.keeps (Having.havingGroup is
-                ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ))),
+                ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)).setFam
+                  (0, List.ofFn kv.fst))),
           ⟨1, {(Having.havingGroup is
               ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩⟩
           : GenRow T K (n₁ + 1))) := by

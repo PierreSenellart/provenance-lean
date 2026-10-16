@@ -681,11 +681,11 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 list. -/
 theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (U : List (AnnotatedTuple T K m)) {k : Fin (n₁ + n₂)}
+    (U : List (AnnotatedTuple T K m)) (φ : FamId T) {k : Fin (n₁ + n₂)}
     (hk : ColKind.gammaKinds n₁ n₂ k = ColKind.agg) :
     ∃ a : AggValue T K,
       Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
-          (fun j => Sum.inr (AggTok.tok (AggValue.ofGroup (fs j) (ts j) U))) k
+          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam φ)) k
           = Sum.inr (AggTok.tok a)
         ∧ a.occs.map Prod.snd = U.map Prod.snd := by
   revert hk
@@ -693,8 +693,8 @@ theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
   · intro hk
     rw [ColKind.gammaKinds, Fin.append_left] at hk
     exact ColKind.noConfusion hk
-  · exact fun _ => ⟨AggValue.ofGroup (fs j) (ts j) U,
-      Fin.append_right _ _ j, AggValue.annList_ofGroup _ _ _⟩
+  · exact fun _ => ⟨{ AggValue.ofGroup (fs j) (ts j) U with fam := φ },
+      Fin.append_right _ _ j, AggValue.annList_ofGroup (fs j) (ts j) U⟩
 
 omit [HasAltLinearOrder K] in
 /-- **Superseding the group guard**: when the compared occurrence lists
@@ -764,12 +764,12 @@ otherwise. -/
 def AggQueryIn.havingPredRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
-    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
+    (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) (lab : ℕ := 0) :
     AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂) :=
   AggQueryIn.Retag
     (fun j => congrArg ColKind.base (AggQueryIn.havingPredCols_kind φ j))
     (AggQueryIn.Proj (AggQueryIn.havingPredCols φ)
-      (AggQueryIn.gammaRew is ts fs qg hq))
+      (AggQueryIn.gammaRew is ts fs qg hq lab))
 
 /-- **Correctness of the general `HAVING` site rewriting**, relative to
 the gate primitives, for an arbitrary predicate with an aggregate atom –
@@ -777,20 +777,20 @@ regular atoms mixed in included. The gate term computes the predicate
 provenance; the group guard is superseded exactly when the predicate
 entails the group's existence, and kept as a factor otherwise, matching
 the general evaluator's treatment of the pending group factor. -/
-theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.hasAggAtom = true)
     (hrf : φ.rangeFree = true)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical)
     (d : AnnotatedDatabase T K) :
-    ((AggQueryIn.Sel φ (AggQueryIn.Gamma is ts fs qg)).evaluate d).map
+    ((AggQueryIn.Sel φ (AggQueryIn.Gamma (lab := lab) is ts fs qg)).evaluate d).map
         GenRow.toCompositeRow
-      = (AggQueryIn.havingPredRew is ts fs φ qg hq).evaluateRew
+      = (AggQueryIn.havingPredRew is ts fs φ qg hq lab).evaluateRew
           d.toComposite := by
   unfold AggQueryIn.havingPredRew
   show _ = AggQueryIn.evaluateRew (AggQueryIn.Retag _ _) d.toComposite
   simp only [AggQueryIn.evaluateRew]
-  rw [← AggQueryIn.gammaRew_valid is ts fs qg hq d]
+  rw [← AggQueryIn.gammaRew_valid (lab := lab) is ts fs qg hq d]
   show Multiset.map _ (AggQueryIn.evaluate (AggQueryIn.Sel _ _) d) = _
   simp only [AggQueryIn.evaluate, Having.havingGroupOrd_unord]
   rw [ite_eq_left hφ]
@@ -818,9 +818,9 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       simp only [Bool.false_eq_true, ite_false]
       show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
       rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
-        (gammaRow_noNested kv.fst (fun j => AggValue.ofGroup (fs j) (ts j)
+        (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst)))]
+            kv.fst) with fam := (lab, List.ofFn kv.fst) }))]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -841,7 +841,7 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       obtain ⟨k, hk⟩ := GenPredIn.hasAggAtom_comparedCols_nonempty φ hφ
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
-          (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
+          (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst) (lab, List.ofFn kv.fst)
         (GenPredIn.comparedCols_agg φ hk)
       refine absurd ?_ (Multiset.notMem_zero
         (List.map Prod.snd (Having.havingGroup is
@@ -854,7 +854,7 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       obtain ⟨k, hk, hfk⟩ := (Multiset.mem_filterMap _ _).mp hl'
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
-          (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
+          (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst) (lab, List.ofFn kv.fst)
         (GenPredIn.comparedCols_agg φ (Finset.mem_val.mp hk))
       rw [ha] at hfk
       exact (Option.some.inj hfk).symm.trans hann
@@ -862,9 +862,9 @@ theorem AggQueryIn.havingPredRew_valid {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n
       refine congrArg Sum.inl ?_
       symm
       exact GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
-        (gammaRow_noNested kv.fst (fun j => AggValue.ofGroup (fs j) (ts j)
+        (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst)))
+            kv.fst) with fam := (lab, List.ofFn kv.fst) }))
 
 /-! ## Duplicate elimination in the rewritten world -/
 
@@ -1924,29 +1924,29 @@ inductive AggQueryIn.RewritesTo :
   | classical {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
       (hq : q.classical) :
       RewritesTo q (q.rewritingOf hq)
-  | gamma {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
+  | gamma {lab m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
       (fs : Tuple (SeqAggFunc T) n₂) (qg : AggQuery T m (ColKind.allReg m))
       (hq : qg.classical) :
-      RewritesTo (AggQueryIn.Gamma is ts fs qg)
-        (AggQueryIn.gammaRew is ts fs qg hq)
-  | gammaOf {m n₁ n₂ : ℕ} {qg : AggQuery T m (ColKind.allReg m)}
+      RewritesTo (AggQueryIn.Gamma (lab := lab) is ts fs qg)
+        (AggQueryIn.gammaRew is ts fs qg hq lab)
+  | gammaOf {lab m n₁ n₂ : ℕ} {qg : AggQuery T m (ColKind.allReg m)}
       {q' : AggQuery (T ⊕ K) (m + 1)
         (ColKind.rewKindsOf (ColKind.allReg m))}
       (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
       (fs : Tuple (SeqAggFunc T) n₂)
       (keep : Fin n₂ → Option (Selection T m)) :
       RewritesTo qg q' →
-      RewritesTo (AggQueryIn.Gamma is ts fs qg keep)
+      RewritesTo (AggQueryIn.Gamma (lab := lab) is ts fs qg keep)
         (AggQueryIn.gammaRewOf is ts fs
           (fun k => ColKind.rewKindsOf_of_lt (ColKind.allReg m) (is k).isLt)
-          (ColKind.rewKindsOf_last (ColKind.allReg m)) q' keep)
-  | havingPred {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
+          (ColKind.rewKindsOf_last (ColKind.allReg m)) q' keep lab)
+  | havingPred {lab m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
       (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
       (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
       (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
-      RewritesTo (AggQueryIn.Sel φ (AggQueryIn.Gamma is ts fs qg))
-        (AggQueryIn.havingPredRew is ts fs φ qg hq)
+      RewritesTo (AggQueryIn.Sel φ (AggQueryIn.Gamma (lab := lab) is ts fs qg))
+        (AggQueryIn.havingPredRew is ts fs φ qg hq lab)
   | retag {n : ℕ} {κ : Fin n → ColKind} {κ' κ'' : Fin (n + 1) → ColKind}
       {q : AggQuery T n κ} {q' : AggQuery (T ⊕ K) (n + 1) κ'}
       (h : ∀ k, (κ' k).base = (κ'' k).base) :
@@ -2020,13 +2020,13 @@ rides into the rewritten plan unchanged
 (`Selection.castToAnnotatedTuple`), its aggregate's column becoming an
 expression over the whole group on both sides
 (`AggExpr.ofGroupWhen_toComposite`). -/
-theorem AggQueryIn.rewritesTo_gamma_filter {m n₁ n₂ : ℕ}
+theorem AggQueryIn.rewritesTo_gamma_filter {lab : ℕ} {m n₁ n₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
     (keep : Fin n₂ → Option (Selection T m))
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
     ∃ q' : AggQuery (T ⊕ K) (n₁ + n₂ + 1) (ColKind.gammaRewKinds n₁ n₂),
-      AggQueryIn.RewritesTo (AggQueryIn.Gamma is ts fs qg keep) q' :=
+      AggQueryIn.RewritesTo (AggQueryIn.Gamma (lab := lab) is ts fs qg keep) q' :=
   ⟨_, .gammaOf is ts fs keep (.classical qg hq)⟩
 
 omit [DecidableEq K] in
@@ -2037,7 +2037,7 @@ by a grouping of `c` does in SQL – and the two grouping rules then
 compose through `AggQueryIn.RewritesTo.gammaOf`, which the classical
 `gamma` rule alone cannot do: its subquery has to be classical, and a
 grouping is not. -/
-theorem AggQueryIn.rewritesTo_gamma_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
+theorem AggQueryIn.rewritesTo_gamma_gamma {lab1 lab2 : ℕ} {m m₂ n₁ n₂ p₁ p₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
     (os : Tuple (TermG T (ColKind.gammaKinds n₁ n₂)) m₂)
@@ -2046,9 +2046,9 @@ theorem AggQueryIn.rewritesTo_gamma_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
     ∃ q' : AggQuery (T ⊕ K) (p₁ + p₂ + 1) (ColKind.gammaRewKinds p₁ p₂),
       AggQueryIn.RewritesTo
-        (AggQueryIn.Gamma is' ts' fs'
+        (AggQueryIn.Gamma (lab := lab1) is' ts' fs'
           (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
-            (AggQueryIn.Gamma is ts fs qg))) q' :=
+            (AggQueryIn.Gamma (lab := lab2) is ts fs qg))) q' :=
   ⟨_, .gammaOf is' ts' fs' (fun _ => none)
     (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq))⟩
 
@@ -2059,7 +2059,7 @@ arbitrary rewriting (`gammaOf`) and the selection with an aggregate atom
 over an arbitrary rewriting (`selAgg`). The fused site rule cannot – its
 input has to be classical – and the aggregate-free `sel` rule cannot
 either, the predicate comparing a token. -/
-theorem AggQueryIn.rewritesTo_having_over_gamma {m m₂ n₁ n₂ p₁ p₂ : ℕ}
+theorem AggQueryIn.rewritesTo_having_over_gamma {lab1 lab2 : ℕ} {m m₂ n₁ n₂ p₁ p₂ : ℕ}
     (is : Tuple (Fin m) n₁) (ts : Tuple (Term T m) n₂)
     (fs : Tuple (SeqAggFunc T) n₂)
     (os : Tuple (TermG T (ColKind.gammaKinds n₁ n₂)) m₂)
@@ -2072,9 +2072,9 @@ theorem AggQueryIn.rewritesTo_having_over_gamma {m m₂ n₁ n₂ p₁ p₂ : �
         (ColKind.rewKindsOf (ColKind.gammaKinds p₁ p₂)),
       AggQueryIn.RewritesTo
         (AggQueryIn.Sel φ
-          (AggQueryIn.Gamma is' ts' fs'
+          (AggQueryIn.Gamma (lab := lab1) is' ts' fs'
             (AggQueryIn.Proj (fun j => ProjColIn.term (os j))
-              (AggQueryIn.Gamma is ts fs qg)))) q' :=
+              (AggQueryIn.Gamma (lab := lab2) is ts fs qg)))) q' :=
   ⟨_, .selAgg φ hφ hrf (AggQueryIn.noGammaNest_of_classical qg hq)
     (.gammaOf is' ts' fs' (fun _ => none)
       (.proj (fun j => ProjColIn.term (os j)) (.gamma is ts fs qg hq)))⟩

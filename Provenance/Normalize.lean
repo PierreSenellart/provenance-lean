@@ -55,17 +55,20 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Explode k h q => .Explode k h q.normalize
   | _, _, _, _, .Mu s q₀ q₁ => .Mu s q₀.normalize q₁.normalize
   | _, _, _, _, .MuSet s q₀ q₁ => .MuSet s q₀.normalize q₁.normalize
-  | _, _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs q.normalize keep ord
-  | _, _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs q.normalize ord
-  | _, _, _, _, .GammaNest is his p f q => .GammaNest is his p f q.normalize
+  | _, _, _, _, .Gamma (lab := lab) is ts fs q keep ord =>
+      .Gamma (lab := lab) is ts fs q.normalize keep ord
+  | _, _, _, _, .GammaScalar (lab := lab) ts fs q ord =>
+      .GammaScalar (lab := lab) ts fs q.normalize ord
+  | _, _, _, _, .GammaNest (lab := lab) is his p f q =>
+      .GammaNest (lab := lab) is his p f q.normalize
   | _, _, _, _, .ProvSum is his t q => .ProvSum is his t q.normalize
   | _, _, _, _, .Retag h q => .Retag h q.normalize
-  | _, _, _, _, .GammaTok is his ts fs a q keep =>
-      .GammaTok is his ts fs a q.normalize keep
-  | _, _, _, _, .Win P O o w t f q hrr dist keep =>
-      .Win P O o w t f q.normalize hrr dist keep
-  | _, _, _, _, .WinExpr P O o ws ts fs g q keeps =>
-      .WinExpr P O o ws ts fs g q.normalize keeps
+  | _, _, _, _, .GammaTok (lab := lab) is his ts fs a q keep =>
+      .GammaTok (lab := lab) is his ts fs a q.normalize keep
+  | _, _, _, _, .Win (lab := lab) P O o w t f q hrr dist keep =>
+      .Win (lab := lab) P O o w t f q.normalize hrr dist keep
+  | _, _, _, _, .WinExpr (lab := lab) P O o ws ts fs g q keeps =>
+      .WinExpr (lab := lab) P O o ws ts fs g q.normalize keeps
 
 /-- **No selection directly above a selection**: the shape a normalized
 query has, and the shape on which a chain and its merge cannot differ

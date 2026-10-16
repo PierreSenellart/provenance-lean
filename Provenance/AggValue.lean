@@ -52,6 +52,10 @@ values; the kind-indexed syntax of the general evaluator governs
 statically which columns hold which arm.
 -/
 
+/-- **The identity of an occurrence family**: the label of the operator
+that produced it and a key telling its groups (or rows) apart. -/
+abbrev FamId (T : Type) := ℕ × List T
+
 /-- A symbolic aggregate token: an aggregate function together with the
 (≼-sorted) occurrence payload of the originating group – for each
 occurrence, the value of the aggregated term paired with the occurrence
@@ -73,6 +77,13 @@ structure AggValue (T K : Type) where
   from the operator that built it, past projections and joins, and cannot
   otherwise tell which reading applies. -/
   scalar : Bool := false
+  /-- **Which occurrence family the token reads**: the label of the
+  operator that computed it and the key of its group (or the row a window
+  computed it for). Two aggregate values of one row share their
+  occurrences exactly when they carry the same family, which is what a
+  predicate reading both has to know to read them in one world. No
+  reading of the token itself looks at it. -/
+  fam : FamId T
 
 namespace AggValue
 
@@ -83,7 +94,7 @@ term `t` with `f`: the projection of the group payload. -/
 def ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m))
     (γ : Fin c → T := fun _ => 0) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false⟩
+  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, (0, [])⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=
@@ -167,7 +178,7 @@ def mergeOccs [ValueType T] [AddCommMonoid K] (l : List (T × K)) :
 convention its own. -/
 def mergeByValue [ValueType T] [AddCommMonoid K] (a : AggValue T K) :
     AggValue T K :=
-  ⟨a.agg, mergeOccs a.occs, a.scalar⟩
+  ⟨a.agg, mergeOccs a.occs, a.scalar, a.fam⟩
 
 @[simp] theorem agg_mergeByValue [ValueType T] [AddCommMonoid K]
     (a : AggValue T K) : (mergeByValue a).agg = a.agg := rfl
@@ -226,7 +237,7 @@ def specialize (a : AggValue T K) (ν : K → Bool) : T :=
 /-- Pushforward of `h : K → K'` through the annotations of a token; the
 values are untouched. -/
 def mapAnn (h : K → K') (a : AggValue T K) : AggValue T K' :=
-  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar⟩
+  ⟨a.agg, a.occs.map (fun o => (o.fst, h o.snd)), a.scalar, a.fam⟩
 
 /-- **The merge commutes with a pushforward of the annotations**: the
 classes are the same, since the values are untouched, and each class's

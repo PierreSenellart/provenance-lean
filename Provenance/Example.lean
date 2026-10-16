@@ -91,7 +91,7 @@ def qgPersonnel : AggQuery String 4 (ColKind.allReg 4) :=
 
 /- This query counts persons by city: `γ_{city}[1 : SUM]`. Its output has
 one regular column (the group key) and one *aggregate-token* column. -/
-def qgCount := AggQueryIn.Gamma ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
+def qgCount := AggQueryIn.Gamma (lab := 0) ![3] ![TermIn.const "1"] ![SeqAggFunc.sum]
   qgPersonnel
 
 /- `HAVING COUNT(*) = 2`, as a two-atom aggregate predicate. -/
@@ -185,6 +185,7 @@ theorem gammaRew_rewritten :
           : Multiset _) := by
   decide
 
+set_option maxHeartbeats 1000000 in
 theorem havingRew_rewritten :
     (qgHavingRew.evaluateRew d_count.toComposite).map
         (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),
@@ -227,6 +228,7 @@ theorem mixed_annotated :
           : List ((String × String) × ℕ))) : Multiset _) := by
   decide
 
+set_option maxHeartbeats 1000000 in
 theorem mixedRew_rewritten :
     (qgMixedRew.evaluateRew d_count.toComposite).map
         (fun u => (AggValue.collapseSum (u 0), AggValue.collapseSum (u 1),

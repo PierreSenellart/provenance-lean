@@ -88,6 +88,8 @@ structure NestedValue (T K : Type) where
   /-- Whether the outer reading is scalar – whether the empty world is
   one of its worlds. -/
   scalar : Bool
+  /-- Which occurrence family the value reads (`AggValue.fam`). -/
+  fam : FamId T
 
 namespace NestedValue
 
@@ -697,6 +699,7 @@ def mapAnn (h : K → K') (a : NestedValue T K) : NestedValue T K' where
   agg := a.agg
   occs := a.occs.map (fun o => (o.1.mapAnn h, h o.2))
   scalar := a.scalar
+  fam := a.fam
 
 omit [ValueType T] in
 @[simp] theorem agg_mapAnn (h : K → K') (a : NestedValue T K) :
@@ -1115,7 +1118,7 @@ term over the aggregate column it produces reads. The occurrences, the
 convention and so the worlds are untouched, so every reading is the
 reading of the value, read through `gf`. -/
 def postcomp (gf : T → T) (a : NestedValue T K) : NestedValue T K :=
-  ⟨fun s => gf (a.agg s), a.occs, a.scalar⟩
+  ⟨fun s => gf (a.agg s), a.occs, a.scalar, a.fam⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem occs_postcomp (gf : T → T) (a : NestedValue T K) :
@@ -1176,7 +1179,7 @@ occurrences, and `ann_worldOf` says a world of it carries exactly
 of the token with no occurrence whose aggregate is `v`. Its only world is
 the empty one, and it contributes no occurrence. -/
 def constInner (v : T) : AggExpr T K :=
-  AggExpr.ofValue ⟨fun _ => v, [], true⟩
+  AggExpr.ofValue ⟨fun _ => v, [], true, (0, [])⟩
 
 /-- **The nested value of an ordinary token**: nothing is nested, each
 occurrence carrying a value rather than a family. The token's aggregate
@@ -1186,7 +1189,7 @@ def ofAggValue (a : AggValue T K) (hsym : a.agg.Symmetric) : NestedValue T K :=
   ⟨a.agg.onBag hsym,
     ((a.occs.map (fun o => ((constInner o.fst : AggExpr T K), o.snd)) :
       List (AggExpr T K × K)) : Multiset (AggExpr T K × K)),
-    a.scalar⟩
+    a.scalar, a.fam⟩
 
 /-- **What a subfamily of an unnested token decides about its `i`-th
 occurrence**: the occurrence carries the value there as an inner value
@@ -1324,6 +1327,31 @@ namespace AggTok
 
 omit [ValueType T]
 
+/-- **The occurrence family the value reads** (`AggValue.fam`). -/
+def fam : AggTok T K → FamId T
+  | .tok a => a.fam
+  | .nest a => a.fam
+  | .expr a => a.fam
+
+/-- **The value, read as one of the family `φ`**: what the operator that
+computes it stamps on it. Nothing else changes. -/
+def setFam (φ : FamId T) : AggTok T K → AggTok T K
+  | .tok a => .tok { a with fam := φ }
+  | .nest a => .nest { a with fam := φ }
+  | .expr a => .expr { a with fam := φ }
+
+@[simp] theorem fam_setFam (φ : FamId T) (a : AggTok T K) : (a.setFam φ).fam = φ := by
+  cases a <;> rfl
+
+theorem setFam_tok (φ : FamId T) (a : AggValue T K) :
+    (AggTok.tok a).setFam φ = .tok { a with fam := φ } := rfl
+
+theorem setFam_nest (φ : FamId T) (a : NestedValue T K) :
+    (AggTok.nest a).setFam φ = .nest { a with fam := φ } := rfl
+
+theorem setFam_expr (φ : FamId T) (a : AggExpr T K) :
+    (AggTok.expr a).setFam φ = .expr { a with fam := φ } := rfl
+
 /-- The deterministic reading. -/
 def collapse : AggTok T K → T
   | .tok a => a.collapse
@@ -1450,7 +1478,7 @@ omit [ValueType T] in
 def mapAnn {K' : Type} (h : K → K') : AggTok T K → AggTok T K'
   | .tok a => .tok (a.mapAnn h)
   | .nest a => .nest ⟨a.agg,
-      a.occs.map (fun o => (o.1.mapAnn h, h o.2)), a.scalar⟩
+      a.occs.map (fun o => (o.1.mapAnn h, h o.2)), a.scalar, a.fam⟩
   | .expr a => .expr (a.mapAnn h)
 
 /-! ### The readings, on each kind of token
@@ -1477,7 +1505,7 @@ def predProvOfWith (P : T → Kleene) : AggTok T K → K
 /-- Read the token's aggregate through a function – what a term over
 one aggregate column produces. -/
 def postcomp (gf : T → T) : AggTok T K → AggTok T K
-  | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar⟩
+  | .tok a => .tok ⟨fun L => gf (a.agg L), a.occs, a.scalar, a.fam⟩
   | .nest a => .nest (a.postcomp gf)
   | .expr a => .expr (a.postcomp gf)
 
@@ -1572,6 +1600,63 @@ theorem mapAnn_postcomp {K' : Type} (f : K → K') (gf : T → T)
     (x.postcomp gf).mapAnn f = (x.mapAnn f).postcomp gf := by
   cases x <;> rfl
 
+/-! ### The family a value is stamped with
+
+No reading of a value looks at its family: stamping one changes which
+values a predicate reads together, and nothing about any one of them. -/
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem collapse_setFam (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).collapse = x.collapse := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem scalar_setFam (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).scalar = x.scalar := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem annList_setFam [AddCommMonoid K] (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).annList = x.annList := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isNested_setFam (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).isNested = x.isNested := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem isTok_setFam (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).isTok = x.isTok := by cases x <;> rfl
+
+@[simp] theorem predProvOfWith_setFam (φ : FamId T) (P : T → Kleene) (x : AggTok T K) :
+    (x.setFam φ).predProvOfWith P = x.predProvOfWith P := by cases x <;> rfl
+
+@[simp] theorem predProvOf_setFam (φ : FamId T) (op : CompOp) (c : T) (x : AggTok T K) :
+    (x.setFam φ).predProvOf op c = x.predProvOf op c := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem specialize_setFam (φ : FamId T) (ν : K → Bool) (x : AggTok T K) :
+    (x.setFam φ).specialize ν = x.specialize ν := by cases x <;> rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem vals_setFam (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).vals = x.vals := by cases x <;> rfl
+
+@[simp] theorem altProv_setFam (φ : FamId T) (x : AggTok T K) (v : T) :
+    (x.setFam φ).altProv v = x.altProv v := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem mapAnn_setFam {K' : Type} (f : K → K') (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).mapAnn f = (x.mapAnn f).setFam φ := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem postcomp_setFam (gf : T → T) (φ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).postcomp gf = (x.postcomp gf).setFam φ := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem setFam_setFam (φ ψ : FamId T) (x : AggTok T K) :
+    (x.setFam φ).setFam ψ = x.setFam ψ := by cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+@[simp] theorem setFam_fam (x : AggTok T K) : x.setFam x.fam = x := by cases x <;> rfl
+
 end AggTok
 
 namespace AggValue
@@ -1580,6 +1665,26 @@ omit [ValueType T] in
 /-- The deterministic reading of a lifted value. -/
 def collapseSum : T ⊕ AggTok T K → T :=
   Sum.elim id AggTok.collapse
+
+omit [ValueType T] in
+@[simp] theorem collapseSum_inr_setFam (φ : FamId T) (x : AggTok T K) :
+    collapseSum (Sum.inr (x.setFam φ)) = collapseSum (Sum.inr x) := by
+  cases x <;> rfl
+
+omit [ValueType T] in
+/-- **A lifted value with its family forgotten**: what two queries that
+compute the same values through different operators agree on. -/
+def eraseFamSum : T ⊕ AggTok T K → T ⊕ AggTok T K :=
+  Sum.map id (AggTok.setFam (0, []))
+
+omit [ValueType T] in
+@[simp] theorem eraseFamSum_inl (v : T) :
+    eraseFamSum (Sum.inl v : T ⊕ AggTok T K) = Sum.inl v := rfl
+
+omit [ValueType T] in
+@[simp] theorem eraseFamSum_inr_setFam (φ : FamId T) (x : AggTok T K) :
+    eraseFamSum (Sum.inr (x.setFam φ)) = eraseFamSum (Sum.inr x) := by
+  simp [eraseFamSum]
 
 omit [ValueType T] in
 /-- The annotation pushforward on a lifted value. -/

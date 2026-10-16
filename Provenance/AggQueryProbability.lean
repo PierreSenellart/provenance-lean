@@ -77,6 +77,12 @@ omit [ValueType T] [Fintype X] [DecidableEq X] in
   Iff.rfl
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- The family a value is stamped with is not read by its guard. -/
+@[simp] theorem _root_.AggTok.Realized_setFam (φ : FamId T) (x : AggTok T (BoolFunc X))
+    (v : X → Bool) : (x.setFam φ).Realized v ↔ x.Realized v := by
+  cases x <;> exact Iff.rfl
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **Reading a column through a function leaves its guard alone**: the
 occurrences, the conventions and so the worlds are the ones it had. -/
 @[simp] theorem _root_.AggTok.Realized_postcomp (gf : T → T)
@@ -727,6 +733,12 @@ themselves, a token aggregates its realized occurrences. -/
 def GenValue.specializeAt (v : X → Bool) :
     GenValue T (BoolFunc X) → T :=
   Sum.elim id (fun a => a.specialize (fun α => α v))
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+@[simp] theorem GenValue.specializeAt_inr_setFam (v : X → Bool) (φ : FamId T)
+    (x : AggTok T (BoolFunc X)) :
+    GenValue.specializeAt v (Sum.inr (x.setFam φ)) = GenValue.specializeAt v (Sum.inr x) :=
+  AggTok.specialize_setFam φ _ x
 
 /-- The specialized reading of a row's tuple. -/
 def GenRow.specializeTuple (v : X → Bool)
@@ -1958,7 +1970,7 @@ theorem AggQueryIn.evaluate_guarded :
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
-  | @GammaScalar cI m n₂ ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
     -- every token of a scalar aggregation is scalar, so the guard is vacuous
     intro d γ E r hr v hE _ k a ha
     simp only [AggQueryIn.evaluate] at hr
@@ -1993,11 +2005,11 @@ theorem AggQueryIn.evaluate_guarded :
       | some φ =>
         -- the expression's family is the whole group, so the group's own
         -- guard gives it a realized occurrence – and that is a world of it
-        rw [AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
+        rw [AggTok.Realized_setFam, AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
         refine AggExpr.realizedWorld_nonempty_of_annGuard _ v ?_
         rw [AggExpr.annList_ofGroupWhen]
         exact hG
-  | @GammaNest cI m n₁ κ' is his p f q ih =>
+  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
     -- the group's existence guard is the one annotation its bag of
     -- occurrences sums to, which gives the outer family a realized
     -- occurrence; each occurrence it keeps carries an inner value whose
@@ -2055,7 +2067,7 @@ theorem AggQueryIn.evaluate_guarded :
             (fun k' a'' ha'' => ih d E row
               (Multiset.mem_of_mem_filter (by rw [hrows] at hrow; exact hrow))
               v hE hfinrow k' a'' ha'') ha') hsc
-  | @Win cI n' m' p' κw P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab P O o w t f q hrr dist keep ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
@@ -2093,7 +2105,7 @@ theorem AggQueryIn.evaluate_guarded :
             = ValueFrame.exprWhen P O o w t f dist φ.keeps
                 (OccFam.ofSorted R) i γ := by
           rw [ValueFrame.exprWhen_eq_exprWhenOf, OccFam.toMultiset_ofSorted, hi]
-        rw [hexp, AggTok.Realized_expr]
+        rw [AggTok.Realized_setFam, hexp, AggTok.Realized_expr]
         intro l hl
         have hs : w.s (Tuple.key O ((OccFam.ofSorted R).row i).fst) = true := by
           have hx' : (!w.s (Tuple.key O ((OccFam.ofSorted R).row i).fst))
@@ -2141,7 +2153,7 @@ theorem AggQueryIn.evaluate_guarded :
       exact ColKind.noConfusion hconf
     · rw [Fin.append_right] at hconf
       exact ColKind.noConfusion hconf
-  | @GammaTok cI m n₁ n₂ κ' is his ts fs a' q keep ih =>
+  | @GammaTok cI m n₁ n₂ κ' _lab is his ts fs a' q keep ih =>
     intro d γ E r hr v hE hfin k a ha
     have hconf := AggQueryIn.evaluate_conform _ d r hr k
     rw [ha] at hconf
@@ -2168,7 +2180,7 @@ theorem AggQueryIn.evaluate_guarded :
         | some φ =>
           -- as under `Gamma`: the expression's family is the whole group,
           -- so the group's own guard gives it a realized occurrence
-          rw [AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
+          rw [AggTok.Realized_setFam, AggTok.Realized_expr, AggExpr.isWorld_ofGroupWhen]
           refine AggExpr.realizedWorld_nonempty_of_annGuard _ v ?_
           rw [AggExpr.annList_ofGroupWhen]
           exact hG
@@ -2177,7 +2189,7 @@ theorem AggQueryIn.evaluate_guarded :
   | Retag h q ih =>
     intro d γ E r hr v hE hfin k a ha
     exact ih d E r hr v hE hfin k a ha
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab P O o ws ts fs g q keeps ih =>
     -- the window creates no group, so the row's own annotation is the
     -- whole guard: a valuation that realizes it keeps the current
     -- occurrence, which every leaf whose frame contains the current row
@@ -2196,6 +2208,7 @@ theorem AggQueryIn.evaluate_guarded :
         have := hfin
         dsimp only at this
         rwa [GenAnn.finalize_of_pending_zero] at this
+      rw [AggTok.Realized_setFam]
       show (ValueFrame.exprOfWhen P O o ws ts fs g keeps _ i γ).IsWorld _
       intro l hl
       -- a leaf read in the grouped convention has the current row in its
@@ -3708,7 +3721,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1,
       ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
         (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) hr.2]
-  | @GammaScalar cI m n₂ ts fs q ord ih =>
+  | @GammaScalar cI m n₂ _lab ts fs q ord ih =>
     -- one row on each side, kept in every world, its tokens specializing to
     -- the aggregates over the realized rows
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
@@ -3720,23 +3733,25 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     unfold genRandomWorld
     rw [show Multiset.filter
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
-          {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
+          {(⟨fun j => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
-                (fun i : Fin 0 => i.elim0)) γ)), ⟨1, 0⟩⟩
+                (fun i : Fin 0 => i.elim0)) γ)).setFam (_lab, [])), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
-        = {(⟨fun j => Sum.inr (AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
+        = {(⟨fun j => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
-                (fun i : Fin 0 => i.elim0)) γ)), ⟨1, 0⟩⟩
+                (fun i : Fin 0 => i.elim0)) γ)).setFam (_lab, [])), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         from Multiset.filter_eq_self.mpr (fun r hr => by
           rw [Multiset.mem_singleton] at hr; subst hr; rfl)]
     rw [Multiset.map_singleton]
     exact congrArg (fun u => (Multiset.ofList [u] : Multiset (Tuple T n₂)))
-      (funext fun j => specialize_ofGroupOrd _ ord
-        ((q.evaluate d γ E).map GenRow.toAnnotated) _ (fs j) (ts j) v)
-  | @GammaNest cI m n₁ κ' is his p f q ih =>
+      (funext fun j => by
+        simp only [GenRow.specializeTuple, GenValue.specializeAt_inr_setFam]
+        exact specialize_ofGroupOrd _ ord
+          ((q.evaluate d γ E).map GenRow.toAnnotated) _ (fs j) (ts j) v)
+  | @GammaNest cI m n₁ κ' _lab is his p f q ih =>
     -- one output row per group that the realized world keeps, and its
     -- token specializes to the outer aggregate over the realized rows of
     -- the group: the pending factor is realized exactly when one of the
@@ -3842,7 +3857,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       rfl
     · show GenValue.specializeAt v (Fin.append _ _ (Fin.natAdd n₁ j)) = _
       rw [Fin.append_right, Fin.append_right]
-      show (NestedValue.mk f _ false).specialize
+      show (NestedValue.mk f _ false _).specialize
         (fun α : BoolFunc X => α v) = f _
       rw [NestedValue.specialize_eq]
       refine congrArg f ?_
@@ -3865,7 +3880,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         have hrow' : row ∈ rows := (Multiset.mem_filter.mp hrow).1
         exact ProjColIn.specialize_innerValue p row.fst (hconf row hrow')
           (hnest row hrow') v
-  | @Gamma cI m n₁ n₂ is ts fs q keep ord ih =>
+  | @Gamma cI m n₁ n₂ _lab is ts fs q keep ord ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     have hts : ∀ j u, (ts j).eval u (GenRow.specializeTuple v (E.ctxAt _ γ)) = (ts j).eval u γ :=
@@ -3965,7 +3980,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
   | GammaTok is his ts fs a q keep ih =>
     intro hq
     exact hq.elim
-  | @Win cI nI mI pI κw P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw _lab P O o w t f q hrr dist keep ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame – and a clause cuts the frame by the
@@ -4038,7 +4053,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
   | Retag h q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     exact ih hq hn hh hwk d v E D N hE hG hEN hD hN hH hr
-  | @WinExpr cI nI mI pI qI P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab P O o ws ts fs g q keeps ih =>
     -- one output row per realized occurrence. The column specializes to
     -- the plain window value the realized world gives the row
     -- (`exprOf_specialize`), so nothing depends on the indexing – which
