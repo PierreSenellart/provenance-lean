@@ -15,17 +15,21 @@ the copies of a tuple without applying `δ`, so its rounds are `ε` of the
 truncated sums of the rounds of a bag recursion (`PathSum`). The bounded
 simulation of the plain semantics (`MuUnion`) therefore carries over, with
 one change: its counter must not multiply the derivations it is paired
-with. Here it is a *successor* counter whose rows are annotated `𝟙`, which
-a grouping gives where `δ` is the support map and no instance row is
-annotated `𝟘`; and the rounds settle within the size of the tuple set
-where the semiring is absorptive or cancellative without zero divisors
-(`PathSum.SettlesEarly`).
+with. Here it is a *successor* counter: where `δ` is the support map, a
+grouping annotates a counter `𝟙` or `𝟘`, and a round moves to the next
+counter annotated `𝟙` (`wt_ctrSucc`, `wt_ctrLeast`), the others carrying
+rows that weigh nothing (`PathSum.SimSpec`, with its two lists of
+counters); the rounds settle within the size of a tuple set where the
+semiring is absorptive or cancellative without zero divisors
+(`PathSum.SettlesEarly`), and `evaluate_simResultA` is the simulation's
+correctness under those counts.
 
 The construction takes the counter as a parameter `ch`: `false` for the
-successor counter, `true` for the all-chains one of
-`Provenance.AnnotatedChains`, which serves where `δ` is the identity. The
+successor counter, `true` for the all-chains one, which serves where `δ`
+is the identity. Its width is `(2c + 2) n` either way (`ctrWidth`). The
 pass is correct wherever its node is (`AggQueryIn.NodeCorrect`), and so is
-the basis theorem (`generatesAnnOn_annEpsOps_of`).
+the basis theorem (`generatesAnnOn_annEpsOps_of`); the two nodes are
+proved in `Provenance.AnnotatedChains`.
 
 This module works on the annotated relation a query gives, `ann`, which
 is all the construction reads: every relation it builds is all-regular.
@@ -705,47 +709,6 @@ theorem holdsPlain_halvesLt (K' : ℕ) (a b : Tuple T K') (γ : Fin c → T)
   rw [halvesLt, holdsPlain_ltPredOn_asc _ _ _ _ (fun k => (congrFun hx k).symm ▸ ha k)
     (fun k => (congrFun hy k).symm ▸ hb k), hx, hy]
 
-/-- **The ordered pairs of counters**, each once, annotated `𝟙`. -/
-theorem ann_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
-    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
-    (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) :
-    (ctrLt EQ K').ann d γ E
-      = ((((W.product W).filter (fun p => ascLt K' p.1 p.2)).map
-          (fun p => (Fin.append p.1 p.2 : Tuple T (K' + K')))).map
-          (fun u => ((u, 1) : AnnotatedTuple T K (K' + K')))) := by
-  rw [ctrLt, ann_sel _ _ _ (hasAggAtom_halvesLt K'), ann_prodA, hW, product_map_map',
-    Multiset.map_map, Multiset.filter_map, Multiset.map_map]
-  have hf : Multiset.filter ((fun p : AnnotatedTuple T K (K' + K') =>
-        (halvesLt K').holdsPlain p.1 γ)
-      ∘ ((fun p => ((Fin.append p.1.1 p.2.1, p.1.2 * p.2.2) : AnnotatedTuple T K (K' + K')))
-        ∘ fun p => (((p.1, 1) : AnnotatedTuple T K K'), ((p.2, 1) : AnnotatedTuple T K K'))))
-      (W.product W) = (W.product W).filter (fun p => ascLt K' p.1 p.2) := by
-    refine Multiset.filter_congr fun p hp => ?_
-    obtain ⟨h₁, h₂⟩ := Multiset.mem_product.1 hp
-    exact holdsPlain_halvesLt K' p.1 p.2 γ (hnn _ h₁) (hnn _ h₂)
-  refine (congrArg (Multiset.map _) hf).trans ?_
-  refine Multiset.map_congr rfl fun p _ => ?_
-  simp only [Function.comp, mul_one]
-
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-/-- **`𝟙` minus the weight of rows annotated `𝟙`** is `𝟙` where there is
-none and `𝟘` where there is one. -/
-theorem one_sub_wt_ones {α : Type} [DecidableEq α] (X : Multiset (α × K))
-    (h1 : ∀ p ∈ X, p.2 = 1) (x : α) :
-    ((1 : K) - PathSum.wt X x : K) = if x ∈ PathSum.supp X then 0 else 1 := by
-  split_ifs with hx
-  · obtain ⟨p, hp, rfl⟩ := PathSum.mem_supp.1 hx
-    have hle : (1 : K) ≤ PathSum.wt X p.1 := by
-      unfold PathSum.wt
-      rw [← h1 p hp]
-      exact Multiset.le_sum_of_mem (Multiset.mem_map_of_mem Prod.snd
-        (Multiset.mem_filter.2 ⟨hp, rfl⟩ : p ∈ X.filter (fun q => q.1 = p.1)))
-    refine le_antisymm ?_ zero_le
-    rw [SemiringWithMonus.monus_spec, add_zero]
-    exact hle
-  · rw [PathSum.wt_eq_zero_of_notMem hx, monus_zero]
-
 theorem holdsPlain_and' {m : ℕ} (φ ψ : GenPredIn T c (ColKind.allReg m)) (u : Tuple T m)
     (γ : Fin c → T) : (GenPredIn.and φ ψ).holdsPlain u γ ↔ φ.holdsPlain u γ ∧ ψ.holdsPlain u γ :=
   Kleene.and_eq_true_iff _ _
@@ -772,28 +735,29 @@ theorem holdsPlain_midLt (K' : ℕ) (a m b : Tuple T K') (γ : Fin c → T)
       (fun k => (congrFun e₃ k).symm ▸ hb k), e₁, e₂, e₃]
 
 /-- **The pairs of counters with one between**, once per counter between,
-annotated `𝟙`. -/
+annotated by the product of the three counters' annotations. -/
 theorem ann_ctrMid (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) :
     (ctrMid EQ K').ann d γ E
-      = ((((W.product W).product W).filter
+      = (((W.product W).product W).filter
           (fun p => ascLt K' p.1.1 p.1.2 ∧ ascLt K' p.1.2 p.2)).map
-          (fun p => (Fin.append p.1.1 p.2 : Tuple T (K' + K')))).map
-          (fun u => ((u, 1) : AnnotatedTuple T K (K' + K'))) := by
+          (fun p => ((Fin.append p.1.1 p.2, w p.1.1 * w p.1.2 * w p.2)
+            : AnnotatedTuple T K (K' + K'))) := by
   rw [ctrMid, ann_keepCols, ann_sel _ _ _ (hasAggAtom_midLt K'), ann_prodA, ann_prodA, hW,
-    product_map_map' (fun v => ((v, 1) : AnnotatedTuple T K K'))
-      (fun v => ((v, 1) : AnnotatedTuple T K K')) W W, Multiset.map_map,
-    product_map_map' _ (fun v => ((v, 1) : AnnotatedTuple T K K')) (W.product W) W,
-    Multiset.map_map, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+    product_map_map' (fun v => ((v, w v) : AnnotatedTuple T K K'))
+      (fun v => ((v, w v) : AnnotatedTuple T K K')) W W, Multiset.map_map,
+    product_map_map' _ (fun v => ((v, w v) : AnnotatedTuple T K K')) (W.product W) W,
+    Multiset.map_map, Multiset.filter_map, Multiset.map_map]
   apply map_filter_congr
   · intro p hp
     obtain ⟨h₁₂, h₃⟩ := Multiset.mem_product.1 hp
     obtain ⟨h₁, h₂⟩ := Multiset.mem_product.1 h₁₂
     exact holdsPlain_midLt K' _ _ _ γ (hnn _ h₁) (hnn _ h₂) (hnn _ h₃)
   · intro p _ _
-    simp only [Function.comp, mul_one]
+    simp only [Function.comp]
     refine Prod.ext (funext fun j => ?_) rfl
     refine Fin.addCases (fun i => ?_) (fun i => ?_) j
     · show Fin.append (Fin.append p.1.1 p.1.2) p.2 (outerThirds K' (Fin.castAdd K' i)) = _
@@ -833,97 +797,207 @@ theorem nodup_ltPairs {K' : ℕ} {W : Multiset (Tuple T K')} (hW : W.Nodup) : (l
     obtain ⟨h₁, h₂⟩ := append_eq_append_iff.1 h; exact Prod.ext h₁ h₂)
     (Multiset.Nodup.filter _ (Multiset.Nodup.product hW hW))
 
+/-- **The ordered pairs of counters**, each once, annotated by the product
+of the two counters' annotations. -/
+theorem ann_ctrLt (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
+    (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) :
+    (ctrLt EQ K').ann d γ E
+      = (ltPairs W).map (fun u => ((u, w (fun k => u (Fin.castAdd K' k))
+          * w (fun j => u (Fin.natAdd K' j))) : AnnotatedTuple T K (K' + K'))) := by
+  rw [ctrLt, ann_sel _ _ _ (hasAggAtom_halvesLt K'), ann_prodA, hW, product_map_map',
+    Multiset.map_map, Multiset.filter_map, ltPairs, Multiset.map_map]
+  have hf : Multiset.filter ((fun p : AnnotatedTuple T K (K' + K') =>
+        (halvesLt K').holdsPlain p.1 γ)
+      ∘ ((fun p => ((Fin.append p.1.1 p.2.1, p.1.2 * p.2.2) : AnnotatedTuple T K (K' + K')))
+        ∘ fun p => (((p.1, w p.1) : AnnotatedTuple T K K'),
+          ((p.2, w p.2) : AnnotatedTuple T K K'))))
+      (W.product W) = (W.product W).filter (fun p => ascLt K' p.1 p.2) := by
+    refine Multiset.filter_congr fun p hp => ?_
+    obtain ⟨h₁, h₂⟩ := Multiset.mem_product.1 hp
+    exact holdsPlain_halvesLt K' p.1 p.2 γ (hnn _ h₁) (hnn _ h₂)
+  refine (congrArg (Multiset.map _) hf).trans ?_
+  refine Multiset.map_congr rfl fun p _ => ?_
+  simp only [Function.comp]
+  refine Prod.ext rfl ?_
+  show w p.1 * w p.2 = w (fun k => Fin.append p.1 p.2 (Fin.castAdd K' k))
+    * w (fun j => Fin.append p.1 p.2 (Fin.natAdd K' j))
+  simp only [Fin.append_left, Fin.append_right]
+
 open Classical in
-/-- **The successor relation's weights**: `𝟙` on a pair with nothing
-between, `𝟘` on any other ordered pair, and no row elsewhere. -/
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **`𝟙` minus the weight of rows annotated `𝟘` or `𝟙`** is `𝟘` where one
+of them is annotated `𝟙` and `𝟙` elsewhere. -/
+theorem one_sub_wt_01 {α : Type} [DecidableEq α] (X : Multiset (α × K))
+    (h01 : ∀ p ∈ X, p.2 = 0 ∨ p.2 = 1) (x : α) :
+    ((1 : K) - PathSum.wt X x : K) = if ∃ p ∈ X, p.1 = x ∧ p.2 = 1 then 0 else 1 := by
+  split_ifs with hx
+  · obtain ⟨p, hp, rfl, h1⟩ := hx
+    have hle : (1 : K) ≤ PathSum.wt X p.1 := by
+      unfold PathSum.wt
+      rw [← h1]
+      exact Multiset.le_sum_of_mem (Multiset.mem_map_of_mem Prod.snd
+        (Multiset.mem_filter.2 ⟨hp, rfl⟩ : p ∈ X.filter (fun q => q.1 = p.1)))
+    refine le_antisymm ?_ zero_le
+    rw [SemiringWithMonus.monus_spec, add_zero]
+    exact hle
+  · have h0 : PathSum.wt X x = 0 := by
+      unfold PathSum.wt
+      refine Multiset.sum_eq_zero fun a ha => ?_
+      obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 ha
+      obtain ⟨hp, hpx⟩ := Multiset.mem_filter.1 hp
+      exact (h01 p hp).resolve_right fun h1 => hx ⟨p, hp, hpx, h1⟩
+    rw [h0, monus_zero]
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem ind_mul_ind [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+    ((if p then (1 : K) else 0) * (if q then 1 else 0) : K) = if p ∧ q then 1 else 0 := by
+  by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem ite_nested_one [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+    (if p then (if q then (1 : K) else 0) else 0) = if p ∧ q then 1 else 0 := by
+  by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem ite_nested_zero [CommSemiringWithMonus K] (p q : Prop) [Decidable p] [Decidable q] :
+    (if p then (if q then (0 : K) else 1) else 0) = if p ∧ ¬ q then 1 else 0 := by
+  by_cases hp : p <;> by_cases hq : q <;> simp [hp, hq]
+
+open Classical in
+/-- **The successor relation's weights**, for counters annotated `𝟙` where
+`P` holds and `𝟘` elsewhere: `𝟙` on a pair of the counters `P` keeps with
+none of them between, `𝟘` on any other ordered pair, and no row
+elsewhere. -/
 theorem wt_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hWn : W.Nodup)
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (hWn : W.Nodup) (P : Tuple T K' → Prop)
+    (hW : (ctr EQ K').ann d γ E
+      = W.map (fun v => ((v, if P v then 1 else 0) : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (a b : Tuple T K') :
     PathSum.wt ((ctrSucc EQ K').ann d γ E) (Fin.append a b)
       = if a ∈ W ∧ b ∈ W ∧ ascLt K' a b then
-          (if ∃ m ∈ W, ascLt K' a m ∧ ascLt K' m b then 0 else 1) else 0 := by
+          (if P a ∧ P b ∧ ¬ ∃ m ∈ W, P m ∧ ascLt K' a m ∧ ascLt K' m b then 1 else 0)
+        else 0 := by
   have hS : (ctrSucc EQ K').ann d γ E = (ltPairs W).map (fun u =>
-      ((u, (1 : K) - PathSum.wt ((ctrMid EQ K').ann d γ E) u) : AnnotatedTuple T K (K' + K'))) := by
-    rw [ctrSucc, ann_diff, ann_ctrLt EQ K' d γ E W hW hnn, Multiset.map_map]
+      ((u, ((if P (fun k => u (Fin.castAdd K' k)) then (1 : K) else 0)
+        * (if P (fun j => u (Fin.natAdd K' j)) then 1 else 0))
+        - PathSum.wt ((ctrMid EQ K').ann d γ E) u) : AnnotatedTuple T K (K' + K'))) := by
+    rw [ctrSucc, ann_diff, ann_ctrLt EQ K' d γ E W _ hW hnn, Multiset.map_map]
     rfl
   rw [hS, PathSum.wt_map_nodup (nodup_ltPairs hWn)]
+  obtain ⟨X, hX⟩ : ∃ X : Multiset (Tuple T (K' + K') × K), X = (ctrMid EQ K').ann d γ E :=
+    ⟨_, rfl⟩
+  rw [← hX]
   have hiff : Fin.append a b ∈ ltPairs W ↔ a ∈ W ∧ b ∈ W ∧ ascLt K' a b := mem_ltPairs a b
-  have hones : ∀ p ∈ (ctrMid EQ K').ann d γ E, p.2 = 1 := by
-    rw [ann_ctrMid EQ K' d γ E W hW hnn]
+  have h01 : ∀ p ∈ X, p.2 = 0 ∨ p.2 = 1 := by
+    rw [hX, ann_ctrMid EQ K' d γ E W _ hW hnn]
     intro p hp
     obtain ⟨_, _, rfl⟩ := Multiset.mem_map.1 hp
-    rfl
-  have hsupp : Fin.append a b ∈ PathSum.supp ((ctrMid EQ K').ann d γ E)
-      ↔ ∃ m ∈ W, a ∈ W ∧ b ∈ W ∧ ascLt K' a m ∧ ascLt K' m b := by
-    rw [ann_ctrMid EQ K' d γ E W hW hnn, PathSum.supp_map]
-    simp only [Multiset.mem_toFinset, Multiset.map_id', Multiset.mem_map, Multiset.mem_filter]
+    simp only [ind_mul_ind]
+    split_ifs <;> simp
+  have hone : ¬ (1 : K) = 0 → ((∃ p ∈ X, p.1 = Fin.append a b ∧ p.2 = 1)
+      ↔ ∃ m ∈ W, a ∈ W ∧ b ∈ W ∧ ascLt K' a m ∧ ascLt K' m b ∧ P a ∧ P m ∧ P b) := by
+    intro h10
+    rw [hX, ann_ctrMid EQ K' d γ E W _ hW hnn]
+    simp only [Multiset.mem_map, Multiset.mem_filter, ind_mul_ind]
     constructor
-    · rintro ⟨⟨⟨a', m⟩, b'⟩, ⟨hp, h₁m, hm₂⟩, he⟩
+    · rintro ⟨_, ⟨⟨⟨a', m⟩, b'⟩, ⟨hp, h₁m, hm₂⟩, rfl⟩, he, h1⟩
       obtain ⟨h₁₂, hb'⟩ := Multiset.mem_product.1 hp
       obtain ⟨ha', hm⟩ := Multiset.mem_product.1 h₁₂
       obtain ⟨rfl, rfl⟩ := append_eq_append_iff.1 he
-      exact ⟨m, hm, ha', hb', h₁m, hm₂⟩
-    · rintro ⟨m, hm, ha, hb, h₁m, hm₂⟩
-      exact ⟨((a, m), b), ⟨Multiset.mem_product.2 ⟨Multiset.mem_product.2 ⟨ha, hm⟩, hb⟩,
-        h₁m, hm₂⟩, rfl⟩
+      split_ifs at h1 with hP
+      · exact ⟨m, hm, ha', hb', h₁m, hm₂, hP.1.1, hP.1.2, hP.2⟩
+      · exact absurd h1.symm h10
+    · rintro ⟨m, hm, ha, hb, h₁m, hm₂, hPa, hPm, hPb⟩
+      exact ⟨_, ⟨((a, m), b), ⟨Multiset.mem_product.2 ⟨Multiset.mem_product.2 ⟨ha, hm⟩, hb⟩,
+        h₁m, hm₂⟩, rfl⟩, rfl, by simp [hPa, hPm, hPb]⟩
   by_cases h₁ : a ∈ W ∧ b ∈ W ∧ ascLt K' a b
-  · rw [ite_eq_left (hiff.2 h₁), ite_eq_left h₁, one_sub_wt_ones _ hones]
-    by_cases h₂ : ∃ m ∈ W, ascLt K' a m ∧ ascLt K' m b
-    · obtain ⟨m, hm, h₁m, hm₂⟩ := h₂
-      rw [ite_eq_left (hsupp.2 ⟨m, hm, h₁.1, h₁.2.1, h₁m, hm₂⟩), ite_eq_left ⟨m, hm, h₁m, hm₂⟩]
-    · rw [ite_eq_right (fun h => h₂ (by
-        obtain ⟨m, hm, -, -, h₁m, hm₂⟩ := hsupp.1 h; exact ⟨m, hm, h₁m, hm₂⟩)), ite_eq_right h₂]
+  · rw [ite_eq_left (hiff.2 h₁), ite_eq_left h₁]
+    simp only [Fin.append_left, Fin.append_right, ind_mul_ind]
+    by_cases hP : P a ∧ P b
+    · rw [ite_eq_left hP, one_sub_wt_01 _ h01]
+      by_cases h10 : (1 : K) = 0
+      · have : ∀ x : K, x = 0 := fun x => by rw [← mul_one x, h10, mul_zero]
+        exact (this _).trans (this _).symm
+      rw [hone h10]
+      by_cases hm : ∃ m ∈ W, P m ∧ ascLt K' a m ∧ ascLt K' m b
+      · obtain ⟨m, hm, hPm, h₁m, hm₂⟩ := hm
+        rw [ite_eq_left ⟨m, hm, h₁.1, h₁.2.1, h₁m, hm₂, hP.1, hPm, hP.2⟩,
+          ite_eq_right (fun h => h.2.2 ⟨m, hm, hPm, h₁m, hm₂⟩)]
+      · rw [ite_eq_right (fun ⟨m, hm', _, _, h₁m, hm₂, _, hPm, _⟩ =>
+          hm ⟨m, hm', hPm, h₁m, hm₂⟩), ite_eq_left ⟨hP.1, hP.2, hm⟩]
+    · rw [ite_eq_right hP, zero_monus, ite_eq_right (fun h => hP ⟨h.1, h.2.1⟩)]
   · rw [ite_eq_right (fun h => h₁ (hiff.1 h)), ite_eq_right h₁]
 
 open Classical in
-/-- **The least counter's weights**: `𝟙` on the least counter, `𝟘` on the
+/-- **The least counter's weights**, for counters annotated `𝟙` where `P`
+holds and `𝟘` elsewhere: `𝟙` on the least counter `P` keeps, `𝟘` on the
 others. -/
 theorem wt_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hWn : W.Nodup)
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (hWn : W.Nodup) (P : Tuple T K' → Prop)
+    (hW : (ctr EQ K').ann d γ E
+      = W.map (fun v => ((v, if P v then 1 else 0) : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (b : Tuple T K') :
     PathSum.wt ((ctrLeast EQ K').ann d γ E) b
-      = if b ∈ W then (if ∃ a ∈ W, ascLt K' a b then 0 else 1) else 0 := by
-  set P := (keepCols (fun j => Fin.natAdd K' j) (ctrLt EQ K')).ann d γ E with hP
-  have hPe : P = (ltPairs W).map (fun u =>
-      (((fun j => u (Fin.natAdd K' j)), 1) : AnnotatedTuple T K K')) := by
-    rw [hP, ann_keepCols, ann_ctrLt EQ K' d γ E W hW hnn, Multiset.map_map]
+      = if b ∈ W then (if P b ∧ ¬ ∃ a ∈ W, P a ∧ ascLt K' a b then 1 else 0) else 0 := by
+  obtain ⟨Q, hQ⟩ : ∃ Q : Multiset (Tuple T K' × K),
+      Q = (keepCols (fun j => Fin.natAdd K' j) (ctrLt EQ K')).ann d γ E := ⟨_, rfl⟩
+  have hQe : Q = (ltPairs W).map (fun u => (((fun j => u (Fin.natAdd K' j)),
+      (if P (fun k => u (Fin.castAdd K' k)) then (1 : K) else 0)
+        * (if P (fun j => u (Fin.natAdd K' j)) then 1 else 0)) : AnnotatedTuple T K K')) := by
+    rw [hQ, ann_keepCols, ann_ctrLt EQ K' d γ E W _ hW hnn, Multiset.map_map]
     rfl
-  have hL : (ctrLeast EQ K').ann d γ E
-      = W.map (fun v => ((v, (1 : K) - PathSum.wt P v) : AnnotatedTuple T K K')) := by
-    rw [ctrLeast, ann_diff, hW, Multiset.map_map]
+  have hL : (ctrLeast EQ K').ann d γ E = W.map (fun v =>
+      ((v, (if P v then (1 : K) else 0) - PathSum.wt Q v) : AnnotatedTuple T K K')) := by
+    rw [hQ, ctrLeast, ann_diff, hW, Multiset.map_map]
     rfl
-  have hones : ∀ p ∈ P, p.2 = 1 := by
-    rw [hPe]; intro p hp; obtain ⟨_, _, rfl⟩ := Multiset.mem_map.1 hp; rfl
-  have hsupp : b ∈ PathSum.supp P ↔ ∃ a ∈ W, b ∈ W ∧ ascLt K' a b := by
-    rw [hPe, PathSum.supp_map]
-    simp only [Multiset.mem_toFinset, Multiset.mem_map]
+  have h01 : ∀ p ∈ Q, p.2 = 0 ∨ p.2 = 1 := by
+    rw [hQe]; intro p hp; obtain ⟨_, _, rfl⟩ := Multiset.mem_map.1 hp
+    simp only [ind_mul_ind]
+    split_ifs <;> simp
+  have hone : ¬ (1 : K) = 0 → ((∃ p ∈ Q, p.1 = b ∧ p.2 = 1)
+      ↔ ∃ a ∈ W, b ∈ W ∧ ascLt K' a b ∧ P a ∧ P b) := by
+    intro h10
+    rw [hQe]
+    simp only [Multiset.mem_map, ind_mul_ind]
     constructor
-    · rintro ⟨u, hu, rfl⟩
+    · rintro ⟨_, ⟨u, hu, rfl⟩, he, h1⟩
       obtain ⟨⟨a', b'⟩, hab, rfl⟩ := Multiset.mem_map.1 hu
       obtain ⟨hp, hlt⟩ := Multiset.mem_filter.1 hab
       obtain ⟨ha', hb'⟩ := Multiset.mem_product.1 hp
-      have e : (fun j => (Fin.append a' b' : Tuple T (K' + K')) (Fin.natAdd K' j)) = b' :=
-        funext fun j => Fin.append_right a' b' j
-      refine ⟨a', ha', ?_, ?_⟩
-      · show (fun j => (Fin.append a' b' : Tuple T (K' + K')) (Fin.natAdd K' j)) ∈ W
-        rw [e]; exact hb'
-      · show ascLt K' a' (fun j => (Fin.append a' b' : Tuple T (K' + K')) (Fin.natAdd K' j))
-        rw [e]; exact hlt
-    · rintro ⟨a, ha, hb, hlt⟩
-      exact ⟨Fin.append a b, (mem_ltPairs a b).2 ⟨ha, hb, hlt⟩,
-        funext fun j => Fin.append_right a b j⟩
+      simp only [Fin.append_left, Fin.append_right] at he h1
+      subst he
+      split_ifs at h1 with hP
+      · exact ⟨a', ha', hb', hlt, hP.1, hP.2⟩
+      · exact absurd h1.symm h10
+    · rintro ⟨a, ha, hb, hlt, hPa, hPb⟩
+      refine ⟨_, ⟨Fin.append a b, (mem_ltPairs a b).2 ⟨ha, hb, hlt⟩, rfl⟩, ?_, ?_⟩
+      · exact funext fun j => Fin.append_right a b j
+      · have e₁ : (fun k => (Fin.append a b : Tuple T (K' + K')) (Fin.castAdd K' k)) = a :=
+          funext fun k => Fin.append_left a b k
+        have e₂ : (fun j => (Fin.append a b : Tuple T (K' + K')) (Fin.natAdd K' j)) = b :=
+          funext fun j => Fin.append_right a b j
+        rw [e₁, e₂, ite_eq_left ⟨hPa, hPb⟩]
   rw [hL, PathSum.wt_map_nodup hWn]
   by_cases hb : b ∈ W
-  · rw [ite_eq_left hb, ite_eq_left hb, one_sub_wt_ones _ hones]
-    by_cases ha : ∃ a ∈ W, ascLt K' a b
-    · obtain ⟨a, ha, hlt⟩ := ha
-      rw [ite_eq_left (hsupp.2 ⟨a, ha, hb, hlt⟩), ite_eq_left ⟨a, ha, hlt⟩]
-    · rw [ite_eq_right (fun h => ha (by obtain ⟨a, ha, -, hlt⟩ := hsupp.1 h; exact ⟨a, ha, hlt⟩)),
-        ite_eq_right ha]
+  · rw [ite_eq_left hb, ite_eq_left hb]
+    by_cases hPb : P b
+    · rw [ite_eq_left hPb, one_sub_wt_01 _ h01]
+      by_cases h10 : (1 : K) = 0
+      · have : ∀ x : K, x = 0 := fun x => by rw [← mul_one x, h10, mul_zero]
+        exact (this _).trans (this _).symm
+      rw [hone h10]
+      by_cases ha : ∃ a ∈ W, P a ∧ ascLt K' a b
+      · obtain ⟨a, ha, hPa, hlt⟩ := ha
+        rw [ite_eq_left ⟨a, ha, hb, hlt, hPa, hPb⟩,
+          ite_eq_right (fun h => h.2 ⟨a, ha, hPa, hlt⟩)]
+      · rw [ite_eq_right (fun ⟨a, ha', _, hlt, hPa, _⟩ => ha ⟨a, ha', hPa, hlt⟩),
+          ite_eq_left ⟨hPb, ha⟩]
+    · rw [ite_eq_right hPb, zero_monus, ite_eq_right (fun h => hPb h.1)]
   · rw [ite_eq_right hb, ite_eq_right hb]
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
@@ -1153,38 +1227,43 @@ variable {c : ℕ}
 /-- **The successor relation**, as one row per ordered pair. -/
 theorem ann_ctrSucc_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) :
     (ctrSucc EQ K').ann d γ E = (ltPairs W).map (fun u =>
-      ((u, (1 : K) - PathSum.wt ((ctrMid EQ K').ann d γ E) u) : AnnotatedTuple T K (K' + K'))) := by
-  rw [ctrSucc, ann_diff, ann_ctrLt EQ K' d γ E W hW hnn, Multiset.map_map]
+      ((u, w (fun k => u (Fin.castAdd K' k)) * w (fun j => u (Fin.natAdd K' j))
+        - PathSum.wt ((ctrMid EQ K').ann d γ E) u) : AnnotatedTuple T K (K' + K'))) := by
+  rw [ctrSucc, ann_diff, ann_ctrLt EQ K' d γ E W w hW hnn, Multiset.map_map]
   rfl
 
 /-- **The least-counter relation**, as one row per counter. -/
 theorem ann_ctrLeast_eq (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K'))) :
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K'))) :
     ∃ f : Tuple T K' → K, (ctrLeast EQ K').ann d γ E
       = W.map (fun v => ((v, f v) : AnnotatedTuple T K K')) := by
-  refine ⟨fun v => (1 : K) - PathSum.wt
+  refine ⟨fun v => w v - PathSum.wt
     ((keepCols (fun j => Fin.natAdd K' j) (ctrLt EQ K')).ann d γ E) v, ?_⟩
   rw [ctrLeast, ann_diff, hW, Multiset.map_map]
   rfl
 
 theorem supp_ctrSucc (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (a b : Tuple T K') :
     Fin.append a b ∈ PathSum.supp ((ctrSucc EQ K').ann d γ E) ↔ a ∈ W ∧ b ∈ W ∧ ascLt K' a b := by
-  rw [ann_ctrSucc_eq EQ K' d γ E W hW hnn, PathSum.supp_map, Multiset.map_id',
+  rw [ann_ctrSucc_eq EQ K' d γ E W w hW hnn, PathSum.supp_map, Multiset.map_id',
     Multiset.mem_toFinset]
   exact mem_ltPairs a b
 
 theorem supp_ctrLeast (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (K' : ℕ)
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) (W : Multiset (Tuple T K'))
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (w : Tuple T K' → K)
+    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, w v) : AnnotatedTuple T K K')))
     (b : Tuple T K') : b ∈ PathSum.supp ((ctrLeast EQ K').ann d γ E) ↔ b ∈ W := by
-  obtain ⟨f, hf⟩ := ann_ctrLeast_eq EQ K' d γ E W hW
+  obtain ⟨f, hf⟩ := ann_ctrLeast_eq EQ K' d γ E W w hW
   rw [hf, PathSum.supp_map, Multiset.map_id', Multiset.mem_toFinset]
 
 /-- **The term at the current row's tuple**, read through the substitution:
@@ -1328,16 +1407,72 @@ theorem succInd_eq_of_sorted {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (T
     rw [← he]
     exact (PathSum.sorted_lt_iff hl ascLt_irrefl' ascLt_trans' hi hi').2 (by omega)
 
+open Classical in
+omit [DecidableEq K] [HasAltLinearOrder K] in
+/-- The first counter of the sublist `P` keeps. -/
+theorem firstInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+    (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (P : Tuple T K' → Prop)
+    (b : Tuple T K') :
+    (if b ∈ W then (if P b ∧ ¬ ∃ a ∈ W, P a ∧ ascLt K' a b then (1 : K) else 0) else 0)
+      = PathSum.firstInd (l.filter (fun x => decide (P x))) b := by
+  have hmem' : ∀ x, x ∈ l.filter (fun x => decide (P x)) ↔ x ∈ W.filter P := fun x => by
+    rw [List.mem_filter, Multiset.mem_filter, hmem, decide_eq_true_iff]
+  rw [← firstInd_eq_of_sorted (hl.sublist List.filter_sublist) hmem' b, ite_nested_one,
+    ite_nested_zero]
+  refine if_congr ⟨fun ⟨hb, hP, ha⟩ => ⟨Multiset.mem_filter.2 ⟨hb, hP⟩, fun ⟨a, ha', hlt⟩ =>
+    ha ⟨a, (Multiset.mem_filter.1 ha').1, (Multiset.mem_filter.1 ha').2, hlt⟩⟩,
+    fun ⟨hb, ha⟩ => ⟨(Multiset.mem_filter.1 hb).1, (Multiset.mem_filter.1 hb).2,
+      fun ⟨a, ha', hPa, hlt⟩ => ha ⟨a, Multiset.mem_filter.2 ⟨ha', hPa⟩, hlt⟩⟩⟩ rfl rfl
+
+open Classical in
+omit [DecidableEq K] [HasAltLinearOrder K] in
+/-- The successor in the sublist `P` keeps. -/
+theorem succInd_filter {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+    (hl : l.Pairwise (ascLt K')) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (P : Tuple T K' → Prop)
+    {a : Tuple T K'} (b : Tuple T K') :
+    (if a ∈ W ∧ b ∈ W ∧ ascLt K' a b then
+        (if P a ∧ P b ∧ ¬ ∃ m ∈ W, P m ∧ ascLt K' a m ∧ ascLt K' m b then (1 : K) else 0)
+      else 0)
+      = PathSum.succInd (l.filter (fun x => decide (P x))) a b := by
+  have hmem' : ∀ x, x ∈ l.filter (fun x => decide (P x)) ↔ x ∈ W.filter P := fun x => by
+    rw [List.mem_filter, Multiset.mem_filter, hmem, decide_eq_true_iff]
+  rw [ite_nested_one]
+  by_cases ha : a ∈ W ∧ P a
+  · rw [← succInd_eq_of_sorted (hl.sublist List.filter_sublist) hmem'
+      ((hmem' a).2 (Multiset.mem_filter.2 ha)) b, ite_nested_zero]
+    refine if_congr ⟨fun ⟨⟨ha', hb, hlt⟩, hPa, hPb, hm⟩ => ⟨⟨Multiset.mem_filter.2 ⟨ha', hPa⟩,
+      Multiset.mem_filter.2 ⟨hb, hPb⟩, hlt⟩, fun ⟨m, hm', h₁, h₂⟩ =>
+        hm ⟨m, (Multiset.mem_filter.1 hm').1, (Multiset.mem_filter.1 hm').2, h₁, h₂⟩⟩,
+      fun ⟨⟨ha', hb, hlt⟩, hm⟩ => ⟨⟨(Multiset.mem_filter.1 ha').1, (Multiset.mem_filter.1 hb).1,
+        hlt⟩, (Multiset.mem_filter.1 ha').2, (Multiset.mem_filter.1 hb).2,
+        fun ⟨m, hm', hPm, h₁, h₂⟩ => hm ⟨m, Multiset.mem_filter.2 ⟨hm', hPm⟩, h₁, h₂⟩⟩⟩ rfl rfl
+  · unfold PathSum.succInd
+    rw [ite_eq_right (fun h => ha ⟨h.1.1, h.2.1⟩),
+      ite_eq_right (fun h => ha (Multiset.mem_filter.1 ((hmem' a).1 h.1)))]
+
+theorem length_filter_eq {K' : ℕ} {W : Multiset (Tuple T K')} {l : List (Tuple T K')}
+    (hl : l.Nodup) (hW : W.Nodup) (hmem : ∀ x, x ∈ l ↔ x ∈ W) (p : Tuple T K' → Bool) :
+    (l.filter p).length = (W.filter (fun x => p x = true)).card := by
+  rw [← List.toFinset_card_of_nodup (hl.filter p),
+    ← Multiset.toFinset_card_of_nodup (Multiset.Nodup.filter _ hW)]
+  congr 1
+  ext x
+  simp [hmem]
+
 /-- **The simulation's rounds are those of `PathSum.SimSpec`**, for a
-sorted listing `l` of the counters. -/
+sorted listing `l` of the counters, its weights read on the counters `P`
+keeps. -/
 theorem simSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (d : AnnotatedDatabase T K) (γ : Fin c → T)
-    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup)
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (P : Tuple T K' → Prop)
+    (hW : (ctr EQ K').ann d γ E
+      = W.map (fun v => ((v, @ite K (P v) (Classical.propDecidable _) 1 0)
+        : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) :
     ∃ l : List (Tuple T K'), l.Pairwise (ascLt K') ∧ l.length = W.card ∧ (∀ x, x ∈ l ↔ x ∈ W) ∧
-      PathSum.SimSpec (ascLt K') l (BQ.ann d γ E)
+      PathSum.SimSpec (ascLt K') l
+        (l.filter (fun x => @decide (P x) (Classical.propDecidable _))) (BQ.ann d γ E)
         (fun u => L.ann d γ (E.assignHole s
           ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow T K n))))
         (((prodA BQ (ctrStart false EQ K')).ann d γ E).map splitRow)
@@ -1380,42 +1515,60 @@ theorem simSpec_of (s : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.all
     rw [ann_prodA, ann_substRow s n K' L hL, ann_ctrNext, ctrStep_false, hpair, leftPart_append,
       rightPart_append]
     rfl
-  refine ⟨hlsort, ascLt_irrefl', ascLt_trans', fun t c₀ => ?_, fun t c₀ => ?_,
+  refine ⟨hlsort, ascLt_irrefl', ascLt_trans', hlsort.sublist List.filter_sublist,
+    fun c hc => (List.mem_filter.1 hc).1, fun t c₀ => ?_, fun t c₀ => ?_,
     fun t c₀ hc t' c' => ?_, fun t c₀ hc t' c' => ?_⟩
   · rw [hB'e]
     erw [PathSum.wt_product]
-    rw [ctrStart_false, wt_ctrLeast EQ K' d γ E W hWn hW hnn, firstInd_eq_of_sorted hlsort hmem]
+    rw [ctrStart_false, wt_ctrLeast EQ K' d γ E W hWn P hW hnn, firstInd_filter hlsort hmem]
   · rw [hB'e]
     erw [PathSum.mem_supp_product]
-    rw [ctrStart_false, supp_ctrLeast EQ K' d γ E W hW, hmem]
+    rw [ctrStart_false, supp_ctrLeast EQ K' d γ E W _ hW, hmem]
   · show PathSum.wt ((F (Fin.append t c₀)).map splitRow) (t', c') = _
     rw [hG'e]
     erw [PathSum.wt_product]
     erw [wt_halves]
-    rw [wt_ctrSucc EQ K' d γ E W hWn hW hnn, succInd_eq_of_sorted hlsort hmem hc]
+    rw [wt_ctrSucc EQ K' d γ E W hWn P hW hnn, succInd_filter hlsort hmem]
   · show (t', c') ∈ PathSum.supp ((F (Fin.append t c₀)).map splitRow) ↔ _
     rw [hG'e]
     erw [PathSum.mem_supp_product]
     erw [mem_supp_halves]
-    rw [supp_ctrSucc EQ K' d γ E W hW hnn, hmem]
+    rw [supp_ctrSucc EQ K' d γ E W _ hW hnn, hmem]
     exact ⟨fun h => ⟨h.1, h.2.2.1, h.2.2.2⟩, fun h => ⟨h.1, (hmem c₀).1 hc, h.2.1, h.2.2⟩⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **A set recursion's value is every round from the one it settles at.** -/
+theorem muFix_eq_iterate_add {α : Type} {step : Multiset α → Multiset α}
+    (hs : MuSetSettles step) : ∀ k, muFix step = step^[muFixIdx step + k] 0
+  | 0 => by rw [Nat.add_zero, muFix, muIter_eq_iterate]
+  | k + 1 => by
+    rw [← Nat.add_assoc, Function.iterate_succ_apply', ← muFix_eq_iterate_add hs k,
+      muFix_isFix hs]
 
 /-- **The annotated simulation computes the set recursion.** Where the
 counters are the `K'`-tuples `W` over values none of which is the null,
-each row annotated `𝟙`, and there are at least as many counters as tuples
-in a set `S` closed under the recursion's rounds, in a semiring where a
-linear recursion settles within `|S|` rounds if at all, the simulation's
-value is the set recursion's wherever the latter settles. -/
+annotated `𝟙` where `P` holds and `𝟘` elsewhere, there are at least as many
+counters as tuples in a set `S` closed under the recursion's rounds, and at
+least as many counters `P` keeps as tuples in a set `S'` the derivations of
+non-zero weight do not leave, in a semiring where a linear recursion
+settles within `|S'|` rounds if at all, the simulation's value is the set
+recursion's wherever the latter settles. -/
 theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (hLx : L.noExplode) (d : AnnotatedDatabase T K) (γ : Fin c → T)
-    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup)
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
-    (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (S : Finset (Tuple T n))
+    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (P : Tuple T K' → Prop)
+    (hW : (ctr EQ K').ann d γ E
+      = W.map (fun v => ((v, @ite K (P v) (Classical.propDecidable _) 1 0)
+        : AnnotatedTuple T K K')))
+    (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (S S' : Finset (Tuple T n))
     (hS : PathSum.Closed S (BQ.ann d γ E) (fun u => L.ann d γ (E.assignHole s
       ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow T K n)))))
-    (hcard : S.card ≤ W.card) (hK : PathSum.SettlesEarly K)
-    (hset : MuSetSettles (muSetStep s BQ L d γ E)) :
+    (hsub : S' ⊆ S) (hb' : ∀ u, u ∉ S' → PathSum.wt (BQ.ann d γ E) u = 0)
+    (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → PathSum.wt (L.ann d γ (E.assignHole s
+      ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow T K n)))) v = 0)
+    (hcard : S.card ≤ W.card)
+    (hcard' : S'.card ≤ (W.filter (fun x => @decide (P x) (Classical.propDecidable _) = true)).card)
+    (hK : PathSum.SettlesEarly K) (hset : MuSetSettles (muSetStep s BQ L d γ E)) :
     (simResultA s s' n K' false EQ BQ L).evaluate d γ E = (MuSet s BQ L).evaluate d γ E := by
   set B := BQ.ann d γ E with hBdef
   set G := fun u => L.ann d γ (E.assignHole s
@@ -1425,18 +1578,13 @@ theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 
     congr 2
     exact ann_of_recLinear L hL hLx d γ E X
   rw [hstep] at hset
-  obtain ⟨l, -, hlen, -, hspec⟩ := simSpec_of s n K' EQ BQ L hL d γ E W hWn hW hnn
-  -- the set recursion, as the `|l|`-th iterate
+  obtain ⟨l, hlsort, hlen, hmem, hspec⟩ := simSpec_of s n K' EQ BQ L hL d γ E W hWn P hW hnn
+  have hwlen := length_filter_eq (PathSum.nodup_of_sorted hlsort ascLt_irrefl') hWn hmem
+    (fun x => @decide (P x) (Classical.propDecidable _))
+  -- the set recursion, as its `N`-th iterate
   rw [evaluate_MuSet_of_recLinear s BQ L hL hLx d γ E]
-  have hfix : muFix (PathSum.stepK B G) = (PathSum.stepK B G)^[l.length] 0 := by
-    rw [← muIter_eq_iterate]
-    apply muFix_eq_of_fix
-    have h := PathSum.iterate_succ_eq_of_settles hS hK hset (M := l.length)
-      (by rw [hlen]; exact hcard)
-    rw [Function.iterate_succ_apply'] at h
-    rw [muIter_eq_iterate]
-    exact h
-  rw [hfix, PathSum.iterate_stepK_eq]
+  set N := muFixIdx (PathSum.stepK B G) + l.length with hN
+  rw [muFix_eq_iterate_add hset l.length, PathSum.iterate_stepK_eq]
   set base := (prodA BQ (ctrStart false EQ K')).ann d γ E with hbase
   set F := simRow s n K' false EQ L d γ E with hF
   -- the simulation's rounds end, and its value is their sum
@@ -1462,7 +1610,14 @@ theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 
     | insert j S' hj ih => rw [Finset.sum_insert hj, Finset.sum_insert hj, Multiset.map_add, ih]
   erw [hproj, hsum]
   simp only [← rounds_map_splitRow]
-  exact hspec.dedupK_rounds hS (Nat.le_succ _)
+  have hwl : (l.filter (fun x => @decide (P x) (Classical.propDecidable _))).length ≤ N := by
+    have := hspec.length_le
+    omega
+  refine hspec.dedupK_rounds hS (Nat.le_succ _) (N := N)
+    (PathSum.exists_round_iff hS (by rw [hlen]; exact hcard) (by omega)) fun t => ?_
+  obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le hwl
+  rw [hk]
+  exact (PathSum.wt_trunc_settle hS hsub hb' hg' hK hset (by rw [hwlen]; exact hcard') k t).symm
 
 end SimSpecInst
 
@@ -1795,8 +1950,10 @@ theorem annSettlesAt_simResultA (s s' : String) (n K' : ℕ)
     (hEQ : ∀ (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K), EQ.AnnSettlesAt d γ E)
     (BQ : AggQueryIn T c n (ColKind.allReg n)) (L : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (hL : L.recLinear s n) (d : AnnotatedDatabase T K) (γ : Fin c → T)
-    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup)
-    (hW : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')))
+    (E : EvalEnv T K) (W : Multiset (Tuple T K')) (hWn : W.Nodup) (P : Tuple T K' → Prop)
+    (hW : (ctr EQ K').ann d γ E
+      = W.map (fun v => ((v, @ite K (P v) (Classical.propDecidable _) 1 0)
+        : AnnotatedTuple T K K')))
     (hnn : ∀ u ∈ W, ∀ k, ValueType.isNull (u k) = false) (hBQ : BQ.AnnSettlesAt d γ E)
     (hLrow : ∀ j t, t ∈ PathSum.supp (PathSum.rounds (BQ.ann d γ E)
         (fun u => L.ann d γ (E.assignHole s
@@ -1804,7 +1961,7 @@ theorem annSettlesAt_simResultA (s s' : String) (n K' : ℕ)
       L.AnnSettlesAt d γ (E.assignHole s
         ({GenRow.ofAnnotated (t, 1)} : Multiset (GenRow T K n)))) :
     (simResultA s s' n K' false EQ BQ L).AnnSettlesAt d γ E := by
-  obtain ⟨l, -, -, -, hspec⟩ := simSpec_of s n K' EQ BQ L hL d γ E W hWn hW hnn
+  obtain ⟨l, -, -, -, hspec⟩ := simSpec_of s n K' EQ BQ L hL d γ E W hWn P hW hnn
   exact annSettlesAt_simResultA_of s s' n K' false EQ hEQ BQ L hL d γ E hBQ
     ⟨l.length, hspec.rounds_eq_zero (le_refl l.length)⟩
     (fun k t c' hm => ((hspec.supp_rounds k t c').1 hm).1) hLrow
@@ -1948,33 +2105,6 @@ theorem card_powT (V : Multiset (Tuple T 1)) :
   | K' + 1 => by
     rw [powT, Multiset.card_map, show (powT V K').product V = powT V K' ×ˢ V from rfl,
       Multiset.card_product, card_powT V K', pow_succ]
-
-/-- **The counters are annotated `𝟙`** where `δ` is the support map and no
-row of the instance is annotated `𝟘`: a counter value's weight sums
-non-zero annotations of leaf rows and `𝟙`s, so it is non-zero. -/
-theorem ann_ctr_valRel (ls : List (ℕ × String)) (cs : List T) (K' : ℕ)
-    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (d : AnnotatedDatabase T K)
-    (hd : ∀ (k : ℕ) (t : String) (r : AnnotatedRelation T K k), d.find k t = some r →
-      ∀ p ∈ r, p.2 ≠ 0) (γ : Fin c → T) (E : EvalEnv T K) :
-    (ctr (valRel ls cs) K').ann d γ E
-      = (powT (((valRel ls cs).ann d γ E).map Prod.fst).dedup K').map
-          (fun v => ((v, 1) : AnnotatedTuple T K K')) := by
-  apply ann_pow_ones
-  rw [ann_dedupG]
-  refine Multiset.map_congr rfl fun g hg => ?_
-  refine Prod.ext rfl ?_
-  show SemiringWithMonus.delta (PathSum.wt ((valRel ls cs).ann d γ E) g) = 1
-  by_cases h01 : (1 : K) = 0
-  · have : ∀ x : K, x = 0 := fun x => by rw [← mul_one x, h01, mul_zero]
-    rw [this (SemiringWithMonus.delta _), this 1]
-  · refine hδ _ fun h0 => ?_
-    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 (Multiset.mem_dedup.1 hg)
-    unfold PathSum.wt at h0
-    rw [Multiset.sum_eq_zero_iff] at h0
-    have h := h0 p.2 (Multiset.mem_map_of_mem _ (Multiset.mem_filter.2 ⟨hp, rfl⟩))
-    rcases (mem_ann_valRel hp).2 with h1 | ⟨q, -, r, hr, p', hp', he⟩
-    · exact h01 (h1 ▸ h)
-    · exact hd q.1 q.2 r hr p' hp' (he.trans h)
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 theorem nonNull_powT {V : Multiset (Tuple T 1)} (hV : ∀ v ∈ V, ValueType.isNull (v 0) = false) :
@@ -2198,19 +2328,6 @@ theorem add_le_pow_of_two_le {m : ℕ} (hm : 2 ≤ m) : ∀ c : ℕ, m + c + 2 �
     rw [pow_succ]
     nlinarith
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- **The counter's width**: `a (|B| + 1)^b` tuples are outrun by
-`m^(a + (c + 2) b)` counters, for a value set `B` of at most `m + 1 + c`
-elements and `m ≥ 2` counter values. -/
-theorem card_bound_arith {a b c m B : ℕ} (hm : 2 ≤ m) (hB : B ≤ m + 1 + c) :
-    a * (B + 1) ^ b ≤ m ^ (a + (c + 2) * b) := by
-  calc a * (B + 1) ^ b ≤ a * (m + c + 2) ^ b :=
-        Nat.mul_le_mul_left _ (Nat.pow_le_pow_left (by omega) _)
-    _ ≤ m ^ a * (m ^ (c + 2)) ^ b :=
-        Nat.mul_le_mul (le_trans (le_of_lt Nat.lt_two_pow_self) (Nat.pow_le_pow_left hm a))
-          (Nat.pow_le_pow_left (add_le_pow_of_two_le hm c) b)
-    _ = m ^ (a + (c + 2) * b) := by rw [← pow_mul, ← pow_add]
-
 /-! ## The node: a set recursion replaced by its simulation -/
 
 section Node
@@ -2251,203 +2368,17 @@ noncomputable def ctrConsts {n : ℕ} (s : String) (q₀ : AggQueryIn T c n (Col
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) : List T :=
   (MuSet s q₀ q₁).allConsts.toList ++ [0, ValueType.nonzero]
 
-open Classical in
-/-- **The width of the counter**: for the successor counter, `a + (c + 2) b`
-for the bound `a (m + 1)^b` the plain semantics gives on the recursion's
-rows, over `m` values (`AggQueryIn.exists_card_bound_muSet`); for the
-all-chains counter, `(2c + 2) n`, which the values of the rows alone
-bound. -/
-noncomputable def ctrWidth (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s : String)
-    (q₀ : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) : ℕ :=
-  cond ch ((2 * c + 2) * n) <| if h : cnt.ReadsCount ∧ (MuSet s q₀.stripAgg q₁.stripAgg).inSig {cnt}
-      ∧ (MuSet s q₀.stripAgg q₁.stripAgg).hygienic then
-    Classical.choose (Classical.choose_spec
-        (exists_card_bound_muSet h.1 s q₀.stripAgg q₁.stripAgg h.2.1 h.2.2)).1
-      + (c + 2) * Classical.choose (Classical.choose_spec (Classical.choose_spec
-        (exists_card_bound_muSet h.1 s q₀.stripAgg q₁.stripAgg h.2.1 h.2.2)).1)
-  else 0
+/-- **The width of the counter**: `(2c + 2) n`, which the values of the
+rows alone bound (`AggQueryIn.card_arith_chain`). -/
+def ctrWidth (c n : ℕ) : ℕ := (2 * c + 2) * n
 
 /-- The query a set recursion is replaced by. -/
-noncomputable def muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+noncomputable def muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) : AggQueryIn T c n (ColKind.allReg n) :=
-  simResultA s s' n (ctrWidth cnt ch s q₀ q₁) ch (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁))
-    q₀' q₁'
-
-/-- The support `δ` and the instance fence, which the counter needs. -/
-structure CounterOK (d : AnnotatedDatabase T K) : Prop where
-  delta : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1
-  fence : ∀ (k : ℕ) (t : String) (r : AnnotatedRelation T K k), d.find k t = some r →
-    ∀ p ∈ r, p.2 ≠ 0
-
-/-- **A set recursion is its simulation**, at an instance where it settles,
-given matches `q₀'`, `q₁'` of its base and body that agree with them
-wherever these settle. -/
-theorem muSetSim_correct (cnt : SeqAggFunc T) (hcnt : cnt.ReadsCount)
-    (hK : PathSum.SettlesEarly K) {n : ℕ} (s s' : String)
-    (q₀ : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
-    (q₀' : AggQueryIn T c n (ColKind.allReg n))
-    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
-    (hq₁ : q₁.recLinear s n) (hq₁x : q₁.noExplode) (hq₁' : q₁'.recLinear s n)
-    (hq₁'x : q₁'.noExplode) (hsig : (MuSet s q₀ q₁).inSig {cnt})
-    (hhyg : (MuSet s q₀ q₁).hygienic) (hx : (MuSet s q₀ q₁).noExplode)
-    {ρc : Fin c → ColKind} {HK : HoleKinds} (hwk : (MuSet s q₀ q₁).wellKinded ρc HK)
-    (d : AnnotatedDatabase T K) (hd : CounterOK d) (γ : Fin c → T) (E : EvalEnv T K)
-    (hE : E.Kinded γ ρc HK) (hset : (MuSet s q₀ q₁).AnnSettlesAt d γ E)
-    (h₀ : q₀'.AnnSettlesAt d γ E ∧ q₀'.evaluate d γ E = q₀.evaluate d γ E)
-    (h₁ : ∀ X : AnnotatedRelation T K n,
-      q₁.AnnSettlesAt d γ (E.assignHole s (X.map GenRow.ofAnnotated)) →
-        q₁'.AnnSettlesAt d γ (E.assignHole s (X.map GenRow.ofAnnotated))
-          ∧ q₁'.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated))
-            = q₁.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated))) :
-    (muSetSim cnt false s s' q₀ q₁ q₀' q₁').AnnSettlesAt d γ E
-      ∧ (muSetSim cnt false s s' q₀ q₁ q₀' q₁').evaluate d γ E
-        = (MuSet s q₀ q₁).evaluate d γ E := by
-  obtain ⟨hs₀, hsS, hsk⟩ := hset
-  -- the two set recursions have the same iterates
-  have hiter : ∀ k, muSetStep s q₀' q₁' d γ E (muIter (muSetStep s q₀ q₁ d γ E) k)
-      = muSetStep s q₀ q₁ d γ E (muIter (muSetStep s q₀ q₁ d γ E) k) := fun k => by
-    have h1 := (h₁ _ (hsk k)).2
-    generalize muIter (muSetStep s q₀ q₁ d γ E) k = X at h1 ⊢
-    unfold muSetStep evaluateAnnotated
-    rw [h₀.2, h1]
-  have hfix := muFix_congr_iter hiter
-  have hsS' := muSetSettles_congr_iter hiter hsS
-  have hMuSet : (MuSet s q₀' q₁').evaluate d γ E = (MuSet s q₀ q₁).evaluate d γ E := by
-    rw [evaluate_MuSet, evaluate_MuSet, hfix]
-  -- the recursion of `PathSum` the matches give
-  set B := q₀'.ann d γ E with hB
-  set G := fun u => q₁'.ann d γ (E.assignHole s
-    ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow T K n))) with hG
-  have hstep : muSetStep s q₀' q₁' d γ E = PathSum.stepK B G := funext fun X => by
-    rw [muSetStep, dedupAnn_eq_dedupK, PathSum.stepK]
-    congr 2
-    exact ann_of_recLinear q₁' hq₁' hq₁'x d γ E X
-  have hsK : MuSetSettles (PathSum.stepK B G) := hstep ▸ hsS'
-  -- the counters
-  set ls := ctrLeaves s q₀ q₁ with hls
-  set cs := ctrConsts s q₀ q₁ with hcs
-  set EQ : AggQueryIn T c 1 (ColKind.allReg 1) := valRel ls cs with hEQ
-  set K' := ctrWidth cnt false s q₀ q₁ with hK'
-  set V := ((EQ.ann d γ E).map Prod.fst).dedup with hV
-  set W := powT V K' with hW
-  have hWn : W.Nodup := nodup_powT (Multiset.nodup_dedup _) K'
-  have hWa : (ctr EQ K').ann d γ E = W.map (fun v => ((v, 1) : AnnotatedTuple T K K')) :=
-    ann_ctr_valRel ls cs K' hd.delta d hd.fence γ E
-  have hVnn : ∀ v ∈ V, ValueType.isNull (v 0) = false := fun v hv => by
-    obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.1 (Multiset.mem_dedup.1 hv)
-    exact (mem_ann_valRel hp).1
-  have hnn := nonNull_powT hVnn K'
-  -- the tuples of the settled value, and their number
-  set S := PathSum.supp (muFix (PathSum.stepK B G)) with hS
-  have hSc : PathSum.Closed S B G := closed_supp_muFix B G hsK
-  have hcard : S.card ≤ W.card := by
-    classical
-    -- the plain bound on the recursion's rows
-    have hcond : cnt.ReadsCount ∧ (MuSet s q₀.stripAgg q₁.stripAgg).inSig {cnt}
-        ∧ (MuSet s q₀.stripAgg q₁.stripAgg).hygienic :=
-      ⟨hcnt, inSig_stripAgg (MuSet s q₀ q₁) hsig, hygienic_stripAgg (MuSet s q₀ q₁) hhyg⟩
-    have hex := exists_card_bound_muSet hcond.1 s q₀.stripAgg q₁.stripAgg hcond.2.1 hcond.2.2
-    have hK'e : K' = Classical.choose (Classical.choose_spec hex).1
-        + (c + 2) * Classical.choose (Classical.choose_spec (Classical.choose_spec hex).1) := by
-      rw [hK', ctrWidth, Bool.cond_false, dite_eq_left hcond]
-    set fb := Classical.choose hex with hfb
-    have hbnd := (Classical.choose_spec hex).2
-    set a := Classical.choose (Classical.choose_spec hex).1 with ha
-    set b := Classical.choose (Classical.choose_spec (Classical.choose_spec hex).1) with hb
-    have hab : ∀ m, fb m ≤ a * (m + 1) ^ b :=
-      Classical.choose_spec (Classical.choose_spec (Classical.choose_spec hex).1)
-    -- the value set
-    set Bv : Finset T := Union.union (Union.union (V.map (fun v => v 0)).toFinset
-      (ValueType.nullVal : Option T).toFinset) (Finset.univ.image γ) with hBv
-    have hinV : ∀ x : T, ValueType.isNull x = false →
-        (fun _ => x) ∈ (EQ.ann d γ E).map Prod.fst → x ∈ Bv := fun x _ hx => by
-      refine Finset.mem_union_left _ (Finset.mem_union_left _ (Multiset.mem_toFinset.2 ?_))
-      exact Multiset.mem_map.2 ⟨fun _ => x, Multiset.mem_dedup.2 hx, rfl⟩
-    have hnullB : ∀ x : T, ValueType.isNull x = true → x ∈ Bv := fun x hx => by
-      refine Finset.mem_union_left _ (Finset.mem_union_right _ ?_)
-      rw [(ValueType.isNull_iff_nullVal x).1 hx]
-      exact Finset.mem_singleton_self x
-    have hνB : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ Bv := fun ν hν => by
-      refine Finset.mem_union_left _ (Finset.mem_union_right _ ?_)
-      rw [hν]; exact Finset.mem_singleton_self ν
-    have h0V : (fun _ => (0 : T)) ∈ (EQ.ann d γ E).map Prod.fst :=
-      mem_valRel_of_const d γ E (List.mem_append_right _ (by simp)) ValueType.isNull_zero
-    have hnzV : (fun _ => (ValueType.nonzero : T)) ∈ (EQ.ann d γ E).map Prod.fst :=
-      mem_valRel_of_const d γ E (List.mem_append_right _ (by simp)) ValueType.isNull_nonzero
-    have h0B : (0 : T) ∈ Bv := hinV 0 ValueType.isNull_zero h0V
-    have hγB : ∀ j, γ j ∈ Bv := fun j =>
-      Finset.mem_union_right _ (Finset.mem_image_of_mem γ (Finset.mem_univ j))
-    have hDB : ∀ p ∈ (MuSet s q₀.stripAgg q₁.stripAgg).leaves, ∀ r : Relation T p.1,
-        d.toPlain.find p.1 p.2 = some r → ∀ u, Multiset.Mem r u → ∀ j, u j ∈ Bv := by
-      intro p hp r hr u hu j
-      rw [AnnotatedDatabase.find_toPlain] at hr
-      obtain ⟨r', hr', rfl⟩ := Option.map_eq_some_iff.1 hr
-      obtain ⟨p', hp', rfl⟩ := Multiset.mem_map.1 hu
-      cases hnull : ValueType.isNull (p'.1 j)
-      · exact hinV _ hnull (mem_valRel_of_leaf d γ E (leaves_stripAgg_subset (MuSet s q₀ q₁) p hp)
-          hr' hp' j hnull)
-      · exact hnullB _ hnull
-    have hcB : ∀ x ∈ (MuSet s q₀.stripAgg q₁.stripAgg).allConsts, x ∈ Bv := by
-      intro x hx
-      cases hnull : ValueType.isNull x
-      · exact hinV _ hnull (mem_valRel_of_const d γ E
-          (List.mem_append_left _ (Finset.mem_toList.2
-            (allConsts_stripAgg_subset (MuSet s q₀ q₁) x hx))) hnull)
-      · exact hnullB _ hnull
-    have hplain := hbnd Bv d.toPlain γ hνB h0B hγB hDB hcB
-    -- the data of the annotated value is the plain value's
-    have hadeq := evaluate_toPlain_env (MuSet s q₀ q₁) hx hhyg hwk d E d.toPlain ∅ hE
-      (fun n' s' _ => AnnotatedDatabase.find_toPlain n' s' d)
-      (fun _ h => absurd h (Set.notMem_empty _)) (fun p hp => absurd hp List.not_mem_nil)
-      ⟨hs₀, hsS, hsk⟩
-    have hval : (MuSet s q₀' q₁').evaluate d γ E
-        = (muFix (PathSum.stepK B G)).map GenRow.ofAnnotated :=
-      evaluate_MuSet_of_recLinear s q₀' q₁' hq₁' hq₁'x d γ E
-    have hcS : S.card ≤ Multiset.card ((MuSet s q₀.stripAgg q₁.stripAgg).evaluatePlain
-        d.toPlain γ : Multiset (Tuple T n)) := by
-      rw [show (MuSet s q₀.stripAgg q₁.stripAgg) = (MuSet s q₀ q₁).stripAgg from rfl, ← hadeq,
-        ← hMuSet, hval, Multiset.card_map, Multiset.card_map]
-      exact le_trans (Multiset.toFinset_card_le _) (by rw [Multiset.card_map])
-    -- the arithmetic
-    have hm2 : 2 ≤ V.card := by
-      rw [← Multiset.toFinset_card_of_nodup (Multiset.nodup_dedup _)]
-      refine Finset.one_lt_card.2 ⟨fun _ => 0, Multiset.mem_toFinset.2 (Multiset.mem_dedup.2 h0V),
-        fun _ => ValueType.nonzero, Multiset.mem_toFinset.2 (Multiset.mem_dedup.2 hnzV), ?_⟩
-      intro h
-      exact ValueType.nonzero_ne_zero (congrFun h 0).symm
-    have hBcard : Bv.card ≤ V.card + 1 + c := by
-      refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
-      · refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add ?_ ?_)
-        · exact le_trans (Multiset.toFinset_card_le _) (by rw [Multiset.card_map])
-        · cases (ValueType.nullVal : Option T) <;> simp
-      · exact le_trans Finset.card_image_le (by simp)
-    rw [hW, card_powT, hK'e]
-    exact le_trans hcS (le_trans hplain (le_trans (hab _) (card_bound_arith hm2 hBcard)))
-  -- the rounds' tuples, where the body settles
-  have hLrow : ∀ j t, t ∈ PathSum.supp (PathSum.rounds B G j) →
-      q₁'.AnnSettlesAt d γ (E.assignHole s
-        ({GenRow.ofAnnotated (t, 1)} : Multiset (GenRow T K n))) := by
-    intro j t ht
-    have htm : t ∈ PathSum.supp (muIter (muSetStep s q₀ q₁ d γ E) (j + 1)) := by
-      rw [← muIter_congr_iter hiter, hstep, muIter_eq_iterate, PathSum.iterate_stepK_eq,
-        PathSum.supp_dedupK]
-      exact PathSum.mem_supp_trunc.2 ⟨j, Nat.lt_succ_self j, ht⟩
-    have hsub : PathSum.supp ({((t, 1) : AnnotatedTuple T K n)} : Multiset (AnnotatedTuple T K n))
-        ⊆ PathSum.supp (muIter (muSetStep s q₀ q₁ d γ E) (j + 1)) := fun v hv => by
-      have : v = t := by simpa [PathSum.supp] using hv
-      rw [this]; exact htm
-    have h1 := annSettlesAt_of_recLinear_subset q₁ hq₁ hq₁x d γ E _ _ hsub (hsk (j + 1))
-    exact (h₁ _ h1).1
-  refine ⟨annSettlesAt_simResultA s s' n K' EQ (annSettlesAt_valRel ls cs) q₀' q₁' hq₁' d γ E
-      W hWn hWa hnn h₀.1 hLrow, ?_⟩
-  rw [← hMuSet]
-  exact evaluate_simResultA s s' n K' EQ q₀' q₁' hq₁' hq₁'x d γ E W hWn hWa hnn S hSc hcard hK
-    hsS'
+  simResultA s s' n (ctrWidth c n) ch (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)) q₀' q₁'
 
 end Node
 
@@ -2620,13 +2551,13 @@ section SimStructure2
 
 variable {c : ℕ}
 
-theorem noMention_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' t : String)
+theorem noMention_muSetSim (ch : Bool) {n : ℕ} (s s' t : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     (h₀ : q₀'.noMention t) (h₁ : q₁'.noMention t) (hls : (MuSet s q₀ q₁).noMention t) :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').noMention t := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').noMention t := by
   have hls' : ∀ p ∈ ctrLeaves s q₀ q₁, p.2 ≠ t :=
     ne_of_noMention_of_mem_leaves _ hls
   have hEQ := noMention_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) t hls'
@@ -2642,13 +2573,13 @@ theorem noMention_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' t : 
   trivial
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noExplode_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem noExplode_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     (h₀ : q₀'.noExplode) (h₁ : q₁'.noExplode) :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').noExplode := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').noExplode := by
   have hEQ := noExplode_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
   show (keepCols (fun i => Fin.castAdd _ i) (simA s s' n _ _ _ q₀' q₁')).noExplode
   rw [keepCols, noExplode_castKind]
@@ -2666,50 +2597,50 @@ end SimStructure2
 
 /-- **Every set recursion replaced by its simulation**, the supply split
 in three at each node, the recursion's own fresh name the supply's first. -/
-noncomputable def muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) (f : ℕ → String) :
+noncomputable def muSetFreeA (ch : Bool) (f : ℕ → String) :
     {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → AggQueryIn T c n κ l
   | _, _, _, _, .Rel n s => .Rel n s
   | _, _, _, _, .Hole n s κ => .Hole n s κ
   | _, _, _, _, .Param pv ρ => .Param pv ρ
   | _, _, _, _, .Empty => .Empty
-  | _, _, _, _, .Proj ps q => .Proj ps (muSetFreeA cnt ch f q)
-  | _, _, _, _, .Sel φ q hφ => .Sel φ (muSetFreeA cnt ch f q) hφ
+  | _, _, _, _, .Proj ps q => .Proj ps (muSetFreeA ch f q)
+  | _, _, _, _, .Sel φ q hφ => .Sel φ (muSetFreeA ch f q) hφ
   | _, _, _, _, .Prod q₁ q₂ =>
-      .Prod (muSetFreeA cnt ch (tri f 1) q₁) (muSetFreeA cnt ch (tri f 2) q₂)
+      .Prod (muSetFreeA ch (tri f 1) q₁) (muSetFreeA ch (tri f 2) q₂)
   | _, _, _, _, .Apply q₁ q₂ =>
-      .Apply (muSetFreeA cnt ch (tri f 1) q₁) (muSetFreeA cnt ch (tri f 2) q₂)
+      .Apply (muSetFreeA ch (tri f 1) q₁) (muSetFreeA ch (tri f 2) q₂)
   | _, _, _, _, .Sum q₁ q₂ =>
-      .Sum (muSetFreeA cnt ch (tri f 1) q₁) (muSetFreeA cnt ch (tri f 2) q₂)
-  | _, _, _, _, .Dedup q => .Dedup (muSetFreeA cnt ch f q)
+      .Sum (muSetFreeA ch (tri f 1) q₁) (muSetFreeA ch (tri f 2) q₂)
+  | _, _, _, _, .Dedup q => .Dedup (muSetFreeA ch f q)
   | _, _, _, _, .Diff q₁ q₂ =>
-      .Diff (muSetFreeA cnt ch (tri f 1) q₁) (muSetFreeA cnt ch (tri f 2) q₂)
-  | _, _, _, _, .Explode k h q => .Explode k h (muSetFreeA cnt ch f q)
-  | _, _, _, _, .Retag h q => .Retag h (muSetFreeA cnt ch f q)
+      .Diff (muSetFreeA ch (tri f 1) q₁) (muSetFreeA ch (tri f 2) q₂)
+  | _, _, _, _, .Explode k h q => .Explode k h (muSetFreeA ch f q)
+  | _, _, _, _, .Retag h q => .Retag h (muSetFreeA ch f q)
   | _, _, _, _, .Mu s q₀ q₁ =>
-      .Mu s (muSetFreeA cnt ch (tri f 1) q₀) (muSetFreeA cnt ch (tri f 2) q₁)
+      .Mu s (muSetFreeA ch (tri f 1) q₀) (muSetFreeA ch (tri f 2) q₁)
   | _, _, _, _, .MuSet s q₀ q₁ =>
-      muSetSim cnt ch s (f 0) q₀ q₁ (muSetFreeA cnt ch (tri f 1) q₀)
-        (muSetFreeA cnt ch (tri f 2) q₁)
-  | _, _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs (muSetFreeA cnt ch f q) keep ord
-  | _, _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs (muSetFreeA cnt ch f q) ord
-  | _, _, _, _, .GammaNest is his p g q => .GammaNest is his p g (muSetFreeA cnt ch f q)
-  | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (muSetFreeA cnt ch f q)
+      muSetSim ch s (f 0) q₀ q₁ (muSetFreeA ch (tri f 1) q₀)
+        (muSetFreeA ch (tri f 2) q₁)
+  | _, _, _, _, .Gamma is ts fs q keep ord => .Gamma is ts fs (muSetFreeA ch f q) keep ord
+  | _, _, _, _, .GammaScalar ts fs q ord => .GammaScalar ts fs (muSetFreeA ch f q) ord
+  | _, _, _, _, .GammaNest is his p g q => .GammaNest is his p g (muSetFreeA ch f q)
+  | _, _, _, _, .ProvSum is his t q => .ProvSum is his t (muSetFreeA ch f q)
   | _, _, _, _, .GammaTok is his ts fs a q keep =>
-      .GammaTok is his ts fs a (muSetFreeA cnt ch f q) keep
+      .GammaTok is his ts fs a (muSetFreeA ch f q) keep
   | _, _, _, _, .Win P O o w t g q hrr dist keep =>
-      .Win P O o w t g (muSetFreeA cnt ch f q) hrr dist keep
+      .Win P O o w t g (muSetFreeA ch f q) hrr dist keep
   | _, _, _, _, .WinExpr P O o ws ts fs g q keeps =>
-      .WinExpr P O o ws ts fs g (muSetFreeA cnt ch f q) keeps
+      .WinExpr P O o ws ts fs g (muSetFreeA ch f q) keeps
 
 /-- **The pass keeps a name unmentioned, and a recursive term linear.** The
 two go together: a product's closed side must stay unmentioning, and a set
 recursion's body must stay linear for its simulation to mention nothing new. -/
-theorem muSetFreeA_struct (cnt : SeqAggFunc T) (ch : Bool) :
+theorem muSetFreeA_struct (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
-        (∀ t, q.noMention t → (muSetFreeA cnt ch f q).noMention t)
-          ∧ (∀ s n', q.recLinear s n' → (muSetFreeA cnt ch f q).recLinear s n') := by
+        (∀ t, q.noMention t → (muSetFreeA ch f q).noMention t)
+          ∧ (∀ s n', q.recLinear s n' → (muSetFreeA ch f q).recLinear s n') := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ _ => ⟨fun _ h => h, fun _ _ h => h⟩
@@ -2754,7 +2685,7 @@ theorem muSetFreeA_struct (cnt : SeqAggFunc T) (ch : Bool) :
     have i₁ := ih₁ (tri f 2) hu.2.2 hh.2.2.2
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
     refine ⟨fun t h => ?_, fun _ _ h => ?_⟩
-    · exact noMention_muSetSim cnt ch s _ t q₀ q₁ _ _ (i₁.2 s _ hlin) (i₀.1 t h.1) (i₁.1 t h.2) h
+    · exact noMention_muSetSim ch s _ t q₀ q₁ _ _ (i₁.2 s _ hlin) (i₀.1 t h.1) (i₁.1 t h.2) h
     · exact absurd h (by simp [recLinear])
   | Gamma is ts fs q keep ord ih =>
     exact fun f hu hh => ⟨fun t h => (ih f hu.2 hh).1 t h, fun _ _ h => h.elim⟩
@@ -2771,10 +2702,10 @@ theorem muSetFreeA_struct (cnt : SeqAggFunc T) (ch : Bool) :
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- **The pass explodes nothing.** -/
-theorem noExplode_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem noExplode_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.noExplode →
-        (muSetFreeA cnt ch f q).noExplode := by
+        (muSetFreeA ch f q).noExplode := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ _ h => h
@@ -2798,8 +2729,8 @@ theorem noExplode_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f hu hh hx
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    exact noExplode_muSetSim cnt ch s _ q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+    exact noExplode_muSetSim ch s _ q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
       (ih₀ _ hu.2.1 hh.2.2.1 hx.1) (ih₁ _ hu.2.2 hh.2.2.2 hx.2)
   | Gamma is ts fs q keep ord ih => exact fun f hu hh hx => ih f hu.2 hh hx
   | GammaScalar ts fs q ord ih => exact fun f hu hh hx => ih f hu.2 hh hx
@@ -2849,15 +2780,8 @@ def NodeCorrect (cnt : SeqAggFunc T) (ch : Bool) (P : AnnotatedDatabase T K → 
         q₁'.AnnSettlesAt d γ (E.assignHole s (X.map GenRow.ofAnnotated))
           ∧ q₁'.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated))
             = q₁.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated))) →
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').AnnSettlesAt d γ E
-      ∧ (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').evaluate d γ E = (MuSet s q₀ q₁).evaluate d γ E
-
-/-- **The successor counter is correct** at the instances of `CounterOK`, in
-a semiring of `PathSum.SettlesEarly`. -/
-theorem nodeCorrect_succ (cnt : SeqAggFunc T) (hcnt : cnt.ReadsCount)
-    (hK : PathSum.SettlesEarly K) : NodeCorrect cnt false (CounterOK (T := T) (K := K)) :=
-  fun s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ _ _ h₈ d hd γ E hE hs h₀ h₁' =>
-    muSetSim_correct cnt hcnt hK s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ h₈ d hd γ E hE hs h₀ h₁'
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').AnnSettlesAt d γ E
+      ∧ (muSetSim ch s s' q₀ q₁ q₀' q₁').evaluate d γ E = (MuSet s q₀ q₁).evaluate d γ E
 
 /-- **The pass changes no annotated evaluation where the query settles**,
 and its result settles there too: at the instances `P` admits, where its
@@ -2870,8 +2794,8 @@ theorem muSetFreeA_correct (cnt : SeqAggFunc T) (ch : Bool) {P : AnnotatedDataba
       q.noExplode → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
       ∀ (d : AnnotatedDatabase T K), P d → ∀ (γ : Fin c → T) (E : EvalEnv T K),
         E.Kinded γ ρc HK → q.AnnSettlesAt d γ E →
-        (muSetFreeA cnt ch f q).AnnSettlesAt d γ E
-          ∧ (muSetFreeA cnt ch f q).evaluate d γ E = q.evaluate d γ E := by
+        (muSetFreeA ch f q).AnnSettlesAt d γ E
+          ∧ (muSetFreeA ch f q).evaluate d γ E = q.evaluate d γ E := by
   intro c n κ l q
   induction q with
   | Rel _ _ => intro _ _ _ _ _ _ _ _ _ _ _ _ _ hs; exact ⟨hs, rfl⟩
@@ -2935,31 +2859,31 @@ theorem muSetFreeA_correct (cnt : SeqAggFunc T) (ch : Bool) {P : AnnotatedDataba
       (hE.assignHole s (hconf k)) (hk k)
     have h₁0 := ih₁ (tri f 2) hu.2.2 hi.2 hh.2.2.2 hx.2 hw.2 d hd γ _
       (hE.assignHole s (fun x hxm => absurd hxm (Multiset.notMem_zero x))) hk0
-    have hst : ∀ k, muStep s (muSetFreeA cnt ch (tri f 2) q₁) d γ E ((muStep s q₁ d γ E)^[k] M)
+    have hst : ∀ k, muStep s (muSetFreeA ch (tri f 2) q₁) d γ E ((muStep s q₁ d γ E)^[k] M)
         = muStep s q₁ d γ E ((muStep s q₁ d γ E)^[k] M) := fun k => (h₁ k).2
     have hit := iterate_congr_iter hst
     refine ⟨⟨a₀, ?_, ?_, fun k => ?_, h₁0.1⟩, ?_⟩
     · exact h₁0.2.trans hz
     · obtain ⟨j, hj⟩ := hm
       refine ⟨j, ?_⟩
-      show (muStep s (muSetFreeA cnt ch (tri f 2) q₁) d γ E)^[j + 1]
-        ((muSetFreeA cnt ch (tri f 1) q₀).evaluate d γ E) = 0
+      show (muStep s (muSetFreeA ch (tri f 2) q₁) d γ E)^[j + 1]
+        ((muSetFreeA ch (tri f 1) q₀).evaluate d γ E) = 0
       rw [b₀, hit]
       exact hj
-    · show (muSetFreeA cnt ch (tri f 2) q₁).AnnSettlesAt d γ (E.assignHole s
-        ((muStep s (muSetFreeA cnt ch (tri f 2) q₁) d γ E)^[k]
-          ((muSetFreeA cnt ch (tri f 1) q₀).evaluate d γ E)))
+    · show (muSetFreeA ch (tri f 2) q₁).AnnSettlesAt d γ (E.assignHole s
+        ((muStep s (muSetFreeA ch (tri f 2) q₁) d γ E)^[k]
+          ((muSetFreeA ch (tri f 1) q₀).evaluate d γ E)))
       rw [b₀, hit]
       exact (h₁ k).1
-    · show muSumFix (muStep s (muSetFreeA cnt ch (tri f 2) q₁) d γ E)
-        ((muSetFreeA cnt ch (tri f 1) q₀).evaluate d γ E) = muSumFix (muStep s q₁ d γ E) M
+    · show muSumFix (muStep s (muSetFreeA ch (tri f 2) q₁) d γ E)
+        ((muSetFreeA ch (tri f 1) q₀).evaluate d γ E) = muSumFix (muStep s q₁ d γ E) M
       rw [b₀]
       exact muSumFix_congr_iter hst
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f hu hi hh hx ρc HK hw d hd γ E hE hs
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    have hlin' := (muSetFreeA_struct cnt ch q₁ (tri f 2) hu.2.2 hh.2.2.2).2 s _ hlin
-    have hx' := noExplode_muSetFreeA cnt ch q₁ (tri f 2) hu.2.2 hh.2.2.2 hx.2
+    have hlin' := (muSetFreeA_struct ch q₁ (tri f 2) hu.2.2 hh.2.2.2).2 s _ hlin
+    have hx' := noExplode_muSetFreeA ch q₁ (tri f 2) hu.2.2 hh.2.2.2 hx.2
     exact hnode s (f 0) q₀ q₁ _ _ hlin hx.2 hlin' hx' hi hh hx hw d hd γ
       E hE hs (ih₀ (tri f 1) hu.2.1 hi.1 hh.2.2.1 hx.1 hw.1 d hd γ E hE hs.1)
       (fun X hX => ih₁ (tri f 2) hu.2.2 hi.2 hh.2.2.2 hx.2 hw.2 d hd γ _
@@ -3072,13 +2996,13 @@ theorem usesOnly_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
   usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]),
     (usesOnly_substMap _ _).2 (usesOnly_ctrStep hS ch EQ h K')⟩
 
-theorem usesOnly_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem usesOnly_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     (h₀ : q₀'.usesOnly S) (h₁ : q₁'.usesOnly S) :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').usesOnly S := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').usesOnly S := by
   have ha : OpKind.apply ∈ S := hS (by simp [simOps])
   have hEQ := usesOnly_valRel (c := c) hS (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
   refine ⟨hS (by simp [simOps]), usesOnly_keepCols hS _ _ ⟨hS (by simp [simOps]),
@@ -3099,11 +3023,11 @@ private theorem memT {S : Set OpKind} {o : OpKind} (h : o ∈ S) (hne : o ≠ Op
 
 /-- **The classes of the pass's output**: the input's, without the set
 recursion, with the union the counter values are written with. -/
-theorem usesOnly_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) {S : Set OpKind}
+theorem usesOnly_muSetFreeA (ch : Bool) {S : Set OpKind}
     (hS : simOps ⊆ insert OpKind.union (S \ {OpKind.muSet})) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly S → q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
-        (muSetFreeA cnt ch f q).usesOnly (insert OpKind.union (S \ {OpKind.muSet})) := by
+        (muSetFreeA ch f q).usesOnly (insert OpKind.union (S \ {OpKind.muSet})) := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ h _ _ => h
@@ -3128,8 +3052,8 @@ theorem usesOnly_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) {S : Set OpKind}
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f h hu hh
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    exact usesOnly_muSetSim hS cnt ch s _ q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+    exact usesOnly_muSetSim hS ch s _ q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
       (ih₀ _ h.2.1 hu.2.1 hh.2.2.1) (ih₁ _ h.2.2 hu.2.2 hh.2.2.2)
   | Gamma is ts fs q keep ord ih => exact fun f h hu hh => ⟨memT h.1 (by decide),
       ih f h.2 hu.2 hh⟩
@@ -3224,13 +3148,13 @@ theorem inSig_ctrNext (ch : Bool) (EQ : AggQueryIn T c 1 (ColKind.allReg 1)) (h 
     (n K' : ℕ) : (ctrNext ch EQ n K').inSig Θ :=
   inSig_keepCols _ _ ⟨noFun_eqOuter n K', (inSig_substMap _ _).2 (inSig_ctrStep ch EQ h K')⟩
 
-theorem inSig_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem inSig_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     (h₀ : q₀'.inSig Θ) (h₁ : q₁'.inSig Θ) :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').inSig Θ := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').inSig Θ := by
   have hEQ := inSig_valRel (c := c) (Θ := Θ) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
   refine inSig_keepCols _ _ ⟨inSig_prodA _ _ h₀ (inSig_ctrStart ch _ hEQ _), ?_⟩
   refine inSig_keepCols _ _ ((inSig_castKind _ _ Θ).2 ⟨trivial,
@@ -3241,10 +3165,10 @@ theorem inSig_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String
   trivial
 
 /-- **The pass keeps the signature.** -/
-theorem inSig_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem inSig_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.inSig Θ →
-        (muSetFreeA cnt ch f q).inSig Θ := by
+        (muSetFreeA ch f q).inSig Θ := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ _ h => h
@@ -3265,8 +3189,8 @@ theorem inSig_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f hu hh h
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    exact inSig_muSetSim cnt ch s _ q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+    exact inSig_muSetSim ch s _ q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
       (ih₀ _ hu.2.1 hh.2.2.1 h.1) (ih₁ _ hu.2.2 hh.2.2.2 h.2)
   | Gamma is ts fs q keep ord ih => exact fun f hu hh h => ⟨h.1, h.2.1, h.2.2.1,
       ih f hu.2 hh h.2.2.2⟩
@@ -3481,14 +3405,14 @@ theorem HoleKinds.assign_self_base (HK : HoleKinds) (s : String) {n : ℕ}
   rw [dite_eq_left ⟨rfl, rfl⟩]
   rfl
 
-theorem wellKinded_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem wellKinded_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     {ρc : Fin c → ColKind} {HK : HoleKinds} (h₀ : q₀'.wellKinded ρc HK)
     (h₁ : q₁'.wellKinded ρc (HK.assign s (ColKind.allReg n))) :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').wellKinded ρc HK := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').wellKinded ρc HK := by
   have hEQ := fun HK' => wellKinded_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) ρc HK'
   refine wellKinded_keepCols _ _
     ⟨wellKinded_prodA' _ _ h₀ (wellKinded_ctrStart _ (hEQ HK) ch _), ?_⟩
@@ -3504,11 +3428,11 @@ theorem wellKinded_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : S
     rfl
 
 /-- **The pass keeps the kinds.** -/
-theorem wellKinded_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem wellKinded_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
       ∀ {ρc : Fin c → ColKind} {HK : HoleKinds}, q.wellKinded ρc HK →
-        (muSetFreeA cnt ch f q).wellKinded ρc HK := by
+        (muSetFreeA ch f q).wellKinded ρc HK := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ _ _ _ h => h
@@ -3532,8 +3456,8 @@ theorem wellKinded_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f hu hh ρc HK h
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    exact wellKinded_muSetSim cnt ch s _ q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+    exact wellKinded_muSetSim ch s _ q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
       (ih₀ _ hu.2.1 hh.2.2.1 h.1) (ih₁ _ hu.2.2 hh.2.2.2 h.2)
   | Gamma is ts fs q keep ord ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
   | GammaScalar ts fs q ord ih => exact fun f hu hh _ _ h => ⟨h.1, ih f hu.2 hh h.2⟩
@@ -3675,19 +3599,19 @@ theorem mem_names_ctrNext (ch : Bool) (n K' : ℕ) (x : String)
 
 end Ctr
 
-theorem mem_names_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem mem_names_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n) (x : String)
-    (hx : x ∈ (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').names) :
+    (hx : x ∈ (muSetSim ch s s' q₀ q₁ q₀' q₁').names) :
     x = s' ∨ x ∈ q₀'.names ∨ x ∈ q₁'.names ∨ x ∈ (MuSet s q₀ q₁).names := by
   have hEQ : ∀ y, y ∈ (valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)).names →
       y ∈ (MuSet s q₀ q₁).names := fun y hy => by
     obtain ⟨p, hp, rfl⟩ := mem_names_valRel _ _ y hy
     exact snd_mem_names_of_mem_leaves _ p hp
   have hx : x ∈ (Mu s' (prodA q₀' (ctrStart ch (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁))
-      (ctrWidth cnt ch s q₀ q₁))) (simBodyA s s' n (ctrWidth cnt ch s q₀ q₁) ch
+      (ctrWidth c n))) (simBodyA s s' n (ctrWidth c n) ch
         (valRel (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)) q₁')).names := by
     have := hx
     simp only [muSetSim, simResultA, simA] at this
@@ -3712,10 +3636,10 @@ theorem mem_names_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : St
     · exact Or.inr (Or.inr (Or.inr (hEQ x (mem_names_ctrNext _ ch _ _ x hx))))
 
 /-- **The names of the pass's output**: the input's, and the supply's. -/
-theorem mem_names_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem mem_names_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
-      ∀ x, x ∈ (muSetFreeA cnt ch f q).names → x ∈ q.names ∨ ∃ i, x = f i := by
+      ∀ x, x ∈ (muSetFreeA ch f q).names → x ∈ q.names ∨ ∃ i, x = f i := by
   have h3 : ∀ (f : ℕ → String) (j : ℕ) {x : String} {A : Finset String},
       (x ∈ A ∨ ∃ i, x = tri f j i) → (x ∈ A ∨ ∃ i, x = f i) := fun f j x A h =>
     h.imp_right fun ⟨i, hi⟩ => ⟨3 * i + j, hi⟩
@@ -3764,8 +3688,8 @@ theorem mem_names_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro f hu hh x h
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    rcases mem_names_muSetSim cnt ch s (f 0) q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) x h with rfl | h | h | h
+    rcases mem_names_muSetSim ch s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) x h with rfl | h | h | h
     · exact Or.inr ⟨0, rfl⟩
     · exact (h3 f 1 (ih₀ _ hu.2.1 hh.2.2.1 x h)).imp_left
         fun h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)
@@ -3886,14 +3810,14 @@ theorem overSchema_ctrNext (ch : Bool) (n K' : ℕ) : (ctrNext ch EQ n K').overS
 end Ctr
 
 /-- **The simulation is hygienic** where its own name is fresh. -/
-theorem hygienic_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem hygienic_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
     (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
     (h₀ : q₀'.hygienic) (h₁ : q₁'.hygienic) (hn₀ : q₀'.noMention s') (hn₁ : q₁'.noMention s')
     (hls : (MuSet s q₀ q₁).noMention s') :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').hygienic := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').hygienic := by
   have hls' : ∀ p ∈ ctrLeaves s q₀ q₁, p.2 ≠ s' :=
     ne_of_noMention_of_mem_leaves _ hls
   have hEn := noMention_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) s' hls'
@@ -3916,7 +3840,7 @@ theorem hygienic_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : Str
 
 /-- **The simulation is well-formed over the schema** of its recursion,
 its own name being fresh. -/
-theorem overSchema_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : String)
+theorem overSchema_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
     (q₀' : AggQueryIn T c n (ColKind.allReg n))
@@ -3924,7 +3848,7 @@ theorem overSchema_muSetSim (cnt : SeqAggFunc T) (ch : Bool) {n : ℕ} (s s' : S
     {sch : Schema} (hs' : sch s' = none) (hss : s' ≠ s) (h₀ : q₀'.overSchema sch)
     (h₁ : q₁'.overSchema (sch.update s n)) (hn₁ : s' ∉ q₁'.names)
     (hls : ∀ p ∈ ctrLeaves s q₀ q₁, sch p.2 = some p.1 ∧ p.2 ≠ s') :
-    (muSetSim cnt ch s s' q₀ q₁ q₀' q₁').overSchema sch := by
+    (muSetSim ch s s' q₀ q₁ q₀' q₁').overSchema sch := by
   set EQ := valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) with hEQ
   have hEo : EQ.overSchema sch := overSchema_valRel _ _ fun p hp => (hls p hp).1
   have hEn : s' ∉ EQ.names := fun h => by
@@ -3967,10 +3891,10 @@ private theorem f0_notMem_tri2 {f : ℕ → String} (hf : Function.Injective f)
   · have := hf hi; simp at this
 
 /-- **The pass's output is hygienic**, its fresh names being fresh. -/
-theorem hygienic_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem hygienic_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
-      (∀ i, f i ∉ q.names) → (muSetFreeA cnt ch f q).hygienic := by
+      (∀ i, f i ∉ q.names) → (muSetFreeA ch f q).hygienic := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ h _ => h
@@ -3994,8 +3918,8 @@ theorem hygienic_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
   | Retag hk q ih => exact fun f hu hh hf => ih f hu hh hf
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro f hu hh hf
-    exact ⟨(muSetFreeA_struct cnt ch q₀ _ hu.2.1 hh.2.2.1).1 s hh.1,
-      (muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).1 s hh.2.1,
+    exact ⟨(muSetFreeA_struct ch q₀ _ hu.2.1 hh.2.2.1).1 s hh.1,
+      (muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).1 s hh.2.1,
       ih₀ _ hu.2.1 hh.2.2.1 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1),
       ih₁ _ hu.2.2 hh.2.2.2 (tri_fresh' hf
@@ -4004,14 +3928,14 @@ theorem hygienic_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
     intro f hu hh hf
     have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
     have hn : (MuSet s q₀ q₁).noMention (f 0) := noMention_of_not_mem_names _ (hf 0)
-    exact hygienic_muSetSim cnt ch s (f 0) q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
+    exact hygienic_muSetSim ch s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
       (ih₀ _ hu.2.1 hh.2.2.1 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1))
       (ih₁ _ hu.2.2 hh.2.2.2 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2))
-      ((muSetFreeA_struct cnt ch q₀ _ hu.2.1 hh.2.2.1).1 _ hn.1)
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).1 _ hn.2) hn
+      ((muSetFreeA_struct ch q₀ _ hu.2.1 hh.2.2.1).1 _ hn.1)
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).1 _ hn.2) hn
   | Gamma is ts fs q keep ord ih => exact fun f hu hh hf => ih f hu.2 hh hf
   | GammaScalar ts fs q ord ih => exact fun f hu hh hf => ih f hu.2 hh hf
   | GammaNest is his p g q ih => exact fun f hu hh hf => ih f hu.2 hh hf
@@ -4022,11 +3946,11 @@ theorem hygienic_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
 
 /-- **The pass's output is well-formed over the schema**, its fresh names
 being fresh for the query and undeclared by the schema. -/
-theorem overSchema_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
+theorem overSchema_muSetFreeA (ch : Bool) :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (f : ℕ → String), Function.Injective f → q.usesOnly (Set.univ \ {OpKind.union}) →
       q.hygienic → (∀ i, f i ∉ q.names) → ∀ {sch : Schema}, (∀ i, sch (f i) = none) →
-      q.overSchema sch → (muSetFreeA cnt ch f q).overSchema sch := by
+      q.overSchema sch → (muSetFreeA ch f q).overSchema sch := by
   intro c n κ l q
   induction q with
   | Rel _ _ => exact fun _ _ _ _ _ _ _ h => h
@@ -4059,7 +3983,7 @@ theorem overSchema_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
     have hsf : ∀ i, f i ≠ s := fun i he => hf i (by rw [he]; exact Finset.mem_insert_self _ _)
     exact ⟨h.1, ih₀ _ (tri_injective hi 1) hu.2.1 hh.2.2.1 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1) (fun i => hs _) h.2.1,
-      (muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).1 s h.2.2.1,
+      (muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).1 s h.2.2.1,
       ih₁ _ (tri_injective hi 2) hu.2.2 hh.2.2.2 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2)
         (fun i => by
@@ -4071,8 +3995,8 @@ theorem overSchema_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
     have hsf : ∀ i, f i ≠ s := fun i he => hf i (by rw [he]; exact Finset.mem_insert_self _ _)
     have hfr₁ : ∀ i, tri f 2 i ∉ q₁.names := tri_fresh' hf
       (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_right _ h)) 2
-    refine overSchema_muSetSim cnt ch s (f 0) q₀ q₁ _ _
-      ((muSetFreeA_struct cnt ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) (hs 0) (hsf 0)
+    refine overSchema_muSetSim ch s (f 0) q₀ q₁ _ _
+      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin) (hs 0) (hsf 0)
       (ih₀ _ (tri_injective hi 1) hu.2.1 hh.2.2.1 (tri_fresh' hf
         (fun _ h => Finset.mem_insert_of_mem (Finset.mem_union_left _ h)) 1) (fun i => hs _) h.2.1)
       (ih₁ _ (tri_injective hi 2) hu.2.2 hh.2.2.2 hfr₁
@@ -4080,7 +4004,7 @@ theorem overSchema_muSetFreeA (cnt : SeqAggFunc T) (ch : Bool) :
           rw [Schema.update_apply, ite_eq_right (show ¬ tri f 2 i = s from hsf _)]
           exact hs _) h.2.2.2)
       (fun hm => f0_notMem_tri2 hi (fun h' => hf 0 (Finset.mem_insert_of_mem
-        (Finset.mem_union_right _ h'))) (mem_names_muSetFreeA cnt ch q₁ _ hu.2.2 hh.2.2.2 _ hm) rfl)
+        (Finset.mem_union_right _ h'))) (mem_names_muSetFreeA ch q₁ _ hu.2.2 hh.2.2.2 _ hm) rfl)
       (fun p hp => ⟨find_of_mem_leaves_of_overSchema _ h p hp, fun he => hf 0 (by
           rw [← he]
           exact snd_mem_names_of_mem_leaves _ p hp)⟩)
@@ -4166,18 +4090,18 @@ theorem generatesAnnOn_annEpsOps_of (sch : Schema) (cnt : SeqAggFunc T) (ch : Bo
       : o ∈ Set.univ \ {OpKind.union})) _ hs2.usesOnly
   -- the set recursions
   obtain ⟨f2, hf2, hf2s, hf2n⟩ := AggQueryIn.exists_freshSupply sch q2.names
-  set q3 := AggQueryIn.muSetFreeA cnt ch f2 q2 with hq3
+  set q3 := AggQueryIn.muSetFreeA ch f2 q2 with hq3
   have hsim : AggQueryIn.simOps ⊆ insert OpKind.union (S2 \ {OpKind.muSet}) := by
     intro o ho
     simp only [AggQueryIn.simOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
     rcases ho with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
       simp [hS2, plainRecOps, plainOps, basisDD, basisOps]
-  have hu3 := AggQueryIn.usesOnly_muSetFreeA cnt ch hsim q2 f2 hs2.usesOnly hU2 hh2
-  have hi3 := AggQueryIn.inSig_muSetFreeA cnt ch q2 f2 hU2 hh2 hi2
-  have ha3 := AggQueryIn.noExplode_muSetFreeA cnt ch q2 f2 hU2 hh2 ha2
-  have hp3 := AggQueryIn.wellKinded_muSetFreeA cnt ch q2 f2 hU2 hh2 hp2
-  have ho3 := AggQueryIn.overSchema_muSetFreeA cnt ch q2 f2 hf2 hU2 hh2 hf2n hf2s ho2
-  have hh3 := AggQueryIn.hygienic_muSetFreeA cnt ch q2 f2 hU2 hh2 hf2n
+  have hu3 := AggQueryIn.usesOnly_muSetFreeA ch hsim q2 f2 hs2.usesOnly hU2 hh2
+  have hi3 := AggQueryIn.inSig_muSetFreeA ch q2 f2 hU2 hh2 hi2
+  have ha3 := AggQueryIn.noExplode_muSetFreeA ch q2 f2 hU2 hh2 ha2
+  have hp3 := AggQueryIn.wellKinded_muSetFreeA ch q2 f2 hU2 hh2 hp2
+  have ho3 := AggQueryIn.overSchema_muSetFreeA ch q2 f2 hf2 hU2 hh2 hf2n hf2s ho2
+  have hh3 := AggQueryIn.hygienic_muSetFreeA ch q2 f2 hU2 hh2 hf2n
   -- the unions, a second time
   have hS4s : AggQueryIn.sumMuOps ⊆ S2 \ {OpKind.muSet} := by
     intro o ho
@@ -4199,20 +4123,3 @@ theorem generatesAnnOn_annEpsOps_of (sch : Schema) (cnt : SeqAggFunc T) (ch : Bo
   obtain ⟨hs4', he4⟩ := hm4 d γ {} {} (EvalEnv.FinRel.refl _) hs3
   refine ⟨hs4', GenRow.map_toAnnotated_of_fin ?_⟩
   rw [← he4, he3, ← he2, he1]
-
-/-- **`μ^∪` is dispensable beside `μ^⊎` and `ε` in the annotated algebra**,
-where `δ` is the support map, no instance row is annotated `𝟘`
-(`AggQueryIn.CounterOK`), and the semiring settles its linear recursions
-within the size of their tuple sets (`PathSum.SettlesEarly`: absorptive,
-or `⊕` cancellative with no zero divisors – `ℕ`, `ℕ[X]`, the tropical,
-Viterbi and Łukasiewicz semirings). The classes
-`{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` then match every query of the
-annotated algebra in the minimal universe: the products are written as
-applies, the unions as bag recursions, and every set recursion as the
-successor-counter simulation of `AggQueryIn.muSetFreeA`, whose own unions
-are written as bag recursions in turn. -/
-theorem generatesAnnOn_annEpsOps (sch : Schema) (cnt : SeqAggFunc T) (hcnt : cnt.IsCount)
-    (hK : PathSum.SettlesEarly K) :
-    GeneratesAnnOn T K sch cnt annEpsOps AggQueryIn.CounterOK :=
-  generatesAnnOn_annEpsOps_of sch cnt false
-    (AggQueryIn.nodeCorrect_succ cnt hcnt.readsCount hK)

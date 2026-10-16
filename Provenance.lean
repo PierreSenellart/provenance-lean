@@ -1274,33 +1274,34 @@ proven engine several general results reuse internally.
   are path sums (`y_eq_sum_pathsTo`), and a recursion that settles does so
   within the size of a tuple set closed under its rounds, where the
   semiring is absorptive or cancellative without zero divisors
-  (`iterate_succ_eq_of_settles`); a successor counter annotated `𝟙`
-  pairs each derivation with exactly one counter (`SimSpec.dedupK_rounds`),
+  (`iterate_succ_eq_of_settles`, and `wt_trunc_settle` on the tuples the
+  derivations of non-zero weight live on); a successor counter over the
+  counters annotated `𝟙` pairs each derivation with exactly one counter
+  (`SimSpec.dedupK_rounds`),
   and in an absorptive semiring an all-chains counter whose chains absorb
   nothing of the derivations they are paired with gives the same value
   (`ChainSpec.dedupK_rounds`)
 - `Provenance.AnnotatedMuUnion` – **`μ^∪` from `μ^⊎` and `ε` in the
-  annotated algebra**, where `δ` is the support map, no instance row is
-  annotated `𝟘` and the semiring is of `PathSum.SettlesEarly`: duplicate
-  elimination applies no `δ`, so the simulation of `Provenance.MuUnion`
-  carries over once its counter neither multiplies nor repeats
-  derivations – the counter values are grouped, so that their rows are
-  annotated `𝟙`, and a round moves to the *successor* counter, computed
-  by a difference (`AggQueryIn.simResultA`, `evaluate_simResultA`); the
-  pass replacing every set recursion is `AggQueryIn.muSetFreeA`, correct
-  wherever the query settles (`muSetFreeA_correct`). Composed with the
-  passes for `×` and `⊎`, the classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}`
-  generate the annotated algebra over those instances and semirings
-  (`generatesAnnOn_annEpsOps`), and wherever the counter's node is correct
-  (`AggQueryIn.NodeCorrect`, `generatesAnnOn_annEpsOps_of`)
-- `Provenance.AnnotatedChains` – **the same where `δ` is the identity**
-  (the Boolean algebras and the min-max semirings), over every instance:
-  every row holding a value of the instance is annotated below that value's
-  weight (`AggQueryIn.rowBd_evaluate`), so the *all-chains* counter, a
-  round moving to every larger counter, absorbs nothing of a derivation
-  through distinct tuples (`AggQueryIn.muSetSim_correct_chain`), and
-  `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` generate the annotated algebra
-  (`generatesAnn_annEpsOps_of_delta_id`)
+  annotated algebra, the construction**: duplicate elimination applies no
+  `δ`, so the simulation of `Provenance.MuUnion` carries over once its
+  counter neither multiplies nor repeats derivations – a *successor*
+  counter, computed by a difference, whose rows are annotated `𝟙` or `𝟘`
+  (`AggQueryIn.simResultA`, `evaluate_simResultA`), or an *all-chains*
+  one; the pass replacing every set recursion is `AggQueryIn.muSetFreeA`,
+  correct wherever its node is (`muSetFreeA_correct`), and composed with
+  the passes for `×` and `⊎` the classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}`
+  generate the annotated algebra there (`generatesAnnOn_annEpsOps_of`)
+- `Provenance.AnnotatedChains` – **the two nodes, over every instance**:
+  every row holding a value is within any bound the operators keep
+  (`AggQueryIn.rowBd_evaluate`); where `δ` is the support map, a value held
+  only by rows annotated `𝟘` makes every row holding it `𝟘`, so the
+  successor counter is exact with no fence on the instance, in the
+  semirings of `PathSum.SettlesEarly` (`AggQueryIn.muSetSim_correct_succ`,
+  `generatesAnn_annEpsOps_of_support`); where `δ` is the identity (the
+  Boolean algebras and the min-max semirings), a row is below the weight of
+  each value it holds, so the *all-chains* counter absorbs nothing of a
+  derivation through distinct tuples (`AggQueryIn.muSetSim_correct_chain`,
+  `generatesAnn_annEpsOps_of_delta_id`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

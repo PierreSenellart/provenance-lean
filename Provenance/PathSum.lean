@@ -246,6 +246,23 @@ theorem x_add_y_of_absorptive (habs : ∀ a : R, 1 + a = 1) (hb : ∀ u, u ∉ S
           + ∑ j ∈ (range M).erase j', y S b g j v := by ring
       _ = _ := by rw [this]
 
+omit [DecidableEq α] in
+/-- **Rounds read on a smaller set**: where the weights vanish off `S'` and
+lead nowhere out of it, the rounds over `S` are those over `S'`, and vanish
+off `S'`. -/
+theorem y_restrict {S' : Finset α} (hsub : S' ⊆ S) (hb' : ∀ u, u ∉ S' → b u = 0)
+    (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → g u v = 0) :
+    ∀ j v, y S b g j v = y S' b g j v ∧ (v ∉ S' → y S' b g j v = 0)
+  | 0, v => ⟨rfl, hb' v⟩
+  | j + 1, v => by
+    refine ⟨?_, fun hv => ?_⟩
+    · simp only [y]
+      rw [sum_congr rfl fun u _ => by rw [(y_restrict hsub hb' hg' j u).1]]
+      exact (Finset.sum_subset hsub (fun u _ hu => by rw [(y_restrict hsub hb' hg' j u).2 hu,
+        zero_mul])).symm
+    · simp only [y]
+      exact sum_eq_zero fun u hu => by rw [hg' u hu v hv, mul_zero]
+
 end Paths
 
 section Ordered
@@ -651,6 +668,37 @@ theorem iterate_succ_eq_of_settles {S : Finset α} {B : Multiset (α × R)}
         exact hcan _ _ this
       rw [y_eq_zero_of_eq_zero S _ _ hbS hgS hyN hM v, add_zero]
 
+/-- **The weights of a linear set recursion settle within `|S'|` rounds**,
+for a set `S'` the base's weights and the steps' weights from it do not
+leave, in the semirings of `SettlesEarly`: the derivations of non-zero
+weight live in `S'`. -/
+theorem wt_trunc_settle {S S' : Finset α} {B : Multiset (α × R)}
+    {G : α → Multiset (α × R)} (h : Closed S B G) (hsub : S' ⊆ S)
+    (hb' : ∀ u, u ∉ S' → wt B u = 0) (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → wt (G u) v = 0)
+    (hR : SettlesEarly R) (hset : ∃ N, (stepK B G)^[N + 1] 0 = (stepK B G)^[N] 0) {M : ℕ}
+    (hM : S'.card ≤ M) : ∀ k v, wt (trunc B G (M + k)) v = wt (trunc B G M) v := by
+  have hy : ∀ j v, wt (rounds B G j) v = y S' (wt B) (fun u v => wt (G u) v) j v := fun j v => by
+    rw [wt_rounds h, (y_restrict S (wt B) (fun u v => wt (G u) v) hsub hb' hg' j v).1]
+  have hx : ∀ k v, wt (trunc B G k) v = x S' (wt B) (fun u v => wt (G u) v) k v := fun k v => by
+    rw [wt_trunc]
+    exact sum_congr rfl fun j _ => hy j v
+  intro k
+  induction k with
+  | zero => intro v; rfl
+  | succ k ih =>
+    intro v
+    rw [← ih v, ← Nat.add_assoc, trunc_succ, wt_add]
+    rcases hR with habs | ⟨hcan, hnzd⟩
+    · rw [hx, hy, x_add_y_of_absorptive S' _ _ habs hb' hg' (by omega) v]
+    · obtain ⟨N, hN⟩ := hset
+      rw [iterate_stepK_eq, iterate_stepK_eq] at hN
+      have hyN : ∀ v, y S' (wt B) (fun u v => wt (G u) v) N v = 0 := fun v => by
+        have := congrArg (fun r => wt r v) hN
+        simp only [wt_dedupK, wt_trunc, sum_range_succ] at this
+        rw [← hy]
+        exact hcan _ _ this
+      rw [hy, y_eq_zero_of_eq_zero S' _ _ hb' hg' hyN (by omega) v, add_zero]
+
 end Settle
 
 section Counter
@@ -658,16 +706,19 @@ section Counter
 /-! ### The successor counter
 
 The bounded simulation of the set recursion runs the same rounds on pairs
-of a tuple and a *counter*: the base is paired with every counter, a round
-pairs each derived tuple with every counter above the current one, and the
-annotation is multiplied by `𝟙` where the counter is the least one, or the
-successor of the current one, and by `𝟘` elsewhere. Round `j` then holds
-the tuples of round `j` of the recursion, each paired with the counters of
-rank `j` or more, annotated by their weight at the `j`-th counter and `𝟘`
-at the others (`wt_simRounds`, `mem_supp_simRounds`); it is empty from
-the number of counters on (`simRounds_eq_zero`); and `ε` of the sum of its
-rounds, read on the tuples, is the `|cs|`-th iterate of the recursion
-(`dedupK_simRounds`). -/
+of a tuple and a *counter*: the base is paired with every counter of `cs`,
+a round pairs each derived tuple with every counter above the current one,
+and the annotation is multiplied by `𝟙` where the counter is the least one
+of a sublist `cw`, or the successor in `cw` of the current one, and by `𝟘`
+elsewhere. Round `j` then holds the tuples of round `j` of the recursion,
+each paired with the counters of rank `j` or more in `cs`
+(`SimSpec.supp_rounds`), annotated by their weight at the `j`-th counter of
+`cw` and `𝟘` at the others (`SimSpec.wt_rounds`); it is empty from the
+number of counters on (`SimSpec.rounds_eq_zero`); and `ε` of the sum of its
+rounds, read on the tuples, has the tuples of the first `|cs|` rounds of
+the recursion and the weights of its first `|cw|` rounds
+(`SimSpec.dedupK_rounds`). The two lists differ where some counters are
+annotated `𝟘`: their rows are there, and carry nothing. -/
 
 variable [CommSemiring R] {β : Type} [DecidableEq β]
 
@@ -679,22 +730,25 @@ def succInd (cs : List β) (c c' : β) : R :=
   if c ∈ cs ∧ cs[cs.idxOf c + 1]? = some c' then 1 else 0
 
 /-- The hypotheses the simulation's rounds are read under: the counters
-listed in a strictly increasing order, the base pairing each tuple of `B`
-with every counter, and a round pairing each tuple of `G t` with every
-counter above `c`, the annotations multiplied by the indicators. -/
-structure SimSpec (lt : β → β → Prop) (cs : List β) (B : Multiset (α × R))
+`cs` listed in a strictly increasing order, and a sublist `cw` of them; the
+base pairing each tuple of `B` with every counter, and a round pairing each
+tuple of `G t` with every counter above `c`, the annotations multiplied by
+the indicators of `cw`. -/
+structure SimSpec (lt : β → β → Prop) (cs cw : List β) (B : Multiset (α × R))
     (G : α → Multiset (α × R)) (B' : Multiset ((α × β) × R))
     (G' : α × β → Multiset ((α × β) × R)) : Prop where
   sorted : cs.Pairwise lt
   irrefl : ∀ c, ¬ lt c c
   trans : ∀ a b c, lt a b → lt b c → lt a c
-  base_wt : ∀ t c, wt B' (t, c) = wt B t * firstInd cs c
+  wsorted : cw.Pairwise lt
+  wsub : ∀ c ∈ cw, c ∈ cs
+  base_wt : ∀ t c, wt B' (t, c) = wt B t * firstInd cw c
   base_supp : ∀ t c, (t, c) ∈ supp B' ↔ t ∈ supp B ∧ c ∈ cs
-  step_wt : ∀ t c, c ∈ cs → ∀ t' c', wt (G' (t, c)) (t', c') = wt (G t) t' * succInd cs c c'
+  step_wt : ∀ t c, c ∈ cs → ∀ t' c', wt (G' (t, c)) (t', c') = wt (G t) t' * succInd cw c c'
   step_supp : ∀ t c, c ∈ cs → ∀ t' c',
     (t', c') ∈ supp (G' (t, c)) ↔ t' ∈ supp (G t) ∧ c' ∈ cs ∧ lt c c'
 
-variable {lt : β → β → Prop} {cs : List β} {B : Multiset (α × R)}
+variable {lt : β → β → Prop} {cs cw : List β} {B : Multiset (α × R)}
   {G : α → Multiset (α × R)} {B' : Multiset ((α × β) × R)}
   {G' : α × β → Multiset ((α × β) × R)}
 
@@ -757,10 +811,10 @@ theorem getElem_idxOf_succ_eq_iff (hs : cs.Pairwise lt) (hirr : ∀ c, ¬ lt c c
       (sorted_lt_iff hs hirr htr hi (by omega)).2 (by omega),
       (sorted_lt_iff hs hirr htr (by omega) hj).2 (by omega)⟩
 
-theorem SimSpec.nodup (h : SimSpec lt cs B G B' G') : cs.Nodup :=
+theorem SimSpec.nodup (h : SimSpec lt cs cw B G B' G') : cs.Nodup :=
   h.sorted.imp fun {a b} hab he => by subst he; exact h.irrefl a hab
 
-theorem SimSpec.lt_iff (h : SimSpec lt cs B G B' G') {i i' : ℕ} (hi : i < cs.length)
+theorem SimSpec.lt_iff (h : SimSpec lt cs cw B G B' G') {i i' : ℕ} (hi : i < cs.length)
     (hi' : i' < cs.length) : lt cs[i] cs[i'] ↔ i < i' := by
   constructor
   · intro hl
@@ -770,13 +824,20 @@ theorem SimSpec.lt_iff (h : SimSpec lt cs B G B' G') {i i' : ℕ} (hi : i < cs.l
     · subst heq; exact h.irrefl _ hl
   · intro hlt; exact List.pairwise_iff_getElem.1 h.sorted _ _ _ _ hlt
 
-theorem SimSpec.succInd_get (h : SimSpec lt cs B G B' G') {j : ℕ} (hj : j < cs.length)
-    (c' : β) : succInd (R := R) cs cs[j] c' = if cs[j + 1]? = some c' then 1 else 0 := by
+theorem SimSpec.wnodup (h : SimSpec lt cs cw B G B' G') : cw.Nodup :=
+  h.wsorted.imp fun {a b} hab he => by subst he; exact h.irrefl a hab
+
+theorem SimSpec.succInd_get (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : j < cw.length)
+    (c' : β) : succInd (R := R) cw cw[j] c' = if cw[j + 1]? = some c' then 1 else 0 := by
   unfold succInd
-  rw [h.nodup.idxOf_getElem]
+  rw [h.wnodup.idxOf_getElem]
   simp [List.getElem_mem]
 
-theorem SimSpec.supp_rounds (h : SimSpec lt cs B G B' G') :
+theorem SimSpec.length_le (h : SimSpec lt cs cw B G B' G') : cw.length ≤ cs.length := by
+  rw [← List.toFinset_card_of_nodup h.wnodup, ← List.toFinset_card_of_nodup h.nodup]
+  exact Finset.card_le_card fun c hc => List.mem_toFinset.2 (h.wsub c (List.mem_toFinset.1 hc))
+
+theorem SimSpec.supp_rounds (h : SimSpec lt cs cw B G B' G') :
     ∀ j t c, (t, c) ∈ supp (rounds B' G' j)
       ↔ t ∈ supp (rounds B G j) ∧ ∃ i, j ≤ i ∧ ∃ hi : i < cs.length, cs[i] = c
   | 0, t, c => by
@@ -799,35 +860,36 @@ theorem SimSpec.supp_rounds (h : SimSpec lt cs B G B' G') :
       exact (h.step_supp t _ (List.getElem_mem hj) t' _).2
         ⟨ht', List.getElem_mem hi', (h.lt_iff hj hi').2 (by omega)⟩
 
-theorem SimSpec.supp_rounds_subset (h : SimSpec lt cs B G B' G') {S : Finset α}
+theorem SimSpec.supp_rounds_subset (h : SimSpec lt cs cw B G B' G') {S : Finset α}
     (hS : Closed S B G) (j : ℕ) : supp (rounds B' G' j) ⊆ S ×ˢ cs.toFinset := by
   rintro ⟨t, c⟩ hm
   obtain ⟨ht, i, -, hi, rfl⟩ := (h.supp_rounds j t c).1 hm
   exact Finset.mem_product.2 ⟨hS.supp_rounds j ht, List.mem_toFinset.2 (List.getElem_mem hi)⟩
 
 /-- **The simulation's round `j` carries round `j` of the recursion at the
-`j`-th counter, and `𝟘` at the others.** -/
-theorem SimSpec.wt_rounds (h : SimSpec lt cs B G B' G') {S : Finset α} (hS : Closed S B G) :
+`j`-th counter of `cw`, and `𝟘` at the others.** -/
+theorem SimSpec.wt_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α} (hS : Closed S B G) :
     ∀ j t c, wt (rounds B' G' j) (t, c)
-      = wt (rounds B G j) t * (if cs[j]? = some c then 1 else 0)
+      = wt (rounds B G j) t * (if cw[j]? = some c then 1 else 0)
   | 0, t, c => by simp only [rounds, h.base_wt, firstInd]
   | j + 1, t', c' => by
     simp only [rounds]
     rw [wt_lin, sum_map_mul_eq (fun p => wt (G' p) (t', c')) _ _ (h.supp_rounds_subset hS j),
       wt_lin, sum_map_mul_eq (fun u => wt (G u) t') S _ (hS.supp_rounds j), sum_product]
-    by_cases hj : j < cs.length
-    · have hsum : ∀ t, ∑ c ∈ cs.toFinset, wt (rounds B' G' j) (t, c) * wt (G' (t, c)) (t', c')
-          = wt (rounds B G j) t * (wt (G t) t' * if cs[j + 1]? = some c' then 1 else 0) := by
+    by_cases hj : j < cw.length
+    · have hcs : cw[j] ∈ cs.toFinset := List.mem_toFinset.2 (h.wsub _ (List.getElem_mem hj))
+      have hsum : ∀ t, ∑ c ∈ cs.toFinset, wt (rounds B' G' j) (t, c) * wt (G' (t, c)) (t', c')
+          = wt (rounds B G j) t * (wt (G t) t' * if cw[j + 1]? = some c' then 1 else 0) := by
         intro t
-        rw [sum_eq_single cs[j]]
+        rw [sum_eq_single cw[j]]
         · rw [h.wt_rounds hS j t, List.getElem?_eq_getElem hj, ite_eq_left rfl, mul_one,
-            h.step_wt t _ (List.getElem_mem hj), h.succInd_get hj]
+            h.step_wt t _ (List.mem_toFinset.1 hcs), h.succInd_get hj]
         · intro c _ hne
           rw [h.wt_rounds hS j t, List.getElem?_eq_getElem hj, ite_eq_right (fun he => hne
             (Option.some.inj he).symm), mul_zero, zero_mul]
-        · intro hn; exact absurd (List.mem_toFinset.2 (List.getElem_mem hj)) hn
+        · intro hn; exact absurd hcs hn
       simp only [hsum, ← mul_assoc, ← sum_mul]
-    · have hj' : cs[j + 1]? = none := List.getElem?_eq_none (by omega)
+    · have hj' : cw[j + 1]? = none := List.getElem?_eq_none (by omega)
       rw [hj', ite_eq_right (by simp), mul_zero]
       refine sum_eq_zero fun t _ => sum_eq_zero fun c _ => ?_
       rw [h.wt_rounds hS j t, List.getElem?_eq_none (by omega), ite_eq_right (by simp), mul_zero,
@@ -838,7 +900,7 @@ theorem supp_eq_empty_iff {r : Multiset (α × R)} : supp r = ∅ ↔ r = 0 := b
   simp [supp, Multiset.toFinset_eq_empty, Multiset.map_eq_zero]
 
 /-- **The simulation's rounds end at the number of counters.** -/
-theorem SimSpec.rounds_eq_zero (h : SimSpec lt cs B G B' G') {j : ℕ} (hj : cs.length ≤ j) :
+theorem SimSpec.rounds_eq_zero (h : SimSpec lt cs cw B G B' G') {j : ℕ} (hj : cs.length ≤ j) :
     rounds B' G' j = 0 := by
   have : supp (rounds B' G' j) = ∅ := by
     ext ⟨t, c⟩
@@ -878,12 +940,15 @@ theorem mem_supp_map_dropCtr {X : Multiset ((α × β) × R)} {t : α} :
   · rintro ⟨_, ⟨p, hp, rfl⟩, rfl⟩; exact ⟨p.1.2, p, hp, rfl⟩
   · rintro ⟨c, p, hp, he⟩; exact ⟨_, ⟨p, hp, rfl⟩, by rw [he]⟩
 
-/-- **The simulation computes the `|cs|`-th iterate of the recursion**:
-`ε` of the sum of any number `L ≥ |cs|` of its rounds, with the counters
-forgotten, is `ε` of the sum of the first `|cs|` rounds of the recursion. -/
-theorem SimSpec.dedupK_rounds (h : SimSpec lt cs B G B' G') {S : Finset α} (hS : Closed S B G)
-    {L : ℕ} (hL : cs.length ≤ L) :
-    dedupK ((∑ j ∈ range L, rounds B' G' j).map dropCtr) = dedupK (trunc B G cs.length) := by
+/-- **The simulation computes the recursion**: `ε` of the sum of any
+number `L ≥ |cs|` of its rounds, with the counters forgotten, is `ε` of the
+sum of the first `N` rounds of the recursion, as soon as these have the
+tuples of the first `|cs|` rounds and the weights of the first `|cw|`. -/
+theorem SimSpec.dedupK_rounds (h : SimSpec lt cs cw B G B' G') {S : Finset α}
+    (hS : Closed S B G) {L N : ℕ} (hL : cs.length ≤ L)
+    (hsupp : ∀ t, (∃ j < cs.length, t ∈ supp (rounds B G j)) ↔ ∃ j < N, t ∈ supp (rounds B G j))
+    (hwt : ∀ t, wt (trunc B G cw.length) t = wt (trunc B G N) t) :
+    dedupK ((∑ j ∈ range L, rounds B' G' j).map dropCtr) = dedupK (trunc B G N) := by
   have hmemL : ∀ k, ∀ p ∈ ∑ j ∈ range k, rounds B' G' j, p.1.2 ∈ cs.toFinset := by
     intro k
     induction k with
@@ -895,9 +960,10 @@ theorem SimSpec.dedupK_rounds (h : SimSpec lt cs B G B' G') {S : Finset α} (hS 
       · exact ih p hp
       · exact (Finset.mem_product.1 (h.supp_rounds_subset hS k
           (mem_supp.2 ⟨p, hp, rfl⟩))).2
+  have hwL : cw.length ≤ L := le_trans h.length_le hL
   refine dedupK_congr ?_ fun t => ?_
   · ext t
-    rw [mem_supp_map_dropCtr, mem_supp_trunc]
+    rw [mem_supp_map_dropCtr, mem_supp_trunc, ← hsupp t]
     have hsum : ∀ (k : ℕ) (c : β), (t, c) ∈ supp (∑ j ∈ range k, rounds B' G' j)
         ↔ ∃ j < k, (t, c) ∈ supp (rounds B' G' j) := by
       intro k c
@@ -908,26 +974,27 @@ theorem SimSpec.dedupK_rounds (h : SimSpec lt cs B G B' G') {S : Finset α} (hS 
       exact ⟨j, by omega, ht⟩
     · rintro ⟨j, hj, ht⟩
       exact ⟨cs[j], j, by omega, ht, j, le_rfl, hj, rfl⟩
-  · rw [wt_map_dropCtr cs.toFinset _ (hmemL L), wt_trunc]
+  · rw [wt_map_dropCtr cs.toFinset _ (hmemL L), ← hwt t, wt_trunc]
     have : ∀ c, wt (∑ j ∈ range L, rounds B' G' j) (t, c)
         = ∑ j ∈ range L, wt (rounds B' G' j) (t, c) := fun c => wt_trunc B' G' L (t, c)
     simp only [this, h.wt_rounds hS]
     rw [sum_comm]
-    have hsplit : range L = range cs.length ∪ (range L \ range cs.length) := by
-      rw [Finset.union_sdiff_of_subset (Finset.range_mono hL)]
+    have hsplit : range L = range cw.length ∪ (range L \ range cw.length) := by
+      rw [Finset.union_sdiff_of_subset (Finset.range_mono hwL)]
     rw [hsplit, sum_union Finset.disjoint_sdiff]
-    rw [sum_eq_zero (s := range L \ range cs.length)]
+    rw [sum_eq_zero (s := range L \ range cw.length)]
     · rw [add_zero]
       refine sum_congr rfl fun j hj => ?_
-      have hj : j < cs.length := mem_range.1 hj
-      rw [sum_eq_single cs[j]]
+      have hj : j < cw.length := mem_range.1 hj
+      have hcs : cw[j] ∈ cs.toFinset := List.mem_toFinset.2 (h.wsub _ (List.getElem_mem hj))
+      rw [sum_eq_single cw[j]]
       · rw [List.getElem?_eq_getElem hj, ite_eq_left rfl, mul_one]
       · intro c _ hne
         rw [List.getElem?_eq_getElem hj, ite_eq_right (fun he => hne (Option.some.inj he).symm),
           mul_zero]
-      · intro hn; exact absurd (List.mem_toFinset.2 (List.getElem_mem hj)) hn
+      · intro hn; exact absurd hcs hn
     · intro j hj
-      have : cs.length ≤ j := by simp at hj; omega
+      have : cw.length ≤ j := by simp at hj; omega
       exact sum_eq_zero fun c _ => by
         rw [List.getElem?_eq_none this, ite_eq_right (by simp), mul_zero]
 
@@ -1170,6 +1237,17 @@ theorem exists_short_round {S : Finset α} (hS : Closed S B G) :
           exact fun h' => hv (hS.step u hu h')) (Nat.le_of_not_lt hj) hN
       obtain ⟨j', hj', hle, ht'⟩ := ih j₁ hj₁ t ((mem_supp_rounds_iff hS j₁ t).2 hj₁')
       exact ⟨j', hj', by omega, ht'⟩
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
+/-- **The tuples of the rounds settle within `|S|` rounds.** -/
+theorem exists_round_iff {S : Finset α} (hS : Closed S B G) {M N : ℕ} (hM : S.card ≤ M)
+    (hMN : M ≤ N) (t : α) :
+    (∃ j < M, t ∈ supp (rounds B G j)) ↔ ∃ j < N, t ∈ supp (rounds B G j) := by
+  constructor
+  · rintro ⟨j, hj, ht⟩; exact ⟨j, by omega, ht⟩
+  · rintro ⟨j, -, ht⟩
+    obtain ⟨j', hj', -, ht'⟩ := exists_short_round hS j t ht
+    exact ⟨j', by omega, ht'⟩
 
 omit [PartialOrder R] [CanonicallyOrderedAdd R] [IsOrderedAddMonoid R] in
 /-- **The rounds past `|S|` add nothing**, in an absorptive semiring. -/
