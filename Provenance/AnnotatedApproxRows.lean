@@ -26,19 +26,26 @@ against it.
   Boolean functions of no variable) the rows `≈` keeps are the realized
   world of an evaluation, which is the plain evaluation of the realized
   world (`AggQueryIn.genRandomWorld_evaluate`), and an instance annotated
-  `𝟙` realizes itself (`generatesAtNoExplode_of_generatesAnnZ`). That
-  theorem holds for one storey of second-level aggregation, so
-  `GeneratesAnnZ` is stated for that fragment, sources and matches alike.
-  What it also needs is that the match settles plainly on the realized
-  world, which `AggQueryIn.settlesAt_randomWorld` proves from its
-  annotated settling.
+  `𝟙` realizes itself (`generatesAtNoExplode_of_generatesAnnZ`). It also
+  needs the match to settle plainly on the realized world, which
+  `AggQueryIn.settlesAt_randomWorld` proves from its annotated settling.
+* **The scope** is the fragment without second-level aggregation
+  (`AggQueryIn.noGammaNest`), sources and matches alike. The random-world
+  theorem holds for one storey, but the constructions of the positive half
+  do not keep one storey – a product of two relations that both aggregate
+  a second time becomes an apply whose two sides do, and a union of them a
+  bag recursion carrying nested values through its rounds, both outside
+  that theorem – while they keep the fragment without it. Widening to one
+  storey means extending the random-world theorem to those two shapes.
 * **The rows proved over `ℕ`, `ℕ × ℕ` and `ℕ[x, y]`** go through as they
   were: their witnesses' rows are annotated otherwise than `𝟘`, so `≈`
   keeps them (`GenRow.exists_finalize_of_zeroNorm`).
 
-`annEpsOps_minimal_in_class_approx` is the minimality of the nine classes
-up to `≈`, over the class `AnnBasisClass`, which holds `𝔹`, `ℕ` and
-`ℕ[x, y]`.
+`annEpsOps_isBasis_in_class_approx` is the basis theorem up to `≈` over
+the class `AnnBasisClass`, which holds `𝔹`, `ℕ` and `ℕ[x, y]`: the nine
+classes generate (`generatesAnnZ_annEpsOps_of_class`, the constructions
+agreeing with their source row by row up to finalization), and no proper
+subset does (`annEpsOps_minimal_in_class_approx`).
 -/
 
 /-! ## Plain settling on the realized world -/
@@ -367,21 +374,22 @@ theorem GenRow.exists_finalize_of_zeroNorm {n : ℕ} {A B : Multiset (GenRow T K
 end Approx
 
 /-- **A set of classes generates the annotated algebra up to `≈`**: every
-query of the whole algebra in the minimal universe with at most one storey
-of second-level aggregation (`AggQueryIn.nestOnce`) is matched over the
-set, by a query of the same fragment, whose result agrees with the source's
-up to `≈` wherever the source settles. The fragment is the one where the
-Boolean support of an evaluation is the plain evaluation of the realized
-world (`AggQueryIn.genRandomWorld_evaluate`), which is how the rows
-inherited from the plain basis transfer. -/
+query of the whole algebra in the minimal universe with no second-level
+aggregation (`AggQueryIn.noGammaNest`) is matched over the set, by a query
+of the same fragment, whose result agrees with the source's up to `≈`
+wherever the source settles. In that fragment the Boolean support of an
+evaluation is the plain evaluation of the realized world
+(`AggQueryIn.genRandomWorld_evaluate`), which is how the rows inherited
+from the plain basis transfer; and the constructions of the positive half
+stay in it. -/
 def GeneratesAnnZ (T : Type) [ValueType T] (K : Type) [CommSemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt → q.noExplode →
-      q.wellKinded (ColKind.allReg 0) HoleKinds.empty → q.nestOnce →
+      q.wellKinded (ColKind.allReg 0) HoleKinds.empty → q.noGammaNest →
       ∃ q' : AggQuery T n κ,
         q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode
-          ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ q'.nestOnce
+          ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ q'.noGammaNest
           ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), q.AnnSettlesAt d γ {} →
               q'.AnnSettlesAt d γ {}
                 ∧ GenRow.zeroNorm (q'.evaluate d γ) = GenRow.zeroNorm (q.evaluate d γ)
@@ -472,7 +480,7 @@ realizes itself. -/
 theorem generatesAtNoExplode_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesAnnZ T BoolNone sch cnt S) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hf : q.liftFaithful) (ha : q.noExplode)
-    (hwk : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) (hn : q.nestOnce) :
+    (hwk : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) (hn : q.noGammaNest) :
     GeneratesAtNoExplode T sch cnt S q := by
   intro ho hu hi
   obtain ⟨q', ho', hu', hi', ha', hwk', hn', he⟩ := h q ho hu hi ha hwk hn
@@ -483,12 +491,14 @@ theorem generatesAtNoExplode_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T
     AggQueryIn.annSettlesAt_of_settlesAt q hf ha hh hwk _ γ
       (by rw [Database.toPlain_liftOne]; exact hD)
   obtain ⟨hs', heq⟩ := he _ γ hann
-  have hq := AggQueryIn.genRandomWorld_evaluate q (AggQueryIn.noProvSum_of_usesOnly q hu) hn hh
+  have hq := AggQueryIn.genRandomWorld_evaluate q (AggQueryIn.noProvSum_of_usesOnly q hu)
+    (AggQueryIn.nestOnce_of_noGammaNest q hn) hh
     hwk (D.liftOne (K := BoolNone)) Empty.elim hann
   have hq' := AggQueryIn.genRandomWorld_evaluate q' (AggQueryIn.noProvSum_of_usesOnly q' hu')
-    hn' hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim hs'
+    (AggQueryIn.nestOnce_of_noGammaNest q' hn') hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim hs'
   have hs := AggQueryIn.settlesAt_randomWorld q' (AggQueryIn.noProvSum_of_usesOnly q' hu')
-    hn' hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim hs'
+    (AggQueryIn.nestOnce_of_noGammaNest q' hn') hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim
+    hs'
   rw [AnnotatedDatabase.randomWorld_liftOne] at hq hq' hs
   refine ⟨hs, ?_⟩
   rw [← hq, ← hq', ← zeroNorm_fst_boolNone, ← zeroNorm_fst_boolNone, heq]
@@ -502,47 +512,40 @@ section Rows
 variable {T : Type} [ValueType T]
 
 omit [ValueType T] in
-@[simp] theorem AggQueryIn.nestOnce_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
-    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
-    (q.castKind h).nestOnce ↔ q.nestOnce := by
-  cases h; exact Iff.rfl
+theorem AggQueryIn.noGammaNest_unit : (AggQueryIn.unit : AggQuery T 0 _).noGammaNest := by
+  rw [AggQueryIn.unit, AggQueryIn.noGammaNest_castKind]; trivial
 
-omit [ValueType T] in
-theorem AggQueryIn.nestOnce_unit : (AggQueryIn.unit : AggQuery T 0 _).nestOnce := by
-  rw [AggQueryIn.unit, AggQueryIn.nestOnce_castKind]
-  exact AggQueryIn.nestOnce_of_noGammaNest _ trivial
-
-theorem nestOnce_projWitness : projWitness.nestOnce := by
-  simp [projWitness, AggQueryIn.nestOnce]
-theorem nestOnce_prodWitness : prodWitness.nestOnce := by
-  simp [prodWitness, AggQueryIn.nestOnce]
-theorem nestOnce_chainWitness : chainWitness.nestOnce :=
-  AggQueryIn.nestOnce_of_noGammaNest _ (by simp [chainWitness, reachStep, AggQueryIn.noGammaNest])
-theorem nestOnce_winWitness : WinRow.winWitness.nestOnce := by
-  simp [WinRow.winWitness, AggQueryIn.nestOnce]
-theorem nestOnce_ltWitness : ltWitness.nestOnce := by
-  simp [ltWitness, AggQueryIn.nestOnce]
+theorem noGammaNest_projWitness : projWitness.noGammaNest := by
+  simp [projWitness, AggQueryIn.noGammaNest]
+theorem noGammaNest_prodWitness : prodWitness.noGammaNest := by
+  simp [prodWitness, AggQueryIn.noGammaNest]
+theorem noGammaNest_chainWitness : chainWitness.noGammaNest := by
+  simp [chainWitness, reachStep, AggQueryIn.noGammaNest]
+theorem noGammaNest_winWitness : WinRow.winWitness.noGammaNest := by
+  simp [WinRow.winWitness, AggQueryIn.noGammaNest]
+theorem noGammaNest_ltWitness : ltWitness.noGammaNest := by
+  simp [ltWitness, AggQueryIn.noGammaNest]
 
 /-- `∅` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem empty_mem_of_generatesAnnZ {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone Schema.empty cnt S) : OpKind.empty ∈ S :=
   empty_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit
-    AggQueryIn.nestOnce_unit).toGeneratesAt
+    AggQueryIn.noGammaNest_unit).toGeneratesAt
 
 /-- `γ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem gamma_mem_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone sch cnt S) : OpKind.gamma ∈ S :=
   gamma_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit
-    AggQueryIn.nestOnce_unit).toGeneratesAt
+    AggQueryIn.noGammaNest_unit).toGeneratesAt
 
 /-- `Π` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem proj_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.proj ∈ S :=
   proj_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_projWitness noExplode_projWitness wellKinded_projWitness
-    nestOnce_projWitness).toGeneratesAt
+    noGammaNest_projWitness).toGeneratesAt
 
 /-- `×` or the apply is in every set generating the annotated algebra over
 `𝔹` up to `≈`. -/
@@ -550,14 +553,14 @@ theorem prod_or_apply_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKin
     (h : GeneratesAnnZ ℕ BoolNone schemaR cnt S) : OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
   prod_or_apply_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_prodWitness noExplode_prodWitness wellKinded_prodWitness
-    nestOnce_prodWitness).toGeneratesAt
+    noGammaNest_prodWitness).toGeneratesAt
 
 /-- `μ^⊎` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem muBag_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
     {S : Set OpKind} (h : GeneratesAnnZ ℕ BoolNone schemaSE cnt S) : OpKind.muBag ∈ S :=
   muBag_mem_of_generatesAt hcnt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_chainWitness noExplode_chainWitness wellKinded_chainWitness
-    nestOnce_chainWitness).toGeneratesAt
+    noGammaNest_chainWitness).toGeneratesAt
 
 /-- `win` is in every set generating the annotated algebra over `𝔹` up to
 `≈`, with the counting aggregate. -/
@@ -565,13 +568,13 @@ theorem win_mem_of_generatesAnnZ {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
   win_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_winWitness noExplode_winWitness wellKinded_winWitness
-    nestOnce_winWitness).toGeneratesAt
+    noGammaNest_winWitness).toGeneratesAt
 
 /-- `σ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem sel_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.sel ∈ S :=
   sel_mem_of_generatesAtNoExplode (generatesAtNoExplode_of_generatesAnnZ h _
-    liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness nestOnce_ltWitness)
+    liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness noGammaNest_ltWitness)
 
 /-- **`ε` or `μ^∪` is in every set generating the annotated algebra over `ℕ`
 up to `≈`**: the row annotated `2` that `ε(R)` gives is not one `≈` drops. -/
@@ -581,7 +584,7 @@ theorem dedup_or_muSet_mem_of_generatesAnnZ {S : Set OpKind}
   by_contra hS
   rw [not_or] at hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h epsWitness overSchema_epsWitness
-    usesOnly_epsWitness trivial trivial trivial (by simp [epsWitness, AggQueryIn.nestOnce])
+    usesOnly_epsWitness trivial trivial trivial (by simp [epsWitness, AggQueryIn.noGammaNest])
   obtain ⟨-, he⟩ := hm dEps (fun _ => 0) trivial
   obtain ⟨r, hr, hre⟩ := Multiset.mem_map.1 mem_evaluateAnnotated_epsWitness
   have hfin : r.snd.finalize = 2 := congrArg Prod.snd hre
@@ -598,7 +601,7 @@ theorem diff_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h diffWitness overSchema_diffWitness
     usesOnly_diffWitness ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
-    (by simp [diffWitness, AggQueryIn.nestOnce])
+    (by simp [diffWitness, AggQueryIn.noGammaNest])
   obtain ⟨-, he⟩ := hm dDiff (fun _ => 0) ⟨trivial, trivial⟩
   have hmem : ((((fun _ => 0) : Tuple ℕ 1), NatPair.mk 0 1) : AnnotatedTuple ℕ NatPair 1)
       ∈ diffWitness.evaluateAnnotated dDiff (fun _ => 0) := by
@@ -621,7 +624,7 @@ theorem diff_mem_of_generatesAnnZ_xy {cnt : SeqAggFunc ℕ} {S : Set OpKind}
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h diffWitness overSchema_diffWitness
     usesOnly_diffWitness ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
-    (by simp [diffWitness, AggQueryIn.nestOnce])
+    (by simp [diffWitness, AggQueryIn.noGammaNest])
   obtain ⟨-, he⟩ := hm dDiffXY (fun _ => 0) ⟨trivial, trivial⟩
   have hmem : ((((fun _ => 0) : Tuple ℕ 1),
       MvPolynomial.X 0 + MvPolynomial.X 1 - MvPolynomial.X 1) : AnnotatedTuple ℕ PolyXY 1)
@@ -678,3 +681,52 @@ theorem annEpsOps_minimal_in_class_approx {S : Set OpKind} (hS : S ⊆ annEpsOps
   | win => exact win_mem_of_generatesAnnZ (hB _)
   | muBag => exact muBag_mem_of_generatesAnnZ SeqAggFunc.isCount_count_nat.readsCount (hB _)
   | muSet => exact absurd hx (by simp [annEpsOps])
+
+/-! ## The positive half up to `≈` -/
+
+/-- Two evaluations agreeing row by row up to finalization agree up to `≈`:
+`≈` reads a row's columns and its finalized annotation only. -/
+theorem GenRow.zeroNorm_eq_of_fin {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
+    [DecidableEq K] {n : ℕ} {A B : Multiset (GenRow T K n)}
+    (h : A.map GenRow.fin = B.map GenRow.fin) : GenRow.zeroNorm A = GenRow.zeroNorm B := by
+  have hz : ∀ R : Multiset (GenRow T K n), GenRow.zeroNorm R
+      = ((R.map GenRow.fin).filter (fun x => x.2 ≠ 0)).map
+          (fun x => ((GenRow.zeroTuple x.1, x.2) : AnnotatedTuple T K n)) := by
+    intro R
+    unfold GenRow.zeroNorm
+    rw [Multiset.filter_map, Multiset.map_map]
+    rfl
+  rw [hz, hz, h]
+
+/-- **The nine classes generate the annotated algebra up to `≈` over every
+semiring of the class**, in the fragment without second-level
+aggregation: the constructions agree with their source row by row up to
+finalization (`exists_annEpsOps_match`), which is what `≈` reads, and
+they introduce no second-level aggregation. -/
+theorem generatesAnnZ_annEpsOps_of_class {T : Type} [ValueType T] {K : Type}
+    [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] (hK : AnnBasisClass K)
+    (sch : Schema) (cnt : SeqAggFunc T) : GeneratesAnnZ T K sch cnt annEpsOps := by
+  intro n κ q ho hu hi ha hp hn
+  obtain ⟨ch, hnc⟩ :
+      ∃ ch, AggQueryIn.NodeCorrect cnt ch (fun _ : AnnotatedDatabase T K => True) := by
+    rcases hK with ⟨hδ, hR⟩ | hδ
+    · exact ⟨false, AggQueryIn.nodeCorrect_succ cnt hδ hR⟩
+    · exact ⟨true, AggQueryIn.nodeCorrect_chain cnt hδ⟩
+  obtain ⟨q', ho', hu', hi', ha', hp', hn', hm⟩ :=
+    exists_annEpsOps_match sch cnt ch hnc q ho hu hi ha hp
+  exact ⟨q', ho', hu', hi', ha', hp', hn' hn, fun d γ hs =>
+    ⟨(hm d γ trivial hs).1, GenRow.zeroNorm_eq_of_fin (hm d γ trivial hs).2⟩⟩
+
+/-- **The annotated basis theorem up to `≈`, over the class**: the nine
+classes generate the annotated algebra up to `≈` over every semiring of
+`AnnBasisClass`, in the fragment without second-level aggregation, and no
+proper subset of them does over all of those semirings. -/
+theorem annEpsOps_isBasis_in_class_approx :
+    (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+      AnnBasisClass K → ∀ sch : Schema, GeneratesAnnZ ℕ K sch SeqAggFunc.count annEpsOps)
+    ∧ ∀ S ⊆ annEpsOps,
+      (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+        AnnBasisClass K → ∀ sch : Schema, GeneratesAnnZ ℕ K sch SeqAggFunc.count S) →
+      S = annEpsOps :=
+  ⟨fun _ _ _ _ hK sch => generatesAnnZ_annEpsOps_of_class hK sch _,
+    fun _ hS h => annEpsOps_minimal_in_class_approx hS h⟩

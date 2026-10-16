@@ -770,6 +770,18 @@ theorem AggQueryIn.noExplode_castIdx {c n : ℕ} {κ : Fin n → ColKind}
   subst h; exact Iff.rfl
 
 omit [ValueType T] in
+@[simp] theorem AggQueryIn.noGammaNest_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).noGammaNest ↔ q.noGammaNest := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.noGammaNest_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
+    (q.castIdx h).noGammaNest ↔ q.noGammaNest := by
+  subst h; exact Iff.rfl
+
+omit [ValueType T] in
 theorem AggQueryIn.wellKinded_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) {ρc : Fin c → ColKind}
     {HK : HoleKinds} : (q.castIdx h).wellKinded ρc HK ↔ q.wellKinded ρc HK := by
@@ -852,6 +864,38 @@ theorem AggQueryIn.noExplode_substMap :
   | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
   | GammaScalar ts fs q ord ih => exact fun θ => ih θ
   | GammaNest is his p fn q ih => exact fun θ => ih θ
+  | ProvSum is his t q ih => exact fun θ => ih θ
+  | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
+
+omit [ValueType T] in
+theorem AggQueryIn.noGammaNest_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), (q.substMap θ).noGammaNest ↔ q.noGammaNest := by
+  intro c n κ l q
+  induction q with
+  | Rel n s => exact fun θ => Iff.rfl
+  | Hole n s => exact fun θ => Iff.rfl
+  | Param pv ρ => exact fun θ => Iff.rfl
+  | Empty => exact fun θ => Iff.rfl
+  | Proj ps q ih =>
+    intro d θ
+    rw [AggQueryIn.substMap, AggQueryIn.noGammaNest_castKind]
+    exact ih θ
+  | Sel φ q _ ih => exact fun θ => ih θ
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Dedup q ih => exact fun θ => ih θ
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ => and_congr (ih₁ θ) (ih₂ θ)
+  | Explode k hk q ih => exact fun θ => ih θ
+  | Retag hk q ih => exact fun θ => ih θ
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ => and_congr (ih₀ θ) (ih₁ θ)
+  | Gamma is ts fs q keep ord ih => exact fun θ => ih θ
+  | GammaScalar ts fs q ord ih => exact fun θ => ih θ
+  | GammaNest is his p fn q ih => exact fun θ => Iff.rfl
   | ProvSum is his t q ih => exact fun θ => ih θ
   | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
   | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
@@ -1173,6 +1217,21 @@ theorem noExplode_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
   · rw [AggQueryIn.noExplode_castIdx, AggQueryIn.noExplode_castKind]
     exact ⟨h₂, (AggQueryIn.noExplode_substMap _ _).mpr
       ((AggQueryIn.noExplode_castIdx _ _).mpr h₁)⟩
+  · exact ⟨h₁, h₂⟩
+
+omit [ValueType T] in
+theorem noGammaNest_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
+    (q₂ : AggQueryIn T c n₂ κ₂ l₂) (h₁ : q₁.noGammaNest) (h₂ : q₂.noGammaNest) :
+    (prodAnn q₁ q₂).noGammaNest := by
+  unfold prodAnn
+  split_ifs with hl₂ hl₁
+  · rw [AggQueryIn.noGammaNest_castIdx]
+    exact ⟨h₁, (AggQueryIn.noGammaNest_substMap _ _).mpr
+      ((AggQueryIn.noGammaNest_castIdx _ _).mpr h₂)⟩
+  · rw [AggQueryIn.noGammaNest_castIdx, AggQueryIn.noGammaNest_castKind]
+    exact ⟨h₂, (AggQueryIn.noGammaNest_substMap _ _).mpr
+      ((AggQueryIn.noGammaNest_castIdx _ _).mpr h₁)⟩
   · exact ⟨h₁, h₂⟩
 
 omit [ValueType T] in
@@ -1532,6 +1591,35 @@ theorem noExplode_prodFree :
   | Gamma is ts fs q keep ord ih => exact fun h => ih h
   | GammaScalar ts fs q ord ih => exact fun h => ih h
   | GammaNest is his p g q ih => exact fun h => ih h
+  | ProvSum is his t q ih => exact fun h => ih h
+  | GammaTok is his ts fs a q keep ih => exact fun h => ih h
+  | Win P O o w t g q hrr dist keep ih => exact fun h => ih h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
+
+omit [ValueType T] in
+theorem noGammaNest_prodFree :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noGammaNest → (prodFree q).noGammaNest := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun h => h
+  | Hole _ _ => exact fun h => h
+  | Param pv ρ => exact fun h => h
+  | Empty => exact fun h => h
+  | Proj ps q ih => exact fun h => ih h
+  | Sel φ q hφ ih => exact fun h => ih h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => noGammaNest_prodAnn _ _ (ih₁ h.1) (ih₂ h.2)
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Dedup q ih => exact fun h => ih h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Explode k hk q ih => exact fun h => ih h
+  | Retag hk q ih => exact fun h => ih h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
+  | Gamma is ts fs q keep ord ih => exact fun h => ih h
+  | GammaScalar ts fs q ord ih => exact fun h => ih h
+  | GammaNest is his p g q ih => exact fun h => h.elim
   | ProvSum is his t q ih => exact fun h => ih h
   | GammaTok is his ts fs a q keep ih => exact fun h => ih h
   | Win P O o w t g q hrr dist keep ih => exact fun h => ih h

@@ -722,6 +722,10 @@ theorem noExplode_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) 
     (driverK (c := c) κ cnt t).noExplode := by
   rw [driverK, AggQueryIn.noExplode_castKind]; trivial
 
+theorem noGammaNest_driverK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+    (driverK (c := c) κ cnt t).noGammaNest := by
+  rw [driverK, AggQueryIn.noGammaNest_castKind]; trivial
+
 theorem overSchema_driverK (sch : Schema) (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
     (driverK (c := c) κ cnt t).overSchema sch := by
   rw [driverK, AggQueryIn.overSchema_castKind]; trivial
@@ -764,6 +768,11 @@ omit [ValueType T] in
 theorem noExplode_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
     (withTagK t q).noExplode ↔ q.noExplode := by
   rw [withTagK, AggQueryIn.noExplode_castKind]; exact Iff.rfl
+
+omit [ValueType T] in
+theorem noGammaNest_withTagK {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
+    (withTagK t q).noGammaNest ↔ q.noGammaNest := by
+  rw [withTagK, AggQueryIn.noGammaNest_castKind]; exact Iff.rfl
 
 omit [ValueType T] in
 theorem overSchema_withTagK (sch : Schema) {κ : Fin k → ColKind} (t : T)
@@ -829,6 +838,13 @@ theorem noExplode_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
   exact ⟨trivial, (AggQueryIn.noExplode_substMap Z _).mpr hZ⟩
 
 omit [ValueType T] in
+theorem noGammaNest_phaseBodyK {κ : Fin k → ColKind} (s : String) (p₁ : T)
+    (Z : AggQueryIn T c (k + 1) (tagKind κ)) (hZ : Z.noGammaNest) :
+    (phaseBodyK s p₁ Z).noGammaNest := by
+  rw [phaseBodyK, AggQueryIn.noGammaNest_castKind]
+  exact ⟨trivial, (AggQueryIn.noGammaNest_substMap Z _).mpr hZ⟩
+
+omit [ValueType T] in
 theorem overSchema_phaseBodyK {sch : Schema} {s : String} {κ : Fin k → ColKind}
     (hs : sch s = some (k + 1)) (p₁ : T) (Z : AggQueryIn T c (k + 1) (tagKind κ))
     (hZ : Z.overSchema sch) : (phaseBodyK s p₁ Z).overSchema sch := by
@@ -863,6 +879,14 @@ theorem noExplode_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : 
   exact ⟨⟨noExplode_driverK κ cnt 0,
       noExplode_phaseBodyK _ _ _ ((noExplode_withTagK 0 q₁).mpr h₁)⟩,
     noExplode_phaseBodyK _ _ _ ((noExplode_withTagK 0 q₂).mpr h₂)⟩
+
+theorem noGammaNest_sumByMuK {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+    (q₁ q₂ : AggQueryIn T c k κ) (h₁ : q₁.noGammaNest) (h₂ : q₂.noGammaNest) :
+    (sumByMuK s₁ s₂ cnt q₁ q₂).noGammaNest := by
+  rw [sumByMuK, AggQueryIn.noGammaNest_castKind]
+  exact ⟨⟨noGammaNest_driverK κ cnt 0,
+      noGammaNest_phaseBodyK _ _ _ ((noGammaNest_withTagK 0 q₁).mpr h₁)⟩,
+    noGammaNest_phaseBodyK _ _ _ ((noGammaNest_withTagK 0 q₂).mpr h₂)⟩
 
 /-- **The construction is well-kinded where its operands are**: each
 recursion binds its name to rounds of the tagged kinds, and the operands,
@@ -949,6 +973,10 @@ theorem inSig_emptyK {Θ : Set (SeqAggFunc T)} (κ : Fin k → ColKind) {cnt : S
 theorem noExplode_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
     (emptyK (c := c) κ cnt).noExplode := by
   rw [emptyK, AggQueryIn.noExplode_castKind]; exact noExplode_driverK κ cnt 0
+
+theorem noGammaNest_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+    (emptyK (c := c) κ cnt).noGammaNest := by
+  rw [emptyK, AggQueryIn.noGammaNest_castKind]; exact noGammaNest_driverK κ cnt 0
 
 theorem wellKinded_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (ρc : Fin c → ColKind)
     (HK : HoleKinds) : (emptyK κ cnt).wellKinded ρc HK := by
@@ -1302,6 +1330,7 @@ structure AggQueryIn.SumFreeAnnOf (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (f 
   over : ∀ sch : Schema, (∀ i, sch (f i) = none) → q.overSchema sch → q'.overSchema sch
   names : ∀ x, x ∈ q'.names → x ∈ q.names ∨ ∃ i, x = f i
   nom : ∀ s, (∀ i, s ≠ f i) → q.noMention s → q'.noMention s
+  noNest : q.noGammaNest → q'.noGammaNest
 
 /-- **A closed query matched**: wherever it settles, in two environments
 agreeing up to finalization, the match settles and gives the same rows up
@@ -1423,7 +1452,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
   | Rel n s' =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h⟩, closedMatch_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Hole n s' κh =>
     intro hq hr hi f hf hfr
@@ -1431,12 +1460,12 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
     refine ⟨AggQueryIn.Hole n _ κh, emptyK κh cnt, noMention_emptyK κh cnt _,
       ⟨trivial, trivial, trivial, id, fun _ _ h => h, fun _ _ h => h, fun x hx => Or.inl hx,
-        fun _ _ h => h⟩,
+        fun _ _ h => h, id⟩,
       ⟨usesOnly_emptyK hS κh cnt, hygienic_emptyK κh cnt, inSig_emptyK κh hcnt,
         fun _ => noExplode_emptyK κh cnt, fun ρc HK _ => wellKinded_emptyK κh cnt ρc HK,
         fun sch _ _ => overSchema_emptyK sch κh cnt,
         fun x hx => by rw [names_emptyK] at hx; exact absurd hx (Finset.notMem_empty x),
-        fun s' _ _ => noMention_emptyK κh cnt s'⟩,
+        fun s' _ _ => noMention_emptyK κh cnt s', fun _ => noGammaNest_emptyK κh cnt⟩,
       fun d γ E E' hE _ => ⟨trivial, annSettlesAt_emptyK κh cnt d γ E', ?_⟩⟩
     rw [evaluate_emptyK, Multiset.map_zero, add_zero]
     exact AggQueryIn.FinEq.refl _ d γ E E' hE
@@ -1444,12 +1473,12 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Param pv ρ, ⟨⟨memS nofun hq.1, memS nofun hq.2.1,
       memS nofun hq.2.2⟩, trivial, trivial, id, fun _ _ h => h, fun _ _ h => h,
-      fun x hx => Or.inl hx, fun _ _ h => h⟩, closedMatch_refl _⟩,
+      fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Empty =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h⟩, closedMatch_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Proj ps q ih =>
     intro hq hr hi f hf hfr
@@ -1457,7 +1486,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps p) := fun hs =>
       ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩, hs.noExplode,
-        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩
+        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Proj ps q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1477,7 +1506,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ p hp) := fun _ hs =>
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩, hs.noExplode,
-        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩
+        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       subst hl
@@ -1506,7 +1535,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun ρc HK h => ⟨hs₁.wellKinded ρc HK h.1, hs₂.wellKinded ρc HK h.2⟩,
         fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
         names_union hs₁.names hs₂.names,
-        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩
+        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
       subst hl₁ hl₂
@@ -1556,7 +1586,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun ρc HK h => ⟨hs₁.wellKinded ρc HK h.1, hs₂.wellKinded _ HK h.2⟩,
         fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
         names_union hs₁.names hs₂.names,
-        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩
+        fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q₁', hs₁, he₁⟩ := hc₁ hl
       refine ⟨AggQueryIn.Apply q₁' q₂', hbun hs₁, fun d γ E E' hE hset => ?_⟩
@@ -1611,6 +1642,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         inSig := inSig_sumByMuK _ _ hcnt _ _ hp₁.inSig hp₂.inSig
         noExplode := fun h => noExplode_sumByMuK _ _ cnt _ _ (hp₁.noExplode h.1)
           (hp₂.noExplode h.2)
+        noNest := fun h => noGammaNest_sumByMuK _ _ cnt _ _ (hp₁.noNest h.1)
+          (hp₂.noNest h.2)
         wellKinded := fun ρc HK h => wellKinded_sumByMuK _ _ cnt _ _
           (hp₁.wellKinded ρc HK h.1) (hp₂.wellKinded ρc HK h.2)
         over := fun sch hsch ho => overSchema_sumByMuK sch _ _ cnt _ _ (hsch 0) (hsch 1) hn₁₀
@@ -1645,14 +1678,16 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun ρc HK h => hp.wellKinded ρc HK h.1,
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.1,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_left,
-        fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.1⟩
+        fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.1,
+        fun h => hp.noNest h.1⟩
     have hright : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T c' n' κ' l'},
         SumFreeAnnOf S Θ (shift2 f) q₂ p → SumFreeAnnOf S Θ f (AggQueryIn.Sum q₁ q₂) p :=
       fun hp => ⟨hp.usesOnly, hp.hygienic, hp.inSig, fun h => hp.noExplode h.2,
         fun ρc HK h => hp.wellKinded ρc HK h.2,
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.2,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_right,
-        fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.2⟩
+        fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.2,
+        fun h => hp.noNest h.2⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
       subst hl₁ hl₂
@@ -1699,7 +1734,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨hc, -⟩ := ih hq.2 hr hi f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
     refine ⟨fun _ => ⟨AggQueryIn.Dedup q', ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic,
-      hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names, hs.nom⟩,
+      hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.dedup he'⟩
@@ -1717,7 +1752,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       fun ρc HK h => ⟨hs₁.wellKinded ρc HK h.1, hs₂.wellKinded ρc HK h.2⟩,
       fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
       names_union hs₁.names hs₂.names,
-      fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩⟩, fun d γ E E' hE hset => ?_⟩,
+      fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩, fun d γ E E' hE hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs₁', he₁'⟩ := he₁ d γ E E' hE hset.1
     obtain ⟨hs₂', he₂'⟩ := he₂ d γ E E' hE hset.2
@@ -1727,7 +1763,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨hc, hb⟩ := ih hq hr hi f hf hfr
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk p) := fun hs =>
-      ⟨hs.usesOnly, hs.hygienic, hs.inSig, id, hs.wellKinded, hs.over, hs.names, hs.nom⟩
+      ⟨hs.usesOnly, hs.hygienic, hs.inSig, id, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Explode k hk q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1745,7 +1781,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk p) := fun hs =>
       ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names,
-        hs.nom⟩
+        hs.nom, hs.noNest⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Retag hk q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1772,6 +1808,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hygienic := ⟨hs₀.nom s hfs hr.1, hs₁.nom s hfs hr.2.1, hs₀.hygienic, hs₁.hygienic⟩
         inSig := ⟨hs₀.inSig, hs₁.inSig⟩
         noExplode := fun h => ⟨hs₀.noExplode h.1, hs₁.noExplode h.2⟩
+        noNest := fun h => ⟨hs₀.noNest h.1, hs₁.noNest h.2⟩
         wellKinded := fun ρc HK h => ⟨hs₀.wellKinded ρc HK h.1, hs₁.wellKinded ρc _ h.2⟩
         over := fun sch hsch ho => ⟨ho.1, hs₀.over sch hsch ho.2.1, hs₁.nom s hfs ho.2.2.1,
           hs₁.over (sch.update s _) (fun i => by
@@ -1829,6 +1866,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         inSig := ⟨inSig_sumByMuK _ _ hcnt _ _ hs₀.inSig hsC.inSig, hs₁.inSig⟩
         noExplode := fun h => ⟨noExplode_sumByMuK _ _ cnt _ _ (hs₀.noExplode h.1)
           (hsC.noExplode h.2), hs₁.noExplode h.2⟩
+        noNest := fun h => ⟨noGammaNest_sumByMuK _ _ cnt _ _ (hs₀.noNest h.1)
+          (hsC.noNest h.2), hs₁.noNest h.2⟩
         wellKinded := fun ρc HK h => ⟨wellKinded_sumByMuK _ _ cnt _ _ (hs₀.wellKinded ρc HK h.1)
           (AggQueryIn.wellKinded_congr_holes qC ρc (fun _ hp => absurd hp List.not_mem_nil)
             (hsC.wellKinded ρc _ h.2)), hs₁.wellKinded ρc _ h.2⟩
@@ -1871,7 +1910,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.noExplode,
-      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
+      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gamma is ts fs keep ord he'⟩
@@ -1884,7 +1923,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
-      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
+      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gammaScalar ts fs ord he'⟩
@@ -1897,7 +1936,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1.1,
         hq.1.2⟩,
         hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
-      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom⟩,
+      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom,
+      fun h => h.elim⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gammaNest is his p fn he'⟩
@@ -1911,7 +1951,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     refine ⟨fun _ => ⟨AggQueryIn.Win (lab := lab) (rd := rd) P O o w t fw q' hrr dist keep,
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
-        hs.nom⟩, fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
+        hs.nom, hs.noNest⟩, fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.win P O o w t fw hrr dist keep he'⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ hi => hi.elim
