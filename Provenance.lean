@@ -67,6 +67,7 @@ import Provenance.AnnotatedChains
 import Provenance.AnnotatedDiffRow
 import Provenance.AnnotatedEpsRow
 import Provenance.AnnotatedBasisClass
+import Provenance.AnnotatedApproxRows
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1328,6 +1329,15 @@ proven engine several general results reuse internally.
   (`annEpsOps_isBasis_in_class`); the difference's witness inside the class
   is `ℕ[x, y]`, where `R − S` gives `x` and no difference-free query builds
   an annotation with more `x` than `y` (`diff_mem_of_generatesAnn_xy`)
+- `Provenance.AnnotatedApproxRows` – **the necessity rows up to `≈`**,
+  rows annotated `𝟘` and occurrences annotated `𝟘` dropped
+  (`GeneratesAnnZ`): the rows inherited from the plain basis transfer
+  through the Boolean support over `𝔹`, where `≈` keeps the realized world
+  and the realized world evaluates plainly
+  (`generatesAtNoExplode_of_generatesAnnZ`, with
+  `AggQueryIn.settlesAt_randomWorld`), the others keep their witnesses'
+  rows; the nine classes are minimal up to `≈` over the class
+  (`annEpsOps_minimal_in_class_approx`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

@@ -2536,7 +2536,7 @@ private lemma filter_map_comm {α β : Type} (f : α → β) (p : β → Prop)
 
 omit [ValueType T] [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
-private lemma genRandomWorld_add {n : ℕ}
+theorem genRandomWorld_add {n : ℕ}
     (R₁ R₂ : Multiset (GenRow T (BoolFunc X) n)) (v : X → Bool) :
     genRandomWorld v (R₁ + R₂)
       = genRandomWorld v R₁ + genRandomWorld v R₂ := by
@@ -2547,7 +2547,7 @@ omit [ValueType T] [Fintype X] [DecidableEq X]
   [HasAltLinearOrder (BoolFunc X)] in
 /-- On embedded annotated tuples, the general realized world is the
 plain one. -/
-private lemma genRandomWorld_ofAnnotated {n : ℕ}
+theorem genRandomWorld_ofAnnotated {n : ℕ}
     (R : AnnotatedRelation T (BoolFunc X) n) (v : X → Bool) :
     genRandomWorld v (R.map GenRow.ofAnnotated) = randomWorld v R := by
   unfold genRandomWorld randomWorld
@@ -2597,7 +2597,7 @@ omit [Fintype X] [DecidableEq X] in
 /-- On an all-regular subquery, the plain and general realized worlds
 coincide (every column is a regular value, on which the specialized and
 plain readings agree). -/
-private lemma genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
+theorem genRandomWorld_allReg {c n : ℕ} {l : List (String × ℕ)}
     (q : AggQueryIn T c n (ColKind.allReg n) l)
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool)
     {γ : Fin c → T} {E : EvalEnv T (BoolFunc X)} :
@@ -2684,7 +2684,7 @@ omit [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
 /-- The realized world of a `groupByKey`-deduplicated relation is the
 deduplicated realized world (a grouped annotation is realized iff some
 contributing annotation is). -/
-private lemma randomWorld_groupByKey {n : ℕ}
+theorem randomWorld_groupByKey {n : ℕ}
     (r : AnnotatedRelation T (BoolFunc X) n) (v : X → Bool) :
     randomWorld v (Multiset.ofList (groupByKey r).val)
       = (randomWorld v r).dedup := by
@@ -3642,7 +3642,7 @@ theorem EvalEnv.Kinded.ctx_ok {E : EvalEnv T (BoolFunc X)} {c : ℕ} {γ : Fin c
   exact (GenValue.specializeAt_of_ne_agg (by rw [hE.1 k]; exact hk) v).symm
 
 omit [ValueType T] [Fintype X] [DecidableEq X] [HasAltLinearOrder (BoolFunc X)] in
-private lemma Database.agree_assign_rw {D D₀ : Database T} {N : Set String}
+theorem Database.agree_assign_rw {D D₀ : Database T} {N : Set String}
     (hD : ∀ (n' : ℕ) (s' : String), s' ∉ N → D.find n' s' = D₀.find n' s')
     (s : String) {m : ℕ} (Y : Relation T m) :
     ∀ (n' : ℕ) (s' : String), s' ∉ insert s N → (D.assign s Y).find n' s' = D₀.find n' s' := by
