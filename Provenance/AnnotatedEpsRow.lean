@@ -25,6 +25,10 @@ the evaluator adds annotations in three places only:
 
 `ε` of a relation holding one tuple twice, annotated `𝟙`, gives `2`
 (`dedup_or_muSet_mem_of_generatesAnn`).
+
+With the other rows this makes the basis `{∅, Π, σ, apply, γ, win, μ^⊎,
+ε, −}` minimal: no proper subset generates the annotated algebra over both
+`ℕ` and `ℕ × ℕ` (`annEpsOps_minimal`).
 -/
 
 /-! ## The weight of a world, over `ℕ` -/
@@ -571,3 +575,38 @@ theorem dedup_or_muSet_mem_of_generatesAnn {S : Set OpKind}
     r hr).finalize
   have hfin : r.snd.finalize = 2 := congrArg Prod.snd hre
   omega
+
+/-! ## The document's basis is minimal -/
+
+/-- **No proper subset of `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` generates
+the annotated algebra over both `ℕ` and `ℕ × ℕ`**, with the counting
+aggregate: `∅`, `Π`, `γ`, `μ^⊎`, `win` and `σ` are inherited from the
+plain rows, the apply because `×` is not in the set, `−` by the
+zero-pattern invariant over `ℕ × ℕ`, and `ε` because `μ^∪` is not in the
+set. -/
+theorem annEpsOps_minimal {S : Set OpKind} (hS : S ⊆ annEpsOps)
+    (hN : ∀ sch : Schema, GeneratesAnn ℕ ℕ sch SeqAggFunc.count S)
+    (hP : ∀ sch : Schema, GeneratesAnn ℕ NatPair sch SeqAggFunc.count S) :
+    S = annEpsOps := by
+  refine Set.Subset.antisymm hS fun x hx => ?_
+  have hout : ∀ y, y ∈ S → y ∉ annEpsOps → False := fun y hy hn => hn (hS hy)
+  obtain ⟨he, hp, hg, hmu, hw, hsel, hpa⟩ := required_mem_of_generatesAnn hN
+  cases x with
+  | empty => exact he
+  | proj => exact hp
+  | sel => exact hsel
+  | prod => exact absurd hx (by simp [annEpsOps])
+  | apply =>
+    rcases hpa with h | h
+    · exact (hout _ h (by simp [annEpsOps])).elim
+    · exact h
+  | union => exact absurd hx (by simp [annEpsOps])
+  | dedup =>
+    rcases dedup_or_muSet_mem_of_generatesAnn (hN schemaR) with h | h
+    · exact h
+    · exact (hout _ h (by simp [annEpsOps])).elim
+  | diff => exact diff_mem_of_generatesAnn (hP schemaRS)
+  | gamma => exact hg
+  | win => exact hw
+  | muBag => exact hmu
+  | muSet => exact absurd hx (by simp [annEpsOps])

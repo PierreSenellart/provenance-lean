@@ -1316,7 +1316,9 @@ proven engine several general results reuse internally.
   the minimal signature builds is at most `𝟙` when the instance's are
   (`le1_evaluate`) – the joint reading of a selection weighs its worlds at
   most `𝟙` together (`GenPredIn.predsemJ_le_one`) – and `ε` of a relation
-  holding one tuple twice gives `2` (`dedup_or_muSet_mem_of_generatesAnn`)
+  holding one tuple twice gives `2` (`dedup_or_muSet_mem_of_generatesAnn`);
+  with the other rows, no proper subset of `{∅, Π, σ, apply, γ, win, μ^⊎,
+  ε, −}` generates over both `ℕ` and `ℕ × ℕ` (`annEpsOps_minimal`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
