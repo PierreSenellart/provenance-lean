@@ -545,12 +545,13 @@ theorem ProjColIn.annsIn_eval {c n : ℕ} {κ : Fin n → ColKind} (p : ProjColI
       rw [← h']
       exact AggTok.annsIn_postcomp gf (hu k a₀ hv)
   | aggTermOf k hk t =>
-    have h' : Sum.map t.unary (AggTok.postcomp t.unary) (u k) = Sum.inr a := h
+    have h' : Sum.map t.unary (AggTok.postcompTerm t) (u k) = Sum.inr a := h
     rcases hv : u k with v | a₀
     · rw [hv] at h'; simp at h'
     · rw [hv] at h'
       simp only [Sum.map_inr, Sum.inr.injEq] at h'
       rw [← h']
+      rw [AggTok.postcompTerm, AggTok.AnnsIn_setFam]
       exact AggTok.annsIn_postcomp _ (hu k a₀ hv)
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in

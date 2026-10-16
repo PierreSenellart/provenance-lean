@@ -289,7 +289,7 @@ noncomputable def MinTropicalZ.existsToken :
     AggValue ℕ (MinTropical (WithTop ℤ)) :=
   ⟨SeqAggFunc.count,
     [(1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ)),
-      (1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ))], true, (0, [], [])⟩
+      (1, MinTropical.trop ((-1 : ℤ) : WithTop ℤ))], true, FamId.none⟩
 
 /-- What the row actually carries: `trop (-1) ⊗ trop (-1) = trop (-2)`,
 the annotation of the one world that keeps both matches. -/
@@ -338,7 +338,7 @@ their product. The reading the collapse gives under absorptivity is
 is neither. What it counts is "every match present", not "at least one". -/
 
 /-- The token of two occurrences annotated `1` and `2`, counted. -/
-def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true, (0, [], [])⟩
+def natCountToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1), (1, 2)], true, FamId.none⟩
 
 /-- **The possible-world sum of `COUNT ≥ 1` over `ℕ` is the product of the
 two annotations**, not their sum and not `𝟙`. -/
@@ -376,7 +376,7 @@ offer, so this instance is out of its reach. -/
 
 /-- One occurrence of multiplicity `2`, counted, read in the scalar
 convention. -/
-def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true, (0, [], [])⟩
+def natRangeToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], true, FamId.none⟩
 
 /-- **A range test on one token is not the sum over the worlds in the
 range.** The product of the two one-sided provenances is `4`, and the
@@ -403,7 +403,7 @@ theorem natRangeToken_mul :
       * natRangeToken.predProvOf CompOp.le 1 = 4 := by decide
 
 /-- The same token with its occurrence annotated `𝟙` agrees. -/
-def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, (0, [], [])⟩
+def natUnitToken : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none⟩
 
 theorem natUnitToken_mul_eq_and :
     natUnitToken.predProvOf CompOp.gt 0
@@ -573,10 +573,10 @@ theorem joint2_branch_split (a b : AggValue T K) (P : T → Kleene)
 end Having
 
 /-- One occurrence, present. -/
-def boolTokenT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], false, (0, [], [])⟩
+def boolTokenT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], false, FamId.none⟩
 
 /-- One occurrence, absent. -/
-def boolTokenF : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, false)], false, (0, [], [])⟩
+def boolTokenF : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, false)], false, FamId.none⟩
 
 /-- `count ≠ 0`, true on every non-empty world. -/
 def testNe : ℕ → Kleene := fun v => CompOp.ne.eval3 v 0
@@ -619,10 +619,10 @@ disjunction (`p ∨ p` is `2` in `ℕ`), and it is what makes the one-sum
 reading over the union the wrong reference for a disjunction. -/
 
 /-- One occurrence of multiplicity `𝟙`. -/
-def natTokenOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], false, (0, [], [])⟩
+def natTokenOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], false, FamId.none⟩
 
 /-- One occurrence of multiplicity `2`. -/
-def natTokenTwo : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], false, (0, [], [])⟩
+def natTokenTwo : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 2)], false, FamId.none⟩
 
 /-- `count ≥ 1`, satisfied. -/
 def testGe1 : ℕ → Kleene := fun v => CompOp.ge.eval3 v 1
@@ -773,7 +773,7 @@ def natOrExpr : AggExpr ℕ ℕ where
     (![1, 1], 1, ![false, true], ![true, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => if 1 ≤ v 0 ∨ 1 ≤ v 1 then 1 else 0
 
 /-- **The joint reading of the disjunction is `𝟙`**: its one world meets
@@ -795,7 +795,7 @@ def natCaseExpr : AggExpr ℕ ℕ where
     (![1, 1, 1], 2, ![false, false, true], ![true, true, true])]
   aggs := ![SeqAggFunc.count, SeqAggFunc.count, SeqAggFunc.count]
   scalar := ![false, false, false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => if 1 ≤ v 0 then v 1 else v 2
 
 /-- **The joint reading of the conditional is `2`**: its one world meets
@@ -841,11 +841,11 @@ families is open. What is settled is the Boolean case – see
 
 /-- One occurrence annotated `hi`, grouped. -/
 def chainTokenHi : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.hi)], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.hi)], false, FamId.none⟩
 
 /-- One occurrence annotated `mid`, grouped. -/
 def chainTokenMid : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none⟩
 
 /-- **The reported row**: the two groups' existence factors times the
 structural `⊕` of the two sides. -/
@@ -880,7 +880,7 @@ theorem bool_row_agree :
 
 /-- One occurrence annotated `α`, grouped. -/
 def boolTokenOf (α : Bool) : AggValue ℕ Bool :=
-  ⟨SeqAggFunc.count, [(1, α)], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, α)], false, FamId.none⟩
 
 /-- **The same agreement as an equation in the annotations**, at this
 family shape: for *every* pair of annotations, not just the pair `true`,
@@ -938,13 +938,13 @@ def testEq0 : ℕ → Kleene := fun v => CompOp.eq.eval3 v 0
 
 /-- One row, annotated `mid`, aggregated by `count(*)`. -/
 def chainCount : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], false, FamId.none⟩
 
 /-- The same group under `FILTER (WHERE true)`: the same occurrences, read
 in the scalar convention. The two tokens differ in nothing else, the
 clause keeping every occurrence. -/
 def chainCountWhen : AggValue ℕ ChainFive :=
-  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, ChainFive.mid)], true, FamId.none⟩
 
 /-- The first is the token the grouping builds with no clause, and the
 second is what reading the cut family in the scalar convention gave. -/
@@ -1011,7 +1011,7 @@ def chainExpr : AggExpr ℕ ChainFive where
   occs := [(![1], ChainFive.mid, ![true], ![true])]
   aggs := ![SeqAggFunc.count]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- The same under `FILTER (WHERE false)`: the occurrence stays in the
@@ -1021,7 +1021,7 @@ def chainExprNone : AggExpr ℕ ChainFive where
   occs := [(![1], ChainFive.mid, ![true], ![false])]
   aggs := ![SeqAggFunc.count]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- Two occurrences, annotated `mid` and `hi`, the clause keeping the
@@ -1032,7 +1032,7 @@ def chainExprMixed : AggExpr ℕ ChainFive where
     (![1], ChainFive.hi, ![true], ![false])]
   aggs := ![SeqAggFunc.count]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- **`HAVING count(*) ≐ 0` still rejects the row**, as it does for the
@@ -1077,7 +1077,7 @@ def chainWinMixed : AggExpr ℕ ChainFive where
     (![2], ChainFive.hi, ![true], ![false])]
   aggs := ![SeqAggFunc.count]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- **The clause keeping one row of the frame reports the worlds holding
@@ -1103,7 +1103,7 @@ def natWinDistinct : AggExpr ℕ ℕ where
   occs := [(![5], 2, ![true], ![true])]
   aggs := ![SeqAggFunc.count]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- **A distinct count is the length of the deduplicated sequence.**
@@ -1125,7 +1125,7 @@ def natWinUnmerged : AggExpr ℕ ℕ where
   occs := [(![5], 1, ![true], ![true]), (![5], 1, ![true], ![true])]
   aggs := ![fun l => (List.dedup l).length]
   scalar := ![false]
-  fam := (0, [], [])
+  fam := FamId.none
   g := fun v => v 0
 
 /-- **The merge counts the class once, with the `⊕` of its
@@ -1244,7 +1244,7 @@ idempotent `⊕` it was never counted twice. -/
 
 /-- One occurrence, present, read in the scalar convention – so the
 empty world counts and the family's total is `𝟙`. -/
-def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true, (0, [], [])⟩
+def boolScalarT : AggValue ℕ Bool := ⟨SeqAggFunc.count, [(1, true)], true, FamId.none⟩
 
 theorem bool_incl_excl_sides :
     boolScalarT.predProvOfWith testNe = true
@@ -1263,7 +1263,7 @@ theorem bool_incl_excl_ne :
 
 /-- One occurrence annotated `𝟙`, scalar – the `ℕ` counterpart, where
 the formula does hold. -/
-def natScalarOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, (0, [], [])⟩
+def natScalarOne : AggValue ℕ ℕ := ⟨SeqAggFunc.count, [(1, 1)], true, FamId.none⟩
 
 theorem nat_incl_excl_eq :
     Having.jointPair natScalarOne natScalarOne
@@ -1321,11 +1321,11 @@ abbrev MM3 := MinMax (Fin 3)
 
 /-- One occurrence, graded. -/
 def mmTokenA : AggValue ℕ MM3 :=
-  ⟨SeqAggFunc.count, [(1, MinMax.mk (1 : Fin 3))], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (1 : Fin 3))], false, FamId.none⟩
 
 /-- Another, graded differently. -/
 def mmTokenB : AggValue ℕ MM3 :=
-  ⟨SeqAggFunc.count, [(1, MinMax.mk (2 : Fin 3))], false, (0, [], [])⟩
+  ⟨SeqAggFunc.count, [(1, MinMax.mk (2 : Fin 3))], false, FamId.none⟩
 
 /-- **One test satisfied**: the configuration `ChainFive` parts on. -/
 theorem mm_row_agree_one :
@@ -1369,17 +1369,17 @@ family. -/
 abbrev nestOf {K : Type} [CommSemiringWithMonus K] (α₀ α₁ β₀ β₁ : K) :
     NestedValue ℕ K :=
   ⟨SeqAggFunc.count.onBag SeqAggFunc.count_symmetric,
-    {(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, (0, [], [])⟩, α₀),
-     (AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩, α₁)},
-    false, (0, [], [])⟩
+    {(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, FamId.none⟩, α₀),
+     (AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩, α₁)},
+    false, FamId.none⟩
 
 /-- **The invented world**: it keeps the first outer occurrence and an
 inner occurrence of the second, which it drops. -/
 abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K]
     (α₀ α₁ β₀ β₁ : K) : NestedValue.World ℕ K :=
-  ⟨{⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, (0, [], [])⟩, α₀),
+  ⟨{⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, FamId.none⟩, α₀),
       true, Finset.univ⟩,
-    ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩, α₁),
+    ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩, α₁),
       false, Finset.univ⟩}⟩
 
 /-- It decides on exactly the occurrences of `nestOf`. -/
@@ -1400,14 +1400,14 @@ theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
     rw [show Multiset.filter
         (fun d : NestedValue.WorldOcc ℕ K => d.present = true)
         (incoherentWorld α₀ α₁ β₀ β₁).occs
-      = {⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, (0, [], [])⟩, α₀),
+      = {⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, FamId.none⟩, α₀),
           true, Finset.univ⟩}
       from rfl]
     simp
   refine ⟨⟨Or.inr hcard, fun d hd _ => ?_, trivial⟩, fun hco => ?_⟩
-  · have hdd : d = ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, (0, [], [])⟩, α₀),
+  · have hdd : d = ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₀)], false, FamId.none⟩, α₀),
           true, Finset.univ⟩
-        ∨ d = ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩, α₁),
+        ∨ d = ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩, α₁),
           false, Finset.univ⟩ := by
       simpa using hd
     -- each inner reading is a one-occurrence token's expression, and the
@@ -1415,14 +1415,14 @@ theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
     rcases hdd with rfl | rfl <;>
       exact fun j _ => ⟨⟨0, by simp [AggExpr.ofValue]⟩, by
         simp [AggExpr.inFrame, AggExpr.ofValue]⟩
-  · have := hco.2.2 ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩, α₁),
+  · have := hco.2.2 ⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩, α₁),
       false, Finset.univ⟩ (by simp) rfl
     -- the dropped occurrence keeps its one inner occurrence, so its
     -- subfamily is not empty
     have hne : (⟨0, by simp [AggExpr.ofValue]⟩
         : Fin (AggExpr.ofValue
-          (⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩ : AggValue ℕ K)).occs.length)
-      ∈ (⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, (0, [], [])⟩, α₁),
+          (⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩ : AggValue ℕ K)).occs.length)
+      ∈ (⟨(AggExpr.ofValue ⟨SeqAggFunc.count, [(1, β₁)], false, FamId.none⟩, α₁),
           false, Finset.univ⟩ : NestedValue.WorldOcc ℕ K).sub :=
       Finset.mem_univ _
     rw [this] at hne
@@ -1519,7 +1519,7 @@ def nestedInner (α : Bool) : AggExpr ℕ Bool :=
     aggs := fun _ => SeqAggFunc.count
     scalar := fun _ => false
     g := fun v => v 0 
-    fam := (0, [], []) }
+    fam := FamId.none }
 
 /-- Two outer occurrences, grouped: one annotated `⊤`, one annotated `𝟘`,
 each carrying an inner occurrence annotated `⊤`. The second is the row a
@@ -1528,7 +1528,7 @@ def nestedIncoherentWitness : NestedValue ℕ Bool :=
   { agg := fun s => s.card
     occs := {(nestedInner true, true), (nestedInner true, false)}
     scalar := false 
-    fam := (0, [], []) }
+    fam := FamId.none }
 
 /-- **The current reading admits five worlds, the coherent reading
 three.** -/

@@ -250,9 +250,9 @@ theorem AggQueryIn.havingSite_evaluateAnnotated {m n₁ n₂ : ℕ}
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst
         (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-          (Having.havingGroup is A kv.fst))).setFam (0, List.ofFn kv.fst, []))).trans
+          (Having.havingGroup is A kv.fst))).setFam (FamId.mk 0 (List.ofFn kv.fst) [] j []))).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst, [])
+        (funext fun j => (AggTok.collapse_setFam (FamId.mk 0 (List.ofFn kv.fst) [] j [])
           (AggTok.tok (AggValue.ofGroup (fs j) (ts j) (Having.havingGroup is A kv.fst)))).trans
           (AggValue.collapse_ofGroup (fs j) (ts j) _)))
   · -- annotation: the predicate provenance of the comparison

@@ -374,7 +374,7 @@ theorem projCol_eval_inl_cases {c n : ℕ} {κ : Fin n → ColKind} (p : ProjCol
     exfalso
     have hk' := hu k
     rw [hk] at hk'
-    have h' : Sum.map t.unary (AggTok.postcomp t.unary) (u k) = Sum.inl v := h
+    have h' : Sum.map t.unary (AggTok.postcompTerm t) (u k) = Sum.inl v := h
     rcases hv : u k with a | a
     · rw [hv] at hk'
       simp [GenValue.kindOf, ColKind.base] at hk'

@@ -52,11 +52,84 @@ values; the kind-indexed syntax of the general evaluator governs
 statically which columns hold which arm.
 -/
 
-/-- **The identity of an occurrence family**: the label of the operator
-that produced it, a key telling its groups (or rows) apart, and the values
-of the apply parameters the operator reads – an operator evaluated on the
-same inputs producing the same occurrences. -/
-abbrev FamId (T : Type) := ℕ × List T × List T
+deriving instance DecidableEq for TermIn
+
+/-- **The identity of an aggregate value.** Its *family* is the label of the
+operator that produced it, a key telling its groups (or rows) apart, and
+the apply parameters the operator reads – an operator evaluated on the
+same inputs producing the same occurrences. A regular parameter is
+recorded by its value; an aggregate parameter by its own identity, the
+aggregate value itself and not the value it takes in a world. The
+identity adds the column of the operator that produced the value and the
+terms applied to it since (`ProjColIn.aggTermOf`): two columns of one
+family, or one column under two terms, are two different parameters. -/
+inductive FamId (T : Type) where
+  | mk (lab : ℕ) (key : List T) (params : List (T ⊕ FamId T)) (col : ℕ)
+      (terms : List (TermIn T 1 0))
+
+namespace FamId
+
+variable {T : Type}
+
+mutual
+/-- Decidable equality, by structural recursion so that the kernel
+reduces it. -/
+def decEq [DecidableEq T] : (a b : FamId T) → Decidable (a = b)
+  | .mk l k p c t, .mk l' k' p' c' t' =>
+    match _root_.decEq l l', _root_.decEq k k', FamId.decEqParams p p', _root_.decEq c c',
+      _root_.decEq t t' with
+    | isTrue h1, isTrue h2, isTrue h3, isTrue h4, isTrue h5 =>
+      isTrue (by subst h1 h2 h3 h4 h5; rfl)
+    | isFalse h, _, _, _, _ => isFalse (fun e => h (FamId.mk.inj e).1)
+    | _, isFalse h, _, _, _ => isFalse (fun e => h (FamId.mk.inj e).2.1)
+    | _, _, isFalse h, _, _ => isFalse (fun e => h (FamId.mk.inj e).2.2.1)
+    | _, _, _, isFalse h, _ => isFalse (fun e => h (FamId.mk.inj e).2.2.2.1)
+    | _, _, _, _, isFalse h => isFalse (fun e => h (FamId.mk.inj e).2.2.2.2)
+/-- Decidable equality of parameter lists. -/
+def decEqParams [DecidableEq T] : (a b : List (T ⊕ FamId T)) → Decidable (a = b)
+  | [], [] => isTrue rfl
+  | [], _ :: _ => isFalse nofun
+  | _ :: _, [] => isFalse nofun
+  | .inl v :: xs, .inl w :: ys =>
+    match _root_.decEq v w, FamId.decEqParams xs ys with
+    | isTrue h1, isTrue h2 => isTrue (by subst h1 h2; rfl)
+    | isFalse h, _ => isFalse (fun e => h (Sum.inl.inj (List.cons.inj e).1))
+    | _, isFalse h => isFalse (fun e => h (List.cons.inj e).2)
+  | .inr a :: xs, .inr b :: ys =>
+    match FamId.decEq a b, FamId.decEqParams xs ys with
+    | isTrue h1, isTrue h2 => isTrue (by subst h1 h2; rfl)
+    | isFalse h, _ => isFalse (fun e => h (Sum.inr.inj (List.cons.inj e).1))
+    | _, isFalse h => isFalse (fun e => h (List.cons.inj e).2)
+  | .inl _ :: _, .inr _ :: _ => isFalse (fun e => nomatch (List.cons.inj e).1)
+  | .inr _ :: _, .inl _ :: _ => isFalse (fun e => nomatch (List.cons.inj e).1)
+end
+
+instance [DecidableEq T] : DecidableEq (FamId T) := FamId.decEq
+
+/-- Decidable equality of a family, stated once: the nested instance is
+past the size instance search explores. -/
+instance instDecidableEqFamily [DecidableEq T] :
+    DecidableEq (ℕ × List T × List (T ⊕ FamId T)) :=
+  @instDecidableEqProd _ _ _ inferInstance
+
+/-- The identity carried where none is recorded. -/
+def none : FamId T := .mk 0 [] [] 0 []
+
+/-- **The family**: what tells the occurrences apart – the producing
+operator, its key and the parameters it reads, without the column or the
+terms applied since. Two values of one family are read in one world. -/
+def family : FamId T → ℕ × List T × List (T ⊕ FamId T)
+  | .mk l k p _ _ => (l, k, p)
+
+/-- The identity of a value after a term is applied to it. -/
+def addTerm (t : TermIn T 1 0) : FamId T → FamId T
+  | .mk l k p c ts => .mk l k p c (ts ++ [t])
+
+@[simp] theorem family_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+    (φ.addTerm t).family = φ.family := by
+  cases φ; rfl
+
+end FamId
 
 /-- A symbolic aggregate token: an aggregate function together with the
 (≼-sorted) occurrence payload of the originating group – for each
@@ -96,7 +169,7 @@ term `t` with `f`: the projection of the group payload. -/
 def ofGroup [ValueType T] {c : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
     (U : List (AnnotatedTuple T K m))
     (γ : Fin c → T := fun _ => 0) : AggValue T K :=
-  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, (0, [], [])⟩
+  ⟨f, U.map (fun p => (t.eval p.fst γ, p.snd)), false, FamId.none⟩
 
 /-- The occurrence annotations of a token, as a function on positions. -/
 def anns (a : AggValue T K) : Fin a.occs.length → K :=

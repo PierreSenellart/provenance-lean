@@ -48,10 +48,26 @@ variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
 
 /-! ## Tokens in the composite domain -/
 
-/-- Transport the identity of an occurrence family to the composite value
-domain: the key's values are embedded by `Sum.inl`. -/
-def FamId.toComposite (φ : FamId T) : FamId (T ⊕ K) :=
-  (φ.1, φ.2.1.map Sum.inl, φ.2.2.map Sum.inl)
+mutual
+/-- Transport the identity of an aggregate value to the composite value
+domain: the key's and the parameters' values are embedded by `Sum.inl`.
+The terms applied to the value are dropped: the rewritten world's columns
+apply functions to the data arm (`ProjColIn.aggTerm`), not terms, so its
+values record none, and the rewriting is an equality of rows. -/
+def FamId.toComposite : FamId T → FamId (T ⊕ K)
+  | .mk l k p c _ => .mk l (k.map Sum.inl) (FamId.paramsToComposite p) c []
+
+/-- The parameters of a family, transported. -/
+def FamId.paramsToComposite : List (T ⊕ FamId T) → List ((T ⊕ K) ⊕ FamId (T ⊕ K))
+  | [] => []
+  | .inl v :: ps => .inl (.inl v) :: FamId.paramsToComposite ps
+  | .inr φ :: ps => .inr (FamId.toComposite φ) :: FamId.paramsToComposite ps
+end
+
+omit [ValueType T] in
+@[simp] theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
+    (φ.addTerm t).toComposite (K := K) = φ.toComposite := by
+  cases φ; rfl
 
 /-- Transport a symbolic aggregate token to the composite value domain:
 the aggregated values are embedded by `Sum.inl`, the aggregate function is
@@ -71,7 +87,7 @@ theorem AggValue.ofGroup_toComposite {m : ℕ} (f : SeqAggFunc T)
           (U.map (fun p => ((p.toComposite, p.snd)
             : AnnotatedTuple (T ⊕ K) K (m + 1)))) := by
   unfold AggValue.toComposite AggValue.ofGroup
-  refine congrArg (fun l => (AggValue.mk _ l false (0, [], []) : AggValue (T ⊕ K) K)) ?_
+  refine congrArg (fun l => (AggValue.mk _ l false FamId.none : AggValue (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
   exact congrArg (fun v => (v, p.snd))
@@ -183,7 +199,7 @@ theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
   unfold AggExpr.toComposite AggExpr.ofGroupWhenRew AggExpr.ofGroupWhen
     AggExpr.ofSeqWhen
   refine congrArg (fun l => (AggExpr.mk 1 l (fun _ => f.liftComposite)
-    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) (0, [], [])
+    (fun _ => false) (AggExprFun.liftComposite (fun v => v 0)) FamId.none
       : AggExpr (T ⊕ K) K)) ?_
   rw [List.map_map, List.map_map]
   refine List.map_congr_left (fun p _ => ?_)
@@ -527,7 +543,7 @@ theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
         rw [AggTok.toComposite_setFam]
         refine congrArg₂ AggTok.setFam ?_
           (congrArg AggTok.tok (AggValue.ofGroup_toComposite _ _ _))
-        simp [FamId.toComposite, List.map_ofFn]; rfl
+        simp [FamId.toComposite, List.map_ofFn, EvalEnv.paramKey, FamId.paramsToComposite]; rfl
       | some φ =>
         -- a filtered aggregate's column is an expression on both sides,
         -- and the clause is the source's read on the embedded row
@@ -535,7 +551,7 @@ theorem AggQueryIn.gammaRewOf_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ}
         rw [AggTok.toComposite_setFam]
         refine congrArg₂ AggTok.setFam ?_
           (congrArg AggTok.expr (AggExpr.ofGroupWhen_toComposite _ _ _ _))
-        simp [FamId.toComposite, List.map_ofFn]; rfl
+        simp [FamId.toComposite, List.map_ofFn, EvalEnv.paramKey, FamId.paramsToComposite]; rfl
   · rw [Fin.append_right, Fin.append_right]
     dsimp only
     rw [GenAnn.finalize_gamma, List.map_map]

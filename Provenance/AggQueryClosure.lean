@@ -271,11 +271,15 @@ theorem ProjColIn.castRew_evalRew {n : ℕ} {κ : Fin n → ColKind}
     show Sum.map (Sum.map t.unary id) (AggTok.postcomp (Sum.map t.unary id))
         (r.toCompositeRow (Fin.castAdd 1 k))
       = GenValue.toComposite
-          (Sum.map t.unary (AggTok.postcomp t.unary) (r.fst k))
+          (Sum.map t.unary (AggTok.postcompTerm t) (r.fst k))
     rw [GenRow.toCompositeRow_castAdd]
     cases r.fst k with
     | inl v => rfl
-    | inr x => cases x <;> rfl
+    | inr x =>
+      show Sum.inr ((x.toComposite).postcomp (Sum.map t.unary id))
+        = Sum.inr ((x.postcompTerm t).toComposite)
+      simp only [AggTok.postcompTerm, AggTok.toComposite_setFam, FamId.toComposite_addTerm]
+      cases x <;> rfl
   | provTerm t => exact congrArg Sum.inl (t.castRew_evalRew r)
 
 /-- On an all-regular query the token-aware embedding is the embedding of
@@ -727,11 +731,11 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 list. -/
 theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
-    (U : List (AnnotatedTuple T K m)) (φ : FamId T) {k : Fin (n₁ + n₂)}
+    (U : List (AnnotatedTuple T K m)) (φ : Fin n₂ → FamId T) {k : Fin (n₁ + n₂)}
     (hk : ColKind.gammaKinds n₁ n₂ k = ColKind.agg) :
     ∃ a : AggValue T K,
       Fin.append (fun i => (Sum.inl (g i) : GenValue T K))
-          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam φ)) k
+          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam (φ j))) k
           = Sum.inr (AggTok.tok a)
         ∧ a.occs.map Prod.snd = U.map Prod.snd := by
   revert hk
@@ -739,7 +743,7 @@ theorem gammaRow_agg_col {m n₁ n₂ : ℕ} (g : Tuple T n₁)
   · intro hk
     rw [ColKind.gammaKinds, Fin.append_left] at hk
     exact ColKind.noConfusion hk
-  · exact fun _ => ⟨{ AggValue.ofGroup (fs j) (ts j) U with fam := φ },
+  · exact fun _ => ⟨{ AggValue.ofGroup (fs j) (ts j) U with fam := φ j },
       Fin.append_right _ _ j, AggValue.annList_ofGroup (fs j) (ts j) U⟩
 
 omit [HasAltLinearOrder K] in
@@ -869,7 +873,7 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       rw [GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst) with fam := (lab, List.ofFn kv.fst, []) }))]
+            kv.fst) with fam := FamId.mk lab (List.ofFn kv.fst) [] j [] }))]
       show _ = Sum.inl (Sum.inr _ * AggValue.collapseSum
         (GenRow.toCompositeRow _ (Fin.last (n₁ + n₂))))
       rw [GenRow.toCompositeRow_last]
@@ -891,7 +895,8 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
-          (lab, List.ofFn kv.fst, ctxKey rd (fun _ => 0))
+          (fun j => FamId.mk lab (List.ofFn kv.fst)
+            (({} : EvalEnv T K).paramKey rd (fun _ => 0)) j [])
         (GenPredIn.comparedCols_agg φ hk)
       refine absurd ?_ (Multiset.notMem_zero
         (List.map Prod.snd (Having.havingGroup is
@@ -905,7 +910,8 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       obtain ⟨a, ha, hann⟩ := gammaRow_agg_col kv.fst ts fs
         (Having.havingGroup is
           (Multiset.map GenRow.toAnnotated (qg.evaluate d)) kv.fst)
-          (lab, List.ofFn kv.fst, ctxKey rd (fun _ => 0))
+          (fun j => FamId.mk lab (List.ofFn kv.fst)
+            (({} : EvalEnv T K).paramKey rd (fun _ => 0)) j [])
         (GenPredIn.comparedCols_agg φ (Finset.mem_val.mp hk))
       rw [ha] at hfk
       exact (Option.some.inj hfk).symm.trans hann
@@ -915,7 +921,7 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       exact GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
-            kv.fst) with fam := (lab, List.ofFn kv.fst, []) }))
+            kv.fst) with fam := FamId.mk lab (List.ofFn kv.fst) [] j [] }))
 
 /-! ## Duplicate elimination in the rewritten world -/
 

@@ -76,21 +76,23 @@ theorem AggQueryIn.evaluate_congr_holes :
       (fun p hp => by rw [List.mem_singleton.mp hp, EvalEnv.assignHole_holes_self,
         EvalEnv.assignHole_holes_self]) hc]
   | Gamma is ts fs q keep ord ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | GammaScalar ts fs q ord ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | GammaNest is his p f q ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | ProvSum is his t q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
   | Retag h q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
   | GammaTok is his ts fs a q keep ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | Win P O o w t f q hrr dist keep ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | WinExpr P O o ws ts fs g q keeps ih =>
+    rename_i _ rd
     intro dB γ E E' hh hc
     simp only [AggQueryIn.evaluate]
-    rw [ih dB γ hh hc]
+    rw [ih dB γ hh hc,
+      show E.paramKey rd γ = E'.paramKey rd γ by simp only [EvalEnv.paramKey, hc]]
 
 /-- A closed query reads no round. -/
 theorem AggQueryIn.evaluate_assignHole_closed {c n : ℕ} {κ : Fin n → ColKind}
@@ -1913,7 +1915,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
-    exact ⟨hs', FinAt.gamma is ts fs keep ord he'⟩
+    exact ⟨hs', FinAt.gamma is ts fs keep ord he' hE.1⟩
   | GammaScalar ts fs q ord ih =>
     rename_i lab rd
     intro hq hr hi f hf hfr
@@ -1926,7 +1928,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
-    exact ⟨hs', FinAt.gammaScalar ts fs ord he'⟩
+    exact ⟨hs', FinAt.gammaScalar ts fs ord he' hE.1⟩
   | GammaNest is his p fn q ih =>
     rename_i lab rd
     intro hq hr hi f hf hfr
@@ -1940,7 +1942,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       fun h => h.elim⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
-    exact ⟨hs', FinAt.gammaNest is his p fn he'⟩
+    exact ⟨hs', FinAt.gammaNest is his p fn he' hE.1⟩
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t fw q hrr dist keep ih =>
@@ -1953,7 +1955,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
         hs.nom, hs.noNest⟩, fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
-    exact ⟨hs', FinAt.win P O o w t fw hrr dist keep he'⟩
+    exact ⟨hs', FinAt.win P O o w t fw hrr dist keep he' hE.1⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ hi => hi.elim
 
 end AggQueryIn

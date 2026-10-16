@@ -281,7 +281,7 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
           ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
               (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
                 (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                  (0, List.ofFn g, []))),
+                  (FamId.mk 0 (List.ofFn g) [] j []))),
             ⟨1, {(Having.havingGroup P (q.evaluateAnnotated d) g).map Prod.snd}⟩)
             : GenRow T K (m + 1)))
         ((Multiset.map (fun p : AnnotatedTuple T K n => Tuple.key P p.fst)
@@ -314,7 +314,7 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
         ((Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
             (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
               (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                (0, List.ofFn g, []))),
+                (FamId.mk 0 (List.ofFn g) [] j []))),
           ⟨1, {(Having.havingGroup P (q.evaluateAnnotated d) g).map Prod.snd}⟩)
           : GenRow T K (m + 1)))
       _ _ (fun r g => by
@@ -327,7 +327,7 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
             (Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
               (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j)
                 (Having.havingGroup P (q.evaluateAnnotated d) g))).setFam
-                  (0, List.ofFn g, []))))
+                  (FamId.mk 0 (List.ofFn g) [] j []))))
             (Fin.castAdd 1 k) = g k := by
           intro k
           unfold GenRow.plainTuple
@@ -370,10 +370,10 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
         (Fin.append (fun k => (Sum.inl (Tuple.key P (GenRow.plainTuple r.fst) k)
             : GenValue T K))
           (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j) U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), []))))))
+            (FamId.mk 0 (List.ofFn (Tuple.key P (GenRow.plainTuple r.fst))) [] j []))))))
       = (Fin.snoc (fun k => (Sum.inl ((GenRow.toAnnotated r).fst k) : GenValue T K))
           (Sum.inr ((AggTok.tok (AggValue.ofGroup f t U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), [])))
+            (FamId.mk 0 (List.ofFn (Tuple.key P (GenRow.plainTuple r.fst))) [] 0 [])))
             : Tuple (GenValue T K) (n + 1)) := by
     funext j
     induction j using Fin.lastCases with
@@ -409,7 +409,7 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
         (Fin.append (fun k => (Sum.inl (Tuple.key P (GenRow.plainTuple r.fst) k)
             : GenValue T K))
           (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (![f] j) (![t] j) U)).setFam
-            (0, List.ofFn (Tuple.key P (GenRow.plainTuple r.fst)), []))))))
+            (FamId.mk 0 (List.ofFn (Tuple.key P (GenRow.plainTuple r.fst))) [] j []))))))
       = {U.map Prod.snd} := by
     rw [hu', tokenLists_snoc]
     show {List.map Prod.snd (List.map (fun p => (t.eval p.fst, p.snd)) U)} = _

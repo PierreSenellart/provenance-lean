@@ -2181,10 +2181,10 @@ theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
         exact absurd hk' GenValue.Equiv.not_inr_inl
       | inr x =>
         rw [hx', hx] at hk'
-        show GenValue.Equiv (Sum.inr (x'.postcomp gf.unary))
-          (Sum.inr ((x.postcomp gf.unary).mapAnn ⇑h.toRingHom))
-        rw [AggTok.mapAnn_postcomp ⇑h.toRingHom gf.unary x]
-        exact hk'.postcomp gf.unary
+        show GenValue.Equiv (Sum.inr ((x'.postcomp gf.unary).setFam _))
+          (Sum.inr (((x.postcomp gf.unary).setFam _).mapAnn ⇑h.toRingHom))
+        rw [AggTok.mapAnn_setFam, AggTok.mapAnn_postcomp ⇑h.toRingHom gf.unary x]
+        exact (hk'.postcomp gf.unary).setFam _ _
 
 
 /-- **Two environments related by a homomorphism**: the context columns

@@ -656,11 +656,11 @@ omit [HasAltLinearOrder K] in
 the group `g` is `HavingPred.prov` of the condition on the group
 sequence. -/
 theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
-    (U : List (AnnotatedTuple ℕ K 3)) (g : Tuple ℕ 1) (φ : FamId ℕ) :
+    (U : List (AnnotatedTuple ℕ K 3)) (g : Tuple ℕ 1) (φ : Fin n₂ → FamId ℕ) :
     ∀ ψ : MonoCond n₂,
       ψ.toGenPred.predsem false
         (Fin.append (fun k => (Sum.inl (g k) : GenValue ℕ K))
-          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam φ)))
+          (fun j => Sum.inr ((AggTok.tok (AggValue.ofGroup (fs j) (ts j) U)).setFam (φ j))))
       = (ψ.toHavingPred ts fs).prov U g
   | countGe l C => by
     simp only [toGenPred, GenPredIn.fusedCmp, GenPredIn.predsem, Fin.append_right,
@@ -779,9 +779,10 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
   refine Prod.ext ?_ ?_
   · -- data part: whole-group aggregate values
     exact (GenRow.plainTuple_append kv.fst (fun j => (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
-        (havingGroupOrd keyIdx GroupOrder.unord A kv.fst))).setFam (0, List.ofFn kv.fst, []))).trans
+        (havingGroupOrd keyIdx GroupOrder.unord A kv.fst))).setFam
+          (FamId.mk 0 (List.ofFn kv.fst) [] j []))).trans
       (congrArg (Fin.append kv.fst)
-        (funext fun j => (AggTok.collapse_setFam (0, List.ofFn kv.fst, [])
+        (funext fun j => (AggTok.collapse_setFam (FamId.mk 0 (List.ofFn kv.fst) [] j [])
           (AggTok.tok (AggValue.ofGroup (fs j) (ts j)
             (havingGroupOrd keyIdx GroupOrder.unord A kv.fst)))).trans
           (AggValue.collapse_ofGroup (fs j) (ts j) _)))

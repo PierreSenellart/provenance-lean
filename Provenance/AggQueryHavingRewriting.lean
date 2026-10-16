@@ -83,7 +83,7 @@ def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
   | .term t => Sum.inl (t.evalRew u γ)
   | .token k _ => u k
   | .aggTerm k _ gf => Sum.map gf (AggTok.postcomp gf) (u k)
-  | .aggTermOf k _ t => Sum.map t.unary (AggTok.postcomp t.unary) (u k)
+  | .aggTermOf k _ t => Sum.map t.unary (AggTok.postcompTerm t) (u k)
   | .provTerm t => Sum.inl (t.evalRew u γ)
 
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
@@ -290,9 +290,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
                   (Having.havingGroup is ar g) γ)
               | some φ => AggTok.expr (AggExpr.ofGroupWhenRew (T := T) (fs j)
                   (ts j) φ.keeps (Having.havingGroup is ar g) γ)).setFam
-                (lab, List.ofFn g,
-                  ctxKey rd
-                    γ))))
+                (FamId.mk lab (List.ofFn g) (({} : EvalEnv (T ⊕ K) K).paramKey rd γ) j []))))
           (fun _ : Fin 1 => Sum.inl
             (Sum.inr (SemiringWithMonus.delta
               ((Having.havingGroup is ar g).map Prod.snd).sum))))

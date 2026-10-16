@@ -427,8 +427,7 @@ noncomputable def matchToken (cnt : SeqAggFunc T) (kap : Fin l)
   { AggValue.ofScalarGroup cnt (TermIn.index (c := 0) kap)
       (Having.havingGroup (fun i : Fin 0 => i.elim0)
         ((Sel φ Q).evaluateAnnotated d u) (fun i : Fin 0 => i.elim0)) with
-    fam := (0, [], ctxKey (Sel φ Q).readsOuter
-      u) }
+    fam := .mk 0 [] (({} : EvalEnv T K).paramKey (Sel φ Q).readsOuter u) 0 [] }
 
 /-- A scalar aggregation on one `(term, aggregate)` pair produces the one
 row that carries its token. -/
@@ -436,10 +435,10 @@ theorem evaluate_GammaScalar_one {lab : ℕ} {c m : ℕ} {rd : Fin c → Bool} (
     (cnt : SeqAggFunc T) (q : AggQueryIn T c m (ColKind.allReg m))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) :
     (GammaScalar (lab := lab) (rd := rd) ![t] ![cnt] q).evaluate d γ
-      = {(⟨fun _ : Fin 1 => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup cnt t
+      = {(⟨fun j : Fin 1 => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup cnt t
             (Having.havingGroup (fun i : Fin 0 => i.elim0)
               (q.evaluateAnnotated d γ) (fun i : Fin 0 => i.elim0)) γ)).setFam
-                (lab, [], ctxKey rd γ)),
+                (.mk lab [] (({} : EvalEnv T K).paramKey rd γ) j [])),
           ⟨1, 0⟩⟩ : GenRow T K 1)} := by
   simp only [AggQueryIn.evaluate, AggQueryIn.evaluateAnnotated,
     Having.havingGroupOrd_unord, Matrix.cons_val_fin_one]
@@ -461,7 +460,12 @@ theorem evaluate_matchCount (cnt : SeqAggFunc T) (kap : Fin l)
     (Multiset.bind_singleton _ _)
   rw [evaluate_GammaScalar_one, Multiset.map_singleton]
   refine congrArg (fun r : GenRow T K (k + 1) => ({r} : Multiset _)) ?_
-  refine Prod.ext rfl ?_
+  refine Prod.ext ?_ ?_
+  · dsimp only
+    congr 1
+    funext j
+    rw [Fin.fin_one_eq_zero j]
+    rfl
   show (⟨x.snd.base * 1, x.snd.pending + 0⟩ : GenAnn K) = x.snd
   rw [mul_one, add_zero]
 
@@ -827,10 +831,11 @@ theorem evaluate_gammaWhere (is : Tuple (Fin m) n₁) (φ : Selection T m)
             (fun p => ((fun k => p.fst (is k), p.snd)
               : AnnotatedTuple T K n₁)))).val).map (fun kv =>
         (⟨Fin.append (fun k => Sum.inl (kv.fst k))
-            (fun _ : Fin 1 => Sum.inr ((AggTok.expr (AggExpr.ofGroupWhen f t
+            (fun j : Fin 1 => Sum.inr ((AggTok.expr (AggExpr.ofGroupWhen f t
               φ.keeps (Having.havingGroup is
                 ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst) γ)).setFam
-                  (0, List.ofFn kv.fst, ctxKey (fun _ => false) γ))),
+                  (.mk 0 (List.ofFn kv.fst) (({} : EvalEnv T K).paramKey (fun _ => false) γ)
+                    j []))),
           ⟨1, {(Having.havingGroup is
               ((q.evaluate d γ).map GenRow.toAnnotated) kv.fst).map Prod.snd}⟩⟩
           : GenRow T K (n₁ + 1))) := by

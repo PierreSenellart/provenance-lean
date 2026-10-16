@@ -1822,11 +1822,11 @@ theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
     cases hu : u k with
     | inl w => exact absurd ha (by simp [ProjColIn.eval, hu])
     | inr x =>
-      have hax : a = x.postcomp gf.unary := by
+      have hax : a = x.postcompTerm gf := by
         have := ha
         simp only [ProjColIn.eval, hu, Sum.map_inr] at this
         exact (Sum.inr.inj this).symm
-      rw [hax, AggTok.Realized_postcomp]
+      rw [hax, AggTok.postcompTerm, AggTok.Realized_setFam, AggTok.Realized_postcomp]
       exact hrow k x hu
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
@@ -1924,7 +1924,7 @@ theorem ProjColIn.specialize_innerValue {c n : ℕ} {κ : Fin n → ColKind}
         rw [AggExpr.specialize, AggExpr.valOn_postcomp]
         rfl
   | aggTermOf k hk gf =>
-    show (GenValue.innerValue (Sum.map gf.unary (AggTok.postcomp gf.unary) (u k))).specialize
+    show (GenValue.innerValue (Sum.map gf.unary (AggTok.postcompTerm gf) (u k))).specialize
         (fun α => α v)
       = gf.unary (GenValue.specializeAt v (u k))
     cases hu : u k with
@@ -2142,17 +2142,18 @@ theorem AggQueryIn.evaluate_guarded :
       -- reading a token through a function changes neither its
       -- occurrences nor its convention, so the guard is the token's
       rw [hp] at ha'
-      replace ha' : Sum.map gf.unary (AggTok.postcomp gf.unary) (r₀.fst k)
+      replace ha' : Sum.map gf.unary (AggTok.postcompTerm gf) (r₀.fst k)
           = Sum.inr a := ha'
       cases hu : r₀.fst k with
       | inl w =>
         rw [hu] at ha'
         exact absurd ha' (by simp)
       | inr a₀ =>
-        have hha : a = a₀.postcomp gf.unary := by
+        have hha : a = a₀.postcompTerm gf := by
           rw [hu] at ha'
           exact (Sum.inr.inj ha').symm
         subst hha
+        rw [AggTok.postcompTerm, AggTok.Realized_setFam]
         cases a₀ with
         | tok a₀ => exact ih d E r₀ hr₀ v hE hfin₀ k (AggTok.tok a₀) hu
         | nest a₀ =>
@@ -2637,7 +2638,7 @@ private lemma ProjColIn.specializeAt_eval {c n : ℕ} {κ : Fin n → ColKind}
     | inl w => rfl
     | inr x => cases x <;> rfl
   | aggTermOf k hk gf =>
-    show GenValue.specializeAt v (Sum.map gf.unary (AggTok.postcomp gf.unary) (u k))
+    show GenValue.specializeAt v (Sum.map gf.unary (AggTok.postcompTerm gf) (u k))
       = gf.unary (GenValue.specializeAt v (u k))
     cases u k with
     | inl w => rfl
@@ -4023,15 +4024,13 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)).setFam
-                  (_lab, [], ctxKey rd
-                    γ)), ⟨1, 0⟩⟩
+                  (FamId.mk _lab [] (E.paramKey rd γ) j [])), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         = {(⟨fun j => Sum.inr ((AggTok.tok (AggValue.ofScalarGroup (fs j) (ts j)
               (Having.havingGroupOrd (fun i : Fin 0 => i.elim0) ord
                 ((q.evaluate d γ E).map GenRow.toAnnotated)
                 (fun i : Fin 0 => i.elim0)) γ)).setFam
-                  (_lab, [], ctxKey rd
-                    γ)), ⟨1, 0⟩⟩
+                  (FamId.mk _lab [] (E.paramKey rd γ) j [])), ⟨1, 0⟩⟩
             : GenRow T (BoolFunc X) n₂)}
         from Multiset.filter_eq_self.mpr (fun r hr => by
           rw [Multiset.mem_singleton] at hr; subst hr; rfl)]

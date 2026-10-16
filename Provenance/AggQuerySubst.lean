@@ -539,21 +539,22 @@ theorem AggQueryIn.evaluate_congr_env :
       (E' := E'.assignHole s (X.map GenRow.ofAnnotated))
       (by simp only [EvalEnv.assignHole, hh]) hc]
   | Gamma is ts fs q keep ord ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
-        ih dB γ hh hc]
+        ih dB γ hh hc, EvalEnv.paramKey, hc]
   | GammaScalar ts fs q ord ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
-        ih dB γ hh hc]
+        ih dB γ hh hc, EvalEnv.paramKey, hc]
   | GammaNest is his p f q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate,
-        ih dB γ hh hc]
+        ih dB γ hh hc, EvalEnv.paramKey, hc]
   | ProvSum is his t q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
   | Retag h q ih => intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
   | GammaTok is his ts fs a q keep ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc, EvalEnv.paramKey, hc]
   | Win P O o w t f q hrr dist keep ih =>
-    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc]
-  | WinExpr P O o ws ts fs g q keeps ih =>
+    intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc, EvalEnv.paramKey, hc]
+  | @WinExpr cI nI mI pI qI _lab rd P O o ws ts fs g q keeps ih =>
     intro dB γ E E' hh hc
+    have hk : E.paramKey rd γ = E'.paramKey rd γ := by simp only [EvalEnv.paramKey, hc]
     simp only [AggQueryIn.evaluate]
-    rw [ih dB γ hh hc]
+    rw [ih dB γ hh hc, hk]
 
 /-- **An apply whose left side has regular columns** reads its right side
 as a query with nothing bound, in the plain context of the left row: a
@@ -840,7 +841,7 @@ omit [DecidableEq K] in
 /-- **The row a window adds, under a substitution**: the substitution
 reaches the aggregated term and nothing else, the row's own columns and
 its annotation going through untouched. -/
-theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ} (lab : ℕ) (ck : List T)
+theorem ValueFrame.windowGenRow_substMap {c d n m p : ℕ} (lab : ℕ) (ck : List (T ⊕ FamId T))
     (θ : Fin c → T ⊕ Fin d) (κ : Fin n → ColKind) (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
@@ -1224,6 +1225,21 @@ theorem ctxKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenamin
   refine ctxKey_of_renaming he _ _ (fun j => ?_) γ
   simp only [substRd, decide_eq_true_eq, hθe, Sum.elim_inr]
 
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **A renamed operator records the parameters it recorded**, aggregate
+ones included. -/
+theorem EvalEnv.paramKey_substRd {c d : ℕ} {θ : Fin c → T ⊕ Fin d} (hθ : IsRenaming θ)
+    (E : EvalEnv T K) (rd : Fin c → Bool) (γ : Fin d → T) :
+    E.paramKey (substRd θ rd) γ = (E.substEnv θ γ).paramKey rd (substVal θ γ) := by
+  obtain ⟨e, he, hθe⟩ := hθ
+  unfold EvalEnv.paramKey EvalEnv.substEnv
+  rw [EvalEnv.ctxAt_withCtx]
+  refine (ctxKey_of_renaming he rd _ (fun j => ?_) _).trans ?_
+  · simp only [substRd, decide_eq_true_eq, hθe, Sum.elim_inr]
+  · congr 1
+    funext k
+    simp [substCtx, hθe k]
+
 /-- **Substituting and evaluating is evaluating under the substituted
 valuation**, for the annotated semantics. -/
 theorem AggQueryIn.evaluate_substMap :
@@ -1306,20 +1322,20 @@ theorem AggQueryIn.evaluate_substMap :
   | @Gamma cI m n₁ n₂ _lab rd is ts fs q keep ord ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap]
     rw [ih θ hθ dB γ E]
   | @GammaScalar cI m n₂ _lab rd ts fs q ord ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, AggValue.ofScalarGroup_substMap]
     rw [ih θ hθ dB γ E]
   | @GammaNest cI m n₁ κ' _lab rd is his p f q ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, ProjColIn.eval_substMap]
     rw [ih θ hθ dB γ E]
   | @ProvSum cI m n₁ κ' is his t q ih =>
@@ -1331,20 +1347,20 @@ theorem AggQueryIn.evaluate_substMap :
   | @GammaTok cI m n₁ n₂ κ' _lab rd is his ts fs a q keep ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
     rw [ih θ hθ dB γ E]
   | @Win cI n' m' p' κw _lab rd P O o w t f q hrr dist keep ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, ValueFrame.windowGenRow_substMap]
     rw [ih θ hθ dB γ E]
   | @WinExpr cI n' m' p' na _lab rd P O o ws ts fs g q keeps ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
-    have hk := ctxKey_substRd hθ rd γ
+    have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, ValueFrame.exprOfWhen_substMap]
     rw [ih θ hθ dB γ E]
 
