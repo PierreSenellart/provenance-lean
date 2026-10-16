@@ -527,13 +527,11 @@ theorem evaluateAnnotated_countSite (op : CompOp) (cnt : SeqAggFunc T)
     Multiset.filter_eq_self.mpr]
   -- the comparison is read in the scalar convention the token carries
   have hpred : (GenPredIn.aggCmp (c := 0) (countCol k)
-        (countKinds_countCol k) op (TermGIn.const 0)).predsem
-          (K := K) false row
+        (countKinds_countCol k) op (TermGIn.const 0)).predsemJ
+          (K := K) false row (fun _ => 0)
       = tok.predProvScalar op 0 := by
-    show (match row (countCol k) with
-      | Sum.inl _ => (0 : K)
-      | Sum.inr a => a.predProvOf op ((TermGIn.const (0 : T)).eval row)) = _
-    rw [hrow, Fin.append_right]
+    rw [GenPredIn.predsemJ_aggCmp _ _ op _ row _ (AggTok.tok tok)
+      (by rw [hrow, Fin.append_right])]
     exact AggValue.predProvOf_of_scalar (a := tok) (by simp [htok, matchToken]) op 0
   rw [hpred]
   refine Prod.ext ?_ ?_

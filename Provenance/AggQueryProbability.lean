@@ -1034,6 +1034,314 @@ def GenPredIn.selPending {K' : Type} [AddCommMonoid K'] [DecidableEq K']
       ∧ ∀ l' ∈ φ.selCompared u, l' = l))
   else p
 
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **The world a valuation cuts out of an embedded token is the one it
+cuts out of the token.** -/
+theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
+    (v : X → Bool) :
+    (AggExpr.ofValue a).realizedWorld (fun α => α v)
+      = (a.realized v).map
+        (finCongr (AggExpr.length_ofValue_occs a)).toEmbedding := by
+  ext j
+  rw [Finset.mem_map_equiv, AggExpr.realizedWorld, Finset.mem_filter,
+    and_iff_right (Finset.mem_univ j), AggValue.realized, Finset.mem_filter,
+    and_iff_right (Finset.mem_univ _)]
+  show (AggExpr.ofValue a).anns j v = true
+    ↔ a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) v = true
+  rw [show (AggExpr.ofValue a).anns j
+      = a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) from by
+    rw [← AggExpr.anns_ofValue a (finCongr
+      (AggExpr.length_ofValue_occs a).symm j)]
+    rfl]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- **An embedded token specializes as the token does.** -/
+theorem AggExpr.specialize_ofValue (a : AggValue T (BoolFunc X))
+    (v : X → Bool) :
+    (AggExpr.ofValue a).specialize (fun α => α v)
+      = a.specialize (fun α => α v) := by
+  rw [AggExpr.specialize, AggExpr.realizedWorld_ofValue,
+    AggExpr.valOn_ofValue, AggValue.specialize_eval]
+
+/-! ## The joint reading over `𝔹[X]`
+
+Under a valuation exactly one world of each family is annotated true –
+the occurrences the valuation keeps – so the joint reading of a
+predicate holds exactly when the predicate holds of the values the row
+takes in those worlds, which are the specialized ones. -/
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- An aggregate value that is not nested is realized exactly when the
+world a valuation cuts out of its expression is one of its worlds. -/
+theorem AggTok.realized_iff_flatExpr {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
+    (v : X → Bool) :
+    x.Realized v ↔ x.flatExpr.IsWorld (x.flatExpr.realizedWorld (fun α => α v)) := by
+  cases x with
+  | tok a =>
+    show _ ↔ (AggExpr.ofValue a).IsWorld ((AggExpr.ofValue a).realizedWorld (fun α => α v))
+    rw [AggExpr.realizedWorld_ofValue, AggExpr.isWorld_ofValue]
+    rfl
+  | expr e => rfl
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- An aggregate value that is not nested specializes as its expression
+does. -/
+theorem AggTok.flatExpr_specialize {x : AggTok T (BoolFunc X)} (hx : x.isNested = false)
+    (v : X → Bool) :
+    x.flatExpr.specialize (fun α => α v) = x.specialize (fun α => α v) := by
+  cases x with
+  | tok a => exact AggExpr.specialize_ofValue a v
+  | expr e => rfl
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+/-- Two expressions carrying the same annotations have the same realized
+world, read position by position. -/
+theorem AggExpr.trW_realizedWorld {e e' : AggExpr T (BoolFunc X)} (h : e.annList = e'.annList)
+    (ν : BoolFunc X → Bool) :
+    trW (e.realizedWorld ν) = e'.realizedWorld ν := by
+  have hl : e.occs.length = e'.occs.length := by
+    simpa [AggExpr.annList] using congrArg List.length h
+  have ha : ∀ (j : Fin e.occs.length) (i : Fin e'.occs.length), (j : ℕ) = i →
+      e.anns j = e'.anns i := by
+    intro j i hji
+    have h1 : e.anns j = e.annList[(j : ℕ)]'(by simp [AggExpr.annList]) := by
+      simp [AggExpr.anns, AggExpr.annList]
+    have h2 : e'.anns i = e'.annList[(i : ℕ)]'(by simp [AggExpr.annList]) := by
+      simp [AggExpr.anns, AggExpr.annList]
+    rw [h1, h2]
+    simp only [hji, h]
+  ext i
+  simp only [trW, AggExpr.realizedWorld, Finset.mem_filter, Finset.mem_univ, true_and]
+  constructor
+  · rintro ⟨j, hj, hji⟩
+    rwa [← ha j i hji]
+  · intro hi
+    exact ⟨⟨i, by rw [hl]; exact i.isLt⟩, by rwa [ha _ i rfl], rfl⟩
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+private lemma good_combineW {n : ℕ} (w₁ w₂ : BoolFunc X × BoolFunc X × (Fin n → Option T))
+    (v : X → Bool) :
+    ((combineW w₁ w₂).1 * (1 - (combineW w₁ w₂).2.1)) v = true
+      ↔ (w₁.1 * (1 - w₁.2.1)) v = true ∧ (w₂.1 * (1 - w₂.2.1)) v = true := by
+  show ((w₁.1 v && w₂.1 v) && !(w₁.2.1 v || w₂.2.1 v)) = true
+    ↔ (w₁.1 v && !w₁.2.1 v) = true ∧ (w₂.1 v && !w₂.2.1 v) = true
+  cases w₁.1 v <;> cases w₂.1 v <;> cases w₁.2.1 v <;> cases w₂.2.1 v <;> decide
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+theorem AggTok.classKey_eq_none_iff (x : AggTok T (BoolFunc X)) :
+    x.classKey.2.2 = none ↔ x.isNested = false := by
+  cases x <;> simp [AggTok.classKey, AggTok.isNested]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+theorem AggTok.eq_nest_of_classKey (x : AggTok T (BoolFunc X))
+    {s : Multiset (AggExpr T (BoolFunc X) × BoolFunc X)} (h : x.classKey.2.2 = some s) :
+    ∃ b, x = AggTok.nest b ∧ b.occs = s := by
+  cases x <;> simp_all [AggTok.classKey]
+
+omit [ValueType T] in
+open Classical in
+/-- **One family, under a valuation**: a world annotated true gives each
+of the family's columns its specialized value, and there is one – the
+world the valuation cuts out. -/
+theorem classWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n) (M : List (Fin n))
+    (x₀ : AggTok T (BoolFunc X)) (v : X → Bool)
+    (hM : ∀ k ∈ M, ∃ y, u k = Sum.inr y ∧ y.classKey = x₀.classKey ∧ y.Realized v) :
+    (∀ w ∈ classWorlds u M x₀, (w.1 * (1 - w.2.1)) v = true →
+        ∀ k ∈ M, w.2.2 k = some (GenRow.specializeTuple v u k))
+      ∧ ∃ w ∈ classWorlds u M x₀, (w.1 * (1 - w.2.1)) v = true := by
+  cases hx : x₀.isNested with
+  | true =>
+    obtain ⟨a, rfl⟩ : ∃ a, x₀ = AggTok.nest a := by
+      cases x₀ <;> simp_all [AggTok.isNested]
+    have hmem : ∀ k ∈ M, ∃ b, u k = Sum.inr (AggTok.nest b)
+        ∧ b.realizedWorld (fun α => α v) = a.realizedWorld (fun α => α v)
+        ∧ (b.realizedWorld (fun α => α v)).IsWorld b := by
+      intro k hk
+      obtain ⟨y, hy, hkey, hR⟩ := hM k hk
+      obtain ⟨b, rfl, hb⟩ := AggTok.eq_nest_of_classKey y
+        (s := a.occs) (by rw [hkey]; rfl)
+      refine ⟨b, hy, ?_, hR⟩
+      simp only [NestedValue.realizedWorld, hb]
+    simp only [classWorlds]
+    refine ⟨fun w hw hg k hk => ?_, ?_⟩
+    · obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.mp hw
+      have hWa := NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_filter.mp hW).1
+      have hWeq : W = a.realizedWorld (fun α => α v) :=
+        (NestedValue.World.ann_eval_iff hWa v).mp hg
+      obtain ⟨b, hb, hbr, -⟩ := hmem k hk
+      simp only [ite_eq_left hk, hb, GenRow.specializeTuple, GenValue.specializeAt, Sum.elim_inr,
+        AggTok.specialize, NestedValue.specialize, hWeq, hbr]
+    · refine ⟨_, Multiset.mem_map_of_mem _ (Multiset.mem_filter.mpr
+        ⟨NestedValue.mem_worlds_iff.mpr (NestedValue.isWorldOf_realizedWorld a _),
+          (nestOk_iff u M _).mpr fun k hk b' hb' => ?_⟩),
+        (NestedValue.World.ann_eval_iff (NestedValue.isWorldOf_realizedWorld a _) v).mpr rfl⟩
+      obtain ⟨b, hb, hbr, hR⟩ := hmem k hk
+      rw [hb] at hb'
+      have hbb := AggTok.nest.inj (Sum.inr.inj hb')
+      subst hbb
+      rwa [← hbr]
+  | false =>
+    set e := x₀.flatExpr with he
+    have hmem : ∀ k ∈ M, ∃ y, u k = Sum.inr y ∧ y.isNested = false
+        ∧ y.flatExpr.annList = e.annList ∧ y.Realized v := by
+      intro k hk
+      obtain ⟨y, hy, hkey, hR⟩ := hM k hk
+      have hyn : y.isNested = false := by
+        rw [← AggTok.classKey_eq_none_iff, hkey, AggTok.classKey_eq_none_iff, hx]
+      refine ⟨y, hy, hyn, ?_, hR⟩
+      rw [AggTok.flatExpr_annList_of_not_nest _ hyn, he,
+        AggTok.flatExpr_annList_of_not_nest _ hx]
+      exact congrArg (fun p => p.2.1) hkey
+    rw [classWorlds_of_not_nest u M x₀ hx]
+    have hgood : ∀ W : Finset (Fin e.occs.length),
+        ((∏ i ∈ W, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i)) v = true
+          ↔ W = e.realizedWorld (fun α => α v) :=
+      fun W => worldAnn_eval_iff e.anns W v
+    refine ⟨fun w hw hg k hk => ?_, ?_⟩
+    · obtain ⟨W, -, rfl⟩ := Multiset.mem_map.mp hw
+      have hWeq := (hgood W).mp hg
+      obtain ⟨y, hy, hyn, hyl, -⟩ := hmem k hk
+      simp only [ite_eq_left hk, hy, hWeq, AggExpr.trW_realizedWorld hyl.symm,
+        GenRow.specializeTuple, GenValue.specializeAt, Sum.elim_inr]
+      rw [← AggTok.flatExpr_specialize hyn]
+      rfl
+    · refine ⟨_, Multiset.mem_map_of_mem _ (Finset.mem_val.mpr (Finset.mem_filter.mpr
+        ⟨Finset.mem_univ (e.realizedWorld (fun α => α v)),
+          (flatOk_iff u M _).mpr fun k hk y' hy' => ?_⟩)),
+        (hgood _).mpr rfl⟩
+      obtain ⟨y, hy, hyn, hyl, hR⟩ := hmem k hk
+      rw [hy] at hy'
+      have hyy := Sum.inr.inj hy'
+      subst hyy
+      show y.flatExpr.IsWorld (trW (e.realizedWorld (fun α => α v)))
+      rw [AggExpr.trW_realizedWorld hyl.symm]
+      exact (AggTok.realized_iff_flatExpr hyn v).mp hR
+
+open Classical in
+/-- **The joint worlds, under a valuation**: a joint world annotated true
+gives every aggregate column it reads its specialized value, and there is
+one, as soon as each of those columns is realized. -/
+theorem jointWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n)
+    (cols : List (Fin n)) (v : X → Bool)
+    (hR : ∀ k ∈ cols, ∀ x, u k = Sum.inr x → x.Realized v) :
+    (∀ w ∈ jointWorlds u cols, (w.1 * (1 - w.2.1)) v = true →
+        ∀ k ∈ cols, ∀ x, u k = Sum.inr x → w.2.2 k = some (GenRow.specializeTuple v u k))
+      ∧ ∃ w ∈ jointWorlds u cols, (w.1 * (1 - w.2.1)) v = true := by
+  obtain ⟨hA, hE⟩ := jointWorlds_of_classes u cols (fun w => (w.1 * (1 - w.2.1)) v = true)
+    (GenRow.specializeTuple v u) rfl (fun w₁ w₂ => good_combineW w₁ w₂ v)
+    (fun M x₀ hM => classWorlds_realized u M x₀ v (fun k hk => by
+      obtain ⟨y, hy, hkey⟩ := hM k hk
+      exact ⟨y, (mem_tokCols hy).2, hkey, hR k (mem_tokCols hy).1 y (mem_tokCols hy).2⟩))
+  refine ⟨fun w hw hg k hk x hx => ?_, hE⟩
+  have hkx : (k, x) ∈ tokCols u cols := by
+    unfold tokCols
+    exact List.mem_filterMap.mpr ⟨k, hk, by simp [hx]⟩
+  exact hA w hw hg (k, x) hkx
+
+omit [Fintype X] [DecidableEq X] in
+/-- The predicate read at values that are the specialized ones on its
+compared aggregate columns is its plain reading on the specialized
+tuple. -/
+theorem GenPredIn.eval3W_specialize {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (vals : Fin n → Option T)
+    (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
+    (hv : ∀ k ∈ φ.comparedCols, ∀ x, u k = Sum.inr x →
+      vals k = some (GenRow.specializeTuple v u k)) :
+    φ.eval3W vals u γ = φ.evalPlain3 (GenRow.specializeTuple v u) γ := by
+  induction φ with
+  | cmp op t₁ t₂ =>
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [TermGIn.eval_specialize t₁ u hconf v, TermGIn.eval_specialize t₂ u hconf v]
+  | aggCmp k h op t =>
+    obtain ⟨x, hx⟩ := GenValue.eq_inr_of_kindOf_agg ((hconf k).trans (by rw [h]; rfl))
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [hv k (Finset.mem_singleton_self k) x hx, TermGIn.eval_specialize t u hconf v]
+    rfl
+  | aggRange k h op₁ t₁ op₂ t₂ =>
+    obtain ⟨x, hx⟩ := GenValue.eq_inr_of_kindOf_agg ((hconf k).trans (by rw [h]; rfl))
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [hv k (Finset.mem_singleton_self k) x hx, TermGIn.eval_specialize t₁ u hconf v,
+      TermGIn.eval_specialize t₂ u hconf v]
+    rfl
+  | and φ ψ ihφ ihψ =>
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [ihφ (fun k hk => hv k (Finset.mem_union_left _ hk)),
+      ihψ (fun k hk => hv k (Finset.mem_union_right _ hk))]
+  | or φ ψ ihφ ihψ =>
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [ihφ (fun k hk => hv k (Finset.mem_union_left _ hk)),
+      ihψ (fun k hk => hv k (Finset.mem_union_right _ hk))]
+  | not φ ih =>
+    simp only [GenPredIn.eval3W, GenPredIn.evalPlain3]
+    rw [ih hv]
+
+omit [ValueType T] [Fintype X] [DecidableEq X] in
+private lemma mul_ite_eval (a : BoolFunc X) (p : Prop) [Decidable p] (v : X → Bool) :
+    (a * (if p then 1 else 0)) v = true ↔ a v = true ∧ p := by
+  by_cases hp : p
+  · rw [ite_eq_left hp, mul_one]
+    exact ⟨fun h => ⟨h, hp⟩, fun h => h.1⟩
+  · rw [ite_eq_right hp, mul_zero]
+    exact iff_of_false (fun h => Bool.false_ne_true h) (fun h => hp h.2)
+
+/-- **The joint predicate provenance, evaluated.** On a kind-conformant
+row whose compared aggregate columns are realized, the joint reading is
+true under a valuation iff the (polarity-adjusted) plain predicate holds
+on the specialized tuple. -/
+theorem GenPredIn.predsemJ_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
+    (u : Tuple (GenValue T (BoolFunc X)) n)
+    (hconf : ∀ k, GenValue.kindOf (u k) = (κ k).base) (v : X → Bool)
+    (hg : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T (BoolFunc X),
+      u k = Sum.inr a → a.Realized v) :
+    ((φ.predsemJ neg u γ) v = true)
+      ↔ (if neg = true
+          then φ.evalPlain3 (GenRow.specializeTuple v u) γ = Kleene.false
+          else φ.evalPlain3 (GenRow.specializeTuple v u) γ = Kleene.true) := by
+  unfold GenPredIn.predsemJ
+  rw [multiset_sum_eval_eq_true_iff]
+  have hcols : ∀ k, k ∈ (List.finRange n).filter (· ∈ φ.comparedCols) ↔ k ∈ φ.comparedCols :=
+    fun k => by simp
+  obtain ⟨hA, hE⟩ := jointWorlds_realized u ((List.finRange n).filter (· ∈ φ.comparedCols)) v
+    (fun k hk x hx => hg k ((hcols k).mp hk) x hx)
+  have htgt : ∀ b : Kleene, (b = if neg = true then Kleene.false else Kleene.true)
+      ↔ (if neg = true then b = Kleene.false else b = Kleene.true) := by
+    intro b; cases neg <;> simp
+  constructor
+  · rintro ⟨f, hf, hfv⟩
+    obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.mp hf
+    obtain ⟨hgood, heq⟩ := (mul_ite_eval _ _ v).mp hfv
+    rw [GenPredIn.eval3W_specialize φ w.2.2 u hconf v
+      (fun k hk x hx => hA w hw hgood k ((hcols k).mpr hk) x hx)] at heq
+    exact (htgt _).mp heq
+  · intro h
+    obtain ⟨w, hw, hgood⟩ := hE
+    refine ⟨_, Multiset.mem_map_of_mem _ hw, (mul_ite_eval _ _ v).mpr ⟨hgood, ?_⟩⟩
+    rw [GenPredIn.eval3W_specialize φ w.2.2 u hconf v
+      (fun k hk x hx => hA w hw hgood k ((hcols k).mpr hk) x hx)]
+    exact (htgt _).mpr h
+
+omit [Fintype X] [DecidableEq X] in
+/-- **The joint reading entails a grouped family's existence.** When the
+compared values are all grouped and carry the annotation list `ℓ₀`, and
+one of the compared columns holds a value, a true joint reading realizes
+`ℓ₀`: every world it is read in meets that group. -/
+theorem GenPredIn.entails_guardJ {c n : ℕ} {κ : Fin n → ColKind}
+    (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
+    (u : Tuple (GenValue T (BoolFunc X)) n) (v : X → Bool)
+    (ℓ₀ : List (BoolFunc X))
+    (hex : ∃ k ∈ φ.comparedCols, ∃ x, u k = Sum.inr x)
+    (huni : ∀ k ∈ φ.comparedCols, ∀ a : AggTok T (BoolFunc X),
+      u k = Sum.inr a → a.scalar = false ∧ a.annList = ℓ₀)
+    (hp : (φ.predsemJ neg u γ) v = true) : annGuard ℓ₀ v := by
+  rw [← GenPredIn.predsemJ_delta_absorb φ neg u ℓ₀ hex huni] at hp
+  have hp' : ((φ.predsemJ neg u γ) v && (ℓ₀.sum) v) = true := hp
+  rw [Bool.and_eq_true] at hp'
+  exact (list_sum_eval ℓ₀ v).mp hp'.2
+
 /-- **Predicate provenance evaluation, under existence guards.** On a
 kind-conformant row all of whose compared groups are realized non-empty,
 the predicate provenance is true iff the (polarity-adjusted) plain
@@ -1373,6 +1681,7 @@ theorem GenAnn.finalize_mul {K' : Type} [CommSemiringWithMonus K']
 
 /-! ## The row-level σ lemmas -/
 
+omit [Fintype X] [DecidableEq X] in
 /-- A σ with aggregate atoms only strengthens the annotation: the
 finalized updated annotation implies the finalized original one (the
 superseded factors are recovered from the predicate provenance through
@@ -1380,12 +1689,12 @@ existence entailment). -/
 theorem GenPredIn.sel_finalize_old {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (u : Tuple (GenValue T (BoolFunc X)) n)
     (b : BoolFunc X) (p : Multiset (List (BoolFunc X))) (v : X → Bool)
-    (h : (GenAnn.mk (b * φ.predsem false u γ) (φ.selPending u p)).finalize v
+    (h : (GenAnn.mk (b * φ.predsemJ false u γ) (φ.selPending u p)).finalize v
       = true) :
     (GenAnn.mk b p).finalize v = true := by
   rw [GenAnn.finalize_eval_iff] at h ⊢
   obtain ⟨hbp, hupd⟩ := h
-  have hbp' : (b v && (φ.predsem false u γ) v) = true := hbp
+  have hbp' : (b v && (φ.predsemJ false u γ) v) = true := hbp
   rw [Bool.and_eq_true] at hbp'
   refine ⟨hbp'.1, fun l hl => ?_⟩
   unfold GenPredIn.selPending at hupd
@@ -1393,7 +1702,13 @@ theorem GenPredIn.sel_finalize_old {c n : ℕ} {κ : Fin n → ColKind}
   · rw [ite_eq_left hE] at hupd
     by_cases hcond : (φ.selComparedScalar u = 0 ∧ φ.selCompared u ≠ 0
         ∧ ∀ l' ∈ φ.selCompared u, l' = l)
-    · refine GenPredIn.entails_guard φ false u v l ?_ hE hbp'.2
+    · have hex : ∃ k ∈ φ.comparedCols, ∃ x, u k = Sum.inr x := by
+        obtain ⟨l', hl'⟩ := Multiset.exists_mem_of_ne_zero hcond.2.1
+        obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl'
+        cases hu : u k with
+        | inl w => simp [hu] at hkl
+        | inr x => exact ⟨k, Finset.mem_val.mp hk, x, hu⟩
+      refine GenPredIn.entails_guardJ φ false u v l hex ?_ hbp'.2
       intro k hk a ha
       refine ⟨?_, ?_⟩
       · -- no compared token is scalar, so this one is grouped
@@ -1423,18 +1738,18 @@ theorem GenPredIn.sel_finalize_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
     (hguard : (GenAnn.mk b p).finalize v = true →
       ∀ (k : Fin n) (a : AggTok T (BoolFunc X)), u k = Sum.inr a →
         a.Realized v) :
-    ((GenAnn.mk (b * φ.predsem false u γ) (φ.selPending u p)).finalize v
+    ((GenAnn.mk (b * φ.predsemJ false u γ) (φ.selPending u p)).finalize v
         = true)
       ↔ (GenAnn.mk b p).finalize v = true
         ∧ φ.holdsPlain (GenRow.specializeTuple v u) γ := by
   constructor
   · intro h
     have hold := GenPredIn.sel_finalize_old φ u b p v h
-    have hbp : (b v && (φ.predsem false u γ) v) = true :=
+    have hbp : (b v && (φ.predsemJ false u γ) v) = true :=
       ((GenAnn.finalize_eval_iff _ v).mp h).1
     rw [Bool.and_eq_true] at hbp
     refine ⟨hold, ?_⟩
-    have hps := (GenPredIn.predsem_eval_iff φ false u hconf v
+    have hps := (GenPredIn.predsemJ_eval_iff φ false u hconf v
       (fun k _ a ha => hguard hold k a ha)).mp hbp.2
     rw [ite_eq_right Bool.false_ne_true] at hps
     exact hps
@@ -1442,8 +1757,8 @@ theorem GenPredIn.sel_finalize_eval_iff {c n : ℕ} {κ : Fin n → ColKind}
     have hgs := hguard hold
     rw [GenAnn.finalize_eval_iff] at hold ⊢
     obtain ⟨hb, hG⟩ := hold
-    have hps : (φ.predsem false u γ) v = true :=
-      (GenPredIn.predsem_eval_iff φ false u hconf v
+    have hps : (φ.predsemJ false u γ) v = true :=
+      (GenPredIn.predsemJ_eval_iff φ false u hconf v
         (fun k _ a ha => hgs k a ha)).mpr
         (by rw [ite_eq_right Bool.false_ne_true]; exact hh)
     refine ⟨?_, fun l hl => ?_⟩
@@ -1513,35 +1828,6 @@ theorem ProjColIn.realized_eval {c n : ℕ} {κ : Fin n → ColKind}
         exact (Sum.inr.inj this).symm
       rw [hax, AggTok.Realized_postcomp]
       exact hrow k x hu
-
-omit [ValueType T] [Fintype X] [DecidableEq X] in
-/-- **The world a valuation cuts out of an embedded token is the one it
-cuts out of the token.** -/
-theorem AggExpr.realizedWorld_ofValue (a : AggValue T (BoolFunc X))
-    (v : X → Bool) :
-    (AggExpr.ofValue a).realizedWorld (fun α => α v)
-      = (a.realized v).map
-        (finCongr (AggExpr.length_ofValue_occs a)).toEmbedding := by
-  ext j
-  rw [Finset.mem_map_equiv, AggExpr.realizedWorld, Finset.mem_filter,
-    and_iff_right (Finset.mem_univ j), AggValue.realized, Finset.mem_filter,
-    and_iff_right (Finset.mem_univ _)]
-  show (AggExpr.ofValue a).anns j v = true
-    ↔ a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) v = true
-  rw [show (AggExpr.ofValue a).anns j
-      = a.anns (finCongr (AggExpr.length_ofValue_occs a).symm j) from by
-    rw [← AggExpr.anns_ofValue a (finCongr
-      (AggExpr.length_ofValue_occs a).symm j)]
-    rfl]
-
-omit [ValueType T] [Fintype X] [DecidableEq X] in
-/-- **An embedded token specializes as the token does.** -/
-theorem AggExpr.specialize_ofValue (a : AggValue T (BoolFunc X))
-    (v : X → Bool) :
-    (AggExpr.ofValue a).specialize (fun α => α v)
-      = a.specialize (fun α => α v) := by
-  rw [AggExpr.specialize, AggExpr.realizedWorld_ofValue,
-    AggExpr.valOn_ofValue, AggValue.specialize_eval]
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 /-- **A reading that reads nothing returns its value**, whatever the

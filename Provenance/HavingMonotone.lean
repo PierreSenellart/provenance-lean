@@ -35,10 +35,15 @@ qualifying occurrence (`Having.Existential`).
   comes with its compositional rewriting `MonoCond.rewrite`, its reading
   `MonoCond.toHavingPred` as a Boolean combination of fused comparisons,
   and its reading `MonoCond.toGenPred` as a generalized selection
-  predicate. `MonoCond.site_evaluateAnnotated` is the closed form of the
-  fused site `σ_ψ(γ_{#0}[ts : fs](q))` in the general evaluator, extending
-  `AggQueryIn.havingSite_evaluateAnnotated` to positive combinations, and
-  `MonoCond.site_rewrite` is the site substitution: the key-projected fused
+  predicate. The padded rewriting computes `HavingPred.prov` for every
+  monotone condition (`padded_correct`). The general evaluator, however,
+  reads a combination of comparisons of one group in one world of that
+  group (`GenPredIn.predsemJ`), which is not `⊗`/`⊕` of the comparisons'
+  provenances; the two agree on one comparison (`MonoCond.isAtom`,
+  `MonoCond.toGenPred_predsemJ`). So `MonoCond.site_evaluateAnnotated`,
+  the closed form of the fused site `σ_ψ(γ_{#0}[ts : fs](q))` in the
+  general evaluator, and `MonoCond.site_rewrite`, the site substitution,
+  are stated for a single comparison: there the key-projected fused
   site and the padded rewriting are the same multiset of annotated tuples,
   in every absorptive commutative m-semiring.
 
@@ -480,12 +485,14 @@ theorem perKey_correct (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
         = (ψ.toHavingPred ts fs).prov (havingGroup keyIdx (q.evaluateAnnotated hq d) g) g
   | countGe l C, hwf => by
     have hfs : fs l = SeqAggFunc.count := hwf
-    show _ = havingProv (havingGroup keyIdx (q.evaluateAnnotated hq d) g) (ts l) (fs l) CompOp.ge (C + 1)
+    show _ = havingProv (havingGroup keyIdx (q.evaluateAnnotated hq d) g) (ts l) (fs l)
+      CompOp.ge (C + 1)
     rw [hfs]
     exact Query.joinChain_count_correct h_abs q hq d hnodup (fun _ => ts l) C g
   | countGt l C, hwf => by
     have hfs : fs l = SeqAggFunc.count := hwf
-    show _ = havingProv (havingGroup keyIdx (q.evaluateAnnotated hq d) g) (ts l) (fs l) CompOp.gt (C + 1)
+    show _ = havingProv (havingGroup keyIdx (q.evaluateAnnotated hq d) g) (ts l) (fs l)
+      CompOp.gt (C + 1)
     rw [hfs, havingProv_count_gt]
     exact Query.joinChain_count_correct h_abs q hq d hnodup (fun _ => ts l) (C + 1) g
   | exist l op c, hwf => by
@@ -572,6 +579,15 @@ def toGenPred : MonoCond n₂ → GenPred ℕ (ColKind.gammaKinds 1 n₂)
   | and ψ₁ ψ₂ => GenPredIn.and ψ₁.toGenPred ψ₂.toGenPred
   | or ψ₁ ψ₂ => GenPredIn.or ψ₁.toGenPred ψ₂.toGenPred
 
+/-- **A single comparison.** The general evaluator reads a combination of
+comparisons of one group in one world of that group
+(`GenPredIn.predsemJ`), while `HavingPred.prov` reads `∧` as `⊗` and `∨`
+as `⊕`; the two agree on one comparison (`toGenPred_predsemJ`), and that
+is where the fused site is related to the evaluator. -/
+def isAtom : MonoCond n₂ → Bool
+  | countGe _ _ | countGt _ _ | exist _ _ _ => true
+  | and _ _ | or _ _ => false
+
 /-- The fused site `σ_ψ(γ_{#0}[ts : fs](qg))` of a monotone condition, as a
 general query. -/
 abbrev site (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂)
@@ -601,12 +617,14 @@ theorem toGenPred_entailsExistence :
   | and ψ₁ ψ₂ => by
     show (if false = true then _ else
       (ψ₁.toGenPred.entailsExistence false || ψ₂.toGenPred.entailsExistence false)) = true
-    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁,
+      toGenPred_entailsExistence ψ₂]
     rfl
   | or ψ₁ ψ₂ => by
     show (if false = true then _ else
       (ψ₁.toGenPred.entailsExistence false && ψ₂.toGenPred.entailsExistence false)) = true
-    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁, toGenPred_entailsExistence ψ₂]
+    rw [ite_eq_right Bool.false_ne_true, toGenPred_entailsExistence ψ₁,
+      toGenPred_entailsExistence ψ₂]
     rfl
 
 /-- Every compared column of the condition is a token column. -/
@@ -669,6 +687,24 @@ theorem toGenPred_predsem (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc
         U g φ ψ₂]
     rfl
 
+omit [HasAltLinearOrder K] in
+/-- On one comparison the evaluator's joint reading is the structural one. -/
+theorem toGenPred_predsemJ (u : Tuple (GenValue ℕ K) (1 + n₂)) (γ : Fin 0 → ℕ) :
+    ∀ ψ : MonoCond n₂, ψ.isAtom = true →
+      ψ.toGenPred.predsemJ false u γ = ψ.toGenPred.predsem false u
+  | countGe l C, _ | countGt l C, _ | exist l _ C, _ => by
+    obtain rfl : γ = fun _ => 0 := funext fun i => i.elim0
+    simp only [toGenPred, GenPredIn.fusedCmp]
+    cases hu : u (Fin.natAdd 1 l) with
+    | inl w =>
+      rw [GenPredIn.predsemJ_of_no_token _ false u (fun _ => 0) (fun j hj x hx => by
+        rw [show j = Fin.natAdd 1 l from Finset.mem_singleton.mp hj, hu] at hx
+        exact Sum.inl_ne_inr hx)]
+      simp [GenPredIn.eval3W, GenPredIn.predsem, hu, Option.elim]
+    | inr x =>
+      rw [GenPredIn.predsemJ_aggCmp _ _ _ _ u (fun _ => 0) x hu]
+      simp [GenPredIn.predsem, hu]
+
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- The compared annotation lists of the condition on the `Gamma` output
 row all equal the group's annotation list. -/
@@ -708,11 +744,11 @@ key followed by the whole-group aggregate values and annotated by the
 fused provenance `HavingPred.prov` of the condition on the group's
 occurrence sequence: the pending group factor introduced by `Gamma` is
 superseded by the compared tokens (every atom compares a token of that
-very group), and the atoms' predicate provenances combine by `⊗`/`⊕`.
-Generalizes `AggQueryIn.havingSite_evaluateAnnotated` from one comparison to
-a positive Boolean combination. -/
+very group). Stated for one comparison (`MonoCond.isAtom`), where the
+evaluator's joint reading of the condition is its fused provenance. -/
 theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
-    (ψ : MonoCond n₂) (qg : AggQuery ℕ 3 (ColKind.allReg 3)) (d : AnnotatedDatabase ℕ K) :
+    (ψ : MonoCond n₂) (hψ : ψ.isAtom = true) (qg : AggQuery ℕ 3 (ColKind.allReg 3))
+    (d : AnnotatedDatabase ℕ K) :
     (ψ.site ts fs qg).evaluateAnnotated d
       = (Multiset.dedup ((qg.evaluateAnnotated d).map
             (fun p => fun k : Fin 1 => p.fst (keyIdx k)))).map
@@ -771,14 +807,14 @@ theorem site_evaluateAnnotated (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAg
       · intro l
         simp only [Fin.append_right, AggTok.annList_setFam, AggTok.annList_tok,
           AggValue.annList_ofGroup, Having.havingGroupOrd_unord]
-    · rw [one_mul]
+    · rw [one_mul, toGenPred_predsemJ _ _ ψ hψ]
       exact toGenPred_predsem ts fs _ kv.fst _ ψ
 
 /-- **The key-projected fused site of a monotone condition** is one row per
 group key of the base query, annotated with the fused provenance of the
 condition on its group (the shape the padded rewriting evaluates to). -/
 theorem site_key_proj (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ) n₂)
-    (ψ : MonoCond n₂) (qg : AggQuery ℕ 3 (ColKind.allReg 3))
+    (ψ : MonoCond n₂) (hψ : ψ.isAtom = true) (qg : AggQuery ℕ 3 (ColKind.allReg 3))
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hin : qg.evaluateAnnotated d = q.evaluateAnnotated hq d) :
     ((ψ.site ts fs qg).evaluateAnnotated d).map
@@ -786,7 +822,7 @@ theorem site_key_proj (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ
       = (Multiset.dedup ((q.evaluateAnnotated hq d).map keyOf)).map
           (fun g => ((g, (ψ.toHavingPred ts fs).prov
             (havingGroup keyIdx (q.evaluateAnnotated hq d) g) g) : Tuple ℕ 1 × K)) := by
-  rw [site_evaluateAnnotated, hin]
+  rw [site_evaluateAnnotated _ _ _ hψ, hin]
   show ((Multiset.dedup ((q.evaluateAnnotated hq d).map
       (fun p => fun k : Fin 1 => p.fst (keyIdx k)))).map _).map _ = _
   rw [Multiset.map_map]
@@ -801,21 +837,21 @@ theorem site_key_proj (ts : Tuple (Term ℕ 3) n₂) (fs : Tuple (SeqAggFunc ℕ
 /-- **Site substitution for monotone conditions: absorptivity suffices.**
 In every absorptive commutative m-semiring – distributivity of `⊗` over
 `⊖` not required – the key-projected fused site `σ_ψ(γ_{#0}[ts : fs](q))`
-of a well-formed monotone condition `ψ` and the padded compositional
+of a well-formed comparison `ψ` and the padded compositional
 rewriting `Q_ψ` evaluate to the *same multiset of annotated tuples*: the
 rewriting can be substituted for the key-projected fused operator inside
 any surrounding query. The sole hypothesis on the instance is the global
 row-distinctness of the base query's output (the occurrence identifiers
 of the `COUNT(*)` join chains). -/
 theorem site_rewrite (h_abs : absorptive K) (ts : Tuple (Term ℕ 3) n₂)
-    (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂) (hwf : ψ.WF fs)
+    (fs : Tuple (SeqAggFunc ℕ) n₂) (ψ : MonoCond n₂) (hψ : ψ.isAtom = true) (hwf : ψ.WF fs)
     (q : Query ℕ 3) (hq : q.source) (d : AnnotatedDatabase ℕ K)
     (hnodup : ((q.evaluateAnnotated hq d).map Prod.fst).Nodup) :
     ((ψ.site ts fs (q.toAgg hq)).evaluateAnnotated d).map
         (fun p => ((fun _ : Fin 1 => p.fst ⟨0, by omega⟩, p.snd) : Tuple ℕ 1 × K))
       = (keyPadded (ψ.rewrite ts) q).evaluateAnnotated
           (keyPadded_source _ q (rewrite_source ts q hq ψ) hq) d :=
-  (site_key_proj ts fs ψ (q.toAgg hq) q hq d (Query.toAggHaving_input q hq d)).trans
+  (site_key_proj ts fs ψ hψ (q.toAgg hq) q hq d (Query.toAggHaving_input q hq d)).trans
     (padded_correct h_abs ts fs q hq d hnodup ψ hwf).symm
 
 end MonoCond

@@ -478,13 +478,19 @@ theorem rowBd_evaluate {Bd : T → K → Prop} (hB : BdClosed Bd)
       intro k v hk
       have hb := ih' r₀ hr₀ k v hk
       refine hb.imp id fun h => ?_
-      show Bd v (GenAnn.finalize ⟨r₀.snd.base * φ.predsem false r₀.fst γ, _⟩)
+      show Bd v (GenAnn.finalize ⟨r₀.snd.base * φ.predsemJ false r₀.fst γ, _⟩)
       rw [GenAnn.finalize_sel φ r₀.fst r₀.snd.base r₀.snd.pending _ _
         (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
           ⟨k, Finset.mem_val.mpr hk, by rw [hka]⟩)
         (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
-          ⟨k, Finset.mem_val.mpr hk, by rw [hka]; simp [hsc]⟩)]
-      exact hB.mul_left _ _ _ h
+          ⟨k, Finset.mem_val.mpr hk, by rw [hka]; simp [hsc]⟩) ?_]
+      · exact hB.mul_left _ _ _ h
+      intro l hl
+      obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl
+      refine ⟨k, Finset.mem_val.mp hk, ?_⟩
+      split at hkl
+      · exact absurd hkl (by simp)
+      · exact ⟨_, by assumption⟩
     · rw [ite_eq_right hagg] at hr
       exact ih' r (Multiset.mem_of_mem_filter hr)
   | Prod q₁ q₂ ih₁ ih₂ =>

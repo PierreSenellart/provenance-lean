@@ -291,6 +291,29 @@ theorem GenPredIn.predsem_substMap {c d n : ℕ} {κ : Fin n → ColKind}
     simp only [GenPredIn.substMap, GenPredIn.predsem, ihφ, ihψ]
   | not φ ih => exact ih (!neg)
 
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem GenPredIn.eval3W_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+    (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (v : Fin n → Option T)
+    (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
+    (φ.substMap θ).eval3W v u γ = φ.eval3W v u (substVal θ γ) := by
+  induction φ with
+  | cmp op t₁ t₂ | aggCmp k h op t₁ | aggRange k h op₁ t₁ op₂ t₂ =>
+    simp only [GenPredIn.substMap, GenPredIn.eval3W, TermGIn.eval_substMap]
+  | and φ ψ ihφ ihψ | or φ ψ ihφ ihψ =>
+    simp only [GenPredIn.substMap, GenPredIn.eval3W, ihφ, ihψ]
+  | not φ ih => simp only [GenPredIn.substMap, GenPredIn.eval3W, ih]
+
+omit [HasAltLinearOrder K] in
+/-- **The joint reading under a substitution**: the worlds are the row's,
+which the substitution does not touch, and the predicate is read under
+the substituted valuation. -/
+theorem GenPredIn.predsemJ_substMap {c d n : ℕ} {κ : Fin n → ColKind}
+    (θ : Fin c → T ⊕ Fin d) (φ : GenPredIn T c κ) (neg : Bool)
+    (u : Tuple (GenValue T K) n) (γ : Fin d → T) :
+    (φ.substMap θ).predsemJ neg u γ = φ.predsemJ neg u (substVal θ γ) := by
+  unfold GenPredIn.predsemJ
+  simp only [GenPredIn.comparedCols_substMap, GenPredIn.eval3W_substMap]
+
 /-- Substitute the outer columns of a projection column. -/
 def ProjColIn.substMap {c d n : ℕ} {κ : Fin n → ColKind}
     (θ : Fin c → T ⊕ Fin d) : ProjColIn T c κ → ProjColIn T d κ
@@ -1232,7 +1255,7 @@ theorem AggQueryIn.evaluate_substMap :
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluate, GenPredIn.hasAggAtom_substMap,
       GenPredIn.comparedCols_substMap, GenPredIn.entailsExistence_substMap,
-      GenPredIn.predsem_substMap]
+      GenPredIn.predsemJ_substMap]
     rw [ih θ hθ dB γ E]
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ, ite_eq_left hφ]

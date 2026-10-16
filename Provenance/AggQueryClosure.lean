@@ -69,7 +69,9 @@ rule cannot reach. The *selection with an aggregate atom* closes over an
 arbitrary rewritten subquery too (`AggQueryIn.RewritesTo.selAgg`, off
 `AggQueryIn.selAggRew_valid`), so a `HAVING` need not sit on the grouping
 it reads: `AggQueryIn.rewritesTo_having_over_gamma` puts one over a
-grouping of a grouping. Its provenance column is the gate term times the
+grouping of a grouping. Both selection rules are stated where ProvSQL's
+gate algebra is the joint reading the evaluator computes
+(`GenPredIn.gateExact`). Its provenance column is the gate term times the
 row's own provenance column, with *no* entailment test -- where the
 predicate entails the group's existence the evaluator drops the pending
 factor and the gate term absorbs the guard left in the column instead
@@ -434,8 +436,10 @@ resolution does not apply the system falls back to the product and warns
 that it is not the provenance of the combination.
 
 So the fence is faithful to the circuit, which is what `gateTerm`
-translates into, and the joint reading lives in the evaluation pass.
-Lifting it means modelling that pass – a Boolean combination of `cmpAgg`
+translates into, and the joint reading – what the evaluator computes,
+`GenPredIn.predsemJ` – lives in the evaluation pass. The rewriting's
+correctness is therefore stated where the two agree
+(`GenPredIn.gateExact`). Lifting that means modelling the pass – a Boolean combination of `cmpAgg`
 atoms over one token's family, read in one world, which is what
 `AggValue.predProvOfAnd` and `Provenance.JointFamily` already are
 semantically – and not adding a gate. -/
@@ -445,6 +449,48 @@ def GenPredIn.rangeFree {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bo
   | .aggRange _ _ _ _ _ _ => false
   | .and φ ψ | .or φ ψ => φ.rangeFree && ψ.rangeFree
   | .not φ => φ.rangeFree
+
+/-- **Where the gate algebra is the joint reading**: one aggregate
+comparison, under a conjunction of comparisons. ProvSQL's circuit reads a
+predicate structurally – a conjunction as a product of gates, a
+disjunction as a sum – while a selection reads the columns of one family
+in one world (`GenPredIn.predsemJ`). The two agree on this fragment
+(`GenPredIn.predsemJ_eq_predsem`) and not beyond it: a disjunction of two
+comparisons that both hold is read `𝟙 ⊕ 𝟙` by the gates and `𝟙` in the
+world. -/
+def GenPredIn.gateExact {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
+  | .aggCmp _ _ _ _ => true
+  | .and (.cmp _ _ _) ψ => ψ.gateExact
+  | _ => false
+
+omit [ValueType T] in
+/-- The fragment has no range atom. -/
+theorem GenPredIn.rangeFree_of_gateExact {n : ℕ} {κ : Fin n → ColKind} :
+    ∀ φ : GenPred T κ, φ.gateExact = true → φ.rangeFree = true
+  | .aggCmp _ _ _ _, _ => rfl
+  | .and (.cmp _ _ _) ψ, h => by
+    show (true && ψ.rangeFree) = true
+    rw [rangeFree_of_gateExact ψ h]
+    rfl
+
+omit [HasAltLinearOrder K] in
+/-- **On the fragment the gate algebra is the joint reading.** -/
+theorem GenPredIn.predsemJ_eq_predsem {n : ℕ} {κ : Fin n → ColKind}
+    (u : Tuple (GenValue T K) n) (γ : Fin 0 → T) :
+    ∀ φ : GenPred T κ, φ.gateExact = true → φ.predsemJ false u γ = φ.predsem false u γ
+  | .aggCmp k hk op t, _ => by
+    cases hu : u k with
+    | inl w =>
+      rw [GenPredIn.predsemJ_of_no_token _ false u γ (fun j hj x hx => by
+        rw [show j = k from Finset.mem_singleton.mp hj, hu] at hx
+        exact Sum.inl_ne_inr hx)]
+      simp [GenPredIn.eval3W, GenPredIn.predsem, hu, Option.elim]
+    | inr x =>
+      rw [GenPredIn.predsemJ_aggCmp k hk op t u γ x hu]
+      simp [GenPredIn.predsem, hu]
+  | .and (.cmp op t₁ t₂) ψ, h => by
+    rw [GenPredIn.predsemJ_and_cmp, predsemJ_eq_predsem u γ ψ h]
+    rfl
 
 /-- A predicate all of whose atoms are aggregate comparisons. -/
 def GenPredIn.aggOnly {n : ℕ} {κ : Fin n → ColKind} : GenPred T κ → Bool
@@ -773,15 +819,16 @@ def AggQueryIn.havingPredRew {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
       (AggQueryIn.gammaRew is ts fs qg hq lab rd))
 
 /-- **Correctness of the general `HAVING` site rewriting**, relative to
-the gate primitives, for an arbitrary predicate with an aggregate atom –
-regular atoms mixed in included. The gate term computes the predicate
+the gate primitives, for a predicate on which the gate algebra is the
+joint reading (`GenPredIn.gateExact`): one aggregate comparison under a
+conjunction of comparisons. The gate term computes the predicate
 provenance; the group guard is superseded exactly when the predicate
 entails the group's existence, and kept as a factor otherwise, matching
 the general evaluator's treatment of the pending group factor. -/
 theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is : Tuple (Fin m) n₁)
     (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) (hφ : φ.hasAggAtom = true)
-    (hrf : φ.rangeFree = true)
+    (hrf : φ.gateExact = true)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical)
     (d : AnnotatedDatabase T K) :
     ((AggQueryIn.Sel φ (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg)).evaluate d).map
@@ -817,8 +864,9 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
       -- survives in the pending factor and as a factor of the gate term
       rw [show φ.entailsExistence false = false by simpa using hE]
       simp only [Bool.false_eq_true, ite_false]
+      rw [GenPredIn.predsemJ_eq_predsem _ _ φ hrf]
       show _ = Sum.inl (TermGIn.evalRew _ _ * TermGIn.evalRew _ _)
-      rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
+      rw [GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
             kv.fst) with fam := (lab, List.ofFn kv.fst, []) }))]
@@ -861,10 +909,10 @@ theorem AggQueryIn.havingPredRew_valid {lab : ℕ} {rd} {m n₁ n₂ : ℕ} (is 
         (GenPredIn.comparedCols_agg φ (Finset.mem_val.mp hk))
       rw [ha] at hfk
       exact (Option.some.inj hfk).symm.trans hann
-    · rw [one_mul]
+    · rw [one_mul, GenPredIn.predsemJ_eq_predsem _ _ φ hrf]
       refine congrArg Sum.inl ?_
       symm
-      exact GenPredIn.gateTerm_evalRew (K := K) φ hrf false _
+      exact GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false _
         (gammaRow_noNested kv.fst (fun j => { AggValue.ofGroup (fs j) (ts j)
           (Having.havingGroup is ((qg.evaluate d).map GenRow.toAnnotated)
             kv.fst) with fam := (lab, List.ofFn kv.fst, []) }))
@@ -1812,14 +1860,15 @@ def AggQueryIn.selAggRew {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred T κ)
     (AggQueryIn.Proj (AggQueryIn.selAggCols φ) q')
 
 /-- **Correctness of the general selection rewriting**, relative to the
-gate primitives: for a predicate with an aggregate atom, over any
-rewritten subquery that computes the input's rows. The data columns are
+gate primitives: for a predicate on which the gate algebra is the joint
+reading (`GenPredIn.gateExact`), over any rewritten subquery that
+computes the input's rows. The data columns are
 copied, and in the provenance column the gate term multiplies the row's
 finalized annotation, which is the evaluator's own update by
 `GenAnn.finalize_sel` – the superseded pending factors being exactly the
 ones the gate term absorbs. -/
 theorem AggQueryIn.selAggRew_valid {n : ℕ} {κ : Fin n → ColKind}
-    (φ : GenPred T κ) (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
+    (φ : GenPred T κ) (hφ : φ.hasAggAtom = true) (hrf : φ.gateExact = true)
     (q : AggQuery T n κ)
     (q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ))
     (d : AnnotatedDatabase T K)
@@ -1848,18 +1897,26 @@ theorem AggQueryIn.selAggRew_valid {n : ℕ} {κ : Fin n → ColKind}
     unfold GenPredIn.selProvTerm
     show _ = Sum.inl (TermGIn.evalRew (φ.gateTerm false) _
       * TermGIn.evalRew (TermGIn.provIndex _ _) _)
-    rw [GenPredIn.gateTerm_evalRew (K := K) φ hrf false r (hnn r hr)]
+    rw [GenPredIn.gateTerm_evalRew (K := K) φ (GenPredIn.rangeFree_of_gateExact φ hrf) false r
+      (hnn r hr)]
     show _ = Sum.inl (Sum.inr (φ.predsem false r.fst _)
       * AggValue.collapseSum (r.toCompositeRow (Fin.last n)))
     rw [GenRow.toCompositeRow_last]
     show (Sum.inl (Sum.inr (GenAnn.finalize _)) : GenValue (T ⊕ K) K)
       = Sum.inl (Sum.inr (φ.predsem false r.fst _ * GenAnn.finalize r.snd))
     refine congrArg (fun k => (Sum.inl (Sum.inr k) : GenValue (T ⊕ K) K)) ?_
-    exact GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
+    rw [← GenPredIn.predsemJ_eq_predsem r.fst (fun _ => 0) φ hrf]
+    refine GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
       (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
         ⟨k, Finset.mem_val.mpr hk, by rw [hka]⟩)
       (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
-        ⟨k, Finset.mem_val.mpr hk, by rw [hka]; simp [hsc]⟩)
+        ⟨k, Finset.mem_val.mpr hk, by rw [hka]; simp [hsc]⟩) ?_
+    intro l hl
+    obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl
+    refine ⟨k, Finset.mem_val.mp hk, ?_⟩
+    split at hkl
+    · exact absurd hkl (by simp)
+    · exact ⟨_, by assumption⟩
 
 /-- **What a token-building grouping reads off an embedded row**: the
 composite encoding of the row's finalized annotated tuple, and the
@@ -1946,7 +2003,7 @@ inductive AggQueryIn.RewritesTo :
   | havingPred {lab m n₁ n₂ : ℕ} {rd} (is : Tuple (Fin m) n₁)
       (ts : Tuple (Term T m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
       (φ : GenPred T (ColKind.gammaKinds n₁ n₂))
-      (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
+      (hφ : φ.hasAggAtom = true) (hrf : φ.gateExact = true)
       (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
       RewritesTo (AggQueryIn.Sel φ (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs qg))
         (AggQueryIn.havingPredRew is ts fs φ qg hq lab rd)
@@ -1977,7 +2034,7 @@ inductive AggQueryIn.RewritesTo :
   | selAgg {n : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ}
       {q' : AggQuery (T ⊕ K) (n + 1) (ColKind.rewKindsOf κ)}
       (φ : GenPred T κ) (hφ : φ.hasAggAtom = true)
-      (hrf : φ.rangeFree = true) (hnn : q.noGammaNest) :
+      (hrf : φ.gateExact = true) (hnn : q.noGammaNest) :
       RewritesTo q q' →
       RewritesTo (AggQueryIn.Sel φ q) (AggQueryIn.selAggRew φ q')
   | proj {n m : ℕ} {κ : Fin n → ColKind} {q : AggQuery T n κ}
@@ -2069,7 +2126,7 @@ theorem AggQueryIn.rewritesTo_having_over_gamma {lab1 lab2 : ℕ} {m m₂ n₁ n
     (is' : Tuple (Fin m₂) p₁) (ts' : Tuple (Term T m₂) p₂)
     (fs' : Tuple (SeqAggFunc T) p₂)
     (φ : GenPred T (ColKind.gammaKinds p₁ p₂))
-    (hφ : φ.hasAggAtom = true) (hrf : φ.rangeFree = true)
+    (hφ : φ.hasAggAtom = true) (hrf : φ.gateExact = true)
     (qg : AggQuery T m (ColKind.allReg m)) (hq : qg.classical) :
     ∃ q' : AggQuery (T ⊕ K) (p₁ + p₂ + 1)
         (ColKind.rewKindsOf (ColKind.gammaKinds p₁ p₂)),

@@ -377,6 +377,89 @@ theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.A
   | nest a => exact NestedValue.annIn_predProvWith hQ h P
   | expr e => exact AggExpr.annIn_predProvWith hQ h P
 
+omit [ValueType T] [HasAltLinearOrder K] [DecidableEq K] in
+/-- The worlds of one family carry products and sums of its annotations. -/
+theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
+    (M : List (Fin n)) {x₀ : AggTok T K} (h : x₀.AnnsIn Q) :
+    ∀ w ∈ classWorlds u M x₀, Q w.1 ∧ Q w.2.1 := by
+  intro w hw
+  cases x₀ with
+  | nest a =>
+    simp only [classWorlds] at hw
+    obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.1 hw
+    have hWo : ∀ dd ∈ W.occs, Q dd.occ.2 ∧ dd.occ.1.AnnsIn Q := fun dd hdd => by
+      have hW' := NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_of_mem_filter hW)
+      exact h dd.occ (hW' ▸ Multiset.mem_map_of_mem _ hdd)
+    refine ⟨hQ.mul _ _ ?_ ?_, hQ.add _ _ ?_ ?_⟩
+    · refine hQ.mprod _ fun y hy => ?_
+      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
+      split_ifs
+      · exact (hWo dd hdd).1
+      · exact hQ.one
+    · refine hQ.mprod _ fun y hy => ?_
+      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
+      exact hQ.fprod _ _ fun j _ => (hWo dd hdd).2.anns j
+    · refine hQ.msum _ fun y hy => ?_
+      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
+      split_ifs
+      · exact hQ.zero
+      · exact (hWo dd hdd).1
+    · refine hQ.msum _ fun y hy => ?_
+      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
+      exact hQ.fsum _ _ fun j _ => (hWo dd hdd).2.anns j
+  | tok a =>
+    simp only [classWorlds] at hw
+    obtain ⟨W, -, rfl⟩ := Multiset.mem_map.1 hw
+    have ha : (AggTok.tok a).flatExpr.AnnsIn Q := AggExpr.annsIn_ofValue h
+    exact ⟨hQ.fprod _ _ fun i _ => ha.anns i, hQ.fsum _ _ fun i _ => ha.anns i⟩
+  | expr e =>
+    simp only [classWorlds] at hw
+    obtain ⟨W, -, rfl⟩ := Multiset.mem_map.1 hw
+    have ha : (AggTok.expr e).flatExpr.AnnsIn Q := h
+    exact ⟨hQ.fprod _ _ fun i _ => ha.anns i, hQ.fsum _ _ fun i _ => ha.anns i⟩
+
+omit [HasAltLinearOrder K] in
+open Classical in
+/-- So do the joint worlds of a row. -/
+theorem jointWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
+    (cols : List (Fin n)) (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q) :
+    ∀ w ∈ jointWorlds u cols, Q w.1 ∧ Q w.2.1 := by
+  unfold jointWorlds
+  generalize ((tokCols u cols).map (fun p => p.2.classKey)).dedup = L
+  induction L with
+  | nil =>
+    intro w hw
+    rw [List.foldr_nil, Multiset.mem_singleton] at hw
+    subst hw
+    exact ⟨hQ.one, hQ.zero⟩
+  | cons φ L ih =>
+    simp only [List.foldr_cons]
+    split
+    · exact ih
+    · rename_i p₀ hf
+      intro w hw
+      obtain ⟨⟨w₁, w₂⟩, hw12, rfl⟩ := Multiset.mem_map.mp hw
+      obtain ⟨h1, h2⟩ := Multiset.mem_product.mp hw12
+      have hp₀ := mem_tokCols (List.mem_of_find?_eq_some hf)
+      obtain ⟨q1, q1'⟩ := classWorlds_annIn hQ u _ (hu _ _ hp₀.2) w₁ h1
+      obtain ⟨q2, q2'⟩ := ih w₂ h2
+      exact ⟨hQ.mul _ _ q1 q2, hQ.add _ _ q1' q2'⟩
+
+omit [HasAltLinearOrder K] in
+/-- **A predicate's joint reading is within `Q`** where every token of the
+row carries annotations within `Q`. -/
+theorem GenPredIn.annIn_predsemJ (hQ : AnnClosed Q) {c n : ℕ} {κ : Fin n → ColKind}
+    (u : Tuple (GenValue T K) n) (γ : Fin c → T)
+    (hu : ∀ k a, u k = Sum.inr a → a.AnnsIn Q) (φ : GenPredIn T c κ) (neg : Bool) :
+    Q (φ.predsemJ neg u γ) := by
+  unfold GenPredIn.predsemJ
+  refine hQ.msum _ fun y hy => ?_
+  obtain ⟨w, hw, rfl⟩ := Multiset.mem_map.1 hy
+  obtain ⟨h1, h2⟩ := jointWorlds_annIn hQ u _ hu w hw
+  refine hQ.mul _ _ (hQ.mul _ _ h1 (hQ.one_sub _ h2)) ?_
+  split_ifs
+  all_goals first | exact hQ.one | exact hQ.zero
+
 omit [HasAltLinearOrder K] in
 /-- **A predicate's provenance is within `Q`** where every token it reads
 carries annotations within `Q`. -/
@@ -582,7 +665,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     · rw [ite_eq_left hagg] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hr
       obtain ⟨hb, hp, ht⟩ := ih' r₀ hr₀
-      refine ⟨hQ.mul _ _ hb (GenPredIn.annIn_predsem hQ r₀.fst γ ht φ false),
+      refine ⟨hQ.mul _ _ hb (GenPredIn.annIn_predsemJ hQ r₀.fst γ ht φ false),
         fun l hl x hxl => ?_, ht⟩
       dsimp only at hl
       split_ifs at hl

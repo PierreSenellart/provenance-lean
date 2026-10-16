@@ -309,6 +309,179 @@ inductive GenPredIn (T : Type) (c : ℕ) {n : ℕ} (κ : Fin n → ColKind) wher
 /-- A predicate of a closed query. -/
 abbrev GenPred (T : Type) {n : ℕ} (κ : Fin n → ColKind) := GenPredIn T 0 κ
 
+/-! ### The worlds a predicate is read in
+
+A predicate reading aggregate values is read in every world of the
+families they read, one world per family: values of one family share
+their occurrences and are read in one world, values of different
+families in independent ones. A world of a joint reading carries the
+product of its present annotations, the sum of its absent ones – the
+monus is taken once, over all the families – and the value each compared
+column takes there. -/
+
+namespace AggTok
+
+/-- **The value as an aggregate expression over its occurrence family**:
+an ordinary token is the one-leaf expression, an expression is itself.
+A nested value is read through its own worlds and never here. -/
+def flatExpr : AggTok T K → AggExpr T K
+  | .tok a => AggExpr.ofValue a
+  | .expr e => e
+  | .nest a => AggExpr.ofValue ⟨fun _ => a.collapse, [], true, a.fam⟩
+
+end AggTok
+
+/-- A subfamily of one listing of a family read in another: the positions
+with the same index. -/
+def trW {a b : ℕ} (W : Finset (Fin a)) : Finset (Fin b) :=
+  Finset.univ.filter (fun i => ∃ j ∈ W, (j : ℕ) = i)
+
+section JointWorlds
+
+variable {n : ℕ}
+
+/-- Whether a subfamily of a flat family is a world of every value of it
+the columns `M` hold. -/
+def flatOk (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W : Finset (Fin m)) :
+    Bool :=
+  M.all (fun k => match u k with
+    | Sum.inr y => decide (y.flatExpr.IsWorld (trW W))
+    | _ => true)
+
+/-- Whether a world of a nested family is a world of every nested value
+the columns `M` hold. -/
+def nestOk (u : Tuple (GenValue T K) n) (M : List (Fin n)) (W : NestedValue.World T K) :
+    Bool :=
+  M.all (fun k => match u k with
+    | Sum.inr (.nest b) => decide (W.IsWorld b)
+    | _ => true)
+
+/-- **The worlds of one family**, read at the columns `M` of the row that
+hold its values: per world, the product of the present annotations, the
+sum of the absent ones, and the value of each of those columns. The
+family is listed by the first of them, `x₀`; a world is one every value
+of the family accepts – one meeting the group of each grouped value. -/
+def classWorlds (u : Tuple (GenValue T K) n) (M : List (Fin n)) :
+    AggTok T K → Multiset (K × K × (Fin n → Option T))
+  | .nest a =>
+    (a.worlds.filter (fun W => nestOk u M W = true)).map
+      (fun W => (W.presentProd, W.absentSum, fun k => if k ∈ M then
+        (match u k with
+          | Sum.inr (.nest b) => some (b.valOn W)
+          | _ => none) else none))
+  | x =>
+    ((Finset.univ : Finset (Finset (Fin x.flatExpr.occs.length))).filter
+        (fun W => flatOk u M W = true)).val.map
+      (fun W => (∏ i ∈ W, x.flatExpr.anns i, ∑ i ∈ Wᶜ, x.flatExpr.anns i,
+        fun k => if k ∈ M then
+          (match u k with
+            | Sum.inr y => some (y.flatExpr.valOn (trW W))
+            | _ => none) else none))
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem flatOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W : Finset (Fin m)) :
+    flatOk u M W = true ↔ ∀ k ∈ M, ∀ y, u k = Sum.inr y → y.flatExpr.IsWorld (trW W) := by
+  unfold flatOk
+  rw [List.all_eq_true]
+  refine forall₂_congr fun k _ => ?_
+  cases u k with
+  | inl w => simp
+  | inr y => simp
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem nestOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) (W : NestedValue.World T K) :
+    nestOk u M W = true ↔ ∀ k ∈ M, ∀ b, u k = Sum.inr (.nest b) → W.IsWorld b := by
+  unfold nestOk
+  rw [List.all_eq_true]
+  refine forall₂_congr fun k _ => ?_
+  rcases u k with w | y
+  · simp
+  · cases y <;> simp
+
+/-- The aggregate columns among `cols`, with their values. -/
+def tokCols (u : Tuple (GenValue T K) n) (cols : List (Fin n)) : List (Fin n × AggTok T K) :=
+  cols.filterMap (fun k => match u k with
+    | Sum.inr x => some (k, x)
+    | Sum.inl _ => none)
+
+/-- Two joint worlds read together: products multiply, absent sums add,
+and each column takes its value from the one that gives it one. -/
+def combineW (w₁ w₂ : K × K × (Fin n → Option T)) : K × K × (Fin n → Option T) :=
+  (w₁.1 * w₂.1, w₁.2.1 + w₂.2.1, fun k => (w₁.2.2 k).or (w₂.2.2 k))
+
+/-- **What groups two values of a row into one family of a joint
+reading**: the family they were stamped with, together with their
+occurrence annotations and kind. Tokens of one family produced by one
+evaluation carry the same occurrences, so in a query whose operators bear distinct
+labels this is the family; the occurrences' annotations (and, for a
+nested value, its occurrences themselves) are part of the key so that
+the reading is defined on every row, a family being read in the worlds of
+the occurrences its members actually carry. -/
+def AggTok.classKey (x : AggTok T K) :
+    FamId T × List K × Option (Multiset (AggExpr T K × K)) :=
+  (x.fam, x.annList, match x with
+    | .nest a => some a.occs
+    | _ => none)
+
+open Classical in
+/-- **The joint worlds of the columns `cols` of a row**: one world of each
+family they hold. -/
+noncomputable def jointWorlds (u : Tuple (GenValue T K) n) (cols : List (Fin n)) :
+    Multiset (K × K × (Fin n → Option T)) :=
+  ((tokCols u cols).map (fun p => p.2.classKey)).dedup.foldr
+    (fun φ acc =>
+      match (tokCols u cols).find? (fun p => p.2.classKey = φ) with
+      | none => acc
+      | some p₀ =>
+        ((classWorlds u (((tokCols u cols).filter (fun p => p.2.classKey = φ)).map Prod.fst) p₀.2)
+          ×ˢ acc).map (fun w => combineW w.1 w.2))
+    {(1, 0, fun _ => none)}
+
+theorem trW_self {m : ℕ} (W : Finset (Fin m)) : trW (a := m) (b := m) W = W := by
+  ext i
+  simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and]
+  constructor
+  · rintro ⟨j, hj, hji⟩
+    rwa [show j = i from Fin.ext hji] at hj
+  · exact fun h => ⟨i, h, rfl⟩
+
+omit [HasAltLinearOrder K] in
+theorem classWorlds_sum_single {n : ℕ} (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
+    (hu : u k = Sum.inr x) (P : T → Kleene) :
+    ((classWorlds u [k] x).map (fun w => w.1 * (1 - w.2.1) *
+      (w.2.2 k).elim (0 : K) (Having.chiOf P))).sum
+      = x.predProvOfWith P := by
+  have hflat : ∀ e : AggExpr T K, ((((Finset.univ : Finset (Finset (Fin e.occs.length))).filter
+      (fun W => e.IsWorld W)).val).map (fun W => (∏ i ∈ W, e.anns i) * (1 - ∑ i ∈ Wᶜ, e.anns i) *
+        Having.chiOf P (e.valOn W))).sum = e.predProvWith P := by
+    intro e
+    unfold AggExpr.predProvWith
+    rw [Finset.sum_eq_multiset_sum]
+    congr 2
+  cases x with
+  | nest a =>
+    simp only [classWorlds, nestOk, List.all_cons, List.all_nil, Bool.and_true,
+      decide_eq_true_eq, hu, List.mem_singleton, Multiset.map_map,
+      Function.comp_def, ite_true]
+    show _ = NestedValue.predProvWith a P
+    unfold NestedValue.predProvWith
+    congr 2
+  | tok a =>
+    simp only [classWorlds, flatOk, List.all_cons, List.all_nil, Bool.and_true,
+      decide_eq_true_eq, hu, List.mem_singleton, Multiset.map_map,
+      Function.comp_def, ite_true, trW_self]
+    rw [AggTok.predProvOfWith_tok, ← AggExpr.predProvWith_ofValue, ← hflat]
+    congr 2
+  | expr e =>
+    simp only [classWorlds, flatOk, List.all_cons, List.all_nil, Bool.and_true,
+      decide_eq_true_eq, hu, List.mem_singleton, Multiset.map_map,
+      Function.comp_def, ite_true, trW_self]
+    show _ = e.predProvWith P
+    rw [← hflat]
+    congr 2
+
+end JointWorlds
+
 namespace GenPredIn
 
 variable {c n : ℕ} {κ : Fin n → ColKind}
@@ -495,6 +668,71 @@ def comparedCols : GenPredIn T c κ → Finset (Fin n)
   | aggRange k _ _ _ _ _ => {k}
   | and φ ψ | or φ ψ => φ.comparedCols ∪ ψ.comparedCols
   | not φ => φ.comparedCols
+
+
+/-- The predicate's truth when each compared column takes the value `v`
+gives it. -/
+def eval3W (φ : GenPredIn T c κ) (v : Fin n → Option T) (u : Tuple (GenValue T K) n)
+    (γ : Fin c → T) : Kleene :=
+  match φ with
+  | cmp op t₁ t₂ => op.eval3 (t₁.eval u γ) (t₂.eval u γ)
+  | aggCmp k _ op t => (v k).elim Kleene.unknown (fun a => op.eval3 a (t.eval u γ))
+  | aggRange k _ op₁ t₁ op₂ t₂ => (v k).elim Kleene.unknown
+      (fun a => (op₁.eval3 a (t₁.eval u γ)).and (op₂.eval3 a (t₂.eval u γ)))
+  | and φ ψ => (φ.eval3W v u γ).and (ψ.eval3W v u γ)
+  | or φ ψ => (φ.eval3W v u γ).or (ψ.eval3W v u γ)
+  | not φ => (φ.eval3W v u γ).not
+
+/-- **The joint predicate provenance**: over the joint worlds of the
+families the predicate reads, the world's annotation times the truth of
+the predicate there (its falsity under `neg`). -/
+noncomputable def predsemJ (φ : GenPredIn T c κ) (neg : Bool) (u : Tuple (GenValue T K) n)
+    (γ : Fin c → T) : K :=
+  ((jointWorlds u ((List.finRange n).filter (· ∈ φ.comparedCols))).map
+    (fun w => w.1 * (1 - w.2.1) *
+      (if φ.eval3W w.2.2 u γ = (if neg then Kleene.false else Kleene.true) then 1 else 0))).sum
+
+theorem filter_finRange_singleton (k : Fin n) :
+    (List.finRange n).filter (· ∈ ({k} : Finset (Fin n))) = [k] := by
+  have h : (List.finRange n).filter (· ∈ ({k} : Finset (Fin n)))
+      = (List.finRange n).filter (fun x => x == k) := by
+    congr 1; funext x; simp only [Finset.mem_singleton]; rfl
+  rw [h, List.filter_beq, List.count_eq_one_of_mem (List.nodup_finRange n) (List.mem_finRange k)]
+  rfl
+
+omit [HasAltLinearOrder K] in
+theorem jointWorlds_single (u : Tuple (GenValue T K) n) (k : Fin n) (x : AggTok T K)
+    (hu : u k = Sum.inr x) :
+    jointWorlds u [k] = (classWorlds u [k] x).map (fun w => combineW w (1, 0, fun _ => none)) := by
+  have ht : tokCols u [k] = [(k, x)] := by simp [tokCols, hu]
+  unfold jointWorlds
+  rw [ht]
+  simp only [List.map_cons, List.map_nil, List.dedup_cons_of_notMem List.not_mem_nil,
+    List.dedup_nil, List.foldr_cons, List.foldr_nil, List.find?_cons, decide_true,
+    List.filter_cons, List.filter_nil,
+    ite_true, List.map_cons, List.map_nil]
+  rw [← Multiset.cons_zero, Multiset.product_cons, Multiset.product_zero, add_zero,
+    Multiset.map_map]
+  rfl
+
+omit [HasAltLinearOrder K] in
+theorem predsemJ_aggCmp (k : Fin n) (h : κ k = ColKind.agg) (op : CompOp) (t : TermGIn T c κ)
+    (u : Tuple (GenValue T K) n) (γ : Fin c → T) (x : AggTok T K) (hu : u k = Sum.inr x)
+    (neg : Bool) :
+    (aggCmp k h op t).predsemJ neg u γ
+      = x.predProvOf (if neg then op.negate else op) (t.eval u γ) := by
+  unfold predsemJ
+  rw [show (aggCmp k h op t : GenPredIn T c κ).comparedCols = {k} from rfl,
+    filter_finRange_singleton, jointWorlds_single u k x hu, Multiset.map_map]
+  rw [AggTok.predProvOf, ← classWorlds_sum_single u k x hu]
+  congr 1
+  refine Multiset.map_congr rfl (fun w _ => ?_)
+  simp only [Function.comp_apply, combineW, mul_one, add_zero, Option.or_none, eval3W]
+  obtain ⟨p, sa, v⟩ := w
+  dsimp only
+  rcases Option.eq_none_or_eq_some (v k) with hv | ⟨a, hv⟩ <;> simp only [hv, Option.elim] <;>
+    cases neg <;> simp [Having.chiOf]
+
 
 /-- Does the predicate provenance entail the compared groups' existence
 (under the polarity `neg` of the enclosing negations)? An aggregate atom
@@ -2193,7 +2431,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
             match r.fst k with
             | Sum.inl _ => none
             | Sum.inr a => if a.scalar then some a.annList else none)
-        ⟨r.fst, ⟨r.snd.base * φ.predsem false r.fst γ,
+        ⟨r.fst, ⟨r.snd.base * φ.predsemJ false r.fst γ,
           if φ.entailsExistence false then
             r.snd.pending.filter
               (fun l => ¬(comparedScalar = 0 ∧ compared ≠ 0

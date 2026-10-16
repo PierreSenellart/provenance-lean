@@ -209,11 +209,17 @@ theorem sel {c n : ℕ} {d : AnnotatedDatabase T K} {γ : Fin c → T} {E E' : E
     -- the comparison multiplies the finalized annotation, the superseded
     -- factors being absorbed
     rw [GenAnn.finalize_sel φ a.1 a.2.base a.2.pending _ _ (fun k hk x hx => ?_)
-        (fun k hk x hx hs => ?_),
+        (fun k hk x hx hs => ?_) (fun l hl => ?_),
       GenAnn.finalize_sel φ b.1 b.2.base b.2.pending _ _ (fun k hk x hx => ?_)
-        (fun k hk x hx hs => ?_), h₁]
-    · exact congrArg (φ.predsem false b.1 γ * ·) h₂
-    all_goals exact (Multiset.mem_filterMap _ _).mpr ⟨_, hk, by simp_all⟩
+        (fun k hk x hx hs => ?_) (fun l hl => ?_), h₁]
+    · exact congrArg (φ.predsemJ false b.1 γ * ·) h₂
+    all_goals first
+      | exact (Multiset.mem_filterMap _ _).mpr ⟨_, hk, by simp_all⟩
+      | obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl
+        refine ⟨k, Finset.mem_val.mp hk, ?_⟩
+        split at hkl
+        · exact absurd hkl (by simp)
+        · exact ⟨_, by assumption⟩
   · rw [ite_eq_right hagg, ite_eq_right hagg]
     have hF : ∀ R : Multiset (GenRow T K n),
         (R.filter (fun r => φ.holds r.fst γ)).map GenRow.fin

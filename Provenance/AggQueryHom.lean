@@ -1282,6 +1282,87 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     rw [ihφ, ihψ]
   | not φ ih => exact ih (!neg)
 
+/-- **The joint reading of a predicate comparing at most one aggregate
+column commutes with the pushforward**, on a row simulating the base-side
+one: it is that column's reading of one test of its value, which the
+equivalence and the pushforward both carry. -/
+theorem GenPredIn.predsemJ_hom_one (h : SemiringWithMonusHom K K') {c n : ℕ}
+    {κ : Fin n → ColKind} (φ : GenPredIn T c κ) (neg : Bool) {γ : Fin c → T}
+    {u' : Tuple (GenValue T K') n} {u : Tuple (GenValue T K) n}
+    (hone : φ.comparedCols.card ≤ 1)
+    (hu : ∀ k, GenValue.Equiv (u' k) (AggValue.mapAnnSum ⇑h.toRingHom (u k))) :
+    φ.predsemJ neg u' γ = h.toRingHom (φ.predsemJ neg u γ) := by
+  have hterm : ∀ t : TermGIn T c κ, t.eval u' γ = t.eval u γ := fun t =>
+    (TermGIn.eval_equiv t hu).trans (TermGIn.eval_mapAnnSum h t u)
+  have hnone : (∀ k ∈ φ.comparedCols, ∀ x, u k ≠ Sum.inr x) →
+      φ.predsemJ neg u' γ = h.toRingHom (φ.predsemJ neg u γ) := by
+    intro hno
+    have hno' : ∀ k ∈ φ.comparedCols, ∀ x, u' k ≠ Sum.inr x := by
+      intro k hk x hx
+      have hk' := hu k
+      cases huk : u k with
+      | inl w =>
+        rw [hx, huk] at hk'
+        exact GenValue.Equiv.not_inr_inl hk'
+      | inr y => exact hno k hk y huk
+    rw [GenPredIn.predsemJ_of_no_token φ neg u' γ hno',
+      GenPredIn.predsemJ_of_no_token φ neg u γ hno,
+      GenPredIn.eval3W_congr_terms φ _ hterm]
+    split_ifs <;> simp
+  rcases Finset.eq_empty_or_nonempty φ.comparedCols with he | ⟨k, hk⟩
+  · exact hnone (by simp [he])
+  have hk1 : φ.comparedCols = {k} :=
+    Finset.eq_singleton_iff_unique_mem.mpr ⟨hk, fun j hj => Finset.card_le_one.mp hone j hj k hk⟩
+  cases huk : u k with
+  | inl w =>
+    refine hnone (fun j hj x hx => ?_)
+    rw [hk1, Finset.mem_singleton] at hj
+    subst hj
+    rw [huk] at hx
+    exact Sum.inl_ne_inr hx
+  | inr x =>
+    have hk' := hu k
+    rw [huk] at hk'
+    cases hu'k : u' k with
+    | inl w => rw [hu'k] at hk'; exact absurd hk' GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      rw [hu'k] at hk'
+      rw [GenPredIn.predsemJ_of_single φ neg u' γ k hk1 x' hu'k,
+        GenPredIn.predsemJ_of_single φ neg u γ k hk1 x huk,
+        ← AggTok.predProvOfWith_mapAnn h x]
+      simp only [GenPredIn.eval3W_congr_terms φ _ hterm]
+      exact hk'.predProvOfWith_eq _
+
+/-- **Every selection compares at most one aggregate column.** What the
+row-wise simulation proves the hom commutation for: the joint reading of
+several aggregate columns depends on how their families are listed
+together, which `GenValue.Equiv`, relating columns one by one, does not
+carry. -/
+def AggQueryIn.selReadsOne : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.selReadsOne
+  | _, _, _, _, .Sel φ q _ => φ.comparedCols.card ≤ 1 ∧ q.selReadsOne
+  | _, _, _, _, .Prod q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
+  | _, _, _, _, .Apply q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
+  | _, _, _, _, .Sum q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
+  | _, _, _, _, .Dedup q => q.selReadsOne
+  | _, _, _, _, .Diff q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
+  | _, _, _, _, .Explode _ _ q => q.selReadsOne
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.selReadsOne ∧ q₁.selReadsOne
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.selReadsOne ∧ q₁.selReadsOne
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.selReadsOne
+  | _, _, _, _, .GammaScalar _ _ q _ => q.selReadsOne
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.selReadsOne
+  | _, _, _, _, .ProvSum _ _ _ q => q.selReadsOne
+  | _, _, _, _, .Retag _ q => q.selReadsOne
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.selReadsOne
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.selReadsOne
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.selReadsOne
+
 /-- The row-wise simulation relation underlying the evaluator-level hom
 commutation: regular columns equal, aggregate columns reading as the
 pushed-forward base-side ones do, and the finalized annotation the image
@@ -2198,7 +2279,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
       (d : AnnotatedDatabase T K) (γ : Fin c → T) (E' : EvalEnv T K') (E : EvalEnv T K),
       E'.HomSim h E γ →
-      q.framesContainSelf → q.nestInComplemented (K := K') →
+      q.framesContainSelf → q.nestInComplemented (K := K') → q.selReadsOne →
       q.AnnSettlesAt d γ E →
       Multiset.Rel (GenRow.Sim h)
         (q.evaluate (h.mapAnnotatedDatabase d) γ E')
@@ -2206,7 +2287,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
   intro c n κ l q
   induction q with
   | Rel n s =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate,
       SemiringWithMonusHom.find_mapAnnotatedDatabase]
     cases hf : d.find n s with
@@ -2217,58 +2298,65 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       simp only [Option.map_some]
       exact rel_ofAnnotated_map h rn
   | Hole n s κ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     exact rel_filter_of_iff (hE.2 s n) (fun r' r hs =>
       forall_congr' fun k => by rw [(hs.1 k).kindOf_eq])
   | Param pv ρ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     exact hE.paramRows pv ρ
   | Empty =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     exact Multiset.Rel.zero
   | Proj ps q ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (ih d γ E' E hE hw hn hrec) (fun r' r hs => ⟨?_, ?_⟩)
+    refine rel_map_of_rel (ih d γ E' E hE hw hn ho hrec) (fun r' r hs => ⟨?_, ?_⟩)
     · intro j
       exact (ps j).equiv_eval_of_sim h hs.1
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
       exact hs.2
   | Sel φ q _ ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     by_cases hagg : φ.hasAggAtom
     · rw [ite_eq_left hagg, ite_eq_left hagg]
-      refine rel_map_of_rel (ih d γ E' E hE hw hn hrec) (fun r' r hs => ⟨hs.1, ?_⟩)
+      refine rel_map_of_rel (ih d γ E' E hE hw hn ho.2 hrec) (fun r' r hs => ⟨hs.1, ?_⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
-            ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩),
+            ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)
+          ?_,
         GenAnn.finalize_sel φ r.fst r.snd.base r.snd.pending _ _
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka]⟩)
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
-            ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)]
-      rw [GenPredIn.predsem_equiv φ false hs.1,
-        GenPredIn.predsem_mapAnn h φ false r.fst, hs.2,
-        ← map_mul]
+            ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)
+          ?_]
+      · rw [GenPredIn.predsemJ_hom_one h φ false ho.1 hs.1, hs.2, ← map_mul]
+      all_goals
+        intro l hl
+        obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl
+        refine ⟨k, Finset.mem_val.mp hk, ?_⟩
+        split at hkl
+        · exact absurd hkl (by simp)
+        · exact ⟨_, by assumption⟩
     · rw [ite_eq_right hagg, ite_eq_right hagg]
-      refine rel_filter_of_iff (ih d γ E' E hE hw hn hrec) (fun r' r hs => ?_)
+      refine rel_filter_of_iff (ih d γ E' E hE hw hn ho.2 hrec) (fun r' r hs => ?_)
       calc φ.holds r'.fst γ
           ↔ φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
             GenPredIn.holds_equiv _ hs.1
         _ ↔ φ.holds r.fst γ := GenPredIn.holds_mapAnnSum h φ r.fst
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (rel_product (ih₁ d γ E' E hE hw.1 hn.1 hrec.1)
-        (ih₂ d γ E' E hE hw.2 hn.2 hrec.2)) ?_
+    refine rel_map_of_rel (rel_product (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
+        (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)) ?_
     rintro ⟨x', y'⟩ ⟨x, y⟩ ⟨hx, hy⟩
     refine ⟨?_, ?_⟩
     · intro k
@@ -2287,9 +2375,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           x'.snd.pending + y'.snd.pending⟩ = _
       rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hx.2, hy.2, ← map_mul]
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_bind ((ih₁ d γ E' E hE hw.1 hn.1 hrec.1).mono
+    refine rel_bind ((ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1).mono
       (p := fun x' x => GenRow.Sim h x' x ∧ x ∈ q₁.evaluate d γ E)
       (fun _ _ x hx hs => ⟨hs, hx⟩)) (fun x' x hxx' => ?_)
     obtain ⟨hxx, hxm⟩ := hxx'
@@ -2299,7 +2387,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         (AggValue.collapseSum_mapAnnSum ⇑h.toRingHom (x.fst k))
     rw [hplain]
     refine rel_map_of_rel
-      (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) _ _ (hE.enter hxx.1 _) hw.2 hn.2
+      (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) _ _ (hE.enter hxx.1 _) hw.2 hn.2 ho.2
         (hrec.2 x hxm))
       (fun y' y hy => ?_)
     refine ⟨?_, ?_⟩
@@ -2319,11 +2407,12 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           x'.snd.pending + y'.snd.pending⟩ = _
       rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hxx.2, hy.2, ← map_mul]
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    exact Multiset.Rel.add (ih₁ d γ E' E hE hw.1 hn.1 hrec.1) (ih₂ d γ E' E hE hw.2 hn.2 hrec.2)
+    exact Multiset.Rel.add (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
+      (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)
   | Dedup q ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2331,29 +2420,29 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((q.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ E' E hE hw hn hrec)
+      exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     rw [groupByKey_mapAnnotatedRelation]
     exact rel_ofAnnotated_map h _
   | Explode k hk q ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    exact rel_bind_of_rel (ih d γ E' E hE hw hn hrec) (fun r' r hs => sim_alternativesAt h hs k)
+    exact rel_bind_of_rel (ih d γ E' E hE hw hn ho hrec) (fun r' r hs => sim_alternativesAt h hs k)
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     -- the rounds simulate each other, and so do their sums
-    exact muSumFix_rel (ih₀ d γ E' E hE hw.1 hn.1 hrec.1)
-      (fun k X' hX => ih₁ d γ _ _ (hE.assignHole s hX) hw.2 hn.2 (hrec.2.2.2.1 k))
+    exact muSumFix_rel (ih₀ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
+      (fun k X' hX => ih₁ d γ _ _ (hE.assignHole s hX) hw.2 hn.2 ho.2 (hrec.2.2.2.1 k))
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     show Multiset.Rel _
       ((muFix (AggQueryIn.muSetStep s q₀ q₁ (h.mapAnnotatedDatabase d) γ E')).map
         GenRow.ofAnnotated)
       ((muFix (AggQueryIn.muSetStep s q₀ q₁ d γ E)).map GenRow.ofAnnotated)
     have e₀ : q₀.evaluateAnnotated (h.mapAnnotatedDatabase d) γ E'
         = SemiringWithMonusHom.mapAnnotatedRelation h (q₀.evaluateAnnotated d γ E) :=
-      (map_eq_of_rel (ih₀ d γ E' E hE hw.1 hn.1 hrec.1)
+      (map_eq_of_rel (ih₀ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).trans
         (Multiset.map_map (SemiringWithMonusHom.mapAnnotatedTuple h) GenRow.toAnnotated
           (q₀.evaluate d γ E)).symm
@@ -2370,7 +2459,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated))
           = SemiringWithMonusHom.mapAnnotatedRelation h
             (q₁.evaluateAnnotated d γ (E.assignHole s (X.map GenRow.ofAnnotated))) :=
-        (map_eq_of_rel (ih₁ d γ _ _ (hE.assignHole s (rel_ofAnnotated_map h X)) hw.2 hn.2 hk)
+        (map_eq_of_rel (ih₁ d γ _ _ (hE.assignHole s (rel_ofAnnotated_map h X)) hw.2 hn.2 ho.2 hk)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).trans
           (Multiset.map_map (SemiringWithMonusHom.mapAnnotatedTuple h) GenRow.toAnnotated
             (q₁.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated)))).symm
@@ -2379,14 +2468,14 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     rw [← muFix_map_rounds (h := SemiringWithMonusHom.mapAnnotatedRelation h) rfl hstep hrec.2.1]
     exact rel_ofAnnotated_map h _
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
         = SemiringWithMonusHom.mapAnnotatedRelation h
             ((q.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ E' E hE hw hn hrec)
+      exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     set X : AnnotatedRelation T K m := (q.evaluate d γ E).map GenRow.toAnnotated
     clear_value X
@@ -2446,15 +2535,15 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [← Multiset.map_map]
       exact Multiset.sum_hom _ h.toRingHom
   | Retag hκ q ih =>
-    intro d γ E' E hE hw hn hrec
-    exact ih d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
+    exact ih d γ E' E hE hw hn ho hrec
   | @Win cI nI mI pI κw _lab _rd P O o w t f q hrr dist keep ih =>
     -- one output row per input row; the row's own columns and its
     -- annotation are carried across unchanged, and the token differs only
     -- by a tie-block permutation – which a `FILTER` clause keeps, reading
     -- the tuple
-    intro d γ E' E hE hw hn hrec
-    have hsim := ih d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
+    have hsim := ih d γ E' E hE hw hn ho hrec
     -- the relation the window reads of one side is the pushed-forward
     -- relation it reads of the other
     have hread : (q.evaluate (h.mapAnnotatedDatabase d) γ E').map
@@ -2495,7 +2584,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
       exact hs.1 k'
   | @GammaTok cI mI nI₁ nI₂ κ' _lab _rd is his ts fs a q keep ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2507,7 +2596,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn hrec)
+        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -2590,7 +2679,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q₁.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2598,7 +2687,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((q₁.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₁ d γ E' E hE hw.1 hn.1 hrec.1)
+      exact map_eq_of_rel (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     rw [show (q₂.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2606,7 +2695,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((q₂.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₂ d γ E' E hE hw.2 hn.2 hrec.2)
+      exact map_eq_of_rel (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)
         (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
     set X₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ E).map GenRow.toAnnotated
     set X₂ : AnnotatedRelation T K _ := (q₂.evaluate d γ E).map GenRow.toAnnotated
@@ -2625,7 +2714,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
   | @GammaScalar cI mI nI₂ _lab _rd ts fs q ord ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2637,7 +2726,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn hrec)
+        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -2655,9 +2744,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     -- and columns whose statistics agree – which is all a nested value
     -- reads of them (`GenValue.Equiv.of_nest_rel`), the weight splitting
     -- per occurrence because `K'` is complemented
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
-    have hrel := ih d γ E' E hE hw hn.2 hrec
+    have hrel := ih d γ E' E hE hw hn.2 ho hrec
     have hkey : ∀ (r' : GenRow T K' mI) (r : GenRow T K mI),
         GenRow.Sim h r' r →
         (fun k => AggValue.collapseSum (r'.fst (is k)) : Tuple T nI₁)
@@ -2739,7 +2828,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       exact (map_multiset_sum h.toRingHom _).symm
 
   | @Gamma cI mI nI₁ nI₂ _lab _rd is ts fs q keep ord ih =>
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2751,7 +2840,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn hrec)
+        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -2814,7 +2903,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     -- through a bijection of indices rather than index by index; the
     -- frames read the tuple (`hw.1`), which is what makes each pair of
     -- corresponding expression columns equivalent.
-    intro d γ E' E hE hw hn hrec
+    intro d γ E' E hE hw hn ho hrec
     simp only [AggQueryIn.evaluate]
     have hY : Multiset.map GenRow.toAnnotated
           (q.evaluate (h.mapAnnotatedDatabase d) γ E')
@@ -2826,7 +2915,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = Multiset.map (SemiringWithMonusHom.mapAnnotatedTuple h)
             (Multiset.map GenRow.toAnnotated (q.evaluate d γ E)) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw.2 hn hrec)
+        exact map_eq_of_rel (ih d γ E' E hE hw.2 hn ho hrec)
           (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
     rw [hY]
@@ -2862,9 +2951,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') {c n : ℕ}
     {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K'))
-    (hrec : q.AnnSettlesAt d γ {}) :
+    (ho : q.selReadsOne) (hrec : q.AnnSettlesAt d γ {}) :
     Multiset.Rel (GenRow.Sim h) (q.evaluate (h.mapAnnotatedDatabase d) γ) (q.evaluate d γ) :=
-  AggQueryIn.evaluate_hom_rel_env h q d γ {} {} (EvalEnv.homSim_empty h γ) hw hn hrec
+  AggQueryIn.evaluate_hom_rel_env h q d γ {} {} (EvalEnv.homSim_empty h γ) hw hn ho hrec
 
 /-- **Evaluator-level hom commutation**: the final annotated relation
 computed by the general evaluator commutes with every
@@ -2874,7 +2963,7 @@ value-neutral by guard absorption (`delta_absorb`), and the annotation
 tie-breaks of the group sort are value-neutral by the tie-block
 congruence layer.
 
-Two things are asked of the *query*. First, that a multi-frame window
+Three things are asked of the *query*. First, that a multi-frame window
 frame by the tuple (`AggQueryIn.framesContainSelf`): such a window lists
 its shared family by occurrence index, and a change of annotation
 semiring re-sorts that index inside blocks of equal rows. Every window
@@ -2890,7 +2979,15 @@ it occurrence by occurrence is `NestedValue.World.ann_split`, which needs
 aggregation asks nothing, by
 `AggQueryIn.nestInComplemented_of_noGammaNest`.
 
-Both are hypotheses of *this proof* and not of the mathematics. Every
+Third, that every selection compare at most one aggregate column
+(`AggQueryIn.selReadsOne`). A selection reads the columns of one family
+in one world of that family, so what it reads of several columns depends
+on how the two sides list the family's occurrences *together*;
+`GenValue.Equiv` relates the columns one by one and does not carry that.
+One column is read through its four readings
+(`GenPredIn.predsemJ_hom_one`).
+
+The first two are hypotheses of *this proof* and not of the mathematics. Every
 output annotation is an expression in the input annotations over `⊕`,
 `⊗`, `⊖`, `δ`, `𝟘`, `𝟙`, and a hom commutes with such an expression in
 every m-semiring; `presentProd ⊗ (𝟙 ⊖ absentSum)` is one. What
@@ -2900,14 +2997,14 @@ aggregate columns rather than whole annotations. A proof that related
 whole annotations would not ask it. -/
 theorem AggQueryIn.evaluateAnnotated_hom (h : SemiringWithMonusHom K K')
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-    (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K'))
+    (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K')) (ho : q.selReadsOne)
     (d : AnnotatedDatabase T K) (hrec : q.AnnSettlesAt d (fun _ => 0) {}) :
     q.evaluateAnnotated (h.mapAnnotatedDatabase d)
       = SemiringWithMonusHom.mapAnnotatedRelation h
           (q.evaluateAnnotated d) := by
   unfold AggQueryIn.evaluateAnnotated SemiringWithMonusHom.mapAnnotatedRelation
   rw [Multiset.map_map]
-  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw hn hrec)
+  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw hn ho hrec)
     (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
 
 end EvaluatorHom
