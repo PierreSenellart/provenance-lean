@@ -66,6 +66,7 @@ import Provenance.AnnotatedMuUnion
 import Provenance.AnnotatedChains
 import Provenance.AnnotatedDiffRow
 import Provenance.AnnotatedEpsRow
+import Provenance.AnnotatedBasisClass
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1319,6 +1320,14 @@ proven engine several general results reuse internally.
   holding one tuple twice gives `2` (`dedup_or_muSet_mem_of_generatesAnn`);
   with the other rows, no proper subset of `{∅, Π, σ, apply, γ, win, μ^⊎,
   ε, −}` generates over both `ℕ` and `ℕ × ℕ` (`annEpsOps_minimal`)
+- `Provenance.AnnotatedBasisClass` – **the annotated basis theorem over a
+  class of semirings**: `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` generates
+  the annotated algebra over every m-semiring where `δ` is the support map
+  and linear set recursions settle early, or `δ` is the identity
+  (`AnnBasisClass`), and no proper subset does over all of them
+  (`annEpsOps_isBasis_in_class`); the difference's witness inside the class
+  is `ℕ[x, y]`, where `R − S` gives `x` and no difference-free query builds
+  an annotation with more `x` than `y` (`diff_mem_of_generatesAnn_xy`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
