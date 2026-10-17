@@ -1187,7 +1187,7 @@ theorem dedupG_kinds (n : ℕ) :
 aggregate: the shape the bases without `ε` use. -/
 def dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c n (ColKind.allReg n) :=
-  (AggQueryIn.Gamma (lab := 0) (rd := fun _ => false) (fun k => k) (fun j : Fin 0 => j.elim0) (fun
+  (AggQueryIn.Gamma (lab := 0) (rd := q.readsOuter) (fun k => k) (fun j : Fin 0 => j.elim0) (fun
       j : Fin 0 => j.elim0)
       q).castKind
     (dedupG_kinds n)

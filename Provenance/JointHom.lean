@@ -1055,7 +1055,34 @@ section Labels
 
 variable {T : Type}
 
-/-- **The labels of the operators that build aggregate values.** -/
+/-- **An operator's label, where it builds a column**: an aggregation with
+no aggregate builds no value, so its label is not one of a value. -/
+def labCons {α : Type} (w : ℕ) (lab : α) (L : List α) : List α :=
+  if w = 0 then L else lab :: L
+
+theorem labCons_of_ne {α : Type} {w : ℕ} (h : w ≠ 0) (lab : α) (L : List α) :
+    labCons w lab L = lab :: L := by
+  simp [labCons, h]
+
+theorem labCons_zero {α : Type} (lab : α) (L : List α) : labCons 0 lab L = L := by
+  simp [labCons]
+
+theorem labCons_nodup {α : Type} {w : ℕ} {lab : α} {L : List α} (h : (labCons w lab L).Nodup) :
+    L.Nodup := by
+  unfold labCons at h
+  split at h
+  · exact h
+  · exact (List.nodup_cons.mp h).2
+
+theorem mem_labCons_of_mem {α : Type} {w : ℕ} {lab : α} {L : List α} {x : α} (h : x ∈ L) :
+    x ∈ labCons w lab L := by
+  unfold labCons
+  split
+  · exact h
+  · exact List.mem_cons_of_mem _ h
+
+/-- **The labels of the operators that build aggregate values**, an
+aggregation with no aggregate building none (`labCons`). -/
 def AggQueryIn.labels : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → List ℕ
   | _, _, _, _, .Rel _ _ => []
@@ -1072,12 +1099,12 @@ def AggQueryIn.labels : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
   | _, _, _, _, .Explode _ _ q => q.labels
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.labels ++ q₁.labels
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.labels ++ q₁.labels
-  | _, _, _, _, @AggQueryIn.Gamma _ _ _ _ _ lab _ _ _ _ q _ _ => lab :: q.labels
-  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ _ lab _ _ _ q _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ _ n₂ lab _ _ _ _ q _ _ => labCons n₂ lab q.labels
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ n₂ lab _ _ _ q _ => labCons n₂ lab q.labels
   | _, _, _, _, @AggQueryIn.GammaNest _ _ _ _ _ lab _ _ _ _ _ q => lab :: q.labels
   | _, _, _, _, .ProvSum _ _ _ q => q.labels
   | _, _, _, _, .Retag _ q => q.labels
-  | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ _ _ lab _ _ _ _ _ _ q _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab _ _ _ _ _ _ q _ => labCons n₂ lab q.labels
   | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ q _ _ _ => lab :: q.labels
   | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ => lab :: q.labels
 

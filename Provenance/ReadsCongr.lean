@@ -199,7 +199,8 @@ theorem ValueFrame.tokenOfDist_congr_γ {n p : ℕ} (P : Tuple (Fin n) m) (O : T
     (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (X : AnnotatedRelation T K n) (x : AnnotatedTuple T K n)
     (h : ∀ r, t.eval r γ = t.eval r γ') :
-    ValueFrame.tokenOfDist P O o w t f dist X x γ = ValueFrame.tokenOfDist P O o w t f dist X x γ' := by
+    ValueFrame.tokenOfDist P O o w t f dist X x γ
+      = ValueFrame.tokenOfDist P O o w t f dist X x γ' := by
   unfold ValueFrame.tokenOfDist ValueFrame.tokenOf
   rw [AggValue.ofGroup_congr_γ f t _ h, AggValue.ofScalarGroup_congr_γ f t _ h]
 
@@ -291,36 +292,54 @@ theorem AggQueryIn.evaluate_congr_reads :
         simp only [AggQueryIn.readsOuter, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
           true_and]
         exact Or.inl ⟨j, hk⟩))
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hp]
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hp]
   | Sel φ q hφ ih =>
     intro hrr d γ γ' E E' hh hg hc
     have hφg : ∀ k, φ.readsOuter k = true → γ k = γ' k :=
       fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])
     have hholds : ∀ u : Tuple (GenValue T K) _, φ.holds u γ = φ.holds u γ' := fun u => by
       unfold GenPredIn.holds; rw [φ.eval3_congr_reads u hφg]
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hholds,
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hholds,
       φ.predsemJ_congr_reads _ _ hφg]
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp))
+        (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k
+            (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p
+                (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+                    hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp))
+        (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k
+            (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p
+                (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+                    hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), ih₂ hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
+                (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Dedup q ih =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Explode k h q ih =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Retag h q ih =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | @Apply cI n₁ n₂ κ₁ κ₂ l₁ q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk]))]
     refine Multiset.bind_congr (fun x _ => ?_)
     rw [ih₂ hrr.2 d (E := E.withCtx (Fin.append x.fst (E.ctxAt _ γ)))
       (E' := E'.withCtx (Fin.append x.fst (E'.ctxAt _ γ'))) (fun _ hp => absurd hp List.not_mem_nil)
@@ -338,7 +357,9 @@ theorem AggQueryIn.evaluate_congr_reads :
         exact hc j (by simp [AggQueryIn.readsOuter, hj])
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil)
+        (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k
+            (by simp [AggQueryIn.readsOuter, hk]))]
     exact muSumFix_congr (fun X => ih₁ hrr.2 d (E := E.assignHole s X) (E' := E'.assignHole s X)
       (fun p hp => by
         obtain rfl := List.mem_singleton.mp hp
@@ -348,7 +369,9 @@ theorem AggQueryIn.evaluate_congr_reads :
         exact hc k (by simp [AggQueryIn.readsOuter, hk]))) rfl
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil)
+        (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k
+            (by simp [AggQueryIn.readsOuter, hk]))]
     refine congrArg _ (muFix_congr (fun X => ?_))
     rw [ih₁ hrr.2 d (E := E.assignHole s (X.map GenRow.ofAnnotated))
       (E' := E'.assignHole s (X.map GenRow.ofAnnotated))
@@ -364,23 +387,14 @@ theorem AggQueryIn.evaluate_congr_reads :
       (ts j).eval_congr_reads r (fun k hk => hg k (by
         simp only [AggQueryIn.readsOuter, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
           true_and]
-        exact Or.inl ⟨j, hk⟩))
+        exact Or.inl (Or.inl ⟨j, hk⟩)))
     have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
-    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk, AggValue.ofGroup,
+    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), hpk, AggValue.ofGroup,
       AggExpr.ofGroupWhen, AggExpr.ofSeqWhen, hts]
   | @GammaScalar cI mI nI₂ lab rd ts fs q ord ih =>
-    intro hrr d γ γ' E E' hh hg hc
-    have hts : ∀ j (r : Tuple T _), (ts j).eval r γ = (ts j).eval r γ' := fun j r =>
-      (ts j).eval_congr_reads r (fun k hk => hg k (by
-        simp only [AggQueryIn.readsOuter, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
-          true_and]
-        exact Or.inl ⟨j, hk⟩))
-    have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
-      EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
-    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk, AggValue.ofScalarGroup,
-      AggValue.ofGroup, hts]
-  | @GammaTok cI mI nI₁ nI₂ κ' lab rd is his ts fs a q keep ih =>
     intro hrr d γ γ' E E' hh hg hc
     have hts : ∀ j (r : Tuple T _), (ts j).eval r γ = (ts j).eval r γ' := fun j r =>
       (ts j).eval_congr_reads r (fun k hk => hg k (by
@@ -389,29 +403,49 @@ theorem AggQueryIn.evaluate_congr_reads :
         exact Or.inl (Or.inl ⟨j, hk⟩)))
     have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
+    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), hpk, AggValue.ofScalarGroup,
+      AggValue.ofGroup, hts]
+  | @GammaTok cI mI nI₁ nI₂ κ' lab rd is his ts fs a q keep ih =>
+    intro hrr d γ γ' E E' hh hg hc
+    have hts : ∀ j (r : Tuple T _), (ts j).eval r γ = (ts j).eval r γ' := fun j r =>
+      (ts j).eval_congr_reads r (fun k hk => hg k (by
+        simp only [AggQueryIn.readsOuter, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
+          true_and]
+        exact Or.inl (Or.inl (Or.inl ⟨j, hk⟩))))
+    have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
+      EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
     have ha : ∀ r : Tuple T _, a.evalPlain r γ = a.evalPlain r γ' := fun r =>
       a.evalPlain_congr_reads r (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
-    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk, AggValue.ofGroup,
+    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), hpk, AggValue.ofGroup,
       AggExpr.ofGroupWhen, AggExpr.ofSeqWhen, hts, ha]
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro hrr d γ γ' E E' hh hg hc
     have ht : ∀ r : Tuple T _, t.evalPlain r γ = t.evalPlain r γ' := fun r =>
       t.evalPlain_congr_reads r (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
-    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ht]
+    simp only [AggQueryIn.evaluate, ih hrr d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter,
+        hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ht]
   | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
     intro hrr d γ γ' E E' hh hg hc
     have hp : ∀ r : Tuple (GenValue T K) _, p.eval r γ = p.eval r γ' := fun r =>
       p.eval_congr_reads r (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
     have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
-    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk, hp]
+    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), hpk, hp]
   | @Win cI nI mI pI κw lab rd P O o w t f q hrr' dist keep ih =>
     intro hrr d γ γ' E E' hh hg hc
     have ht : ∀ r : Tuple T _, t.eval r γ = t.eval r γ' := fun r =>
       t.eval_congr_reads r (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
     have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
-    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk,
+    simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
+        (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
+            hk])), hpk,
       ValueFrame.windowGenRow_congr_γ _ _ _ P O o w t f _ _ _ dist ht]
   | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
     intro hrr d γ γ' E E' hh hg hc
@@ -419,9 +453,10 @@ theorem AggQueryIn.evaluate_congr_reads :
       (ts j).eval_congr_reads r (fun k hk => hg k (by
         simp only [AggQueryIn.readsOuter, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
           true_and]
-        exact Or.inl ⟨j, hk⟩))
+        exact Or.inl (Or.inl ⟨j, hk⟩)))
     have hpk : E.paramKey rd γ = E'.paramKey rd γ' :=
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
     simp only [AggQueryIn.evaluate]
-    rw [ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), hpk]
+    rw [ih hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k
+        (by simp [AggQueryIn.readsOuter, hk])), hpk]
     simp only [ValueFrame.exprOfWhen_congr_γ P O o ws ts fs g keeps _ _ hts]

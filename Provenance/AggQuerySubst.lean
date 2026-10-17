@@ -1073,6 +1073,14 @@ theorem lift_eq_inr_natAdd {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fi
       rw [hθ]; rfl
 
 omit [ValueType T] in
+theorem substRd_eq_true {c d : ℕ} (θ : Fin c → T ⊕ Fin d) (rd : Fin c → Bool) (j : Fin d) :
+    substRd θ rd j = true ↔ ∃ k, θ k = Sum.inr j ∧ rd k = true := by
+  unfold substRd
+  simp only [decide_eq_true_eq]
+  refine exists_congr fun k => and_congr_left fun _ => ?_
+  cases θ k <;> simp
+
+omit [ValueType T] in
 /-- **The parameters a substituted query reads** are the images of those it
 read that the substitution sends to parameters. -/
 theorem AggQueryIn.readsOuter_substMap :
@@ -1145,11 +1153,13 @@ theorem AggQueryIn.readsOuter_substMap :
     intro d θ j
     simp only [AggQueryIn.substMap, AggQueryIn.readsOuter, Bool.or_eq_true,
       List.any_eq_true, List.mem_finRange, true_and]
-    exact reads_or (reads_any (fun i => TermIn.readsOuter_substMap θ j (ts i))) (ih θ j)
+    exact reads_or (reads_or (reads_any (fun i => TermIn.readsOuter_substMap θ j (ts i)))
+      (ih θ j)) (substRd_eq_true θ _ j)
   | GammaNest _ _ p _ q ih =>
     intro d θ j
     simp only [AggQueryIn.substMap, AggQueryIn.readsOuter, Bool.or_eq_true]
-    exact reads_or (ProjColIn.readsOuter_substMap θ j p) (ih θ j)
+    exact reads_or (reads_or (ProjColIn.readsOuter_substMap θ j p) (ih θ j))
+      (substRd_eq_true θ _ j)
   | ProvSum _ _ t q ih =>
     intro d θ j
     simp only [AggQueryIn.substMap, AggQueryIn.readsOuter, Bool.or_eq_true]
@@ -1157,13 +1167,14 @@ theorem AggQueryIn.readsOuter_substMap :
   | Win _ _ _ _ t _ q _ _ _ ih =>
     intro d θ j
     simp only [AggQueryIn.substMap, AggQueryIn.readsOuter, Bool.or_eq_true]
-    exact reads_or (TermIn.readsOuter_substMap θ j t) (ih θ j)
+    exact reads_or (reads_or (TermIn.readsOuter_substMap θ j t) (ih θ j))
+      (substRd_eq_true θ _ j)
   | GammaTok _ _ ts _ a q _ ih =>
     intro d θ j
     simp only [AggQueryIn.substMap, AggQueryIn.readsOuter, Bool.or_eq_true,
       List.any_eq_true, List.mem_finRange, true_and]
-    exact reads_or (reads_or (reads_any (fun i => TermIn.readsOuter_substMap θ j (ts i)))
-      (TermGIn.readsOuter_substMap θ j a)) (ih θ j)
+    exact reads_or (reads_or (reads_or (reads_any (fun i => TermIn.readsOuter_substMap θ j (ts i)))
+      (TermGIn.readsOuter_substMap θ j a)) (ih θ j)) (substRd_eq_true θ _ j)
 
 omit [ValueType T] in
 theorem ctxKey_eq_map_filter {c : ℕ} {α : Type} (r : Fin c → Bool) (γ : Fin c → α) :

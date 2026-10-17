@@ -2347,7 +2347,9 @@ def ProjColIn.readsOuter {c n : ℕ} {κ : Fin n → ColKind} (k : Fin c) : Proj
   | .provTerm t => t.readsOuter k
 
 /-- **Does the query read the outer column `k`?** An apply's right side
-reads its own parameters after the left row's columns. -/
+reads its own parameters after the left row's columns, and an aggregating
+operator reads the parameters it records, its stamps holding their
+values. -/
 def AggQueryIn.readsOuter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Fin c → Bool
   | _, _, _, _, .Rel _ _, _ => false
@@ -2368,18 +2370,20 @@ def AggQueryIn.readsOuter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .Explode _ _ q, k => q.readsOuter k
   | _, _, _, _, .Mu _ q₀ q₁, k => q₀.readsOuter k || q₁.readsOuter k
   | _, _, _, _, .MuSet _ q₀ q₁, k => q₀.readsOuter k || q₁.readsOuter k
-  | _, _, _, _, .Gamma _ ts _ q _ _, k =>
-      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k
-  | _, _, _, _, .GammaScalar ts _ q _, k =>
-      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k
-  | _, _, _, _, .GammaNest _ _ p _ q, k => p.readsOuter k || q.readsOuter k
+  | _, _, _, _, @Gamma _ _ _ _ _ _ rd _ ts _ q _ _, k =>
+      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k || rd k
+  | _, _, _, _, @GammaScalar _ _ _ _ _ rd ts _ q _, k =>
+      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k || rd k
+  | _, _, _, _, @GammaNest _ _ _ _ _ _ rd _ _ p _ q, k => p.readsOuter k || q.readsOuter k || rd k
   | _, _, _, _, .ProvSum _ _ t q, k => t.readsOuter k || q.readsOuter k
   | _, _, _, _, .Retag _ q, k => q.readsOuter k
-  | _, _, _, _, .GammaTok _ _ ts _ a q _, k =>
+  | _, _, _, _, @GammaTok _ _ _ _ _ _ _ rd _ _ ts _ a q _, k =>
       (List.finRange _).any (fun j => (ts j).readsOuter k) || a.readsOuter k || q.readsOuter k
-  | _, _, _, _, .Win _ _ _ _ t _ q _ _ _, k => t.readsOuter k || q.readsOuter k
-  | _, _, _, _, .WinExpr _ _ _ _ ts _ _ q _, k =>
-      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k
+        || rd k
+  | _, _, _, _, @Win _ _ _ _ _ _ _ rd _ _ _ _ t _ q _ _ _, k =>
+      t.readsOuter k || q.readsOuter k || rd k
+  | _, _, _, _, @WinExpr _ _ _ _ _ _ _ rd _ _ _ _ ts _ _ q _, k =>
+      (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k || rd k
 
 /-- **The values of the parameters an operator reads**, in the order of the
 context: what a family records besides the operator's label and the key
@@ -4114,12 +4118,13 @@ theorem AggQueryIn.nestNoWin_of_noGammaNest :
   | _ => simp_all [AggQueryIn.noGammaNest, AggQueryIn.nestNoWin]
 
 /-- **Every aggregating operator records the parameters it reads**: its
-read set `rd` is the set of outer columns its subtree reads. This is the
-paper's identity of occurrences (an operator evaluated on the same
-inputs produces the same occurrences), and it is a condition on the
-queries a result is about: the passes keep each operator's recorded set
-while rewriting below it, so their outputs record what their sources
-read, which can be more than they read themselves. -/
+read set `rd` holds every outer column its subtree reads – the operator's
+`readsOuter`, which counts `rd` itself, is `rd`. This is the paper's
+identity of occurrences (an operator evaluated on the same inputs produces
+the same occurrences), and it is a condition on the queries a result is
+about. A recorded set may hold more than the subtree reads: the passes
+keep each operator's recorded set while rewriting below it, so their
+outputs record what their sources read. -/
 def AggQueryIn.readsRecorded : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True

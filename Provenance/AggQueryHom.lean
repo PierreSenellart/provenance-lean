@@ -2671,7 +2671,7 @@ are the row's (`HomUniv.col`). -/
 theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
     {n w : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) (col : Fin w → Fin n) (lab : ℕ)
-    (key : List T) (ps : List (T ⊕ FamId T)) (hW : (lab, w) ∈ W)
+    (key : List T) (ps : List (T ⊕ FamId T)) (hW : w ≠ 0 → (lab, w) ∈ W)
     (hz : ∀ j, ∃ x, r.fst (col j) = Sum.inr x ∧ 𝒰₀ x ∧ x.fam = .mk lab key ps j [])
     (hz' : ∀ j, ∃ x', r'.fst (col j) = Sum.inr x' ∧ 𝒰₀' x')
     (heq : ∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x → x'.fam = x.fam)
@@ -2701,7 +2701,7 @@ theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → 
       cases hy : y₀.fam with
       | mk l k p c ts => rw [hy] at hfam; simp only [FamId.family, Prod.mk.injEq] at hfam
                          exact hfam.1
-    have hcol := hU.col y₀ hy₀ w (by rw [hlab]; exact hW)
+    have hcol := hU.col y₀ hy₀ w (by rw [hlab]; exact hW (Fin.pos j₀).ne')
     obtain ⟨z, hz1, hz2, hz3⟩ := hz ⟨y₀.fam.col, hcol⟩
     obtain ⟨z', hz1', hz2'⟩ := hz' ⟨y₀.fam.col, hcol⟩
     have hyz : y₀ = z := hU.fn y₀ z (TermCl.base hy₀) (TermCl.base hz2) (by
@@ -2896,7 +2896,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K
 theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
     {n w : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) (col : Fin w → Fin n) (lab : ℕ)
-    (hW : (lab, w) ∈ W) (key : List T) (ps : List (T ⊕ FamId T))
+    (hW : w ≠ 0 → (lab, w) ∈ W) (key : List T) (ps : List (T ⊕ FamId T))
     (hz : ∀ j, ∃ x, r.fst (col j) = Sum.inr x ∧ 𝒰₀ x ∧ x.fam = .mk lab key ps j [])
     (hz' : ∀ j, ∃ x', r'.fst (col j) = Sum.inr x' ∧ 𝒰₀' x')
     (hD : (∃ D : ListingRel h.toRingHom T, ∀ j x' x, r'.fst (col j) = Sum.inr x' →
@@ -3411,7 +3411,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
           rw [Multiset.map_map]
           exact map_eq_of_rel (ih d γ E' E hE hJ (fun x h => hb x (Or.inr h))
             (fun x h => hb' x (Or.inr h))
-            (fun e he => hW e (List.mem_cons_of_mem _ he)) hw hn hsc hrec)
+            (fun e he => hW e
+                (by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem he)) hw hn hsc hrec)
             (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
         exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
       set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -3482,7 +3483,9 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey⟩ := AggQueryIn.newRow_Gamma is ts fs q keep ord d γ E hr
     obtain ⟨key', -, hkey'⟩ := AggQueryIn.newRow_Gamma is ts fs q keep ord _ γ E' hr'
-    have hfr := freshG hU r' r (Fin.natAdd nI₁) lab (hW _ List.mem_cons_self) key
+    have hfr := freshG hU r' r (Fin.natAdd nI₁) lab
+      (fun hne => hW _ (by
+        rw [AggQueryIn.labWidths, labCons_of_ne hne]; exact List.mem_cons_self)) key
       (E.paramKey rd γ)
       (fun j => let ⟨x, h1, h2⟩ := hkey j; ⟨x, h1, hb x (Or.inl ⟨r, hr, j, h1⟩), h2⟩)
       (fun j => let ⟨x, h1, _⟩ := hkey' j; ⟨x, h1, hb' x (Or.inl ⟨r', hr', j, h1⟩)⟩)
@@ -3515,7 +3518,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
           rw [Multiset.map_map]
           exact map_eq_of_rel (ih d γ E' E hE hJ (fun x h => hb x (Or.inr h))
             (fun x h => hb' x (Or.inr h))
-            (fun e he => hW e (List.mem_cons_of_mem _ he)) hw hn hsc hrec)
+            (fun e he => hW e
+                (by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem he)) hw hn hsc hrec)
             (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
         exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
       set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -3612,7 +3616,9 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     obtain ⟨key, hkey0, hkey1, hkey⟩ := AggQueryIn.newRow_GammaTok is his ts fs a q keep d γ E hr
     obtain ⟨key', -, -, hkey'⟩ := AggQueryIn.newRow_GammaTok is his ts fs a q keep _ γ E' hr'
     have hfr := freshG hU r' r (fun j => Fin.castAdd 1 (Fin.natAdd nI₁ j)) lab
-      (hW _ List.mem_cons_self) key (E.paramKey rd γ)
+      (fun hne => hW _ (by
+        rw [AggQueryIn.labWidths, labCons_of_ne hne]; exact List.mem_cons_self))
+      key (E.paramKey rd γ)
       (fun j => let ⟨x, h1, h2⟩ := hkey j; ⟨x, h1, hb x (Or.inl ⟨r, hr, j, h1⟩), h2⟩)
       (fun j => let ⟨x, h1, _⟩ := hkey' j; ⟨x, h1, hb' x (Or.inl ⟨r', hr', j, h1⟩)⟩)
       (Or.inl hs.2)
@@ -3648,7 +3654,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
           rw [Multiset.map_map]
           exact map_eq_of_rel (ih d γ E' E hE hJ (fun x h => hb x (Or.inr h))
             (fun x h => hb' x (Or.inr h))
-            (fun e he => hW e (List.mem_cons_of_mem _ he)) hw hn hsc hrec)
+            (fun e he => hW e
+                (by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem he)) hw hn hsc hrec)
             (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
         exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
       set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -3670,7 +3677,10 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey⟩ := AggQueryIn.newRow_GammaScalar ts fs q ord d γ E hr
     obtain ⟨key', hkey'⟩ := AggQueryIn.newRow_GammaScalar ts fs q ord _ γ E' hr'
-    have hfr := freshG hU r' r id lab (hW _ List.mem_cons_self) key (E.paramKey rd γ)
+    have hfr := freshG hU r' r id lab
+      (fun hne => hW _ (by
+        rw [AggQueryIn.labWidths, labCons_of_ne hne]; exact List.mem_cons_self))
+      key (E.paramKey rd γ)
       (fun j => let ⟨x, h1, h2⟩ := hkey j; ⟨x, h1, hb x (Or.inl ⟨r, hr, j, h1⟩), h2⟩)
       (fun j => let ⟨x, h1, _⟩ := hkey' j; ⟨x, h1, hb' x (Or.inl ⟨r', hr', j, h1⟩)⟩)
       (Or.inl hs.2)
@@ -3785,7 +3795,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey⟩ := AggQueryIn.newRow_GammaNest is his p f q d γ E hr
     obtain ⟨key', -, hkey'⟩ := AggQueryIn.newRow_GammaNest is his p f q _ γ E' hr'
-    have hfr := freshG hU r' r (Fin.natAdd nI₁) lab (hW _ List.mem_cons_self) key
+    have hfr := freshG hU r' r (Fin.natAdd nI₁) lab (fun _ => hW _ List.mem_cons_self) key
       (E.paramKey rd γ)
       (fun j => let ⟨x, h1, h2⟩ := hkey j
         ⟨x, h1, hb x (Or.inl ⟨r, hr, Fin.fin_one_eq_zero j ▸ h1⟩), h2⟩)
@@ -3856,7 +3866,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         keep (((q.evaluate d γ E).map (GenRow.readAnnotated κw)).map
           (fun p : AnnotatedTuple T K nI =>
             ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI))) x' γ dist
-      have hfr := freshG hU _ _ (fun _ : Fin 1 => Fin.last nI) lab (hW _ List.mem_cons_self)
+      have hfr := freshG hU _ _ (fun _ : Fin 1 => Fin.last nI) lab
+          (fun _ => hW _ List.mem_cons_self)
         (List.ofFn (GenRow.readAnnotated κw x).fst) (E.paramKey rd γ)
         (fun j => ⟨y, hy, hb _ (Or.inl ⟨_, hev x hx, hy⟩),
           by rw [Fin.fin_one_eq_zero j]; exact hyf⟩)
@@ -3987,7 +3998,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey⟩ := AggQueryIn.newRow_WinExpr P O o ws ts fs g q keeps d γ E hr
     obtain ⟨key', -, hkey'⟩ := AggQueryIn.newRow_WinExpr P O o ws ts fs g q keeps _ γ E' hr'
-    have hfr := freshG hU r' r (fun _ : Fin 1 => Fin.last nI) lab (hW _ List.mem_cons_self) key
+    have hfr := freshG hU r' r (fun _ : Fin 1 => Fin.last nI) lab
+        (fun _ => hW _ List.mem_cons_self) key
       (E.paramKey rd γ)
       (fun j => let ⟨x, h1, h2⟩ := hkey j; ⟨x, h1, hb x (Or.inl ⟨r, hr, h1⟩), h2⟩)
       (fun j => let ⟨x, h1, _⟩ := hkey' j; ⟨x, h1, hb' x (Or.inl ⟨r', hr', h1⟩)⟩)

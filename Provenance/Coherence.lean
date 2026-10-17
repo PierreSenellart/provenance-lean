@@ -309,16 +309,22 @@ theorem AggQueryIn.builds_spec :
       dsimp only at hj
       rw [Fin.append_right] at hj
       obtain ⟨h1, h2⟩ := AggTok.stamp_spec (Sum.inr_injective hj).symm
-      exact ⟨h1, by rw [h2]; exact List.mem_cons_self⟩
-    · exact (ih d γ E x h).imp_right (List.mem_cons_of_mem _)
+      refine ⟨h1, ?_⟩
+      rw [AggQueryIn.labels, labCons_of_ne (Fin.pos j).ne', h2]
+      exact List.mem_cons_self
+    · exact (ih d γ E x h).imp_right
+        (fun h => by rw [AggQueryIn.labels]; exact mem_labCons_of_mem h)
   | @GammaScalar cI mI nI₂ lab rd ts fs q ord ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, j, hj⟩ | h
     · simp only [AggQueryIn.evaluate, Multiset.mem_singleton] at hr
       subst hr
       obtain ⟨h1, h2⟩ := AggTok.stamp_spec (Sum.inr_injective hj).symm
-      exact ⟨h1, by rw [h2]; exact List.mem_cons_self⟩
-    · exact (ih d γ E x h).imp_right (List.mem_cons_of_mem _)
+      refine ⟨h1, ?_⟩
+      rw [AggQueryIn.labels, labCons_of_ne (Fin.pos j).ne', h2]
+      exact List.mem_cons_self
+    · exact (ih d γ E x h).imp_right
+        (fun h => by rw [AggQueryIn.labels]; exact mem_labCons_of_mem h)
   | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
@@ -338,8 +344,11 @@ theorem AggQueryIn.builds_spec :
       dsimp only at hj
       rw [Fin.append_left, Fin.append_right] at hj
       obtain ⟨h1, h2⟩ := AggTok.stamp_spec (Sum.inr_injective hj).symm
-      exact ⟨h1, by rw [h2]; exact List.mem_cons_self⟩
-    · exact (ih d γ E x h).imp_right (List.mem_cons_of_mem _)
+      refine ⟨h1, ?_⟩
+      rw [AggQueryIn.labels, labCons_of_ne (Fin.pos j).ne', h2]
+      exact List.mem_cons_self
+    · exact (ih d γ E x h).imp_right
+        (fun h => by rw [AggQueryIn.labels]; exact mem_labCons_of_mem h)
   | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
@@ -384,12 +393,13 @@ def AggQueryIn.labWidths : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Explode _ _ q => q.labWidths
   | _, _, _, _, .Mu _ q₀ q₁ => q₀.labWidths ++ q₁.labWidths
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.labWidths ++ q₁.labWidths
-  | _, _, _, _, @AggQueryIn.Gamma _ _ _ _ n₂ lab _ _ _ _ q _ _ => (lab, n₂) :: q.labWidths
-  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ n₂ lab _ _ _ q _ => (lab, n₂) :: q.labWidths
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ _ n₂ lab _ _ _ _ q _ _ => labCons n₂ (lab, n₂) q.labWidths
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ n₂ lab _ _ _ q _ => labCons n₂ (lab, n₂) q.labWidths
   | _, _, _, _, @AggQueryIn.GammaNest _ _ _ _ _ lab _ _ _ _ _ q => (lab, 1) :: q.labWidths
   | _, _, _, _, .ProvSum _ _ _ q => q.labWidths
   | _, _, _, _, .Retag _ q => q.labWidths
-  | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab _ _ _ _ _ _ q _ => (lab, n₂) :: q.labWidths
+  | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab _ _ _ _ _ _ q _ => labCons n₂ (lab,
+      n₂) q.labWidths
   | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ q _ _ _ => (lab, 1) :: q.labWidths
   | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ =>
       (lab, 1) :: q.labWidths
@@ -406,8 +416,10 @@ theorem AggQueryIn.labels_eq_map_labWidths :
   | Prod _ _ ih₁ ih₂ | Apply _ _ ih₁ ih₂ | Sum _ _ ih₁ ih₂ | Diff _ _ ih₁ ih₂
     | Mu _ _ _ ih₁ ih₂ | MuSet _ _ _ ih₁ ih₂ =>
     simp only [AggQueryIn.labels, AggQueryIn.labWidths, List.map_append, ih₁, ih₂]
-  | Gamma _ _ _ _ _ _ ih | GammaScalar _ _ _ _ ih | GammaNest _ _ _ _ _ ih
-    | GammaTok _ _ _ _ _ _ _ ih | Win _ _ _ _ _ _ _ _ _ _ ih | WinExpr _ _ _ _ _ _ _ _ _ ih =>
+  | Gamma _ _ _ _ _ _ ih | GammaScalar _ _ _ _ ih | GammaTok _ _ _ _ _ _ _ ih =>
+    simp only [AggQueryIn.labels, AggQueryIn.labWidths, labCons, ih]
+    split <;> simp
+  | GammaNest _ _ _ _ _ ih | Win _ _ _ _ _ _ _ _ _ _ ih | WinExpr _ _ _ _ _ _ _ _ _ ih =>
     simp only [AggQueryIn.labels, AggQueryIn.labWidths, List.map_cons, ih]
 
 omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
@@ -458,8 +470,10 @@ theorem AggQueryIn.builds_col :
       rw [Fin.append_right] at hj
       have he := (Sum.inr_injective hj).symm
       refine ⟨nI₂, ?_, by rw [AggTok.stamp_col he]; exact j.isLt⟩
-      rw [(AggTok.stamp_spec he).2]; exact List.mem_cons_self
-    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w, List.mem_cons_of_mem _ hw, hc⟩
+      rw [AggQueryIn.labWidths, labCons_of_ne (Fin.pos j).ne', (AggTok.stamp_spec he).2]
+      exact List.mem_cons_self
+    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w,
+        by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem hw, hc⟩
   | @GammaScalar cI mI nI₂ lab rd ts fs q ord ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, j, hj⟩ | h
@@ -467,8 +481,10 @@ theorem AggQueryIn.builds_col :
       subst hr
       have he := (Sum.inr_injective hj).symm
       refine ⟨nI₂, ?_, by rw [AggTok.stamp_col he]; exact j.isLt⟩
-      rw [(AggTok.stamp_spec he).2]; exact List.mem_cons_self
-    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w, List.mem_cons_of_mem _ hw, hc⟩
+      rw [AggQueryIn.labWidths, labCons_of_ne (Fin.pos j).ne', (AggTok.stamp_spec he).2]
+      exact List.mem_cons_self
+    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w,
+        by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem hw, hc⟩
   | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
@@ -489,8 +505,10 @@ theorem AggQueryIn.builds_col :
       rw [Fin.append_left, Fin.append_right] at hj
       have he := (Sum.inr_injective hj).symm
       refine ⟨nI₂, ?_, by rw [AggTok.stamp_col he]; exact j.isLt⟩
-      rw [(AggTok.stamp_spec he).2]; exact List.mem_cons_self
-    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w, List.mem_cons_of_mem _ hw, hc⟩
+      rw [AggQueryIn.labWidths, labCons_of_ne (Fin.pos j).ne', (AggTok.stamp_spec he).2]
+      exact List.mem_cons_self
+    · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w,
+        by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem hw, hc⟩
   | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
@@ -1542,6 +1560,24 @@ theorem coh_append {L₁ L₂ : List ℕ} (hnd : (L₁ ++ L₂).Nodup)
   · exact (hd (hA₁ x hx) (hl ▸ hB₂ y hy)).elim
   · exact (hd (hA₂ y hy) (hl ▸ hB₁ x hx)).elim
   · exact hBB x y hx hy hxy
+omit [DecidableEq K] [HasAltLinearOrder K] [ValueType T] [CommSemiringWithMonus K] in
+/-- `coh_cons` for an operator that may build no column. -/
+theorem coh_labCons {w lab : ℕ} {L : List ℕ} (hnd : (labCons w lab L).Nodup)
+    {N₁ N₂ C₁ C₂ : AggTok T K → Prop} (R : AggTok T K → AggTok T K → Prop)
+    (hN₁ : ∀ x, N₁ x → x.lab = lab ∧ w ≠ 0) (hN₂ : ∀ x, N₂ x → x.lab = lab ∧ w ≠ 0)
+    (hC₁ : ∀ x, C₁ x → x.lab ∈ L) (hC₂ : ∀ x, C₂ x → x.lab ∈ L)
+    (hNN : ∀ x y, N₁ x → N₂ y → x.fam.family = y.fam.family → R x y)
+    (hCC : ∀ x y, C₁ x → C₂ y → x.fam.family = y.fam.family → R x y) :
+    ∀ x y, (N₁ x ∨ C₁ x) → (N₂ y ∨ C₂ y) → x.fam.family = y.fam.family → R x y := by
+  by_cases hw : w = 0
+  · intro x y hx hy hxy
+    rcases hx with hx | hx
+    · exact absurd hw (hN₁ x hx).2
+    rcases hy with hy | hy
+    · exact absurd hw (hN₂ y hy).2
+    exact hCC x y hx hy hxy
+  · rw [labCons_of_ne hw] at hnd
+    exact coh_cons hnd R (fun x h => (hN₁ x h).1) (fun x h => (hN₂ x h).1) hC₁ hC₂ hNN hCC
 
 end Combine
 
@@ -1745,14 +1781,15 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
       x y hx hy hxy hM
   | @Gamma cI mI nI₁ nI₂ lab rd is ts fs q keep ord ih =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
-    have hnd : (lab :: q.labels).Nodup := hld
-    refine coh_cons hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_Gamma is ts fs q keep ord d _ _ hr hz
-        exact AggTok.lab_of_fam h)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_Gamma is ts fs q keep ord d _ _ hr hz
-        exact AggTok.lab_of_fam h)
+    have hnd : (labCons nI₂ lab q.labels).Nodup := hld
+    refine coh_labCons hnd (fun x y => (∀ φ,
+        Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_Gamma is ts fs q keep ord d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_Gamma is ts fs q keep ord d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
       (fun z hz => (q.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy hM => AggQueryIn.coh_node _ hrr hrr.1 lab
         (Q := CohRel)
@@ -1763,19 +1800,20 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
             AggQueryIn.newKey_Gamma is ts fs q keep ord d γ E hr hr' hx hy hxy⟩)
         U M hU hs₁ hs₂ (fun k z hk => ht₁ z (Or.inl ⟨k, hk⟩))
         (fun k z hk => ht₂ z (Or.inl ⟨k, hk⟩)) hx hy hxy hM)
-      (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
+      (fun x y hx hy hxy => ih (labCons_nodup hnd) hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
         (fun z hz => hb₁ z (Or.inr hz)) (fun z hz => hb₂ z (Or.inr hz)) x y hx hy hxy)
       x y hx hy hxy hM
   | @GammaScalar cI mI nI₂ lab rd ts fs q ord ih =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
-    have hnd : (lab :: q.labels).Nodup := hld
-    refine coh_cons hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaScalar ts fs q ord d _ _ hr hz
-        exact AggTok.lab_of_fam h)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaScalar ts fs q ord d _ _ hr hz
-        exact AggTok.lab_of_fam h)
+    have hnd : (labCons nI₂ lab q.labels).Nodup := hld
+    refine coh_labCons hnd (fun x y => (∀ φ,
+        Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaScalar ts fs q ord d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaScalar ts fs q ord d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
       (fun z hz => (q.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy hM => AggQueryIn.coh_node _ hrr hrr.1 lab
         (Q := CohRel)
@@ -1786,7 +1824,7 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
             AggQueryIn.newKey_GammaScalar ts fs q ord d γ E hr hr' hx hy hxy⟩)
         U M hU hs₁ hs₂ (fun k z hk => ht₁ z (Or.inl ⟨k, hk⟩))
         (fun k z hk => ht₂ z (Or.inl ⟨k, hk⟩)) hx hy hxy hM)
-      (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
+      (fun x y hx hy hxy => ih (labCons_nodup hnd) hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
         (fun z hz => hb₁ z (Or.inr hz)) (fun z hz => hb₂ z (Or.inr hz)) x y hx hy hxy)
       x y hx hy hxy hM
   | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
@@ -1813,14 +1851,15 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
       x y hx hy hxy hM
   | @GammaTok cI mI nI₁ nI₂ κ' lab rd is his ts fs a q keep ih =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
-    have hnd : (lab :: q.labels).Nodup := hld
-    refine coh_cons hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaTok is his ts fs a q keep d _ _ hr hz
-        exact AggTok.lab_of_fam h)
-      (fun z ⟨r, hr, hz⟩ => by
-        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaTok is his ts fs a q keep d _ _ hr hz
-        exact AggTok.lab_of_fam h)
+    have hnd : (labCons nI₂ lab q.labels).Nodup := hld
+    refine coh_labCons hnd (fun x y => (∀ φ,
+        Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaTok is his ts fs a q keep d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
+      (fun z ⟨r, hr, ⟨j, hz⟩⟩ => by
+        obtain ⟨_, _, h⟩ := AggQueryIn.newFam_GammaTok is his ts fs a q keep d _ _ hr ⟨j, hz⟩
+        exact ⟨AggTok.lab_of_fam h, (Fin.pos j).ne'⟩)
       (fun z hz => (q.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy hM => AggQueryIn.coh_node _ hrr hrr.1 lab
         (Q := CohRel)
@@ -1831,7 +1870,7 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
             AggQueryIn.newKey_GammaTok is his ts fs a q keep d γ E hr hr' hx hy hxy⟩)
         U M hU hs₁ hs₂ (fun k z hk => ht₁ z (Or.inl ⟨k, hk⟩))
         (fun k z hk => ht₂ z (Or.inl ⟨k, hk⟩)) hx hy hxy hM)
-      (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
+      (fun x y hx hy hxy => ih (labCons_nodup hnd) hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
         (fun z hz => hb₁ z (Or.inr hz)) (fun z hz => hb₂ z (Or.inr hz)) x y hx hy hxy)
       x y hx hy hxy hM
   | @Win cI nI mI pI κw lab rd P O o w t f q hwr dist keep ih =>
