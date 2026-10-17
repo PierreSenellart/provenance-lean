@@ -29,14 +29,14 @@ against it.
   `𝟙` realizes itself (`generatesAtNoExplode_of_generatesAnnZ`). It also
   needs the match to settle plainly on the realized world, which
   `AggQueryIn.settlesAt_randomWorld` proves from its annotated settling.
-* **The scope** is the fragment without second-level aggregation
-  (`AggQueryIn.noGammaNest`), sources and matches alike. The random-world
-  theorem holds for one storey, but the constructions of the positive half
-  do not keep one storey – a product of two relations that both aggregate
-  a second time becomes an apply whose two sides do, and a union of them a
-  bag recursion carrying nested values through its rounds, both outside
-  that theorem – while they keep the fragment without it. Widening to one
-  storey means extending the random-world theorem to those two shapes.
+* **The scope** is one storey of second-level aggregation
+  (`AggQueryIn.nestOnce`), sources and matches alike, which is where the
+  random-world theorem holds. The constructions of the positive half keep
+  it: a product of two relations that both aggregate a second time becomes
+  an apply whose right side reads only the ambient context, and a union of
+  them a bag recursion whose rounds carry nested values that no
+  second-level aggregation of its body reads (`prodFree_reads`,
+  `AggQueryIn.SumFreeAnnOf.np`, `AggQueryIn.nestPres_muSetFreeA`).
 * **The rows proved over `ℕ`, `ℕ × ℕ` and `ℕ[x, y]`** go through as they
   were: their witnesses' rows are annotated otherwise than `𝟘`, so `≈`
   keeps them (`GenRow.exists_finalize_of_zeroNorm`).
@@ -82,7 +82,8 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
       ∀ (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) {γ : Fin c → T}
         (E : EvalEnv T (BoolFunc X)) (D : Database T) (N : Set String),
       E.Kinded γ ρc HK → E.Guarded v →
-      (¬ q.noGammaNest → E.RowsSat (fun x => ∀ a, x = Sum.inr a → a.isNested = false)) →
+      ((∀ k, q.nestReads k = true → ∀ a, E.ctxAt c γ k = Sum.inr a → a.isNested = false) ∧
+        ∀ p ∈ l, q.holeNests p = true → ∀ r ∈ E.holes p.1 p.2, GenRow.NoNested r.fst) →
       (∀ (n' : ℕ) (s' : String), s' ∉ N → D.find n' s' = (d.randomWorld v).find n' s') →
       (∀ s' ∈ N, q.noMention s') →
       (∀ p ∈ l, D.find p.2 p.1 = some (genRandomWorld v (E.holes p.1 p.2))) →
@@ -102,16 +103,26 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
     exact ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+          fun p hp hh => hEN.2 p (List.mem_append_left _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => hH p (List.mem_append_left _ hp)) hr.1,
-      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]),
+          fun p hp hh => hEN.2 p (List.mem_append_right _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).2) (fun p hp => hH p (List.mem_append_right _ hp)) hr.2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    refine ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    refine ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp hh => hEN.2 p hp (by simp [AggQueryIn.holeNests, hh])⟩ hD
       (fun s' h => (hN s' h).1) hH hr.1, fun u hu => ?_⟩
     have hL := AggQueryIn.genRandomWorld_evaluate_env q₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG
-      (fun h => hEN (fun h' => h h'.1)) hD (fun s' h => (hN s' h).1) hH hr.1
+      ⟨fun k hk => hEN.1 k (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp hh => hEN.2 p hp (by simp [AggQueryIn.holeNests, hh])⟩ hD (fun s' h => (hN s' h).1)
+            hH hr.1
     rw [← hL] at hu
     unfold genRandomWorld at hu
     obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.1 hu
@@ -120,29 +131,50 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
       (hE.enter (fun k => AggQueryIn.evaluate_conform q₁ d x hxf k))
       (hG.enter γ (fun k a ha =>
         AggQueryIn.evaluate_guarded q₁ d E x hxf v hG hfx k a ha))
-      (fun h => by
-        have hEN' := hEN (fun h' => h h'.2)
-        refine EvalEnv.rowsSat_enter (fun a b hb => absurd hb (by simp)) hEN' γ ?_
-        rcases hn.2.2 with h₁ | h₂
-        · exact AggQueryIn.evaluate_noNested q₁ h₁ d E hEN' x hxf
-        · exact absurd h₂ h)
+      ⟨fun k hk a ha => by
+        rw [EvalEnv.ctxAt_withCtx] at ha
+        revert hk ha
+        refine Fin.addCases (fun i => ?_) (fun i => ?_) k <;> intro hk ha
+        · rw [Fin.append_left] at ha
+          rcases hn.2.2 with h₁ | h₂
+          · have hL : (List.finRange _).any
+                (fun i => q₂.nestReads (Fin.castAdd _ i)) = true :=
+              List.any_eq_true.mpr ⟨i, List.mem_finRange i, hk⟩
+            exact AggQueryIn.evaluate_noNestedOn q₁ h₁ d E (AggQueryIn.nestReads _)
+              (fun k h => by simp [AggQueryIn.nestReads, hL, h]) hEN.1
+              (fun p hp => hEN.2 p hp (by simp [AggQueryIn.holeNests, hL])) x hxf i a ha
+          · exact absurd hk (by rw [h₂ i]; simp)
+        · rw [Fin.append_right] at ha
+          exact hEN.1 i (by simp [AggQueryIn.nestReads, hk]) a ha,
+        fun p hp => absurd hp List.not_mem_nil⟩
       hD (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) (hr.2 x hxf)
     rw [EvalEnv.ctxAt_withCtx, GenRow.specializeTuple_append] at ih₂'
     exact ih₂'
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+          fun p hp hh => hEN.2 p (List.mem_append_left _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => hH p (List.mem_append_left _ hp)) hr.1,
-      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]),
+          fun p hp hh => hEN.2 p (List.mem_append_right _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).2) (fun p hp => hH p (List.mem_append_right _ hp)) hr.2⟩
   | Dedup q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ih hq hn hh hwk d v E D N hE hG hEN hD hN hH hr
+    exact ih hq hn hh hwk d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    exact ⟨ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1,
-      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD
         (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) hr.2⟩
   | Explode k hk q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
@@ -173,12 +205,17 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
         rw [Function.iterate_succ_apply'] at hr'
         exact AggQueryIn.evaluate_guarded q₁ d _ r hr' v (hG.assignHole s ihk)
     have hNN : ∀ (Y : Multiset (GenRow T (BoolFunc X) m)), (∀ r ∈ Y, GenRow.Conforms κ' r.fst) →
-        ¬ q₁.noGammaNest → (E.assignHole s Y).RowsSat
-          (fun x => ∀ a, x = Sum.inr a → a.isNested = false) := by
-      intro Y hY h
-      refine EvalEnv.rowsSat_assignHole (hEN (fun h' => h h'.2)) s (fun r hr' j a ha => ?_)
+        (∀ k', q₁.nestReads k' = true → ∀ a, (E.assignHole s Y).ctxAt c' γ k' = Sum.inr a →
+            a.isNested = false) ∧
+          ∀ p ∈ [(s, m)], q₁.holeNests p = true → ∀ r ∈ (E.assignHole s Y).holes p.1 p.2,
+            GenRow.NoNested r.fst := by
+      intro Y hY
+      refine ⟨fun k' hk' => hEN.1 k' (by simp [AggQueryIn.nestReads, hk']), ?_⟩
+      intro p hp hh r hr' j a ha
+      obtain rfl := List.mem_singleton.mp hp
+      rw [EvalEnv.assignHole_holes_self] at hr'
       rcases hn.2.2 with h₁ | h₂
-      · exact absurd h₁ h
+      · exact absurd hh (by rw [h₁]; simp)
       · have := hY r hr' j
         rw [ha] at this
         exact absurd this.symm (h₂ j)
@@ -208,7 +245,8 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
           (insert s N) (hE.assignHole s hY)
           (hG.assignHole s hgY) (hNN Y hY) hDY hNY hHY hrY⟩
     have h₀ := AggQueryIn.genRandomWorld_evaluate_env q₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG
-      (fun h => hEN (fun h' => h h'.1)) hD (fun s' h => (hN s' h).1)
+      ⟨fun k hk => hEN.1 k (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD (fun s' h => (hN s' h).1)
       (fun p hp => absurd hp List.not_mem_nil) hr.1
     have hround : ∀ k, (fun X => q₁.evaluatePlain (D.assign s X)
           (GenRow.specializeTuple v (E.ctxAt _ γ)))^[k]
@@ -222,7 +260,9 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
         exact ((hbodyAt _ (hit k) (hgit k) (hr.2.2.2.1 k)).1).symm
     have hz := hbodyAt 0 (fun r hr' => absurd hr' (Multiset.notMem_zero r))
       (fun r hr' => absurd hr' (Multiset.notMem_zero r)) hr.2.2.2.2
-    refine ⟨ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    refine ⟨ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD
       (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1, ?_, ?_,
       fun k => ?_⟩
     · have h1 := hz.1
@@ -255,8 +295,17 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
         obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr'
         exact absurd ha (by simp [GenRow.ofAnnotated])
       have hGk := hG.assignHole s (fun r hr' _ j a ha => (hreg r hr' j a ha).elim)
-      have hNk : ¬ q₁.noGammaNest → _ := fun h => EvalEnv.rowsSat_assignHole
-        (hEN (fun h' => h h'.2)) s (fun r hr' j a ha => (hreg r hr' j a ha).elim)
+      have hNk : (∀ k', q₁.nestReads k' = true → ∀ a,
+            (E.assignHole s (Xk.map GenRow.ofAnnotated)).ctxAt c' γ k' = Sum.inr a →
+              a.isNested = false) ∧
+          ∀ p ∈ [(s, m)], q₁.holeNests p = true →
+            ∀ r ∈ (E.assignHole s (Xk.map GenRow.ofAnnotated)).holes p.1 p.2,
+              GenRow.NoNested r.fst :=
+        ⟨fun k' hk' => hEN.1 k' (by simp [AggQueryIn.nestReads, hk']),
+          fun p hp _ r hr' j a ha => by
+            obtain rfl := List.mem_singleton.mp hp
+            rw [EvalEnv.assignHole_holes_self] at hr'
+            exact (hreg r hr' j a ha).elim⟩
       have hDk := Database.agree_assign_rw hD s (_root_.randomWorld v Xk)
       have hNk' : ∀ s' ∈ insert s N, q₁.noMention s' := fun s' h =>
         (Set.mem_insert_iff.mp h).elim (fun he => he ▸ hh.2.1) (fun hn' => (hN s' hn').2)
@@ -276,7 +325,8 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
             obtain ⟨a, -, rfl⟩ := Multiset.mem_map.mp hr'
             rfl)) hGk hNk hDk hNk' hHk (hr.2.2 k)⟩
     have h₀ := AggQueryIn.genRandomWorld_evaluate_env q₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG
-      (fun h => hEN (fun h' => h h'.1)) hD (fun s' h => (hN s' h).1)
+      ⟨fun k hk => hEN.1 k (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD (fun s' h => (hN s' h).1)
       (fun p hp => absurd hp List.not_mem_nil) hr.1
     have hstep : ∀ k, _root_.randomWorld v (AggQueryIn.muSetStep s q₀ q₁ d γ E
           (muIter (AggQueryIn.muSetStep s q₀ q₁ d γ E) k))
@@ -295,7 +345,9 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
       induction k with
       | zero => rfl
       | succ k ihk => rw [muIter, muIter, ihk, hstep]
-    refine ⟨ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    refine ⟨ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD
       (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1, ?_,
       fun k => ?_⟩
     · obtain ⟨j, hj⟩ := hr.2.1
@@ -307,22 +359,27 @@ theorem AggQueryIn.settlesAt_randomWorld_env :
       exact (hbodyAt k).2
   | Gamma is ts fs q keep ord ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr
+    exact ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr
   | GammaScalar ts fs q ord ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr
+    exact ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr
   | GammaNest is his p f q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     exact ih hq (AggQueryIn.nestOnce_of_noGammaNest q hn) hh hwk.2 d v E D N hE hG
-      (fun _ => hEN (fun h => h)) hD hN hH hr
+      ⟨fun k hk => absurd hk (by rw [AggQueryIn.nestReads_of_noGammaNest q hn k]; simp),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH hr
   | ProvSum is his t q ih => intro hq; exact hq.elim
   | GammaTok is his ts fs a q keep ih => intro hq; exact hq.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr
+    exact ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr
   | WinExpr P O o ws ts fs g q keeps ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
-    exact ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr
+    exact ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr
 
 end RandomWorldSettles
 
@@ -334,7 +391,8 @@ theorem AggQueryIn.settlesAt_randomWorld {T : Type} [ValueType T] {X : Type} [Fi
     (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) {γ : Fin c → T}
     (hr : q.AnnSettlesAt d γ {}) : q.SettlesAt (d.randomWorld v) γ := by
   have h := q.settlesAt_randomWorld_env hq hn hh hwk d v {} (d.randomWorld v) ∅
-    (EvalEnv.kinded_empty γ) (EvalEnv.guarded_empty v) (fun _ => EvalEnv.rowsSat_empty)
+    (EvalEnv.kinded_empty γ) (EvalEnv.guarded_empty v)
+    ⟨fun _ _ a ha => by simp at ha, fun p hp => absurd hp List.not_mem_nil⟩
     (fun _ _ _ => rfl) (fun _ h => absurd h (Set.notMem_empty _))
     (fun p hp => absurd hp List.not_mem_nil) hr
   rw [EvalEnv.empty_ctxAt] at h
@@ -374,22 +432,22 @@ theorem GenRow.exists_finalize_of_zeroNorm {n : ℕ} {A B : Multiset (GenRow T K
 end Approx
 
 /-- **A set of classes generates the annotated algebra up to `≈`**: every
-query of the whole algebra in the minimal universe with no second-level
-aggregation (`AggQueryIn.noGammaNest`) is matched over the set, by a query
-of the same fragment, whose result agrees with the source's up to `≈`
-wherever the source settles. In that fragment the Boolean support of an
-evaluation is the plain evaluation of the realized world
-(`AggQueryIn.genRandomWorld_evaluate`), which is how the rows inherited
-from the plain basis transfer; and the constructions of the positive half
-stay in it. -/
+query of the whole algebra in the minimal universe with at most one storey
+of second-level aggregation (`AggQueryIn.nestOnce`) is matched over the
+set, by a query of the same fragment, whose result agrees with the
+source's up to `≈` wherever the source settles. In that fragment the
+Boolean support of an evaluation is the plain evaluation of the realized
+world (`AggQueryIn.genRandomWorld_evaluate`), which is how the rows
+inherited from the plain basis transfer; and the constructions of the
+positive half stay in it. -/
 def GeneratesAnnZ (T : Type) [ValueType T] (K : Type) [CommSemiringWithMonus K] [DecidableEq K]
     [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) (S : Set OpKind) : Prop :=
   ∀ {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ),
     q.overSchema sch → q.usesOnly plainRecOps → q.inMinimalSig cnt → q.noExplode →
-      q.wellKinded (ColKind.allReg 0) HoleKinds.empty → q.noGammaNest →
+      q.wellKinded (ColKind.allReg 0) HoleKinds.empty → q.nestOnce →
       ∃ q' : AggQuery T n κ,
         q'.overSchema sch ∧ q'.usesOnly S ∧ q'.inMinimalSig cnt ∧ q'.noExplode
-          ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ q'.noGammaNest
+          ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ q'.nestOnce
           ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), q.AnnSettlesAt d γ {} →
               q'.AnnSettlesAt d γ {}
                 ∧ GenRow.zeroNorm (q'.evaluate d γ) = GenRow.zeroNorm (q.evaluate d γ)
@@ -480,7 +538,7 @@ realizes itself. -/
 theorem generatesAtNoExplode_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T}
     {S : Set OpKind} (h : GeneratesAnnZ T BoolNone sch cnt S) {n : ℕ} {κ : Fin n → ColKind}
     (q : AggQuery T n κ) (hf : q.liftFaithful) (ha : q.noExplode)
-    (hwk : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) (hn : q.noGammaNest) :
+    (hwk : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) (hn : q.nestOnce) :
     GeneratesAtNoExplode T sch cnt S q := by
   intro ho hu hi
   obtain ⟨q', ho', hu', hi', ha', hwk', hn', he⟩ := h q ho hu hi ha hwk hn
@@ -492,12 +550,11 @@ theorem generatesAtNoExplode_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T
       (by rw [Database.toPlain_liftOne]; exact hD)
   obtain ⟨hs', heq⟩ := he _ γ hann
   have hq := AggQueryIn.genRandomWorld_evaluate q (AggQueryIn.noProvSum_of_usesOnly q hu)
-    (AggQueryIn.nestOnce_of_noGammaNest q hn) hh
-    hwk (D.liftOne (K := BoolNone)) Empty.elim hann
+    hn hh hwk (D.liftOne (K := BoolNone)) Empty.elim hann
   have hq' := AggQueryIn.genRandomWorld_evaluate q' (AggQueryIn.noProvSum_of_usesOnly q' hu')
-    (AggQueryIn.nestOnce_of_noGammaNest q' hn') hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim hs'
+    hn' hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim hs'
   have hs := AggQueryIn.settlesAt_randomWorld q' (AggQueryIn.noProvSum_of_usesOnly q' hu')
-    (AggQueryIn.nestOnce_of_noGammaNest q' hn') hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim
+    hn' hh' hwk' (D.liftOne (K := BoolNone)) Empty.elim
     hs'
   rw [AnnotatedDatabase.randomWorld_liftOne] at hq hq' hs
   refine ⟨hs, ?_⟩
@@ -531,21 +588,21 @@ theorem empty_mem_of_generatesAnnZ {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone Schema.empty cnt S) : OpKind.empty ∈ S :=
   empty_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit
-    AggQueryIn.noGammaNest_unit).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ AggQueryIn.noGammaNest_unit)).toGeneratesAt
 
 /-- `γ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem gamma_mem_of_generatesAnnZ {sch : Schema} {cnt : SeqAggFunc T} {S : Set OpKind}
     (h : GeneratesAnnZ T BoolNone sch cnt S) : OpKind.gamma ∈ S :=
   gamma_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     AggQueryIn.liftFaithful_unit AggQueryIn.noExplode_unit AggQueryIn.wellKinded_unit
-    AggQueryIn.noGammaNest_unit).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ AggQueryIn.noGammaNest_unit)).toGeneratesAt
 
 /-- `Π` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem proj_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.proj ∈ S :=
   proj_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_projWitness noExplode_projWitness wellKinded_projWitness
-    noGammaNest_projWitness).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ noGammaNest_projWitness)).toGeneratesAt
 
 /-- `×` or the apply is in every set generating the annotated algebra over
 `𝔹` up to `≈`. -/
@@ -553,14 +610,14 @@ theorem prod_or_apply_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKin
     (h : GeneratesAnnZ ℕ BoolNone schemaR cnt S) : OpKind.prod ∈ S ∨ OpKind.apply ∈ S :=
   prod_or_apply_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_prodWitness noExplode_prodWitness wellKinded_prodWitness
-    noGammaNest_prodWitness).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ noGammaNest_prodWitness)).toGeneratesAt
 
 /-- `μ^⊎` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem muBag_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} (hcnt : cnt.ReadsCount)
     {S : Set OpKind} (h : GeneratesAnnZ ℕ BoolNone schemaSE cnt S) : OpKind.muBag ∈ S :=
   muBag_mem_of_generatesAt hcnt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_chainWitness noExplode_chainWitness wellKinded_chainWitness
-    noGammaNest_chainWitness).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ noGammaNest_chainWitness)).toGeneratesAt
 
 /-- `win` is in every set generating the annotated algebra over `𝔹` up to
 `≈`, with the counting aggregate. -/
@@ -568,13 +625,14 @@ theorem win_mem_of_generatesAnnZ {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaR SeqAggFunc.count S) : OpKind.win ∈ S :=
   win_mem_of_generatesAt (generatesAtNoExplode_of_generatesAnnZ h _
     liftFaithful_winWitness noExplode_winWitness wellKinded_winWitness
-    noGammaNest_winWitness).toGeneratesAt
+    (AggQueryIn.nestOnce_of_noGammaNest _ noGammaNest_winWitness)).toGeneratesAt
 
 /-- `σ` is in every set generating the annotated algebra over `𝔹` up to `≈`. -/
 theorem sel_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
     (h : GeneratesAnnZ ℕ BoolNone schemaS cnt S) : OpKind.sel ∈ S :=
   sel_mem_of_generatesAtNoExplode (generatesAtNoExplode_of_generatesAnnZ h _
-    liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness noGammaNest_ltWitness)
+    liftFaithful_ltWitness noExplode_ltWitness wellKinded_ltWitness
+    (AggQueryIn.nestOnce_of_noGammaNest _ noGammaNest_ltWitness))
 
 /-- **`ε` or `μ^∪` is in every set generating the annotated algebra over `ℕ`
 up to `≈`**: the row annotated `2` that `ε(R)` gives is not one `≈` drops. -/
@@ -584,7 +642,8 @@ theorem dedup_or_muSet_mem_of_generatesAnnZ {S : Set OpKind}
   by_contra hS
   rw [not_or] at hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h epsWitness overSchema_epsWitness
-    usesOnly_epsWitness trivial trivial trivial (by simp [epsWitness, AggQueryIn.noGammaNest])
+    usesOnly_epsWitness trivial trivial trivial
+    (AggQueryIn.nestOnce_of_noGammaNest _ (by simp [epsWitness, AggQueryIn.noGammaNest]))
   obtain ⟨-, he⟩ := hm dEps (fun _ => 0) trivial
   obtain ⟨r, hr, hre⟩ := Multiset.mem_map.1 mem_evaluateAnnotated_epsWitness
   have hfin : r.snd.finalize = 2 := congrArg Prod.snd hre
@@ -601,7 +660,7 @@ theorem diff_mem_of_generatesAnnZ {cnt : SeqAggFunc ℕ} {S : Set OpKind}
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h diffWitness overSchema_diffWitness
     usesOnly_diffWitness ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
-    (by simp [diffWitness, AggQueryIn.noGammaNest])
+    (AggQueryIn.nestOnce_of_noGammaNest _ (by simp [diffWitness, AggQueryIn.noGammaNest]))
   obtain ⟨-, he⟩ := hm dDiff (fun _ => 0) ⟨trivial, trivial⟩
   have hmem : ((((fun _ => 0) : Tuple ℕ 1), NatPair.mk 0 1) : AnnotatedTuple ℕ NatPair 1)
       ∈ diffWitness.evaluateAnnotated dDiff (fun _ => 0) := by
@@ -624,7 +683,7 @@ theorem diff_mem_of_generatesAnnZ_xy {cnt : SeqAggFunc ℕ} {S : Set OpKind}
   by_contra hS
   obtain ⟨q', -, hu', hi', ha', -, -, hm⟩ := h diffWitness overSchema_diffWitness
     usesOnly_diffWitness ⟨trivial, trivial⟩ ⟨trivial, trivial⟩ ⟨trivial, trivial⟩
-    (by simp [diffWitness, AggQueryIn.noGammaNest])
+    (AggQueryIn.nestOnce_of_noGammaNest _ (by simp [diffWitness, AggQueryIn.noGammaNest]))
   obtain ⟨-, he⟩ := hm dDiffXY (fun _ => 0) ⟨trivial, trivial⟩
   have hmem : ((((fun _ => 0) : Tuple ℕ 1),
       MvPolynomial.X 0 + MvPolynomial.X 1 - MvPolynomial.X 1) : AnnotatedTuple ℕ PolyXY 1)
@@ -699,10 +758,10 @@ theorem GenRow.zeroNorm_eq_of_fin {T : Type} [ValueType T] {K : Type} [CommSemir
   rw [hz, hz, h]
 
 /-- **The nine classes generate the annotated algebra up to `≈` over every
-semiring of the class**, in the fragment without second-level
-aggregation: the constructions agree with their source row by row up to
-finalization (`exists_annEpsOps_match`), which is what `≈` reads, and
-they introduce no second-level aggregation. -/
+semiring of the class**, with one storey of second-level aggregation: the
+constructions agree with their source row by row up to finalization
+(`exists_annEpsOps_match`), which is what `≈` reads, and they keep a query
+at one storey. -/
 theorem generatesAnnZ_annEpsOps_of_class {T : Type} [ValueType T] {K : Type}
     [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] (hK : AnnBasisClass K)
     (sch : Schema) (cnt : SeqAggFunc T) : GeneratesAnnZ T K sch cnt annEpsOps := by
@@ -712,14 +771,14 @@ theorem generatesAnnZ_annEpsOps_of_class {T : Type} [ValueType T] {K : Type}
     rcases hK with ⟨hδ, hR⟩ | hδ
     · exact ⟨false, AggQueryIn.nodeCorrect_succ cnt hδ hR⟩
     · exact ⟨true, AggQueryIn.nodeCorrect_chain cnt hδ⟩
-  obtain ⟨q', ho', hu', hi', ha', hp', hn', hm⟩ :=
+  obtain ⟨q', ho', hu', hi', ha', hp', -, hn', hm⟩ :=
     exists_annEpsOps_match sch cnt ch hnc q ho hu hi ha hp
   exact ⟨q', ho', hu', hi', ha', hp', hn' hn, fun d γ hs =>
     ⟨(hm d γ trivial hs).1, GenRow.zeroNorm_eq_of_fin (hm d γ trivial hs).2⟩⟩
 
 /-- **The annotated basis theorem up to `≈`, over the class**: the nine
 classes generate the annotated algebra up to `≈` over every semiring of
-`AnnBasisClass`, in the fragment without second-level aggregation, and no
+`AnnBasisClass`, with one storey of second-level aggregation, and no
 proper subset of them does over all of those semirings. -/
 theorem annEpsOps_isBasis_in_class_approx :
     (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],

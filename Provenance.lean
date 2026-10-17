@@ -1358,8 +1358,8 @@ proven engine several general results reuse internally.
   (`generatesAtNoExplode_of_generatesAnnZ`, with
   `AggQueryIn.settlesAt_randomWorld`), the others keep their witnesses'
   rows; with the positive half, the nine classes are a basis up to `≈`
-  over the class, without second-level aggregation
-  (`annEpsOps_isBasis_in_class_approx`)
+  over the class, with one storey of second-level aggregation
+  (`annEpsOps_isBasis_in_class_approx`, under `AggQueryIn.nestOnce`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

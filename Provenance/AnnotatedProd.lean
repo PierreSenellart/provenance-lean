@@ -800,6 +800,48 @@ theorem AggQueryIn.noGammaNest_castIdx {c n : ℕ} {κ : Fin n → ColKind}
   subst h; exact Iff.rfl
 
 omit [ValueType T] in
+@[simp] theorem AggQueryIn.nestOnce_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).nestOnce ↔ q.nestOnce := by
+  cases h; exact Iff.rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.nestOnce_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
+    (q.castIdx h).nestOnce ↔ q.nestOnce := by
+  subst h; exact Iff.rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.nestReads_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).nestReads = q.nestReads := by
+  cases h; rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.nestReads_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
+    (q.castIdx h).nestReads = q.nestReads := by
+  subst h; rfl
+
+omit [ValueType T] in
+@[simp] theorem AggQueryIn.holeNests_castKind {c n : ℕ} {κ κ' : Fin n → ColKind}
+    {l : List (String × ℕ)} (h : κ = κ') (q : AggQueryIn T c n κ l) :
+    (q.castKind h).holeNests = q.holeNests := by
+  cases h; rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.holeNests_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
+    (q.castIdx h).holeNests = q.holeNests := by
+  subst h; rfl
+
+omit [ValueType T] in
+theorem AggQueryIn.readsOuter_castIdx {c n : ℕ} {κ : Fin n → ColKind}
+    {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) :
+    (q.castIdx h).readsOuter = q.readsOuter := by
+  subst h; rfl
+
+omit [ValueType T] in
 theorem AggQueryIn.wellKinded_castIdx {c n : ℕ} {κ : Fin n → ColKind}
     {l l' : List (String × ℕ)} (h : l = l') (q : AggQueryIn T c n κ l) {ρc : Fin c → ColKind}
     {HK : HoleKinds} : (q.castIdx h).wellKinded ρc HK ↔ q.wellKinded ρc HK := by
@@ -918,6 +960,199 @@ theorem AggQueryIn.noGammaNest_substMap :
   | GammaTok is his ts fs a q keep ih => exact fun θ => ih θ
   | Win P O o w t fw q hrr dist keep ih => exact fun θ => ih θ
   | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => ih θ
+
+omit [ValueType T] in
+/-- The ambient-parameter shift under an apply sends nothing to the left
+row's block. -/
+theorem lift_eq_inr_castAdd {c d n₁ : ℕ} (θ : Fin c → T ⊕ Fin d) (i : Fin n₁)
+    (k' : Fin (n₁ + c)) :
+    Fin.append (fun k => (Sum.inr (Fin.castAdd d k) : T ⊕ Fin (n₁ + d)))
+        (fun i => Sum.map id (Fin.natAdd n₁) (θ i)) k' = Sum.inr (Fin.castAdd d i)
+      ↔ k' = Fin.castAdd c i := by
+  refine Fin.addCases (fun i' => ?_) (fun i' => ?_) k'
+  · rw [Fin.append_left]
+    constructor
+    · intro h
+      have := congrArg Fin.val (Sum.inr.inj h)
+      exact Fin.ext (by simpa using this)
+    · intro h
+      have := congrArg Fin.val h
+      simp only [Fin.val_castAdd] at this
+      rw [show i' = i from Fin.ext this]
+  · rw [Fin.append_right]
+    constructor
+    · intro h
+      cases hθ : θ i' with
+      | inl a => rw [hθ] at h; exact absurd h (by simp)
+      | inr b =>
+        rw [hθ] at h
+        have := congrArg Fin.val (Sum.inr.inj h)
+        simp at this; omega
+    · intro h
+      have := congrArg Fin.val h
+      simp at this; omega
+
+omit [ValueType T] in
+/-- **A substitution moves the positions feeding a second-level
+aggregation** to their images. -/
+theorem AggQueryIn.nestReads_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      {d : ℕ} (θ : Fin c → T ⊕ Fin d) (j : Fin d),
+      (q.substMap θ).nestReads j = true → ∃ k, θ k = Sum.inr j ∧ q.nestReads k = true := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => intro d θ j h; simp [AggQueryIn.substMap, AggQueryIn.nestReads] at h
+  | Hole _ _ _ => intro d θ j h; simp [AggQueryIn.substMap, AggQueryIn.nestReads] at h
+  | Empty => intro d θ j h; simp [AggQueryIn.substMap, AggQueryIn.nestReads] at h
+  | Param pv ρ => intro d θ j h; simp [AggQueryIn.substMap, AggQueryIn.nestReads] at h
+  | Proj ps q ih =>
+    intro d θ j h
+    rw [AggQueryIn.substMap, AggQueryIn.nestReads_castKind] at h
+    exact ih θ j h
+  | Sel φ q _ ih => exact fun θ j h => ih θ j h
+  | Dedup q ih => exact fun θ j h => ih θ j h
+  | Explode _ _ q ih => exact fun θ j h => ih θ j h
+  | Retag _ q ih => exact fun θ j h => ih θ j h
+  | Gamma is ts fs q keep ord ih => exact fun θ j h => ih θ j h
+  | GammaScalar ts fs q ord ih => exact fun θ j h => ih θ j h
+  | ProvSum _ _ t q ih => exact fun θ j h => ih θ j h
+  | GammaTok _ _ ts _ a q _ ih => exact fun θ j h => ih θ j h
+  | Win _ _ _ _ t _ q _ _ _ ih => exact fun θ j h => ih θ j h
+  | WinExpr _ _ _ _ ts _ _ q _ ih => exact fun θ j h => ih θ j h
+  | GammaNest _ _ p _ q ih =>
+    intro d θ j h
+    exact (AggQueryIn.readsOuter_substMap q θ j).mp h
+  | Prod q₁ q₂ ih₁ ih₂ | Sum q₁ q₂ ih₁ ih₂ | Diff q₁ q₂ ih₁ ih₂ =>
+    intro d θ j h
+    simp only [AggQueryIn.substMap, AggQueryIn.nestReads, Bool.or_eq_true] at h
+    rcases h with h | h
+    · obtain ⟨k, hk, h'⟩ := ih₁ θ j h
+      exact ⟨k, hk, by simp [AggQueryIn.nestReads, h']⟩
+    · obtain ⟨k, hk, h'⟩ := ih₂ θ j h
+      exact ⟨k, hk, by simp [AggQueryIn.nestReads, h']⟩
+  | Mu s q₀ q₁ ih₀ ih₁ | MuSet s q₀ q₁ ih₀ ih₁ =>
+    intro d θ j h
+    simp only [AggQueryIn.substMap, AggQueryIn.nestReads, Bool.or_eq_true] at h
+    rcases h with h | h
+    · obtain ⟨k, hk, h'⟩ := ih₀ θ j h
+      exact ⟨k, hk, by simp [AggQueryIn.nestReads, h']⟩
+    · obtain ⟨k, hk, h'⟩ := ih₁ θ j h
+      exact ⟨k, hk, by simp [AggQueryIn.nestReads, h']⟩
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+    intro d θ j h
+    simp only [AggQueryIn.substMap, AggQueryIn.nestReads, Bool.or_eq_true, Bool.and_eq_true,
+      List.any_eq_true, List.mem_finRange, true_and] at h
+    rcases h with (h | h) | ⟨⟨i, hi⟩, h⟩
+    · obtain ⟨k, hk, h'⟩ := ih₁ θ j h
+      exact ⟨k, hk, by simp [AggQueryIn.nestReads, h']⟩
+    · obtain ⟨k', hk', h'⟩ := ih₂ _ _ h
+      obtain ⟨k, rfl, hθ⟩ := (lift_eq_inr_natAdd θ j k').mp hk'
+      exact ⟨k, hθ, by simp [AggQueryIn.nestReads, h']⟩
+    · obtain ⟨k', hk', h'⟩ := ih₂ _ _ hi
+      rw [lift_eq_inr_castAdd] at hk'
+      subst hk'
+      obtain ⟨k, hk, hr⟩ := (AggQueryIn.readsOuter_substMap q₁ θ j).mp h
+      refine ⟨k, hk, ?_⟩
+      simp only [AggQueryIn.nestReads, Bool.or_eq_true, Bool.and_eq_true, List.any_eq_true,
+        List.mem_finRange, true_and]
+      exact Or.inr ⟨⟨i, h'⟩, hr⟩
+
+omit [ValueType T] in
+/-- The right side of an apply over a query substituted by `applyOuter`
+reads none of the left row. -/
+theorem AggQueryIn.nestReads_substMap_lift {c d n₁ n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (θ : Fin c → T ⊕ Fin d) (i : Fin n₁) :
+    (q.substMap (fun j => Sum.map id (Fin.natAdd n₁) (θ j))).nestReads (Fin.castAdd d i)
+      = false := by
+  cases h : (q.substMap (fun j => Sum.map id (Fin.natAdd n₁) (θ j))).nestReads
+    (Fin.castAdd d i)
+  · rfl
+  · obtain ⟨k, hk, -⟩ := AggQueryIn.nestReads_substMap q _ _ h
+    cases hθ : θ k with
+    | inl a => rw [hθ] at hk; exact absurd hk (by simp)
+    | inr b =>
+      rw [hθ] at hk
+      have := congrArg Fin.val (Sum.inr.inj hk)
+      simp at this; omega
+
+omit [ValueType T] in
+/-- A substitution feeds no new round to a second-level aggregation. -/
+theorem AggQueryIn.holeNests_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      {d : ℕ} (θ : Fin c → T ⊕ Fin d) (p : String × ℕ),
+      (q.substMap θ).holeNests p = true → q.holeNests p = true := by
+  intro c n κ l q
+  induction q with
+  | Proj ps q ih =>
+    intro d θ p h
+    rw [AggQueryIn.substMap, AggQueryIn.holeNests_castKind] at h
+    exact ih θ p h
+  | Sel φ q _ ih => exact fun θ p h => ih θ p h
+  | Explode _ _ q ih => exact fun θ p h => ih θ p h
+  | Retag _ q ih => exact fun θ p h => ih θ p h
+  | Prod q₁ q₂ ih₁ ih₂ | Sum q₁ q₂ ih₁ ih₂ =>
+    intro d θ p h
+    simp only [AggQueryIn.substMap, AggQueryIn.holeNests, Bool.or_eq_true] at h ⊢
+    exact h.imp (ih₁ θ p) (ih₂ θ p)
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+    intro d θ p h
+    simp only [AggQueryIn.substMap, AggQueryIn.holeNests, Bool.or_eq_true, List.any_eq_true,
+      List.mem_finRange, true_and] at h ⊢
+    refine h.imp (ih₁ θ p) (fun ⟨i, hi⟩ => ?_)
+    obtain ⟨k', hk', h'⟩ := AggQueryIn.nestReads_substMap q₂ _ _ hi
+    rw [lift_eq_inr_castAdd] at hk'
+    subst hk'
+    exact ⟨i, h'⟩
+  | _ => intro d θ p h; simp [AggQueryIn.substMap, AggQueryIn.holeNests] at h
+
+omit [ValueType T] in
+/-- **A substitution keeps a query at one storey.** -/
+theorem AggQueryIn.nestOnce_substMap :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) {d : ℕ}
+      (θ : Fin c → T ⊕ Fin d), q.nestOnce → (q.substMap θ).nestOnce := by
+  intro c n κ l q
+  induction q with
+  | Rel n s => exact fun θ h => h
+  | Hole n s => exact fun θ h => h
+  | Param pv ρ => exact fun θ h => h
+  | Empty => exact fun θ h => h
+  | Proj ps q ih =>
+    intro d θ h
+    rw [AggQueryIn.substMap, AggQueryIn.nestOnce_castKind]
+    exact ih θ h
+  | Sel φ q _ ih => exact fun θ h => ih θ h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun θ h => ⟨ih₁ θ h.1, ih₂ θ h.2⟩
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+    intro d θ h
+    refine ⟨ih₁ θ h.1, ih₂ _ h.2.1, h.2.2.imp (AggQueryIn.noGammaNest_substMap q₁ θ).mpr
+      (fun h' i => ?_)⟩
+    cases hr : (q₂.substMap (Fin.append (fun k => (Sum.inr (Fin.castAdd d k) : T ⊕ Fin (n₁ + d)))
+        (fun j => Sum.map id (Fin.natAdd n₁) (θ j)))).nestReads (Fin.castAdd d i)
+    · rfl
+    · obtain ⟨k', hk', h''⟩ := AggQueryIn.nestReads_substMap q₂ _ _ hr
+      rw [lift_eq_inr_castAdd] at hk'
+      subst hk'
+      exact absurd h'' (by rw [h' i]; simp)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun θ h => ⟨ih₁ θ h.1, ih₂ θ h.2⟩
+  | Dedup q ih => exact fun θ h => ih θ h
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun θ h => ⟨ih₁ θ h.1, ih₂ θ h.2⟩
+  | Explode k hk q ih => exact fun θ h => ih θ h
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    intro d θ h
+    refine ⟨ih₀ θ h.1, ih₁ θ h.2.1, h.2.2.imp (fun h' => ?_) id⟩
+    cases hr : (q₁.substMap θ).holeNests _
+    · rfl
+    · exact absurd (AggQueryIn.holeNests_substMap q₁ θ _ hr) (by rw [h']; simp)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun θ h => ⟨ih₀ θ h.1, ih₁ θ h.2⟩
+  | Gamma is ts fs q keep ord ih => exact fun θ h => ih θ h
+  | GammaScalar ts fs q ord ih => exact fun θ h => ih θ h
+  | GammaNest is his p fn q ih =>
+    exact fun θ h => (AggQueryIn.noGammaNest_substMap q θ).mpr h
+  | ProvSum is his t q ih => exact fun θ h => ih θ h
+  | Retag a q ih => exact fun θ h => ih θ h
+  | GammaTok is his ts fs a q keep ih => exact fun θ h => ih θ h
+  | Win P O o w t fw q hrr dist keep ih => exact fun θ h => ih θ h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun θ h => ih θ h
 
 /-! ## A column carried through, in any context -/
 
@@ -1236,6 +1471,137 @@ theorem noExplode_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
     exact ⟨h₂, (AggQueryIn.noExplode_substMap _ _).mpr
       ((AggQueryIn.noExplode_castIdx _ _).mpr h₁)⟩
   · exact ⟨h₁, h₂⟩
+
+omit [ValueType T] in
+theorem readsOuter_applyOuter {c n₁ n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (j : Fin (n₁ + c)) :
+    (q.substMap (applyOuter T c n₁)).readsOuter j = true
+      ↔ ∃ k, j = Fin.natAdd n₁ k ∧ q.readsOuter k = true := by
+  rw [AggQueryIn.readsOuter_substMap]
+  constructor
+  · rintro ⟨k, hk, h⟩
+    exact ⟨k, (Sum.inr.inj hk).symm, h⟩
+  · rintro ⟨k, rfl, h⟩
+    exact ⟨k, rfl, h⟩
+
+omit [ValueType T] in
+@[simp] theorem readsOuter_applyOuter_natAdd {c n₁ n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (j : Fin c) :
+    (q.substMap (applyOuter T c n₁)).readsOuter (Fin.natAdd n₁ j) = q.readsOuter j := by
+  cases h : q.readsOuter j
+  · cases h' : (q.substMap (applyOuter T c n₁)).readsOuter (Fin.natAdd n₁ j)
+    · rfl
+    · obtain ⟨k, hk, hr⟩ := (readsOuter_applyOuter q _).mp h'
+      rw [Fin.natAdd_inj] at hk; subst hk
+      rw [h] at hr; exact hr.symm
+  · exact (readsOuter_applyOuter q _).mpr ⟨j, rfl, h⟩
+
+omit [ValueType T] in
+theorem nestReads_applyOuter {c n₁ n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (j : Fin (n₁ + c)) :
+    (q.substMap (applyOuter T c n₁)).nestReads j = true
+      → ∃ k, j = Fin.natAdd n₁ k ∧ q.nestReads k = true := by
+  intro h
+  obtain ⟨k, hk, h⟩ := AggQueryIn.nestReads_substMap q _ j h
+  exact ⟨k, (Sum.inr.inj hk).symm, h⟩
+
+omit [ValueType T] in
+/-- An apply whose right side is read under the ambient context only feeds
+no left column to a second-level aggregation. -/
+theorem nestReads_applyOuter_castAdd {c n₁ n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (i : Fin n₁) :
+    (q.substMap (applyOuter T c n₁)).nestReads (Fin.castAdd c i) = false := by
+  cases h : (q.substMap (applyOuter T c n₁)).nestReads (Fin.castAdd c i)
+  · rfl
+  · obtain ⟨k, hk, -⟩ := nestReads_applyOuter q _ h
+    have := congrArg Fin.val hk
+    simp at this; omega
+
+omit [ValueType T] in
+theorem leftNest_applyOuter {c n₁ n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) :
+    (List.finRange n₁).any (fun i => (q.substMap (applyOuter T c n₁)).nestReads
+      (Fin.castAdd c i)) = false := by
+  simp [nestReads_applyOuter_castAdd]
+
+omit [ValueType T] in
+/-- **What an apply over `applyOuter` reads**, feeds to a second-level
+aggregation and passes a round to one: what its two sides do. -/
+theorem applyOuter_reads {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+    {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁) (q₂ : AggQueryIn T c n₂ κ₂ l₂)
+    (h₂ : l₂ = []) :
+    (∀ k, (AggQueryIn.Apply q₁ ((q₂.castIdx h₂).substMap (applyOuter T c n₁))).readsOuter k
+        = (q₁.readsOuter k || q₂.readsOuter k))
+      ∧ (∀ k, (AggQueryIn.Apply q₁ ((q₂.castIdx h₂).substMap
+          (applyOuter T c n₁))).nestReads k = true
+          → q₁.nestReads k = true ∨ q₂.nestReads k = true)
+      ∧ (∀ p, (AggQueryIn.Apply q₁ ((q₂.castIdx h₂).substMap
+          (applyOuter T c n₁))).holeNests p = q₁.holeNests p)
+      ∧ (q₁.nestOnce → q₂.nestOnce →
+          (AggQueryIn.Apply q₁ ((q₂.castIdx h₂).substMap (applyOuter T c n₁))).nestOnce) := by
+  subst h₂
+  refine ⟨fun k => ?_, fun k h => ?_, fun p => ?_, fun h₁ h₂ => ?_⟩
+  · simp only [AggQueryIn.readsOuter]
+    congr 1
+    cases h : q₂.readsOuter k
+    · cases h' : ((q₂.castIdx rfl).substMap (applyOuter T c n₁)).readsOuter (Fin.natAdd n₁ k)
+      · rfl
+      · obtain ⟨k', hk', hr⟩ := (readsOuter_applyOuter _ _).mp h'
+        rw [Fin.natAdd_inj] at hk'; subst hk'
+        exact absurd hr (by rw [AggQueryIn.castIdx] at hr ⊢; simp_all)
+    · exact (readsOuter_applyOuter _ _).mpr ⟨k, rfl, by simpa [AggQueryIn.castIdx] using h⟩
+  · simp only [AggQueryIn.nestReads, leftNest_applyOuter, Bool.false_and, Bool.or_false,
+      Bool.or_eq_true] at h
+    refine h.imp id (fun h => ?_)
+    obtain ⟨k', hk', hr⟩ := nestReads_applyOuter _ _ h
+    rw [Fin.natAdd_inj] at hk'; subst hk'
+    simpa [AggQueryIn.castIdx] using hr
+  · simp only [AggQueryIn.holeNests, leftNest_applyOuter, Bool.or_false]
+  · exact ⟨h₁, AggQueryIn.nestOnce_substMap _ _ h₂,
+      Or.inr fun i => nestReads_applyOuter_castAdd _ i⟩
+
+omit [ValueType T] in
+theorem readsOuter_carryColIn {c n : ℕ} (κ : Fin n → ColKind) (k : Fin n) (j : Fin c) :
+    (carryColIn (T := T) (c := c) κ k).readsOuter j = false := by
+  unfold carryColIn
+  split <;> rfl
+
+omit [ValueType T] in
+/-- **What a product written with an apply reads**, feeds to a second-level
+aggregation and passes a round to one: what its factors do, and it stays at
+one storey. -/
+theorem prodAnn_reads {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
+    {κ₂ : Fin n₂ → ColKind} {l₁ l₂ : List (String × ℕ)} (q₁ : AggQueryIn T c n₁ κ₁ l₁)
+    (q₂ : AggQueryIn T c n₂ κ₂ l₂) :
+    (∀ k, (prodAnn q₁ q₂).readsOuter k = (q₁.readsOuter k || q₂.readsOuter k))
+      ∧ (∀ k, (prodAnn q₁ q₂).nestReads k = true
+          → q₁.nestReads k = true ∨ q₂.nestReads k = true)
+      ∧ (∀ p, (prodAnn q₁ q₂).holeNests p = true
+          → q₁.holeNests p = true ∨ q₂.holeNests p = true)
+      ∧ (q₁.nestOnce → q₂.nestOnce → (prodAnn q₁ q₂).nestOnce) := by
+  unfold prodAnn
+  split_ifs with hl₂ hl₁
+  · obtain ⟨hr, hn, hh, ho⟩ := applyOuter_reads q₁ q₂ hl₂
+    refine ⟨fun k => ?_, fun k h => ?_, fun p h => ?_, fun h₁ h₂ => ?_⟩
+    · rw [AggQueryIn.readsOuter_castIdx, hr]
+    · rw [AggQueryIn.nestReads_castIdx] at h; exact hn k h
+    · rw [AggQueryIn.holeNests_castIdx, hh] at h; exact Or.inl h
+    · rw [AggQueryIn.nestOnce_castIdx]; exact ho h₁ h₂
+  · obtain ⟨hr, hn, hh, ho⟩ := applyOuter_reads q₂ q₁ hl₁
+    refine ⟨fun k => ?_, fun k h => ?_, fun p h => ?_, fun h₁ h₂ => ?_⟩
+    · rw [AggQueryIn.readsOuter_castIdx, AggQueryIn.readsOuter_castKind]
+      have := hr k
+      simp only [AggQueryIn.readsOuter] at this
+      simp only [AggQueryIn.readsOuter, readsOuter_carryColIn, this]
+      simp [Bool.or_comm]
+    · rw [AggQueryIn.nestReads_castIdx, AggQueryIn.nestReads_castKind] at h
+      exact (hn k h).symm
+    · rw [AggQueryIn.holeNests_castIdx, AggQueryIn.holeNests_castKind] at h
+      exact Or.inr ((hh p).symm ▸ h)
+    · rw [AggQueryIn.nestOnce_castIdx, AggQueryIn.nestOnce_castKind]
+      exact ho h₂ h₁
+  · exact ⟨fun k => rfl, fun k h => by simpa [AggQueryIn.nestReads] using h,
+      fun p h => by simpa [AggQueryIn.holeNests] using h, fun h₁ h₂ => ⟨h₁, h₂⟩⟩
 
 omit [ValueType T] in
 theorem noGammaNest_prodAnn {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
@@ -1642,6 +2008,110 @@ theorem noGammaNest_prodFree :
   | GammaTok is his ts fs a q keep ih => exact fun h => ih h
   | Win P O o w t g q hrr dist keep ih => exact fun h => ih h
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => ih h
+
+omit [ValueType T] in
+/-- **The product pass reads what the query reads**, feeds no more to a
+second-level aggregation, and keeps it at one storey. -/
+theorem prodFree_reads :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      (∀ k, (prodFree q).readsOuter k = q.readsOuter k)
+        ∧ (∀ k, (prodFree q).nestReads k = true → q.nestReads k = true)
+        ∧ (∀ p, (prodFree q).holeNests p = true → q.holeNests p = true)
+        ∧ (q.nestOnce → (prodFree q).nestOnce) := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact ⟨fun _ => rfl, fun _ h => h, fun _ h => h, id⟩
+  | Hole _ _ => exact ⟨fun _ => rfl, fun _ h => h, fun _ h => h, id⟩
+  | Param pv ρ => exact ⟨fun _ => rfl, fun _ h => h, fun _ h => h, id⟩
+  | Empty => exact ⟨fun _ => rfl, fun _ h => h, fun _ h => h, id⟩
+  | Proj ps q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, ih.2.2.1, ih.2.2.2⟩
+  | Sel φ q hφ ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, ih.2.2.1, ih.2.2.2⟩
+  | Explode k hk q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, ih.2.2.1, ih.2.2.2⟩
+  | Retag hk q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, ih.2.2.1, ih.2.2.2⟩
+  | Dedup q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | Gamma is ts fs q keep ord ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | GammaScalar ts fs q ord ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | ProvSum is his t q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | GammaTok is his ts fs a q keep ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | Win P O o w t g q hrr dist keep ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | WinExpr P O o ws ts fs g q keeps ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1],
+      ih.2.1, fun p h => h, ih.2.2.2⟩
+  | GammaNest is his p g q ih =>
+    exact ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih.1], fun k h => by
+      show q.readsOuter k = true
+      rw [← ih.1 k]; exact h, fun p h => h, noGammaNest_prodFree q⟩
+  | Prod q₁ q₂ ih₁ ih₂ =>
+    obtain ⟨hr, hn, hh, ho⟩ := prodAnn_reads (prodFree q₁) (prodFree q₂)
+    refine ⟨fun k => ?_, fun k h => ?_, fun p h => ?_, fun h => ho (ih₁.2.2.2 h.1) (ih₂.2.2.2 h.2)⟩
+    · show (prodAnn _ _).readsOuter k = _
+      rw [hr, ih₁.1, ih₂.1]; rfl
+    · simp only [AggQueryIn.nestReads, Bool.or_eq_true]
+      exact (hn k h).imp (ih₁.2.1 k) (ih₂.2.1 k)
+    · simp only [AggQueryIn.holeNests, Bool.or_eq_true]
+      exact (hh p h).imp (ih₁.2.2.1 p) (ih₂.2.2.1 p)
+  | Sum q₁ q₂ ih₁ ih₂ =>
+    refine ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih₁.1, ih₂.1],
+      fun k h => ?_, fun p h => ?_, fun h => ⟨ih₁.2.2.2 h.1, ih₂.2.2.2 h.2⟩⟩
+    · simp only [prodFree, AggQueryIn.nestReads, Bool.or_eq_true] at h ⊢
+      exact h.imp (ih₁.2.1 k) (ih₂.2.1 k)
+    · simp only [prodFree, AggQueryIn.holeNests, Bool.or_eq_true] at h ⊢
+      exact h.imp (ih₁.2.2.1 p) (ih₂.2.2.1 p)
+  | Diff q₁ q₂ ih₁ ih₂ =>
+    refine ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih₁.1, ih₂.1],
+      fun k h => ?_, fun p h => h, fun h => ⟨ih₁.2.2.2 h.1, ih₂.2.2.2 h.2⟩⟩
+    simp only [prodFree, AggQueryIn.nestReads, Bool.or_eq_true] at h ⊢
+    exact h.imp (ih₁.2.1 k) (ih₂.2.1 k)
+  | MuSet s q₀ q₁ ih₀ ih₁ =>
+    refine ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih₀.1, ih₁.1],
+      fun k h => ?_, fun p h => h, fun h => ⟨ih₀.2.2.2 h.1, ih₁.2.2.2 h.2⟩⟩
+    simp only [prodFree, AggQueryIn.nestReads, Bool.or_eq_true] at h ⊢
+    exact h.imp (ih₀.2.1 k) (ih₁.2.1 k)
+  | Mu s q₀ q₁ ih₀ ih₁ =>
+    refine ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih₀.1, ih₁.1],
+      fun k h => ?_, fun p h => h, fun h => ⟨ih₀.2.2.2 h.1, ih₁.2.2.2 h.2.1, h.2.2.imp
+        (fun h' => ?_) id⟩⟩
+    · simp only [prodFree, AggQueryIn.nestReads, Bool.or_eq_true] at h ⊢
+      exact h.imp (ih₀.2.1 k) (ih₁.2.1 k)
+    · cases hc : (prodFree q₁).holeNests _
+      · rfl
+      · exact absurd (ih₁.2.2.1 _ hc) (by rw [h']; simp)
+  | @Apply cI n₁ n₂ κ₁ κ₂ _ q₁ q₂ ih₁ ih₂ =>
+    refine ⟨fun k => by simp only [prodFree, AggQueryIn.readsOuter, ih₁.1, ih₂.1],
+      fun k h => ?_, fun p h => ?_, fun h => ⟨ih₁.2.2.2 h.1, ih₂.2.2.2 h.2.1,
+        h.2.2.imp (noGammaNest_prodFree q₁) (fun h' i => ?_)⟩⟩
+    · simp only [prodFree, AggQueryIn.nestReads, Bool.or_eq_true, Bool.and_eq_true,
+        List.any_eq_true, List.mem_finRange, true_and, ih₁.1] at h ⊢
+      rcases h with (h | h) | ⟨⟨i, hi⟩, h⟩
+      · exact Or.inl (Or.inl (ih₁.2.1 k h))
+      · exact Or.inl (Or.inr (ih₂.2.1 _ h))
+      · exact Or.inr ⟨⟨i, ih₂.2.1 _ hi⟩, h⟩
+    · simp only [prodFree, AggQueryIn.holeNests, Bool.or_eq_true, List.any_eq_true,
+        List.mem_finRange, true_and] at h ⊢
+      exact h.imp (ih₁.2.2.1 p) (fun ⟨i, hi⟩ => ⟨i, ih₂.2.1 _ hi⟩)
+    · cases hc : (prodFree q₂).nestReads (Fin.castAdd cI i)
+      · rfl
+      · exact absurd (ih₂.2.1 _ hc) (by rw [h' i]; simp)
 
 omit [ValueType T] in
 theorem noMention_prodAnn {s : String} {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}

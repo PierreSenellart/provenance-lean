@@ -3675,7 +3675,11 @@ reads, in a world, the value the world gives it, which is what the leaf
 `AggQueryIn.Param` carries), and in an instance binding each recursive
 name to the realized world of the round the environment binds it to. A
 term reads a parameter as a plain value only where it is not aggregate
-(`AggQueryIn.wellKinded`), so the two readings of the context agree there. -/
+(`AggQueryIn.wellKinded`), so the two readings of the context agree there.
+The environment is asked to hold no nested value only where one would
+reach a second-level aggregation's input: at the context positions
+`AggQueryIn.nestReads` names and in the rounds `AggQueryIn.holeNests`
+names. -/
 theorem AggQueryIn.genRandomWorld_evaluate_env :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noProvSum → q.nestOnce → q.hygienic → ∀ {ρc : Fin c → ColKind} {HK : HoleKinds},
@@ -3683,7 +3687,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       ∀ (d : AnnotatedDatabase T (BoolFunc X)) (v : X → Bool) {γ : Fin c → T}
         (E : EvalEnv T (BoolFunc X)) (D : Database T) (N : Set String),
       E.Kinded γ ρc HK → E.Guarded v →
-      (¬ q.noGammaNest → E.RowsSat (fun x => ∀ a, x = Sum.inr a → a.isNested = false)) →
+      ((∀ k, q.nestReads k = true → ∀ a, E.ctxAt c γ k = Sum.inr a → a.isNested = false) ∧
+        ∀ p ∈ l, q.holeNests p = true → ∀ r ∈ E.holes p.1 p.2, GenRow.NoNested r.fst) →
       (∀ (n' : ℕ) (s' : String), s' ∉ N → D.find n' s' = (d.randomWorld v).find n' s') →
       (∀ s' ∈ N, q.noMention s') →
       (∀ p ∈ l, D.find p.2 p.1 = some (genRandomWorld v (E.holes p.1 p.2))) →
@@ -3804,9 +3809,14 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
         (fun r : GenRow T (BoolFunc X) _ => r.snd.finalize v = true)
         (q₁.evaluate d γ E) (q₂.evaluate d γ E),
-        ← ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+        ← ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+            (by simp [AggQueryIn.nestReads, hk]), fun p hp hh => hEN.2 p (List.mem_append_left _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
           (fun s' h => (hN s' h).1) (fun p hp => hH p (List.mem_append_left _ hp)) hr.1,
-        ← ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+        ← ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+            (by simp [AggQueryIn.nestReads, hk]), fun p hp hh => hEN.2 p (List.mem_append_right _
+            hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
           (fun s' h => (hN s' h).2) (fun p hp => hH p (List.mem_append_right _ hp)) hr.2]
       show _ = Multiset.map
         (fun uv : Tuple T _ × Tuple T _ => Fin.append uv.fst uv.snd)
@@ -3821,7 +3831,9 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     conv_rhs => rw [← ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG
-      (fun h => hEN (fun h' => h h'.1)) hD (fun s' h => (hN s' h).1) hH hr.1]
+      ⟨fun k hk => hEN.1 k (by simp [AggQueryIn.nestReads, hk]),
+        fun p hp hh => hEN.2 p hp (by simp [AggQueryIn.holeNests, hh])⟩ hD (fun s' h => (hN s' h).1)
+            hH hr.1]
     unfold genRandomWorld
     rw [filter_bind, Multiset.map_bind, Multiset.bind_map, bind_filter]
     refine Multiset.bind_congr (fun x hx => ?_)
@@ -3834,12 +3846,24 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         (hE.enter (fun k => AggQueryIn.evaluate_conform q₁ d x hxf k))
         (hG.enter γ (fun k a ha =>
           AggQueryIn.evaluate_guarded q₁ d E x hxf v hG hfx k a ha))
-        (fun h => by
-          have hEN' := hEN (fun h' => h h'.2)
-          refine EvalEnv.rowsSat_enter (fun a b hb => absurd hb (by simp)) hEN' γ ?_
-          rcases hn.2.2 with h₁ | h₂
-          · exact AggQueryIn.evaluate_noNested q₁ h₁ d E hEN' x hxf
-          · exact absurd h₂ h)
+        ⟨fun k hk a ha => by
+          rw [EvalEnv.ctxAt_withCtx] at ha
+          revert hk ha
+          refine Fin.addCases (fun i => ?_) (fun i => ?_) k <;> intro hk ha
+          · -- a left column read into a second-level aggregation: the left
+            -- side builds no nested value, and reads none
+            rw [Fin.append_left] at ha
+            rcases hn.2.2 with h₁ | h₂
+            · have hL : (List.finRange _).any
+                  (fun i => q₂.nestReads (Fin.castAdd _ i)) = true :=
+                List.any_eq_true.mpr ⟨i, List.mem_finRange i, hk⟩
+              exact AggQueryIn.evaluate_noNestedOn q₁ h₁ d E (AggQueryIn.nestReads _)
+                (fun k h => by simp [AggQueryIn.nestReads, hL, h]) hEN.1
+                (fun p hp => hEN.2 p hp (by simp [AggQueryIn.holeNests, hL])) x hxf i a ha
+            · exact absurd hk (by rw [h₂ i]; simp)
+          · rw [Fin.append_right] at ha
+            exact hEN.1 i (by simp [AggQueryIn.nestReads, hk]) a ha,
+          fun p hp => absurd hp List.not_mem_nil⟩
         hD (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) (hr.2 x hxf)
       rw [EvalEnv.ctxAt_withCtx, specializeTuple_append'] at ih₂'
       rw [show ∀ M : Multiset (GenRow T (BoolFunc X) _),
@@ -3882,15 +3906,20 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_add,
-      ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+      ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]), fun p hp hh => hEN.2 p (List.mem_append_left _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => hH p (List.mem_append_left _ hp)) hr.1,
-      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]), fun p hp hh => hEN.2 p (List.mem_append_right _ hp)
+            (by simp [AggQueryIn.holeNests, hh])⟩ hD
         (fun s' h => (hN s' h).2) (fun p hp => hH p (List.mem_append_right _ hp)) hr.2]
   | Dedup q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
     rw [genRandomWorld_ofAnnotated, randomWorld_groupByKey,
-      genRandomWorld_allReg, ih hq hn hh hwk d v E D N hE hG hEN hD hN hH hr]
+      genRandomWorld_allReg, ih hq hn hh hwk d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp
+          List.not_mem_nil⟩ hD hN hH hr]
   | Explode k hk q ih =>
     intro hq hn hh ρc HK hwk d v γ E D N hE hG hEN hD hN hH hr
     simp only [AggQueryIn.evaluate, AggQueryIn.evaluatePlain]
@@ -3924,13 +3953,19 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         exact AggQueryIn.evaluate_guarded q₁ d _ r hr' v (hG.assignHole s ihk)
     -- a body that aggregates at the second level reads rounds with no
     -- aggregate column
-    have hNN : ∀ k, ¬ q₁.noGammaNest → (E.assignHole s
-        ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E))).RowsSat
-          (fun x => ∀ a, x = Sum.inr a → a.isNested = false) := by
-      intro k h
-      refine EvalEnv.rowsSat_assignHole (hEN (fun h' => h h'.2)) s (fun r hr' j a ha => ?_)
+    have hNN : ∀ k, (∀ k', q₁.nestReads k' = true → ∀ a,
+          (E.assignHole s ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E))).ctxAt c' γ k'
+            = Sum.inr a → a.isNested = false) ∧
+        ∀ p ∈ [(s, m)], q₁.holeNests p = true → ∀ r ∈ (E.assignHole s
+          ((AggQueryIn.muStep s q₁ d γ E)^[k] (q₀.evaluate d γ E))).holes p.1 p.2,
+          GenRow.NoNested r.fst := by
+      intro k
+      refine ⟨fun k' hk' => hEN.1 k' (by simp [AggQueryIn.nestReads, hk']), ?_⟩
+      intro p hp hh r hr' j a ha
+      obtain rfl := List.mem_singleton.mp hp
+      rw [EvalEnv.assignHole_holes_self] at hr'
       rcases hn.2.2 with h₁ | h₂
-      · exact absurd h₁ h
+      · exact absurd hh (by rw [h₁]; simp)
       · have := hit k r hr' j
         rw [ha] at this
         exact absurd this.symm (h₂ j)
@@ -3955,7 +3990,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       (stepP := fun X => q₁.evaluatePlain (D.assign s X)
         (GenRow.specializeTuple v (E.ctxAt _ γ)))
       (M := q₀.evaluate d γ E) hbody hr.2.1 hr.2.2.1).trans ?_
-    rw [ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+    rw [ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+        (by simp [AggQueryIn.nestReads, hk]), fun p hp => absurd hp List.not_mem_nil⟩ hD
       (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1]
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     rename_i c' m
@@ -3979,8 +4015,10 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         obtain ⟨a, -, rfl⟩ := Multiset.mem_map.mp hr'
         rfl))
       (hG.assignHole s (fun r hr' _ j a ha => (hreg r hr' j a ha).elim))
-      (fun h => EvalEnv.rowsSat_assignHole (hEN (fun h' => h h'.2)) s
-        (fun r hr' j a ha => (hreg r hr' j a ha).elim))
+      ⟨fun k hk => hEN.1 k (by simp [AggQueryIn.nestReads, hk]), fun p hp _ r hr' j a ha => by
+        obtain rfl := List.mem_singleton.mp hp
+        rw [EvalEnv.assignHole_holes_self] at hr'
+        exact (hreg r hr' j a ha).elim⟩
       (Database.agree_assign_rw hD s _)
       (fun s' h => (Set.mem_insert_iff.mp h).elim (fun he => he ▸ hh.2.1)
         (fun hn' => (hN s' hn').2))
@@ -3993,7 +4031,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     rw [AnnotatedRelation.dedupAnn, randomWorld_groupByKey, randomWorld_add,
       AggQueryIn.evaluateAnnotated, AggQueryIn.evaluateAnnotated,
       genRandomWorld_allReg, genRandomWorld_allReg,
-      ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+      ih₀ hq.1 hn.1 hh.2.2.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]), fun p hp => absurd hp List.not_mem_nil⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1, h₁]
     rfl
   | Diff q₁ q₂ ih₁ ih₂ =>
@@ -4004,9 +4043,11 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         ((q₁.evaluate d γ E).map GenRow.toAnnotated)
         ((q₂.evaluate d γ E).map GenRow.toAnnotated) v) ?_)
     rw [genRandomWorld_allReg, genRandomWorld_allReg,
-      ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG (fun h => hEN (fun h' => h h'.1)) hD
+      ih₁ hq.1 hn.1 hh.1 hwk.1 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]), fun p hp => absurd hp List.not_mem_nil⟩ hD
         (fun s' h => (hN s' h).1) (fun p hp => absurd hp List.not_mem_nil) hr.1,
-      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG (fun h => hEN (fun h' => h h'.2)) hD
+      ih₂ hq.2 hn.2 hh.2 hwk.2 d v E D N hE hG ⟨fun k hk => hEN.1 k
+          (by simp [AggQueryIn.nestReads, hk]), fun p hp => absurd hp List.not_mem_nil⟩ hD
         (fun s' h => (hN s' h).2) (fun p hp => absurd hp List.not_mem_nil) hr.2]
   | @GammaScalar cI m n₂ _lab rd ts fs q ord ih =>
     -- one row on each side, kept in every world, its tokens specializing to
@@ -4016,7 +4057,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     have hts : ∀ j u, (ts j).eval u (GenRow.specializeTuple v (E.ctxAt _ γ)) = (ts j).eval u γ :=
       fun j u => (TermIn.eval_congr_outerOk (hE.ctx_ok v) u (ts j) (hwk.1 j)).symm
     simp only [hts]
-    rw [← ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr, ← genRandomWorld_allReg q d v]
+    rw [← ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [show Multiset.filter
           (fun r : GenRow T (BoolFunc X) n₂ => r.snd.finalize v = true)
@@ -4053,7 +4095,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       fun u => (ProjColIn.evalPlain_congr_outerOk (hE.ctx_ok v) u p hwk.1).symm
     simp only [hpγ]
     rw [← ih hq (AggQueryIn.nestOnce_of_noGammaNest q hn) hh hwk.2 d v E D N hE hG
-      (fun _ => hEN (fun h => h)) hD hN hH hr]
+      ⟨fun k hk => absurd hk (by rw [AggQueryIn.nestReads_of_noGammaNest q hn k]; simp),
+        fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH hr]
     -- the rows, the key read off their values, and what a row contributes
     set rows := q.evaluate d γ E with hrows
     set key : GenRow T (BoolFunc X) m → Tuple T n₁ :=
@@ -4061,7 +4104,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     -- every row has no nested column, so each occurrence of the token
     -- reads what its row reads
     have hnest : ∀ row ∈ rows, GenRow.NoNested row.fst :=
-      fun row hrow => AggQueryIn.evaluate_noNested q hn d E (hEN (fun h => h)) row hrow
+      fun row hrow => AggQueryIn.evaluate_noNestedOn q hn d E _ (fun k h => h) hEN.1
+        (fun p hp => absurd hp List.not_mem_nil) row hrow
     have hconf : ∀ row ∈ rows, ∀ k, GenValue.kindOf (row.fst k) = (κ' k).base :=
       fun row hrow => AggQueryIn.evaluate_conform q d row hrow
     -- the key a realized row carries in the realized world is its own
@@ -4175,7 +4219,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     have hts : ∀ j u, (ts j).eval u (GenRow.specializeTuple v (E.ctxAt _ γ)) = (ts j).eval u γ :=
       fun j u => (TermIn.eval_congr_outerOk (hE.ctx_ok v) u (ts j) (hwk.1 j)).symm
     simp only [hts]
-    rw [← ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr, ← genRandomWorld_allReg q d v]
+    rw [← ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr, ← genRandomWorld_allReg q d v]
     unfold genRandomWorld
     rw [filter_map_comm, Multiset.map_map]
     rw [Multiset.filter_congr (fun kv (_ : kv ∈ Multiset.ofList
@@ -4293,7 +4338,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
     cases hk : keep with
     | none =>
       rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluatePlain_Win_eq,
-        ← ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr, hread]
+        ← ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+            hr, hread]
       simp only [ValueFrame.windowValue_congr_ctx hwt]
       unfold genRandomWorld
       rw [filter_map_comm, Multiset.map_map, Multiset.map_map]
@@ -4317,7 +4363,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
     | some φ =>
       rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluatePlain_Win_eq_when,
-        ← ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr, hread]
+        ← ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+            hr, hread]
       simp only [ValueFrame.windowValueWhen_congr_ctx hwt]
       unfold genRandomWorld
       rw [filter_map_comm, Multiset.map_map, Multiset.map_map]
@@ -4356,7 +4403,8 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
         (TermIn.eval_congr_outerOk (hE.ctx_ok v) x (ts l') (hwk.1 l')).symm)
     rw [AggQueryIn.evaluatePlain_WinExpr_eq_when]
     simp only [hwv]
-    rw [← ih hq hn hh hwk.2 d v E D N hE hG hEN hD hN hH hr,
+    rw [← ih hq hn hh hwk.2 d v E D N hE hG ⟨hEN.1, fun p hp => absurd hp List.not_mem_nil⟩ hD hN hH
+        hr,
       ← genRandomWorld_allReg q d v]
     simp only [AggQueryIn.evaluate]
     set R : Multiset (AnnotatedTuple T (BoolFunc X) nI) :=
@@ -4402,7 +4450,8 @@ theorem AggQueryIn.genRandomWorld_evaluate {c n : ℕ} {κ : Fin n → ColKind}
     (hr : q.AnnSettlesAt d γ {}) :
     genRandomWorld v (q.evaluate d γ) = q.evaluatePlain (d.randomWorld v) γ := by
   have h := q.genRandomWorld_evaluate_env hq hn hh hwk d v {} (d.randomWorld v) ∅
-    (EvalEnv.kinded_empty γ) (EvalEnv.guarded_empty v) (fun _ => EvalEnv.rowsSat_empty)
+    (EvalEnv.kinded_empty γ) (EvalEnv.guarded_empty v)
+    ⟨fun _ _ a ha => by simp at ha, fun p hp => absurd hp List.not_mem_nil⟩
     (fun _ _ _ => rfl) (fun _ h => absurd h (Set.notMem_empty _))
     (fun p hp => absurd hp List.not_mem_nil) hr
   rw [EvalEnv.empty_ctxAt] at h

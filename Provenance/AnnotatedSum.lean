@@ -1001,6 +1001,122 @@ theorem noMention_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (s : Stri
     (emptyK (c := c) κ cnt).noMention s := by
   rw [emptyK, AggQueryIn.noMention_castKind]; exact noMention_driverK κ cnt 0 s
 
+theorem readsOuter_padColK (κ : Fin k → ColKind) (i : Fin k) (j : Fin c) :
+    (padColK (T := T) (c := c) κ i).readsOuter j = false := by
+  unfold padColK; split <;> rfl
+
+omit [ValueType T] in
+theorem readsOuter_carryCols {n m : ℕ} {κ : Fin n → ColKind} (ps : Fin m → ProjColIn T c κ)
+    (hps : ∀ i j, (ps i).readsOuter j = false) (j : Fin c) :
+    (List.finRange m).any (fun i => (ps i).readsOuter j) = false := by
+  simp [hps]
+
+/-- The driver row reads nothing, and builds no nested value. -/
+theorem driverK_reads (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (t : T) :
+    (∀ j, (driverK (c := c) κ cnt t).readsOuter j = false)
+      ∧ (∀ j, (driverK (c := c) κ cnt t).nestReads j = false)
+      ∧ (driverK (c := c) κ cnt t).nestOnce := by
+  refine ⟨fun j => ?_, fun j => ?_, ?_⟩
+  · rw [driverK, AggQueryIn.readsOuter_castKind]
+    simp only [AggQueryIn.readsOuter]
+    rw [readsOuter_carryCols _ (fun i j => by
+      refine Fin.cases ?_ (fun i' => ?_) i
+      · rfl
+      · exact readsOuter_padColK κ i' j)]
+    simp [TermIn.readsOuter]
+  · rw [driverK, AggQueryIn.nestReads_castKind]; rfl
+  · rw [driverK, AggQueryIn.nestOnce_castKind]; trivial
+
+omit [ValueType T] in
+theorem withTagK_reads {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ) :
+    (∀ j, (withTagK t q).readsOuter j = q.readsOuter j)
+      ∧ (withTagK t q).nestReads = q.nestReads ∧ ((withTagK t q).nestOnce ↔ q.nestOnce) := by
+  refine ⟨fun j => ?_, ?_, ?_⟩
+  · rw [withTagK, AggQueryIn.readsOuter_castKind]
+    simp only [AggQueryIn.readsOuter]
+    rw [readsOuter_carryCols _ (fun i j => by
+      refine Fin.cases ?_ (fun i' => ?_) i
+      · rfl
+      · exact readsOuter_carryColIn κ i' j)]
+    rfl
+  · rw [withTagK, AggQueryIn.nestReads_castKind]; rfl
+  · rw [withTagK, AggQueryIn.nestOnce_castKind]; rfl
+
+/-- **A round of the construction reads, and feeds to a second-level
+aggregation, what its operand does**, passes no round to one, and stays
+at one storey. -/
+theorem phaseBodyK_reads {κ : Fin k → ColKind} (s : String) (p₁ : T)
+    (Z : AggQueryIn T c (k + 1) (tagKind κ)) :
+    (∀ j, (phaseBodyK s p₁ Z).readsOuter j = Z.readsOuter j)
+      ∧ (∀ j, (phaseBodyK s p₁ Z).nestReads j = true → Z.nestReads j = true)
+      ∧ (∀ p, (phaseBodyK s p₁ Z).holeNests p = false)
+      ∧ (Z.nestOnce → (phaseBodyK s p₁ Z).nestOnce) := by
+  refine ⟨fun j => ?_, fun j h => ?_, fun p => ?_, fun h => ?_⟩
+  · rw [phaseBodyK, AggQueryIn.readsOuter_castKind]
+    simp only [AggQueryIn.readsOuter, roundColsK]
+    rw [readsOuter_carryCols _ (fun i j => by
+      refine Fin.cases ?_ (fun i' => ?_) i
+      · rfl
+      · exact readsOuter_carryColIn _ _ j)]
+    simp [sameTagK, GenPredIn.readsOuter, TermGIn.readsOuter]
+  · rw [phaseBodyK, AggQueryIn.nestReads_castKind] at h
+    simp only [AggQueryIn.nestReads, leftNest_applyOuter, Bool.false_and, Bool.or_false,
+      Bool.false_or] at h
+    obtain ⟨k', hk', hr⟩ := nestReads_applyOuter _ _ h
+    rw [Fin.natAdd_inj] at hk'; subst hk'
+    exact hr
+  · rw [phaseBodyK, AggQueryIn.holeNests_castKind]
+    simp only [AggQueryIn.holeNests, leftNest_applyOuter, Bool.or_false]
+  · rw [phaseBodyK, AggQueryIn.nestOnce_castKind]
+    exact ⟨trivial, AggQueryIn.nestOnce_substMap _ _ h,
+      Or.inr fun i => nestReads_applyOuter_castAdd _ i⟩
+
+/-- **`⊎` by two bag recursions reads, and feeds to a second-level
+aggregation, what its operands do**, and stays at one storey. -/
+theorem sumByMuK_reads {κ : Fin k → ColKind} (s₁ s₂ : String) (cnt : SeqAggFunc T)
+    (q₁ q₂ : AggQueryIn T c k κ) :
+    (∀ j, (sumByMuK s₁ s₂ cnt q₁ q₂).readsOuter j = true
+        → q₁.readsOuter j = true ∨ q₂.readsOuter j = true)
+      ∧ (∀ j, (sumByMuK s₁ s₂ cnt q₁ q₂).nestReads j = true
+        → q₁.nestReads j = true ∨ q₂.nestReads j = true)
+      ∧ (∀ p, (sumByMuK s₁ s₂ cnt q₁ q₂).holeNests p = false)
+      ∧ (q₁.nestOnce → q₂.nestOnce → (sumByMuK s₁ s₂ cnt q₁ q₂).nestOnce) := by
+  obtain ⟨hd₁, hd₂, hd₃⟩ := driverK_reads (c := c) κ cnt 0
+  obtain ⟨hw₁, hw₂, hw₃⟩ := withTagK_reads (0 : T) q₁
+  obtain ⟨hv₁, hv₂, hv₃⟩ := withTagK_reads (0 : T) q₂
+  obtain ⟨hb₁, hb₂, hb₃, hb₄⟩ := phaseBodyK_reads s₁ ValueType.nonzero (withTagK 0 q₁)
+  obtain ⟨hc₁, hc₂, hc₃, hc₄⟩ := phaseBodyK_reads s₂ ValueType.nonzero (withTagK 0 q₂)
+  refine ⟨fun j h => ?_, fun j h => ?_, fun p => ?_, fun h₁ h₂ => ?_⟩
+  · rw [sumByMuK, AggQueryIn.readsOuter_castKind] at h
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true, hd₁, hb₁, hc₁, hw₁, hv₁,
+      unwithTagColsK] at h
+    rw [readsOuter_carryCols _ (fun i j => readsOuter_carryColIn _ _ j)] at h
+    simpa [notTagK, GenPredIn.readsOuter, TermGIn.readsOuter] using h
+  · rw [sumByMuK, AggQueryIn.nestReads_castKind] at h
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true, hd₂, Bool.false_eq_true,
+      false_or] at h
+    rcases h with h | h
+    · exact Or.inl (hw₂ ▸ hb₂ j h)
+    · exact Or.inr (hv₂ ▸ hc₂ j h)
+  · rw [sumByMuK, AggQueryIn.holeNests_castKind]; rfl
+  · rw [sumByMuK, AggQueryIn.nestOnce_castKind]
+    exact ⟨⟨hd₃, hb₄ (hw₃.mpr h₁), Or.inl (hb₃ _)⟩, hc₄ (hv₃.mpr h₂), Or.inl (hc₃ _)⟩
+
+/-- The empty relation of any kinds reads nothing, and stays at one
+storey. -/
+theorem emptyK_reads (κ : Fin k → ColKind) (cnt : SeqAggFunc T) :
+    (∀ j, (emptyK (c := c) κ cnt).readsOuter j = false)
+      ∧ (∀ j, (emptyK (c := c) κ cnt).nestReads j = false)
+      ∧ (emptyK (c := c) κ cnt).nestOnce := by
+  obtain ⟨hd₁, hd₂, hd₃⟩ := driverK_reads (c := c) κ cnt 0
+  refine ⟨fun j => ?_, fun j => ?_, ?_⟩
+  · rw [emptyK, AggQueryIn.readsOuter_castKind]
+    simp only [AggQueryIn.readsOuter, hd₁, unwithTagColsK]
+    rw [readsOuter_carryCols _ (fun i j => readsOuter_carryColIn _ _ j)]
+    simp [notTagK, GenPredIn.readsOuter, TermGIn.readsOuter]
+  · rw [emptyK, AggQueryIn.nestReads_castKind]; exact hd₂ j
+  · rw [emptyK, AggQueryIn.nestOnce_castKind]; exact hd₃
+
 theorem annSettlesAt_emptyK (κ : Fin k → ColKind) (cnt : SeqAggFunc T) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (E : EvalEnv T K) : (emptyK κ cnt).AnnSettlesAt d γ E := by
   rw [emptyK, AggQueryIn.annSettlesAt_castKind]
@@ -1306,6 +1422,221 @@ theorem fin_sum_of_split {n : ℕ} {κ : Fin n → ColKind} {l l' : List (String
 
 end AggQueryIn
 
+/-! ## What a pass keeps of second-level aggregation -/
+
+/-- **A rewriting keeps a query at one storey**: the rewritten query reads
+no context position the source does not, feeds no more of them and no
+more rounds to a second-level aggregation, and nests at most once where
+the source does. -/
+structure AggQueryIn.NestPres {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (q' : AggQueryIn T c n κ l') : Prop where
+  reads : ∀ k, q'.readsOuter k = true → q.readsOuter k = true
+  nest : ∀ k, q'.nestReads k = true → q.nestReads k = true
+  hole : ∀ p, q'.holeNests p = true → q.holeNests p = true
+  once : q.nestOnce → q'.nestOnce
+
+namespace AggQueryIn.NestPres
+
+variable {c n : ℕ} {κ : Fin n → ColKind}
+
+omit [ValueType T] in
+theorem refl {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) : NestPres q q :=
+  ⟨fun _ h => h, fun _ h => h, fun _ h => h, id⟩
+
+omit [ValueType T] in
+theorem proj {m : ℕ} {κ' : Fin m → ColKind} {l l' : List (String × ℕ)}
+    {q : AggQueryIn T c m κ' l} {q' : AggQueryIn T c m κ' l'} (ps : Fin n → ProjColIn T c κ')
+    (h : NestPres q q') : NestPres (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps q') :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp id (h.reads k), h.nest, h.hole, h.once⟩
+
+omit [ValueType T] in
+theorem sel {l l' : List (String × ℕ)} {q : AggQueryIn T c n κ l} {q' : AggQueryIn T c n κ l'}
+    (φ : GenPredIn T c κ) (hφ : SelOK l φ) (hφ' : SelOK l' φ) (h : NestPres q q') :
+    NestPres (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ q' hφ') :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp id (h.reads k), h.nest, h.hole, h.once⟩
+
+omit [ValueType T] in
+theorem explode {κ₀ : Fin n → ColKind} {l l' : List (String × ℕ)} {q : AggQueryIn T c n κ₀ l}
+    {q' : AggQueryIn T c n κ₀ l'} (k : Fin n) (hk : κ₀ k = ColKind.agg)
+    (h : NestPres q q') :
+    NestPres (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk q') :=
+  ⟨h.reads, h.nest, h.hole, h.once⟩
+
+omit [ValueType T] in
+theorem retag {κ₀ : Fin n → ColKind} {l l' : List (String × ℕ)} {q : AggQueryIn T c n κ₀ l}
+    {q' : AggQueryIn T c n κ₀ l'} (hk : ∀ k, (κ₀ k).base = (κ k).base) (h : NestPres q q') :
+    NestPres (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk q') :=
+  ⟨h.reads, h.nest, h.hole, h.once⟩
+
+omit [ValueType T] in
+theorem dedup {q q' : AggQueryIn T c n (ColKind.allReg n)} (h : NestPres q q') :
+    NestPres (AggQueryIn.Dedup q) (AggQueryIn.Dedup q') :=
+  ⟨h.reads, h.nest, fun _ h => h, h.once⟩
+
+omit [ValueType T] in
+theorem prod {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+    {l₁ l₂ l₁' l₂' : List (String × ℕ)} {q₁ : AggQueryIn T c n₁ κ₁ l₁}
+    {q₂ : AggQueryIn T c n₂ κ₂ l₂} {p₁ : AggQueryIn T c n₁ κ₁ l₁'}
+    {p₂ : AggQueryIn T c n₂ κ₂ l₂'} (h₁ : NestPres q₁ p₁) (h₂ : NestPres q₂ p₂) :
+    NestPres (AggQueryIn.Prod q₁ q₂) (AggQueryIn.Prod p₁ p₂) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.reads k) (h₂.reads k),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.nest k) (h₂.nest k),
+   fun p hp => by
+    simp only [AggQueryIn.holeNests, Bool.or_eq_true] at hp ⊢
+    exact hp.imp (h₁.hole p) (h₂.hole p),
+   fun h => ⟨h₁.once h.1, h₂.once h.2⟩⟩
+
+omit [ValueType T] in
+theorem diff {q₁ q₂ p₁ p₂ : AggQueryIn T c n (ColKind.allReg n)} (h₁ : NestPres q₁ p₁)
+    (h₂ : NestPres q₂ p₂) : NestPres (AggQueryIn.Diff q₁ q₂) (AggQueryIn.Diff p₁ p₂) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.reads k) (h₂.reads k),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.nest k) (h₂.nest k),
+   fun _ h => h, fun h => ⟨h₁.once h.1, h₂.once h.2⟩⟩
+
+omit [ValueType T] in
+theorem apply {n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind} {κ₂ : Fin n₂ → ColKind}
+    {l₁ l₁' : List (String × ℕ)} {q₁ : AggQueryIn T c n₁ κ₁ l₁}
+    {q₂ : AggQueryIn T (n₁ + c) n₂ κ₂} {p₁ : AggQueryIn T c n₁ κ₁ l₁'}
+    {p₂ : AggQueryIn T (n₁ + c) n₂ κ₂} (h₁ : NestPres q₁ p₁) (h₂ : NestPres q₂ p₂)
+    (hg : q₁.noGammaNest → p₁.noGammaNest) :
+    NestPres (AggQueryIn.Apply q₁ q₂) (AggQueryIn.Apply p₁ p₂) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.reads k) (h₂.reads _),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true, Bool.and_eq_true, List.any_eq_true,
+      List.mem_finRange, true_and] at hk ⊢
+    rcases hk with (h | h) | ⟨⟨i, hi⟩, h⟩
+    · exact Or.inl (Or.inl (h₁.nest k h))
+    · exact Or.inl (Or.inr (h₂.nest _ h))
+    · exact Or.inr ⟨⟨i, h₂.nest _ hi⟩, h₁.reads k h⟩,
+   fun p hp => by
+    simp only [AggQueryIn.holeNests, Bool.or_eq_true, List.any_eq_true, List.mem_finRange,
+      true_and] at hp ⊢
+    exact hp.imp (h₁.hole p) (fun ⟨i, hi⟩ => ⟨i, h₂.nest _ hi⟩),
+   fun h => ⟨h₁.once h.1, h₂.once h.2.1, h.2.2.imp hg (fun h' i => by
+    cases hc : p₂.nestReads (Fin.castAdd c i)
+    · rfl
+    · exact absurd (h₂.nest _ hc) (by rw [h' i]; simp))⟩⟩
+
+omit [ValueType T] in
+theorem mu {s : String} {q₀ p₀ : AggQueryIn T c n κ} {q₁ p₁ : AggQueryIn T c n κ [(s, n)]}
+    (h₀ : NestPres q₀ p₀) (h₁ : NestPres q₁ p₁) :
+    NestPres (AggQueryIn.Mu s q₀ q₁) (AggQueryIn.Mu s p₀ p₁) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₀.reads k) (h₁.reads k),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₀.nest k) (h₁.nest k),
+   fun _ h => h, fun h => ⟨h₀.once h.1, h₁.once h.2.1, h.2.2.imp (fun h' => by
+    cases hc : p₁.holeNests (s, n)
+    · rfl
+    · exact absurd (h₁.hole _ hc) (by rw [h']; simp)) id⟩⟩
+
+omit [ValueType T] in
+theorem muSet {s : String} {q₀ p₀ : AggQueryIn T c n (ColKind.allReg n)}
+    {q₁ p₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]}
+    (h₀ : NestPres q₀ p₀) (h₁ : NestPres q₁ p₁) :
+    NestPres (AggQueryIn.MuSet s q₀ q₁) (AggQueryIn.MuSet s p₀ p₁) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₀.reads k) (h₁.reads k),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₀.nest k) (h₁.nest k),
+   fun _ h => h, fun h => ⟨h₀.once h.1, h₁.once h.2⟩⟩
+
+omit [ValueType T] in
+/-- The output of one side of a `⊎`, for the `⊎`. -/
+theorem sumLeft {l₁ l₂ l' : List (String × ℕ)} {q₁ : AggQueryIn T c n κ l₁}
+    {q₂ : AggQueryIn T c n κ l₂} {p : AggQueryIn T c n κ l'} (h : NestPres q₁ p) :
+    NestPres (AggQueryIn.Sum q₁ q₂) p :=
+  ⟨fun k hk => by simp [AggQueryIn.readsOuter, h.reads k hk],
+   fun k hk => by simp [AggQueryIn.nestReads, h.nest k hk],
+   fun p hp => by simp [AggQueryIn.holeNests, h.hole p hp], fun h' => h.once h'.1⟩
+
+omit [ValueType T] in
+theorem sumRight {l₁ l₂ l' : List (String × ℕ)} {q₁ : AggQueryIn T c n κ l₁}
+    {q₂ : AggQueryIn T c n κ l₂} {p : AggQueryIn T c n κ l'} (h : NestPres q₂ p) :
+    NestPres (AggQueryIn.Sum q₁ q₂) p :=
+  ⟨fun k hk => by simp [AggQueryIn.readsOuter, h.reads k hk],
+   fun k hk => by simp [AggQueryIn.nestReads, h.nest k hk],
+   fun p hp => by simp [AggQueryIn.holeNests, h.hole p hp], fun h' => h.once h'.2⟩
+
+omit [ValueType T] in
+/-- Two outputs, each of a part of the source, joined by a `⊎`. -/
+theorem sum {l₁ l₂ l₁' l₂' : List (String × ℕ)} {q₁ : AggQueryIn T c n κ l₁}
+    {q₂ : AggQueryIn T c n κ l₂} {p₁ : AggQueryIn T c n κ l₁'}
+    {p₂ : AggQueryIn T c n κ l₂'} (h₁ : NestPres q₁ p₁) (h₂ : NestPres q₂ p₂) :
+    NestPres (AggQueryIn.Sum q₁ q₂) (AggQueryIn.Sum p₁ p₂) :=
+  ⟨fun k hk => by
+    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.reads k) (h₂.reads k),
+   fun k hk => by
+    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    exact hk.imp (h₁.nest k) (h₂.nest k),
+   fun p hp => by
+    simp only [AggQueryIn.holeNests, Bool.or_eq_true] at hp ⊢
+    exact hp.imp (h₁.hole p) (h₂.hole p),
+   fun h => ⟨h₁.once h.1, h₂.once h.2⟩⟩
+
+/-- **The construction**, over the outputs of the two sides of a `⊎`. -/
+theorem sumByMuK {s₁ s₂ : String} {cnt : SeqAggFunc T} {l₁ l₂ : List (String × ℕ)}
+    {q₁ : AggQueryIn T c n κ l₁} {q₂ : AggQueryIn T c n κ l₂} {p₁ p₂ : AggQueryIn T c n κ}
+    (h₁ : NestPres q₁ p₁) (h₂ : NestPres q₂ p₂) :
+    NestPres (AggQueryIn.Sum q₁ q₂) (AggQueryIn.sumByMuK s₁ s₂ cnt p₁ p₂) := by
+  obtain ⟨hr, hn, hh, ho⟩ := AggQueryIn.sumByMuK_reads s₁ s₂ cnt p₁ p₂
+  refine ⟨fun k hk => ?_, fun k hk => ?_, fun p hp => ?_, fun h => ho (h₁.once h.1)
+    (h₂.once h.2)⟩
+  · simp only [AggQueryIn.readsOuter, Bool.or_eq_true]
+    exact (hr k hk).imp (h₁.reads k) (h₂.reads k)
+  · simp only [AggQueryIn.nestReads, Bool.or_eq_true]
+    exact (hn k hk).imp (h₁.nest k) (h₂.nest k)
+  · rw [hh] at hp; exact absurd hp (by simp)
+
+/-- **A set recursion whose body's closed part moved into its base.** -/
+theorem muSetSplit {s s₁ s₂ : String} {cnt : SeqAggFunc T}
+    {q₀ p₀ pC : AggQueryIn T c n (ColKind.allReg n)}
+    {q₁ p₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]}
+    (h₀ : NestPres q₀ p₀) (hC : NestPres q₁ pC) (h₁ : NestPres q₁ p₁) :
+    NestPres (AggQueryIn.MuSet s q₀ q₁)
+      (AggQueryIn.MuSet s (AggQueryIn.sumByMuK s₁ s₂ cnt p₀ pC) p₁) := by
+  obtain ⟨hr, hn, -, ho⟩ := AggQueryIn.sumByMuK_reads s₁ s₂ cnt p₀ pC
+  refine ⟨fun k hk => ?_, fun k hk => ?_, fun _ h => h, fun h => ⟨ho (h₀.once h.1)
+    (hC.once h.2), h₁.once h.2⟩⟩
+  · simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+    rcases hk with hk | hk
+    · exact (hr k hk).imp (h₀.reads k) (hC.reads k)
+    · exact Or.inr (h₁.reads k hk)
+  · simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hk ⊢
+    rcases hk with hk | hk
+    · exact (hn k hk).imp (h₀.nest k) (hC.nest k)
+    · exact Or.inr (h₁.nest k hk)
+
+/-- The empty relation of any kinds, for anything. -/
+theorem emptyK {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (cnt : SeqAggFunc T) :
+    NestPres q (AggQueryIn.emptyK κ cnt) := by
+  obtain ⟨hr, hn, ho⟩ := AggQueryIn.emptyK_reads (c := c) κ cnt
+  exact ⟨fun k hk => absurd hk (by rw [hr]; simp), fun k hk => absurd hk (by rw [hn]; simp),
+    fun p hp => absurd hp (by
+      rw [AggQueryIn.emptyK, AggQueryIn.holeNests_castKind]
+      simp [AggQueryIn.holeNests, AggQueryIn.driverK]), fun _ => ho⟩
+
+end AggQueryIn.NestPres
+
 /-! ## The pass: every `⊎` replaced by the construction
 
 As in the plain semantics (`AggQueryIn.exists_sumFree_aux`), a `⊎` on the
@@ -1333,6 +1664,7 @@ structure AggQueryIn.SumFreeAnnOf (S : Set OpKind) (Θ : Set (SeqAggFunc T)) (f 
   names : ∀ x, x ∈ q'.names → x ∈ q.names ∨ ∃ i, x = f i
   nom : ∀ s, (∀ i, s ≠ f i) → q.noMention s → q'.noMention s
   noNest : q.noGammaNest → q'.noGammaNest
+  np : NestPres q q'
 
 /-- **A closed query matched**: wherever it settles, in two environments
 agreeing up to finalization, the match settles and gives the same rows up
@@ -1471,7 +1803,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
   | Rel n s' =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id, NestPres.refl _⟩,
+      closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Hole n s' κh =>
     intro hq hr hi f hf hfr
@@ -1479,12 +1812,13 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.singleton_inj.mp hl)
     refine ⟨AggQueryIn.Hole n _ κh, emptyK κh cnt, noMention_emptyK κh cnt _,
       ⟨trivial, trivial, trivial, id, fun _ _ h => h, fun _ _ h => h, fun x hx => Or.inl hx,
-        fun _ _ h => h, id⟩,
+        fun _ _ h => h, id, NestPres.refl _⟩,
       ⟨usesOnly_emptyK hS κh cnt, hygienic_emptyK κh cnt, inSig_emptyK κh hcnt,
         fun _ => noExplode_emptyK κh cnt, fun ρc HK _ => wellKinded_emptyK κh cnt ρc HK,
         fun sch _ _ => overSchema_emptyK sch κh cnt,
         fun x hx => by rw [names_emptyK] at hx; exact absurd hx (Finset.notMem_empty x),
-        fun s' _ _ => noMention_emptyK κh cnt s', fun _ => noGammaNest_emptyK κh cnt⟩,
+        fun s' _ _ => noMention_emptyK κh cnt s', fun _ => noGammaNest_emptyK κh cnt,
+        NestPres.emptyK _ cnt⟩,
       fun d γ E E' hE _ => ⟨trivial, annSettlesAt_emptyK κh cnt d γ E', ?_⟩⟩
     rw [evaluate_emptyK, Multiset.map_zero, add_zero]
     exact AggQueryIn.FinEq.refl _ d γ E E' hE
@@ -1492,12 +1826,14 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Param pv ρ, ⟨⟨memS nofun hq.1, memS nofun hq.2.1,
       memS nofun hq.2.2⟩, trivial, trivial, id, fun _ _ h => h, fun _ _ h => h,
-      fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
+      fun x hx => Or.inl hx, fun _ _ h => h, id, NestPres.refl _⟩,
+      closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Empty =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id, NestPres.refl _⟩,
+      closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Proj ps q ih =>
     intro hq hr hi f hf hfr
@@ -1505,7 +1841,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Proj ps q) (AggQueryIn.Proj ps p) := fun hs =>
       ⟨⟨⟨memS nofun hq.1.1, hq.1.2⟩, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩, hs.noExplode,
-        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩
+        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest,
+        NestPres.proj ps hs.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Proj ps q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1523,9 +1860,10 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨hc, hb⟩ := ih hq.2 hr hi.2 f hf hfr
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'} (hp : SelOK l' φ),
         SumFreeAnnOf S Θ f q p →
-        SumFreeAnnOf S Θ f (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ p hp) := fun _ hs =>
+        SumFreeAnnOf S Θ f (AggQueryIn.Sel φ q hφ) (AggQueryIn.Sel φ p hp) := fun hp hs =>
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hs.inSig⟩, hs.noExplode,
-        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩
+        fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest,
+        NestPres.sel φ hφ hp hs.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       subst hl
@@ -1555,7 +1893,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
         names_union hs₁.names hs₂.names,
         fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
-        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩, NestPres.prod hs₁.np hs₂.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
       subst hl₁ hl₂
@@ -1606,7 +1944,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
         names_union hs₁.names hs₂.names,
         fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
-        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩, NestPres.apply hs₁.np hs₂.np hs₁.noNest⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q₁', hs₁, he₁⟩ := hc₁ hl
       refine ⟨AggQueryIn.Apply q₁' q₂', hbun hs₁, fun d γ E E' hE hset => ?_⟩
@@ -1663,6 +2001,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
           (hp₂.noExplode h.2)
         noNest := fun h => noGammaNest_sumByMuK _ _ cnt _ _ (hp₁.noNest h.1)
           (hp₂.noNest h.2)
+        np := NestPres.sumByMuK hp₁.np hp₂.np
         wellKinded := fun ρc HK h => wellKinded_sumByMuK _ _ cnt _ _
           (hp₁.wellKinded ρc HK h.1) (hp₂.wellKinded ρc HK h.2)
         over := fun sch hsch ho => overSchema_sumByMuK sch _ _ cnt _ _ (hsch 0) (hsch 1) hn₁₀
@@ -1700,7 +2039,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.1,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_left,
         fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.1,
-        fun h => hp.noNest h.1⟩
+        fun h => hp.noNest h.1, NestPres.sumLeft hp.np⟩
     have hright : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T c' n' κ' l'},
         SumFreeAnnOf S Θ (shift2 f) q₂ p → SumFreeAnnOf S Θ f (AggQueryIn.Sum q₁ q₂) p :=
       fun hp => ⟨hp.usesOnly, hp.hygienic, hp.inSig, fun h => hp.noExplode h.2,
@@ -1708,7 +2047,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         fun sch hsch ho => hp.over sch (fun i => hsch (i + 2)) ho.2,
         fun x hx => names_shift (hp.names x hx) Finset.subset_union_right,
         fun s hs hn => hp.nom s (fun i => hs (i + 2)) hn.2,
-        fun h => hp.noNest h.2⟩
+        fun h => hp.noNest h.2, NestPres.sumRight hp.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨hl₁, hl₂⟩ := List.append_eq_nil_iff.mp hl
       subst hl₁ hl₂
@@ -1755,7 +2094,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨hc, -⟩ := ih hq.2 hr hi f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
     refine ⟨fun _ => ⟨AggQueryIn.Dedup q', ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic,
-      hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest⟩,
+      hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest,
+      NestPres.dedup hs.np⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.dedup he'⟩
@@ -1774,7 +2114,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       fun sch hsch ho => ⟨hs₁.over sch hsch ho.1, hs₂.over sch hsch ho.2⟩,
       names_union hs₁.names hs₂.names,
       fun s hs hn => ⟨hs₁.nom s hs hn.1, hs₂.nom s hs hn.2⟩,
-        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩⟩, fun d γ E E' hE hset => ?_⟩,
+        fun h => ⟨hs₁.noNest h.1, hs₂.noNest h.2⟩, NestPres.diff hs₁.np hs₂.np⟩,
+      fun d γ E E' hE hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs₁', he₁'⟩ := he₁ d γ E E' hE hset.1
     obtain ⟨hs₂', he₂'⟩ := he₂ d γ E E' hE hset.2
@@ -1784,7 +2125,8 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     obtain ⟨hc, hb⟩ := ih hq hr hi f hf hfr
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Explode k hk q) (AggQueryIn.Explode k hk p) := fun hs =>
-      ⟨hs.usesOnly, hs.hygienic, hs.inSig, id, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest⟩
+      ⟨hs.usesOnly, hs.hygienic, hs.inSig, id, hs.wellKinded, hs.over, hs.names, hs.nom, hs.noNest,
+        NestPres.explode k hk hs.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Explode k hk q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1802,7 +2144,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     have hbun : ∀ {l' : List (String × ℕ)} {p : AggQueryIn T _ _ _ l'}, SumFreeAnnOf S Θ f q p →
         SumFreeAnnOf S Θ f (AggQueryIn.Retag hk q) (AggQueryIn.Retag hk p) := fun hs =>
       ⟨hs.usesOnly, hs.hygienic, hs.inSig, hs.noExplode, hs.wellKinded, hs.over, hs.names,
-        hs.nom, hs.noNest⟩
+        hs.nom, hs.noNest, NestPres.retag hk hs.np⟩
     refine ⟨fun hl => ?_, fun s m hl hnm => ?_⟩
     · obtain ⟨q', hs, he⟩ := hc hl
       refine ⟨AggQueryIn.Retag hk q', hbun hs, fun d γ E E' hE hset => ?_⟩
@@ -1830,6 +2172,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         inSig := ⟨hs₀.inSig, hs₁.inSig⟩
         noExplode := fun h => ⟨hs₀.noExplode h.1, hs₁.noExplode h.2⟩
         noNest := fun h => ⟨hs₀.noNest h.1, hs₁.noNest h.2⟩
+        np := NestPres.mu hs₀.np hs₁.np
         wellKinded := fun ρc HK h => ⟨hs₀.wellKinded ρc HK h.1, hs₁.wellKinded ρc _ h.2⟩
         over := fun sch hsch ho => ⟨ho.1, hs₀.over sch hsch ho.2.1, hs₁.nom s hfs ho.2.2.1,
           hs₁.over (sch.update s _) (fun i => by
@@ -1889,6 +2232,7 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
           (hsC.noExplode h.2), hs₁.noExplode h.2⟩
         noNest := fun h => ⟨noGammaNest_sumByMuK _ _ cnt _ _ (hs₀.noNest h.1)
           (hsC.noNest h.2), hs₁.noNest h.2⟩
+        np := NestPres.muSetSplit hs₀.np hsC.np hs₁.np
         wellKinded := fun ρc HK h => ⟨wellKinded_sumByMuK _ _ cnt _ _ (hs₀.wellKinded ρc HK h.1)
           (AggQueryIn.wellKinded_congr_holes qC ρc (fun _ hp => absurd hp List.not_mem_nil)
             (hsC.wellKinded ρc _ h.2)), hs₁.wellKinded ρc _ h.2⟩
@@ -1931,7 +2275,11 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩, hs.noExplode,
-      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
+      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest,
+      ⟨fun k hk => by
+        simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id (hs.np.reads k)) id, hs.np.nest, fun _ h => h,
+        hs.np.once⟩⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gamma is ts fs keep ord he' hE.1⟩
@@ -1944,7 +2292,11 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
-      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest⟩,
+      fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom, hs.noNest,
+      ⟨fun k hk => by
+        simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id (hs.np.reads k)) id, hs.np.nest, fun _ h => h,
+        hs.np.once⟩⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gammaScalar ts fs ord he' hE.1⟩
@@ -1958,7 +2310,10 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         hq.1.2⟩,
         hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hs.inSig⟩, hs.noExplode,
       fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names, hs.nom,
-      fun h => h.elim⟩,
+      fun h => h.elim, ⟨fun k hk => by
+        simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id (hs.np.reads k)) id, hs.np.reads, fun _ h => h,
+        hs.noNest⟩⟩,
       fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.gammaNest is his p fn he' hE.1⟩
@@ -1972,7 +2327,11 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     refine ⟨fun _ => ⟨AggQueryIn.Win (lab := lab) (rd := rd) P O o w t fw q' hrr dist keep,
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
-        hs.nom, hs.noNest⟩, fun d γ E E' hE hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
+        hs.nom, hs.noNest, ⟨fun k hk => by
+        simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id (hs.np.reads k)) id, hs.np.nest, fun _ h => h,
+        hs.np.once⟩⟩, fun d γ E E' hE hset => ?_⟩,
+      fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he d γ E E' hE hset
     exact ⟨hs', FinAt.win P O o w t fw hrr dist keep he' hE.1⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ _ hi => hi.elim

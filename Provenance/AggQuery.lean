@@ -3928,6 +3928,54 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
 
+/-- **The context positions whose values reach a second-level
+aggregation's input.** A second-level aggregation reads every position
+its input reads; an apply passes on what its right side feeds past the
+left row and, where the right side feeds a left column to one, every
+position its left side reads too, that column being built from them. -/
+def AggQueryIn.nestReads : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Fin c → Bool
+  | _, _, _, _, .Rel _ _, _ => false
+  | _, _, _, _, .Hole _ _ _, _ => false
+  | _, _, _, _, .Param _ _, _ => false
+  | _, _, _, _, .Empty, _ => false
+  | _, _, _, _, .Proj _ q, k => q.nestReads k
+  | _, _, _, _, .Sel _ q _, k => q.nestReads k
+  | _, _, _, _, .Prod q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
+  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂, k =>
+      q₁.nestReads k || q₂.nestReads (Fin.natAdd n₁ k)
+        || ((List.finRange n₁).any (fun i => q₂.nestReads (Fin.castAdd c i))
+          && q₁.readsOuter k)
+  | _, _, _, _, .Sum q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
+  | _, _, _, _, .Dedup q, k => q.nestReads k
+  | _, _, _, _, .Diff q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
+  | _, _, _, _, .Explode _ _ q, k => q.nestReads k
+  | _, _, _, _, .Mu _ q₀ q₁, k => q₀.nestReads k || q₁.nestReads k
+  | _, _, _, _, .MuSet _ q₀ q₁, k => q₀.nestReads k || q₁.nestReads k
+  | _, _, _, _, .Gamma _ _ _ q _ _, k => q.nestReads k
+  | _, _, _, _, .GammaScalar _ _ q _, k => q.nestReads k
+  | _, _, _, _, .GammaNest _ _ _ _ q, k => q.readsOuter k
+  | _, _, _, _, .ProvSum _ _ _ q, k => q.nestReads k
+  | _, _, _, _, .Retag _ q, k => q.nestReads k
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _, k => q.nestReads k
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _, k => q.nestReads k
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, k => q.nestReads k
+
+/-- **The rounds whose values reach a second-level aggregation's input**:
+those an apply's left side reads, where its right side reads a left
+column into one. -/
+def AggQueryIn.holeNests : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → String × ℕ → Bool
+  | _, _, _, _, .Proj _ q, p => q.holeNests p
+  | _, _, _, _, .Sel _ q _, p => q.holeNests p
+  | _, _, _, _, .Prod q₁ q₂, p => q₁.holeNests p || q₂.holeNests p
+  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂, p =>
+      q₁.holeNests p || (List.finRange n₁).any (fun i => q₂.nestReads (Fin.castAdd c i))
+  | _, _, _, _, .Sum q₁ q₂, p => q₁.holeNests p || q₂.holeNests p
+  | _, _, _, _, .Explode _ _ q, p => q.holeNests p
+  | _, _, _, _, .Retag _ q, p => q.holeNests p
+  | _, _, _, _, _, _ => false
+
 /-- **No second-level aggregation reads a second-level aggregation.**
 One level of nesting is what `sec:aggcols` reads as values: an occurrence
 of a nested value carries the aggregate *expression* read there, and an
@@ -3940,9 +3988,14 @@ results ask this of the query: no `GammaNest` inside a `GammaNest`.
 
 A nested value reaches a second-level aggregation's input through the
 context and the rounds of a recursion too, so the condition follows it
-there: an apply whose right side aggregates at the second level has a left
-side that does not, and a recursive body that aggregates at the second
-level binds its name to rounds with no aggregate column.
+there, and only as far as it actually goes: an apply whose right side
+feeds a column of the left row to a second-level aggregation
+(`AggQueryIn.nestReads`) has a left side that builds no nested value, and
+a bag recursion whose body feeds a round to one (`AggQueryIn.holeNests`)
+has no aggregate column. So an apply with a second-level aggregation on
+each side, the right one reading only the ambient context, is at one
+storey, and so is a bag recursion carrying nested values from round to
+round that its body reads only as values.
 
 It is strictly weaker than `AggQueryIn.noGammaNest`, which excludes the
 operator outright. -/
@@ -3955,13 +4008,14 @@ def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, .Proj _ q => q.nestOnce
   | _, _, _, _, .Sel _ q _ => q.nestOnce
   | _, _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, _, .Apply q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce ∧ (q₁.noGammaNest ∨ q₂.noGammaNest)
+  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
+      ∧ (q₁.noGammaNest ∨ ∀ i : Fin n₁, q₂.nestReads (Fin.castAdd c i) = false)
   | _, _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
   | _, _, _, _, .Dedup q => q.nestOnce
   | _, _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
   | _, _, _, _, .Explode _ _ q => q.nestOnce
-  | _, _, _, _, @Mu _ _ _ κ _ q₀ q₁ =>
-      q₀.nestOnce ∧ q₁.nestOnce ∧ (q₁.noGammaNest ∨ ∀ k, (κ k).base ≠ ColKind.agg)
+  | _, _, _, _, @Mu _ _ n κ s q₀ q₁ =>
+      q₀.nestOnce ∧ q₁.nestOnce ∧ (q₁.holeNests (s, n) = false ∨ ∀ k, (κ k).base ≠ ColKind.agg)
   | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
   | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
   | _, _, _, _, .GammaScalar _ _ q _ => q.nestOnce
@@ -4091,6 +4145,64 @@ def AggQueryIn.readsRecorded : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
         ∧ q.readsRecorded
 
 omit [ValueType T] in
+/-- A query with no second-level aggregation passes no context position
+to one. -/
+theorem AggQueryIn.nestReads_of_noGammaNest :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noGammaNest → ∀ k, q.nestReads k = false := by
+  intro c n κ l q
+  induction q with
+  | Rel n s => exact fun _ _ => rfl
+  | Hole n s => exact fun _ _ => rfl
+  | Param pv ρ => exact fun _ _ => rfl
+  | Empty => exact fun _ _ => rfl
+  | Proj ps q ih => exact ih
+  | Sel φ q _ ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ =>
+      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+      intro h k
+      simp [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
+  | Dedup q ih => exact ih
+  | Diff q₁ q₂ ih₁ ih₂ =>
+      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
+  | Explode a b q ih => exact ih
+  | Mu a q₀ q₁ ih₀ ih₁ =>
+      exact fun h k => by simp only [AggQueryIn.nestReads, ih₀ h.1, ih₁ h.2, Bool.or_false]
+  | MuSet a q₀ q₁ ih₀ ih₁ =>
+      exact fun h k => by simp only [AggQueryIn.nestReads, ih₀ h.1, ih₁ h.2, Bool.or_false]
+  | Gamma a b cc q kp od ih => exact ih
+  | GammaScalar a b q od ih => exact ih
+  | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
+  | ProvSum a b cc q ih => exact ih
+  | Retag a q ih => exact ih
+  | GammaTok a b cc dd e q keep ih => exact ih
+  | Win a b cc dd e ff q hrr dist kp ih => exact ih
+  | WinExpr a b cc dd e ff gg q kps ih => exact ih
+
+omit [ValueType T] in
+/-- A query with no second-level aggregation passes no round to one. -/
+theorem AggQueryIn.holeNests_of_noGammaNest :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.noGammaNest → ∀ p, q.holeNests p = false := by
+  intro c n κ l q
+  induction q with
+  | Proj ps q ih => exact ih
+  | Sel φ q _ ih => exact ih
+  | Prod q₁ q₂ ih₁ ih₂ =>
+      exact fun h p => by simp only [AggQueryIn.holeNests, ih₁ h.1, ih₂ h.2, Bool.or_false]
+  | Apply q₁ q₂ ih₁ ih₂ =>
+      intro h p
+      simp [AggQueryIn.holeNests, ih₁ h.1, AggQueryIn.nestReads_of_noGammaNest q₂ h.2]
+  | Sum q₁ q₂ ih₁ ih₂ =>
+      exact fun h p => by simp only [AggQueryIn.holeNests, ih₁ h.1, ih₂ h.2, Bool.or_false]
+  | Explode a b q ih => exact ih
+  | Retag a q ih => exact ih
+  | _ => exact fun _ _ => rfl
+
+omit [ValueType T] in
 /-- A query with no second-level aggregation at all nests at most
 once. -/
 theorem AggQueryIn.nestOnce_of_noGammaNest :
@@ -4110,7 +4222,8 @@ theorem AggQueryIn.nestOnce_of_noGammaNest :
   | Dedup q ih => exact ih
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
   | Explode a b q ih => exact ih
-  | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2, Or.inl h.2⟩
+  | Mu a q₀ q₁ ih₀ ih₁ =>
+      exact fun h => ⟨ih₀ h.1, ih₁ h.2, Or.inl (AggQueryIn.holeNests_of_noGammaNest q₁ h.2 _)⟩
   | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
   | Gamma a b cc q kp od ih => exact ih
   | GammaScalar a b q od ih => exact ih
@@ -4455,16 +4568,18 @@ constructs a nested value, and `noGammaNest` is what excludes it.
 
 This is what a result proved for an expression column as well as an
 ordinary one asks of a row. -/
-theorem AggQueryIn.evaluate_noNested :
+theorem AggQueryIn.evaluate_noNestedOn :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.noGammaNest →
-      ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K),
-        E.RowsSat (fun v => ∀ a, v = Sum.inr a → a.isNested = false) → ∀ (r : GenRow T K n),
+      ∀ (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K) (R : Fin c → Bool),
+        (∀ k, q.readsOuter k = true → R k = true) →
+        (∀ k, R k = true → ∀ a, E.ctxAt c γ k = Sum.inr a → a.isNested = false) →
+        (∀ p ∈ l, ∀ r ∈ E.holes p.1 p.2, GenRow.NoNested r.fst) → ∀ (r : GenRow T K n),
       r ∈ q.evaluate d γ E → GenRow.NoNested r.fst := by
   intro c n κ l q
   induction q with
   | Rel n s =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     cases hf : d.find n s with
     | none => rw [hf] at hr; exact absurd hr (Multiset.notMem_zero r)
@@ -4473,26 +4588,39 @@ theorem AggQueryIn.evaluate_noNested :
       obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
       exact absurd ha (by simp [GenRow.ofAnnotated])
   | Hole n s κ =>
-    intro hn d γ E hE r hr
+    intro hn d γ E R hR hC hH r hr
     simp only [AggQueryIn.evaluate] at hr
-    exact EvalEnv.rowsSat_hole hE hr
+    exact hH (s, n) (List.mem_singleton_self _) r (Multiset.mem_of_mem_filter hr)
   | Param pv ρ =>
-    intro hn d γ E hE r hr
+    intro hn d γ E R hR hC hH r hr
     simp only [AggQueryIn.evaluate] at hr
-    exact EvalEnv.rowsSat_param (fun _ _ h => absurd h (by simp)) hE hr
+    simp only [EvalEnv.paramRows] at hr
+    split at hr
+    · rw [Multiset.mem_singleton] at hr
+      subst hr
+      intro k a ha
+      change _root_.Sum.elim _root_.Sum.inl (E.ctxAt _ γ) (pv k) = _root_.Sum.inr a at ha
+      cases hk : pv k with
+      | inl b => rw [hk] at ha; exact absurd ha (by simp)
+      | inr j =>
+        rw [hk] at ha
+        refine hC j (hR j ?_) a ha
+        simp only [AggQueryIn.readsOuter, List.any_eq_true, List.mem_finRange, true_and]
+        exact ⟨k, by rw [hk]; simp⟩
+    · exact absurd hr (Multiset.notMem_zero r)
   | Empty =>
-    intro _ d γ E hE r hr
+    intro _ d γ E R hR hC hH r hr
     simp only [AggQueryIn.evaluate] at hr
     exact absurd hr (Multiset.notMem_zero r)
   | Proj ps q ih =>
-    intro hn d γ E hE r hr j a ha
+    intro hn d γ E R hR hC hH r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
     cases hp : ps j with
     | term t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | provTerm t => exact absurd ha (by simp [ProjColIn.eval, hp])
     | token k hk =>
-      refine ih hn d E hE r₀ hr₀ k a ?_
+      refine ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ k a ?_
       show r₀.fst k = Sum.inr a
       rw [← ha]
       simp [ProjColIn.eval, hp]
@@ -4505,7 +4633,7 @@ theorem AggQueryIn.evaluate_noNested :
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.isNested_postcomp]
-        exact ih hn d E hE r₀ hr₀ k x hu
+        exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ k x hu
     | aggTermOf k hk gf =>
       cases hu : r₀.fst k with
       | inl w => exact absurd ha (by simp [ProjColIn.eval, hp, hu])
@@ -4515,80 +4643,101 @@ theorem AggQueryIn.evaluate_noNested :
           simp only [ProjColIn.eval, hp, hu, Sum.map_inr] at this
           exact (Sum.inr.inj this).symm
         rw [hax, AggTok.postcompTerm, AggTok.isNested_setFam, AggTok.isNested_postcomp]
-        exact ih hn d E hE r₀ hr₀ k x hu
+        exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ k x hu
   | Sel φ q _ ih =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     by_cases hφ : φ.hasAggAtom
     · rw [ite_eq_left hφ] at hr
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.mp hr
-      exact ih hn d E hE r₀ hr₀ k a ha
+      exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ k a ha
     · rw [ite_eq_right hφ] at hr
-      exact ih hn d E hE r (Multiset.mem_of_mem_filter hr) k a ha
+      exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r
+          (Multiset.mem_of_mem_filter hr) k a ha
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, hp, rfl⟩ := Multiset.mem_map.mp hr
     obtain ⟨h₁, h₂⟩ := Multiset.mem_product.mp hp
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ hn.1 d E hE p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ hn.2 d E hE p.2 h₂ j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hn.1 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC (fun p hp => hH
+        p (List.mem_append_left _ hp)) p.1 h₁ i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · exact ih₂ hn.2 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC (fun p hp => hH
+        p (List.mem_append_right _ hp)) p.2 h₂ j a
+        (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hx, hy⟩ := Multiset.mem_bind.mp hr
     obtain ⟨y, hy', rfl⟩ := Multiset.mem_map.mp hy
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
-    · exact ih₁ hn.1 d E hE x hx i a (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
-    · exact ih₂ hn.2 d _ (EvalEnv.rowsSat_enter (fun _ _ h => absurd h (by simp)) hE _
-          (ih₁ hn.1 d E hE x hx))
-        y hy' j a (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+    · exact ih₁ hn.1 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH x hx i a
+        (by rw [← ha]; exact (Fin.append_left _ _ i).symm)
+    · refine ih₂ hn.2 d _ _ (fun k h => h) (fun k hk a' ha' => ?_)
+          (fun p hp => absurd hp List.not_mem_nil) y hy' j a
+          (by rw [← ha]; exact (Fin.append_right _ _ j).symm)
+      rw [EvalEnv.ctxAt_withCtx] at ha'
+      revert hk ha'
+      refine Fin.addCases (fun i => ?_) (fun i => ?_) k <;> intro hk
+      · rw [Fin.append_left]
+        exact ih₁ hn.1 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH x hx i a'
+      · rw [Fin.append_right]
+        exact hC i (hR i (by simp [AggQueryIn.readsOuter, hk])) a'
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rcases Multiset.mem_add.mp hr with h | h
-    · exact ih₁ hn.1 d E hE r h k a ha
-    · exact ih₂ hn.2 d E hE r h k a ha
+    · exact ih₁ hn.1 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC (fun p hp => hH
+        p (List.mem_append_left _ hp)) r h k a ha
+    · exact ih₂ hn.2 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC (fun p hp => hH
+        p (List.mem_append_right _ hp)) r h k a ha
   | Dedup q ih =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Explode k hk q ih =>
-    intro hn d γ E hE r hr j a ha
+    intro hn d γ E R hR hC hH r hr j a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨r₀, hr₀, hs⟩ := Multiset.mem_bind.mp hr
     cases hfk : r₀.fst k with
     | inl w =>
       rw [GenRow.alternativesAt, hfk, Multiset.mem_singleton] at hs
       subst hs
-      exact ih hn d E hE _ hr₀ j a ha
+      exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH _ hr₀ j a ha
     | inr x =>
       rw [GenRow.alternativesAt, hfk] at hs
       obtain ⟨v, -, rfl⟩ := Multiset.mem_map.mp hs
       by_cases hj : j = k
       · subst hj
         exact absurd ha (by simp)
-      · exact ih hn d E hE r₀ hr₀ j a
+      · exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r₀ hr₀ j a
           ((Function.update_of_ne hj (Sum.inl v) r₀.fst).symm.trans ha)
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro hn d γ E hE r hr
+    intro hn d γ E R hR hC hH r hr
     simp only [AggQueryIn.evaluate] at hr
     exact forall_mem_muSumFix (P := fun r : GenRow T K _ => GenRow.NoNested r.fst)
-      (fun X hX y hy => ih₁ hn.2 d _ (EvalEnv.rowsSat_assignHole hE s hX) y hy)
-      (fun x hx => ih₀ hn.1 d E hE x hx) r hr
+      (fun X hX y hy => ih₁ hn.2 d (E.assignHole s X) R (fun k h => hR k
+          (by simp [AggQueryIn.readsOuter, h])) hC (fun p hp => by
+          rw [List.mem_singleton] at hp; subst hp
+          intro r' hr'
+          simp only [EvalEnv.assignHole] at hr'
+          rw [dite_eq_left (And.intro trivial trivial)] at hr'
+          exact hX r' hr') y hy)
+      (fun x hx => ih₀ hn.1 d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC (fun p
+          hp => absurd hp List.not_mem_nil) x hx) r hr
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
     exact absurd ha (by simp [GenRow.ofAnnotated])
   | Gamma is ts fs q keep ord ih =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
@@ -4599,7 +4748,7 @@ theorem AggQueryIn.evaluate_noNested :
       rw [← Sum.inr.inj ha]
       cases keep j <;> rfl
   | GammaScalar ts fs q ord ih =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
     rw [Multiset.mem_singleton] at hr
     subst hr
@@ -4610,18 +4759,18 @@ theorem AggQueryIn.evaluate_noNested :
     | expr _ =>
         exact absurd ha (by simp [AggTok.setFam_tok])
   | ProvSum is his t q ih =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k <;> intro a ha
     · exact absurd ha (by simp [Fin.append_left])
     · exact absurd ha (by simp [Fin.append_right])
   | Retag hk q ih =>
-    intro hn d γ E hE r hr k a ha
+    intro hn d γ E R hR hC hH r hr k a ha
     simp only [AggQueryIn.evaluate] at hr
-    exact ih hn d E hE r hr k a ha
+    exact ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH r hr k a ha
   | GammaTok is his ts fs ann q keep ih =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -4639,7 +4788,7 @@ theorem AggQueryIn.evaluate_noNested :
     · intro a ha
       exact absurd ha (by simp [Fin.append_right])
   | Win P O o w t f q hrr dist keep ih =>
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hx, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
@@ -4650,7 +4799,7 @@ theorem AggQueryIn.evaluate_noNested :
       rw [← Sum.inr.inj ha]
       cases keep <;> rfl
     · -- a column of the input, carried through
-      refine ih hn d E hE x hx i' a ?_
+      refine ih hn d E R (fun k h => hR k (by simp [AggQueryIn.readsOuter, h])) hC hH x hx i' a ?_
       have ha' := ha
       dsimp only [ValueFrame.windowGenRow] at ha'
       rwa [Fin.snoc_castSucc] at ha'
@@ -4661,7 +4810,7 @@ theorem AggQueryIn.evaluate_noNested :
     exact absurd hn not_false
   | WinExpr P O o ws ts fs g q keeps ih =>
     -- the column is an expression, which is not nested either
-    intro hn d γ E hE r hr k
+    intro hn d γ E R hR hC hH r hr k
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
     refine Fin.lastCases ?_ (fun i' => ?_) k <;> intro a ha
@@ -4671,6 +4820,16 @@ theorem AggQueryIn.evaluate_noNested :
       | nest _ =>
         exact absurd ha (by dsimp only; rw [Fin.snoc_last]; simp [AggTok.setFam_expr])
     · exact absurd ha (by dsimp only; rw [Fin.snoc_castSucc]; simp)
+
+/-- The form for an environment holding no nested value at all. -/
+theorem AggQueryIn.evaluate_noNested {c n : ℕ} {κ : Fin n → ColKind}
+    {l : List (String × ℕ)} (q : AggQueryIn T c n κ l) (hn : q.noGammaNest)
+    (d : AnnotatedDatabase T K) {γ : Fin c → T} (E : EvalEnv T K)
+    (hE : E.RowsSat (fun v => ∀ a, v = Sum.inr a → a.isNested = false)) (r : GenRow T K n)
+    (hr : r ∈ q.evaluate d γ E) : GenRow.NoNested r.fst :=
+  q.evaluate_noNestedOn hn d E (fun _ => true) (fun _ _ => rfl)
+    (fun k _ => EvalEnv.rowsSat_ctxAt (fun _ _ h => absurd h (by simp)) hE c γ k)
+    (fun p _ r hr k => hE.1 p.1 p.2 r hr k) r hr
 
 /-- **Kind conformance of the general evaluator.** -/
 theorem AggQueryIn.evaluate_conform :
