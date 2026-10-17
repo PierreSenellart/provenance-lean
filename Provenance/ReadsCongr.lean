@@ -254,19 +254,22 @@ theorem EvalEnv.paramKey_congr_reads {c : ℕ} (rd : Fin c → Bool) {γ γ' : F
 
 /-- **An evaluation reads its context only where it says it does.** Two
 valuations of the parameters and two environment contexts that agree on
-the positions the query reads, with the same rounds bound, give the same
+the positions the query reads, with the same rounds bound to the names it
+reads, give the same
 evaluation – provided the operators building aggregate values record the
 positions their subtrees read, which is what they stamp. -/
 theorem AggQueryIn.evaluate_congr_reads :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
       q.readsRecorded → ∀ (d : AnnotatedDatabase T K) {γ γ' : Fin c → T} {E E' : EvalEnv T K},
-      E.holes = E'.holes → AgreeOn q.readsOuter γ γ' →
+      (∀ p ∈ l, E.holes p.1 p.2 = E'.holes p.1 p.2) → AgreeOn q.readsOuter γ γ' →
       AgreeOn q.readsOuter (E.ctxAt c γ) (E'.ctxAt c γ') →
       q.evaluate d γ E = q.evaluate d γ' E' := by
   intro c n κ l q
   induction q with
   | Rel n s => intro _ d γ γ' E E' _ _ _; rfl
-  | Hole n s κ => intro _ d γ γ' E E' hh _ _; simp only [AggQueryIn.evaluate, hh]
+  | Hole n s κ =>
+    intro _ d γ γ' E E' hh _ _
+    simp only [AggQueryIn.evaluate, hh (s, n) (List.mem_singleton_self _)]
   | Param pv ρ =>
     intro _ d γ γ' E E' _ _ hc
     simp only [AggQueryIn.evaluate, EvalEnv.paramRows]
@@ -299,10 +302,10 @@ theorem AggQueryIn.evaluate_congr_reads :
       φ.predsemJ_congr_reads _ _ hφg]
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₁ hrr.1 d (fun p hp => hh p (List.mem_append_left _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d (fun p hp => hh p (List.mem_append_right _ hp)) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hrr d γ γ' E E' hh hg hc
     simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk])), ih₂ hrr.2 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
@@ -320,7 +323,7 @@ theorem AggQueryIn.evaluate_congr_reads :
     simp only [AggQueryIn.evaluate, ih₁ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
     refine Multiset.bind_congr (fun x _ => ?_)
     rw [ih₂ hrr.2 d (E := E.withCtx (Fin.append x.fst (E.ctxAt _ γ)))
-      (E' := E'.withCtx (Fin.append x.fst (E'.ctxAt _ γ'))) (by simpa [EvalEnv.withCtx] using hh)
+      (E' := E'.withCtx (Fin.append x.fst (E'.ctxAt _ γ'))) (fun _ hp => absurd hp List.not_mem_nil)
       (fun k hk => ?_) (fun k hk => ?_)]
     · revert hk
       refine Fin.addCases (fun i _ => ?_) (fun j hj => ?_) k
@@ -335,19 +338,23 @@ theorem AggQueryIn.evaluate_congr_reads :
         exact hc j (by simp [AggQueryIn.readsOuter, hj])
   | Mu s q₀ q₁ ih₀ ih₁ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
     exact muSumFix_congr (fun X => ih₁ hrr.2 d (E := E.assignHole s X) (E' := E'.assignHole s X)
-      (by simp only [EvalEnv.assignHole, hh]) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
+      (fun p hp => by
+        obtain rfl := List.mem_singleton.mp hp
+        simp [EvalEnv.assignHole]) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
       (fun k hk => by
         rw [EvalEnv.ctxAt_assignHole, EvalEnv.ctxAt_assignHole]
         exact hc k (by simp [AggQueryIn.readsOuter, hk]))) rfl
   | MuSet s q₀ q₁ ih₀ ih₁ =>
     intro hrr d γ γ' E E' hh hg hc
-    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d hh (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
+    simp only [AggQueryIn.evaluate, ih₀ hrr.1 d (fun _ hp => absurd hp List.not_mem_nil) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter, hk]))]
     refine congrArg _ (muFix_congr (fun X => ?_))
     rw [ih₁ hrr.2 d (E := E.assignHole s (X.map GenRow.ofAnnotated))
       (E' := E'.assignHole s (X.map GenRow.ofAnnotated))
-      (by simp only [EvalEnv.assignHole, hh]) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
+      (fun p hp => by
+        obtain rfl := List.mem_singleton.mp hp
+        simp [EvalEnv.assignHole]) (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
       (fun k hk => by
         rw [EvalEnv.ctxAt_assignHole, EvalEnv.ctxAt_assignHole]
         exact hc k (by simp [AggQueryIn.readsOuter, hk]))]

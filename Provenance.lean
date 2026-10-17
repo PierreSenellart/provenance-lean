@@ -94,6 +94,7 @@ import Provenance.AggQueryAdequacy
 import Provenance.WindowPartition
 import Provenance.AggQueryBridges
 import Provenance.JointHom
+import Provenance.Coherence
 import Provenance.Normalize
 import Provenance.Alternatives
 
@@ -1414,6 +1415,12 @@ proven engine several general results reuse internally.
   whose families correspond family by family has corresponding joint
   worlds (`jointWorlds_hom`), in particular one whose families are
   presented on both sides (`FamPres`, `jointWorlds_of_famPres`)
+- `Provenance.Coherence` – **what an evaluation builds**: the aggregate
+  values an evaluation stamps (`AggQueryIn.Builds`) carry a label of the
+  query and no post-composed term (`AggQueryIn.builds_spec`), every
+  aggregate value in an output row is a term over those and the values the
+  environment supplies (`AggQueryIn.rowToks`), and equal recorded
+  parameters agree position by position (`ctxKey_agree`)
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
   form**: `AggQuery.havingSite` is one aggregate comparison directly above
   the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it
