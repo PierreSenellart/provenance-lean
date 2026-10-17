@@ -26,6 +26,7 @@ import Provenance.AggExpr
 import Provenance.Nested
 import Provenance.JointFamily
 import Provenance.AggValueCongr
+import Provenance.SubWorlds
 
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
@@ -91,6 +92,7 @@ import Provenance.AggQueryAdequacy
 /- A window over a whole partition is a join with its grouping -/
 import Provenance.WindowPartition
 import Provenance.AggQueryBridges
+import Provenance.JointHom
 import Provenance.Normalize
 import Provenance.Alternatives
 
@@ -475,6 +477,14 @@ proven engine several general results reuse internally.
   `⊕`-idempotence the two copies where both do. Families of several
   occurrences are not covered, and `ChainFive` shows an idempotent `⊕`
   alone is not enough (`chain_row_ne`)
+- `Provenance.SubWorlds` – the subfamilies of a listing as a bag
+  (`subWorlds`, equal to the enumeration of the subsets of positions by
+  `univ_map_eq_subWorlds`), blind to a tie-block permutation of the
+  listing once the selected occurrences are read through a map that
+  cannot tell tied ones apart (`subWorlds_tiePerm`), and pushed through a
+  map of annotations (`subWorlds_map`); an aggregate expression read off
+  the occurrences a world selects (`AggExpr.isWorld_iff_okSeq`,
+  `valOn_eq_valSeq`)
 - `Provenance.AggValueCongr` – congruence of the token readings under
   tie-block permutations of the payload: `TiePerm`, the guarded analogue
   of `List.Perm` whose swaps only exchange adjacent elements with equal
@@ -1385,6 +1395,14 @@ proven engine several general results reuse internally.
   current row would have no such identity and no such rewriting. The
   combinatorial step is `filter_product_key`: a table with distinct keys,
   joined on the key, gives each row exactly the entry of its own key
+- `Provenance.JointHom` – **the joint reading of a family under a
+  homomorphism**: a `LeafSpec` says how an aggregate value reads an
+  occurrence of its family as a function of the occurrence's row, a value
+  built from a listing by one is read off the rows a world selects
+  (`classWorlds_presented`), and two listings related by a tie-block
+  permutation give corresponding worlds for every value built from them
+  together (`classWorlds_hom`); a row whose families correspond family by
+  family has corresponding joint worlds (`jointWorlds_hom`)
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
   form**: `AggQuery.havingSite` is one aggregate comparison directly above
   the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it
