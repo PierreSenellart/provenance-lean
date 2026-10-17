@@ -1560,18 +1560,23 @@ proven engine several general results reuse internally.
   every `SemiringWithMonusHom` –
   the `⊕`/`⊗`/`⊖`/`δ`-polynomial content of “compile once, evaluate
   many”. The evaluator-level commutation
-  (`AggQuery.evaluateAnnotated_hom`) asks nothing of the hom and holds
-  over every m-semiring, asking only two things of the query – that a
-  multi-frame window frame by the tuple (`framesContainSelf`) and that
-  the target semiring be complemented wherever the query aggregates a
-  grouping a second time (`nestInComplemented`): the guard-absorption
+  (`AggQueryIn.evaluateAnnotated_hom`) asks nothing of the hom and holds
+  over every m-semiring, asking of the query that every window frame
+  contain its current row (`allFramesContainSelf`), that the target
+  semiring be complemented wherever the query aggregates a grouping a
+  second time (`nestInComplemented`), and that a family identifier
+  determine its value across the evaluation – distinct labels, recorded
+  parameters, no arbitrary function on an aggregate value
+  (`labelsDistinct`, `readsRecorded`, `sourceCols`), under which each
+  family is presented once for the whole evaluation (`ClassPres`,
+  `AggQueryIn.evaluate_hom_univ`): the guard-absorption
   identities licensed by `delta_absorb`
   (`AggValue.predProv_delta_absorb`, `GenPred.predsem_delta_absorb`)
   neutralize the supersede decisions a non-injective hom can conflate,
   the group-sequence transport (`havingGroup_tiePerm`,
   `ofGroup_predProv_hom`, `havingGroup_annSum_hom`) neutralizes the
   `≼`-tie-break of `havingGroup`, and a row-wise simulation
-  (`GenRow.Sim`, `AggQuery.evaluate_hom_rel`) carries both through
+  (`GenRow.Sim`, `AggQueryIn.evaluate_hom_rel`) carries both through
   the evaluator. A window's frame is carried unchanged, being read off the
   values; what the pushforward moves is only the order inside a block of
   equal tuples, which `sortList_hom_tiePerm` and `tokenOf_mapAnn_tiePerm`

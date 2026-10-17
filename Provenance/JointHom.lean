@@ -976,10 +976,7 @@ theorem FamPres.pcl {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop} (h
         show (fun s => gf (b'.agg s)) = (fun s => gf (b.agg s))
         rw [hagg]
 
-/-! ### Merging presented sets by labels
-
-Two rows built by subqueries with disjoint labels share families only
-through what both read from outside, so their presented families merge. -/
+/-! ### The operator a family records -/
 
 /-- The label of the operator a family identifier records. -/
 def FamId.lab : FamId T → ℕ
@@ -987,135 +984,6 @@ def FamId.lab : FamId T → ℕ
 
 /-- The label of the operator that built an aggregate value. -/
 def AggTok.lab (x : AggTok T K) : ℕ := x.fam.lab
-
-omit [ValueType T] [CommSemiringWithMonus K'] in
-theorem AggTok.lab_eq_classKey (x : AggTok T K) : x.lab = x.classKey.1.1 := by
-  unfold AggTok.lab AggTok.classKey
-  cases x.fam
-  rfl
-
-omit [ValueType T] [CommSemiringWithMonus K'] in
-theorem AggTok.lab_eq_of_classKey {x y : AggTok T K} (h : x.classKey = y.classKey) :
-    x.lab = y.lab := by
-  rw [AggTok.lab_eq_classKey, AggTok.lab_eq_classKey, h]
-
-omit [ValueType T] in
-/-- **Merging two presented sets by labels.** -/
-theorem FamPres.merge {f : K →+* K'} {A B C : AggTok T K' × AggTok T K → Prop}
-    {La Lb : List ℕ} (hA : FamPres f (fun p => A p ∨ C p)) (hB : FamPres f (fun p => B p ∨ C p))
-    (hAo : ∀ p, A p → C p ∨ p.2.lab ∈ La) (hBo : ∀ p, B p → C p ∨ p.2.lab ∈ Lb)
-    (hCb : ∀ p, C p → p.2.lab ∉ Lb)
-    (hdisj : ∀ l ∈ La, l ∉ Lb)
-    (hfA : ∀ p, A p → p.1.lab = p.2.lab) (hfB : ∀ p, B p → p.1.lab = p.2.lab) :
-    FamPres f (fun p => A p ∨ B p ∨ C p) := by
-  -- a value of `A` outside `C` and one of `B` outside `C` are in no common family
-  have hsep : ∀ p q, A p → ¬ C p → B q → ¬ C q →
-      ¬ p.2.classKey = q.2.classKey ∧ ¬ p.1.classKey = q.1.classKey := by
-    intro p q hp hpC hq hqC
-    have hla := (hAo p hp).resolve_left hpC
-    have hlb := (hBo q hq).resolve_left hqC
-    refine ⟨fun hk => hdisj _ hla (by rw [AggTok.lab_eq_of_classKey hk]; exact hlb),
-      fun hk => hdisj _ hla ?_⟩
-    rw [← hfA p hp, AggTok.lab_eq_of_classKey hk, hfB q hq]
-    exact hlb
-  refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
-  · by_cases hpAC : A p ∨ C p
-    · by_cases hqAC : A q ∨ C q
-      · exact hA.1 p q hpAC hqAC
-      · have hqB : B q := by tauto
-        have hqC : ¬ C q := by tauto
-        rcases hpAC with hpA | hpC
-        · by_cases hpC : C p
-          · exact hB.1 p q (Or.inr hpC) (Or.inl hqB)
-          · obtain ⟨h1, h2⟩ := hsep p q hpA hpC hqB hqC
-            exact iff_of_false h2 h1
-        · exact hB.1 p q (Or.inr hpC) (Or.inl hqB)
-    · have hpB : B p := by tauto
-      have hpC : ¬ C p := by tauto
-      rcases hq with hqA | hqB | hqC
-      · by_cases hqC : C q
-        · exact hB.1 p q (Or.inl hpB) (Or.inr hqC)
-        · obtain ⟨h1, h2⟩ := hsep q p hqA hqC hpB hpC
-          exact iff_of_false (fun h => h2 h.symm) (fun h => h1 h.symm)
-      · exact hB.1 p q (Or.inl hpB) (Or.inl hqB)
-      · exact hB.1 p q (Or.inl hpB) (Or.inr hqC)
-  · -- the family of `p₀` lies within `A ∪ C` or within `B ∪ C`
-    by_cases hAside : A p₀ ∨ C p₀
-    · -- members of `B` outside `C` are not in the family of `p₀`
-      have hmem : ∀ q, (A q ∨ B q ∨ C q) → q.2.classKey = p₀.2.classKey → (A q ∨ C q) := by
-        intro q hq hk
-        rcases hq with hqA | hqB | hqC
-        · exact Or.inl hqA
-        · by_cases hqC : C q
-          · exact Or.inr hqC
-          · exfalso
-            have hlb := (hBo q hqB).resolve_left hqC
-            rw [AggTok.lab_eq_of_classKey hk] at hlb
-            rcases hAside with hpA | hpC
-            · by_cases hpC : C p₀
-              · exact hCb p₀ hpC hlb
-              · exact hdisj _ ((hAo p₀ hpA).resolve_left hpC) hlb
-            · exact hCb p₀ hpC hlb
-        · exact Or.inr hqC
-      rcases hA.2 p₀ hAside with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
-      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
-      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
-    · have hpB : B p₀ := by tauto
-      have hpC : ¬ C p₀ := by tauto
-      have hmem : ∀ q, (A q ∨ B q ∨ C q) → q.2.classKey = p₀.2.classKey → (B q ∨ C q) := by
-        intro q hq hk
-        rcases hq with hqA | hqB | hqC
-        · by_cases hqC : C q
-          · exact Or.inr hqC
-          · exfalso
-            have hla := (hAo q hqA).resolve_left hqC
-            rw [AggTok.lab_eq_of_classKey hk] at hla
-            exact hdisj _ hla ((hBo p₀ hpB).resolve_left hpC)
-        · exact Or.inl hqB
-        · exact Or.inr hqC
-      rcases hB.2 p₀ (Or.inl hpB) with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
-      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
-      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
-
-omit [ValueType T] in
-/-- **A fresh family joins a presented set**: the values `A` an operator
-builds, all of one family with a label nothing in `C` carries, presented
-together. -/
-theorem FamPres.fresh {f : K →+* K'} {A C : AggTok T K' × AggTok T K → Prop} (lab : ℕ)
-    (hC : FamPres f C) (hCl : ∀ p, C p → p.2.lab ≠ lab ∧ p.1.lab ≠ lab)
-    (hAl : ∀ p, A p → p.2.lab = lab ∧ p.1.lab = lab)
-    (hkeys : ∀ p q, A p → A q → p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey)
-    (hpres : (∃ D : ListingRel f T, ∀ q, A q → D.Member q.1 q.2)
-      ∨ (∃ O O', NestRel f O' O ∧ ∀ q, A q → NestMember O' O q.1 q.2)) :
-    FamPres f (fun p => A p ∨ C p) := by
-  have hsep : ∀ p q, A p → C q → ¬ p.2.classKey = q.2.classKey ∧ ¬ p.1.classKey = q.1.classKey :=
-    fun p q hp hq => ⟨fun hk => (hCl q hq).1
-      (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).1),
-      fun hk => (hCl q hq).2 (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).2)⟩
-  refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
-  · rcases hp with hp | hp <;> rcases hq with hq | hq
-    · obtain ⟨h1, h2⟩ := hkeys p q hp hq
-      exact iff_of_true h1 h2
-    · obtain ⟨h1, h2⟩ := hsep p q hp hq
-      exact iff_of_false h2 h1
-    · obtain ⟨h1, h2⟩ := hsep q p hq hp
-      exact iff_of_false (fun h => h2 h.symm) (fun h => h1 h.symm)
-    · exact hC.1 p q hp hq
-  · rcases hp₀ with hp₀ | hp₀
-    · have hmem : ∀ q, (A q ∨ C q) → q.2.classKey = p₀.2.classKey → A q := by
-        rintro q (hq | hq) hk
-        · exact hq
-        · exact absurd hk.symm (hsep p₀ q hp₀ hq).1
-      rcases hpres with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
-      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk)⟩
-      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk)⟩
-    · have hmem : ∀ q, (A q ∨ C q) → q.2.classKey = p₀.2.classKey → C q := by
-        rintro q (hq | hq) hk
-        · exact absurd hk (hsep q p₀ hq hp₀).1
-        · exact hq
-      rcases hC.2 p₀ hp₀ with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
-      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
-      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
 
 omit [ValueType T] in
 /-- **A value presented by its own occurrences.** Two flat values with
@@ -1178,11 +1046,10 @@ end FamPres
 
 The hom commutation reads several values of one family in one world, so
 what it asks of a query is that two operators building values never
-share a label (`AggQueryIn.labelsDistinct`) – values of different
-operators being then in different families – and that a bag
-recursion's body build no value at all (`AggQueryIn.muBodyTokFree`): the
-rounds of a recursion carry the values its earlier rounds built, and a
-body building values would meet its own earlier ones in one row. -/
+share a label (`AggQueryIn.labelsDistinct`): values of different operators
+are then in different families, and an identifier determines its value
+across every evaluation the query performs
+(`AggQueryIn.builds_coherent`). -/
 
 section Labels
 
@@ -1218,32 +1085,6 @@ def AggQueryIn.labels : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
 def AggQueryIn.labelsDistinct {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
     (q : AggQueryIn T c n κ l) : Prop :=
   q.labels.Nodup
-
-/-- **No bag recursion's body builds an aggregate value.** -/
-def AggQueryIn.muBodyTokFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.muBodyTokFree
-  | _, _, _, _, .Sel _ q _ => q.muBodyTokFree
-  | _, _, _, _, .Prod q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
-  | _, _, _, _, .Apply q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
-  | _, _, _, _, .Sum q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
-  | _, _, _, _, .Dedup q => q.muBodyTokFree
-  | _, _, _, _, .Diff q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
-  | _, _, _, _, .Explode _ _ q => q.muBodyTokFree
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.muBodyTokFree ∧ q₁.labels = [] ∧ q₁.muBodyTokFree
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.muBodyTokFree ∧ q₁.muBodyTokFree
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.muBodyTokFree
-  | _, _, _, _, .GammaScalar _ _ q _ => q.muBodyTokFree
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.muBodyTokFree
-  | _, _, _, _, .ProvSum _ _ _ q => q.muBodyTokFree
-  | _, _, _, _, .Retag _ q => q.muBodyTokFree
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.muBodyTokFree
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.muBodyTokFree
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.muBodyTokFree
 
 end Labels
 

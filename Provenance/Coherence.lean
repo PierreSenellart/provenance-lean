@@ -95,6 +95,22 @@ def AggQueryIn.sourceCols : {c n : ℕ} → {κ : Fin n → ColKind} →
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.sourceCols
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.sourceCols
 
+/-- Frames containing the current row everywhere contain it in the
+multi-frame windows. -/
+theorem AggQueryIn.framesContainSelf_of_all :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
+      q.allFramesContainSelf → q.framesContainSelf := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ | Hole _ _ _ | Param _ _ | Empty => intro _; trivial
+  | Proj _ _ ih | Sel _ _ _ ih | Dedup _ ih | Explode _ _ _ ih | Retag _ _ ih
+    | ProvSum _ _ _ _ ih | Gamma _ _ _ _ _ _ ih | GammaScalar _ _ _ _ ih
+    | GammaNest _ _ _ _ _ ih | GammaTok _ _ _ _ _ _ _ ih => exact ih
+  | Prod _ _ ih₁ ih₂ | Apply _ _ ih₁ ih₂ | Sum _ _ ih₁ ih₂ | Diff _ _ ih₁ ih₂
+    | Mu _ _ _ ih₁ ih₂ | MuSet _ _ _ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
+  | Win _ _ _ _ _ _ _ _ _ _ ih => exact fun h => ih h.2
+  | WinExpr _ _ _ _ _ _ _ _ _ ih => exact fun h => ⟨h.1, ih h.2⟩
+
 end Fences
 
 /-! ## The values an evaluation builds -/
@@ -1335,6 +1351,94 @@ theorem AggQueryIn.newFam_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
 
 end NodeFam
 
+/-! ## The rows an operator builds -/
+
+section NodeRow
+
+/-- **A grouping's row**: its key columns hold values, and its aggregate
+columns the values of one family, the `j`-th recording column `j`. -/
+theorem AggQueryIn.newRow_Gamma {c m n₁ n₂ lab : ℕ} {rd : Fin c → Bool}
+    (is : Tuple (Fin m) n₁) (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (keep : Fin n₂ → Option (Selection T m))
+    (ord : GroupOrder T m) (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
+    {r : GenRow T K (n₁ + n₂)}
+    (hr : r ∈ (AggQueryIn.Gamma (lab := lab) (rd := rd) is ts fs q keep ord).evaluate d γ E) :
+    ∃ key, (∀ i, ∃ v, r.fst (Fin.castAdd n₂ i) = Sum.inl v)
+      ∧ ∀ j : Fin n₂, ∃ x, r.fst (Fin.natAdd n₁ j) = Sum.inr x
+        ∧ x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
+  simp only [AggQueryIn.evaluate] at hr
+  obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
+  refine ⟨List.ofFn kv.fst, fun i => ⟨kv.fst i, ?_⟩, fun j => ?_⟩
+  · dsimp only; rw [Fin.append_left]
+  · dsimp only; rw [Fin.append_right]; exact ⟨_, rfl, AggTok.fam_setFam _ _⟩
+
+theorem AggQueryIn.newRow_GammaScalar {c m n₂ lab : ℕ} {rd : Fin c → Bool}
+    (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂)
+    (q : AggQueryIn T c m (ColKind.allReg m)) (ord : GroupOrder T m)
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K n₂}
+    (hr : r ∈ (AggQueryIn.GammaScalar (lab := lab) (rd := rd) ts fs q ord).evaluate d γ E) :
+    ∃ key, ∀ j : Fin n₂, ∃ x, r.fst j = Sum.inr x
+        ∧ x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
+  simp only [AggQueryIn.evaluate, Multiset.mem_singleton] at hr
+  subst hr
+  exact ⟨[], fun j => ⟨_, rfl, AggTok.fam_setFam _ _⟩⟩
+
+theorem AggQueryIn.newRow_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind}
+    {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    (p : ProjColIn T c κ) (f : Multiset T → T) (q : AggQueryIn T c m κ)
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
+    {r : GenRow T K (n₁ + 1)}
+    (hr : r ∈ (AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluate d γ E) :
+    ∃ key, (∀ i, ∃ v, r.fst (Fin.castAdd 1 i) = Sum.inl v)
+      ∧ ∀ j : Fin 1, ∃ x, r.fst (Fin.natAdd n₁ j) = Sum.inr x
+        ∧ x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
+  simp only [AggQueryIn.evaluate] at hr
+  obtain ⟨g, -, rfl⟩ := Multiset.mem_map.mp hr
+  refine ⟨List.ofFn g, fun i => ⟨g i, ?_⟩, fun j => ?_⟩
+  · dsimp only; rw [Fin.append_left]
+  · obtain rfl : j = 0 := Subsingleton.elim _ _
+    dsimp only; rw [Fin.append_right]; exact ⟨_, rfl, rfl⟩
+
+theorem AggQueryIn.newRow_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → ColKind}
+    {rd : Fin c → Bool} (is : Tuple (Fin m) n₁) (his : ∀ k, κ (is k) ≠ ColKind.agg)
+    (ts : Tuple (TermIn T c m) n₂) (fs : Tuple (SeqAggFunc T) n₂) (a : TermGIn T c κ)
+    (q : AggQueryIn T c m κ) (keep : Fin n₂ → Option (Selection T m))
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K)
+    {r : GenRow T K (n₁ + n₂ + 1)}
+    (hr : r ∈ (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q keep).evaluate d γ E) :
+    ∃ key, (∀ i, ∃ v, r.fst (Fin.castAdd 1 (Fin.castAdd n₂ i)) = Sum.inl v)
+      ∧ (∀ i : Fin 1, ∃ v, r.fst (Fin.natAdd (n₁ + n₂) i) = Sum.inl v)
+      ∧ ∀ j : Fin n₂, ∃ x, r.fst (Fin.castAdd 1 (Fin.natAdd n₁ j)) = Sum.inr x
+        ∧ x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
+  simp only [AggQueryIn.evaluate] at hr
+  obtain ⟨kv, -, rfl⟩ := Multiset.mem_map.mp hr
+  refine ⟨List.ofFn kv.fst, fun i => ⟨kv.fst i, ?_⟩, fun i => ?_, fun j => ?_⟩
+  · dsimp only; rw [Fin.append_left, Fin.append_left]
+  · dsimp only; rw [Fin.append_right]; exact ⟨_, rfl⟩
+  · dsimp only; rw [Fin.append_left, Fin.append_right]; exact ⟨_, rfl, AggTok.fam_setFam _ _⟩
+
+theorem AggQueryIn.newRow_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
+    (ws : Fin q → ValueFrame T p)
+    (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
+    (q₀ : AggQueryIn T c n (ColKind.allReg n)) (keeps : Fin q → Option (Selection T n))
+    (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K (n + 1)}
+    (hr : r ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q₀ keeps).evaluate
+      d γ E) :
+    ∃ key, (∀ i, ∃ v, r.fst (Fin.castSucc i) = Sum.inl v)
+      ∧ ∀ j : Fin 1, ∃ x, r.fst (Fin.last n) = Sum.inr x
+        ∧ x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
+  simp only [AggQueryIn.evaluate, OccFam.toMultiset] at hr
+  obtain ⟨i, -, rfl⟩ := Multiset.mem_map.mp hr
+  refine ⟨List.ofFn ((OccFam.ofSorted (Multiset.map GenRow.toAnnotated
+    (q₀.evaluate d γ E))).row i).fst, fun i' => ?_, fun j => ?_⟩
+  · simp only [Fin.snoc_castSucc]; exact ⟨_, rfl⟩
+  · obtain rfl : j = 0 := Subsingleton.elim _ _
+    simp only [Fin.snoc_last]
+    exact ⟨_, rfl, AggTok.fam_setFam _ _⟩
+
+end NodeRow
+
 /-! ## Two evaluations of one operator -/
 
 section CohNode
@@ -1498,7 +1602,8 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
   | Prod q₁ q₂ ih₁ ih₂ =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
     have hnd : (q₁.labels ++ q₂.labels).Nodup := hld
-    refine coh_append hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+    refine coh_append hnd
+      (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
       (fun z hz => (q₁.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₁.builds_spec d γ₂ E₂ z hz).2)
       (fun z hz => (q₂.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₂.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy => ih₁ hnd.of_append_left hrr.1 hsc.1 hfc.1 d γ₁ E₁ γ₂ E₂ hs₁ hs₂
@@ -1513,7 +1618,8 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
   | Sum q₁ q₂ ih₁ ih₂ =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
     have hnd : (q₁.labels ++ q₂.labels).Nodup := hld
-    refine coh_append hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+    refine coh_append hnd
+      (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
       (fun z hz => (q₁.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₁.builds_spec d γ₂ E₂ z hz).2)
       (fun z hz => (q₂.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₂.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy => ih₁ hnd.of_append_left hrr.1 hsc.1 hfc.1 d γ₁ E₁ γ₂ E₂ hs₁ hs₂
@@ -1528,7 +1634,8 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
   | Diff q₁ q₂ ih₁ ih₂ =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
     have hnd : (q₁.labels ++ q₂.labels).Nodup := hld
-    refine coh_append hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
+    refine coh_append hnd
+      (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
       (fun z hz => (q₁.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₁.builds_spec d γ₂ E₂ z hz).2)
       (fun z hz => (q₂.builds_spec d γ₁ E₁ z hz).2) (fun z hz => (q₂.builds_spec d γ₂ E₂ z hz).2)
       (fun x y hx hy hxy => ih₁ hnd.of_append_left hrr.1 hsc.1 hfc.1 d γ₁ E₁ γ₂ E₂ hs₁ hs₂
@@ -1743,7 +1850,8 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
         (fun r x => r.fst (Fin.last _) = Sum.inr x) d
         (fun γ E r x hr hx => AggQueryIn.newFam_Win P O o w t f q hwr dist keep d γ E hr hx)
         (fun γ E r r' x y hr hr' hx hy hxy =>
-          CohRel.of_eq (AggQueryIn.newFun_Win P O o hfc.1 t f q hwr dist keep d γ E hr hr' hx hy hxy))
+          CohRel.of_eq (AggQueryIn.newFun_Win P O o hfc.1 t f q hwr dist keep d γ E hr hr' hx hy
+            hxy))
         U M hU hs₁ hs₂ (fun k z hk => ht₁ z (Or.inl ⟨k, hk⟩))
         (fun k z hk => ht₂ z (Or.inl ⟨k, hk⟩)) hx hy hxy hM)
       (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc.2 d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
@@ -1765,7 +1873,8 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
         (fun r x => r.fst (Fin.last _) = Sum.inr x) d
         (fun γ E r x hr hx => AggQueryIn.newFam_WinExpr P O o ws ts fs g q keeps d γ E hr hx)
         (fun γ E r r' x y hr hr' hx hy hxy =>
-          CohRel.of_eq (AggQueryIn.newFun_WinExpr P O o hfc.1 ts fs g q keeps d γ E hr hr' hx hy hxy))
+          CohRel.of_eq (AggQueryIn.newFun_WinExpr P O o hfc.1 ts fs g q keeps d γ E hr hr' hx hy
+            hxy))
         U M hU hs₁ hs₂ (fun k z hk => ht₁ z (Or.inl ⟨k, hk⟩))
         (fun k z hk => ht₂ z (Or.inl ⟨k, hk⟩)) hx hy hxy hM)
       (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc.2 d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
@@ -1914,28 +2023,24 @@ theorem AggQueryIn.builds_coherent {c n : ℕ} {κ : Fin n → ColKind} {l : Lis
   · exact h.2
   · exact hR₀k _ _ h₁ h₂ hf₀
 
-/-- **A closed query, evaluated from scratch**: what it builds has one
-value per identifier and one class per family, terms included. -/
-theorem AggQueryIn.builds_coherent_closed {n : ℕ} {κ : Fin n → ColKind}
-    (q : AggQueryIn T 0 n κ) (hld : q.labelsDistinct) (hrr : q.readsRecorded)
-    (hsc : q.sourceCols) (hfc : q.allFramesContainSelf) (d : AnnotatedDatabase T K) :
-    FamFun (TermCl (q.Builds d (fun k => k.elim0) {}))
-      ∧ FamKeyed (TermCl (q.Builds d (fun k => k.elim0) {})) := by
-  have h := q.builds_coherent (γ₁ := fun k => k.elim0) (γ₂ := fun k => k.elim0) hld hrr hsc
-    hfc d (fun _ => False) (fun _ h => h.elim)
-    (fun _ _ h => h.elim) (by intro _ _ h; exact h.elim) (fun _ h => h.elim)
-    (EvalEnv.sitOK_empty _) (EvalEnv.sitOK_empty _)
-    (fun x hx => by
-      rcases hx with ⟨k, -⟩ | ⟨p, hp, -⟩
-      · exact k.elim0
-      · exact absurd hp List.not_mem_nil)
-    (fun x hx => by
-      rcases hx with ⟨k, -⟩ | ⟨p, hp, -⟩
-      · exact k.elim0
-      · exact absurd hp List.not_mem_nil)
-  have hsub : ∀ x, TermCl (q.Builds d (fun k => k.elim0) {}) x →
-      TermCl (fun x => q.Builds d (fun k => k.elim0) {} x ∨
-        q.Builds d (fun k => k.elim0) {} x ∨ False) x :=
+/-- **A query evaluated from scratch**: what it builds has one value per
+identifier and one class per family, terms included. -/
+theorem AggQueryIn.builds_coherent_closed {c n : ℕ} {κ : Fin n → ColKind}
+    (q : AggQueryIn T c n κ) (hld : q.labelsDistinct) (hrr : q.readsRecorded)
+    (hsc : q.sourceCols) (hfc : q.allFramesContainSelf) (d : AnnotatedDatabase T K)
+    (γ : Fin c → T) :
+    FamFun (TermCl (q.Builds d γ {})) ∧ FamKeyed (TermCl (q.Builds d γ {})) := by
+  have hnone : ∀ x, ({} : EvalEnv T K).Toks γ [] x → TermCl (fun _ : AggTok T K => False) x := by
+    intro x hx
+    rcases hx with ⟨k, hk⟩ | ⟨p, hp, -⟩
+    · rw [EvalEnv.empty_ctxAt] at hk
+      exact absurd hk (by simp)
+    · exact absurd hp List.not_mem_nil
+  have h := q.builds_coherent (γ₁ := γ) (γ₂ := γ) hld hrr hsc hfc d (fun _ => False)
+    (fun _ h => h.elim) (fun _ _ h => h.elim) (by intro _ _ h; exact h.elim)
+    (fun _ h => h.elim) (EvalEnv.sitOK_empty _) (EvalEnv.sitOK_empty _) hnone hnone
+  have hsub : ∀ x, TermCl (q.Builds d γ {}) x →
+      TermCl (fun x => q.Builds d γ {} x ∨ q.Builds d γ {} x ∨ False) x :=
     fun x hx => hx.mono (fun z hz => Or.inl hz)
   exact ⟨fun x y hx hy => h.1 x y (hsub x hx) (hsub y hy),
     by intro x y hx hy; exact h.2 x y (hsub x hx) (hsub y hy)⟩
