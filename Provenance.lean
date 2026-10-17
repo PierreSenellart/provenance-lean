@@ -517,8 +517,8 @@ proven engine several general results reuse internally.
   column built is a *nested* token whose occurrences are the group's rows
   as a bag, each carrying the aggregate *expression* read there –
   `Provenance.NestedExample` writes it, the random world and the PQE
-  results ask one storey (`nestOnce`), the hom commutation a complemented
-  target (`nestInComplemented`), and `noGammaNest` is left excluding only
+  results ask one storey (`nestOnce`), the hom commutation nothing, and
+  `noGammaNest` is left excluding only
   the two syntactic token fences it is the counterexample to), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
@@ -1571,9 +1571,8 @@ proven engine several general results reuse internally.
   many”. The evaluator-level commutation
   (`AggQueryIn.evaluateAnnotated_hom`) asks nothing of the hom and holds
   over every m-semiring, asking of the query that every window frame
-  contain its current row (`allFramesContainSelf`), that the target
-  semiring be complemented wherever the query aggregates a grouping a
-  second time (`nestInComplemented`), and that a family identifier
+  contain its current row (`allFramesContainSelf`) and that a family
+  identifier
   determine its value across the evaluation – distinct labels, recorded
   parameters, no arbitrary function on an aggregate value
   (`labelsDistinct`, `readsRecorded`, `sourceCols`), under which each

@@ -3839,9 +3839,7 @@ two syntactic token fences it is the counterexample to
 Everything else covers it: the evaluators and the kind conformance ask
 nothing, the data-part adequacy, the guardedness and the rewritten
 world's plain reading are proved, the random world and the PQE results
-ask only `AggQueryIn.nestOnce`, and the hom commutation asks only that
-the target semiring be complemented
-(`AggQueryIn.nestInComplemented`).
+ask only `AggQueryIn.nestOnce`, and the hom commutation asks nothing.
 
 **What the hom needs, and what gives it.** A nested world's weight is
 not a function of the four readings its occurrences' inner values carry.
@@ -3855,13 +3853,13 @@ pair. So what the nested reading asks of an occurrence is, per subfamily
 valOn S)` – data about positions, which the four readings do not
 determine.
 
-Two things answer it. In a *complemented* semiring the global monus
-factors occurrence by occurrence (`NestedValue.World.ann_split`, off
-`monus_multiset_sum`), so the weight becomes a product of per-occurrence
-statistics; and `GenRow.Sim` now relates an aggregate column by its
-`AggExpr.worldStats`, the bag of those triples, which a tie-block
-permutation preserves (`AggExpr.worldStats_congr`) and which every
-operator's aggregate column therefore gives. -/
+What answers it is to keep the pair apart: `GenRow.Sim` relates an
+aggregate column by its `AggExpr.worldStats`, the bag of those triples,
+which a tie-block permutation preserves (`AggExpr.worldStats_congr`) and
+which every operator's aggregate column therefore gives; a nested value's
+occurrences then carry their unsplit data (`NestedValue.occStatsU`), off
+which every world's product and absent sum, hence its weight, are read in
+every m-semiring (`NestedValue.predProvWith_eq_choicesU`). -/
 def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
@@ -3929,76 +3927,6 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
-
-/-- **Every second-level aggregation is read in a complemented
-semiring.** This is what the hom commutation asks of `GammaNest` instead
-of excluding it: a nested world's weight is one product and one monus
-over what the world drops at *both* levels, and it splits into a factor
-per occurrence exactly where `𝟙 ⊖ ·` turns `⊕` into `⊗`
-(`NestedValue.World.ann_split`). Split that way, what a nested value
-reads is a function of its occurrences' columns through
-`AggExpr.worldStats`, which a simulation carries – so the commutation
-goes through.
-
-It costs nothing where no second-level aggregation occurs, being `True`
-there, and nothing in the catalog either: every semiring of it is
-complemented. It bites only in an m-semiring that is not, such as the
-non-negative rationals, where `𝟙 ⊖ (½ ⊕ ½)` is `𝟘` against `¼`. -/
-def AggQueryIn.nestInComplemented : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.nestInComplemented
-  | _, _, _, _, .Sel _ q _ => q.nestInComplemented
-  | _, _, _, _, .Prod q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, _, .Apply q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, _, .Sum q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, _, .Dedup q => q.nestInComplemented
-  | _, _, _, _, .Diff q₁ q₂ => q₁.nestInComplemented ∧ q₂.nestInComplemented
-  | _, _, _, _, .Explode _ _ q => q.nestInComplemented
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestInComplemented ∧ q₁.nestInComplemented
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestInComplemented
-  | _, _, _, _, .GammaScalar _ _ q _ => q.nestInComplemented
-  | _, _, _, _, .GammaNest _ _ _ _ q => complemented K ∧ q.nestInComplemented
-  | _, _, _, _, .ProvSum _ _ _ q => q.nestInComplemented
-  | _, _, _, _, .Retag _ q => q.nestInComplemented
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestInComplemented
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestInComplemented
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestInComplemented
-
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-/-- A query with no second-level aggregation asks nothing of the
-semiring. -/
-theorem AggQueryIn.nestInComplemented_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noGammaNest → q.nestInComplemented (K := K) := by
-  intro c n κ l q
-  induction q with
-  | Rel n s => exact fun _ => trivial
-  | Hole n s => exact fun _ => trivial
-  | Param pv ρ => exact fun _ => trivial
-  | Empty => exact fun _ => trivial
-  | Proj ps q ih => exact ih
-  | Sel φ q _ ih => exact ih
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Dedup q ih => exact ih
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Explode k hk q ih => exact ih
-  | Mu a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | Gamma is ts fs q keep ord ih => exact ih
-  | GammaScalar ts fs q ord ih => exact ih
-  | GammaNest is his p f q ih => exact fun h => absurd h not_false
-  | ProvSum is his t q ih => exact ih
-  | Retag hk q ih => exact ih
-  | GammaTok is his ts fs ann q keep ih => exact ih
-  | Win P O o w t f q hrr dist keep ih => exact ih
-  | WinExpr P O o ws ts fs g q keeps ih => exact ih
 
 /-- **No second-level aggregation reads a second-level aggregation.**
 One level of nesting is what `sec:aggcols` reads as values: an occurrence

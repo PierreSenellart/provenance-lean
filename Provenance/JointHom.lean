@@ -701,6 +701,76 @@ theorem classWorlds_hom_nest {K' : Type} [CommSemiringWithMonus K'] (f : K →+*
       have := h₁ b hb
       rwa [hsc]
 
+/-- What the reading makes of one unsplit choice: the world's annotation,
+the kept product times the complement of the left-out sum, times the
+truth of the test, where the choice is admissible. -/
+def readOfChoiceU [ValueType T] (agg : Multiset T → T) (sc : Bool) (P : T → Kleene)
+    (c : Multiset T × K × K × Bool) : K :=
+  if (sc = true ∨ 0 < Multiset.card c.1) ∧ c.2.2.2 = true
+  then c.2.1 * (1 - c.2.2.1) * Having.chiOf P (agg c.1) else 0
+
+/-- **A test of a nested value reads its occurrences' unsplit data**, in
+every m-semiring: the world's annotation is one monus over the product it
+keeps and the sum it leaves out, and both are in the data. -/
+theorem predProvWith_eq_choicesU [ValueType T] [DecidableEq K] (a : NestedValue T K)
+    (P : T → Kleene) :
+    a.predProvWith P
+      = ((choicesU (a.occs.map occStatsU)).map (readOfChoiceU a.agg a.scalar P)).sum := by
+  classical
+  unfold predProvWith
+  rw [sum_map_filter]
+  unfold worlds
+  rw [Multiset.map_map, ← foldr_addOcc_map_summaryU a.occs, Multiset.map_map]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun Wo _ => ?_))
+  have hval : a.valOn (World.mk Wo) = a.agg (summaryU Wo).1 := rfl
+  have hann : (World.mk Wo).ann = (summaryU Wo).2.1 * (1 - (summaryU Wo).2.2.1) := by
+    unfold World.ann
+    rw [World.presentProd_eq_summaryU, World.absentSum_eq_summaryU]
+  have hw : (World.mk Wo).IsWorld a
+      ↔ ((a.scalar = true ∨ 0 < Multiset.card (summaryU Wo).1)
+        ∧ (summaryU Wo).2.2.2 = true) := by
+    unfold World.IsWorld World.IsWorldWith summaryU World.kept
+    simp only [Multiset.card_map, and_true, decide_eq_true_eq]
+  unfold readOfChoiceU
+  by_cases h : (World.mk Wo).IsWorld a
+  · have h' := hw.mp h
+    simp only [Function.comp, h, h', ite_true, hann, hval, and_self]
+  · have h' : ¬ ((a.scalar = true ∨ 0 < Multiset.card (summaryU Wo).1)
+        ∧ (summaryU Wo).2.2.2 = true) := fun hc' => h (hw.mpr hc')
+    simp only [Function.comp, h, h', ite_false]
+
+/-- **Two nested values whose occurrences carry the same unsplit data read
+alike**, in every m-semiring. -/
+theorem predProvWith_congr_of_occStatsU [ValueType T] [DecidableEq K]
+    {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
+    (hst : a.occs.map occStatsU = b.occs.map occStatsU) (P : T → Kleene) :
+    a.predProvWith P = b.predProvWith P := by
+  rw [predProvWith_eq_choicesU, predProvWith_eq_choicesU, hst, hagg, hsc]
+
+/-- **And take the same values.** -/
+theorem vals_congr_of_occStatsU [ValueType T] [DecidableEq K]
+    {a b : NestedValue T K} (hagg : a.agg = b.agg) (hsc : a.scalar = b.scalar)
+    (hst : a.occs.map occStatsU = b.occs.map occStatsU) :
+    a.vals = b.vals := by
+  classical
+  have key : ∀ x : NestedValue T K, x.vals
+      = ((((choicesU (x.occs.map occStatsU)).filter
+          (fun c => (x.scalar = true ∨ 0 < Multiset.card c.1) ∧ c.2.2.2 = true)).map
+          (fun c => x.agg c.1))).toFinset := by
+    intro x
+    unfold vals worlds
+    rw [← foldr_addOcc_map_summaryU x.occs, Multiset.filter_map, Multiset.map_map,
+      Multiset.filter_map, Multiset.map_map]
+    congr 1
+    rw [Multiset.filter_congr (q := (fun c : Multiset T × K × K × Bool =>
+        (x.scalar = true ∨ 0 < Multiset.card c.1) ∧ c.2.2.2 = true) ∘ summaryU)
+      (fun Wo _ => ?_)]
+    · rfl
+    · show (World.mk Wo).IsWorld x ↔ _
+      unfold World.IsWorld World.IsWorldWith summaryU World.kept
+      simp only [Function.comp, Multiset.card_map, and_true, decide_eq_true_eq]
+  rw [key, key, hst, hagg, hsc]
+
 end Unsplit
 
 end NestedValue

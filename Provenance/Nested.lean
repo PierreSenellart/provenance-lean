@@ -255,7 +255,10 @@ per occurrence – the factor its decision carries, the value it
 contributes if present, and whether that decision is a world of it – and
 the whole reading is a function of the *bag* of those data. That is what
 makes a nested value's reading depend on its occurrences' columns only
-through `AggExpr.worldStats`, which is what `GenValue.Equiv` carries. -/
+through `AggExpr.worldStats`. Without the split the same holds in every
+m-semiring, the product a world keeps and the sum it leaves out read
+apart (`NestedValue.predProvWith_eq_choicesU`), and that is what
+`GenValue.Equiv` carries. -/
 
 /-- The datum a decision carries: its factor, the value it contributes
 where it is present, and whether it is a world of its own expression.

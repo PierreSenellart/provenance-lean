@@ -55,18 +55,18 @@ theorem exists_annEpsOps_match_hom (sch : Schema) (cnt : SeqAggFunc T) (ch : Boo
           (h : SemiringWithMonusHom K K'),
           AggQueryIn.NodeCorrect cnt ch (fun _ : AnnotatedDatabase T K => True) →
           AggQueryIn.NodeCorrect cnt ch (fun _ : AnnotatedDatabase T K' => True) →
-          q.nestInComplemented (K := K') → q.labelsDistinct → q.readsRecorded →
+          q.labelsDistinct → q.readsRecorded →
           q.sourceCols → q.allFramesContainSelf →
           ∀ d : AnnotatedDatabase T K, q.AnnSettlesAt d (fun _ => 0) {} →
             q.AnnSettlesAt (h.mapAnnotatedDatabase d) (fun _ => 0) {} →
             q'.evaluateAnnotated (h.mapAnnotatedDatabase d)
               = SemiringWithMonusHom.mapAnnotatedRelation h (q'.evaluateAnnotated d) := by
   obtain ⟨q', ho', hu', hi', ha', -, -, hm⟩ := exists_annEpsOps_matchU sch cnt ch q ho hu hi ha hp
-  refine ⟨q', ho', hu', hi', ha', fun h hn hn' hnc hld hrr hsc hfc d hs hs' => ?_⟩
+  refine ⟨q', ho', hu', hi', ha', fun h hn hn' hld hrr hsc hfc d hs hs' => ?_⟩
   refine annotatedMatch_hom h q q'
     (fun d hd => GenRow.map_toAnnotated_of_fin (hm hn d _ trivial hd).2)
     (fun d hd => GenRow.map_toAnnotated_of_fin (hm hn' d _ trivial hd).2)
-    d (AggQueryIn.evaluateAnnotated_hom h q hnc hld hrr hsc hfc d hs) hs hs'
+    d (AggQueryIn.evaluateAnnotated_hom h q hld hrr hsc hfc d hs) hs hs'
 
 /-- **Between two semirings of the support class** – `δ` the support map,
 linear recursions settling early: `ℕ`, `ℕ[X]`, the tropical, Viterbi and
@@ -83,7 +83,7 @@ theorem exists_annEpsOps_match_hom_support (sch : Schema) (cnt : SeqAggFunc T)
           (h : SemiringWithMonusHom K K'),
           (∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesEarly K →
           (∀ a : K', a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesEarly K' →
-          q.nestInComplemented (K := K') → q.labelsDistinct → q.readsRecorded →
+          q.labelsDistinct → q.readsRecorded →
           q.sourceCols → q.allFramesContainSelf →
           ∀ d : AnnotatedDatabase T K, q.AnnSettlesAt d (fun _ => 0) {} →
             q.AnnSettlesAt (h.mapAnnotatedDatabase d) (fun _ => 0) {} →
@@ -106,7 +106,7 @@ theorem exists_annEpsOps_match_hom_delta_id (sch : Schema) (cnt : SeqAggFunc T)
           [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
           (h : SemiringWithMonusHom K K'),
           (∀ a : K, SemiringWithMonus.delta a = a) → (∀ a : K', SemiringWithMonus.delta a = a) →
-          q.nestInComplemented (K := K') → q.labelsDistinct → q.readsRecorded →
+          q.labelsDistinct → q.readsRecorded →
           q.sourceCols → q.allFramesContainSelf →
           ∀ d : AnnotatedDatabase T K, q.AnnSettlesAt d (fun _ => 0) {} →
             q.AnnSettlesAt (h.mapAnnotatedDatabase d) (fun _ => 0) {} →
