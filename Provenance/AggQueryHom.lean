@@ -7,6 +7,7 @@ import Provenance.AggQuery
 import Provenance.AggValueCongr
 import Provenance.QueryAnnotatedDatabaseHom
 import Provenance.AggQueryBridges
+import Provenance.JointHom
 
 /-!
 # Hom commutation, token and annotation layer
@@ -1282,86 +1283,41 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     rw [ihφ, ihψ]
   | not φ ih => exact ih (!neg)
 
-/-- **The joint reading of a predicate comparing at most one aggregate
-column commutes with the pushforward**, on a row simulating the base-side
-one: it is that column's reading of one test of its value, which the
-equivalence and the pushforward both carry. -/
-theorem GenPredIn.predsemJ_hom_one (h : SemiringWithMonusHom K K') {c n : ℕ}
+/-- **The joint reading of a predicate commutes with the pushforward**
+on a row whose compared families are presented on both sides
+(`FamPres`): the joint worlds correspond (`jointWorlds_of_famPres`), the
+annotations pushed forward, and the predicate reads the same values
+there, the terms reading the regular columns the simulation keeps. -/
+theorem GenPredIn.predsemJ_hom_famPres (h : SemiringWithMonusHom K K') {c n : ℕ}
     {κ : Fin n → ColKind} (φ : GenPredIn T c κ) (neg : Bool) {γ : Fin c → T}
     {u' : Tuple (GenValue T K') n} {u : Tuple (GenValue T K) n}
-    (hone : φ.comparedCols.card ≤ 1)
-    (hu : ∀ k, GenValue.Equiv (u' k) (AggValue.mapAnnSum ⇑h.toRingHom (u k))) :
+    (hu : ∀ k, GenValue.Equiv (u' k) (AggValue.mapAnnSum ⇑h.toRingHom (u k)))
+    (hF : FamPres h.toRingHom (fun p => ∃ k, u' k = Sum.inr p.1 ∧ u k = Sum.inr p.2)) :
     φ.predsemJ neg u' γ = h.toRingHom (φ.predsemJ neg u γ) := by
   have hterm : ∀ t : TermGIn T c κ, t.eval u' γ = t.eval u γ := fun t =>
     (TermGIn.eval_equiv t hu).trans (TermGIn.eval_mapAnnSum h t u)
-  have hnone : (∀ k ∈ φ.comparedCols, ∀ x, u k ≠ Sum.inr x) →
-      φ.predsemJ neg u' γ = h.toRingHom (φ.predsemJ neg u γ) := by
-    intro hno
-    have hno' : ∀ k ∈ φ.comparedCols, ∀ x, u' k ≠ Sum.inr x := by
-      intro k hk x hx
-      have hk' := hu k
-      cases huk : u k with
-      | inl w =>
-        rw [hx, huk] at hk'
-        exact GenValue.Equiv.not_inr_inl hk'
-      | inr y => exact hno k hk y huk
-    rw [GenPredIn.predsemJ_of_no_token φ neg u' γ hno',
-      GenPredIn.predsemJ_of_no_token φ neg u γ hno,
-      GenPredIn.eval3W_congr_terms φ _ hterm]
-    split_ifs <;> simp
-  rcases Finset.eq_empty_or_nonempty φ.comparedCols with he | ⟨k, hk⟩
-  · exact hnone (by simp [he])
-  have hk1 : φ.comparedCols = {k} :=
-    Finset.eq_singleton_iff_unique_mem.mpr ⟨hk, fun j hj => Finset.card_le_one.mp hone j hj k hk⟩
-  cases huk : u k with
-  | inl w =>
-    refine hnone (fun j hj x hx => ?_)
-    rw [hk1, Finset.mem_singleton] at hj
-    subst hj
-    rw [huk] at hx
-    exact Sum.inl_ne_inr hx
-  | inr x =>
-    have hk' := hu k
-    rw [huk] at hk'
-    cases hu'k : u' k with
-    | inl w => rw [hu'k] at hk'; exact absurd hk' GenValue.Equiv.not_inl_inr
-    | inr x' =>
-      rw [hu'k] at hk'
-      rw [GenPredIn.predsemJ_of_single φ neg u' γ k hk1 x' hu'k,
-        GenPredIn.predsemJ_of_single φ neg u γ k hk1 x huk,
-        ← AggTok.predProvOfWith_mapAnn h x]
-      simp only [GenPredIn.eval3W_congr_terms φ _ hterm]
-      exact hk'.predProvOfWith_eq _
-
-/-- **Every selection compares at most one aggregate column.** What the
-row-wise simulation proves the hom commutation for: the joint reading of
-several aggregate columns depends on how their families are listed
-together, which `GenValue.Equiv`, relating columns one by one, does not
-carry. -/
-def AggQueryIn.selReadsOne : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.selReadsOne
-  | _, _, _, _, .Sel φ q _ => φ.comparedCols.card ≤ 1 ∧ q.selReadsOne
-  | _, _, _, _, .Prod q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
-  | _, _, _, _, .Apply q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
-  | _, _, _, _, .Sum q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
-  | _, _, _, _, .Dedup q => q.selReadsOne
-  | _, _, _, _, .Diff q₁ q₂ => q₁.selReadsOne ∧ q₂.selReadsOne
-  | _, _, _, _, .Explode _ _ q => q.selReadsOne
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.selReadsOne ∧ q₁.selReadsOne
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.selReadsOne ∧ q₁.selReadsOne
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.selReadsOne
-  | _, _, _, _, .GammaScalar _ _ q _ => q.selReadsOne
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.selReadsOne
-  | _, _, _, _, .ProvSum _ _ _ q => q.selReadsOne
-  | _, _, _, _, .Retag _ q => q.selReadsOne
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.selReadsOne
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.selReadsOne
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.selReadsOne
+  have hagg : ∀ k, (∃ x, u k = Sum.inr x) ↔ (∃ x', u' k = Sum.inr x') := by
+    intro k
+    have hk := hu k
+    cases huk : u k with
+    | inl w =>
+      rw [huk] at hk
+      cases hu'k : u' k with
+      | inl w' => simp
+      | inr x' => rw [hu'k] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
+    | inr x =>
+      rw [huk] at hk
+      cases hu'k : u' k with
+      | inl w' => rw [hu'k] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
+      | inr x' => simp
+  unfold GenPredIn.predsemJ
+  rw [jointWorlds_of_famPres h.toRingHom u u' _ (fun k _ => hagg k)
+    (hF.mono (fun p ⟨k, _, h1, h2⟩ => ⟨k, h1, h2⟩)), Multiset.map_map,
+    map_multiset_sum, Multiset.map_map]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun w _ => ?_))
+  simp only [Function.comp, GenPredIn.eval3W_congr_terms φ _ hterm]
+  rw [map_mul, map_mul, SemiringWithMonusHom.map_sub, map_one]
+  split_ifs <;> simp
 
 /-- The row-wise simulation relation underlying the evaluator-level hom
 commutation: regular columns equal, aggregate columns reading as the
@@ -2187,6 +2143,277 @@ theorem ProjColIn.equiv_eval_of_sim (h : SemiringWithMonusHom K K')
         exact (hk'.postcomp gf.unary).setFam _ _
 
 
+/-! ### Families across the rows of an evaluation
+
+What the joint reading of a selection needs of a row is that its
+families be presented on both sides. That is carried through the
+evaluation together with where a row's values come from: from the
+environment – a universe `U` of presented pairs, closed under terms, whose
+labels the query does not use – from one round a recursion reads (`H`),
+or from an operator of the query, labelled by it. Rows built by
+subqueries with disjoint labels then merge (`FamPres.merge`). -/
+
+/-- The pairs of corresponding aggregate values two rows hold. -/
+def rowPairs {n : ℕ} (u' : Tuple (GenValue T K') n) (u : Tuple (GenValue T K) n) :
+    AggTok T K' × AggTok T K → Prop :=
+  fun p => ∃ k, u' k = Sum.inr p.1 ∧ u k = Sum.inr p.2
+
+/-- Corresponding values carry the same family identifier. -/
+def EqFamP (S : AggTok T K' × AggTok T K → Prop) : Prop := ∀ p, S p → p.1.fam = p.2.fam
+
+/-- A set of pairs closed under terms. -/
+def PClosed (S : AggTok T K' × AggTok T K → Prop) : Prop := ∀ p, PCl S p → S p
+
+/-- **What a row's families are**: presented together with the
+environment's universe `U` and the round `H` it was read from, each value
+either from those or built by an operator labelled in `L`, and every pair
+carrying one family identifier on both sides. -/
+def RowJoint (h : SemiringWithMonusHom K K') (U H : AggTok T K' × AggTok T K → Prop)
+    (L : List ℕ) {n : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) : Prop :=
+  FamPres h.toRingHom (fun p => rowPairs r'.fst r.fst p ∨ U p ∨ H p)
+  ∧ (∀ p, rowPairs r'.fst r.fst p → U p ∨ H p ∨ p.2.lab ∈ L)
+  ∧ EqFamP (rowPairs r'.fst r.fst)
+
+/-- **What a round read in a recursion contributes**: closed under terms,
+one family identifier per pair, and drawn from the environment or built
+by an operator labelled in `Lh`. -/
+def HoleOK (U H : AggTok T K' × AggTok T K → Prop) (Lh : List ℕ) : Prop :=
+  PClosed H ∧ EqFamP H ∧ ∀ p, H p → U p ∨ p.2.lab ∈ Lh
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+theorem PCl.idem {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl (PCl S) p) : PCl S p := by
+  induction hp with
+  | base h => exact h
+  | step t _ ih => exact PCl.step t ih
+  | stepF gf _ ih => exact PCl.stepF gf ih
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+theorem PClosed.pcl (S : AggTok T K' × AggTok T K → Prop) : PClosed (PCl S) :=
+  fun _ hp => hp.idem
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] in
+theorem FamId.lab_addTerm (t : TermIn T 1 0) (φ : FamId T) : (φ.addTerm t).lab = φ.lab := by
+  cases φ; rfl
+
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem AggTok.fam_postcomp' {K₀ : Type} (gf : T → T) (x : AggTok T K₀) :
+    (x.postcomp gf).fam = x.fam := by
+  cases x <;> rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem AggTok.lab_postcompTerm {K₀ : Type} (t : TermIn T 1 0) (x : AggTok T K₀) :
+    (x.postcompTerm t).lab = x.lab := by
+  simp [AggTok.lab, AggTok.postcompTerm, FamId.lab_addTerm]
+
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem AggTok.lab_postcomp {K₀ : Type} (gf : T → T) (x : AggTok T K₀) :
+    (x.postcomp gf).lab = x.lab := by
+  simp [AggTok.lab, AggTok.fam_postcomp']
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+theorem EqFamP.pcl {S : AggTok T K' × AggTok T K → Prop} (hS : EqFamP S) : EqFamP (PCl S) := by
+  intro p hp
+  induction hp with
+  | base h => exact hS _ h
+  | step t _ ih => simp [AggTok.postcompTerm, ih]
+  | stepF gf _ ih => simp [AggTok.fam_postcomp', ih]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+/-- A term over a value keeps where it comes from: a closed set it was in,
+or the label of the operator that built it. -/
+theorem PCl.origin {S C : AggTok T K' × AggTok T K → Prop} {L : List ℕ} (hC : PClosed C)
+    (hS : ∀ q, S q → C q ∨ q.2.lab ∈ L) {p} (hp : PCl S p) : C p ∨ p.2.lab ∈ L := by
+  induction hp with
+  | base h => exact hS _ h
+  | @step q t _ ih =>
+    rcases ih with hq | hq
+    · exact Or.inl (hC _ (PCl.step t (PCl.base hq)))
+    · exact Or.inr (by rw [AggTok.lab_postcompTerm]; exact hq)
+  | @stepF q gf _ ih =>
+    rcases ih with hq | hq
+    · exact Or.inl (hC _ (PCl.stepF gf (PCl.base hq)))
+    · exact Or.inr (by rw [AggTok.lab_postcomp]; exact hq)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **A row whose values are terms over another's keeps its families.** -/
+theorem RowJoint.of_pcl {h : SemiringWithMonusHom K K'} {U H : AggTok T K' × AggTok T K → Prop}
+    {L : List ℕ} (hU : PClosed U) (hH : PClosed H) {n m : ℕ} {r' : GenRow T K' n}
+    {r : GenRow T K n} (hr : RowJoint h U H L r' r) {a' : GenRow T K' m} {a : GenRow T K m}
+    (hsub : ∀ p, rowPairs a'.fst a.fst p → PCl (rowPairs r'.fst r.fst) p) :
+    RowJoint h U H L a' a := by
+  have hUH : PClosed (fun p => U p ∨ H p) := by
+    intro p hp
+    induction hp with
+    | base h => exact h
+    | @step q t _ ih =>
+      exact Or.imp (fun hq => hU _ (PCl.step t (PCl.base hq)))
+        (fun hq => hH _ (PCl.step t (PCl.base hq))) ih
+    | @stepF q gf _ ih =>
+      exact Or.imp (fun hq => hU _ (PCl.stepF gf (PCl.base hq)))
+        (fun hq => hH _ (PCl.stepF gf (PCl.base hq))) ih
+  refine ⟨hr.1.pcl.mono (fun p hp => ?_), fun p hp => ?_, ?_⟩
+  · rcases hp with hp | hp | hp
+    · exact (hsub p hp).mono (fun q hq => Or.inl hq)
+    · exact PCl.base (Or.inr (Or.inl hp))
+    · exact PCl.base (Or.inr (Or.inr hp))
+  · have := PCl.origin hUH (fun q hq => (hr.2.1 q hq).elim (fun h => Or.inl (Or.inl h))
+      (fun h => h.elim (fun h => Or.inl (Or.inr h)) Or.inr)) (hsub p hp)
+    rcases this with (h1 | h1) | h1
+    · exact Or.inl h1
+    · exact Or.inr (Or.inl h1)
+    · exact Or.inr (Or.inr h1)
+  · exact fun p hp => (EqFamP.pcl hr.2.2) p (hsub p hp)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- A row holding no aggregate value has the families of the environment. -/
+theorem RowJoint.of_noPairs {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    (hU : FamPres h.toRingHom U) (L : List ℕ) {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hr : ∀ p, ¬ rowPairs r'.fst r.fst p) : RowJoint h U (fun _ => False) L r' r :=
+  ⟨hU.mono (fun p hp => hp.elim (fun h => absurd h (hr p)) (fun h => h.elim id False.elim)),
+    fun p hp => absurd hp (hr p), fun p hp => absurd hp (hr p)⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- A row of values from the environment has its families. -/
+theorem RowJoint.of_env {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    (hU : FamPres h.toRingHom U) (hUf : EqFamP U) (L : List ℕ) {n : ℕ} {r' : GenRow T K' n}
+    {r : GenRow T K n} (hr : ∀ p, rowPairs r'.fst r.fst p → U p) :
+    RowJoint h U (fun _ => False) L r' r :=
+  ⟨hU.mono (fun p hp => hp.elim (hr p) (fun h => h.elim id False.elim)),
+    fun p hp => Or.inl (hr p hp), fun p hp => hUf p (hr p hp)⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+theorem RowJoint.mono_labels {h : SemiringWithMonusHom K K'} {U H : AggTok T K' × AggTok T K → Prop}
+    {L L' : List ℕ} (hL : ∀ l ∈ L, l ∈ L') {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hr : RowJoint h U H L r' r) : RowJoint h U H L' r' r :=
+  ⟨hr.1, fun p hp => (hr.2.1 p hp).imp_right (fun h => h.imp_right (hL _)), hr.2.2⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [DecidableEq K']
+  [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+omit [ValueType T] in
+theorem rowPairs_append {n₁ n₂ : ℕ} (x' : Tuple (GenValue T K') n₁) (y' : Tuple (GenValue T K') n₂)
+    (x : Tuple (GenValue T K) n₁) (y : Tuple (GenValue T K) n₂) (p : AggTok T K' × AggTok T K) :
+    rowPairs (Fin.append x' y') (Fin.append x y) p ↔ rowPairs x' x p ∨ rowPairs y' y p := by
+  constructor
+  · rintro ⟨k, h1, h2⟩
+    refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => ?_) k h1 h2
+    · rw [Fin.append_left] at h1 h2
+      exact Or.inl ⟨i, h1, h2⟩
+    · rw [Fin.append_right] at h1 h2
+      exact Or.inr ⟨j, h1, h2⟩
+  · rintro (⟨i, h1, h2⟩ | ⟨j, h1, h2⟩)
+    · exact ⟨Fin.castAdd _ i, by rw [Fin.append_left]; exact h1, by rw [Fin.append_left]; exact h2⟩
+    · exact ⟨Fin.natAdd _ j, by rw [Fin.append_right]; exact h1, by rw [Fin.append_right]; exact h2⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **Two rows built by subqueries with disjoint labels merge**, at most
+one of them read from a round of a recursion. -/
+theorem RowJoint.append {h : SemiringWithMonusHom K K'} {U H₁ H₂ : AggTok T K' × AggTok T K → Prop}
+    {L₁ L₂ Lh : List ℕ} (hUl : ∀ p, U p → p.2.lab ∉ L₁ ∧ p.2.lab ∉ L₂ ∧ p.2.lab ∉ Lh)
+    (hdisj : ∀ l ∈ L₁, l ∉ L₂) (hLh₁ : ∀ l ∈ Lh, l ∉ L₁) (hLh₂ : ∀ l ∈ Lh, l ∉ L₂)
+    (hH₁ : HoleOK U H₁ Lh) (hH₂ : HoleOK U H₂ Lh) (hone : (∀ p, ¬ H₁ p) ∨ (∀ p, ¬ H₂ p))
+    {n₁ n₂ : ℕ} {x' : GenRow T K' n₁} {x : GenRow T K n₁} {y' : GenRow T K' n₂}
+    {y : GenRow T K n₂} (hx : RowJoint h U H₁ L₁ x' x) (hy : RowJoint h U H₂ L₂ y' y)
+    (b' : GenAnn K') (b : GenAnn K) :
+    RowJoint h U (fun p => H₁ p ∨ H₂ p) (L₁ ++ L₂)
+      ((Fin.append x'.fst y'.fst, b') : GenRow T K' (n₁ + n₂))
+      ((Fin.append x.fst y.fst, b) : GenRow T K (n₁ + n₂)) := by
+  have hpairs : ∀ p, rowPairs (Fin.append x'.fst y'.fst) (Fin.append x.fst y.fst) p
+      ↔ rowPairs x'.fst x.fst p ∨ rowPairs y'.fst y.fst p := rowPairs_append _ _ _ _
+  have hfam : FamPres h.toRingHom (fun p =>
+      (rowPairs x'.fst x.fst p ∨ H₁ p) ∨ (rowPairs y'.fst y.fst p ∨ H₂ p) ∨ U p) := by
+    have hA : FamPres h.toRingHom (fun p => (rowPairs x'.fst x.fst p ∨ H₁ p) ∨ U p) :=
+      hx.1.mono (fun p hp => hp.elim (fun h => h.elim Or.inl (fun h => Or.inr (Or.inr h)))
+        (fun h => Or.inr (Or.inl h)))
+    have hB : FamPres h.toRingHom (fun p => (rowPairs y'.fst y.fst p ∨ H₂ p) ∨ U p) :=
+      hy.1.mono (fun p hp => hp.elim (fun h => h.elim Or.inl (fun h => Or.inr (Or.inr h)))
+        (fun h => Or.inr (Or.inl h)))
+    have hfA : ∀ p, (rowPairs x'.fst x.fst p ∨ H₁ p) → p.1.lab = p.2.lab := by
+      rintro p (hp | hp)
+      · exact congrArg FamId.lab (hx.2.2 p hp)
+      · exact congrArg FamId.lab (hH₁.2.1 p hp)
+    have hfB : ∀ p, (rowPairs y'.fst y.fst p ∨ H₂ p) → p.1.lab = p.2.lab := by
+      rintro p (hp | hp)
+      · exact congrArg FamId.lab (hy.2.2 p hp)
+      · exact congrArg FamId.lab (hH₂.2.1 p hp)
+    have hoA : ∀ (Lx : List ℕ), (∀ l ∈ Lh, l ∈ Lx) → (∀ l ∈ L₁, l ∈ Lx) →
+        ∀ p, (rowPairs x'.fst x.fst p ∨ H₁ p) → U p ∨ p.2.lab ∈ Lx := by
+      rintro Lx hLx hL₁ p (hp | hp)
+      · rcases hx.2.1 p hp with h | h | h
+        · exact Or.inl h
+        · exact (hH₁.2.2 p h).imp_right (hLx _)
+        · exact Or.inr (hL₁ _ h)
+      · exact (hH₁.2.2 p hp).imp_right (hLx _)
+    have hoB : ∀ (Lx : List ℕ), (∀ l ∈ Lh, l ∈ Lx) → (∀ l ∈ L₂, l ∈ Lx) →
+        ∀ p, (rowPairs y'.fst y.fst p ∨ H₂ p) → U p ∨ p.2.lab ∈ Lx := by
+      rintro Lx hLx hL₂ p (hp | hp)
+      · rcases hy.2.1 p hp with h | h | h
+        · exact Or.inl h
+        · exact (hH₂.2.2 p h).imp_right (hLx _)
+        · exact Or.inr (hL₂ _ h)
+      · exact (hH₂.2.2 p hp).imp_right (hLx _)
+    rcases hone with hn | hn
+    · -- the round, if any, is read on the right
+      refine FamPres.merge (La := L₁) (Lb := L₂ ++ Lh) hA hB ?_
+        (hoB _ (fun l hl => List.mem_append_right _ hl) (fun l hl => List.mem_append_left _ hl))
+        ?_ ?_ hfA hfB
+      · rintro p (hp | hp)
+        · rcases hx.2.1 p hp with h | h | h
+          · exact Or.inl h
+          · exact absurd h (hn p)
+          · exact Or.inr h
+        · exact absurd hp (hn p)
+      · intro p hp hl
+        rcases List.mem_append.mp hl with hl | hl
+        · exact (hUl p hp).2.1 hl
+        · exact (hUl p hp).2.2 hl
+      · intro l hl hl'
+        rcases List.mem_append.mp hl' with hl' | hl'
+        · exact hdisj l hl hl'
+        · exact hLh₁ l hl' hl
+    · -- the round, if any, is read on the left
+      have hm := FamPres.merge (La := L₂) (Lb := L₁ ++ Lh) hB hA ?_
+        (hoA _ (fun l hl => List.mem_append_right _ hl) (fun l hl => List.mem_append_left _ hl))
+        ?_ ?_ hfB hfA
+      · exact hm.mono (fun p hp => by tauto)
+      · rintro p (hp | hp)
+        · rcases hy.2.1 p hp with h | h | h
+          · exact Or.inl h
+          · exact absurd h (hn p)
+          · exact Or.inr h
+        · exact absurd hp (hn p)
+      · intro p hp hl
+        rcases List.mem_append.mp hl with hl | hl
+        · exact (hUl p hp).1 hl
+        · exact (hUl p hp).2.2 hl
+      · intro l hl hl'
+        rcases List.mem_append.mp hl' with hl' | hl'
+        · exact hdisj l hl' hl
+        · exact hLh₂ l hl' hl
+  refine ⟨hfam.mono (fun p hp => ?_), fun p hp => ?_, fun p hp => ?_⟩
+  · rcases hp with hp | hp | hp | hp
+    · rcases (hpairs p).mp hp with h | h
+      · exact Or.inl (Or.inl h)
+      · exact Or.inr (Or.inl (Or.inl h))
+    · exact Or.inr (Or.inr hp)
+    · exact Or.inl (Or.inr hp)
+    · exact Or.inr (Or.inl (Or.inr hp))
+  · rcases (hpairs p).mp hp with h | h
+    · rcases hx.2.1 p h with h | h | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inl (Or.inl h))
+      · exact Or.inr (Or.inr (List.mem_append_left _ h))
+    · rcases hy.2.1 p h with h | h | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inl (Or.inr h))
+      · exact Or.inr (Or.inr (List.mem_append_right _ h))
+  · rcases (hpairs p).mp hp with h | h
+    · exact hx.2.2 p h
+    · exact hy.2.2 p h
+
 /-- **Two environments related by a homomorphism**: the context columns
 are equivalent at the arity read, and the rounds bound to each name
 simulate each other row for row. -/
@@ -2270,61 +2497,710 @@ theorem EvalEnv.HomSim.paramRows {h : SemiringWithMonusHom K K'} {E' : EvalEnv T
   · rw [ite_eq_right (fun h' => hcc (hc.mp h')), ite_eq_right hcc]
     exact Multiset.Rel.zero
 
-/-- **Row-wise simulation.** Evaluating the transported query on the
-pushed-forward database produces, row for row, simulations of the
-base-side rows: same regular values, equivalent aggregate columns, and
-the pushed-forward finalized annotation – under environments that are
-related the same way. -/
+/-! ### The joint simulation -/
+
+/-- **The environment of a joint simulation**: a universe `U` of
+corresponding values, presented, closed under terms, one family
+identifier per pair, carrying none of the query's labels nor those `Lh`
+of the rounds; the context's aggregate values in it; and the rows bound to
+the names the query reads simulating each other, with their families
+presented together with `U`. -/
+structure JointEnv (h : SemiringWithMonusHom K K') (U : AggTok T K' × AggTok T K → Prop)
+    (Lh L : List ℕ) {c : ℕ} (γ : Fin c → T) (E' : EvalEnv T K') (E : EvalEnv T K)
+    (l : List (String × ℕ)) : Prop where
+  pres : FamPres h.toRingHom U
+  closed : PClosed U
+  eqf : EqFamP U
+  lab : ∀ p, U p → p.2.lab ∉ L ∧ p.2.lab ∉ Lh
+  ctx : ∀ k x' x, E'.ctxAt c γ k = Sum.inr x' → E.ctxAt c γ k = Sum.inr x → U (x', x)
+  lh : ∀ l ∈ Lh, l ∉ L
+  holes : ∀ s m, (s, m) ∈ l → Multiset.Rel (fun r' r => GenRow.Sim h r' r
+    ∧ RowJoint h U (fun _ => False) Lh r' r) (E'.holes s m) (E.holes s m)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem JointEnv.sub {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    {Lh L L' : List ℕ} {c : ℕ} {γ : Fin c → T} {E' : EvalEnv T K'} {E : EvalEnv T K}
+    {l l' : List (String × ℕ)} (hJ : JointEnv h U Lh L γ E' E l)
+    (hL : ∀ x ∈ L', x ∈ L) (hl : ∀ x ∈ l', x ∈ l) : JointEnv h U Lh L' γ E' E l' :=
+  ⟨hJ.pres, hJ.closed, hJ.eqf, fun p hp => ⟨fun h' => (hJ.lab p hp).1 (hL _ h'), (hJ.lab p hp).2⟩,
+    hJ.ctx, fun x hx hx' => hJ.lh x hx (hL _ hx'), fun s m hsm => hJ.holes s m (hl _ hsm)⟩
+
+/-- **The joint simulation of two rows**: the row-wise simulation, and the
+rows' families presented, read from at most one round, which there is
+none of when nothing is bound. -/
+def GenRow.SimJ (h : SemiringWithMonusHom K K') (U : AggTok T K' × AggTok T K → Prop)
+    (Lh L : List ℕ) (l : List (String × ℕ)) {n : ℕ} (r' : GenRow T K' n) (r : GenRow T K n) :
+    Prop :=
+  GenRow.Sim h r' r ∧ ∃ H, (l = [] → ∀ p, ¬ H p) ∧ HoleOK U H Lh ∧ RowJoint h U H L r' r
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+theorem HoleOK.empty (U : AggTok T K' × AggTok T K → Prop) (Lh : List ℕ) :
+    HoleOK U (fun _ => False) Lh :=
+  ⟨fun p hp => by
+    induction hp with
+    | base h => exact h
+    | step _ _ ih => exact ih
+    | stepF _ _ ih => exact ih,
+   fun _ h => h.elim, fun _ h => h.elim⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- A joint simulation that reads no round. -/
+theorem GenRow.SimJ.of_noHole {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    {Lh L : List ℕ} {l : List (String × ℕ)} {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hs : GenRow.Sim h r' r) (hr : RowJoint h U (fun _ => False) L r' r) :
+    GenRow.SimJ h U Lh L l r' r :=
+  ⟨hs, fun _ => False, fun _ _ h => h, HoleOK.empty U Lh, hr⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [DecidableEq K']
+  [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+omit [ValueType T] in
+/-- An annotated tuple read back holds no aggregate value. -/
+theorem rowPairs_ofAnnotated {n : ℕ} (p' : AnnotatedTuple T K' n) (p : AnnotatedTuple T K n)
+    (q : AggTok T K' × AggTok T K) :
+    ¬ rowPairs (GenRow.ofAnnotated p').fst (GenRow.ofAnnotated p).fst q := by
+  rintro ⟨k, h1, -⟩
+  exact Sum.inl_ne_inr h1
+
+omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K']
+  [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+/-- **A projection column holds a term over a column of its row**, on
+both sides alike. -/
+theorem ProjColIn.pcl_eval {cI mI : ℕ} {κ : Fin mI → ColKind} (pc : ProjColIn T cI κ)
+    {γ : Fin cI → T} {u' : Tuple (GenValue T K') mI} {u : Tuple (GenValue T K) mI}
+    {y' : AggTok T K'} {y : AggTok T K} (h1 : pc.eval u' γ = Sum.inr y')
+    (h2 : pc.eval u γ = Sum.inr y) : PCl (rowPairs u' u) (y', y) := by
+  cases pc with
+  | term t => exact absurd h2 (by simp [ProjColIn.eval])
+  | provTerm t => exact absurd h2 (by simp [ProjColIn.eval])
+  | token k hk => exact PCl.base ⟨k, h1, h2⟩
+  | aggTerm k hk gf =>
+    simp only [ProjColIn.eval] at h1 h2
+    rcases hu : u k with v | x <;> rcases hu' : u' k with v' | x'
+    all_goals rw [hu] at h2; rw [hu'] at h1
+    all_goals simp only [Sum.map_inl, Sum.map_inr, reduceCtorEq, Sum.inr.injEq] at h1 h2
+    subst h1 h2
+    exact PCl.stepF gf (PCl.base (S := rowPairs u' u) (p := (x', x)) ⟨k, hu', hu⟩)
+  | aggTermOf k hk t =>
+    simp only [ProjColIn.eval] at h1 h2
+    rcases hu : u k with v | x <;> rcases hu' : u' k with v' | x'
+    all_goals rw [hu] at h2; rw [hu'] at h1
+    all_goals simp only [Sum.map_inl, Sum.map_inr, reduceCtorEq, Sum.inr.injEq] at h1 h2
+    subst h1 h2
+    exact PCl.step t (PCl.base (S := rowPairs u' u) (p := (x', x)) ⟨k, hu', hu⟩)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem GenRow.SimJ.mono {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    {Lh L L' : List ℕ} {l l' : List (String × ℕ)} (hL : ∀ x ∈ L, x ∈ L')
+    (hl : l' = [] → l = []) {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hs : GenRow.SimJ h U Lh L l r' r) : GenRow.SimJ h U Lh L' l' r' r := by
+  obtain ⟨hsim, H, hH0, hHok, hrow⟩ := hs
+  exact ⟨hsim, H, fun h' => hH0 (hl h'), hHok, hrow.mono_labels hL⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- An alternative of a row holds an aggregate value only where the row
+does. -/
+theorem GenRow.inr_of_mem_alternativesAt {K₀ : Type} [CommSemiringWithMonus K₀] [DecidableEq K₀]
+    {n : ℕ}
+    {r a : GenRow T K₀ n} {k : Fin n} (ha : a ∈ r.alternativesAt k) {j : Fin n} {x : AggTok T K₀}
+    (hj : a.fst j = Sum.inr x) : r.fst j = Sum.inr x := by
+  unfold GenRow.alternativesAt at ha
+  split at ha
+  · rw [Multiset.mem_singleton.mp ha] at hj
+    exact hj
+  · obtain ⟨v, -, rfl⟩ := Multiset.mem_map.mp ha
+    by_cases hjk : j = k
+    · subst hjk
+      simp at hj
+    · dsimp only at hj
+      erw [Function.update_of_ne hjk] at hj
+      exact hj
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [CommSemiringWithMonus K]
+  [CommSemiringWithMonus K'] [DecidableEq K'] in
+theorem HoleOK.or {U H₁ H₂ : AggTok T K' × AggTok T K → Prop} {Lh : List ℕ}
+    (h₁ : HoleOK U H₁ Lh) (h₂ : HoleOK U H₂ Lh) : HoleOK U (fun p => H₁ p ∨ H₂ p) Lh := by
+  refine ⟨fun p hp => ?_, fun p hp => hp.elim (h₁.2.1 p) (h₂.2.1 p),
+    fun p hp => hp.elim (h₁.2.2 p) (h₂.2.2 p)⟩
+  induction hp with
+  | base h => exact h
+  | @step q t _ ih =>
+    exact Or.imp (fun hq => h₁.1 _ (PCl.step t (PCl.base hq)))
+      (fun hq => h₂.1 _ (PCl.step t (PCl.base hq))) ih
+  | @stepF q gf _ ih =>
+    exact Or.imp (fun hq => h₁.1 _ (PCl.stepF gf (PCl.base hq)))
+      (fun hq => h₂.1 _ (PCl.stepF gf (PCl.base hq))) ih
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- Annotated tuples read back simulate jointly: they hold no aggregate
+value. -/
+theorem rel_ofAnnotated_mapJ (h : SemiringWithMonusHom K K') {U : AggTok T K' × AggTok T K → Prop}
+    (hU : FamPres h.toRingHom U) (Lh L : List ℕ) (l : List (String × ℕ)) {n : ℕ}
+    (X : AnnotatedRelation T K n) :
+    Multiset.Rel (GenRow.SimJ h U Lh L l)
+      ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated)
+      (X.map GenRow.ofAnnotated) := by
+  refine (rel_ofAnnotated_map h X).mono (fun r' hr' r hr hs => ?_)
+  refine GenRow.SimJ.of_noHole hs (RowJoint.of_noPairs hU _ (fun q hq => ?_))
+  obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+  obtain ⟨p', -, rfl⟩ := Multiset.mem_map.mp hr'
+  exact rowPairs_ofAnnotated p' p q hq
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- A row read from a round, once the round's own contributions are
+counted among the labels. -/
+theorem RowJoint.absorb {h : SemiringWithMonusHom K K'} {U H : AggTok T K' × AggTok T K → Prop}
+    {L Lh : List ℕ} (hH : HoleOK U H Lh) {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hr : RowJoint h U H L r' r) : RowJoint h U (fun _ => False) (L ++ Lh) r' r := by
+  refine ⟨hr.1.mono (fun p hp => hp.elim Or.inl (fun h' => h'.elim (fun h'' => Or.inr (Or.inl h''))
+    False.elim)), fun p hp => ?_, hr.2.2⟩
+  rcases hr.2.1 p hp with h' | h' | h'
+  · exact Or.inl h'
+  · rcases hH.2.2 p h' with h'' | h''
+    · exact Or.inl h''
+    · exact Or.inr (Or.inr (List.mem_append_right _ h''))
+  · exact Or.inr (Or.inr (List.mem_append_left _ h'))
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- A row read from no round. -/
+theorem RowJoint.of_emptyHole {h : SemiringWithMonusHom K K'}
+    {U H : AggTok T K' × AggTok T K → Prop}
+    {L : List ℕ} (hH : ∀ p, ¬ H p) {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hr : RowJoint h U H L r' r) : RowJoint h U (fun _ => False) L r' r :=
+  ⟨hr.1.mono (fun _ hp => hp.elim Or.inl (fun h' => h'.elim (fun h'' => Or.inr (Or.inl h''))
+    False.elim)), fun p hp => (hr.2.1 p hp).imp_right (fun h' => h'.imp_left (fun h'' =>
+      absurd h'' (hH p))), hr.2.2⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **Entering a recursion's body**: the round bound to its name, rows
+simulating each other with their families presented, the round's own
+labels `Lh'` kept apart from the body's. -/
+theorem JointEnv.assignHole {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    {Lh L Lh' L' : List ℕ} {c : ℕ} {γ : Fin c → T} {E' : EvalEnv T K'} {E : EvalEnv T K}
+    {l : List (String × ℕ)} (hJ : JointEnv h U Lh L γ E' E l)
+    (hUl : ∀ p, U p → p.2.lab ∉ L' ∧ p.2.lab ∉ Lh') (hlh : ∀ x ∈ Lh', x ∉ L')
+    (s : String) {m : ℕ} {X' : Multiset (GenRow T K' m)} {X : Multiset (GenRow T K m)}
+    (hX : Multiset.Rel (fun r' r => GenRow.Sim h r' r
+      ∧ RowJoint h U (fun _ => False) Lh' r' r) X' X) :
+    JointEnv h U Lh' L' γ (E'.assignHole s X') (E.assignHole s X) [(s, m)] := by
+  refine ⟨hJ.pres, hJ.closed, hJ.eqf, hUl, fun k x' x h1 h2 => ?_, hlh, fun s' m' hsm => ?_⟩
+  · rw [EvalEnv.ctxAt_assignHole] at h1 h2
+    exact hJ.ctx k x' x h1 h2
+  · obtain ⟨rfl, rfl⟩ := Prod.mk.inj (List.mem_singleton.mp hsm)
+    simp only [EvalEnv.assignHole, and_self, ↓reduceDIte]
+    exact hX
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **The two sides stamp the same parameters**: the context's regular
+values are equal and its aggregate values carry one family identifier. -/
+theorem EvalEnv.paramKey_eq_of_joint {h : SemiringWithMonusHom K K'}
+    {U : AggTok T K' × AggTok T K → Prop} {Lh L : List ℕ} {c : ℕ} {γ : Fin c → T}
+    {E' : EvalEnv T K'} {E : EvalEnv T K} {l : List (String × ℕ)} (hE : E'.HomSim h E γ)
+    (hJ : JointEnv h U Lh L γ E' E l) (rd : Fin c → Bool) :
+    E'.paramKey rd γ = E.paramKey rd γ := by
+  unfold EvalEnv.paramKey
+  congr 1
+  funext k
+  have hk := hE.1 k
+  cases hc : E.ctxAt c γ k with
+  | inl v =>
+    rw [hc] at hk
+    cases hc' : E'.ctxAt c γ k with
+    | inl v' => rw [hc'] at hk; simp only [GenValue.paramId]; exact congrArg Sum.inl hk
+    | inr x' => rw [hc'] at hk; exact absurd hk GenValue.Equiv.not_inr_inl
+  | inr x =>
+    rw [hc] at hk
+    cases hc' : E'.ctxAt c γ k with
+    | inl v' => rw [hc'] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
+    | inr x' =>
+      simp only [GenValue.paramId]
+      exact congrArg Sum.inr (hJ.eqf _ (hJ.ctx k x' x hc' hc))
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- **A row of fresh values of one family**: values built by one operator,
+labelled `lab`, presented together, carrying one family identifier per
+pair and one class on each side. -/
+theorem RowJoint.fresh_row {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    (hU : FamPres h.toRingHom U) (hUf : EqFamP U) (lab : ℕ) (hUl : ∀ p, U p → p.2.lab ≠ lab)
+    {L : List ℕ} (hL : lab ∈ L) {n : ℕ} {r' : GenRow T K' n} {r : GenRow T K n}
+    (hfam : ∀ p, rowPairs r'.fst r.fst p → p.1.fam = p.2.fam ∧ p.2.lab = lab)
+    (hkeys : ∀ p q, rowPairs r'.fst r.fst p → rowPairs r'.fst r.fst q →
+      p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey)
+    (hpres : (∃ D : ListingRel h.toRingHom T, ∀ q, rowPairs r'.fst r.fst q → D.Member q.1 q.2)
+      ∨ (∃ O O', NestRel h.toRingHom O' O
+        ∧ ∀ q, rowPairs r'.fst r.fst q → NestMember O' O q.1 q.2)) :
+    RowJoint h U (fun _ => False) L r' r := by
+  refine ⟨(FamPres.fresh lab hU (fun p hp => ⟨hUl p hp, ?_⟩) (fun p hp => ⟨(hfam p hp).2, ?_⟩)
+    hkeys hpres).mono (fun p hp => hp.elim Or.inl (fun h' => h'.elim Or.inr False.elim)),
+    fun p hp => Or.inr (Or.inr (by rw [(hfam p hp).2]; exact hL)), fun p hp => (hfam p hp).1⟩
+  · rw [show p.1.lab = p.2.lab from congrArg FamId.lab (hUf p hp)]; exact hUl p hp
+  · rw [show p.1.lab = p.2.lab from congrArg FamId.lab (hfam p hp).1]; exact (hfam p hp).2
+
+/-- **The value a grouping's aggregate builds over its group**: an
+ordinary token, or, under a `FILTER` clause, the one-leaf expression over
+the whole group whose clause cuts what it reads. -/
+def groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (kp : Option (Selection T m)) (sc : Bool) (U₀ : List (AnnotatedTuple T K₀ m))
+    (γ : Fin c → T) : AggTok T K₀ :=
+  match kp with
+  | none => .tok { AggValue.ofGroup f t U₀ γ with scalar := sc }
+  | some φ => .expr (AggExpr.ofSeqWhen f t φ.keeps U₀ sc γ)
+
+/-- How a grouping's aggregate reads a row of its group. -/
+def groupSpec {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m) (γ : Fin c → T) (sc : Bool)
+    (kp : Option (Selection T m)) : LeafSpec (Tuple T m) T :=
+  ⟨1, fun r _ => t.eval r γ, fun _ _ => true,
+    fun r _ => match kp with | none => true | some φ => φ.keeps r,
+    fun _ => f, fun _ => sc, fun v => v 0⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem flatExpr_groupTok {K₀ : Type} {c m : ℕ} (f : SeqAggFunc T) (t : TermIn T c m)
+    (kp : Option (Selection T m)) (sc : Bool) (U₀ : List (AnnotatedTuple T K₀ m))
+    (γ : Fin c → T) (ψ : FamId T) :
+    ((groupTok f t kp sc U₀ γ).setFam ψ).flatExpr
+      = (groupSpec f t γ sc kp).build U₀ Prod.snd Prod.fst ψ := by
+  cases kp <;>
+    simp [groupTok, groupSpec, AggTok.setFam, AggTok.flatExpr, AggExpr.ofValue,
+      AggValue.ofGroup, LeafSpec.build, AggExpr.ofSeqWhen, List.map_map]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+theorem classKey_groupTok {K₀ : Type} [CommSemiringWithMonus K₀] {c m : ℕ} (f : SeqAggFunc T)
+    (t : TermIn T c m) (kp : Option (Selection T m)) (sc : Bool)
+    (U₀ : List (AnnotatedTuple T K₀ m)) (γ : Fin c → T) (ψ : FamId T) :
+    ((groupTok f t kp sc U₀ γ).setFam ψ).classKey = (ψ.family, U₀.map Prod.snd, none) := by
+  cases kp <;>
+    simp [groupTok, AggTok.setFam, AggTok.classKey, AggTok.annList, AggTok.fam,
+      AggValue.ofGroup, AggExpr.annList, AggExpr.ofSeqWhen, List.map_map]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **The columns of one group of a grouping are a presented family**:
+built from one listing of the group on each side, the two tie-block
+permuted. -/
+theorem RowJoint.group_cols {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    (hU : FamPres h.toRingHom U) (hUf : EqFamP U) (lab : ℕ) (hUl : ∀ p, U p → p.2.lab ≠ lab)
+    {L : List ℕ} (hL : lab ∈ L) {c m n₂ : ℕ} (fs : Fin n₂ → SeqAggFunc T)
+    (ts : Fin n₂ → TermIn T c m) (keep : Fin n₂ → Option (Selection T m)) (sc : Bool)
+    (γ : Fin c → T) (U₀ : List (AnnotatedTuple T K m)) (U₀' : List (AnnotatedTuple T K' m))
+    (hp : TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
+      (U₀.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' m))) U₀')
+    (key : List T) (params : List (T ⊕ FamId T)) {n : ℕ} {r' : GenRow T K' n}
+    {r : GenRow T K n}
+    (hrow : ∀ p, rowPairs r'.fst r.fst p → ∃ j : Fin n₂,
+      p = (((groupTok (fs j) (ts j) (keep j) sc U₀' γ).setFam (.mk lab key params j [])),
+        ((groupTok (fs j) (ts j) (keep j) sc U₀ γ).setFam (.mk lab key params j [])))) :
+    RowJoint h U (fun _ => False) L r' r := by
+  obtain ⟨D, hD⟩ := ListingRel.exists_group h.toRingHom U₀ U₀' hp
+  refine RowJoint.fresh_row hU hUf lab hUl hL (fun p hp => ?_) (fun p q hp hq => ?_)
+    (Or.inl ⟨D, fun q hq => ?_⟩)
+  · obtain ⟨j, rfl⟩ := hrow p hp
+    exact ⟨by simp [AggTok.fam_setFam], by simp [AggTok.lab, AggTok.fam_setFam, FamId.lab]⟩
+  · obtain ⟨j, rfl⟩ := hrow p hp
+    obtain ⟨j', rfl⟩ := hrow q hq
+    simp only [classKey_groupTok, FamId.family]
+    exact ⟨trivial, trivial⟩
+  · obtain ⟨j, rfl⟩ := hrow q hq
+    exact hD _ _ (groupSpec (fs j) (ts j) γ sc (keep j)) _ _
+      (by cases keep j <;> rfl) (by cases keep j <;> rfl)
+      (flatExpr_groupTok _ _ _ _ _ _ _) (flatExpr_groupTok _ _ _ _ _ _ _)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- **Two bags of nested occurrences carrying corresponding statistics**:
+occurrence by occurrence the pushed-forward annotation and the pushed
+world statistics. -/
+theorem nestRel_of_rel (h : SemiringWithMonusHom K K') {O' : Multiset (AggExpr T K' × K')}
+    {O : Multiset (AggExpr T K × K)}
+    (hr : Multiset.Rel (fun o' o : AggExpr T K' × K' =>
+        o'.snd = o.snd ∧ o'.fst.worldStats = o.fst.worldStats ∧ o'.fst.collapse = o.fst.collapse)
+      O' (O.map (fun o => (o.fst.mapAnn ⇑h.toRingHom, h.toRingHom o.snd)))) :
+    NestRel h.toRingHom O' O := by
+  unfold NestRel
+  rw [map_eq_of_rel hr (g := NestedValue.occStatsU) (fun o' o ho => by
+      rw [NestedValue.occStatsU_eq, NestedValue.occStatsU_eq, ho.1, ho.2.1]),
+    Multiset.map_map]
+  refine Multiset.map_congr rfl (fun o _ => ?_)
+  simp only [Function.comp, NestedValue.occStatsU_eq]
+  erw [AggExpr.worldStats_mapAnn h.toRingHom o.fst]
+  simp only [Multiset.map_add, Multiset.map_map, Function.comp, map_mul, map_add]
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [DecidableEq K']
+  [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+omit [ValueType T] in
+/-- A row of regular values and one aggregate value holds one pair. -/
+theorem rowPairs_append_one {n₁ : ℕ} {a' : Fin n₁ → GenValue T K'} {a : Fin n₁ → GenValue T K}
+    (ha : ∀ k x, a k ≠ Sum.inr x) {x' : AggTok T K'} {x : AggTok T K}
+    {q : AggTok T K' × AggTok T K}
+    (hq : rowPairs (Fin.append a' (fun _ : Fin 1 => Sum.inr x'))
+      (Fin.append a (fun _ : Fin 1 => Sum.inr x)) q) : q = (x', x) := by
+  obtain ⟨k, h1, h2⟩ := hq
+  refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => ?_) k h1 h2
+  · rw [Fin.append_left] at h2; exact absurd h2 (ha i _)
+  · rw [Fin.append_right] at h1 h2
+    exact Prod.ext (Sum.inr_injective h1).symm (Sum.inr_injective h2).symm
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [CommSemiringWithMonus K'] [DecidableEq K']
+  [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+omit [ValueType T] in
+/-- The same, the aggregate value last. -/
+theorem rowPairs_snoc_one {n₁ : ℕ} {a' : Fin n₁ → GenValue T K'} {a : Fin n₁ → GenValue T K}
+    (ha : ∀ k x, a k ≠ Sum.inr x) {x' : AggTok T K'} {x : AggTok T K}
+    {q : AggTok T K' × AggTok T K}
+    (hq : rowPairs (Fin.snoc a' (Sum.inr x') : Fin (n₁ + 1) → GenValue T K')
+      (Fin.snoc a (Sum.inr x) : Fin (n₁ + 1) → GenValue T K) q) : q = (x', x) := by
+  obtain ⟨k, h1, h2⟩ := hq
+  refine Fin.lastCases (fun h1 h2 => ?_) (fun i h1 h2 => ?_) k h1 h2
+  · rw [Fin.snoc_last] at h1 h2
+    exact Prod.ext (Sum.inr_injective h1).symm (Sum.inr_injective h2).symm
+  · rw [Fin.snoc_castSucc] at h2; exact absurd h2 (ha i _)
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **A token presented by its own occurrences**, from the equivalence
+of the two sides' tokens. -/
+theorem ListingRel.exists_of_tokEquiv (h : SemiringWithMonusHom K K') {a' : AggValue T K'}
+    {a : AggValue T K}
+    (he : GenValue.Equiv (Sum.inr (AggTok.tok a') : GenValue T K')
+      (Sum.inr (AggTok.tok (a.mapAnn ⇑h.toRingHom))))
+    (φ φ' : FamId T) :
+    ∃ D : ListingRel h.toRingHom T,
+      D.Member ((AggTok.tok a').setFam φ') ((AggTok.tok a).setFam φ) := by
+  obtain ⟨hagg, hsc, htie⟩ := he
+  have htie' : TiePerm (fun z z' : (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) =>
+        z.1 = z'.1 ∧ z.2.2 = z'.2.2)
+      (a'.occs.map (fun o => ((fun _ : Fin 1 => o.1), o.2, (fun _ : Fin 1 => true),
+        (fun _ : Fin 1 => true))))
+      ((a.occs.map (fun o => ((fun _ : Fin 1 => o.1), o.2, (fun _ : Fin 1 => true),
+        (fun _ : Fin 1 => true)))).map (fun z => (z.1, h.toRingHom z.2.1, z.2.2))) := by
+    rw [List.map_map]
+    have hm : (a.mapAnn ⇑h.toRingHom).occs = a.occs.map (fun o => (o.1, h.toRingHom o.2)) := rfl
+    rw [hm] at htie
+    have h2 := htie.map (eqv' := fun z z' : (Fin 1 → T) × K' × (Fin 1 → Bool) × (Fin 1 → Bool) =>
+        z.1 = z'.1 ∧ z.2.2 = z'.2.2)
+      (fun o : T × K' => ((fun _ : Fin 1 => o.1), o.2, (fun _ : Fin 1 => true),
+        (fun _ : Fin 1 => true))) (fun hpq => ⟨funext fun _ => hpq, rfl⟩)
+    rw [List.map_map] at h2
+    exact h2
+  obtain ⟨D, hD⟩ := ListingRel.exists_of_tie h.toRingHom (fun _ => a.agg) (fun _ => a.scalar)
+    (fun v => v 0) htie'
+  refine ⟨D, hD _ _ φ φ' rfl rfl rfl ?_⟩
+  show AggExpr.ofValue { a' with fam := φ' } = _
+  unfold AggExpr.ofValue
+  rw [show a'.agg = a.agg from hagg, show a'.scalar = a.scalar from hsc]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- **An expression presented by its own occurrences**, from a tie-block
+permutation of its family. -/
+theorem ListingRel.exists_of_exprTie (h : SemiringWithMonusHom K K') (e : AggExpr T K)
+    {occs' : List ((Fin e.arity → T) × K' × (Fin e.arity → Bool) × (Fin e.arity → Bool))}
+    (htie : TiePerm (fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2) occs'
+      (e.occs.map (fun z => (z.1, h.toRingHom z.2.1, z.2.2))))
+    (φ φ' : FamId T) :
+    ∃ D : ListingRel h.toRingHom T,
+      D.Member (AggTok.expr ⟨e.arity, occs', e.aggs, e.scalar, e.g, φ'⟩)
+        ((AggTok.expr e).setFam φ) := by
+  obtain ⟨D, hD⟩ := ListingRel.exists_of_tie h.toRingHom e.aggs e.scalar e.g htie
+  exact ⟨D, hD _ _ φ φ' rfl rfl rfl rfl⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [ValueType T] [DecidableEq K'] in
+/-- **A row gaining one fresh value**: the row's families stay presented,
+and the new value is a family of its own, labelled `lab`. -/
+theorem RowJoint.snoc_fresh {h : SemiringWithMonusHom K K'} {U : AggTok T K' × AggTok T K → Prop}
+    (hUf : EqFamP U) (lab : ℕ) (hUl : ∀ p, U p → p.2.lab ≠ lab) {L₀ : List ℕ} (hlab : lab ∉ L₀)
+    {n : ℕ} {x' : GenRow T K' n} {x : GenRow T K n}
+    (hx : RowJoint h U (fun _ => False) L₀ x' x) {y' : AggTok T K'} {y : AggTok T K}
+    (hfam : y'.fam = y.fam) (hyl : y.lab = lab)
+    (hD : ∃ D : ListingRel h.toRingHom T, D.Member y' y) (b' : GenAnn K') (b : GenAnn K) :
+    RowJoint h U (fun _ => False) (lab :: L₀)
+      ((Fin.snoc x'.fst (Sum.inr y') : Fin (n + 1) → GenValue T K'), b')
+      ((Fin.snoc x.fst (Sum.inr y) : Fin (n + 1) → GenValue T K), b) := by
+  have hpairs : ∀ p, rowPairs (Fin.snoc x'.fst (Sum.inr y') : Fin (n + 1) → GenValue T K')
+      (Fin.snoc x.fst (Sum.inr y) : Fin (n + 1) → GenValue T K) p
+      → rowPairs x'.fst x.fst p ∨ p = (y', y) := by
+    rintro p ⟨k, h1, h2⟩
+    refine Fin.lastCases (fun h1 h2 => ?_) (fun i h1 h2 => ?_) k h1 h2
+    · rw [Fin.snoc_last] at h1 h2
+      exact Or.inr (Prod.ext (Sum.inr_injective h1).symm (Sum.inr_injective h2).symm)
+    · rw [Fin.snoc_castSucc] at h1 h2
+      exact Or.inl ⟨i, h1, h2⟩
+  have hyl' : y'.lab = lab := by rw [AggTok.lab, hfam]; exact hyl
+  have hCl : ∀ p, (rowPairs x'.fst x.fst p ∨ U p) → p.2.lab ≠ lab ∧ p.1.lab ≠ lab := by
+    intro p hp
+    have h2 : p.2.lab ≠ lab := by
+      rcases hp with hp | hp
+      · rcases hx.2.1 p hp with h' | h' | h'
+        · exact hUl p h'
+        · exact h'.elim
+        · exact fun he => hlab (he ▸ h')
+      · exact hUl p hp
+    refine ⟨h2, ?_⟩
+    have : p.1.fam = p.2.fam := hp.elim (hx.2.2 p) (hUf p)
+    rw [AggTok.lab, this]; exact h2
+  have hF := FamPres.fresh (A := fun p => p = (y', y)) lab
+    (hx.1.mono (fun p hp => hp.elim Or.inl (fun h' => Or.inr (Or.inl h')))) hCl
+    (fun p hp => by subst hp; exact ⟨hyl, hyl'⟩)
+    (fun p q hp hq => by subst hp; subst hq; exact ⟨rfl, rfl⟩)
+    (Or.inl (let ⟨D, hD⟩ := hD; ⟨D, fun q hq => by subst hq; exact hD⟩))
+  refine ⟨hF.mono (fun p hp => ?_), fun p hp => ?_, fun p hp => ?_⟩
+  · rcases hp with hp | hp | hp
+    · rcases hpairs p hp with h' | h'
+      · exact Or.inr (Or.inl h')
+      · exact Or.inl h'
+    · exact Or.inr (Or.inr hp)
+    · exact hp.elim
+  · rcases hpairs p hp with h' | h'
+    · rcases hx.2.1 p h' with h'' | h'' | h''
+      · exact Or.inl h''
+      · exact h''.elim
+      · exact Or.inr (Or.inr (List.mem_cons_of_mem _ h''))
+    · subst h'; exact Or.inr (Or.inr (by rw [hyl]; exact List.mem_cons_self))
+  · rcases hpairs p hp with h' | h'
+    · exact hx.2.2 p h'
+    · subst h'; exact hfam
+
+omit [DecidableEq K] in
+/-- **The column a filtered window builds is presented by its own
+occurrences**: the two sides' families differ by a tie-block permutation
+(`frameListOf_mapAnn_tiePerm`), the clause and the classes reading the
+values. -/
+theorem ListingRel.exists_exprWhenOf (h : SemiringWithMonusHom K K')
+    {n' m' p' : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') (w : ValueFrame T p') {c : ℕ} (t : TermIn T c n')
+    (γ : Fin c → T) (f : SeqAggFunc T) (dist : Bool)
+    (keep : Tuple T n' → Bool) (X : Multiset (AnnotatedTuple T K n'))
+    {x : AnnotatedTuple T K n'} (hx : x ∈ X) (φ φ' : FamId T) :
+    ∃ D : ListingRel h.toRingHom T,
+      D.Member ((AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist keep
+          (Multiset.map (fun q : AnnotatedTuple T K n' =>
+            ((q.fst, h.toRingHom q.snd) : AnnotatedTuple T K' n')) X)
+          ((x.fst, h.toRingHom x.snd) : AnnotatedTuple T K' n') γ)).setFam φ')
+        ((AggTok.expr (ValueFrame.exprWhenOf P O o w t f dist keep X x γ)).setFam φ) := by
+  have htie := frameListOf_mapAnn_tiePerm h P O o w X hx
+  unfold ValueFrame.exprWhenOf
+  cases dist
+  · simp only [Bool.false_eq_true, ite_false]
+    have hm := AggExpr.ofSeqWhen_mapAnn f t keep
+      (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x) γ
+      (!w.s (Tuple.key O x.fst)) ⇑h.toRingHom
+    have ht := TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩)
+      (AggExpr.ofSeqWhen_tiePerm_occs f t keep (!w.s (Tuple.key O x.fst)) γ htie)
+    refine ListingRel.exists_of_exprTie h _ ?_ φ φ'
+    have hm' : List.map (fun z => (z.1, h.toRingHom z.2.1, z.2.2)) (AggExpr.ofSeqWhen f t keep
+          (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x)
+          (!w.s (Tuple.key O x.fst)) γ).occs
+        = (AggExpr.ofSeqWhen f t keep
+          (List.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' n'))
+            (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x))
+          (!w.s (Tuple.key O x.fst)) γ).occs :=
+      eq_of_heq (congr_arg_heq AggExpr.occs hm)
+    rw [hm']
+    exact ht
+  · simp only [ite_true]
+    have hm := AggExpr.ofSeqDistWhen_mapAnn (hm := ⇑h.toRingHom)
+      f t keep (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x)
+      (!w.s (Tuple.key O x.fst)) γ (map_zero h.toRingHom) (fun a b => map_add h.toRingHom a b)
+    have ht := TiePerm.symm (fun e => ⟨e.1.symm, e.2.symm⟩)
+      (AggExpr.ofSeqDistWhen_tiePerm_occs f t keep (!w.s (Tuple.key O x.fst)) γ htie)
+    refine ListingRel.exists_of_exprTie h _ ?_ φ φ'
+    have hm' : List.map (fun z => (z.1, h.toRingHom z.2.1, z.2.2)) (AggExpr.ofSeqDistWhen f t keep
+          (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x)
+          (!w.s (Tuple.key O x.fst)) γ).occs
+        = (AggExpr.ofSeqDistWhen f t keep
+          (List.map (fun p => ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' n'))
+            (ValueFrame.frameListOf (α := AnnotatedTuple T K n') Prod.fst P O o w X x))
+          (!w.s (Tuple.key O x.fst)) γ).occs :=
+      eq_of_heq (congr_arg_heq AggExpr.occs hm)
+    rw [hm']
+    exact ht
+
+omit [DecidableEq K] in
+theorem ListingRel.exists_exprOfWhen (h : SemiringWithMonusHom K K')
+    {n' m' p' qq : ℕ} (P : Tuple (Fin n') m') (O : Tuple (Fin n') p')
+    (o : OrderSpec p') {ws : Fin qq → ValueFrame T p'}
+    (hcs : ∀ l, (ws l).ContainsSelf) {c : ℕ} (ts : Fin qq → TermIn T c n')
+    (fs : Fin qq → SeqAggFunc T) (g : (Fin qq → T) → T)
+    (keeps : Fin qq → Option (Selection T n')) (γ : Fin c → T)
+    {r' : OccFam (AnnotatedTuple T K' n')} {r : OccFam (AnnotatedTuple T K n')}
+    {i' : Fin r'.size} {i : Fin r.size}
+    (hi : (r'.row i').fst = (r.row i).fst)
+    (hX : r'.toMultiset = Multiset.map (fun y : AnnotatedTuple T K n' =>
+        ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n')) r.toMultiset)
+    (φ φ' : FamId T) :
+    ∃ D : ListingRel h.toRingHom T,
+      D.Member ((AggTok.expr (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ)).setFam φ')
+        ((AggTok.expr (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ)).setFam φ) := by
+  have hcu : (ValueFrame.unionFrame ws).ContainsSelf :=
+    ValueFrame.containsSelf_unionFrame hcs
+  set gh : AnnotatedTuple T K n' → AnnotatedTuple T K' n' :=
+    fun y => ((y.fst, h.toRingHom y.snd) : AnnotatedTuple T K' n') with hghdef
+  set Lb : List (AnnotatedTuple T K n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K n') Prod.fst P O o ws r i).map
+      r.row with hLb
+  set L' : List (AnnotatedTuple T K' n') :=
+    (ValueFrame.exprIdx (α := AnnotatedTuple T K' n') Prod.fst P O o ws r' i').map
+      r'.row with hL'
+  -- the two orderings hold the same rows
+  have hperm : L'.Perm (Lb.map gh) := by
+    refine Multiset.coe_eq_coe.mp ?_
+    rw [← Multiset.map_coe gh Lb, hL', hLb, ← Multiset.map_coe r'.row,
+      ← Multiset.map_coe r.row,
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K' n')
+        Prod.fst P O o ws r' i',
+      ValueFrame.exprIdx_rows_coe (α := AnnotatedTuple T K n')
+        Prod.fst P O o ws r i,
+      ← ValueFrame.frameOf_map (α := AnnotatedTuple T K n')
+        (β := AnnotatedTuple T K' n') (valα := Prod.fst) (valβ := Prod.fst) gh
+        (fun _ => rfl) P O (ValueFrame.unionFrame ws) r.toMultiset
+        (OccFam.row_mem_toMultiset r i),
+      ← hX]
+    exact ValueFrame.frameOf_congr_val (α := AnnotatedTuple T K' n')
+      Prod.fst P O hcu r'.toMultiset
+      (OccFam.row_mem_toMultiset r' i')
+      (hX ▸ Multiset.mem_map_of_mem gh (OccFam.row_mem_toMultiset r i)) hi
+  -- and each is sorted by the clause's order
+  have hs' : L'.Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) :=
+    ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K' n')
+      Prod.fst P O o ws r' i'
+  have hs : (Lb.map gh).Pairwise (fun x y =>
+      OrderSpec.readLe (Tuple.key O) Prod.fst o x y = true) := by
+    rw [List.pairwise_map]
+    exact (ValueFrame.exprIdx_rows_pairwise (α := AnnotatedTuple T K n')
+      Prod.fst P O o ws r i).imp (fun hab => hab)
+  have htp : TiePerm (fun a b : AnnotatedTuple T K' n' => a.fst = b.fst)
+      L' (Lb.map gh) :=
+    tiePerm_of_perm_of_sorted_by _ Prod.fst
+      (fun hxy hyx => OrderSpec.val_eq_of_readLe hxy hyx)
+      (fun hv => OrderSpec.readLe_of_val_eq hv) hperm hs' hs
+  -- both families are the same reading of their rows
+  have hocc' : (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).occs
+      = L'.map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst)),
+          fun l => match keeps l with
+            | none => true
+            | some φ => φ.keeps y.fst)) := by
+    rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r' i' γ, hi, hL']
+    rfl
+  have hoccb : ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).mapAnn
+        ⇑h.toRingHom).occs
+      = (Lb.map gh).map (fun y : AnnotatedTuple T K' n' =>
+        ((fun l => (ts l).eval y.fst γ), y.snd,
+          (fun l => decide (Tuple.key P y.fst = Tuple.key P (r.row i).fst)
+            && (ws l).ρ (Tuple.key O y.fst)
+              (Tuple.key O (r.row i).fst)),
+          fun l => match keeps l with
+            | none => true
+            | some φ => φ.keeps y.fst)) := by
+    show ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).occs.map
+        (fun z => (z.fst, h.toRingHom z.snd.fst, z.snd.snd))) = _
+    rw [ValueFrame.occs_exprOfWhen P O o hcs ts fs g keeps r i γ, hLb]
+    simp only [List.map_map]
+    rfl
+  have hsc : (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).scalar
+      = (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).scalar := by
+    funext l
+    show (!(ws l).s (Tuple.key O (r'.row i').fst))
+      = (!(ws l).s (Tuple.key O (r.row i).fst))
+    rw [hi]
+  have htie : TiePerm (fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2)
+      (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).occs
+      ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).occs.map
+        (fun z => (z.1, h.toRingHom z.2.1, z.2.2))) := by
+    rw [hocc']
+    change TiePerm _ _ ((ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).mapAnn
+      ⇑h.toRingHom).occs
+    rw [hoccb]
+    exact htp.map _ (fun hab => ⟨by rw [hab], by rw [hab]⟩)
+  obtain ⟨D, hD⟩ := ListingRel.exists_of_tie h.toRingHom
+    (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).aggs
+    (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).scalar
+    (ValueFrame.exprOfWhen P O o ws ts fs g keeps r i γ).g htie
+  refine ⟨D, hD _ _ φ φ' rfl rfl rfl ?_⟩
+  show AggExpr.mk qq _ fs (ValueFrame.exprOfWhen P O o ws ts fs g keeps r' i' γ).scalar g φ' = _
+  rw [hsc]
+  rfl
+
+/-- **Joint row-wise simulation.** The row-wise simulation, carrying
+besides how each row's families are presented on the two sides – which
+is what a selection comparing several aggregate values of one family
+needs. -/
 theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (d : AnnotatedDatabase T K) (γ : Fin c → T) (E' : EvalEnv T K') (E : EvalEnv T K),
-      E'.HomSim h E γ →
-      q.framesContainSelf → q.nestInComplemented (K := K') → q.selReadsOne →
-      q.AnnSettlesAt d γ E →
-      Multiset.Rel (GenRow.Sim h)
+      (d : AnnotatedDatabase T K) (γ : Fin c → T) (E' : EvalEnv T K') (E : EvalEnv T K)
+      (U : AggTok T K' × AggTok T K → Prop) (Lh : List ℕ),
+      E'.HomSim h E γ → JointEnv h U Lh q.labels γ E' E l → l.length ≤ 1 →
+      q.framesContainSelf → q.nestInComplemented (K := K') → q.labelsDistinct →
+      q.muBodyTokFree → q.AnnSettlesAt d γ E →
+      Multiset.Rel (GenRow.SimJ h U Lh q.labels l)
         (q.evaluate (h.mapAnnotatedDatabase d) γ E')
         (q.evaluate d γ E) := by
   intro c n κ l q
   induction q with
   | Rel n s =>
-    intro d γ E' E hE hw hn ho hrec
-    simp only [AggQueryIn.evaluate,
-      SemiringWithMonusHom.find_mapAnnotatedDatabase]
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    simp only [AggQueryIn.evaluate, SemiringWithMonusHom.find_mapAnnotatedDatabase]
     cases hf : d.find n s with
     | none =>
       simp only [Option.map_none]
       exact Multiset.Rel.zero
     | some rn =>
       simp only [Option.map_some]
-      exact rel_ofAnnotated_map h rn
+      refine (rel_ofAnnotated_map h rn).mono (fun r' hr' r hr hs => ?_)
+      refine GenRow.SimJ.of_noHole hs (RowJoint.of_noPairs hJ.pres _ (fun q hq => ?_))
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      obtain ⟨p', -, rfl⟩ := Multiset.mem_map.mp hr'
+      exact rowPairs_ofAnnotated p' p q hq
   | Hole n s κ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    exact rel_filter_of_iff (hE.2 s n) (fun r' r hs =>
-      forall_congr' fun k => by rw [(hs.1 k).kindOf_eq])
+    refine (rel_filter_of_iff (hJ.holes s n (List.mem_singleton_self _))
+      (fun r' r hs => forall_congr' fun k => by rw [(hs.1.1 k).kindOf_eq])).mono
+      (fun r' _ r _ hs => ⟨hs.1, PCl (rowPairs r'.fst r.fst), fun h => absurd h (by simp), ?_, ?_⟩)
+    · refine ⟨PClosed.pcl _, EqFamP.pcl hs.2.2.2, fun p hp => ?_⟩
+      exact PCl.origin hJ.closed (fun q hq => (hs.2.2.1 q hq).elim Or.inl
+        (fun h => h.elim False.elim Or.inr)) hp
+    · refine ⟨hs.2.1.pcl.mono (fun p hp => ?_), fun p hp => Or.inr (Or.inl (PCl.base hp)),
+        hs.2.2.2⟩
+      rcases hp with hp | hp | hp
+      · exact PCl.base (Or.inl hp)
+      · exact PCl.base (Or.inr (Or.inl hp))
+      · exact hp.mono (fun q hq => Or.inl hq)
   | Param pv ρ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    exact hE.paramRows pv ρ
+    refine (hE.paramRows pv ρ).mono (fun r' hr' r hr hs => ?_)
+    refine GenRow.SimJ.of_noHole hs (RowJoint.of_env hJ.pres hJ.eqf _ (fun q hq => ?_))
+    obtain ⟨k, h1, h2⟩ := hq
+    simp only [EvalEnv.paramRows] at hr hr'
+    split_ifs at hr hr' <;> simp only [Multiset.mem_singleton, Multiset.notMem_zero] at hr hr'
+    subst hr hr'
+    dsimp only at h1 h2
+    cases hpv : pv k with
+    | inl a => rw [hpv] at h2; exact absurd h2 (by simp)
+    | inr j =>
+      rw [hpv] at h1 h2
+      exact hJ.ctx j _ _ h1 h2
   | Empty =>
-    intro d γ E' E hE hw hn ho hrec
-    simp only [AggQueryIn.evaluate]
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     exact Multiset.Rel.zero
   | Proj ps q ih =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (ih d γ E' E hE hw hn ho hrec) (fun r' r hs => ⟨?_, ?_⟩)
-    · intro j
-      exact (ps j).equiv_eval_of_sim h hs.1
+    refine rel_map_of_rel (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+      (fun r' r hs => ⟨⟨fun j => (ps j).equiv_eval_of_sim h hs.1.1, ?_⟩, ?_⟩)
     · rw [GenAnn.finalize_cash _ _ _ Multiset.inter_le_left,
         GenAnn.finalize_cash _ _ _ Multiset.inter_le_left]
-      exact hs.2
-  | Sel φ q _ ih =>
-    intro d γ E' E hE hw hn ho hrec
+      exact hs.1.2
+    · obtain ⟨H, hH0, hHok, hrow⟩ := hs.2
+      exact ⟨H, hH0, hHok, RowJoint.of_pcl hJ.closed hHok.1 hrow
+        (fun p ⟨j, h1, h2⟩ => (ps j).pcl_eval h1 h2)⟩
+  | Sel φ q hφ ih =>
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
     by_cases hagg : φ.hasAggAtom
     · rw [ite_eq_left hagg, ite_eq_left hagg]
-      refine rel_map_of_rel (ih d γ E' E hE hw hn ho.2 hrec) (fun r' r hs => ⟨hs.1, ?_⟩)
+      refine rel_map_of_rel (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+        (fun r' r hs => ⟨⟨hs.1.1, ?_⟩, hs.2⟩)
       dsimp only
       rw [GenAnn.finalize_sel φ r'.fst r'.snd.base r'.snd.pending _ _
           (fun k hk a hka => (Multiset.mem_filterMap _ _).mpr
@@ -2338,7 +3214,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           (fun k hk a hka hsc => (Multiset.mem_filterMap _ _).mpr
             ⟨k, Finset.mem_val.mpr hk, by simp [hka, hsc]⟩)
           ?_]
-      · rw [GenPredIn.predsemJ_hom_one h φ false ho.1 hs.1, hs.2, ← map_mul]
+      · obtain ⟨H, -, -, hrow⟩ := hs.2
+        rw [GenPredIn.predsemJ_hom_famPres h φ false hs.1.1
+          (hrow.1.mono (fun p hp => Or.inl hp)), hs.1.2, ← map_mul]
       all_goals
         intro l hl
         obtain ⟨k, hk, hkl⟩ := (Multiset.mem_filterMap _ _).mp hl
@@ -2347,72 +3225,175 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         · exact absurd hkl (by simp)
         · exact ⟨_, by assumption⟩
     · rw [ite_eq_right hagg, ite_eq_right hagg]
-      refine rel_filter_of_iff (ih d γ E' E hE hw hn ho.2 hrec) (fun r' r hs => ?_)
+      refine rel_filter_of_iff (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+        (fun r' r hs => ?_)
       calc φ.holds r'.fst γ
           ↔ φ.holds (fun k => AggValue.mapAnnSum ⇑h.toRingHom (r.fst k)) γ :=
-            GenPredIn.holds_equiv _ hs.1
+            GenPredIn.holds_equiv _ hs.1.1
         _ ↔ φ.holds r.fst γ := GenPredIn.holds_mapAnnSum h φ r.fst
   | Prod q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_map_of_rel (rel_product (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
-        (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)) ?_
+    rename_i l₁ l₂
+    have hl : l₁ = [] ∨ l₂ = [] := by
+      rw [List.length_append] at hl1
+      rcases l₁ with _ | ⟨a, _ | ⟨b, l₁⟩⟩
+      · exact Or.inl rfl
+      · rcases l₂ with _ | ⟨c, l₂⟩
+        · exact Or.inr rfl
+        · simp at hl1
+      · simp at hl1; omega
+    have hnd := List.nodup_append.mp hlab
+    refine rel_map_of_rel (rel_product
+      (ih₁ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx)
+        (fun x hx => List.mem_append_left _ hx)) (by simp at hl1; omega) hw.1 hn.1
+        hnd.1 hmu.1 hrec.1)
+      (ih₂ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_right _ hx)
+        (fun x hx => List.mem_append_right _ hx)) (by simp at hl1; omega) hw.2 hn.2
+        hnd.2.1 hmu.2 hrec.2)) ?_
     rintro ⟨x', y'⟩ ⟨x, y⟩ ⟨hx, hy⟩
-    refine ⟨?_, ?_⟩
+    obtain ⟨H₁, hH₁0, hH₁, hrx⟩ := hx.2
+    obtain ⟨H₂, hH₂0, hH₂, hry⟩ := hy.2
+    refine ⟨⟨?_, ?_⟩, fun p => H₁ p ∨ H₂ p, fun h' p hp => ?_, hH₁.or hH₂, ?_⟩
     · intro k
       refine Fin.addCases (fun j => ?_) (fun j => ?_) k
       · show GenValue.Equiv (Fin.append x'.fst y'.fst (Fin.castAdd _ j))
           (AggValue.mapAnnSum ⇑h.toRingHom
             (Fin.append x.fst y.fst (Fin.castAdd _ j)))
         rw [Fin.append_left, Fin.append_left]
-        exact hx.1 j
+        exact hx.1.1 j
       · show GenValue.Equiv (Fin.append x'.fst y'.fst (Fin.natAdd _ j))
           (AggValue.mapAnnSum ⇑h.toRingHom
             (Fin.append x.fst y.fst (Fin.natAdd _ j)))
         rw [Fin.append_right, Fin.append_right]
-        exact hy.1 j
+        exact hy.1.1 j
     · show GenAnn.finalize ⟨x'.snd.base * y'.snd.base,
           x'.snd.pending + y'.snd.pending⟩ = _
-      rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hx.2, hy.2, ← map_mul]
+      rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hx.1.2, hy.1.2, ← map_mul]
+    · obtain ⟨h₁, h₂⟩ := List.append_eq_nil_iff.mp h'
+      exact hp.elim (hH₁0 h₁ p) (hH₂0 h₂ p)
+    · refine RowJoint.append (fun p hp => ?_) (fun a ha ha' => hnd.2.2 a ha a ha' rfl)
+        (fun a ha ha' => hJ.lh a ha (List.mem_append_left _ ha'))
+        (fun a ha ha' => hJ.lh a ha (List.mem_append_right _ ha')) hH₁ hH₂
+        (hl.imp (fun h' => hH₁0 h') (fun h' => hH₂0 h')) hrx hry _ _
+      exact ⟨fun h' => (hJ.lab p hp).1 (List.mem_append_left _ h'),
+        fun h' => (hJ.lab p hp).1 (List.mem_append_right _ h'), (hJ.lab p hp).2⟩
   | Apply q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_bind ((ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1).mono
-      (p := fun x' x => GenRow.Sim h x' x ∧ x ∈ q₁.evaluate d γ E)
+    have hnd := List.nodup_append.mp hlab
+    refine rel_bind ((ih₁ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx)
+        (fun x hx => hx)) hl1 hw.1 hn.1 hnd.1 hmu.1 hrec.1).mono
+      (p := fun x' x => GenRow.SimJ h U Lh q₁.labels _ x' x ∧ x ∈ q₁.evaluate d γ E)
       (fun _ _ x hx hs => ⟨hs, hx⟩)) (fun x' x hxx' => ?_)
     obtain ⟨hxx, hxm⟩ := hxx'
+    obtain ⟨Hx, hHx0, hHx, hrx⟩ := hxx.2
     have hplain : GenRow.plainTuple x'.fst = GenRow.plainTuple x.fst := by
       funext k
-      exact (hxx.1 k).collapseSum_eq.trans
+      exact (hxx.1.1 k).collapseSum_eq.trans
         (AggValue.collapseSum_mapAnnSum ⇑h.toRingHom (x.fst k))
     rw [hplain]
+    -- the right side reads the left row's values as part of its universe
+    set Ux : AggTok T K' × AggTok T K → Prop :=
+      PCl (fun p => rowPairs x'.fst x.fst p ∨ U p ∨ Hx p) with hUx
+    have hUH : HoleOK U (fun p => U p ∨ Hx p) Lh :=
+      HoleOK.or (H₁ := U) ⟨hJ.closed, hJ.eqf, fun p hp => Or.inl hp⟩ hHx
+    have horig : ∀ p, Ux p → (U p ∨ Hx p) ∨ p.2.lab ∈ q₁.labels := by
+      intro p hp
+      exact PCl.origin hUH.1 (fun q hq => by
+        rcases hq with hq | hq | hq
+        · rcases hrx.2.1 q hq with h' | h' | h'
+          · exact Or.inl (Or.inl h')
+          · exact Or.inl (Or.inr h')
+          · exact Or.inr h'
+        · exact Or.inl (Or.inl hq)
+        · exact Or.inl (Or.inr hq)) hp
+    have hJx : JointEnv h Ux [] q₂.labels (Fin.append (GenRow.plainTuple x.fst) γ)
+        (E'.withCtx (Fin.append x'.fst (E'.ctxAt _ γ)))
+        (E.withCtx (Fin.append x.fst (E.ctxAt _ γ))) [] := by
+      refine ⟨hrx.1.pcl, PClosed.pcl _, EqFamP.pcl (fun p hp => ?_), fun p hp => ⟨?_, by simp⟩,
+        fun k x₁' x₁ h1 h2 => ?_, fun _ h' => absurd h' (by simp),
+        fun _ _ h' => absurd h' (by simp)⟩
+      · rcases hp with hp | hp | hp
+        · exact hrx.2.2 p hp
+        · exact hJ.eqf p hp
+        · exact hHx.2.1 p hp
+      · intro hl₂
+        rcases horig p hp with (h' | h') | h'
+        · exact (hJ.lab p h').1 (List.mem_append_right _ hl₂)
+        · rcases hHx.2.2 p h' with h'' | h''
+          · exact (hJ.lab p h'').1 (List.mem_append_right _ hl₂)
+          · exact hJ.lh _ h'' (List.mem_append_right _ hl₂)
+        · exact hnd.2.2 _ h' _ hl₂ rfl
+      · rw [EvalEnv.ctxAt_withCtx] at h1 h2
+        refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => ?_) k h1 h2
+        · rw [Fin.append_left] at h1 h2
+          exact PCl.base (Or.inl ⟨i, h1, h2⟩)
+        · rw [Fin.append_right] at h1 h2
+          exact PCl.base (Or.inr (Or.inl (hJ.ctx j _ _ h1 h2)))
     refine rel_map_of_rel
-      (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) _ _ (hE.enter hxx.1 _) hw.2 hn.2 ho.2
-        (hrec.2 x hxm))
+      (ih₂ d (Fin.append (GenRow.plainTuple x.fst) γ) _ _ Ux [] (hE.enter hxx.1.1 _) hJx
+        (by simp) hw.2 hn.2 hnd.2.1 hmu.2 (hrec.2 x hxm))
       (fun y' y hy => ?_)
-    refine ⟨?_, ?_⟩
+    obtain ⟨Hy, hHy0, -, hry⟩ := hy.2
+    have hHyE : ∀ p, ¬ Hy p := hHy0 rfl
+    refine ⟨⟨?_, ?_⟩, Hx, hHx0, hHx, ?_, ?_, ?_⟩
     · intro k
       refine Fin.addCases (fun j => ?_) (fun j => ?_) k
       · show GenValue.Equiv (Fin.append x'.fst y'.fst (Fin.castAdd _ j))
           (AggValue.mapAnnSum ⇑h.toRingHom
             (Fin.append x.fst y.fst (Fin.castAdd _ j)))
         rw [Fin.append_left, Fin.append_left]
-        exact hxx.1 j
+        exact hxx.1.1 j
       · show GenValue.Equiv (Fin.append x'.fst y'.fst (Fin.natAdd _ j))
           (AggValue.mapAnnSum ⇑h.toRingHom
             (Fin.append x.fst y.fst (Fin.natAdd _ j)))
         rw [Fin.append_right, Fin.append_right]
-        exact hy.1 j
+        exact hy.1.1 j
     · show GenAnn.finalize ⟨x'.snd.base * y'.snd.base,
           x'.snd.pending + y'.snd.pending⟩ = _
-      rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hxx.2, hy.2, ← map_mul]
+      rw [GenAnn.finalize_prod, GenAnn.finalize_prod, hxx.1.2, hy.1.2, ← map_mul]
+    · refine hry.1.mono (fun p hp => ?_)
+      rcases hp with hp | hp | hp
+      · rcases (rowPairs_append _ _ _ _ p).mp hp with h' | h'
+        · exact Or.inr (Or.inl (PCl.base (Or.inl h')))
+        · exact Or.inl h'
+      · exact Or.inr (Or.inl (PCl.base (Or.inr (Or.inl hp))))
+      · exact Or.inr (Or.inl (PCl.base (Or.inr (Or.inr hp))))
+    · intro p hp
+      rcases (rowPairs_append _ _ _ _ p).mp hp with h' | h'
+      · rcases hrx.2.1 p h' with h'' | h'' | h''
+        · exact Or.inl h''
+        · exact Or.inr (Or.inl h'')
+        · exact Or.inr (Or.inr (List.mem_append_left _ h''))
+      · rcases hry.2.1 p h' with h'' | h'' | h''
+        · rcases horig p h'' with (h₃ | h₃) | h₃
+          · exact Or.inl h₃
+          · exact Or.inr (Or.inl h₃)
+          · exact Or.inr (Or.inr (List.mem_append_left _ h₃))
+        · exact absurd h'' (hHyE p)
+        · exact Or.inr (Or.inr (List.mem_append_right _ h''))
+    · intro p hp
+      rcases (rowPairs_append _ _ _ _ p).mp hp with h' | h'
+      · exact hrx.2.2 p h'
+      · exact hry.2.2 p h'
   | Sum q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    exact Multiset.Rel.add (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
-      (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)
+    have hl₁ : _ := List.length_append ▸ hl1
+    exact Multiset.Rel.add
+      ((ih₁ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx)
+        (fun x hx => List.mem_append_left _ hx)) (by simp at hl1; omega) hw.1 hn.1
+        hlab.of_append_left hmu.1 hrec.1).mono (fun _ _ _ _ hs =>
+          hs.mono (fun x hx => List.mem_append_left _ hx)
+            (fun h' => (List.append_eq_nil_iff.mp h').1)))
+      ((ih₂ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_right _ hx)
+        (fun x hx => List.mem_append_right _ hx)) (by simp at hl1; omega) hw.2 hn.2
+        hlab.of_append_right hmu.2 hrec.2).mono (fun _ _ _ _ hs =>
+          hs.mono (fun x hx => List.mem_append_right _ hx)
+            (fun h' => (List.append_eq_nil_iff.mp h').2)))
   | Dedup q ih =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2420,30 +3401,62 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((q.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
-        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
+      exact map_eq_of_rel (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)]
     rw [groupByKey_mapAnnotatedRelation]
-    exact rel_ofAnnotated_map h _
+    exact rel_ofAnnotated_mapJ h hJ.pres _ _ _ _
   | Explode k hk q ih =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
-    exact rel_bind_of_rel (ih d γ E' E hE hw hn ho hrec) (fun r' r hs => sim_alternativesAt h hs k)
+    refine rel_bind_of_rel (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+      (fun r' r hs => (sim_alternativesAt h hs.1 k).mono (fun a' ha' a ha hsa => ?_))
+    obtain ⟨H, hH0, hHok, hrow⟩ := hs.2
+    refine ⟨hsa, H, hH0, hHok, RowJoint.of_pcl hJ.closed hHok.1 hrow (fun p hp => PCl.base ?_)⟩
+    obtain ⟨j, h1, h2⟩ := hp
+    exact ⟨j, GenRow.inr_of_mem_alternativesAt ha' h1, GenRow.inr_of_mem_alternativesAt ha h2⟩
   | Mu s q₀ q₁ ih₀ ih₁ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hnd := List.nodup_append.mp hlab
     simp only [AggQueryIn.evaluate]
-    -- the rounds simulate each other, and so do their sums
-    exact muSumFix_rel (ih₀ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
-      (fun k X' hX => ih₁ d γ _ _ (hE.assignHole s hX) hw.2 hn.2 ho.2 (hrec.2.2.2.1 k))
+    -- the rounds simulate each other, their families those of the base
+    have hrounds := muSumFix_rel
+      (R := fun r' r => GenRow.Sim h r' r ∧ RowJoint h U (fun _ => False) q₀.labels r' r)
+      ((ih₀ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx) (fun x hx => hx))
+          (by simp) hw.1 hn.1 hnd.1 hmu.1 hrec.1).mono (fun r' _ r _ hs => ⟨hs.1, by
+            obtain ⟨H, hH0, -, hr⟩ := hs.2
+            exact RowJoint.of_emptyHole (hH0 rfl) hr⟩))
+      (fun k X' hX => (ih₁ d γ _ _ U q₀.labels (hE.assignHole s (hX.mono (fun _ _ _ _ h' => h'.1)))
+          (hJ.assignHole (fun p hp => ⟨fun h' => (hJ.lab p hp).1 (List.mem_append_right _ h'),
+            fun h' => (hJ.lab p hp).1 (List.mem_append_left _ h')⟩)
+            (fun x _ h' => by rw [hmu.2.1] at h'; exact absurd h' List.not_mem_nil) s hX)
+          (by simp) hw.2 hn.2 hnd.2.1 hmu.2.2 (hrec.2.2.2.1 k)).mono (fun r' _ r _ hs => ⟨hs.1, by
+            obtain ⟨H, -, hHok, hr⟩ := hs.2
+            exact (RowJoint.absorb hHok hr).mono_labels (fun x hx => by
+              rw [hmu.2.1, List.nil_append] at hx; exact hx)⟩))
+    exact hrounds.mono (fun r' _ r _ hs =>
+      GenRow.SimJ.of_noHole hs.1 (hs.2.mono_labels (fun x hx => List.mem_append_left _ hx)))
   | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hnd := List.nodup_append.mp hlab
+    have hXJ : ∀ {m : ℕ} (X : AnnotatedRelation T K m), Multiset.Rel (fun r' r => GenRow.Sim h r' r
+        ∧ RowJoint h U (fun _ => False) [] r' r)
+        ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated)
+        (X.map GenRow.ofAnnotated) := by
+      intro m X
+      refine (rel_ofAnnotated_map h X).mono (fun r' hr' r hr hs =>
+        ⟨hs, RowJoint.of_noPairs hJ.pres _ (fun q hq => ?_)⟩)
+      obtain ⟨p, -, rfl⟩ := Multiset.mem_map.mp hr
+      obtain ⟨p', -, rfl⟩ := Multiset.mem_map.mp hr'
+      exact rowPairs_ofAnnotated p' p q hq
     show Multiset.Rel _
       ((muFix (AggQueryIn.muSetStep s q₀ q₁ (h.mapAnnotatedDatabase d) γ E')).map
         GenRow.ofAnnotated)
       ((muFix (AggQueryIn.muSetStep s q₀ q₁ d γ E)).map GenRow.ofAnnotated)
     have e₀ : q₀.evaluateAnnotated (h.mapAnnotatedDatabase d) γ E'
         = SemiringWithMonusHom.mapAnnotatedRelation h (q₀.evaluateAnnotated d γ E) :=
-      (map_eq_of_rel (ih₀ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
-        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).trans
+      (map_eq_of_rel (ih₀ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx)
+          (fun x hx => hx)) (by simp) hw.1 hn.1 hnd.1 hmu.1 hrec.1)
+        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)).trans
         (Multiset.map_map (SemiringWithMonusHom.mapAnnotatedTuple h) GenRow.toAnnotated
           (q₀.evaluate d γ E)).symm
     have hstep : ∀ k, SemiringWithMonusHom.mapAnnotatedRelation h
@@ -2459,24 +3472,26 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((SemiringWithMonusHom.mapAnnotatedRelation h X).map GenRow.ofAnnotated))
           = SemiringWithMonusHom.mapAnnotatedRelation h
             (q₁.evaluateAnnotated d γ (E.assignHole s (X.map GenRow.ofAnnotated))) :=
-        (map_eq_of_rel (ih₁ d γ _ _ (hE.assignHole s (rel_ofAnnotated_map h X)) hw.2 hn.2 ho.2 hk)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)).trans
+        (map_eq_of_rel (ih₁ d γ _ _ U [] (hE.assignHole s (rel_ofAnnotated_map h X))
+          (hJ.assignHole (fun p hp => ⟨fun h' => (hJ.lab p hp).1 (List.mem_append_right _ h'),
+            by simp⟩) (by simp) s (hXJ X)) (by simp) hw.2 hn.2 hnd.2.1 hmu.2 hk)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)).trans
           (Multiset.map_map (SemiringWithMonusHom.mapAnnotatedTuple h) GenRow.toAnnotated
             (q₁.evaluate d γ (E.assignHole s (X.map GenRow.ofAnnotated)))).symm
       unfold AggQueryIn.muSetStep
       rw [dedupAnn_mapAnnotatedRelation, mapAnnotatedRelation_add, e₀, e₁]
     rw [← muFix_map_rounds (h := SemiringWithMonusHom.mapAnnotatedRelation h) rfl hstep hrec.2.1]
-    exact rel_ofAnnotated_map h _
+    exact rel_ofAnnotated_mapJ h hJ.pres _ _ _ _
   | @ProvSum cI m n₁ κ' is his t q ih =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
         = SemiringWithMonusHom.mapAnnotatedRelation h
             ((q.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
-        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
+      exact map_eq_of_rel (ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec)
+        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)]
     set X : AnnotatedRelation T K m := (q.evaluate d γ E).map GenRow.toAnnotated
     clear_value X
     rw [show SemiringWithMonusHom.mapAnnotatedRelation h X
@@ -2487,7 +3502,8 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [Multiset.map_map]
       exact congrArg Multiset.dedup
         (Multiset.map_congr rfl (fun p _ => rfl))]
-    refine rel_map_of_forall (fun g _ => ⟨?_, ?_⟩)
+    refine rel_map_of_forall (fun g _ => GenRow.SimJ.of_noHole ⟨?_, ?_⟩
+      (RowJoint.of_noPairs hJ.pres _ ?_))
     · intro k
       refine Fin.addCases (fun i => ?_) (fun j => ?_) k
       · dsimp only
@@ -2534,18 +3550,20 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           from Multiset.map_congr rfl (fun p _ => rfl)]
       rw [← Multiset.map_map]
       exact Multiset.sum_hom _ h.toRingHom
+    · rintro p ⟨k, -, h2⟩
+      dsimp only at h2
+      refine Fin.addCases (fun i h2 => ?_) (fun j h2 => ?_) k h2
+      · rw [Fin.append_left] at h2; exact Sum.inl_ne_inr h2
+      · rw [Fin.append_right] at h2; exact Sum.inl_ne_inr h2
   | Retag hκ q ih =>
-    intro d γ E' E hE hw hn ho hrec
-    exact ih d γ E' E hE hw hn ho hrec
-  | @Win cI nI mI pI κw _lab _rd P O o w t f q hrr dist keep ih =>
-    -- one output row per input row; the row's own columns and its
-    -- annotation are carried across unchanged, and the token differs only
-    -- by a tie-block permutation – which a `FILTER` clause keeps, reading
-    -- the tuple
-    intro d γ E' E hE hw hn ho hrec
-    have hsim := ih d γ E' E hE hw hn ho hrec
-    -- the relation the window reads of one side is the pushed-forward
-    -- relation it reads of the other
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    exact ih d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+  | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
+    have hnd := List.nodup_cons.mp hlab
+    have hsim := ih d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx)
+      (fun x hx => hx)) hl1 hw hn hnd.2 hmu hrec
     have hread : (q.evaluate (h.mapAnnotatedDatabase d) γ E').map
           (GenRow.readAnnotated κw)
         = ((q.evaluate d γ E).map (GenRow.readAnnotated κw)).map
@@ -2553,38 +3571,56 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
               ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI)) := by
       rw [Multiset.map_map]
       exact map_eq_of_rel hsim
-        (fun r' r hs => GenRow.Sim.readAnnotated_eq h κw hs)
+        (fun r' r hs => GenRow.Sim.readAnnotated_eq h κw hs.1)
+    have hUl : ∀ p, U p → p.2.lab ≠ lab :=
+      fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self)
     cases hk : keep with
     | some φ =>
-      rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluate_Win_eq_when,
-        hread]
+      rw [AggQueryIn.evaluate_Win_eq_when, AggQueryIn.evaluate_Win_eq_when, hread, hpk]
       refine Multiset.rel_map.mpr (hsim.mono (fun x' _ x hx hs => ?_))
       have hmem : GenRow.readAnnotated κw x
           ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ E) :=
         Multiset.mem_map_of_mem _ hx
-      refine ⟨fun k => ?_, hs.2⟩
-      simp only [ValueFrame.windowGenRow]
-      refine Fin.lastCases ?_ (fun k' => ?_) k
-      · rw [Fin.snoc_last, Fin.snoc_last,
-          GenRow.Sim.readAnnotated_eq h κw hs]
-        exact exprWhenOf_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hmem
-      · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-        exact hs.1 k'
+      have hrd := GenRow.Sim.readAnnotated_eq h κw hs.1
+      obtain ⟨H, hH0, -, hrow⟩ := hs.2
+      refine ⟨⟨fun k => ?_, hs.1.2⟩, fun _ => False, fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩
+      · simp only [ValueFrame.windowGenRow]
+        refine Fin.lastCases ?_ (fun k' => ?_) k
+        · rw [Fin.snoc_last, Fin.snoc_last, hrd]
+          exact exprWhenOf_mapAnn_equiv h P O o w t γ f dist φ.keeps _ hmem
+        · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+          exact hs.1.1 k'
+      · simp only [ValueFrame.windowGenRow]
+        rw [hrd]
+        exact RowJoint.snoc_fresh hJ.eqf lab hUl hnd.1 (RowJoint.of_emptyHole (hH0 rfl) hrow)
+          (by simp only [AggTok.fam_setFam]; rfl)
+          (by simp [AggTok.lab, AggTok.fam_setFam, FamId.lab])
+          (ListingRel.exists_exprWhenOf h P O o w t γ f dist φ.keeps _ hmem _ _) _ _
     | none =>
-    rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluate_Win_eq, hread]
-    refine Multiset.rel_map.mpr (hsim.mono (fun x' _ x hx hs => ?_))
-    have hmem : GenRow.readAnnotated κw x
-        ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ E) :=
-      Multiset.mem_map_of_mem _ hx
-    refine ⟨fun k => ?_, hs.2⟩
-    simp only [ValueFrame.windowGenRow]
-    refine Fin.lastCases ?_ (fun k' => ?_) k
-    · rw [Fin.snoc_last, Fin.snoc_last, GenRow.Sim.readAnnotated_eq h κw hs]
-      exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem
-    · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
-      exact hs.1 k'
-  | @GammaTok cI mI nI₁ nI₂ κ' _lab _rd is his ts fs a q keep ih =>
-    intro d γ E' E hE hw hn ho hrec
+      rw [AggQueryIn.evaluate_Win_eq, AggQueryIn.evaluate_Win_eq, hread, hpk]
+      refine Multiset.rel_map.mpr (hsim.mono (fun x' _ x hx hs => ?_))
+      have hmem : GenRow.readAnnotated κw x
+          ∈ Multiset.map (GenRow.readAnnotated κw) (q.evaluate d γ E) :=
+        Multiset.mem_map_of_mem _ hx
+      have hrd := GenRow.Sim.readAnnotated_eq h κw hs.1
+      obtain ⟨H, hH0, -, hrow⟩ := hs.2
+      refine ⟨⟨fun k => ?_, hs.1.2⟩, fun _ => False, fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩
+      · simp only [ValueFrame.windowGenRow]
+        refine Fin.lastCases ?_ (fun k' => ?_) k
+        · rw [Fin.snoc_last, Fin.snoc_last, hrd]
+          exact tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem
+        · rw [Fin.snoc_castSucc, Fin.snoc_castSucc]
+          exact hs.1.1 k'
+      · simp only [ValueFrame.windowGenRow]
+        rw [hrd]
+        exact RowJoint.snoc_fresh hJ.eqf lab hUl hnd.1 (RowJoint.of_emptyHole (hH0 rfl) hrow)
+          (by simp only [AggTok.fam_setFam]; rfl)
+          (by simp [AggTok.lab, AggTok.fam_setFam, FamId.lab])
+          (ListingRel.exists_of_tokEquiv h (tokenOfDist_mapAnn_equiv h P O o w t γ f dist _ hmem)
+            _ _) _ _
+  | @GammaTok cI mI nI₁ nI₂ κ' lab rd is his ts fs a q keep ih =>
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2596,8 +3632,10 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+        exact map_eq_of_rel (ih d γ E' E U Lh hE
+          (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx) (fun x hx => hx))
+          hl1 hw hn (List.nodup_cons.mp hlab).2 hmu hrec)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
     clear_value X
@@ -2633,7 +3671,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       exact Multiset.map_congr rfl (fun p _ => rfl)]
     rw [Multiset.map_map]
     refine rel_map_of_forall (fun kv _ => ?_)
-    refine ⟨?_, ?_⟩
+    refine ⟨⟨?_, ?_⟩, fun _ => False, fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩
     · intro k
       dsimp only [Function.comp]
       refine Fin.addCases (fun i => ?_) (fun j => ?_) k
@@ -2678,8 +3716,25 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroup_annSum_hom h is X kv.fst,
         SemiringWithMonusHom.map_delta]
+    · dsimp only [Function.comp]
+      rw [hpk]
+      refine RowJoint.group_cols hJ.pres hJ.eqf lab
+        (fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self))
+        List.mem_cons_self fs ts keep false γ _ _ (havingGroup_tiePerm h is X kv.fst)
+        (List.ofFn kv.fst) (E.paramKey rd γ) (fun p ⟨k, h1, h2⟩ => ?_)
+      dsimp only at h1 h2
+      refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => ?_) k h1 h2
+      · rw [Fin.append_left] at h1 h2
+        refine Fin.addCases (fun i' h1 h2 => ?_) (fun j' h1 h2 => ?_) i h1 h2
+        · rw [Fin.append_left] at h2; exact absurd h2 (by simp)
+        · rw [Fin.append_right] at h1 h2
+          refine ⟨j', Prod.ext ?_ ?_⟩
+          · rw [← Sum.inr_injective h1]; cases keep j' <;> rfl
+          · rw [← Sum.inr_injective h2]; cases keep j' <;> rfl
+      · rw [Fin.append_right] at h2; exact absurd h2 (by simp)
   | Diff q₁ q₂ ih₁ ih₂ =>
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hnd := List.nodup_append.mp hlab
     simp only [AggQueryIn.evaluate]
     rw [show (q₁.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2687,16 +3742,18 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
             ((q₁.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₁ d γ E' E hE hw.1 hn.1 ho.1 hrec.1)
-        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
+      exact map_eq_of_rel (ih₁ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_left _ hx)
+          (fun x hx => hx)) hl1 hw.1 hn.1 hnd.1 hmu.1 hrec.1)
+        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)]
     rw [show (q₂.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
         = SemiringWithMonusHom.mapAnnotatedRelation h
             ((q₂.evaluate d γ E).map GenRow.toAnnotated) from by
       unfold SemiringWithMonusHom.mapAnnotatedRelation
       rw [Multiset.map_map]
-      exact map_eq_of_rel (ih₂ d γ E' E hE hw.2 hn.2 ho.2 hrec.2)
-        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)]
+      exact map_eq_of_rel (ih₂ d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_append_right _ hx)
+          (fun x hx => hx)) hl1 hw.2 hn.2 hnd.2.1 hmu.2 hrec.2)
+        (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)]
     set X₁ : AnnotatedRelation T K _ := (q₁.evaluate d γ E).map GenRow.toAnnotated
     set X₂ : AnnotatedRelation T K _ := (q₂.evaluate d γ E).map GenRow.toAnnotated
     clear_value X₁ X₂
@@ -2705,7 +3762,8 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     simp only [Multiset.map_map]
     refine rel_map_of_forall (fun p _ => ?_)
     obtain ⟨u, α⟩ := p
-    refine ⟨fun k => rfl, ?_⟩
+    refine GenRow.SimJ.of_noHole ⟨fun k => rfl, ?_⟩
+      (RowJoint.of_noPairs hJ.pres _ (fun q ⟨k, _, h2⟩ => Sum.inl_ne_inr h2))
     dsimp only [Function.comp, GenRow.ofAnnotated,
       SemiringWithMonusHom.mapAnnotatedTuple]
     rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero,
@@ -2713,8 +3771,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     congr 1
     rw [groupByKey_find_eq_filter_sum, groupByKey_find_eq_filter_sum]
     exact SemiringWithMonusHom.sum_filter_map_snd_mapAnnotatedRelation h u X₂
-  | @GammaScalar cI mI nI₂ _lab _rd ts fs q ord ih =>
-    intro d γ E' E hE hw hn ho hrec
+  | @GammaScalar cI mI nI₂ lab rd ts fs q ord ih =>
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2726,27 +3785,41 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+        exact map_eq_of_rel (ih d γ E' E U Lh hE
+          (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx) (fun x hx => hx))
+          hl1 hw hn (List.nodup_cons.mp hlab).2 hmu hrec)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
     clear_value X
     -- one row on each side, annotated `𝟙`, with nothing pending
     refine Multiset.Rel.cons ?_ Multiset.Rel.zero
-    refine ⟨fun k => ?_, by simp [GenAnn.finalize]⟩
+    refine ⟨⟨fun k => ?_, by simp [GenAnn.finalize]⟩, fun _ => False, fun _ _ h' => h',
+      HoleOK.empty U Lh, ?_⟩
     exact ⟨rfl, rfl, TiePerm.symm (fun e => e.symm)
       (ofGroupOrd_mapAnn_tiePerm h (fs k) (ts k) (fun i : Fin 0 => i.elim0)
         ord X (fun i : Fin 0 => i.elim0))⟩
-  | @GammaNest cI mI nI₁ κ' _lab _rd is his p f q ih =>
+    · rw [hpk]
+      refine RowJoint.group_cols hJ.pres hJ.eqf lab
+        (fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self))
+        List.mem_cons_self fs ts (fun _ => none) true γ _ _
+        (havingGroupOrd_tiePerm h (fun i : Fin 0 => i.elim0) ord X (fun i : Fin 0 => i.elim0))
+        [] (E.paramKey rd γ) (fun p ⟨k, h1, h2⟩ => ⟨k, Prod.ext ?_ ?_⟩)
+      · exact (Sum.inr_injective h1).symm
+      · exact (Sum.inr_injective h2).symm
+  | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
     -- one output row per key, and the keys are the columns' deterministic
     -- values, which a simulation keeps. For one key the two groups are
     -- related row for row, so their occurrences carry pushed annotations
     -- and columns whose statistics agree – which is all a nested value
     -- reads of them (`GenValue.Equiv.of_nest_rel`), the weight splitting
     -- per occurrence because `K'` is complemented
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
     simp only [AggQueryIn.evaluate]
-    have hrel := ih d γ E' E hE hw hn.2 ho hrec
+    have hrel := (ih d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx)
+      (fun x hx => hx)) hl1 hw hn.2 (List.nodup_cons.mp hlab).2 hmu hrec).mono
+      (fun _ _ _ _ hs => hs.1)
     have hkey : ∀ (r' : GenRow T K' mI) (r : GenRow T K mI),
         GenRow.Sim h r' r →
         (fun k => AggValue.collapseSum (r'.fst (is k)) : Tuple T nI₁)
@@ -2798,7 +3871,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         rw [← GenValue.innerValue_mapAnnSum, NestedValue.collapse_innerValue,
           NestedValue.collapse_innerValue]
         exact GenValue.Equiv.collapseSum_eq (p.equiv_eval_of_sim h hs.1)
-    refine ⟨fun k => ?_, ?_⟩
+    refine ⟨⟨fun k => ?_, ?_⟩, fun _ => False, fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩
     · refine Fin.addCases (fun i => ?_) (fun j => ?_) k
       · dsimp only
         rw [Fin.append_left, Fin.append_left]
@@ -2826,9 +3899,24 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
         rw [Multiset.map_map, Multiset.map_map, Multiset.map_map]
         exact map_eq_of_rel hgroup (fun r' r hs => hs.2)]
       exact (map_multiset_sum h.toRingHom _).symm
-
-  | @Gamma cI mI nI₁ nI₂ _lab _rd is ts fs q keep ord ih =>
-    intro d γ E' E hE hw hn ho hrec
+    · rw [hpk]
+      refine RowJoint.fresh_row hJ.pres hJ.eqf lab
+        (fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self))
+        List.mem_cons_self (fun q hq => ?_) (fun q q' hq hq' => ?_)
+        (Or.inr ⟨_, _, nestRel_of_rel h hocc, fun q hq => ?_⟩)
+      · dsimp only at hq
+        rw [rowPairs_append_one (fun _ _ => Sum.inl_ne_inr) hq]
+        exact ⟨rfl, rfl⟩
+      · dsimp only at hq hq'
+        rw [rowPairs_append_one (fun _ _ => Sum.inl_ne_inr) hq,
+          rowPairs_append_one (fun _ _ => Sum.inl_ne_inr) hq']
+        exact ⟨rfl, rfl⟩
+      · dsimp only at hq
+        rw [rowPairs_append_one (fun _ _ => Sum.inl_ne_inr) hq]
+        exact ⟨_, _, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  | @Gamma cI mI nI₁ nI₂ lab rd is ts fs q keep ord ih =>
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
     simp only [AggQueryIn.evaluate]
     rw [show (q.evaluate
           (h.mapAnnotatedDatabase d) γ E').map GenRow.toAnnotated
@@ -2840,8 +3928,10 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = ((q.evaluate d γ E).map GenRow.toAnnotated).map
               (SemiringWithMonusHom.mapAnnotatedTuple h) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw hn ho hrec)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+        exact map_eq_of_rel (ih d γ E' E U Lh hE
+          (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx) (fun x hx => hx))
+          hl1 hw hn (List.nodup_cons.mp hlab).2 hmu hrec)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))]
     set X : AnnotatedRelation T K mI := (q.evaluate d γ E).map GenRow.toAnnotated
     clear_value X
@@ -2877,7 +3967,7 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       exact Multiset.map_congr rfl (fun p _ => rfl)]
     rw [Multiset.map_map]
     refine rel_map_of_forall (fun kv _ => ?_)
-    refine ⟨?_, ?_⟩
+    refine ⟨⟨?_, ?_⟩, fun _ => False, fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩
     · intro k
       dsimp only [Function.comp]
       refine Fin.addCases (fun j => ?_) (fun j => ?_) k
@@ -2897,13 +3987,28 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
       rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
         havingGroupOrd_annSum_hom h is ord X kv.fst,
         SemiringWithMonusHom.map_delta]
-  | @WinExpr cI nI mI pI qI _lab _rd P O o ws ts fs g q keeps ih =>
+    · dsimp only [Function.comp]
+      rw [hpk]
+      refine RowJoint.group_cols hJ.pres hJ.eqf lab
+        (fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self))
+        List.mem_cons_self fs ts keep false γ _ _ (havingGroupOrd_tiePerm h is ord X kv.fst)
+        (List.ofFn kv.fst) (E.paramKey rd γ) (fun p ⟨k, h1, h2⟩ => ?_)
+      dsimp only at h1 h2
+      refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => ?_) k h1 h2
+      · rw [Fin.append_left] at h2; exact absurd h2 (by simp)
+      · rw [Fin.append_right] at h1 h2
+        refine ⟨j, Prod.ext ?_ ?_⟩
+        · rw [← Sum.inr_injective h1]; cases keep j <;> rfl
+        · rw [← Sum.inr_injective h2]; cases keep j <;> rfl
+  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
     -- index that family by their own sorted order, so they are compared
     -- through a bijection of indices rather than index by index; the
     -- frames read the tuple (`hw.1`), which is what makes each pair of
     -- corresponding expression columns equivalent.
-    intro d γ E' E hE hw hn ho hrec
+    intro d γ E' E U Lh hE hJ hl1 hw hn hlab hmu hrec
+    have hpk := EvalEnv.paramKey_eq_of_joint hE hJ rd
+    have hnd := List.nodup_cons.mp hlab
     simp only [AggQueryIn.evaluate]
     have hY : Multiset.map GenRow.toAnnotated
           (q.evaluate (h.mapAnnotatedDatabase d) γ E')
@@ -2915,8 +4020,9 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
           = Multiset.map (SemiringWithMonusHom.mapAnnotatedTuple h)
             (Multiset.map GenRow.toAnnotated (q.evaluate d γ E)) := by
         rw [Multiset.map_map]
-        exact map_eq_of_rel (ih d γ E' E hE hw.2 hn ho hrec)
-          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
+        exact map_eq_of_rel (ih d γ E' E U Lh hE (hJ.sub (fun x hx => List.mem_cons_of_mem _ hx)
+          (fun x hx => hx)) hl1 hw.2 hn hnd.2 hmu hrec)
+          (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
       exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
     rw [hY]
     set gh : AnnotatedTuple T K nI → AnnotatedTuple T K' nI :=
@@ -2935,7 +4041,8 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     have hmul' : (OccFam.ofSorted (Multiset.map gh X)).toMultiset
         = Multiset.map gh (OccFam.ofSorted X).toMultiset := by
       rw [OccFam.toMultiset_ofSorted, OccFam.toMultiset_ofSorted]
-    refine rel_occFam_of_equiv _ _ e (fun i => ⟨fun k => ?_, ?_⟩)
+    refine rel_occFam_of_equiv _ _ e (fun i => ⟨⟨fun k => ?_, ?_⟩, fun _ => False,
+      fun _ _ h' => h', HoleOK.empty U Lh, ?_⟩)
     · dsimp only
       refine Fin.lastCases ?_ (fun k' => ?_) k
       · rw [Fin.snoc_last, Fin.snoc_last]
@@ -2946,14 +4053,52 @@ theorem AggQueryIn.evaluate_hom_rel_env (h : SemiringWithMonusHom K K') :
     · dsimp only
       rw [GenAnn.finalize_of_pending_zero, GenAnn.finalize_of_pending_zero,
         he i]
+    · refine RowJoint.fresh_row hJ.pres hJ.eqf lab
+        (fun p hp h' => (hJ.lab p hp).1 (by rw [h']; exact List.mem_cons_self))
+        List.mem_cons_self (fun p hp => ?_) (fun p p' hp hp' => ?_)
+        (Or.inl ?_)
+      · dsimp only at hp
+        rw [rowPairs_snoc_one (fun _ _ => Sum.inl_ne_inr) hp]
+        refine ⟨?_, by simp [AggTok.lab, AggTok.fam_setFam, FamId.lab]⟩
+        simp only [AggTok.fam_setFam, hpk, congrArg Prod.fst (he i)]
+        rfl
+      · dsimp only at hp hp'
+        rw [rowPairs_snoc_one (fun _ _ => Sum.inl_ne_inr) hp,
+          rowPairs_snoc_one (fun _ _ => Sum.inl_ne_inr) hp']
+        exact ⟨rfl, rfl⟩
+      · obtain ⟨D, hD⟩ := ListingRel.exists_exprOfWhen h P O o hw.1 ts fs g keeps γ
+          (congrArg Prod.fst (he i)) hmul'
+          (FamId.mk lab (List.ofFn (OccFam.ofSorted X |>.row i).fst)
+            (E.paramKey rd γ) 0 [])
+          (FamId.mk lab (List.ofFn ((OccFam.ofSorted (Multiset.map gh X)).row (e i)).fst)
+            (E'.paramKey rd γ) 0 [])
+        refine ⟨D, fun q hq => ?_⟩
+        dsimp only at hq
+        rw [rowPairs_snoc_one (fun _ _ => Sum.inl_ne_inr) hq]
+        exact hD
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **Nothing is bound**: the empty universe is a joint environment. -/
+theorem JointEnv.empty (h : SemiringWithMonusHom K K') (L : List ℕ) {c : ℕ} (γ : Fin c → T) :
+    JointEnv h (fun _ => False) [] L γ ({} : EvalEnv T K') ({} : EvalEnv T K) [] := by
+  refine ⟨⟨fun p _ hp => hp.elim, fun p hp => hp.elim⟩, fun p hp => ?_, fun p hp => hp.elim,
+    fun p hp => hp.elim, fun k x' x _ h2 => ?_, fun _ h' => absurd h' (by simp),
+    fun _ _ h' => absurd h' (by simp)⟩
+  · induction hp with
+    | base h' => exact h'
+    | step _ _ ih => exact ih
+    | stepF _ _ ih => exact ih
+  · rw [EvalEnv.empty_ctxAt] at h2
+    exact absurd h2 (by simp)
 
 /-- The row-wise simulation for a query read with nothing bound. -/
 theorem AggQueryIn.evaluate_hom_rel (h : SemiringWithMonusHom K K') {c n : ℕ}
     {κ : Fin n → ColKind} (q : AggQueryIn T c n κ) (d : AnnotatedDatabase T K)
     (γ : Fin c → T) (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K'))
-    (ho : q.selReadsOne) (hrec : q.AnnSettlesAt d γ {}) :
+    (hlab : q.labelsDistinct) (hmu : q.muBodyTokFree) (hrec : q.AnnSettlesAt d γ {}) :
     Multiset.Rel (GenRow.Sim h) (q.evaluate (h.mapAnnotatedDatabase d) γ) (q.evaluate d γ) :=
-  AggQueryIn.evaluate_hom_rel_env h q d γ {} {} (EvalEnv.homSim_empty h γ) hw hn ho hrec
+  (AggQueryIn.evaluate_hom_rel_env h q d γ {} {} (fun _ => False) [] (EvalEnv.homSim_empty h γ)
+    (JointEnv.empty h _ γ) (by simp) hw hn hlab hmu hrec).mono (fun _ _ _ _ hs => hs.1)
 
 /-- **Evaluator-level hom commutation**: the final annotated relation
 computed by the general evaluator commutes with every
@@ -2963,48 +4108,45 @@ value-neutral by guard absorption (`delta_absorb`), and the annotation
 tie-breaks of the group sort are value-neutral by the tie-block
 congruence layer.
 
-Three things are asked of the *query*. First, that a multi-frame window
-frame by the tuple (`AggQueryIn.framesContainSelf`): such a window lists
-its shared family by occurrence index, and a change of annotation
-semiring re-sorts that index inside blocks of equal rows. Every window
-function the library derives satisfies it, and
-`AggQueryIn.framesContainSelf_of_noWinExpr` discharges it for a query
-with no multi-frame window at all.
+What is asked of the *query*:
 
-Second, that the *target* semiring be complemented wherever the query
-aggregates a grouping a second time (`AggQueryIn.nestInComplemented`): a
-nested world's annotation is one monus over both levels, and what carries
-it occurrence by occurrence is `NestedValue.World.ann_split`, which needs
-`1 - (a + b) = (1 - a) * (1 - b)`. A query with no second-level
-aggregation asks nothing, by
-`AggQueryIn.nestInComplemented_of_noGammaNest`.
+* that a multi-frame window frame by the tuple
+  (`AggQueryIn.framesContainSelf`): such a window lists its shared family
+  by occurrence index, and a change of annotation semiring re-sorts that
+  index inside blocks of equal rows. Every window function the library
+  derives satisfies it, and `AggQueryIn.framesContainSelf_of_noWinExpr`
+  discharges it for a query with no multi-frame window;
+* that the *target* semiring be complemented wherever the query
+  aggregates a grouping a second time (`AggQueryIn.nestInComplemented`),
+  which is how the per-column equivalence of nested values is proved;
+  `AggQueryIn.nestInComplemented_of_noGammaNest` discharges it for a query
+  with no second-level aggregation;
+* that no two operators building aggregate values share a label
+  (`AggQueryIn.labelsDistinct`), and that a bag recursion's body build
+  none (`AggQueryIn.muBodyTokFree`). A selection reads the values of one
+  family in one world of that family, and the two sides list the family's
+  occurrences each in its own order; what makes the reading commute is
+  that every value of a family is built from *one* listing on each side,
+  the two tie-block permuted (`FamPres`, `jointWorlds_of_famPres`). The
+  labels keep families of different operators apart; a body building
+  values would meet, in one row of a round, values of its earlier rounds
+  in the same family.
 
-Third, that every selection compare at most one aggregate column
-(`AggQueryIn.selReadsOne`). A selection reads the columns of one family
-in one world of that family, so what it reads of several columns depends
-on how the two sides list the family's occurrences *together*;
-`GenValue.Equiv` relates the columns one by one and does not carry that.
-One column is read through its four readings
-(`GenPredIn.predsemJ_hom_one`).
-
-The first two are hypotheses of *this proof* and not of the mathematics. Every
+These are hypotheses of *this proof* and not of the mathematics: every
 output annotation is an expression in the input annotations over `⊕`,
 `⊗`, `⊖`, `δ`, `𝟘`, `𝟙`, and a hom commutes with such an expression in
-every m-semiring; `presentProd ⊗ (𝟙 ⊖ absentSum)` is one. What
-complementedness buys is not the commutation but the *factorization* of
-that global monus, which the row-wise simulation needs because it relates
-aggregate columns rather than whole annotations. A proof that related
-whole annotations would not ask it. -/
+every m-semiring. -/
 theorem AggQueryIn.evaluateAnnotated_hom (h : SemiringWithMonusHom K K')
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ)
-    (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K')) (ho : q.selReadsOne)
+    (hw : q.framesContainSelf) (hn : q.nestInComplemented (K := K'))
+    (hlab : q.labelsDistinct) (hmu : q.muBodyTokFree)
     (d : AnnotatedDatabase T K) (hrec : q.AnnSettlesAt d (fun _ => 0) {}) :
     q.evaluateAnnotated (h.mapAnnotatedDatabase d)
       = SemiringWithMonusHom.mapAnnotatedRelation h
           (q.evaluateAnnotated d) := by
   unfold AggQueryIn.evaluateAnnotated SemiringWithMonusHom.mapAnnotatedRelation
   rw [Multiset.map_map]
-  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw hn ho hrec)
+  exact map_eq_of_rel (AggQueryIn.evaluate_hom_rel h q d _ hw hn hlab hmu hrec)
     (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs)
 
 end EvaluatorHom

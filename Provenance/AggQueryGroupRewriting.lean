@@ -64,7 +64,7 @@ def FamId.paramsToComposite : List (T ⊕ FamId T) → List ((T ⊕ K) ⊕ FamId
   | .inr φ :: ps => .inr (FamId.toComposite φ) :: FamId.paramsToComposite ps
 end
 
-omit [ValueType T] in
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem FamId.toComposite_addTerm (t : TermIn T 1 0) (φ : FamId T) :
     (φ.addTerm t).toComposite (K := K) = φ.toComposite := by
   cases φ; rfl

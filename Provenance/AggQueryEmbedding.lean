@@ -184,7 +184,7 @@ theorem GenCountHavingRewrite.evaluateGen_eq
   | sum _ _ ih₁ ih₂ => simp only [AggQueryIn.evaluate]; rw [ih₁, ih₂]
   | dedup _ ih => simp only [AggQueryIn.evaluate]; rw [ih]
   | diff _ _ ih₁ ih₂ => simp only [AggQueryIn.evaluate]; rw [ih₁, ih₂]
-  | gamma is ts fs _ ih => simp only [AggQueryIn.evaluate, ctxKey_zero]; rw [ih]
+  | gamma is ts fs _ ih => simp only [AggQueryIn.evaluate]; rw [ih]
   | @site ts' op C g g' q' hq' _ hbridge hnodup ih =>
     have hbridge' : g.evaluateAnnotated d
         = q'.evaluateAnnotated hq' d := by

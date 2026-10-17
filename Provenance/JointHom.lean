@@ -374,7 +374,8 @@ theorem jointWorlds_hom [ValueType T] [DecidableEq K] {K' : Type} [CommSemiringW
     (hclass : ∀ k ∈ cols, ∀ x x', u k = Sum.inr x → u' k = Sum.inr x' →
       classWorlds u' (((tokCols u cols).filter (fun p => decide (p.2.classKey = x.classKey))).map
           Prod.fst) x'
-        = (classWorlds u (((tokCols u cols).filter (fun p => decide (p.2.classKey = x.classKey))).map
+        = (classWorlds u (((tokCols u cols).filter
+            (fun p => decide (p.2.classKey = x.classKey))).map
           Prod.fst) x).map (fun w => (f w.1, f w.2.1, w.2.2))) :
     jointWorlds u' cols = (jointWorlds u cols).map (fun w => (f w.1, f w.2.1, w.2.2)) := by
   classical
@@ -389,7 +390,8 @@ theorem jointWorlds_hom [ValueType T] [DecidableEq K] {K' : Type} [CommSemiringW
       | nil => exact List.Forall₂.nil
       | cons hab _ ih =>
         exact List.Forall₂.cons ⟨hab, hl' List.mem_cons_self, hl List.mem_cons_self⟩
-          (ih (fun _ hx => hl' (List.mem_cons_of_mem _ hx)) (fun _ hx => hl (List.mem_cons_of_mem _ hx)))
+          (ih (fun _ hx => hl' (List.mem_cons_of_mem _ hx))
+            (fun _ hx => hl (List.mem_cons_of_mem _ hx)))
     exact hsub h (fun _ h => h) (fun _ h => h)
   have hkR : ∀ a' a b' b, R a' a → R b' b →
       (a'.2.classKey = b'.2.classKey ↔ a.2.classKey = b.2.classKey) := by
@@ -663,7 +665,8 @@ theorem classWorlds_hom_nest {K' : Type} [CommSemiringWithMonus K'] (f : K →+*
       = a.occs.map (fun o => (occStatsU o).map (fun z => (f z.1, f z.2.1, z.2.2.1, z.2.2.2))))
     (hM : ∀ k ∈ M, ∃ b b', u k = Sum.inr (.nest b) ∧ u' k = Sum.inr (.nest b')
       ∧ b'.agg = b.agg ∧ b'.scalar = b.scalar) :
-    classWorlds u' M (.nest a') = (classWorlds u M (.nest a)).map (fun w => (f w.1, f w.2.1, w.2.2)) := by
+    classWorlds u' M (.nest a')
+      = (classWorlds u M (.nest a)).map (fun w => (f w.1, f w.2.1, w.2.2)) := by
   rw [classWorlds_nest_eq, classWorlds_nest_eq, hO,
     show a.occs.map (fun o => (occStatsU o).map (fun z => (f z.1, f z.2.1, z.2.2.1, z.2.2.2)))
       = (a.occs.map occStatsU).map
@@ -910,7 +913,8 @@ theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S
   | base h => exact ⟨_, h, rfl, rfl⟩
   | step t _ ih =>
     obtain ⟨q, hq, h1, h2⟩ := ih
-    exact ⟨q, hq, by rw [AggTok.classKey_postcompTerm, h1], by rw [AggTok.classKey_postcompTerm, h2]⟩
+    exact ⟨q, hq, by rw [AggTok.classKey_postcompTerm, h1],
+      by rw [AggTok.classKey_postcompTerm, h2]⟩
   | stepF gf _ ih =>
     obtain ⟨q, hq, h1, h2⟩ := ih
     exact ⟨q, hq, by rw [AggTok.classKey_postcomp, h1], by rw [AggTok.classKey_postcomp, h2]⟩
@@ -1085,7 +1089,8 @@ theorem FamPres.fresh {f : K →+* K'} {A C : AggTok T K' × AggTok T K → Prop
       ∨ (∃ O O', NestRel f O' O ∧ ∀ q, A q → NestMember O' O q.1 q.2)) :
     FamPres f (fun p => A p ∨ C p) := by
   have hsep : ∀ p q, A p → C q → ¬ p.2.classKey = q.2.classKey ∧ ¬ p.1.classKey = q.1.classKey :=
-    fun p q hp hq => ⟨fun hk => (hCl q hq).1 (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).1),
+    fun p q hp hq => ⟨fun hk => (hCl q hq).1
+      (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).1),
       fun hk => (hCl q hq).2 (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).2)⟩
   refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
   · rcases hp with hp | hp <;> rcases hq with hq | hq
@@ -1241,3 +1246,48 @@ def AggQueryIn.muBodyTokFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.muBodyTokFree
 
 end Labels
+
+/-! ## An expression's world statistics under a homomorphism -/
+
+section WorldStats
+
+variable {T K K' : Type} [CommSemiringWithMonus K] [CommSemiringWithMonus K']
+
+attribute [local instance] CommSemiringWithMonus.toCommSemiringSW
+
+open Classical in
+/-- **The world statistics read off the subfamilies of the listing.** -/
+theorem AggExpr.worldStats_eq_subWorlds (e : AggExpr T K) :
+    e.worldStats = (subWorlds (fun z => z.2.1) e.occs).map
+      (fun w => (w.1, w.2.1, e.valSeq w.2.2, decide (e.okSeq w.2.2))) := by
+  unfold AggExpr.worldStats
+  rw [← univ_map_eq_subWorlds, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun W _ => ?_)
+  simp only [Function.comp, AggExpr.valOn_eq_valSeq]
+  refine Prod.ext rfl (Prod.ext rfl (Prod.ext rfl ?_))
+  exact decide_eq_decide.mpr (AggExpr.isWorld_iff_okSeq e W)
+
+/-- **The world statistics of an expression pushed through a
+homomorphism**: the products and sums pushed through it, the values and
+world conditions unchanged. -/
+theorem AggExpr.worldStats_mapAnn (f : K →+* K') (e : AggExpr T K) :
+    (e.mapAnn f).worldStats = e.worldStats.map (fun z => (f z.1, f z.2.1, z.2.2.1, z.2.2.2)) := by
+  obtain ⟨q, occs, aggs, sc, g, φ⟩ := e
+  rw [AggExpr.worldStats_eq_subWorlds, AggExpr.worldStats_eq_subWorlds]
+  dsimp only [AggExpr.mapAnn]
+  have hsw := subWorlds_map f
+    (fun z : (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool) => z.2.1)
+    (fun z : (Fin q → T) × K' × (Fin q → Bool) × (Fin q → Bool) => z.2.1)
+    (fun o => (o.1, f o.2.1, o.2.2)) (fun _ => rfl) occs
+  erw [hsw]
+  rw [Multiset.map_map, Multiset.map_map]
+  refine Multiset.map_congr rfl (fun w _ => ?_)
+  simp only [Function.comp]
+  refine Prod.ext rfl (Prod.ext rfl (Prod.ext ?_ ?_))
+  · show g _ = g _
+    simp only [List.filter_map, List.map_map]
+    rfl
+  · refine decide_eq_decide.mpr ?_
+    simp only [AggExpr.okSeq, List.mem_map, exists_exists_and_eq_and]
+
+end WorldStats
