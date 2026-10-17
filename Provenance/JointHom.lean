@@ -95,6 +95,27 @@ theorem anns_build (sp : LeafSpec ρ T) (L : List β) (ann : β → K) (str : β
 
 end LeafSpec
 
+/-- **An aggregate expression presented by a listing**: its occurrences
+are the listing's, position for position, with the listing's
+annotations, and its world condition and its value are read off the rows
+a world selects, through `ok` and `val`. This is all a joint reading
+asks of a value of a family. -/
+def AggExpr.PresBy {ρ β T K : Type} (e : AggExpr T K) (L : List β) (ann : β → K)
+    (str : β → ρ) (ok : List ρ → Prop) (val : List ρ → T) : Prop :=
+  ∃ h : L.length = e.occs.length, (∀ i, e.anns (finCongr h i) = ann (L.get i))
+    ∧ (∀ W : Finset (Fin L.length),
+        e.IsWorld (W.map (finCongr h).toEmbedding) ↔ ok ((Having.seqOf L W).map str))
+    ∧ ∀ W : Finset (Fin L.length),
+        e.valOn (W.map (finCongr h).toEmbedding) = val ((Having.seqOf L W).map str)
+
+/-- A value built by a `LeafSpec` is presented by its listing. -/
+theorem LeafSpec.presBy_build {ρ β T K : Type} (sp : LeafSpec ρ T) (L : List β) (ann : β → K)
+    (str : β → ρ) {e : AggExpr T K} {φ : FamId T} (he : e = sp.build L ann str φ) :
+    e.PresBy L ann str sp.okL sp.valL := by
+  have h : L.length = e.occs.length := by rw [he]; simp [LeafSpec.build]
+  exact ⟨h, sp.anns_build L ann str he h, sp.isWorld_build L ann str he h,
+    sp.valOn_build L ann str he h⟩
+
 /-! ## Two lists related position by position -/
 
 namespace List.Forall₂
@@ -213,19 +234,20 @@ theorem compl_map_finCongr {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
 
 open Classical in
 /-- **A family built from one listing reads its worlds off the listing.**
-If every column of `M` holds a value built from the listing `L` (each by
-its own `LeafSpec`), and so does the value `x₀` the family is listed by,
-then the family's worlds are the subfamilies of `L`, each read through
-the rows it selects. -/
+If every column of `M` holds a value presented by the listing `L` (each
+read through its own `ok` and `val`), and so does the value `x₀` the
+family is listed by, then the family's worlds are the subfamilies of `L`,
+each read through the rows it selects. -/
 theorem classWorlds_presented {ρ β : Type} {n : ℕ} (u : Tuple (GenValue T K) n)
-    (M : List (Fin n)) (L : List β) (ann : β → K) (str : β → ρ) (sp : Fin n → LeafSpec ρ T)
-    (hM : ∀ k ∈ M, ∃ y φ, u k = Sum.inr y ∧ y.flatExpr = (sp k).build L ann str φ)
-    (x₀ : AggTok T K) (hx₀ : x₀.isNested = false) (sp₀ : LeafSpec ρ T) (φ₀ : FamId T)
-    (hx₀b : x₀.flatExpr = sp₀.build L ann str φ₀) :
+    (M : List (Fin n)) (L : List β) (ann : β → K) (str : β → ρ)
+    (ok : Fin n → List ρ → Prop) (val : Fin n → List ρ → T)
+    (hM : ∀ k ∈ M, ∃ y, u k = Sum.inr y ∧ y.flatExpr.PresBy L ann str (ok k) (val k))
+    (x₀ : AggTok T K) (hx₀ : x₀.isNested = false) (ok₀ : List ρ → Prop) (val₀ : List ρ → T)
+    (hx₀b : x₀.flatExpr.PresBy L ann str ok₀ val₀) :
     classWorlds u M x₀
       = ((((subWorlds ann L).map (fun w => (w.1, w.2.1, w.2.2.map str))).filter
-          (fun w => ∀ k ∈ M, (sp k).okL w.2.2)).map
-          (fun w => (w.1, w.2.1, fun k => if k ∈ M then some ((sp k).valL w.2.2) else none))) := by
+          (fun w => ∀ k ∈ M, ok k w.2.2)).map
+          (fun w => (w.1, w.2.1, fun k => if k ∈ M then some (val k w.2.2) else none))) := by
   have hdef : classWorlds u M x₀
       = ((Finset.univ.filter (fun W : Finset (Fin x₀.flatExpr.occs.length) =>
           flatOk u M W = true)).val.map
@@ -238,31 +260,30 @@ theorem classWorlds_presented {ρ β : Type} {n : ℕ} (u : Tuple (GenValue T K)
     | nest a => simp [AggTok.isNested] at hx₀
     | tok a => rfl
     | expr a => rfl
-  have h₀ : L.length = x₀.flatExpr.occs.length := by rw [hx₀b]; simp [LeafSpec.build]
+  obtain ⟨h₀, hann₀, -, -⟩ := hx₀b
   rw [hdef, Finset.filter_val, univ_val_reindex h₀, Multiset.filter_map, Multiset.map_map,
     ← univ_map_eq_subWorlds ann L, Multiset.map_map, Multiset.filter_map, Multiset.map_map]
   have hcol : ∀ k ∈ M, ∀ W' : Finset (Fin L.length), ∃ y, u k = Sum.inr y ∧
       (y.flatExpr.IsWorld (trW (a := x₀.flatExpr.occs.length) (W'.map (finCongr h₀).toEmbedding))
-        ↔ (sp k).okL ((Having.seqOf L W').map str))
+        ↔ ok k ((Having.seqOf L W').map str))
       ∧ y.flatExpr.valOn (trW (a := x₀.flatExpr.occs.length) (W'.map (finCongr h₀).toEmbedding))
-        = (sp k).valL ((Having.seqOf L W').map str) := by
+        = val k ((Having.seqOf L W').map str) := by
     intro k hk W'
-    obtain ⟨y, φ, hy, hyb⟩ := hM k hk
-    have hk' : L.length = y.flatExpr.occs.length := by rw [hyb]; simp [LeafSpec.build]
+    obtain ⟨y, hy, hk', -, hw, hv⟩ := hM k hk
     refine ⟨y, hy, ?_, ?_⟩
     · rw [trW_map h₀ hk']
-      exact (sp k).isWorld_build L ann str hyb hk' W'
+      exact hw W'
     · rw [trW_map h₀ hk']
-      exact (sp k).valOn_build L ann str hyb hk' W'
+      exact hv W'
   rw [Multiset.filter_congr (q := fun W' : Finset (Fin L.length) =>
-    ∀ k ∈ M, (sp k).okL ((Having.seqOf L W').map str))]
+    ∀ k ∈ M, ok k ((Having.seqOf L W').map str))]
   · refine Multiset.map_congr rfl (fun W' _ => ?_)
     simp only [Function.comp]
     refine Prod.ext ?_ (Prod.ext ?_ (funext fun k => ?_))
     · rw [Finset.prod_map]
-      exact Finset.prod_congr rfl (fun i _ => sp₀.anns_build L ann str hx₀b h₀ i)
+      exact Finset.prod_congr rfl (fun i _ => hann₀ i)
     · rw [compl_map_finCongr, Finset.sum_map]
-      exact Finset.sum_congr rfl (fun i _ => sp₀.anns_build L ann str hx₀b h₀ i)
+      exact Finset.sum_congr rfl (fun i _ => hann₀ i)
     · dsimp only
       by_cases hk : k ∈ M
       · rw [ite_eq_left hk, ite_eq_left hk]
@@ -282,10 +303,10 @@ theorem classWorlds_presented {ρ β : Type} {n : ℕ} (u : Tuple (GenValue T K)
       exact hw.mpr h
 
 /-- **The joint worlds of a family under a homomorphism.** On the two
-sides the family's values are built by the same `LeafSpec`s from two
-listings, the second a tie-block permutation of the first pushed through
-`f` – occurrences swapped only where their rows read alike. Then the
-family's worlds correspond, annotations pushed through `f` and every
+sides the family's values are presented, through the same readings, by
+two listings, the second a tie-block permutation of the first pushed
+through `f` – occurrences swapped only where their rows read alike. Then
+the family's worlds correspond, annotations pushed through `f` and every
 value unchanged: the values of the family are reordered together. -/
 theorem classWorlds_hom {K' : Type} [CommSemiringWithMonus K'] (f : K →+* K')
     {ρ β β' : Type} {n : ℕ} (u : Tuple (GenValue T K) n) (u' : Tuple (GenValue T K') n)
@@ -294,16 +315,16 @@ theorem classWorlds_hom {K' : Type} [CommSemiringWithMonus K'] (f : K →+* K')
     {eqv : β' → β' → Prop} (heqv : ∀ {a b}, eqv a b → str' a = str' b)
     (hperm : TiePerm eqv L' (L.map e))
     (hstr : ∀ b, str' (e b) = str b) (hann : ∀ b, ann' (e b) = f (ann b))
-    (sp : Fin n → LeafSpec ρ T)
-    (hM : ∀ k ∈ M, ∃ y φ, u k = Sum.inr y ∧ y.flatExpr = (sp k).build L ann str φ)
-    (hM' : ∀ k ∈ M, ∃ y φ, u' k = Sum.inr y ∧ y.flatExpr = (sp k).build L' ann' str' φ)
-    (x₀ : AggTok T K) (hx₀ : x₀.isNested = false) (sp₀ : LeafSpec ρ T) (φ₀ : FamId T)
-    (hx₀b : x₀.flatExpr = sp₀.build L ann str φ₀)
-    (x₀' : AggTok T K') (hx₀' : x₀'.isNested = false) (φ₀' : FamId T)
-    (hx₀b' : x₀'.flatExpr = sp₀.build L' ann' str' φ₀') :
+    (ok : Fin n → List ρ → Prop) (val : Fin n → List ρ → T)
+    (hM : ∀ k ∈ M, ∃ y, u k = Sum.inr y ∧ y.flatExpr.PresBy L ann str (ok k) (val k))
+    (hM' : ∀ k ∈ M, ∃ y, u' k = Sum.inr y ∧ y.flatExpr.PresBy L' ann' str' (ok k) (val k))
+    (x₀ : AggTok T K) (hx₀ : x₀.isNested = false) (ok₀ : List ρ → Prop) (val₀ : List ρ → T)
+    (hx₀b : x₀.flatExpr.PresBy L ann str ok₀ val₀)
+    (x₀' : AggTok T K') (hx₀' : x₀'.isNested = false)
+    (hx₀b' : x₀'.flatExpr.PresBy L' ann' str' ok₀ val₀) :
     classWorlds u' M x₀' = (classWorlds u M x₀).map (fun w => (f w.1, f w.2.1, w.2.2)) := by
-  rw [classWorlds_presented u M L ann str sp hM x₀ hx₀ sp₀ φ₀ hx₀b,
-    classWorlds_presented u' M L' ann' str' sp hM' x₀' hx₀' sp₀ φ₀' hx₀b',
+  rw [classWorlds_presented u M L ann str ok val hM x₀ hx₀ ok₀ val₀ hx₀b,
+    classWorlds_presented u' M L' ann' str' ok val hM' x₀' hx₀' ok₀ val₀ hx₀b',
     subWorlds_tiePerm ann' str' heqv hperm, subWorlds_map f ann ann' e hann L]
   simp only [Multiset.map_map, Multiset.filter_map, Function.comp_def, List.map_map, hstr]
 
@@ -718,12 +739,12 @@ structure ListingRel (f : K →+* K') (T : Type) where
   hstr : ∀ b, str' (e b) = str b
   hann : ∀ b, ann' (e b) = f (ann b)
 
-/-- A pair of flat values built from a related pair of listings by one
-`LeafSpec`. -/
+/-- A pair of flat values presented by a related pair of listings,
+through the same readings. -/
 def ListingRel.Member {f : K →+* K'} (D : ListingRel f T) (y' : AggTok T K')
     (y : AggTok T K) : Prop :=
-  y.isNested = false ∧ y'.isNested = false ∧ ∃ (sp : LeafSpec D.ρ T) (φ φ' : FamId T),
-    y.flatExpr = sp.build D.L D.ann D.str φ ∧ y'.flatExpr = sp.build D.L' D.ann' D.str' φ'
+  y.isNested = false ∧ y'.isNested = false ∧ ∃ (ok : List D.ρ → Prop) (val : List D.ρ → T),
+    y.flatExpr.PresBy D.L D.ann D.str ok val ∧ y'.flatExpr.PresBy D.L' D.ann' D.str' ok val
 
 /-- **Two bags of nested occurrences, related by a homomorphism**: their
 statistics correspond, pushed through `f`. -/
@@ -787,35 +808,37 @@ theorem jointWorlds_of_famPres [ValueType T] [DecidableEq K] [DecidableEq K']
       exact ⟨hc, p.2, y', hu, hy', by simpa using hpk⟩
     rcases hF.2 (x', x) ⟨k₀, hk₀, hx', hx⟩ with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
     · -- a flat family
-      have hmemb : ∀ k ∈ M, ∃ sp : LeafSpec D.ρ T, ∃ y y' φ φ', u k = Sum.inr y ∧ u' k = Sum.inr y'
-          ∧ y.flatExpr = sp.build D.L D.ann D.str φ
-          ∧ y'.flatExpr = sp.build D.L' D.ann' D.str' φ' := by
+      have hmemb : ∀ k ∈ M, ∃ okv : (List D.ρ → Prop) × (List D.ρ → T), ∃ y y',
+          u k = Sum.inr y ∧ u' k = Sum.inr y'
+          ∧ y.flatExpr.PresBy D.L D.ann D.str okv.1 okv.2
+          ∧ y'.flatExpr.PresBy D.L' D.ann' D.str' okv.1 okv.2 := by
         intro k hk
         obtain ⟨hc, y, y', hy, hy', hky⟩ := hmem k hk
-        obtain ⟨-, -, sp, φ, φ', hb, hb'⟩ := hD (y', y) ⟨k, hc, hy', hy⟩ hky
-        exact ⟨sp, y, y', φ, φ', hy, hy', hb, hb'⟩
-      obtain ⟨hn₀, hn₀', sp₀, φ₀, φ₀', hb₀, hb₀'⟩ := hD (x', x) ⟨k₀, hk₀, hx', hx⟩ rfl
-      let sp : Fin n → LeafSpec D.ρ T := fun k =>
-        if h : ∃ sp : LeafSpec D.ρ T, ∃ y y' φ φ', u k = Sum.inr y ∧ u' k = Sum.inr y'
-            ∧ y.flatExpr = sp.build D.L D.ann D.str φ
-            ∧ y'.flatExpr = sp.build D.L' D.ann' D.str' φ'
-        then Classical.choose h else sp₀
-      have hsp : ∀ k ∈ M, ∃ y y' φ φ', u k = Sum.inr y ∧ u' k = Sum.inr y'
-          ∧ y.flatExpr = (sp k).build D.L D.ann D.str φ
-          ∧ y'.flatExpr = (sp k).build D.L' D.ann' D.str' φ' := by
+        obtain ⟨-, -, ok, val, hb, hb'⟩ := hD (y', y) ⟨k, hc, hy', hy⟩ hky
+        exact ⟨(ok, val), y, y', hy, hy', hb, hb'⟩
+      obtain ⟨hn₀, hn₀', ok₀, val₀, hb₀, hb₀'⟩ := hD (x', x) ⟨k₀, hk₀, hx', hx⟩ rfl
+      let okv : Fin n → (List D.ρ → Prop) × (List D.ρ → T) := fun k =>
+        if h : ∃ okv : (List D.ρ → Prop) × (List D.ρ → T), ∃ y y',
+            u k = Sum.inr y ∧ u' k = Sum.inr y'
+            ∧ y.flatExpr.PresBy D.L D.ann D.str okv.1 okv.2
+            ∧ y'.flatExpr.PresBy D.L' D.ann' D.str' okv.1 okv.2
+        then Classical.choose h else (ok₀, val₀)
+      have hsp : ∀ k ∈ M, ∃ y y', u k = Sum.inr y ∧ u' k = Sum.inr y'
+          ∧ y.flatExpr.PresBy D.L D.ann D.str (okv k).1 (okv k).2
+          ∧ y'.flatExpr.PresBy D.L' D.ann' D.str' (okv k).1 (okv k).2 := by
         intro k hk
         have h := hmemb k hk
-        simp only [sp, dite_eq_left h]
+        simp only [okv, dite_eq_left h]
         exact Classical.choose_spec h
       exact classWorlds_hom f u u' M D.L D.ann D.str D.L' D.ann' D.str' D.e D.heqv D.hperm
-        D.hstr D.hann sp
+        D.hstr D.hann (fun k => (okv k).1) (fun k => (okv k).2)
         (fun k hk => by
-          obtain ⟨y, y', φ, φ', hy, -, hb, -⟩ := hsp k hk
-          exact ⟨y, φ, hy, hb⟩)
+          obtain ⟨y, y', hy, -, hb, -⟩ := hsp k hk
+          exact ⟨y, hy, hb⟩)
         (fun k hk => by
-          obtain ⟨y, y', φ, φ', -, hy', -, hb'⟩ := hsp k hk
-          exact ⟨y', φ', hy', hb'⟩)
-        x hn₀ sp₀ φ₀ hb₀ x' hn₀' φ₀' hb₀'
+          obtain ⟨y, y', -, hy', -, hb'⟩ := hsp k hk
+          exact ⟨y', hy', hb'⟩)
+        x hn₀ ok₀ val₀ hb₀ x' hn₀' hb₀'
     · -- a nested family
       obtain ⟨b₀, b₀', rfl, rfl, ho₀, ho₀', -, -⟩ := hN (x', x) ⟨k₀, hk₀, hx', hx⟩ rfl
       refine NestedValue.classWorlds_hom_nest f u u' M b₀ b₀' (by rw [ho₀, ho₀']; exact hO)
@@ -823,5 +846,193 @@ theorem jointWorlds_of_famPres [ValueType T] [DecidableEq K] [DecidableEq K']
       obtain ⟨hc, y, y', hy, hy', hky⟩ := hmem k hk
       obtain ⟨b, b', rfl, rfl, -, -, hagg', hsc⟩ := hN (y', y) ⟨k, hc, hy', hy⟩ hky
       exact ⟨b, b', hy, hy', hagg', hsc⟩
+
+/-! ### Closure under terms
+
+A term over an aggregate column (`AggTok.postcompTerm`) composes the
+value's outer function and keeps its family: the same occurrences, the
+same group key, a family identifier recording the term. So it stays in
+its class, and a presented family stays presented. -/
+
+variable [ValueType T]
+
+omit [CommSemiringWithMonus K'] in
+theorem AggTok.classKey_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
+    (x.postcompTerm t).classKey = x.classKey := by
+  cases x <;> simp [AggTok.postcompTerm, AggTok.classKey, AggTok.postcomp, AggTok.setFam,
+    AggTok.annList, AggTok.fam, NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
+
+omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+theorem AggTok.isNested_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
+    (x.postcompTerm t).isNested = x.isNested := by
+  cases x <;> rfl
+
+omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+/-- A term keeps a value presented, reading its value through the term. -/
+theorem AggExpr.PresBy.postcompTerm {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
+    {L : List β} {ann : β → K} {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
+    (t : TermIn T 1 0) (hP : x.flatExpr.PresBy L ann str ok val) :
+    (x.postcompTerm t).flatExpr.PresBy L ann str ok (fun s => t.unary (val s)) := by
+  obtain ⟨h, ha, hw, hv⟩ := hP
+  cases x with
+  | nest a => simp [AggTok.isNested] at hx
+  | tok a => exact ⟨h, ha, hw, fun W => by show _ = t.unary (val _); rw [← hv W]; rfl⟩
+  | expr a => exact ⟨h, ha, hw, fun W => by show _ = t.unary (val _); rw [← hv W]; rfl⟩
+
+/-- **The closure of a set of corresponding values under terms**, taken
+on both sides alike. -/
+inductive PCl (S : AggTok T K' × AggTok T K → Prop) : AggTok T K' × AggTok T K → Prop
+  | base {p} : S p → PCl S p
+  | step {p} (t : TermIn T 1 0) : PCl S p → PCl S (p.1.postcompTerm t, p.2.postcompTerm t)
+
+theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S p) :
+    ∃ q, S q ∧ p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey := by
+  induction hp with
+  | base h => exact ⟨_, h, rfl, rfl⟩
+  | step t _ ih =>
+    obtain ⟨q, hq, h1, h2⟩ := ih
+    exact ⟨q, hq, by rw [AggTok.classKey_postcompTerm, h1], by rw [AggTok.classKey_postcompTerm, h2]⟩
+
+omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+theorem PCl.mono {S S' : AggTok T K' × AggTok T K → Prop} (hS : ∀ p, S p → S' p) {p}
+    (hp : PCl S p) : PCl S' p := by
+  induction hp with
+  | base h => exact PCl.base (hS _ h)
+  | step t _ ih => exact PCl.step t ih
+
+/-- **Presented families stay presented under terms.** -/
+theorem FamPres.pcl {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop} (h : FamPres f S) :
+    FamPres f (PCl S) := by
+  refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
+  · obtain ⟨p', hp', h1, h2⟩ := hp.exists_base
+    obtain ⟨q', hq', h3, h4⟩ := hq.exists_base
+    rw [h1, h2, h3, h4]
+    exact h.1 p' q' hp' hq'
+  · obtain ⟨p', hp', -, h2⟩ := hp₀.exists_base
+    rcases h.2 p' hp' with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+    · refine Or.inl ⟨D, fun q hq hk => ?_⟩
+      induction hq with
+      | base hb => exact hD _ hb (hk.trans h2)
+      | @step r t hr ih =>
+        rw [AggTok.classKey_postcompTerm] at hk
+        obtain ⟨hn, hn', ok, val, hP, hP'⟩ := ih hk
+        exact ⟨by rw [AggTok.isNested_postcompTerm]; exact hn,
+          by rw [AggTok.isNested_postcompTerm]; exact hn', ok, fun s => t.unary (val s),
+          hP.postcompTerm hn t, hP'.postcompTerm hn' t⟩
+    · refine Or.inr ⟨O, O', hO, fun q hq hk => ?_⟩
+      induction hq with
+      | base hb => exact hN _ hb (hk.trans h2)
+      | @step r t hr ih =>
+        rw [AggTok.classKey_postcompTerm] at hk
+        obtain ⟨b, b', h₁, h₂, ho, ho', hagg, hsc⟩ := ih hk
+        obtain ⟨r₁, r₂⟩ := r
+        dsimp only at h₁ h₂ ⊢
+        subst h₁ h₂
+        refine ⟨{ b.postcomp t.unary with fam := (AggTok.nest b).fam.addTerm t },
+          { b'.postcomp t.unary with fam := (AggTok.nest b').fam.addTerm t }, rfl, rfl, ho, ho',
+          ?_, hsc⟩
+        show (fun s => t.unary (b'.agg s)) = (fun s => t.unary (b.agg s))
+        rw [hagg]
+
+/-! ### Merging presented sets by labels
+
+Two rows built by subqueries with disjoint labels share families only
+through what both read from outside, so their presented families merge. -/
+
+/-- The label of the operator a family identifier records. -/
+def FamId.lab : FamId T → ℕ
+  | .mk l _ _ _ _ => l
+
+/-- The label of the operator that built an aggregate value. -/
+def AggTok.lab (x : AggTok T K) : ℕ := x.fam.lab
+
+omit [ValueType T] [CommSemiringWithMonus K'] in
+theorem AggTok.lab_eq_classKey (x : AggTok T K) : x.lab = x.classKey.1.1 := by
+  unfold AggTok.lab AggTok.classKey
+  cases x.fam
+  rfl
+
+omit [ValueType T] [CommSemiringWithMonus K'] in
+theorem AggTok.lab_eq_of_classKey {x y : AggTok T K} (h : x.classKey = y.classKey) :
+    x.lab = y.lab := by
+  rw [AggTok.lab_eq_classKey, AggTok.lab_eq_classKey, h]
+
+omit [ValueType T] in
+/-- **Merging two presented sets by labels.** -/
+theorem FamPres.merge {f : K →+* K'} {A B C : AggTok T K' × AggTok T K → Prop}
+    {La Lb : List ℕ} (hA : FamPres f (fun p => A p ∨ C p)) (hB : FamPres f (fun p => B p ∨ C p))
+    (hAo : ∀ p, A p → C p ∨ p.2.lab ∈ La) (hBo : ∀ p, B p → C p ∨ p.2.lab ∈ Lb)
+    (hCb : ∀ p, C p → p.2.lab ∉ Lb)
+    (hdisj : ∀ l ∈ La, l ∉ Lb)
+    (hfA : ∀ p, A p → p.1.lab = p.2.lab) (hfB : ∀ p, B p → p.1.lab = p.2.lab) :
+    FamPres f (fun p => A p ∨ B p ∨ C p) := by
+  -- a value of `A` outside `C` and one of `B` outside `C` are in no common family
+  have hsep : ∀ p q, A p → ¬ C p → B q → ¬ C q →
+      ¬ p.2.classKey = q.2.classKey ∧ ¬ p.1.classKey = q.1.classKey := by
+    intro p q hp hpC hq hqC
+    have hla := (hAo p hp).resolve_left hpC
+    have hlb := (hBo q hq).resolve_left hqC
+    refine ⟨fun hk => hdisj _ hla (by rw [AggTok.lab_eq_of_classKey hk]; exact hlb),
+      fun hk => hdisj _ hla ?_⟩
+    rw [← hfA p hp, AggTok.lab_eq_of_classKey hk, hfB q hq]
+    exact hlb
+  refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
+  · by_cases hpAC : A p ∨ C p
+    · by_cases hqAC : A q ∨ C q
+      · exact hA.1 p q hpAC hqAC
+      · have hqB : B q := by tauto
+        have hqC : ¬ C q := by tauto
+        rcases hpAC with hpA | hpC
+        · by_cases hpC : C p
+          · exact hB.1 p q (Or.inr hpC) (Or.inl hqB)
+          · obtain ⟨h1, h2⟩ := hsep p q hpA hpC hqB hqC
+            exact iff_of_false h2 h1
+        · exact hB.1 p q (Or.inr hpC) (Or.inl hqB)
+    · have hpB : B p := by tauto
+      have hpC : ¬ C p := by tauto
+      rcases hq with hqA | hqB | hqC
+      · by_cases hqC : C q
+        · exact hB.1 p q (Or.inl hpB) (Or.inr hqC)
+        · obtain ⟨h1, h2⟩ := hsep q p hqA hqC hpB hpC
+          exact iff_of_false (fun h => h2 h.symm) (fun h => h1 h.symm)
+      · exact hB.1 p q (Or.inl hpB) (Or.inl hqB)
+      · exact hB.1 p q (Or.inl hpB) (Or.inr hqC)
+  · -- the family of `p₀` lies within `A ∪ C` or within `B ∪ C`
+    by_cases hAside : A p₀ ∨ C p₀
+    · -- members of `B` outside `C` are not in the family of `p₀`
+      have hmem : ∀ q, (A q ∨ B q ∨ C q) → q.2.classKey = p₀.2.classKey → (A q ∨ C q) := by
+        intro q hq hk
+        rcases hq with hqA | hqB | hqC
+        · exact Or.inl hqA
+        · by_cases hqC : C q
+          · exact Or.inr hqC
+          · exfalso
+            have hlb := (hBo q hqB).resolve_left hqC
+            rw [AggTok.lab_eq_of_classKey hk] at hlb
+            rcases hAside with hpA | hpC
+            · by_cases hpC : C p₀
+              · exact hCb p₀ hpC hlb
+              · exact hdisj _ ((hAo p₀ hpA).resolve_left hpC) hlb
+            · exact hCb p₀ hpC hlb
+        · exact Or.inr hqC
+      rcases hA.2 p₀ hAside with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
+      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
+    · have hpB : B p₀ := by tauto
+      have hpC : ¬ C p₀ := by tauto
+      have hmem : ∀ q, (A q ∨ B q ∨ C q) → q.2.classKey = p₀.2.classKey → (B q ∨ C q) := by
+        intro q hq hk
+        rcases hq with hqA | hqB | hqC
+        · by_cases hqC : C q
+          · exact Or.inr hqC
+          · exfalso
+            have hla := (hAo q hqA).resolve_left hqC
+            rw [AggTok.lab_eq_of_classKey hk] at hla
+            exact hdisj _ hla ((hBo p₀ hpB).resolve_left hpC)
+        · exact Or.inl hqB
+        · exact Or.inr hqC
+      rcases hB.2 p₀ (Or.inl hpB) with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
+      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
 
 end FamPres
