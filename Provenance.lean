@@ -1401,8 +1401,12 @@ proven engine several general results reuse internally.
   built from a listing by one is read off the rows a world selects
   (`classWorlds_presented`), and two listings related by a tie-block
   permutation give corresponding worlds for every value built from them
-  together (`classWorlds_hom`); a row whose families correspond family by
-  family has corresponding joint worlds (`jointWorlds_hom`)
+  together (`classWorlds_hom`); a nested family is read off its
+  occurrences' statistics, the present product and the absent sum kept
+  apart (`NestedValue.classWorlds_nest_eq`, `classWorlds_hom_nest`); a row
+  whose families correspond family by family has corresponding joint
+  worlds (`jointWorlds_hom`), in particular one whose families are
+  presented on both sides (`FamPres`, `jointWorlds_of_famPres`)
 - `Provenance.AggQueryBridges` – **the fused `HAVING` site in closed
   form**: `AggQuery.havingSite` is one aggregate comparison directly above
   the grouping, and `AggQuery.havingSite_evaluateAnnotated` computes it
