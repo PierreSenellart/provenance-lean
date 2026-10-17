@@ -862,10 +862,28 @@ theorem AggTok.classKey_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
   cases x <;> simp [AggTok.postcompTerm, AggTok.classKey, AggTok.postcomp, AggTok.setFam,
     AggTok.annList, AggTok.fam, NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
 
+omit [ValueType T] [CommSemiringWithMonus K'] in
+theorem AggTok.classKey_postcomp (gf : T → T) (x : AggTok T K) :
+    (x.postcomp gf).classKey = x.classKey := by
+  cases x <;> simp [AggTok.classKey, AggTok.postcomp, AggTok.annList, AggTok.fam,
+    NestedValue.postcomp, AggExpr.annList, AggExpr.postcomp]
+
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 theorem AggTok.isNested_postcompTerm (t : TermIn T 1 0) (x : AggTok T K) :
     (x.postcompTerm t).isNested = x.isNested := by
   cases x <;> rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
+/-- A function keeps a value presented, reading its value through it. -/
+theorem AggExpr.PresBy.postcomp {ρ β : Type} {x : AggTok T K} (hx : x.isNested = false)
+    {L : List β} {ann : β → K} {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
+    (gf : T → T) (hP : x.flatExpr.PresBy L ann str ok val) :
+    (x.postcomp gf).flatExpr.PresBy L ann str ok (fun s => gf (val s)) := by
+  obtain ⟨h, ha, hw, hv⟩ := hP
+  cases x with
+  | nest a => simp [AggTok.isNested] at hx
+  | tok a => exact ⟨h, ha, hw, fun W => by show _ = gf (val _); rw [← hv W]; rfl⟩
+  | expr a => exact ⟨h, ha, hw, fun W => by show _ = gf (val _); rw [← hv W]; rfl⟩
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 /-- A term keeps a value presented, reading its value through the term. -/
@@ -884,6 +902,7 @@ on both sides alike. -/
 inductive PCl (S : AggTok T K' × AggTok T K → Prop) : AggTok T K' × AggTok T K → Prop
   | base {p} : S p → PCl S p
   | step {p} (t : TermIn T 1 0) : PCl S p → PCl S (p.1.postcompTerm t, p.2.postcompTerm t)
+  | stepF {p} (gf : T → T) : PCl S p → PCl S (p.1.postcomp gf, p.2.postcomp gf)
 
 theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S p) :
     ∃ q, S q ∧ p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey := by
@@ -892,6 +911,9 @@ theorem PCl.exists_base {S : AggTok T K' × AggTok T K → Prop} {p} (hp : PCl S
   | step t _ ih =>
     obtain ⟨q, hq, h1, h2⟩ := ih
     exact ⟨q, hq, by rw [AggTok.classKey_postcompTerm, h1], by rw [AggTok.classKey_postcompTerm, h2]⟩
+  | stepF gf _ ih =>
+    obtain ⟨q, hq, h1, h2⟩ := ih
+    exact ⟨q, hq, by rw [AggTok.classKey_postcomp, h1], by rw [AggTok.classKey_postcomp, h2]⟩
 
 omit [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
 theorem PCl.mono {S S' : AggTok T K' × AggTok T K → Prop} (hS : ∀ p, S p → S' p) {p}
@@ -899,6 +921,7 @@ theorem PCl.mono {S S' : AggTok T K' × AggTok T K → Prop} (hS : ∀ p, S p �
   induction hp with
   | base h => exact PCl.base (hS _ h)
   | step t _ ih => exact PCl.step t ih
+  | stepF gf _ ih => exact PCl.stepF gf ih
 
 /-- **Presented families stay presented under terms.** -/
 theorem FamPres.pcl {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop} (h : FamPres f S) :
@@ -919,6 +942,12 @@ theorem FamPres.pcl {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop} (h
         exact ⟨by rw [AggTok.isNested_postcompTerm]; exact hn,
           by rw [AggTok.isNested_postcompTerm]; exact hn', ok, fun s => t.unary (val s),
           hP.postcompTerm hn t, hP'.postcompTerm hn' t⟩
+      | @stepF r gf hr ih =>
+        rw [AggTok.classKey_postcomp] at hk
+        obtain ⟨hn, hn', ok, val, hP, hP'⟩ := ih hk
+        exact ⟨by rw [AggTok.isNested_postcomp]; exact hn,
+          by rw [AggTok.isNested_postcomp]; exact hn', ok, fun s => gf (val s),
+          hP.postcomp hn gf, hP'.postcomp hn' gf⟩
     · refine Or.inr ⟨O, O', hO, fun q hq hk => ?_⟩
       induction hq with
       | base hb => exact hN _ hb (hk.trans h2)
@@ -932,6 +961,15 @@ theorem FamPres.pcl {f : K →+* K'} {S : AggTok T K' × AggTok T K → Prop} (h
           { b'.postcomp t.unary with fam := (AggTok.nest b').fam.addTerm t }, rfl, rfl, ho, ho',
           ?_, hsc⟩
         show (fun s => t.unary (b'.agg s)) = (fun s => t.unary (b.agg s))
+        rw [hagg]
+      | @stepF r gf hr ih =>
+        rw [AggTok.classKey_postcomp] at hk
+        obtain ⟨b, b', h₁, h₂, ho, ho', hagg, hsc⟩ := ih hk
+        obtain ⟨r₁, r₂⟩ := r
+        dsimp only at h₁ h₂ ⊢
+        subst h₁ h₂
+        refine ⟨b.postcomp gf, b'.postcomp gf, rfl, rfl, ho, ho', ?_, hsc⟩
+        show (fun s => gf (b'.agg s)) = (fun s => gf (b.agg s))
         rw [hagg]
 
 /-! ### Merging presented sets by labels
@@ -1035,4 +1073,171 @@ theorem FamPres.merge {f : K →+* K'} {A B C : AggTok T K' × AggTok T K → Pr
       · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
       · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
 
+omit [ValueType T] in
+/-- **A fresh family joins a presented set**: the values `A` an operator
+builds, all of one family with a label nothing in `C` carries, presented
+together. -/
+theorem FamPres.fresh {f : K →+* K'} {A C : AggTok T K' × AggTok T K → Prop} (lab : ℕ)
+    (hC : FamPres f C) (hCl : ∀ p, C p → p.2.lab ≠ lab ∧ p.1.lab ≠ lab)
+    (hAl : ∀ p, A p → p.2.lab = lab ∧ p.1.lab = lab)
+    (hkeys : ∀ p q, A p → A q → p.1.classKey = q.1.classKey ∧ p.2.classKey = q.2.classKey)
+    (hpres : (∃ D : ListingRel f T, ∀ q, A q → D.Member q.1 q.2)
+      ∨ (∃ O O', NestRel f O' O ∧ ∀ q, A q → NestMember O' O q.1 q.2)) :
+    FamPres f (fun p => A p ∨ C p) := by
+  have hsep : ∀ p q, A p → C q → ¬ p.2.classKey = q.2.classKey ∧ ¬ p.1.classKey = q.1.classKey :=
+    fun p q hp hq => ⟨fun hk => (hCl q hq).1 (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).1),
+      fun hk => (hCl q hq).2 (by rw [← AggTok.lab_eq_of_classKey hk]; exact (hAl p hp).2)⟩
+  refine ⟨fun p q hp hq => ?_, fun p₀ hp₀ => ?_⟩
+  · rcases hp with hp | hp <;> rcases hq with hq | hq
+    · obtain ⟨h1, h2⟩ := hkeys p q hp hq
+      exact iff_of_true h1 h2
+    · obtain ⟨h1, h2⟩ := hsep p q hp hq
+      exact iff_of_false h2 h1
+    · obtain ⟨h1, h2⟩ := hsep q p hq hp
+      exact iff_of_false (fun h => h2 h.symm) (fun h => h1 h.symm)
+    · exact hC.1 p q hp hq
+  · rcases hp₀ with hp₀ | hp₀
+    · have hmem : ∀ q, (A q ∨ C q) → q.2.classKey = p₀.2.classKey → A q := by
+        rintro q (hq | hq) hk
+        · exact hq
+        · exact absurd hk.symm (hsep p₀ q hp₀ hq).1
+      rcases hpres with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk)⟩
+      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk)⟩
+    · have hmem : ∀ q, (A q ∨ C q) → q.2.classKey = p₀.2.classKey → C q := by
+        rintro q (hq | hq) hk
+        · exact absurd hk (hsep q p₀ hq hp₀).1
+        · exact hq
+      rcases hC.2 p₀ hp₀ with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+      · exact Or.inl ⟨D, fun q hq hk => hD q (hmem q hq hk) hk⟩
+      · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hmem q hq hk) hk⟩
+
+omit [ValueType T] in
+/-- **A value presented by its own occurrences.** Two flat values with
+the same leaves, whose families differ by a tie-block permutation – the
+target's a permutation of the source's pushed through `f`, occurrences
+swapped only where they carry the same values and flags – are presented
+by those families. -/
+theorem ListingRel.exists_of_tie (f : K →+* K') {q : ℕ}
+    {occs : List ((Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))}
+    {occs' : List ((Fin q → T) × K' × (Fin q → Bool) × (Fin q → Bool))}
+    (aggs : Fin q → SeqAggFunc T) (sc : Fin q → Bool) (g : (Fin q → T) → T)
+    (htie : TiePerm (fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2) occs'
+      (occs.map (fun z => (z.1, f z.2.1, z.2.2)))) :
+    ∃ D : ListingRel f T, ∀ (x : AggTok T K) (x' : AggTok T K') (φ φ' : FamId T),
+      x.isNested = false → x'.isNested = false →
+      x.flatExpr = ⟨q, occs, aggs, sc, g, φ⟩ → x'.flatExpr = ⟨q, occs', aggs, sc, g, φ'⟩ →
+      D.Member x' x := by
+  let sp : LeafSpec ((Fin q → T) × (Fin q → Bool) × (Fin q → Bool)) T :=
+    ⟨q, fun r => r.1, fun r => r.2.1, fun r => r.2.2, aggs, sc, g⟩
+  refine ⟨ListingRel.mk (ρ := (Fin q → T) × (Fin q → Bool) × (Fin q → Bool))
+    (β := (Fin q → T) × K × (Fin q → Bool) × (Fin q → Bool))
+    (β' := (Fin q → T) × K' × (Fin q → Bool) × (Fin q → Bool))
+    (L := occs) (ann := fun z => z.2.1) (str := fun z => (z.1, z.2.2))
+    (L' := occs') (ann' := fun z => z.2.1) (str' := fun z => (z.1, z.2.2))
+    (e := fun z => (z.1, f z.2.1, z.2.2))
+    (eqv := fun z z' => z.1 = z'.1 ∧ z.2.2 = z'.2.2)
+    (heqv := fun h => Prod.ext h.1 h.2) (hperm := htie) (hstr := fun _ => rfl)
+    (hann := fun _ => rfl), ?_⟩
+  intro x x' φ φ' hn hn' hx hx'
+  refine ⟨hn, hn', sp.okL, sp.valL, sp.presBy_build _ _ _ (φ := φ) ?_,
+    sp.presBy_build _ _ _ (φ := φ') ?_⟩
+  · rw [hx]; simp [LeafSpec.build, sp]
+  · rw [hx']; simp [LeafSpec.build, sp]
+
+omit [ValueType T] in
+/-- **The values built from one group, presented by it.** A group's rows,
+listed on the two sides by a tie-block permutation of the pushed-forward
+listing, present every value a `LeafSpec` builds from them. -/
+theorem ListingRel.exists_group (f : K →+* K') {m : ℕ} (U : List (AnnotatedTuple T K m))
+    (U' : List (AnnotatedTuple T K' m))
+    (hp : TiePerm (fun p q : AnnotatedTuple T K' m => p.fst = q.fst)
+      (U.map (fun p => ((p.fst, f p.snd) : AnnotatedTuple T K' m))) U') :
+    ∃ D : ListingRel f T, ∀ (x : AggTok T K) (x' : AggTok T K') (sp : LeafSpec (Tuple T m) T)
+      (φ φ' : FamId T), x.isNested = false → x'.isNested = false →
+      x.flatExpr = sp.build U Prod.snd Prod.fst φ →
+      x'.flatExpr = sp.build U' Prod.snd Prod.fst φ' → D.Member x' x := by
+  refine ⟨ListingRel.mk (ρ := Tuple T m) (β := AnnotatedTuple T K m)
+    (β' := AnnotatedTuple T K' m) (L := U) (ann := Prod.snd) (str := Prod.fst)
+    (L' := U') (ann' := Prod.snd) (str' := Prod.fst)
+    (e := fun p => ((p.fst, f p.snd) : AnnotatedTuple T K' m))
+    (eqv := fun p q => p.fst = q.fst) (heqv := id)
+    (hperm := TiePerm.symm (fun h => h.symm) hp) (hstr := fun _ => rfl)
+    (hann := fun _ => rfl), ?_⟩
+  intro x x' sp φ φ' hn hn' hx hx'
+  exact ⟨hn, hn', sp.okL, sp.valL, sp.presBy_build _ _ _ hx, sp.presBy_build _ _ _ hx'⟩
+
 end FamPres
+
+/-! ## The operators' labels
+
+The hom commutation reads several values of one family in one world, so
+what it asks of a query is that two operators building values never
+share a label (`AggQueryIn.labelsDistinct`) – values of different
+operators being then in different families – and that a bag
+recursion's body build no value at all (`AggQueryIn.muBodyTokFree`): the
+rounds of a recursion carry the values its earlier rounds built, and a
+body building values would meet its own earlier ones in one row. -/
+
+section Labels
+
+variable {T : Type}
+
+/-- **The labels of the operators that build aggregate values.** -/
+def AggQueryIn.labels : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → List ℕ
+  | _, _, _, _, .Rel _ _ => []
+  | _, _, _, _, .Hole _ _ _ => []
+  | _, _, _, _, .Param _ _ => []
+  | _, _, _, _, .Empty => []
+  | _, _, _, _, .Proj _ q => q.labels
+  | _, _, _, _, .Sel _ q _ => q.labels
+  | _, _, _, _, .Prod q₁ q₂ => q₁.labels ++ q₂.labels
+  | _, _, _, _, .Apply q₁ q₂ => q₁.labels ++ q₂.labels
+  | _, _, _, _, .Sum q₁ q₂ => q₁.labels ++ q₂.labels
+  | _, _, _, _, .Dedup q => q.labels
+  | _, _, _, _, .Diff q₁ q₂ => q₁.labels ++ q₂.labels
+  | _, _, _, _, .Explode _ _ q => q.labels
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.labels ++ q₁.labels
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.labels ++ q₁.labels
+  | _, _, _, _, @AggQueryIn.Gamma _ _ _ _ _ lab _ _ _ _ q _ _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.GammaScalar _ _ _ _ lab _ _ _ q _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.GammaNest _ _ _ _ _ lab _ _ _ _ _ q => lab :: q.labels
+  | _, _, _, _, .ProvSum _ _ _ q => q.labels
+  | _, _, _, _, .Retag _ q => q.labels
+  | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ _ _ lab _ _ _ _ _ _ q _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ q _ _ _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ => lab :: q.labels
+
+/-- **No two operators building aggregate values share a label.** -/
+def AggQueryIn.labelsDistinct {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) : Prop :=
+  q.labels.Nodup
+
+/-- **No bag recursion's body builds an aggregate value.** -/
+def AggQueryIn.muBodyTokFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
+    AggQueryIn T c n κ l → Prop
+  | _, _, _, _, .Rel _ _ => True
+  | _, _, _, _, .Hole _ _ _ => True
+  | _, _, _, _, .Param _ _ => True
+  | _, _, _, _, .Empty => True
+  | _, _, _, _, .Proj _ q => q.muBodyTokFree
+  | _, _, _, _, .Sel _ q _ => q.muBodyTokFree
+  | _, _, _, _, .Prod q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
+  | _, _, _, _, .Apply q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
+  | _, _, _, _, .Sum q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
+  | _, _, _, _, .Dedup q => q.muBodyTokFree
+  | _, _, _, _, .Diff q₁ q₂ => q₁.muBodyTokFree ∧ q₂.muBodyTokFree
+  | _, _, _, _, .Explode _ _ q => q.muBodyTokFree
+  | _, _, _, _, .Mu _ q₀ q₁ => q₀.muBodyTokFree ∧ q₁.labels = [] ∧ q₁.muBodyTokFree
+  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.muBodyTokFree ∧ q₁.muBodyTokFree
+  | _, _, _, _, .Gamma _ _ _ q _ _ => q.muBodyTokFree
+  | _, _, _, _, .GammaScalar _ _ q _ => q.muBodyTokFree
+  | _, _, _, _, .GammaNest _ _ _ _ q => q.muBodyTokFree
+  | _, _, _, _, .ProvSum _ _ _ q => q.muBodyTokFree
+  | _, _, _, _, .Retag _ q => q.muBodyTokFree
+  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.muBodyTokFree
+  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.muBodyTokFree
+  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.muBodyTokFree
+
+end Labels
