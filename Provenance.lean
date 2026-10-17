@@ -69,6 +69,7 @@ import Provenance.AnnotatedChains
 import Provenance.AnnotatedDiffRow
 import Provenance.AnnotatedEpsRow
 import Provenance.AnnotatedBasisClass
+import Provenance.AnnotatedBasisHom
 import Provenance.AnnotatedApproxRows
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
@@ -1341,6 +1342,14 @@ proven engine several general results reuse internally.
   (`annEpsOps_isBasis_in_class`); the difference's witness inside the class
   is `ℕ[x, y]`, where `R − S` gives `x` and no difference-free query builds
   an annotation with more `x` than `y` (`diff_mem_of_generatesAnn_xy`)
+- `Provenance.AnnotatedBasisHom` – **the basis theorem's matches commute
+  with homomorphisms**: the construction reads no annotation, so one query
+  over the nine classes serves every semiring where its counter simulates a
+  set recursion (`exists_annEpsOps_matchU`), and it commutes with every
+  homomorphism the source commutes with, wherever the source settles on
+  both sides (`exists_annEpsOps_match_hom`, with the support and the
+  `δ = id` classes as `_support` and `_delta_id`); nothing is asked of the
+  match's own labels or read sets
 - `Provenance.AnnotatedApproxRows` – **the necessity rows up to `≈`**,
   rows annotated `𝟘` and occurrences annotated `𝟘` dropped
   (`GeneratesAnnZ`): the rows inherited from the plain basis transfer

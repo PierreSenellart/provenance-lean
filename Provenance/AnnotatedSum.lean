@@ -1359,6 +1359,23 @@ theorem AggQueryIn.closedMatch_refl {c n : ℕ} {κ : Fin n → ColKind} {l : Li
   fun d γ _ _ hE h =>
     ⟨AggQueryIn.annSettlesAt_finRel q d γ hE h, AggQueryIn.FinEq.refl q d γ _ _ hE⟩
 
+/-- **A match for every annotation semiring at once**: the construction
+reads no annotation, so one query serves them all. -/
+def AggQueryIn.ClosedMatchU {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (q' : AggQueryIn T c n κ l') : Prop :=
+  ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+    AggQueryIn.ClosedMatch (K := K) q q'
+
+/-- A body split for every annotation semiring at once. -/
+def AggQueryIn.BodySplitU {c n : ℕ} {κ : Fin n → ColKind} {l l' : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) (q' : AggQueryIn T c n κ l') (qC : AggQueryIn T c n κ) : Prop :=
+  ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K],
+    AggQueryIn.BodySplit (K := K) q q' qC
+
+theorem AggQueryIn.closedMatchU_refl {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
+    (q : AggQueryIn T c n κ l) : AggQueryIn.ClosedMatchU q q :=
+  fun {_} _ _ _ => AggQueryIn.closedMatch_refl q
+
 /-- The right side of an apply settles at every row of the match's left
 side, those rows being the source's up to finalization. -/
 theorem AggQueryIn.apply_right_settles {c n₁ n₂ : ℕ} {κ₁ : Fin n₁ → ColKind}
@@ -1444,17 +1461,17 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
       q.usesOnly (insert OpKind.union S) → q.hygienic → q.inSig Θ →
       ∀ (f : ℕ → String), Function.Injective f → (∀ i, f i ∉ q.names) →
         (l = [] → ∃ q' : AggQueryIn T c n κ, SumFreeAnnOf S Θ f q q'
-            ∧ ClosedMatch (K := K) q q')
+            ∧ ClosedMatchU q q')
         ∧ (∀ (s : String) (m : ℕ), l = [(s, m)] → q.noMention s →
             ∃ (q' : AggQueryIn T c n κ l) (qC : AggQueryIn T c n κ), qC.noMention s
               ∧ SumFreeAnnOf S Θ f q q' ∧ SumFreeAnnOf S Θ f q qC
-              ∧ BodySplit (K := K) q q' qC) := by
+              ∧ BodySplitU q q' qC) := by
   intro c n κ l q
   induction q with
   | Rel n s' =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Rel n s', ⟨trivial, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Hole n s' κh =>
     intro hq hr hi f hf hfr
@@ -1475,12 +1492,12 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Param pv ρ, ⟨⟨memS nofun hq.1, memS nofun hq.2.1,
       memS nofun hq.2.2⟩, trivial, trivial, id, fun _ _ h => h, fun _ _ h => h,
-      fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
+      fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Empty =>
     intro hq hr hi f hf hfr
     exact ⟨fun _ => ⟨AggQueryIn.Empty, ⟨memS nofun hq, trivial, trivial, id, fun _ _ h => h,
-      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatch_refl _⟩,
+      fun _ _ h => h, fun x hx => Or.inl hx, fun _ _ h => h, id⟩, closedMatchU_refl _⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
   | Proj ps q ih =>
     intro hq hr hi f hf hfr
@@ -1662,14 +1679,16 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
         nom := fun s hs hn => noMention_sumByMuK _ _ cnt _ _
           (hp₁.nom s (fun i => hs (i + 2)) hn.1) (hp₂.nom s (fun i => hs (i + 2)) hn.2) }
     -- the construction's value and settling over two children's outputs
-    have hval : ∀ (p₁ p₂ : AggQueryIn T c' n' κ') (d : AnnotatedDatabase T K) (γ : Fin c' → T)
+    have hval : ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+        (p₁ p₂ : AggQueryIn T c' n' κ') (d : AnnotatedDatabase T K) (γ : Fin c' → T)
         (E' : EvalEnv T K), p₁.AnnSettlesAt d γ E' → p₂.AnnSettlesAt d γ E' →
           (sumByMuK (f 0) (f 1) cnt p₁ p₂).AnnSettlesAt d γ E'
             ∧ ((sumByMuK (f 0) (f 1) cnt p₁ p₂).evaluate d γ E').map GenRow.fin
                 = (p₁.evaluate d γ E').map GenRow.fin + (p₂.evaluate d γ E').map GenRow.fin :=
       fun p₁ p₂ d γ E' h₁ h₂ => ⟨annSettlesAt_sumByMuK _ _ cnt p₁ p₂ d γ E' h₁ h₂,
         evaluate_sumByMuK_fin _ _ cnt p₁ p₂ d γ E'⟩
-    have hsum : ∀ (d : AnnotatedDatabase T K) (γ : Fin c' → T) (E : EvalEnv T K),
+    have hsum : ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+        (d : AnnotatedDatabase T K) (γ : Fin c' → T) (E : EvalEnv T K),
         ((AggQueryIn.Sum q₁ q₂).evaluate d γ E).map GenRow.fin
           = (q₁.evaluate d γ E).map GenRow.fin + (q₂.evaluate d γ E).map GenRow.fin :=
       fun d γ E => Multiset.map_add _ _ _
@@ -1992,7 +2011,7 @@ theorem generatesAnn_dedupProdSumFree (sch : Schema) (cnt : SeqAggFunc T) :
       · exact Or.inl hou
       · exact Or.inr ⟨h, hou⟩) q' hu'
   obtain ⟨f, hf, hfs, hfn⟩ := AggQueryIn.exists_freshSupply sch q'.names
-  obtain ⟨q'', hs, hm⟩ := (AggQueryIn.exists_sumFreeAnn_aux (K := K) hS
+  obtain ⟨q'', hs, hm⟩ := (AggQueryIn.exists_sumFreeAnn_aux hS
     (Set.mem_singleton cnt) q' hu'' (AggQueryIn.hygienic_of_overSchema q' sch ho') hi'
     f hf hfn).1 rfl
   refine ⟨q'', hs.over sch hfs ho', hs.usesOnly, hs.inSig, hs.noExplode ha',

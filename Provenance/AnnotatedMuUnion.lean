@@ -4220,18 +4220,21 @@ of the annotated algebra in the minimal universe**, at the instances `P`
 admits, wherever the simulation of a set recursion is correct there: the
 products are written as applies, the unions as bag recursions, and every
 set recursion as the counter simulation of `AggQueryIn.muSetFreeA`, whose
-own unions are written as bag recursions in turn. -/
-theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
-    {P : AnnotatedDatabase T K → Prop} (hnode : AggQueryIn.NodeCorrect cnt ch P)
+own unions are written as bag recursions in turn. The construction reads
+no annotation, so one query serves every semiring at once, at the instances
+where the counter `ch` simulates a set recursion. -/
+theorem exists_annEpsOps_matchU (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
     {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
     (hu : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (ha : q.noExplode)
     (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :
     ∃ q' : AggQuery T n κ,
       q'.overSchema sch ∧ q'.usesOnly annEpsOps ∧ q'.inMinimalSig cnt ∧ q'.noExplode
         ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ (q.noGammaNest → q'.noGammaNest)
-        ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
+        ∧ ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+          {P : AnnotatedDatabase T K → Prop}, AggQueryIn.NodeCorrect cnt ch P →
+          ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
             q'.AnnSettlesAt d γ {}
-              ∧ (q'.evaluate d γ).map GenRow.fin = (q.evaluate d γ).map GenRow.fin := by
+              ∧ (q'.evaluate d γ).map GenRow.fin = (q.evaluate d γ).map GenRow.fin:= by
   -- the products
   have hu1 : (prodFree q).usesOnly (plainRecOps \ {OpKind.prod}) :=
     usesOnly_prodFree (by simp [plainRecOps, plainOps, basisDD, basisOps])
@@ -4253,7 +4256,7 @@ theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
       · exact Or.inl hou
       · exact Or.inr ⟨h, hou⟩) _ hu1
   obtain ⟨f1, hf1, hf1s, hf1n⟩ := AggQueryIn.exists_freshSupply sch (prodFree q).names
-  obtain ⟨q2, hs2, hm2⟩ := (AggQueryIn.exists_sumFreeAnn_aux (K := K) hS2s
+  obtain ⟨q2, hs2, hm2⟩ := (AggQueryIn.exists_sumFreeAnn_aux hS2s
     (Set.mem_singleton cnt) (prodFree q) hu1' (AggQueryIn.hygienic_of_overSchema _ sch ho1) hi1
     f1 hf1 hf1n).1 rfl
   have ho2 := hs2.over sch hf1s ho1
@@ -4285,11 +4288,11 @@ theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
     rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;>
       simp [hS2, plainRecOps, plainOps, basisDD, basisOps]
   obtain ⟨f3, hf3, hf3s, hf3n⟩ := AggQueryIn.exists_freshSupply sch q3.names
-  obtain ⟨q4, hs4, hm4⟩ := (AggQueryIn.exists_sumFreeAnn_aux (K := K) hS4s
+  obtain ⟨q4, hs4, hm4⟩ := (AggQueryIn.exists_sumFreeAnn_aux hS4s
     (Set.mem_singleton cnt) q3 hu3 hh3 hi3 f3 hf3 hf3n).1 rfl
   refine ⟨q4, hs4.over sch hf3s ho3, hs4.usesOnly, hs4.inSig, hs4.noExplode ha3,
     hs4.wellKinded _ _ hp3, fun hn => hs4.noNest (AggQueryIn.noGammaNest_muSetFreeA ch q2 f2 hU2
-      hh2 (hs2.noNest (noGammaNest_prodFree q hn))), fun d γ hd hset => ?_⟩
+      hh2 (hs2.noNest (noGammaNest_prodFree q hn))), fun hnode d γ hd hset => ?_⟩
   -- the matches, composed
   have hs1 := annSettlesAt_prodFree q d γ {} {} (EvalEnv.FinRel.refl _) hset
   have he1 : ((prodFree q).evaluate d γ {}).map GenRow.fin = (q.evaluate d γ {}).map GenRow.fin :=
@@ -4301,6 +4304,21 @@ theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
   refine ⟨hs4', ?_⟩
   rw [← he4, he3, ← he2, he1]
 
+
+/-- `exists_annEpsOps_matchU` at one semiring. -/
+theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
+    {P : AnnotatedDatabase T K → Prop} (hnode : AggQueryIn.NodeCorrect cnt ch P)
+    {n : ℕ} {κ : Fin n → ColKind} (q : AggQuery T n κ) (ho : q.overSchema sch)
+    (hu : q.usesOnly plainRecOps) (hi : q.inMinimalSig cnt) (ha : q.noExplode)
+    (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :
+    ∃ q' : AggQuery T n κ,
+      q'.overSchema sch ∧ q'.usesOnly annEpsOps ∧ q'.inMinimalSig cnt ∧ q'.noExplode
+        ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ (q.noGammaNest → q'.noGammaNest)
+        ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
+            q'.AnnSettlesAt d γ {}
+              ∧ (q'.evaluate d γ).map GenRow.fin = (q.evaluate d γ).map GenRow.fin := by
+  obtain ⟨q', h1, h2, h3, h4, h5, h6, h7⟩ := exists_annEpsOps_matchU sch cnt ch q ho hu hi ha hp
+  exact ⟨q', h1, h2, h3, h4, h5, h6, fun d γ hd hs => h7 hnode d γ hd hs⟩
 /-- **The classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` match every query
 of the annotated algebra in the minimal universe**, at the instances `P`
 admits, wherever the simulation of a set recursion is correct there. -/
