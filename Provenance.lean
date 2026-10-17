@@ -31,6 +31,7 @@ import Provenance.SubWorlds
 /- Kind-indexed general queries and their annotated semantics -/
 import Provenance.AggQuery
 import Provenance.AggQuerySubst
+import Provenance.ReadsCongr
 
 /- Operators that abbreviate a query of the basis -/
 import Provenance.Derived
@@ -1395,6 +1396,12 @@ proven engine several general results reuse internally.
   current row would have no such identity and no such rewriting. The
   combinatorial step is `filter_product_key`: a table with distinct keys,
   joined on the key, gives each row exactly the entry of its own key
+- `Provenance.ReadsCongr` – **an evaluation reads its context only where
+  it says it does**: under `AggQueryIn.readsRecorded`, two valuations of
+  the parameters and two environment contexts agreeing on the positions
+  the query reads give the same annotated evaluation
+  (`AggQueryIn.evaluate_congr_reads`), terms, predicates and the
+  operators' value builders read the parameters only through their terms
 - `Provenance.JointHom` – **the joint reading of a family under a
   homomorphism**: a `LeafSpec` says how an aggregate value reads an
   occurrence of its family as a function of the occurrence's row, a value
