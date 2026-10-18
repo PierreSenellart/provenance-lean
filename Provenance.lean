@@ -71,6 +71,7 @@ import Provenance.AnnotatedEpsRow
 import Provenance.AnnotatedBasisClass
 import Provenance.AnnotatedBasisHom
 import Provenance.AnnotatedApproxRows
+import Provenance.AnnotatedWhyRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
 
@@ -1363,6 +1364,17 @@ proven engine several general results reuse internally.
   rows; with the positive half, the nine classes are a basis up to `≈`
   over the class, with one storey of second-level aggregation
   (`annEpsOps_isBasis_in_class_approx`, under `AggQueryIn.nestOnce`)
+- `Provenance.AnnotatedWhyRow` – **the annotated basis theorem: set
+  recursion is required**. `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}`
+  generates the annotated algebra over every commutative m-semiring, and no
+  proper subset of it does over all of them (`annMuOps_isBasis`). `μ^∪`'s
+  row is over the why-provenance semiring (`muSet_mem_of_generatesAnn`): on
+  a family of instances sharing their data, a query without `μ^∪` keeps its
+  annotations within one grade – witnesses of boundedly many variables
+  (`Graded`, `AggQueryIn.exists_grade`) – while a set recursion over an edge
+  carrying `m` one-variable witnesses builds one of `m`. So over `Why[X]`
+  the set with `ε` in place of `μ^∪` does not generate
+  (`not_generatesAnn_annEpsOps_why`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each
