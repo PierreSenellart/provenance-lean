@@ -19,14 +19,14 @@ with. Here it is a *successor* counter: where `δ` is the support map, a
 grouping annotates a counter `𝟙` or `𝟘`, and a round moves to the next
 counter annotated `𝟙` (`wt_ctrSucc`, `wt_ctrLeast`), the others carrying
 rows that weigh nothing (`PathSum.SimSpec`, with its two lists of
-counters); the rounds settle within the size of a tuple set where the
-semiring is absorptive or cancellative without zero divisors
-(`PathSum.SettlesEarly`), and `evaluate_simResultA` is the simulation's
-correctness under those counts.
+counters); the rounds settle within twice the size of a tuple set where
+the semiring is absorptive, cancellative without zero divisors, or has `⊗`
+equal to `⊕` on non-zero values (`PathSum.SettlesLinear`), and
+`evaluate_simResultA` is the simulation's correctness under those counts.
 
 The construction takes the counter as a parameter `ch`: `false` for the
 successor counter, `true` for the all-chains one, which serves where `δ`
-is the identity. Its width is `(2c + 2) n` either way (`ctrWidth`). The
+is the identity. Its width is `(2c + 2) n + 2` either way (`ctrWidth`). The
 pass is correct wherever its node is (`AggQueryIn.NodeCorrect`), and so is
 the basis theorem (`generatesAnnOn_annEpsOps_of`); the two nodes are
 proved in `Provenance.AnnotatedChains`.
@@ -1567,8 +1567,9 @@ theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 
     (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → PathSum.wt (L.ann d γ (E.assignHole s
       ({GenRow.ofAnnotated (u, 1)} : Multiset (GenRow T K n)))) v = 0)
     (hcard : S.card ≤ W.card)
-    (hcard' : S'.card ≤ (W.filter (fun x => @decide (P x) (Classical.propDecidable _) = true)).card)
-    (hK : PathSum.SettlesEarly K) (hset : MuSetSettles (muSetStep s BQ L d γ E)) :
+    (hcard' : S' = ∅ ∨ 2 * S'.card + 1
+      ≤ (W.filter (fun x => @decide (P x) (Classical.propDecidable _) = true)).card)
+    (hK : PathSum.SettlesLinear K) (hset : MuSetSettles (muSetStep s BQ L d γ E)) :
     (simResultA s s' n K' false EQ BQ L).evaluate d γ E = (MuSet s BQ L).evaluate d γ E := by
   set B := BQ.ann d γ E with hBdef
   set G := fun u => L.ann d γ (E.assignHole s
@@ -1617,7 +1618,8 @@ theorem evaluate_simResultA (s s' : String) (n K' : ℕ) (EQ : AggQueryIn T c 1 
     (PathSum.exists_round_iff hS (by rw [hlen]; exact hcard) (by omega)) fun t => ?_
   obtain ⟨k, hk⟩ := Nat.exists_eq_add_of_le hwl
   rw [hk]
-  exact (PathSum.wt_trunc_settle hS hsub hb' hg' hK hset (by rw [hwlen]; exact hcard') k t).symm
+  exact (PathSum.wt_trunc_settle_lin hS hsub hb' hg' hK hset (by rw [hwlen]; exact hcard')
+    k t).symm
 
 end SimSpecInst
 
@@ -2368,9 +2370,10 @@ noncomputable def ctrConsts {n : ℕ} (s : String) (q₀ : AggQueryIn T c n (Col
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) : List T :=
   (MuSet s q₀ q₁).allConsts.toList ++ [0, ValueType.nonzero]
 
-/-- **The width of the counter**: `(2c + 2) n`, which the values of the
-rows alone bound (`AggQueryIn.card_arith_chain`). -/
-def ctrWidth (c n : ℕ) : ℕ := (2 * c + 2) * n
+/-- **The width of the counter**: `(2c + 2) n + 2`, which the values of the
+rows alone bound (`AggQueryIn.card_arith_chain`), with room for twice as
+many counters as tuples (`AggQueryIn.card_arith_succ`). -/
+def ctrWidth (c n : ℕ) : ℕ := (2 * c + 2) * n + 2
 
 /-- The query a set recursion is replaced by. -/
 noncomputable def muSetSim (ch : Bool) {n : ℕ} (s s' : String)

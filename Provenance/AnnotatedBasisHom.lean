@@ -82,8 +82,8 @@ theorem exists_annEpsOps_match_hom_support (sch : Schema) (cnt : SeqAggFunc T)
         ∧ ∀ {K K' : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
           [CommSemiringWithMonus K'] [DecidableEq K'] [HasAltLinearOrder K']
           (h : SemiringWithMonusHom K K'),
-          (∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesEarly K →
-          (∀ a : K', a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesEarly K' →
+          (∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesLinear K →
+          (∀ a : K', a ≠ 0 → SemiringWithMonus.delta a = 1) → PathSum.SettlesLinear K' →
           q.labelsDistinct → q.readsRecorded →
           q.sourceCols → q.allFramesContainSelf →
           ∀ d : AnnotatedDatabase T K, q.AnnSettlesAt d (fun _ => 0) {} →

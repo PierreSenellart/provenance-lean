@@ -1027,13 +1027,31 @@ theorem wt_ann_le_of_rowBd (habs : ∀ a : K, 1 + a = 1) {F Vl : T → Prop} {e 
   exact ((h r hr k (u k) hk).resolve_left hF).2
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- **The width of the all-chains counter**: `(m + 2c + 1)^n` tuples are
-outrun by `m^((2c + 2) n)` counters. -/
-theorem card_arith_chain {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+/-- **The width of the counter**: `(m + 2c + 1)^n` tuples are outrun by
+`m^((2c + 2) n)` counters. -/
+theorem card_arith_chain0 {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
     A ^ n ≤ m ^ ((2 * c + 2) * n) := by
   have h1 := add_le_pow_of_two_le hm (2 * c)
   calc A ^ n ≤ (m ^ (2 * c + 2)) ^ n := Nat.pow_le_pow_left (by omega) n
     _ = m ^ ((2 * c + 2) * n) := (pow_mul m _ n).symm
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The width of the all-chains counter**: `(m + 2c + 1)^n` tuples are
+outrun by `m^((2c + 2) n + 2)` counters. -/
+theorem card_arith_chain {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+    A ^ n ≤ m ^ ((2 * c + 2) * n + 2) :=
+  le_trans (card_arith_chain0 hm hA) (Nat.pow_le_pow_right (by omega) (by omega))
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The width of the successor counter**: twice `(m + 2c + 1)^n` tuples,
+and one more, are outrun by `m^((2c + 2) n + 2)` counters. -/
+theorem card_arith_succ {m A n : ℕ} (hm : 2 ≤ m) (hA : A ≤ m + 2 * c + 1) :
+    2 * A ^ n + 1 ≤ m ^ ((2 * c + 2) * n + 2) := by
+  have h1 := card_arith_chain0 (c := c) (n := n) hm hA
+  have h2 : 1 ≤ m ^ ((2 * c + 2) * n) := Nat.one_le_pow _ _ (by omega)
+  have h3 : 4 ≤ m ^ 2 := by nlinarith
+  rw [pow_add]
+  nlinarith
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 /-- A weight absorbing each counter of a chain absorbs the chain's. -/
@@ -1111,7 +1129,7 @@ theorem muSetSim_correct_chain (cnt : SeqAggFunc T)
   set cs := ctrConsts s q₀ q₁ with hcs
   set EQ : AggQueryIn T c 1 (ColKind.allReg 1) := valRel ls cs with hEQ
   set K' := ctrWidth c n with hK'
-  have hK'e : K' = (2 * c + 2) * n := rfl
+  have hK'e : K' = (2 * c + 2) * n + 2 := rfl
   set V := ((EQ.ann d γ E).map Prod.fst).dedup with hV
   set W := powT V K' with hW
   set ev : T → K := fun x => PathSum.wt (EQ.ann d γ E) (fun _ => x) with hev
@@ -1478,14 +1496,14 @@ theorem prod_ind {m : ℕ} (Q : Fin m → Prop) [DecidablePred Q] [Decidable (�
 
 set_option maxHeartbeats 1000000 in
 /-- **A set recursion is its successor simulation**, where `δ` is the
-support map and the semiring settles its linear recursions early
-(`PathSum.SettlesEarly`), at every instance where the recursion settles –
+support map and the semiring settles its linear recursions within twice the
+size of their tuple set (`PathSum.SettlesLinear`), at every instance where the recursion settles –
 rows annotated `𝟘` included – given matches `q₀'`, `q₁'` of its base and
 body that agree with them wherever these settle. A counter value held only
 by rows annotated `𝟘` is annotated `𝟘`, and so is every row holding it, so
 the derivations of non-zero weight live on the counters annotated `𝟙`. -/
 theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
-    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesEarly K)
+    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesLinear K)
     {n : ℕ} (s s' : String)
     (q₀ : AggQueryIn T c n (ColKind.allReg n))
     (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
@@ -1533,7 +1551,7 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
   set cs := ctrConsts s q₀ q₁ with hcs
   set EQ : AggQueryIn T c 1 (ColKind.allReg 1) := valRel ls cs with hEQ
   set K' := ctrWidth c n with hK'
-  have hK'e : K' = (2 * c + 2) * n := rfl
+  have hK'e : K' = (2 * c + 2) * n + 2 := rfl
   set V := ((EQ.ann d γ E).map Prod.fst).dedup with hV
   set W := powT V K' with hW
   set Z : T → Prop := fun x => PathSum.wt (EQ.ann d γ E) (fun _ => x) = 0 with hZ
@@ -1711,10 +1729,11 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
   -- the tuples of non-zero weight: those holding no value of `Z` but free ones
   have hS' : ∃ S' : Finset (Tuple T n), S' ⊆ S ∧ (∀ u, u ∉ S' → PathSum.wt B u = 0)
       ∧ (∀ u ∈ S', ∀ v, v ∉ S' → PathSum.wt (G u) v = 0)
-      ∧ S'.card ≤ (W.filter (fun x => @decide (P x) (Classical.propDecidable _) = true)).card := by
+      ∧ (S' = ∅ ∨ 2 * S'.card + 1
+        ≤ (W.filter (fun x => @decide (P x) (Classical.propDecidable _) = true)).card) := by
     by_cases h10 : (1 : K) = 0
     · have h0 : ∀ x : K, x = 0 := fun x => by rw [← mul_one x, h10, mul_zero]
-      exact ⟨∅, Finset.empty_subset _, fun u _ => h0 _, fun u _ v _ => h0 _, by simp⟩
+      exact ⟨∅, Finset.empty_subset _, fun u _ => h0 _, fun u _ v _ => h0 _, Or.inl rfl⟩
     refine ⟨S.filter (fun t => ∀ k, F (t k) ∨ ¬ Z (t k)), Finset.filter_subset _ _, ?_, ?_, ?_⟩
     · intro u hu
       by_cases huS : u ∈ S
@@ -1804,9 +1823,10 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
             fun k => (hV1V _ (Fintype.mem_piFinset.1 hx k)).2
       have h1 := Finset.card_le_card hWpsub
       rw [Multiset.toFinset_card_of_nodup (Multiset.Nodup.filter _ hWn), hWpc] at h1
-      refine le_trans (card_le_of_vals _ A hS'A) (le_trans ?_ h1)
-      rw [hK'e]
-      exact card_arith_chain hV12 hAc
+      have h2 := card_le_of_vals _ A hS'A
+      have h3 : 2 * A.card ^ n + 1 ≤ V1.card ^ K' := by
+        rw [hK'e]; exact card_arith_succ hV12 hAc
+      exact Or.inr (by omega)
   obtain ⟨S', hsub, hb', hg', hcard'⟩ := hS'
   -- the rounds' tuples, where the body settles
   have hLrow : ∀ j t, t ∈ PathSum.supp (PathSum.rounds B G j) →
@@ -1832,9 +1852,10 @@ theorem muSetSim_correct_succ (cnt : SeqAggFunc T)
     hb' hg' hcard hcard' hK hsS'
 
 /-- **The successor counter is correct** at every instance, where `δ` is the
-support map and the semiring settles its linear recursions early. -/
+support map and the semiring settles its linear recursions within twice
+the size of their tuple set. -/
 theorem nodeCorrect_succ (cnt : SeqAggFunc T)
-    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesEarly K) :
+    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesLinear K) :
     NodeCorrect cnt false (fun _ : AnnotatedDatabase T K => True) :=
   fun s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ _ _ h₈ d _ γ E _ hs h₀ h₁' =>
     muSetSim_correct_succ cnt hδ hK s s' q₀ q₁ q₀' q₁' h₁ h₂ h₃ h₄ h₅ h₆ h₇ h₈ d γ E hs h₀ h₁'
@@ -1861,14 +1882,15 @@ theorem generatesAnn_annEpsOps_of_delta_id (sch : Schema) (cnt : SeqAggFunc T)
 
 /-- **`μ^∪` is dispensable beside `μ^⊎` and `ε` in the annotated algebra
 where `δ` is the support map**, over every instance – rows annotated `𝟘`
-included – in the semirings that settle their linear recursions early
-(`PathSum.SettlesEarly`: absorptive, or `⊕` cancellative with no zero
-divisors – `ℕ`, `ℕ[X]`, the tropical, Viterbi and Łukasiewicz semirings):
+included – in the semirings that settle their linear recursions within
+twice the size of their tuple set (`PathSum.SettlesLinear`: absorptive, `⊕`
+cancellative with no zero divisors, or `⊗` equal to `⊕` on non-zero values –
+`ℕ`, `ℕ[X]`, the tropical, Viterbi and Łukasiewicz semirings, `Lin[X]`):
 the classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` match every query of the
 annotated algebra in the minimal universe, every set recursion written as
 its successor simulation. -/
 theorem generatesAnn_annEpsOps_of_support (sch : Schema) (cnt : SeqAggFunc T)
-    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesEarly K) :
+    (hδ : ∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) (hK : PathSum.SettlesLinear K) :
     GeneratesAnn T K sch cnt annEpsOps := by
   intro n κ q ho hu hi ha hp
   obtain ⟨q', ho', hu', hi', ha', hp', hm⟩ := generatesAnnOn_annEpsOps_of sch cnt false

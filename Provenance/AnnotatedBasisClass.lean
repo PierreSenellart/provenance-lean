@@ -5,16 +5,20 @@
 import Provenance.AnnotatedEpsRow
 import Provenance.AnnotatedChains
 import Provenance.Semirings.How
+import Provenance.Semirings.Which
 
 /-!
 # The annotated basis over a class of semirings
 
 The nine classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` are a basis of the
 annotated algebra over the m-semirings where `δ` is the support map and a
-linear set recursion settles early (`PathSum.SettlesEarly`), or where `δ`
-is the identity (`AnnBasisClass`): they generate it over every such
-semiring (`generatesAnn_annEpsOps_of_class`), and no proper subset does
-over all of them (`annEpsOps_minimal_in_class`).
+linear set recursion settles within twice the size of its tuple set
+(`PathSum.SettlesLinear`, which holds of `ℕ`, `ℕ[X]` and the lineage
+semiring), or where `δ` is the identity (`AnnBasisClass`): they generate
+it over every such semiring (`generatesAnn_annEpsOps_of_class`), and no
+proper subset does over all of them (`annEpsOps_minimal_in_class`). The
+why-provenance semiring `Why[X]` has the support map but not the bound:
+a cycle over an edge carrying `m` witnesses settles only after `m` rounds.
 
 The generation half is `generatesAnn_annEpsOps_of_support` and
 `generatesAnn_annEpsOps_of_delta_id`. For minimality every row needs a
@@ -181,19 +185,42 @@ theorem diff_mem_of_generatesAnn_xy {cnt : SeqAggFunc ℕ} {S : Set OpKind}
 /-! ## The class, and the basis theorem -/
 
 /-- **The m-semirings the basis theorem is about**: `δ` the support map
-with linear set recursions settling early, or `δ` the identity. -/
+with linear set recursions settling within twice the size of their tuple
+set, or `δ` the identity. -/
 def AnnBasisClass (K : Type) [CommSemiringWithMonus K] : Prop :=
-  ((∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) ∧ PathSum.SettlesEarly K)
+  ((∀ a : K, a ≠ 0 → SemiringWithMonus.delta a = 1) ∧ PathSum.SettlesLinear K)
     ∨ ∀ a : K, SemiringWithMonus.delta a = a
 
 theorem annBasisClass_nat : AnnBasisClass ℕ := by
-  refine Or.inl ⟨fun a ha => ?_, Or.inr ⟨fun _ _ h => add_eq_left.mp h, inferInstance⟩⟩
+  refine Or.inl ⟨fun a ha => ?_, Or.inl (Or.inr ⟨fun _ _ h => add_eq_left.mp h, inferInstance⟩)⟩
   have := SemiringWithMonus.delta_natCast_pos (α := ℕ) (Nat.pos_of_ne_zero ha)
   rwa [Nat.cast_id] at this
 
 theorem annBasisClass_polyXY : AnnBasisClass PolyXY := by
-  refine Or.inl ⟨fun a ha => ?_, PolyXY.settlesEarly⟩
+  refine Or.inl ⟨fun a ha => ?_, Or.inl PolyXY.settlesEarly⟩
   rw [PolyXY.delta_eq, ite_eq_right ha]
+
+/-- **In the lineage semiring `⊗` is `⊕` on non-zero values**, both being
+union, and `⊕` is idempotent. -/
+theorem Which.unionLike {α : Type} [DecidableEq α] : PathSum.UnionLike (Which α) := by
+  refine ⟨fun a => ?_, fun a b ha hb => ?_⟩
+  · cases a with
+    | wbot => rfl
+    | wset s => show Which.wset (s ∪ s) = Which.wset s; rw [Finset.union_self]
+  · cases a with
+    | wbot => exact absurd rfl ha
+    | wset s =>
+      cases b with
+      | wbot => exact absurd rfl hb
+      | wset t => rfl
+
+/-- **The lineage semiring is in the class**: `δ` is the support map, and `⊗`
+is `⊕` on non-zero values. -/
+theorem annBasisClass_which {α : Type} [DecidableEq α] : AnnBasisClass (Which α) := by
+  refine Or.inl ⟨fun a ha => ?_, Or.inr Which.unionLike⟩
+  cases a with
+  | wbot => exact absurd rfl ha
+  | wset s => rfl
 
 /-- **The nine classes generate the annotated algebra over every semiring
 of the class.** -/

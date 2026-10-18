@@ -1292,7 +1292,9 @@ proven engine several general results reuse internally.
   within the size of a tuple set closed under its rounds, where the
   semiring is absorptive or cancellative without zero divisors
   (`iterate_succ_eq_of_settles`, and `wt_trunc_settle` on the tuples the
-  derivations of non-zero weight live on); a successor counter over the
+  derivations of non-zero weight live on), and its weights within twice
+  that size where `⊗` is `⊕` on non-zero values, as in the lineage
+  semiring (`PathSum.UnionLike`, `wt_trunc_settle_lin`); a successor counter over the
   counters annotated `𝟙` pairs each derivation with exactly one counter
   (`SimSpec.dedupK_rounds`),
   and in an absorptive semiring an all-chains counter whose chains absorb
@@ -1313,7 +1315,7 @@ proven engine several general results reuse internally.
   (`AggQueryIn.rowBd_evaluate`); where `δ` is the support map, a value held
   only by rows annotated `𝟘` makes every row holding it `𝟘`, so the
   successor counter is exact with no fence on the instance, in the
-  semirings of `PathSum.SettlesEarly` (`AggQueryIn.muSetSim_correct_succ`,
+  semirings of `PathSum.SettlesLinear` (`AggQueryIn.muSetSim_correct_succ`,
   `generatesAnn_annEpsOps_of_support`); where `δ` is the identity (the
   Boolean algebras and the min-max semirings), a row is below the weight of
   each value it holds, so the *all-chains* counter absorbs nothing of a
@@ -1337,8 +1339,9 @@ proven engine several general results reuse internally.
 - `Provenance.AnnotatedBasisClass` – **the annotated basis theorem over a
   class of semirings**: `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` generates
   the annotated algebra over every m-semiring where `δ` is the support map
-  and linear set recursions settle early, or `δ` is the identity
-  (`AnnBasisClass`), and no proper subset does over all of them
+  and linear set recursions settle within twice the size of their tuple
+  set – `ℕ`, `ℕ[X]`, the lineage semiring among them – or `δ` is the
+  identity (`AnnBasisClass`), and no proper subset does over all of them
   (`annEpsOps_isBasis_in_class`); the difference's witness inside the class
   is `ℕ[x, y]`, where `R − S` gives `x` and no difference-free query builds
   an annotation with more `x` than `y` (`diff_mem_of_generatesAnn_xy`)

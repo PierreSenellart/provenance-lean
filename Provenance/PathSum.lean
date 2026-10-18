@@ -32,8 +32,13 @@ tuple, and the cycle between the two occurrences can be cut or pumped
   past `|S|` vanish wherever some round does (`y_eq_zero_of_eq_zero`).
 
 Either way a recursion that settles does so within `|S|` rounds
-(`iterate_succ_eq_of_settles`). The data part, which annotations do not
-see, is the same argument over `ℕ` (`exists_lt_ne_zero`).
+(`iterate_succ_eq_of_settles`). Where `⊗` is `⊕` on non-zero values, as
+in the lineage semiring (`UnionLike`), a cycle neither vanishes nor is
+absorbed, but a path of `2|S| + 1` steps or more has one cycle near each
+end, and its weight is the sum of the two paths with one of them cut
+(`pw_absorbed`), so the weights settle within `2|S| + 1` rounds
+(`wt_trunc_settle_lin`). The data part, which annotations do not see, is
+the same argument over `ℕ` (`exists_lt_ne_zero`).
 -/
 
 open Finset
@@ -381,6 +386,131 @@ theorem y_eq_zero_of_eq_zero [NoZeroDivisors R] (hb : ∀ u, u ∉ S → b u = 0
   obtain ⟨L', hL', hne⟩ := exists_ge_ne_zero S b g hb hg hM h N
   exact hne (y_eq_zero_of_le S b g hN L' hL' v)
 
+/-- **The semirings where `⊗` is `⊕` on non-zero values**, `⊕` being
+idempotent: the lineage semiring `Lin[X]`, where both are union. A path's
+weight is then the sum of the weights of its start and of its edges, so a
+cycle adds edges but repeats nothing. -/
+def UnionLike (R : Type) [CommSemiring R] : Prop :=
+  (∀ a : R, a + a = a) ∧ ∀ a b : R, a ≠ 0 → b ≠ 0 → a * b = a + b
+
+omit [PartialOrder R] in
+theorem UnionLike.mul_mul (hU : UnionLike R) (hc : ∀ a b : R, a + b = 0 → a = 0)
+    {X Y Z : R} (hX : X ≠ 0) (hY : Y ≠ 0) (hZ : Z ≠ 0) :
+    X * Y * Z = X * Y + X * Z := by
+  have hXY : X + Y ≠ 0 := fun h => hX (hc _ _ h)
+  rw [hU.2 X Y hX hY, hU.2 _ Z hXY hZ, hU.2 X Z hX hZ]
+  calc X + Y + Z = (X + X) + Y + Z := by rw [hU.1]
+    _ = X + Y + (X + Z) := by ring
+
+omit [PartialOrder R] [DecidableEq α] in
+/-- A summand of an idempotent sum is absorbed by it. -/
+theorem add_sum_of_mem (hid : ∀ a : R, a + a = a) {ι : Type} [DecidableEq ι] {s : Finset ι}
+    (f : ι → R) {i : ι} (hi : i ∈ s) : f i + ∑ j ∈ s, f j = ∑ j ∈ s, f j := by
+  rw [← add_sum_erase _ _ hi, ← add_assoc, hid]
+
+/-- **Two cycles cut**: a path of `j ≥ 2|S| + 1` steps through `S` repeats a
+tuple among its first `|S| + 1` and among the rest, and is its two paths
+with one of the two cycles cut, each of fewer steps. -/
+theorem exists_two_cuts {j : ℕ} {v : α} {l : List α} (hj : 2 * S.card + 1 ≤ j)
+    (hl : l ∈ pathsTo S j v) :
+    ∃ p₁ a c₁ p₂ q₁ b c₂ q₃,
+      l = p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁ ++ b :: (c₂ ++ b :: q₃)))
+      ∧ p₁ ++ a :: (p₂ ++ q₁ ++ b :: (c₂ ++ b :: q₃))
+          ∈ pathsTo S (j - (c₁.length + 1)) v
+      ∧ p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁ ++ b :: q₃)) ∈ pathsTo S (j - (c₂.length + 1)) v
+      ∧ c₁.length + 1 ≤ j ∧ c₂.length + 1 ≤ j := by
+  obtain ⟨hlen, hh, hS⟩ := (mem_pathsTo S j v l).1 hl
+  have hrep : ∀ m : List α, (∀ a ∈ m, a ∈ S) → S.card + 1 ≤ m.length → ¬ m.Nodup :=
+    fun m hm hlen hnd => by
+      have := List.toFinset_card_of_nodup hnd
+      have := card_le_card (fun a ha => hm a (List.mem_toFinset.1 ha) : m.toFinset ⊆ S)
+      omega
+  have hA := hrep (l.take (S.card + 1)) (fun a ha => hS a (List.mem_of_mem_take ha))
+    (by rw [List.length_take]; omega)
+  have hB := hrep (l.drop (S.card + 1)) (fun a ha => hS a (List.mem_of_mem_drop ha))
+    (by rw [List.length_drop]; omega)
+  obtain ⟨p₁, a, c₁, p₂, hAe⟩ := exists_repeat _ hA
+  obtain ⟨q₁, b, c₂, q₃, hBe⟩ := exists_repeat _ hB
+  have hl' : l = p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁ ++ b :: (c₂ ++ b :: q₃))) := by
+    rw [← List.take_append_drop (S.card + 1) l, hAe, hBe]
+    simp
+  have hlen' := hlen
+  rw [hl'] at hlen'
+  simp only [List.length_append, List.length_cons] at hlen'
+  have hhead : ∀ m : List α, (p₁ ++ a :: m).head? = some v := fun m => by
+    have := hh
+    rw [hl'] at this
+    cases p₁ with
+    | nil => simpa using this
+    | cons w t => simpa using this
+  refine ⟨p₁, a, c₁, p₂, q₁, b, c₂, q₃, hl', (mem_pathsTo S _ v _).2 ⟨?_, hhead _, ?_⟩,
+    (mem_pathsTo S _ v _).2 ⟨?_, hhead _, ?_⟩, by omega, by omega⟩
+  · simp only [List.length_append, List.length_cons]; omega
+  · intro c hc
+    apply hS; rw [hl']
+    simp only [List.mem_append, List.mem_cons] at hc ⊢
+    tauto
+  · simp only [List.length_append, List.length_cons]; omega
+  · intro c hc
+    apply hS; rw [hl']
+    simp only [List.mem_append, List.mem_cons] at hc ⊢
+    tauto
+
+/-- **A path of `2|S| + 1` steps or more adds nothing**, where `⊗` is `⊕` on
+non-zero values: its weight is the sum of the weights of the two paths with
+one of its cycles cut. -/
+theorem pw_absorbed (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
+    (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : 2 * S.card + 1 ≤ M) (v : α) :
+    ∀ j (l : List α), l ∈ pathsTo S j v → pw b g l + x S b g M v = x S b g M v := by
+  intro j
+  induction j using Nat.strong_induction_on with
+  | _ j ih =>
+    intro l hl
+    by_cases hjM : j < M
+    · unfold x
+      rw [← add_sum_erase _ _ (mem_range.2 hjM), y_eq_sum_pathsTo S b g hb hg,
+        ← add_assoc, add_sum_of_mem hU.1 (pw b g) hl]
+    · obtain ⟨p₁, a, c₁, p₂, q₁, b', c₂, q₃, rfl, hA, hB, h₁, h₂⟩ :=
+        exists_two_cuts S (j := j) (by omega) hl
+      by_cases h0 : pw b g (p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁ ++ b' :: (c₂ ++ b' :: q₃)))) = 0
+      · rw [h0, zero_add]
+      -- the weights, as the core times the two cycles
+      have e₁ := pw_cut b g p₁ a c₁ (p₂ ++ q₁ ++ b' :: (c₂ ++ b' :: q₃))
+      have e₂ := pw_cut b g (p₁ ++ a :: (c₁ ++ a :: (p₂ ++ q₁))) b' c₂ q₃
+      have e₃ := pw_cut b g (p₁ ++ a :: (p₂ ++ q₁)) b' c₂ q₃
+      simp only [List.append_assoc, List.cons_append] at e₁ e₂ e₃
+      simp only [List.append_assoc] at h0 hA hB ⊢
+      set X := pw b g (p₁ ++ a :: (p₂ ++ (q₁ ++ b' :: q₃)))
+      set Y := ep g (a :: (c₁ ++ [a]))
+      set Z := ep g (b' :: (c₂ ++ [b']))
+      have hl₁ : pw b g (p₁ ++ a :: (p₂ ++ (q₁ ++ b' :: (c₂ ++ b' :: q₃)))) = X * Z := e₃
+      have hl₂ : pw b g (p₁ ++ a :: (c₁ ++ a :: (p₂ ++ (q₁ ++ b' :: q₃)))) = X * Y := by
+        rw [pw_cut]
+      have hall : pw b g (p₁ ++ a :: (c₁ ++ a :: (p₂ ++ (q₁ ++ b' :: (c₂ ++ b' :: q₃)))))
+          = X * Y * Z := by rw [e₂, hl₂]
+      rw [hall] at h0 ⊢
+      have hX : X ≠ 0 := fun h => h0 (by rw [h, zero_mul, zero_mul])
+      have hY : Y ≠ 0 := fun h => h0 (by rw [h, mul_zero, zero_mul])
+      have hZ : Z ≠ 0 := fun h => h0 (by rw [h, mul_zero])
+      rw [UnionLike.mul_mul hU (fun a b h => (add_eq_zero.1 h).1) hX hY hZ, add_assoc,
+        ← hl₁, ih _ (by omega) _ hA, ← hl₂, ih _ (by omega) _ hB]
+
+/-- **The rounds past `2|S|` add nothing**, where `⊗` is `⊕` on non-zero
+values. -/
+theorem x_add_y_of_unionLike (hU : UnionLike R) (hb : ∀ u, u ∉ S → b u = 0)
+    (hg : ∀ u ∈ S, ∀ v, v ∉ S → g u v = 0) {M : ℕ} (hM : 2 * S.card + 1 ≤ M) (v : α) :
+    x S b g M v + y S b g M v = x S b g M v := by
+  rw [y_eq_sum_pathsTo S b g hb hg]
+  suffices ∀ F ⊆ pathsTo S M v, x S b g M v + ∑ l ∈ F, pw b g l = x S b g M v from
+    this _ subset_rfl
+  intro F
+  induction F using Finset.induction_on with
+  | empty => simp
+  | insert l F hlF ih =>
+    intro hF
+    rw [sum_insert hlF, add_comm (pw b g l), ← add_assoc, ih (subset_trans (subset_insert _ _) hF),
+      add_comm, pw_absorbed S b g hU hb hg hM v M l (hF (mem_insert_self _ _))]
+
 end Ordered
 
 section Multisets
@@ -698,6 +828,45 @@ theorem wt_trunc_settle {S S' : Finset α} {B : Multiset (α × R)}
         rw [← hy]
         exact hcan _ _ this
       rw [hy, y_eq_zero_of_eq_zero S' _ _ hb' hg' hyN (by omega) v, add_zero]
+
+/-- **The semirings where a linear set recursion's weights settle within
+twice the size of its tuple set**: those of `SettlesEarly`, and those where
+`⊗` is `⊕` on non-zero values (`UnionLike`). -/
+def SettlesLinear (R : Type) [CommSemiring R] : Prop := SettlesEarly R ∨ UnionLike R
+
+omit [PartialOrder R] [CanonicallyOrderedAdd R] in
+theorem SettlesEarly.settlesLinear (h : SettlesEarly R) : SettlesLinear R := Or.inl h
+
+/-- **The weights of a linear set recursion settle within `2|S'| + 1`
+rounds**, in the semirings of `SettlesLinear`. -/
+theorem wt_trunc_settle_lin {S S' : Finset α} {B : Multiset (α × R)}
+    {G : α → Multiset (α × R)} (h : Closed S B G) (hsub : S' ⊆ S)
+    (hb' : ∀ u, u ∉ S' → wt B u = 0) (hg' : ∀ u ∈ S', ∀ v, v ∉ S' → wt (G u) v = 0)
+    (hR : SettlesLinear R) (hset : ∃ N, (stepK B G)^[N + 1] 0 = (stepK B G)^[N] 0) {M : ℕ}
+    (hM : S' = ∅ ∨ 2 * S'.card + 1 ≤ M) :
+    ∀ k v, wt (trunc B G (M + k)) v = wt (trunc B G M) v := by
+  have hy : ∀ j v, wt (rounds B G j) v = y S' (wt B) (fun u v => wt (G u) v) j v := fun j v => by
+    rw [wt_rounds h, (y_restrict S (wt B) (fun u v => wt (G u) v) hsub hb' hg' j v).1]
+  have hx : ∀ k v, wt (trunc B G k) v = x S' (wt B) (fun u v => wt (G u) v) k v := fun k v => by
+    rw [wt_trunc]
+    exact sum_congr rfl fun j _ => hy j v
+  rcases hM with h0 | hM
+  · intro k v
+    have hz : ∀ k, wt (trunc B G k) v = 0 := fun k => by
+      rw [hx]
+      exact sum_eq_zero fun j _ =>
+        (y_restrict S' (wt B) (fun u v => wt (G u) v) (subset_refl _) hb' hg' j v).2
+          (by rw [h0]; exact notMem_empty v)
+    rw [hz, hz]
+  rcases hR with hR | hU
+  · exact wt_trunc_settle h hsub hb' hg' hR hset (by omega)
+  intro k
+  induction k with
+  | zero => intro v; rfl
+  | succ k ih =>
+    intro v
+    rw [← ih v, ← Nat.add_assoc, trunc_succ, wt_add, hx, hy,
+      x_add_y_of_unionLike S' _ _ hU hb' hg' (by omega) v]
 
 end Settle
 
