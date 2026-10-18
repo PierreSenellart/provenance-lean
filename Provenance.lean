@@ -1374,7 +1374,9 @@ proven engine several general results reuse internally.
   (`Graded`, `AggQueryIn.exists_grade`) – while a set recursion over an edge
   carrying `m` one-variable witnesses builds one of `m`. So over `Why[X]`
   the set with `ε` in place of `μ^∪` does not generate
-  (`not_generatesAnn_annEpsOps_why`)
+  (`not_generatesAnn_annEpsOps_why`). The same holds up to `≈`, with one
+  storey of second-level aggregation (`annMuOps_isBasis_approx`,
+  `muSet_mem_of_generatesAnnZ`)
 - `Provenance.MuUnion` – **`μ^∪` from `μ^⊎`** (`prop:muunion`, for every
   restricted term): a set recursion is simulated by a bag recursion over
   pairs of a tuple and a counter, the base `(q₀ ⊎ C) × E^K` and each

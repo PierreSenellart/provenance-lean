@@ -25,6 +25,13 @@ under `δ`, with products adding the grades. `Why.grade D a` says that
 every witness of `a` has at most `D` variables. No single instance can
 separate the classes: the fixpoint of a linear recursion is a finite sum
 of powers of its input annotations, which sums and products reach.
+
+The basis theorem follows (`annMuOps_isBasis`): `{∅, Π, σ, apply, γ, win,
+μ^⊎, −, μ^∪}` generates the annotated algebra over every commutative
+m-semiring, and no proper subset of it does over all of them. It holds up
+to `≈` too (`annMuOps_isBasis_approx`), with one storey of second-level
+aggregation: the passes agree with their source row by row up to
+finalization and keep one storey, and the witness's row is not `𝟘`.
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
@@ -1474,3 +1481,253 @@ semirings of `AnnBasisClass`, misses `μ^∪`. -/
 theorem not_generatesAnn_annEpsOps_why :
     ¬ GeneratesAnn ℕ (Why ℕ) schemaRS SeqAggFunc.count annEpsOps :=
   fun h => absurd (muSet_mem_of_generatesAnn h) (by simp [annEpsOps])
+
+
+/-! ## Up to `≈` -/
+
+section Approx
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem noGammaNest_dedupFree :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.noGammaNest → (dedupFree f q).noGammaNest := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ h => h
+  | Hole _ _ _ => exact fun _ h => h
+  | Param _ _ => exact fun _ h => h
+  | Empty => exact fun _ h => h
+  | Proj ps q ih => exact fun f h => ih f h
+  | Sel φ q hφ ih => exact fun f h => ih f h
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Apply q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Dedup q ih => exact fun f h => ⟨ih _ h, trivial⟩
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
+  | Explode k hk q ih => exact fun f h => ih f h
+  | Retag hk q ih => exact fun f h => ih f h
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
+  | Gamma is ts fs q keep ord ih => exact fun f h => ih f h
+  | GammaScalar ts fs q ord ih => exact fun f h => ih f h
+  | GammaNest is his p g q ih => exact fun _ h => h.elim
+  | ProvSum is his t q ih => exact fun f h => ih f h
+  | GammaTok is his ts fs a q keep ih => exact fun f h => ih f h
+  | Win P O o w t g q hrr dist keep ih => exact fun f h => ih f h
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f h => ih f h
+
+/-- **The `ε` pass keeps a query at one storey**, and reads and feeds to a
+second-level aggregation no more than it. -/
+theorem nestPres_dedupFree {S : Set OpKind} :
+    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
+      (f : ℕ → String), q.usesOnly S → AggQueryIn.NestPres q (dedupFree f q) := by
+  intro c n κ l q
+  induction q with
+  | Rel _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
+  | Hole _ _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
+  | Param _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
+  | Empty => exact fun _ _ => AggQueryIn.NestPres.refl _
+  | Proj ps q ih => exact fun f hu => AggQueryIn.NestPres.proj ps (ih f hu.2)
+  | Sel φ q hφ ih => exact fun f hu => AggQueryIn.NestPres.sel φ hφ hφ (ih f hu.2)
+  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu =>
+      AggQueryIn.NestPres.prod (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
+  | Apply q₁ q₂ ih₁ ih₂ =>
+    intro f hu
+    exact AggQueryIn.NestPres.apply (ih₁ _ hu.2.1) (ih₂ _ hu.2.2) (noGammaNest_dedupFree q₁ _)
+  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => AggQueryIn.NestPres.sum (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
+  | Dedup q ih =>
+    intro f hu
+    have h := ih (AggQueryIn.tri f 1) hu.2
+    refine ⟨fun k hk => ?_, fun k hk => ?_, fun _ h => h, fun ho => ⟨h.once ho, trivial⟩⟩
+    · simp only [dedupFree, dedupMu, AggQueryIn.readsOuter, Bool.or_eq_true] at hk
+      rcases hk with hk | hk | hk
+      · exact h.reads k hk
+      · simp [falsePred, GenPredIn.readsOuter, TermGIn.readsOuter] at hk
+      · simp at hk
+    · simp only [dedupFree, dedupMu, AggQueryIn.nestReads, Bool.or_eq_true] at hk
+      rcases hk with hk | hk
+      · exact h.nest k hk
+      · simp at hk
+  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu =>
+      AggQueryIn.NestPres.diff (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
+  | Explode k hk q ih => exact fun f hu => AggQueryIn.NestPres.explode k hk (ih f hu)
+  | Retag hk q ih => exact fun f hu => AggQueryIn.NestPres.retag hk (ih f hu)
+  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu => AggQueryIn.NestPres.mu (ih₀ _ hu.2.1) (ih₁ _ hu.2.2)
+  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun f hu =>
+      AggQueryIn.NestPres.muSet (ih₀ _ hu.2.1) (ih₁ _ hu.2.2)
+  | Gamma is ts fs q keep ord ih => exact fun f hu => ⟨fun k hk => by
+        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
+        fun _ h => h, (ih f hu.2).once⟩
+  | GammaScalar ts fs q ord ih => exact fun f hu => ⟨fun k hk => by
+        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
+        fun _ h => h, (ih f hu.2).once⟩
+  | GammaNest is his p g q ih => exact fun f hu => ⟨fun k hk => by
+        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).reads,
+        fun _ h => h, noGammaNest_dedupFree q f⟩
+  | ProvSum is his t q ih => exact fun f hu => hu.elim
+  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
+  | Win P O o w t g q hrr dist keep ih => exact fun f hu => ⟨fun k hk => by
+        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
+        fun _ h => h, (ih f hu.2).once⟩
+  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu => ⟨fun k hk => by
+        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
+        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
+        fun _ h => h, (ih f hu.2).once⟩
+
+/-- **The classes `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}` generate the
+annotated algebra up to `≈` over every commutative m-semiring**, with one
+storey of second-level aggregation: each pass agrees with its source row by
+row up to finalization, which is what `≈` reads, and keeps one storey. -/
+theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
+    [DecidableEq K] [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) :
+    GeneratesAnnZ T K sch cnt annMuOps := by
+  intro n κ q ho hu hi ha hp hn
+  -- `ε` as a set recursion
+  obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
+  have ho₁ := overSchema_dedupFree q f hfr sch hfsch ho
+  have hu₁ := usesOnly_dedupFree (by simp [plainRecOps, plainOps, basisDD, basisOps])
+    (by simp [plainRecOps]) q f hu
+  have hi₁ := inSig_dedupFree q f hi
+  have ha₁ := noExplode_dedupFree q f ha
+  have hp₁ := wellKinded_dedupFree q f hp
+  have hn₁ := (nestPres_dedupFree q f hu).once hn
+  set q₁ := dedupFree f q
+  -- `×` as an apply
+  have ho₂ := overSchema_prodFree q₁ sch ho₁
+  have hu₂ := usesOnly_prodFree (mem_diff_dedup (by simp [plainRecOps, plainOps, basisDD,
+      basisOps]) (by decide))
+    (mem_diff_dedup (by simp [plainRecOps, plainOps, basisDD, basisOps]) (by decide))
+    q₁ (by simp) hu₁
+  have hn₂ := (prodFree_reads q₁).2.2.2 hn₁
+  set q₂ := prodFree q₁
+  -- `⊎` as two bag recursions
+  have hS : AggQueryIn.sumMuOps ⊆ annMuOps := by
+    intro o ho
+    simp only [AggQueryIn.sumMuOps, Set.mem_insert_iff, Set.mem_singleton_iff] at ho
+    rcases ho with rfl | rfl | rfl | rfl | rfl | rfl <;>
+      simp [annMuOps, plainRecOps, plainOps, basisDD, basisOps]
+  have hu₂' : q₂.usesOnly (insert OpKind.union annMuOps) :=
+    AggQueryIn.usesOnly_mono (fun o h => by
+      by_cases hou : o = OpKind.union
+      · exact Or.inl hou
+      · exact Or.inr ⟨h, hou⟩) q₂ hu₂
+  obtain ⟨g, hg, hgs, hgn⟩ := AggQueryIn.exists_freshSupply sch q₂.names
+  obtain ⟨q₃, hs, hm⟩ := (AggQueryIn.exists_sumFreeAnn_aux hS
+    (Set.mem_singleton cnt) q₂ hu₂' (AggQueryIn.hygienic_of_overSchema q₂ sch ho₂)
+    (inSig_prodFree q₁ hi₁) g hg hgn).1 rfl
+  refine ⟨q₃, hs.over sch hgs ho₂, hs.usesOnly, hs.inSig, hs.noExplode (noExplode_prodFree q₁ ha₁),
+    hs.wellKinded _ _ (wellKinded_prodFree q₁ hp₁), hs.np.once hn₂, fun d γ hset => ?_⟩
+  have hs₁ := annSettlesAt_dedupFree q f d γ {} hset
+  have hs₂ := annSettlesAt_prodFree q₁ d γ {} {} (EvalEnv.FinRel.refl _) hs₁
+  have he₂ : (q₂.evaluate d γ {}).map GenRow.fin = (q₁.evaluate d γ {}).map GenRow.fin :=
+    finEq_prodFree q₁ d γ {} {} (EvalEnv.FinRel.refl _)
+  obtain ⟨hs₃, he₃⟩ := hm d γ {} {} (EvalEnv.FinRel.refl _) hs₂
+  exact ⟨hs₃, GenRow.zeroNorm_eq_of_fin
+    (he₃.symm.trans (he₂.trans (congrArg _ (evaluate_dedupFree q f d γ {}))))⟩
+
+/-- **The witness's row, before finalization.** -/
+theorem exists_mem_evaluate_whyWitness {m : ℕ} (hm : 1 ≤ m) (γ : Fin 0 → ℕ) :
+    ∃ r ∈ whyWitness.evaluate (dWhy m) γ {}, {i | i < m} ∈ r.snd.finalize.carrier := by
+  set step := PathSum.stepK {(((fun _ => 0) : Tuple ℕ 1), (1 : Why ℕ))}
+    (fun _ => {(((fun _ => 0) : Tuple ℕ 1), whyEdge m)}) with hstep
+  have hfix := AggQueryIn.muFix_eq_iterate_add (muSetSettles_why hm) (m + 1)
+  have hmem := mem_iterate_loop ((fun _ => 0) : Tuple ℕ 1) (whyEdge m)
+    (k := muFixIdx step + (m + 1)) (by omega)
+  rw [← hfix] at hmem
+  refine ⟨GenRow.ofAnnotated (((fun _ => 0) : Tuple ℕ 1),
+      ∑ j ∈ Finset.range (muFixIdx step + (m + 1)), (whyEdge m) ^ j), ?_, ?_⟩
+  · rw [evaluate_whyWitness]
+    exact Multiset.mem_map_of_mem _ hmem
+  · simp only [GenRow.ofAnnotated, GenAnn.finalize, Multiset.map_zero, Multiset.prod_zero,
+      mul_one]
+    exact carrier_le_sum (fun j => (whyEdge m) ^ j) (by omega : m < muFixIdx step + (m + 1))
+      (range_mem_whyEdge_pow hm)
+
+/-- **`μ^∪` is in every set generating the annotated algebra over `Why[X]`
+up to `≈`**, with the counting aggregate: the witness's row is not `𝟘`, so
+`≈` keeps it, and a match without `μ^∪` has no row annotated with a witness
+of `m` variables. -/
+theorem muSet_mem_of_generatesAnnZ {S : Set OpKind}
+    (h : GeneratesAnnZ ℕ (Why ℕ) schemaRS SeqAggFunc.count S) : OpKind.muSet ∈ S := by
+  by_contra hS
+  obtain ⟨q', ho', hu', hi', ha', hwk', -, hm⟩ := h whyWitness overSchema_whyWitness
+    usesOnly_whyWitness inMinimalSig_whyWitness ⟨trivial, noExplode_whyBody⟩
+    wellKinded_whyWitness (AggQueryIn.nestOnce_of_noGammaNest _ (by
+      simp [whyWitness, whyBody, AggQueryIn.noGammaNest]))
+  obtain ⟨N', D', -, -, hb⟩ := AggQueryIn.exists_grade (Why.graded (α := ℕ)) hS q' hu' hi' ha'
+    (q'.hygienic_of_overSchema _ ho') (by simp) (fun p hp => absurd hp List.not_mem_nil) hwk'
+    (dWhy 0).toPlain (fun k => k.elim0) (fun _ _ => 0) 0 1
+  have hM : Member Why.grade 0 1 (dWhy 0).toPlain (fun k : Fin 0 => k.elim0) (fun _ _ => 0)
+      (ColKind.allReg 0) HoleKinds.empty [] (dWhy (D' + 1)) {} :=
+    ⟨dWhy_toPlain _, fun _ hp => absurd hp List.not_mem_nil, dWhy_grade _,
+      fun _ _ r hr => absurd hr (Multiset.notMem_zero r), fun k => k.elim0,
+      EvalEnv.kinded_empty _⟩
+  obtain ⟨hs', he⟩ := hm (dWhy (D' + 1)) (fun k => k.elim0)
+    (annSettlesAt_whyWitness (by omega) _)
+  obtain ⟨r, hr, hw⟩ := exists_mem_evaluate_whyWitness (m := D' + 1) (by omega)
+    (fun k => k.elim0)
+  have hz : r.snd.finalize ≠ 0 := fun h0 => by
+    rw [h0] at hw
+    exact hw
+  obtain ⟨r', hr', hfin⟩ := GenRow.exists_finalize_of_zeroNorm he hr hz
+  have hg := (hb (dWhy (D' + 1)) {} hM hs' r' hr').finalize Why.graded _ (hfin ▸ hw)
+  have hcard : ({i | i < D' + 1} : Set ℕ).encard = ((D' + 1 : ℕ) : ℕ∞) := by
+    have : ({i | i < D' + 1} : Set ℕ) = ↑(Finset.range (D' + 1)) := by ext; simp
+    rw [this, Set.encard_coe_eq_coe_finsetCard, Finset.card_range]
+  rw [hcard] at hg
+  exact absurd (by exact_mod_cast hg : D' + 1 ≤ D') (by omega)
+
+/-- **No proper subset of `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}` generates
+up to `≈` over `𝔹`, `ℕ × ℕ` and `Why[X]` together**, with the counting
+aggregate: the six plain rows through the Boolean support, `−` by the
+zero-pattern invariant, `μ^∪` by the witness-size invariant. -/
+theorem annMuOps_minimal_approx {S : Set OpKind} (hS : S ⊆ annMuOps)
+    (hB : ∀ sch : Schema, GeneratesAnnZ ℕ BoolNone sch SeqAggFunc.count S)
+    (hP : ∀ sch : Schema, GeneratesAnnZ ℕ NatPair sch SeqAggFunc.count S)
+    (hW : ∀ sch : Schema, GeneratesAnnZ ℕ (Why ℕ) sch SeqAggFunc.count S) :
+    S = annMuOps := by
+  refine Set.Subset.antisymm hS fun x hx => ?_
+  have hout : ∀ y, y ∈ S → y ∉ annMuOps → False := fun y hy hn => hn (hS hy)
+  cases x with
+  | empty => exact empty_mem_of_generatesAnnZ (hB _)
+  | proj => exact proj_mem_of_generatesAnnZ (hB _)
+  | sel => exact sel_mem_of_generatesAnnZ (hB _)
+  | prod => exact absurd hx (by simp [annMuOps])
+  | apply =>
+    rcases prod_or_apply_mem_of_generatesAnnZ (hB _) with h | h
+    · exact (hout _ h (by simp [annMuOps])).elim
+    · exact h
+  | union => exact absurd hx (by simp [annMuOps])
+  | dedup => exact absurd hx (by simp [annMuOps])
+  | diff => exact diff_mem_of_generatesAnnZ (hP schemaRS)
+  | gamma => exact gamma_mem_of_generatesAnnZ (hB Schema.empty)
+  | win => exact win_mem_of_generatesAnnZ (hB _)
+  | muBag => exact muBag_mem_of_generatesAnnZ SeqAggFunc.isCount_count_nat.readsCount (hB _)
+  | muSet => exact muSet_mem_of_generatesAnnZ (hW schemaRS)
+
+/-- **The annotated basis theorem up to `≈`**, with one storey of
+second-level aggregation: `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}` generates
+the annotated algebra up to `≈` over every commutative m-semiring, and no
+proper subset of it does over all of them – set recursion being required
+over `Why[X]` (`muSet_mem_of_generatesAnnZ`). -/
+theorem annMuOps_isBasis_approx :
+    (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+      (sch : Schema), GeneratesAnnZ ℕ K sch SeqAggFunc.count annMuOps)
+    ∧ ∀ S ⊆ annMuOps,
+      (∀ (K : Type) [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
+        (sch : Schema), GeneratesAnnZ ℕ K sch SeqAggFunc.count S) →
+      S = annMuOps :=
+  ⟨fun _ _ _ _ sch => generatesAnnZ_annMuOps sch _,
+    fun _ hS h => annMuOps_minimal_approx hS (h BoolNone) (h NatPair) (h (Why ℕ))⟩
+
+/-- **Nor up to `≈`**: with `ε` in place of `μ^∪` the classes do not
+generate over `Why[X]` even when rows annotated `𝟘` are dropped. -/
+theorem not_generatesAnnZ_annEpsOps_why :
+    ¬ GeneratesAnnZ ℕ (Why ℕ) schemaRS SeqAggFunc.count annEpsOps :=
+  fun h => absurd (muSet_mem_of_generatesAnnZ h) (by simp [annEpsOps])
+
+end Approx
