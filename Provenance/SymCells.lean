@@ -10,7 +10,7 @@ below it), a flag for the gap below the least value, the gap's upper bound
 and a flag for the gap above the greatest, two columns placing the code
 against its value – before it, at it or after it, which is what an order
 on cells reads – and the rank written in unary over the two constants `0`
-and `ValueType.nonzero` (`Sym.therm`).
+and `ValueType.nonzero` taken in increasing order (`Sym.therm`).
 
 A comparison between two cells is a predicate over their columns
 (`Sym.cellCmp`), written in a small syntax of comparisons over columns,
@@ -103,6 +103,16 @@ theorem SP.evalPlain3_toGen {c n : ℕ} (p : SP T c n) (u : Tuple T n) (γ : Fin
     simp [CompOp.eval3, CompOp.strict, CompOp.eval, Kleene.ofBool,
       (ValueType.nonzero_ne_zero (T := T)).symm]
 
+/-- A translated predicate reads no aggregate column. -/
+theorem SP.hasAggAtom_toGen {c n : ℕ} (p : SP T c n) : p.toGen.hasAggAtom = false := by
+  induction p with
+  | atom op a b => rfl
+  | and p q ihp ihq => show (p.toGen.hasAggAtom || q.toGen.hasAggAtom) = false; rw [ihp, ihq]; rfl
+  | or p q ihp ihq => show (p.toGen.hasAggAtom || q.toGen.hasAggAtom) = false; rw [ihp, ihq]; rfl
+  | not p ih => exact ih
+  | tru => rfl
+  | fls => rfl
+
 /-- An argument as a term of a classical selection, where there is no
 context. -/
 def SA.toT {n : ℕ} : SA T 0 n → Term T n
@@ -162,9 +172,16 @@ theorem SP.eval3_toSel {n : ℕ} (p : SP T 0 n) (u : Tuple T n) (γ : Fin 0 → 
 
 /-! ## The columns of a code -/
 
-/-- **A rank in unary**: `k` columns, the first `r` holding
-`ValueType.nonzero` and the others `0`. -/
-def therm (k r : ℕ) : Fin k → T := fun j => if j.val < r then ValueType.nonzero else 0
+/-- The smaller of the two constants. -/
+def sLo : T := if (0 : T) < ValueType.nonzero then 0 else ValueType.nonzero
+
+/-- The larger of the two constants. -/
+def sHi : T := if (0 : T) < ValueType.nonzero then ValueType.nonzero else 0
+
+/-- **A rank in unary**: `k` columns, the first `r` holding the larger of
+the two constants and the others the smaller, so that the ranks are
+ordered as their columns are, lexicographically. -/
+def therm (k r : ℕ) : Fin k → T := fun j => if j.val < r then sHi else sLo
 
 
 /-- Whether the gap is below the least value. -/
@@ -194,12 +211,6 @@ the gap below it (`0` if the cut holds no non-null value). -/
 def lval : WithBot T → T
   | ⊥ => wtVal (upOf C ⊥)
   | (a : T) => a
-
-/-- The smaller of the two constants. -/
-def sLo : T := if (0 : T) < ValueType.nonzero then 0 else ValueType.nonzero
-
-/-- The larger of the two constants. -/
-def sHi : T := if (0 : T) < ValueType.nonzero then ValueType.nonzero else 0
 
 /-- **Where a code sits against its value column**, first column: before
 it (a gap below the least value), at it (a concrete value), after it (a
@@ -282,9 +293,14 @@ def andAll : List (SP T c n) → SP T c n
 
 variable {k : ℕ}
 
+/-- The argument is the smaller constant. -/
+def isLo (a : SA T c n) : SP T c n := .atom .syneq a (.const sLo)
+/-- The argument is the larger constant. -/
+def isHi (a : SA T c n) : SP T c n := .atom .syneq a (.const sHi)
+
 /-- The first rank below the second. -/
 def thLt (x y : Fin (7 + k) → SA T c n) : SP T c n :=
-  orAll ((List.finRange k).map (fun j => .and (isZ (x (iR j))) (isN (y (iR j)))))
+  orAll ((List.finRange k).map (fun j => .and (isLo (x (iR j))) (isHi (y (iR j)))))
 
 /-- The two ranks equal. -/
 def thEq (x y : Fin (7 + k) → SA T c n) : SP T c n :=
@@ -424,22 +440,45 @@ theorem eval3_andAll (ps : List (SP T c n)) (u : Tuple T n) (γ : Fin c → T)
       cases decide (∀ q ∈ ps, q.eval3 u γ = Kleene.true) <;> rfl
 
 /-- A unary rank holds its two constants. -/
+theorem sLo_ne_sHi : (sLo : T) ≠ sHi := by
+  unfold sLo sHi
+  split
+  · exact nonzero_ne_zero'.symm
+  · exact nonzero_ne_zero'
+
+theorem sLo_lt_sHi : LT.lt (sLo : T) sHi := by
+  unfold sLo sHi
+  split
+  · assumption
+  · rename_i h
+    exact lt_of_le_of_ne (not_lt.mp h) nonzero_ne_zero'
+
+theorem isNull_sLo : ValueType.isNull (sLo : T) = false := by
+  unfold sLo; split
+  · exact ValueType.isNull_zero
+  · exact ValueType.isNull_nonzero
+
+theorem isNull_sHi : ValueType.isNull (sHi : T) = false := by
+  unfold sHi; split
+  · exact ValueType.isNull_nonzero
+  · exact ValueType.isNull_zero
+
 theorem therm_def (k r : ℕ) (j : Fin k) :
-    therm (T := T) k r j = 0 ∨ therm (T := T) k r j = ValueType.nonzero := by
+    therm (T := T) k r j = sLo ∨ therm (T := T) k r j = sHi := by
   unfold therm; split <;> simp
 
 /-- **Two unary ranks are ordered as the ranks**, below `k`. -/
 theorem therm_lt_iff {k r r' : ℕ} (hr : r < k) :
-    (∃ j : Fin k, therm (T := T) k r j = 0 ∧ therm (T := T) k r' j = ValueType.nonzero)
+    (∃ j : Fin k, therm (T := T) k r j = sLo ∧ therm (T := T) k r' j = sHi)
       ↔ r < r' := by
   constructor
   · rintro ⟨j, h₁, h₂⟩
     unfold therm at h₁ h₂
     by_cases hj : j.val < r
-    · rw [ite_eq_left hj] at h₁; exact absurd h₁ nonzero_ne_zero'
+    · rw [ite_eq_left hj] at h₁; exact absurd h₁.symm sLo_ne_sHi
     · by_cases hj' : j.val < r'
       · omega
-      · rw [ite_eq_right hj'] at h₂; exact absurd h₂.symm nonzero_ne_zero'
+      · rw [ite_eq_right hj'] at h₂; exact absurd h₂ sLo_ne_sHi
   · intro h
     refine ⟨⟨r, hr⟩, ?_, ?_⟩
     · unfold therm; rw [ite_eq_right (lt_irrefl r)]
@@ -455,11 +494,11 @@ theorem therm_eq_iff {k r r' : ℕ} (hr : r < k) (hr' : r' < k) :
     · have := h ⟨r, hr⟩
       unfold therm at this
       rw [ite_eq_right (lt_irrefl r), ite_eq_left hlt] at this
-      exact nonzero_ne_zero' this.symm
+      exact sLo_ne_sHi this
     · have := h ⟨r', hr'⟩
       unfold therm at this
       rw [ite_eq_left hlt, ite_eq_right (lt_irrefl r')] at this
-      exact nonzero_ne_zero' this
+      exact sLo_ne_sHi this.symm
   · rintro rfl _; rfl
 
 theorem wbFlag_def (l : WithBot T) : wbFlag l = 0 ∨ wbFlag l = ValueType.nonzero := by
@@ -623,20 +662,21 @@ theorem eval3_thLt (x y : Fin (7 + k) → SA T c n) (u : Tuple T n) (γ : Fin c 
     {r r' : ℕ} (hx : ∀ j, (x (iR j)).eval u γ = therm k r j)
     (hy : ∀ j, (y (iR j)).eval u γ = therm k r' j) :
     (thLt x y).eval3 u γ
-      = Kleene.ofBool (decide (∃ j, therm (T := T) k r j = 0 ∧ therm (T := T) k r' j
-          = ValueType.nonzero)) := by
+      = Kleene.ofBool (decide (∃ j, therm (T := T) k r j = sLo ∧ therm (T := T) k r' j
+          = sHi)) := by
   unfold thLt
   rw [eval3_orAll _ _ _ (fun p hp => by
     obtain ⟨j, -, rfl⟩ := List.mem_map.mp hp
-    show ((isZ _).eval3 u γ).and ((isN _).eval3 u γ) = _ ∨ ((isZ _).eval3 u γ).and _ = _
-    rw [eval3_isZ, eval3_isN, Kleene.and_ofBool]
+    show ((isLo _).eval3 u γ).and ((isHi _).eval3 u γ) = _ ∨ ((isLo _).eval3 u γ).and _ = _
+    rw [isLo, isHi, eval3_atom_syneq, eval3_atom_syneq, Kleene.and_ofBool]
     exact ofBool_definite _)]
   refine ofBool_congr ?_
   simp only [List.mem_map, List.mem_finRange, true_and, exists_exists_eq_and]
   refine exists_congr fun j => ?_
-  show ((isZ _).eval3 u γ).and ((isN _).eval3 u γ) = Kleene.true ↔ _
-  rw [eval3_isZ, eval3_isN, hx, hy, Kleene.and_eq_true_iff, Kleene.ofBool_eq_true_iff,
-    Kleene.ofBool_eq_true_iff, decide_eq_true_eq, decide_eq_true_eq]
+  show ((isLo _).eval3 u γ).and ((isHi _).eval3 u γ) = Kleene.true ↔ _
+  rw [isLo, isHi, eval3_atom_syneq, eval3_atom_syneq, hx, hy, Kleene.and_eq_true_iff,
+    Kleene.ofBool_eq_true_iff, Kleene.ofBool_eq_true_iff, decide_eq_true_eq, decide_eq_true_eq]
+  rfl
 
 /-- **Two fresh cells are equal as their values are.** -/
 theorem eval3_eqFF {par : Fin k → T} {i j : Fin k} (hi : IsFresh C (par i))

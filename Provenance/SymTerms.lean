@@ -148,6 +148,50 @@ theorem termCS_const {κ : Fin n → ColKind} (t : TermGIn T (k + c) κ) (ht : t
   | provIndex i _ => cases h
   | _ => simp [TermGIn.noFun] at ht
 
+/-- **The source of a projection column.** A column applying an
+arbitrary function (outside every signature) reads as the constant `0`. -/
+def projCS {κ : Fin n → ColKind} : ProjColIn T (k + c) κ → CS T k c n
+  | .term t => termCS t
+  | .token i _ => .col i
+  | .aggTerm _ _ _ => .const 0
+  | .aggTermOf i _ t =>
+    match t with
+    | .const a => .const a
+    | .outer _ => .col i
+    | _ => .const 0
+  | .provTerm t => termCS t
+
+theorem projCS_val {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
+    (par : Fin k → T) (γ : Fin c → T) (v : Tuple T n) :
+    (projCS p).val par γ v = p.evalPlain v (Fin.append par γ) := by
+  cases p with
+  | term t => exact termCS_val t hp par γ v
+  | token i _ => rfl
+  | aggTerm _ _ _ => simp [ProjColIn.noFun] at hp
+  | aggTermOf i _ t =>
+    cases t with
+    | const a => rfl
+    | outer j =>
+      show v i = (TermIn.outer j : TermIn T 1 0).eval (fun j => j.elim0) (fun _ => v i)
+      rfl
+    | index j => exact j.elim0
+    | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
+  | provTerm t => exact termCS_val t hp par γ v
+
+theorem projCS_const {κ : Fin n → ColKind} (p : ProjColIn T (k + c) κ) (hp : p.noFun = true)
+    {a : T} (h : projCS p = .const a) : a ∈ p.consts := by
+  cases p with
+  | term t => exact termCS_const t hp h
+  | token i _ => cases h
+  | aggTerm _ _ _ => simp [ProjColIn.noFun] at hp
+  | aggTermOf i _ t =>
+    cases t with
+    | const b => cases h; exact Finset.mem_singleton_self _
+    | outer j => cases h
+    | index j => exact j.elim0
+    | _ => simp [ProjColIn.noFun, TermIn.noFun] at hp
+  | provTerm t => exact termCS_const t hp h
+
 /-- **A source's value is good** where the row, the context and the
 constants are. -/
 theorem goodVal_val {C : Finset T} (s : CS T k c n) (par : Fin k → T) (γ : Fin c → T)

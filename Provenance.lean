@@ -81,6 +81,8 @@ import Provenance.SymRel
 import Provenance.SymTerms
 import Provenance.SymOps
 import Provenance.SymGamma
+import Provenance.SymWin
+import Provenance.SymMu
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
