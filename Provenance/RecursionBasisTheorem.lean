@@ -11,9 +11,11 @@ classes every generating set contains, read off the necessity rows
 generates (`Provenance.MuUnion`). `basisRecOps` = `{∅, Π, σ, apply, γ,
 win, μ^⊎}` is a basis: it generates over every schema, and no proper
 subset does. The bases are not all of its shape: `−` for `σ` and `×`
-for the apply are the two alternatives the rows leave open. The second
-gives a basis too (`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`);
-whether the first generates the whole algebra is not settled.
+for the apply are the two alternatives the rows leave open, and each gives
+a basis too (`basisRecDiffOps_isBasis`, in `Provenance.DiffBasis`, and
+`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`). Whether the two
+together, `{∅, Π, −, ×, γ, win, μ^⊎}`, generate the whole algebra is not
+settled.
 -/
 
 variable {T : Type} [ValueType T]

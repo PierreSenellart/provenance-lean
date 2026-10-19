@@ -94,6 +94,7 @@ import Provenance.SymApply
 import Provenance.SymStruct
 import Provenance.SymOver
 import Provenance.SymPass
+import Provenance.DiffBasis
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1428,9 +1429,10 @@ proven engine several general results reuse internally.
   (`basisRecOps_minimal`), the rows gathered as
   `required_mem_of_generatesOnRec`: `∅`, `Π`, `γ`, `μ^⊎`, `win`, one of
   `σ`/`−` and one of `×`/apply are in every generating set over `ℕ` with
-  the counting aggregate. `×` for the apply gives a second basis
-  (`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`); whether `−` for
-  `σ` gives one is not settled
+  the counting aggregate. `−` for `σ` and `×` for the apply each give a
+  further basis (`basisRecDiffOps_isBasis`, in `Provenance.DiffBasis`, and
+  `Sym.basisProdOps_isBasis`, in `Provenance.SymPass`); whether the two
+  together do is not settled
 - `Provenance.SumByProd` – **`⊎` and `−` with products**: `sumByMuX` is
   `sumByMu` with each round's apply written as the product it stands for,
   and `notInDiffX` the `NOT IN` difference over it, both over the classes
@@ -1477,6 +1479,21 @@ proven engine several general results reuse internally.
   apply, `{∅, Π, σ, ×, γ, win, μ^⊎}` generates the whole algebra** in the
   minimal universe, and with the rows of `required_mem_of_generatesOnRec` it
   is a basis there (`Sym.basisProdOps_minimal`, `Sym.basisProdOps_isBasis`)
+- `Provenance.DiffBasis` – **the difference in place of the selection**:
+  `basisRecDiffOps_generatesOnRec` says `{∅, Π, −, apply, γ, win, μ^⊎}`
+  generates the whole algebra in the minimal universe, and
+  `basisRecDiffOps_isBasis` that it is a basis there. A selection becomes an
+  apply of its input with a closed test holding the empty tuple once where
+  the predicate is true at the row (`DiffBasis.selX`,
+  `DiffBasis.evaluatePlain_selX`); the test is built by induction on the
+  predicate in Kleene's logic, true and false together (`DiffBasis.predTF`),
+  the connectives and the equalities from the difference alone. The order
+  is read by a window: over `{a, b}`, a bag recursion of one round
+  (`DiffBasis.pairZ`), the row of `b` counts the rows strictly before it,
+  and that count is compared with `0` as a key (`DiffBasis.ltT`,
+  `DiffBasis.evaluatePlain_ltT`). Reading the count as a key is what
+  `Explode` does, which `usesOnly` charges to no class; without it `σ` is in
+  every basis (`sel_mem_of_generatesAtNoExplode`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
