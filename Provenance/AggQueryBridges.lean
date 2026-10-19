@@ -803,21 +803,10 @@ theorem classWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin
       rcases hWb.1 with hs | hs
       · exact absurd (hsc.symm.trans hs) Bool.false_ne_true
       · exact hs
-    obtain ⟨d₀, hd₀⟩ := Multiset.card_pos_iff_exists_mem.mp hkept
-    have hd₀occ : d₀ ∈ W.occs := Multiset.mem_of_mem_filter hd₀
-    have hp : d₀.present = true := (Multiset.mem_filter.mp hd₀).2
-    have hfam : d₀.occ.2 ∈ b.occs.map Prod.snd := by
-      rw [← NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_of_mem_filter hW), Multiset.map_map]
-      exact Multiset.mem_map_of_mem _ hd₀occ
-    obtain ⟨s, hs⟩ := Multiset.exists_cons_of_mem hfam
-    have key : d₀.occ.2 * SemiringWithMonus.delta (b.occs.map Prod.snd).sum = d₀.occ.2 := by
-      rw [hs, Multiset.sum_cons]
-      exact SemiringWithMonus.delta_absorb _ _
-    obtain ⟨t, ht⟩ := Multiset.exists_cons_of_mem hd₀occ
     show W.presentProd * SemiringWithMonus.delta (AggTok.nest b).annList.sum = W.presentProd
     simp only [AggTok.annList, List.sum_singleton]
-    rw [NestedValue.World.presentProd, ht, Multiset.map_cons, Multiset.prod_cons, ite_eq_left hp,
-      mul_right_comm, mul_right_comm d₀.occ.2, key]
+    exact NestedValue.World.presentProd_delta_absorb
+      (NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_of_mem_filter hW)) hkept
   | tok a =>
     simp only [classWorlds] at hw
     obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.mp hw

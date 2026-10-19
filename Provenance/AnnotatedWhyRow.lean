@@ -158,16 +158,32 @@ theorem card_add_sum_le {α : Type} (s : Multiset α) (g h : α → ℕ) (D : �
 section Tokens
 
 /-- **How many annotations a world of a token multiplies at most**: its
-occurrences, and for a nested value each occurrence and its inner ones. -/
+occurrences, and for a nested value each outer occurrence and each inner
+family's occurrences, once per family. -/
 def AggTok.annCount : AggTok T K → ℕ
   | .tok a => a.occs.length
   | .expr e => e.occs.length
-  | .nest a => (a.occs.map (fun o => 1 + o.1.occs.length)).sum
+  | .nest a => (a.groups.map (fun g => g.1.length + Multiset.card g.2)).sum
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem AggTok.annCount_setFam (φ : FamId T) (x : AggTok T K) :
     (x.setFam φ).annCount = x.annCount := by
   cases x <;> rfl
+
+omit [HasAltLinearOrder K] [CommSemiringWithMonus K] in
+/-- **Counting a grouped bag**: each inner family once is no more than
+each occurrence with its own. -/
+theorem NestedValue.sum_groupOccs_le (U : Multiset (AggExpr T K × K)) :
+    ((NestedValue.groupOccs U).map (fun g => g.1.length + Multiset.card g.2)).sum
+      ≤ (U.map (fun o => 1 + o.1.occs.length)).sum := by
+  conv_rhs => rw [← NestedValue.bind_groupOccs U, Multiset.map_bind, Multiset.sum_bind]
+  refine Multiset.sum_map_le_sum_map _ _ (fun g hg => ?_)
+  obtain ⟨o, ho, hA, -⟩ := NestedValue.mem_groupOccs hg
+  rw [Multiset.sum_map_add, Multiset.map_const', Multiset.sum_replicate, smul_eq_mul, mul_one,
+    add_comm]
+  refine Nat.add_le_add_left ?_ _
+  rw [hA, AggExpr.annList, List.length_map]
+  exact Multiset.le_sum_of_mem (Multiset.mem_map_of_mem (fun o => o.1.occs.length) ho)
 
 /-- **A token within grade `D`, with at most `N` annotations to a world.** -/
 def AggTok.Grade (G : ℕ → K → Prop) (N D : ℕ) (x : AggTok T K) : Prop :=
@@ -198,8 +214,9 @@ theorem AggTok.Grade.mono {N N' D D' : ℕ} {x : AggTok T K}
   | tok a => exact fun p hp => hG.mono hD (h.1 p hp)
   | expr e => exact fun p hp => hG.mono hD (h.1 p hp)
   | nest a =>
-    intro o ho
-    exact ⟨hG.mono hD (h.1 o ho).1, fun p hp => hG.mono hD ((h.1 o ho).2 p hp)⟩
+    intro g hg
+    exact ⟨fun k hk => hG.mono hD ((h.1 g hg).1 k hk), fun o ho =>
+      ⟨hG.mono hD ((h.1 g hg).2 o ho).1, fun p hp => hG.mono hD (((h.1 g hg).2 o ho).2 p hp)⟩⟩
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 theorem GenRow.Grade.mono {N N' D D' n : ℕ} {r : GenRow T K n}
@@ -217,42 +234,44 @@ theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K
     simp only [classWorlds] at hw
     obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.1 hw
     have hW' := NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_of_mem_filter hW)
-    have hWo : ∀ dd ∈ W.occs, G D dd.occ.2 ∧ dd.occ.1.AnnsIn (G D) := fun dd hdd =>
-      h.1 dd.occ (hW' ▸ Multiset.mem_map_of_mem _ hdd)
-    have hcount : (W.occs.map (fun dd => 1 + dd.occ.1.occs.length)).sum ≤ N := by
+    have hGr := NestedValue.AnnsIn.grp h.1 (Multiset.mem_of_mem_filter hW)
+    have hcount : (W.grps.map (fun G => G.anns.length + Multiset.card G.mems)).sum ≤ N := by
       have := h.2
       simp only [AggTok.annCount] at this
       rw [← hW', Multiset.map_map] at this
-      exact this
-    refine ⟨?_, hG.add ?_ ?_⟩
-    · have h1 := hG.mprod (D := D) (W.occs.map (fun d => if d.present = true then d.occ.2 else 1))
-        fun y hy => by
-          obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
-          split_ifs
-          · exact (hWo dd hdd).1
-          · exact hG.one' D
-      have h2 := hG.mprod_sum (W.occs.map (fun d => (∏ j ∈ d.sub, d.occ.1.anns j,
-          d.sub.card * D))) fun p hp => by
-        obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hp
-        exact hG.fprod _ _ fun j _ => (hWo dd hdd).2 _ (List.get_mem _ _)
-      simp only [Multiset.map_map, Function.comp_def] at h2
-      refine hG.mono ?_ (hG.mul h1 h2)
-      rw [Multiset.card_map]
-      calc W.occs.card * D + (W.occs.map (fun d => d.sub.card * D)).sum
-          ≤ (W.occs.map (fun dd => 1 + dd.occ.1.occs.length)).sum * D :=
-            card_add_sum_le W.occs (fun d => d.sub.card) (fun d => d.occ.1.occs.length) D
-              fun d _ => by
-                have := Finset.card_le_univ d.sub
-                rwa [Fintype.card_fin] at this
+      simpa [NestedValue.WorldGrp.base, Function.comp_def] using this
+    refine ⟨?_, ?_⟩
+    · have h1 := hG.mprod_sum (W.grps.map (fun G => (G.prod,
+          (Multiset.card G.mems + G.sub.card) * D))) fun p hp => by
+        obtain ⟨Gr, hGm, rfl⟩ := Multiset.mem_map.1 hp
+        have ha := hG.mprod (D := D) (Gr.mems.map (fun m => if m.2.2 = true then m.2.1 else 1))
+          fun y hy => by
+            obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+            split_ifs
+            · exact (hGr Gr hGm).2 m hm
+            · exact hG.one' D
+        have hb := hG.fprod Gr.sub (fun j => Gr.anns.get j) fun j _ => (hGr Gr hGm).1 j
+        rw [Multiset.card_map] at ha
+        rw [Nat.add_mul]
+        exact hG.mul ha hb
+      simp only [Multiset.map_map, Function.comp_def] at h1
+      refine hG.mono ?_ h1
+      calc (W.grps.map (fun Gr => (Multiset.card Gr.mems + Gr.sub.card) * D)).sum
+          ≤ (W.grps.map (fun Gr => (Gr.anns.length + Multiset.card Gr.mems) * D)).sum := by
+            refine Multiset.sum_map_le_sum_map _ _ (fun Gr _ => Nat.mul_le_mul_right D ?_)
+            have := Finset.card_le_univ Gr.sub
+            rw [Fintype.card_fin] at this
+            omega
+        _ = (W.grps.map (fun Gr => Gr.anns.length + Multiset.card Gr.mems)).sum * D :=
+            Multiset.sum_map_mul_right
         _ ≤ N * D := Nat.mul_le_mul_right D hcount
     · refine hG.msum _ fun y hy => ?_
-      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
+      obtain ⟨Gr, hGm, rfl⟩ := Multiset.mem_map.1 hy
+      refine hG.add (hG.msum _ fun z hz => ?_) (hG.fsum _ _ fun j _ => (hGr Gr hGm).1 j)
+      obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hz
       split_ifs
       · exact hG.zero D
-      · exact (hWo dd hdd).1
-    · refine hG.msum _ fun y hy => ?_
-      obtain ⟨dd, hdd, rfl⟩ := Multiset.mem_map.1 hy
-      exact hG.fsum _ _ fun j _ => (hWo dd hdd).2 _ (List.get_mem _ _)
+      · exact (hGr Gr hGm).2 m hm
   | tok a =>
     simp only [classWorlds] at hw
     obtain ⟨W, -, rfl⟩ := Multiset.mem_map.1 hw
@@ -838,13 +857,15 @@ theorem AggQueryIn.exists_grade (hG : Graded G) {S : Set OpKind} (hS : OpKind.mu
     · simp only [Fin.append_left] at hk; simp at hk
     · simp only [Fin.append_right, Sum.inr.injEq] at hk
       subst hk
-      refine ⟨fun o ho => ?_, ?_⟩
+      refine ⟨NestedValue.annsIn_ofOccs fun o ho => ?_, ?_⟩
       · obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
         have hrow' := hb' row (Multiset.mem_of_mem_filter hrow)
         exact ⟨hrow'.finalize hG, GenValue.annsIn_innerValue _ fun a ha =>
           (ProjColIn.grade_eval p γ hrow'.2 ha).1⟩
       · refine le_trans ?_ (le_max_right _ _)
-        simp only [AggTok.annCount, Multiset.map_map, Function.comp_def]
+        simp only [AggTok.annCount, NestedValue.groups_ofOccs]
+        refine le_trans (NestedValue.sum_groupOccs_le _) ?_
+        simp only [Multiset.map_map, Function.comp_def]
         refine le_trans (Multiset.sum_le_card_nsmul _ (1 + N₁) fun x hx => ?_) ?_
         · obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 hx
           have hrow' := hb' row (Multiset.mem_of_mem_filter hrow)

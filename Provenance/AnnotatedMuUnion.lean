@@ -2730,6 +2730,7 @@ section SimNest
 
 variable {c : ℕ}
 
+omit [ValueType T] in
 /-- **What a product written as an apply reads**, and feeds to a
 second-level aggregation: what its factors do. -/
 theorem prodA_reads {n₁ n₂ : ℕ} {l : List (String × ℕ)}
@@ -2815,6 +2816,7 @@ theorem readsOuter_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (j
   rw [dedupG, readsOuter_castKind]
   simp [AggQueryIn.readsOuter]
 
+omit [ValueType T] in
 theorem readsOuter_ctr {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (j : Fin c)
     (h : EQ.readsOuter j = false) : ∀ K', (ctr EQ K').readsOuter j = false
   | 0 => by rw [ctr, pow]; exact readsOuter_unitC j
@@ -3005,7 +3007,7 @@ theorem muSetSim_reads (ch : Bool) {n : ℕ} (s s' : String)
     rcases (substRel_reads _ _).1 _ hj with hj | ⟨i, hi⟩
     · rwa [readsOuter_applyOuter_natAdd] at hj
     · have := congrArg Fin.val (Sum.inr.inj hi)
-      simp [rowPv] at this; omega
+      simp at this; omega
   have hXn : ∀ j, X.nestReads (Fin.natAdd (n + K') j) = true → q₁'.nestReads j = true := by
     intro j hj
     rw [hX, nestReads_castIdx] at hj
@@ -3013,7 +3015,7 @@ theorem muSetSim_reads (ch : Bool) {n : ℕ} (s s' : String)
     · obtain ⟨k, hk, hr⟩ := nestReads_applyOuter _ _ hj
       rw [Fin.natAdd_inj] at hk; subst hk; exact hr
     · have := congrArg Fin.val (Sum.inr.inj hi)
-      simp [rowPv] at this; omega
+      simp at this; omega
   have hXo : q₁'.nestOnce → X.nestOnce := fun h => by
     rw [hX, nestOnce_castIdx]
     exact (substRel_reads _ _).2.2.2.2 (AggQueryIn.nestOnce_substMap _ _ h)

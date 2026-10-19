@@ -133,52 +133,79 @@ theorem worldWeight_combineW {n : ℕ} (w₁ w₂ : ℕ × ℕ × (Fin n → Opt
   rw [Nat.complemented, mul_mul_mul_comm]
 
 omit [ValueType T] in
-/-- **The worlds of a bag of occurrences, weighed**: the sum factors into
-one sum per occurrence. -/
-theorem nat_sum_foldr_addOcc (g : NestedValue.WorldOcc T ℕ → ℕ) :
-    ∀ s : Multiset (AggExpr T ℕ × ℕ),
-      ((Multiset.foldr NestedValue.addOcc {0} s).map (fun W => (W.map g).prod)).sum
-        = (s.map (fun o => ((NestedValue.decisions o).map g).sum)).prod := by
+/-- **The worlds of a bag of groups, weighed**: the sum factors into one
+sum per group. -/
+theorem nat_sum_foldr_addGrp (g : NestedValue.WorldGrp T ℕ → ℕ) :
+    ∀ s : Multiset (List ℕ × Multiset (AggExpr T ℕ × ℕ)),
+      ((Multiset.foldr NestedValue.addGrp {0} s).map (fun W => (W.map g).prod)).sum
+        = (s.map (fun gr => ((NestedValue.decisions gr).map g).sum)).prod := by
   intro s
   induction s using Multiset.induction_on with
   | empty => simp
-  | cons o s ih =>
-    rw [Multiset.foldr_cons, NestedValue.addOcc, Multiset.map_bind, Multiset.sum_bind,
+  | cons gr s ih =>
+    rw [Multiset.foldr_cons, NestedValue.addGrp, Multiset.map_bind, Multiset.sum_bind,
       Multiset.map_cons, Multiset.prod_cons, ← ih, ← Multiset.sum_map_mul_right]
-    refine congrArg Multiset.sum (Multiset.map_congr rfl fun d _ => ?_)
+    refine congrArg Multiset.sum (Multiset.map_congr rfl fun G _ => ?_)
     rw [Multiset.map_map, ← Multiset.sum_map_mul_left]
     refine congrArg Multiset.sum (Multiset.map_congr rfl fun W _ => ?_)
     simp only [Function.comp_apply, Multiset.map_cons, Multiset.prod_cons]
 
 omit [ValueType T] in
-/-- One occurrence's decisions weigh `𝟙` together. -/
-theorem nat_sum_decisions (o : AggExpr T ℕ × ℕ) (ho : o.2 ≤ 1)
-    (hi : ∀ j, o.1.anns j ≤ 1) :
-    ((NestedValue.decisions o).map (fun d : NestedValue.WorldOcc T ℕ =>
-      (if d.present = true then d.occ.2 else ((1 : ℕ) - d.occ.2 : ℕ))
-        * ((∏ j ∈ d.sub, d.occ.1.anns j)
-          * ((1 : ℕ) - ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j : ℕ)))).sum = 1 := by
+/-- The presence choices over outer occurrences annotated at most `𝟙`
+weigh `𝟙` together. -/
+theorem nat_sum_memChoices (M : Multiset (AggExpr T ℕ × ℕ)) (hM : ∀ o ∈ M, o.2 ≤ 1) :
+    ((NestedValue.memChoices M).map (fun ms =>
+      (ms.map (fun m => if m.2.2 = true then m.2.1 else ((1 : ℕ) - m.2.1 : ℕ))).prod)).sum
+      = 1 := by
+  induction M using Multiset.induction_on with
+  | empty => simp [NestedValue.memChoices]
+  | cons o M ih =>
+    have ih' := ih (fun o' ho' => hM o' (Multiset.mem_cons_of_mem ho'))
+    simp only [NestedValue.memChoices, Multiset.foldr_cons] at ih' ⊢
+    rw [NestedValue.addMem, Multiset.map_bind, Multiset.sum_bind,
+      show ({true, false} : Multiset Bool) = true ::ₘ {false} from rfl]
+    simp only [Multiset.map_cons, Multiset.sum_cons, Multiset.map_singleton,
+      Multiset.sum_singleton, Multiset.map_map, Function.comp_def, Multiset.prod_cons,
+      ite_true, Bool.false_eq_true, ite_false]
+    rw [Multiset.sum_map_mul_left, Multiset.sum_map_mul_left, ih', mul_one, mul_one,
+      nat_add_one_sub _ (hM o (Multiset.mem_cons_self _ _))]
+
+omit [ValueType T] in
+/-- One group's decisions weigh `𝟙` together. -/
+theorem nat_sum_decisions (gr : List ℕ × Multiset (AggExpr T ℕ × ℕ))
+    (hA : ∀ k ∈ gr.1, k ≤ 1) (hM : ∀ o ∈ gr.2, o.2 ≤ 1) :
+    ((NestedValue.decisions gr).map (fun G => G.prod * ((1 : ℕ) - G.absent : ℕ))).sum = 1 := by
   unfold NestedValue.decisions
-  rw [Multiset.map_map]
-  change ∑ c : Bool × Finset (Fin o.1.occs.length), _ = 1
-  rw [Fintype.sum_prod_type, Fintype.sum_bool]
-  simp only [Function.comp_apply, ite_true, Bool.false_eq_true, ite_false]
-  rw [← Finset.mul_sum, ← Finset.mul_sum, ← add_mul, nat_add_one_sub _ ho, one_mul]
-  exact nat_sum_worldAnn _ hi
+  rw [Multiset.map_bind, Multiset.sum_bind]
+  have hS : ∀ S : Finset (Fin gr.1.length),
+      ((NestedValue.memChoices gr.2).map ((fun G : NestedValue.WorldGrp T ℕ =>
+        G.prod * ((1 : ℕ) - G.absent : ℕ)) ∘ fun ms => ⟨gr.1, S, ms⟩)).sum
+        = (∏ j ∈ S, gr.1.get j) * ((1 : ℕ) - ∑ j ∈ Sᶜ, gr.1.get j : ℕ) := by
+    intro S
+    simp only [Function.comp_def, NestedValue.WorldGrp.split Nat.complemented]
+    have := Multiset.sum_map_mul_right (s := NestedValue.memChoices gr.2)
+      (f := fun x => (x.map (fun m : AggExpr T ℕ × ℕ × Bool =>
+        if m.2.2 = true then m.2.1 else ((1 : ℕ) - m.2.1 : ℕ))).prod)
+      (a := (∏ j ∈ S, gr.1.get j) * ((1 : ℕ) - ∑ j ∈ Sᶜ, gr.1.get j : ℕ))
+    rw [this, nat_sum_memChoices gr.2 hM, one_mul]
+  simp only [Multiset.map_map]
+  change ∑ S : Finset (Fin gr.1.length), _ = 1
+  exact (Finset.sum_congr rfl fun S _ => hS S).trans
+    (nat_sum_worldAnn (fun j => gr.1.get j) (fun j => hA _ (List.get_mem _ _)))
 
 omit [ValueType T] in
 /-- **The worlds of a nested value weigh `𝟙` together** when every
 annotation, outer or inner, is at most `𝟙`. -/
 theorem NestedValue.nat_sum_worlds_ann (a : NestedValue T ℕ)
-    (h : ∀ o ∈ a.occs, o.2 ≤ 1 ∧ ∀ j, o.1.anns j ≤ 1) :
+    (h : ∀ g ∈ a.groups, (∀ k ∈ g.1, k ≤ 1) ∧ ∀ o ∈ g.2, o.2 ≤ 1) :
     (a.worlds.map NestedValue.World.ann).sum = 1 := by
   unfold NestedValue.worlds
   rw [Multiset.map_map]
   simp only [Function.comp_def, NestedValue.World.ann_split Nat.complemented]
-  rw [nat_sum_foldr_addOcc]
+  rw [nat_sum_foldr_addGrp]
   refine Multiset.prod_eq_one fun x hx => ?_
-  obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.1 hx
-  exact nat_sum_decisions o (h o ho).1 (h o ho).2
+  obtain ⟨gr, hg, rfl⟩ := Multiset.mem_map.1 hx
+  exact nat_sum_decisions gr (h gr hg).1 (h gr hg).2
 
 omit [ValueType T] in
 /-- **The worlds of one family weigh at most `𝟙` together.** -/
@@ -190,8 +217,8 @@ theorem classWorlds_weight_le {n : ℕ} (u : Tuple (GenValue T ℕ) n) (M : List
     simp only [classWorlds, Multiset.map_map]
     calc _ ≤ (a.worlds.map NestedValue.World.ann).sum :=
           nat_sum_filter_le a.worlds _ NestedValue.World.ann
-      _ = 1 := NestedValue.nat_sum_worlds_ann a fun o ho =>
-          ⟨(h o ho).1, (h o ho).2.anns⟩
+      _ = 1 := NestedValue.nat_sum_worlds_ann a fun g hg =>
+          ⟨(h g hg).1, fun o ho => ((h g hg).2 o ho).1⟩
   | tok a =>
     rw [classWorlds_of_not_nest u M _ rfl, Multiset.map_map]
     have ha : (AggTok.tok a).flatExpr.AnnsIn (· ≤ 1) := AggExpr.annsIn_ofValue h
@@ -454,7 +481,7 @@ theorem le1_evaluate {d : AnnotatedDatabase T ℕ} {S : Set OpKind} (hS₁ : OpK
     · simp only [Fin.append_left] at hk; simp at hk
     · simp only [Fin.append_right, Sum.inr.injEq] at hk
       subst hk
-      intro o ho
+      refine NestedValue.annsIn_ofOccs (Q := (· ≤ 1)) fun o ho => ?_
       obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
       have hrow' := hb row (Multiset.mem_of_mem_filter hrow)
       exact ⟨hrow'.finalize, GenValue.annsIn_innerValue _ fun a ha =>

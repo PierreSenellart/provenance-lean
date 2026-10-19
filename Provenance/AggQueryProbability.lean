@@ -535,86 +535,109 @@ theorem specialize_eval (a : NestedValue T (BoolFunc X)) (v : X → Bool) :
       = a.valOn (a.realizedWorld (fun α => α v)) := rfl
 
 omit [ValueType T] in
-/-- **What it takes for a world of a nested value to hold under a
-valuation**: every occurrence it keeps, outer or inner, has a true
-annotation, and every one it drops has a false one. -/
-theorem World.ann_eval_eq_true_iff (W : World T (BoolFunc X)) (v : X → Bool) :
-    W.ann v = true
-      ↔ ((∀ d ∈ W.occs, d.present = true → (d.occ.2) v = true)
-          ∧ ∀ d ∈ W.occs, ∀ j ∈ d.sub, (d.occ.1.anns j) v = true)
-        ∧ ((∀ d ∈ W.occs, d.present = false → (d.occ.2) v = false)
-          ∧ ∀ d ∈ W.occs, ∀ j, j ∉ d.sub → (d.occ.1.anns j) v = false) := by
-  have hkept : (W.occs.map
-      (fun d => if d.present = true then d.occ.2 else 1)).prod v = true
-      ↔ ∀ d ∈ W.occs, d.present = true → (d.occ.2) v = true := by
-    rw [multiset_prod_eval_eq_true_iff]
-    constructor
-    · intro hall d hd hp
-      have := hall _ (Multiset.mem_map_of_mem _ hd)
+/-- **What it takes for a decided group to hold under a valuation**:
+every occurrence it keeps, outer or inner, has a true annotation, and
+every one it drops has a false one – it is the group the valuation cuts
+out. -/
+theorem WorldGrp.eval_iff (G : WorldGrp T (BoolFunc X)) (v : X → Bool) :
+    (G.prod v = true ∧ G.absent v = false) ↔ G = realizedGrp (fun α => α v) G.base := by
+  have hprod : G.prod v = true ↔ (∀ m ∈ G.mems, m.2.2 = true → m.2.1 v = true)
+      ∧ ∀ j ∈ G.sub, (G.anns.get j) v = true := by
+    show ((G.mems.map (fun m => if m.2.2 = true then m.2.1 else 1)).prod v
+      && (∏ j ∈ G.sub, G.anns.get j) v) = true ↔ _
+    rw [Bool.and_eq_true, multiset_prod_eval_eq_true_iff, prod_eval_eq_true_iff]
+    refine and_congr ⟨fun hall m hm hp => ?_, fun hall f hf => ?_⟩ Iff.rfl
+    · have := hall _ (Multiset.mem_map_of_mem _ hm)
       rwa [ite_eq_left hp] at this
-    · intro hall f hf
-      rw [Multiset.mem_map] at hf
-      obtain ⟨d, hd, rfl⟩ := hf
-      by_cases hp : d.present = true
-      · rw [ite_eq_left hp]
-        exact hall d hd hp
-      · rw [ite_eq_right hp]
-        rfl
-  have hinner : (W.occs.map
-      (fun d => ∏ j ∈ d.sub, d.occ.1.anns j)).prod v = true
-      ↔ ∀ d ∈ W.occs, ∀ j ∈ d.sub, (d.occ.1.anns j) v = true := by
-    rw [multiset_prod_eval_eq_true_iff]
-    constructor
-    · intro hall d hd j hj
-      exact (prod_eval_eq_true_iff _ _ v).mp
-        (hall _ (Multiset.mem_map_of_mem _ hd)) j hj
-    · intro hall f hf
-      rw [Multiset.mem_map] at hf
-      obtain ⟨d, hd, rfl⟩ := hf
-      exact (prod_eval_eq_true_iff _ _ v).mpr (hall d hd)
-  have hdrop : (W.occs.map
-      (fun d => if d.present = true then 0 else d.occ.2)).sum v = false
-      ↔ ∀ d ∈ W.occs, d.present = false → (d.occ.2) v = false := by
-    rw [← Bool.not_eq_true, multiset_sum_eval_eq_true_iff]
-    constructor
-    · intro hnone d hd hp
-      by_contra hcon
-      refine hnone ⟨_, Multiset.mem_map_of_mem _ hd, ?_⟩
+    · obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.mp hf
+      by_cases hp : m.2.2 = true
+      · rw [ite_eq_left hp]; exact hall m hm hp
+      · rw [ite_eq_right hp]; rfl
+  have habs : G.absent v = false ↔ (∀ m ∈ G.mems, m.2.2 = false → m.2.1 v = false)
+      ∧ ∀ j, j ∉ G.sub → (G.anns.get j) v = false := by
+    show ((G.mems.map (fun m => if m.2.2 = true then 0 else m.2.1)).sum v
+      || (∑ j ∈ G.subᶜ, G.anns.get j) v) = false ↔ _
+    rw [Bool.or_eq_false_iff, ← Bool.not_eq_true, multiset_sum_eval_eq_true_iff,
+      ← Bool.not_eq_true, sum_eval_eq_true_iff]
+    refine and_congr ⟨fun hnone m hm hp => ?_, fun hall => ?_⟩
+      ⟨fun hnone j hj => ?_, fun hall => ?_⟩
+    · by_contra hcon
+      refine hnone ⟨_, Multiset.mem_map_of_mem _ hm, ?_⟩
       rw [ite_eq_right (by rw [hp]; exact Bool.false_ne_true)]
       exact Bool.eq_true_of_ne_false hcon
-    · rintro hall ⟨f, hf, hfv⟩
-      rw [Multiset.mem_map] at hf
-      obtain ⟨d, hd, rfl⟩ := hf
-      by_cases hp : d.present = true
+    · rintro ⟨f, hf, hfv⟩
+      obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.mp hf
+      by_cases hp : m.2.2 = true
       · rw [ite_eq_left hp] at hfv
         exact Bool.noConfusion hfv
-      · rw [ite_eq_right hp] at hfv
-        rw [hall d hd (Bool.not_eq_true _ |>.mp hp)] at hfv
+      · rw [ite_eq_right hp, hall m hm (Bool.not_eq_true _ |>.mp hp)] at hfv
         exact Bool.noConfusion hfv
-  have hdropinner : (W.occs.map
-      (fun d => ∑ j ∈ (d.sub)ᶜ, d.occ.1.anns j)).sum v = false
-      ↔ ∀ d ∈ W.occs, ∀ j, j ∉ d.sub → (d.occ.1.anns j) v = false := by
-    rw [← Bool.not_eq_true, multiset_sum_eval_eq_true_iff]
-    constructor
-    · intro hnone d hd j hj
-      by_contra hcon
-      refine hnone ⟨_, Multiset.mem_map_of_mem _ hd, ?_⟩
-      exact (sum_eval_eq_true_iff _ _ v).mpr
-        ⟨j, Finset.mem_compl.mpr hj, Bool.eq_true_of_ne_false hcon⟩
-    · rintro hall ⟨f, hf, hfv⟩
-      rw [Multiset.mem_map] at hf
-      obtain ⟨d, hd, rfl⟩ := hf
-      obtain ⟨j, hj, hjv⟩ := (sum_eval_eq_true_iff _ _ v).mp hfv
-      rw [hall d hd j (Finset.mem_compl.mp hj)] at hjv
+    · by_contra hcon
+      exact hnone ⟨j, Finset.mem_compl.mpr hj, Bool.eq_true_of_ne_false hcon⟩
+    · rintro ⟨j, hj, hjv⟩
+      rw [hall j (Finset.mem_compl.mp hj)] at hjv
       exact Bool.noConfusion hjv
-  have hv : ∀ x y z w : BoolFunc X, ((x * y) * (1 - (z + w))) v = true
-      ↔ (x v = true ∧ y v = true) ∧ (z v = false ∧ w v = false) := by
-    intro x y z w
-    show ((x v && y v) && !(z v || w v)) = true ↔ _
-    rw [Bool.and_eq_true, Bool.and_eq_true, Bool.not_eq_true',
-      Bool.or_eq_false_iff]
-  rw [World.ann, World.presentProd, World.absentSum, hv, hkept, hinner,
-    hdrop, hdropinner]
+  rw [hprod, habs]
+  obtain ⟨A, S, ms⟩ := G
+  simp only [realizedGrp, WorldGrp.base, Multiset.map_map]
+  constructor
+  · rintro ⟨⟨hkp, hki⟩, hdp, hdi⟩
+    refine WorldGrp.mk.injEq _ _ _ _ _ _ |>.mpr ⟨rfl, heq_of_eq ?_, ?_⟩
+    · ext j
+      rw [Finset.mem_filter, and_iff_right (Finset.mem_univ j)]
+      constructor
+      · exact fun hj => hki j hj
+      · intro hj
+        by_contra hjn
+        rw [hdi j hjn] at hj
+        exact Bool.noConfusion hj
+    · conv_lhs => rw [← Multiset.map_id' ms]
+      refine Multiset.map_congr rfl (fun m hm => ?_)
+      obtain ⟨e, k, p⟩ := m
+      by_cases hpt : p = true
+      · subst hpt
+        exact Prod.ext rfl (Prod.ext rfl (hkp _ hm rfl).symm)
+      · rw [Bool.not_eq_true] at hpt
+        subst hpt
+        exact Prod.ext rfl (Prod.ext rfl (hdp _ hm rfl).symm)
+  · intro h
+    rw [WorldGrp.mk.injEq] at h
+    obtain ⟨-, hS, hms⟩ := h
+    have hS' : S = Finset.univ.filter (fun j => (A.get j) v = true) := eq_of_heq hS
+    have hmem : ∀ m ∈ ms, m.2.2 = m.2.1 v := by
+      intro m hm
+      rw [hms] at hm
+      obtain ⟨o, -, rfl⟩ := Multiset.mem_map.mp hm
+      rfl
+    refine ⟨⟨fun m hm hp => (hmem m hm).symm.trans hp, fun j hj => ?_⟩,
+      fun m hm hp => (hmem m hm).symm.trans hp, fun j hj => ?_⟩
+    · rw [hS'] at hj
+      exact (Finset.mem_filter.mp hj).2
+    · rw [hS'] at hj
+      have hno : ¬ (A.get j) v = true := fun hcon =>
+        hj (Finset.mem_filter.mpr ⟨Finset.mem_univ j, hcon⟩)
+      exact Bool.not_eq_true _ |>.mp hno
+
+omit [ValueType T] in
+/-- **What it takes for a world of a nested value to hold under a
+valuation**: each of its groups is the one the valuation cuts out. -/
+theorem World.ann_eval_eq_true_iff (W : World T (BoolFunc X)) (v : X → Bool) :
+    W.ann v = true ↔ ∀ G ∈ W.grps, G = realizedGrp (fun α => α v) G.base := by
+  show (W.presentProd v && !(W.absentSum v)) = true ↔ _
+  rw [Bool.and_eq_true, Bool.not_eq_true', ← Bool.not_eq_true, World.presentProd,
+    World.absentSum, multiset_prod_eval_eq_true_iff, multiset_sum_eval_eq_true_iff]
+  constructor
+  · rintro ⟨hp, ha⟩ G hG
+    refine (WorldGrp.eval_iff G v).mp ⟨hp _ (Multiset.mem_map_of_mem _ hG), ?_⟩
+    by_contra hcon
+    exact ha ⟨_, Multiset.mem_map_of_mem _ hG, Bool.eq_true_of_ne_false hcon⟩
+  · intro hall
+    refine ⟨fun f hf => ?_, fun ⟨f, hf, hfv⟩ => ?_⟩
+    · obtain ⟨G, hG, rfl⟩ := Multiset.mem_map.mp hf
+      exact ((WorldGrp.eval_iff G v).mpr (hall G hG)).1
+    · obtain ⟨G, hG, rfl⟩ := Multiset.mem_map.mp hf
+      rw [((WorldGrp.eval_iff G v).mpr (hall G hG)).2] at hfv
+      exact Bool.noConfusion hfv
 
 omit [ValueType T] in
 /-- **Only the realized world holds**: over `𝔹[X]` a world of a nested
@@ -626,59 +649,21 @@ theorem World.ann_eval_iff {a : NestedValue T (BoolFunc X)}
     W.ann v = true ↔ W = a.realizedWorld (fun α => α v) := by
   rw [World.ann_eval_eq_true_iff]
   constructor
-  · rintro ⟨⟨hkp, hki⟩, hdp, hdi⟩
-    have hreal : ∀ d ∈ W.occs, d = realizedOcc (fun α => α v) d.occ := by
-      intro d hd
-      obtain ⟨o, p, S⟩ := d
-      have hp : p = (o.2) v := by
-        by_cases hpt : p = true
-        · rw [hpt, hkp _ hd hpt]
-        · rw [Bool.not_eq_true] at hpt
-          rw [hpt, hdp _ hd hpt]
-      have hS : S = Finset.univ.filter (fun j => (o.1.anns j) v = true) := by
-        ext j
-        rw [Finset.mem_filter, and_iff_right (Finset.mem_univ j)]
-        constructor
-        · exact fun hj => hki _ hd j hj
-        · intro hj
-          by_contra hjn
-          rw [hdi _ hd j hjn] at hj
-          exact Bool.noConfusion hj
-      show (⟨o, p, S⟩ : WorldOcc T (BoolFunc X)) = ⟨o, _, _⟩
-      rw [hp, hS]
-    show W = ⟨a.occs.map (realizedOcc (fun α => α v))⟩
+  · intro hall
+    show W = ⟨a.groups.map (realizedGrp (fun α => α v))⟩
+    obtain ⟨Wg⟩ := W
     refine congrArg World.mk ?_
-    calc W.occs = W.occs.map (fun d => d) := (Multiset.map_id' W.occs).symm
-      _ = W.occs.map (fun d => realizedOcc (fun α => α v) d.occ) :=
-          Multiset.map_congr rfl hreal
-      _ = a.occs.map (realizedOcc (fun α => α v)) := by
-          rw [show (fun d : WorldOcc T (BoolFunc X) =>
-                realizedOcc (fun α => α v) d.occ)
-              = (realizedOcc (fun α => α v)) ∘ WorldOcc.occ from rfl,
-            ← Multiset.map_map]
-          exact congrArg _ hW
-  · rintro rfl
-    have hmem : ∀ d ∈ (a.realizedWorld (fun α => α v)).occs,
-        ∃ o ∈ a.occs, realizedOcc (fun α => α v) o = d := by
-      intro d hd
-      have hd' : d ∈ a.occs.map (realizedOcc (fun α => α v)) := hd
-      rw [Multiset.mem_map] at hd'
-      exact hd'
-    refine ⟨⟨?_, ?_⟩, ?_, ?_⟩
-    · intro d hd hp
-      obtain ⟨o, -, rfl⟩ := hmem d hd
-      exact hp
-    · intro d hd j hj
-      obtain ⟨o, -, rfl⟩ := hmem d hd
-      exact (Finset.mem_filter.mp hj).2
-    · intro d hd hp
-      obtain ⟨o, -, rfl⟩ := hmem d hd
-      exact hp
-    · intro d hd j hj
-      obtain ⟨o, -, rfl⟩ := hmem d hd
-      have hno : ¬ (o.1.anns j) v = true := fun hcon =>
-        hj (Finset.mem_filter.mpr ⟨Finset.mem_univ j, hcon⟩)
-      exact Bool.not_eq_true _ |>.mp hno
+    calc Wg = Wg.map (fun G => G) := (Multiset.map_id' Wg).symm
+      _ = Wg.map (fun G => realizedGrp (fun α => α v) G.base) := Multiset.map_congr rfl hall
+      _ = a.groups.map (realizedGrp (fun α => α v)) := by
+          rw [← hW, Multiset.map_map]
+          rfl
+  · rintro rfl G hG
+    obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hG
+    show _ = realizedGrp _ (realizedGrp _ g).base
+    refine congrArg _ (Prod.ext rfl ?_)
+    simp only [WorldGrp.base, realizedGrp, Multiset.map_map]
+    exact (Multiset.map_id' _).symm
 
 /-- **The PQE bridge for a nested value**: only the realized world is
 annotated true, so the world sum holds under a valuation exactly when
@@ -857,16 +842,14 @@ theorem NestedValue.annGuard_of_predProvWith (a : NestedValue T (BoolFunc X))
   refine ⟨(a.occs.map Prod.snd).sum, List.mem_singleton_self _, ?_⟩
   rcases hiw.1 with hs | hs
   · exact absurd (hsc.symm.trans hs) Bool.false_ne_true
-  · obtain ⟨d, hd⟩ := Multiset.card_pos_iff_exists_mem.mp hs
-    have hpres : d.present = true := (Multiset.mem_filter.mp hd).2
-    have hdocc : d ∈ (a.realizedWorld (fun α => α v)).occs :=
-      Multiset.mem_of_mem_filter hd
-    have hdocc' : d ∈ a.occs.map (NestedValue.realizedOcc (fun α => α v)) :=
-      hdocc
-    rw [Multiset.mem_map] at hdocc'
-    obtain ⟨o, ho, rfl⟩ := hdocc'
+  · obtain ⟨w, hw⟩ := Multiset.card_pos_iff_exists_mem.mp hs
+    obtain ⟨G, hG, hwG⟩ := Multiset.mem_bind.mp hw
+    obtain ⟨m, hm, -⟩ := Multiset.mem_map.mp hwG
+    obtain ⟨hmG, hpres⟩ := Multiset.mem_filter.mp hm
+    obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hG
+    obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp hmG
     exact multiset_sum_eval_eq_true_iff _ v |>.mpr
-      ⟨o.2, Multiset.mem_map_of_mem _ ho, hpres⟩
+      ⟨o.2, Multiset.mem_map_of_mem _ (Multiset.mem_bind.mpr ⟨g, hg, ho⟩), hpres⟩
 
 omit [Fintype X] [DecidableEq X] in
 private lemma list_sum_eval (l : List (BoolFunc X)) (v : X → Bool) :
@@ -1136,8 +1119,9 @@ theorem AggTok.classKey_eq_none_iff (x : AggTok T (BoolFunc X)) :
 
 omit [ValueType T] [Fintype X] [DecidableEq X] in
 theorem AggTok.eq_nest_of_classKey (x : AggTok T (BoolFunc X))
-    {s : Multiset (AggExpr T (BoolFunc X) × BoolFunc X)} (h : x.classKey.2.2 = some s) :
-    ∃ b, x = AggTok.nest b ∧ b.occs = s := by
+    {s : Multiset (List (BoolFunc X) × Multiset (AggExpr T (BoolFunc X) × BoolFunc X))}
+    (h : x.classKey.2.2 = some s) :
+    ∃ b, x = AggTok.nest b ∧ b.groups = s := by
   cases x <;> simp_all [AggTok.classKey]
 
 omit [ValueType T] in
@@ -1161,7 +1145,7 @@ theorem classWorlds_realized {n : ℕ} (u : Tuple (GenValue T (BoolFunc X)) n) (
       intro k hk
       obtain ⟨y, hy, hkey, hR⟩ := hM k hk
       obtain ⟨b, rfl, hb⟩ := AggTok.eq_nest_of_classKey y
-        (s := a.occs) (by rw [hkey]; rfl)
+        (s := a.groups) (by rw [hkey]; rfl)
       refine ⟨b, hy, ?_, hR⟩
       simp only [NestedValue.realizedWorld, hb]
     simp only [classWorlds]
@@ -2324,7 +2308,7 @@ theorem AggQueryIn.evaluate_guarded :
             row.snd.finalize) = o := by
         intro o ho
         exact Multiset.mem_map.mp ho
-      refine ⟨Or.inr ?_, fun dd hdd hpres hsc => ?_, trivial⟩
+      refine ⟨Or.inr ?_, fun G hG m hm hpres => ?_, trivial⟩
       · -- the family's guard gives a realized occurrence
         obtain ⟨β, hβmem, hβv⟩ := hG
         rw [List.mem_singleton] at hβmem
@@ -2333,22 +2317,18 @@ theorem AggQueryIn.evaluate_guarded :
           multiset_sum_eval_eq_true_iff _ v |>.mp hβv
         rw [Multiset.mem_map] at hβ'
         obtain ⟨o, ho, rfl⟩ := hβ'
+        rw [NestedValue.kept_realizedWorld]
         refine Multiset.card_pos_iff_exists_mem.mpr
-          ⟨NestedValue.realizedOcc (fun α => α v) o, ?_⟩
-        show NestedValue.realizedOcc (fun α => α v) o
-          ∈ Multiset.filter
-              (fun dd : NestedValue.WorldOcc T (BoolFunc X) =>
-                dd.present = true) _
+          ⟨o.1.specialize (fun α => α v), Multiset.mem_map_of_mem _ ?_⟩
         rw [Multiset.mem_filter]
-        exact ⟨Multiset.mem_map_of_mem _ ho, hβ'v⟩
+        exact ⟨by rwa [NestedValue.occs_ofOccs], hβ'v⟩
       · -- and each kept occurrence's inner value is guarded by its row
-        have hdd' : dd ∈ (rows.map (fun row =>
-            (GenValue.innerValue (p.eval row.fst γ), row.snd.finalize))).map
-            (NestedValue.realizedOcc (fun α => α v)) := hdd
-        rw [Multiset.mem_map] at hdd'
-        obtain ⟨o, ho, rfl⟩ := hdd'
+        obtain ⟨o, ho, rfl, hsub⟩ := NestedValue.mem_realizedWorld hG hm
+        rw [hsub]
+        rw [NestedValue.occs_ofOccs] at ho
         obtain ⟨row, hrow, rfl⟩ := hocc o ho
         have hfinrow : row.snd.finalize v = true := hpres
+        intro hsc
         refine GenValue.realized_innerValue (p.eval row.fst γ) v
           (fun a' ha' => ProjColIn.realized_eval p row.fst v
             (fun k' a'' ha'' => ih d E row
@@ -4190,9 +4170,9 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
       rfl
     · show GenValue.specializeAt v (Fin.append _ _ (Fin.natAdd n₁ j)) = _
       rw [Fin.append_right, Fin.append_right]
-      show (NestedValue.mk f _ false _).specialize
+      show (NestedValue.ofOccs f _ false _).specialize
         (fun α : BoolFunc X => α v) = f _
-      rw [NestedValue.specialize_eq]
+      rw [NestedValue.specialize_eq, NestedValue.occs_ofOccs]
       refine congrArg f ?_
       show (((rows.filter (fun row => key row = g)).map
             (fun row => (GenValue.innerValue (p.eval row.fst γ),

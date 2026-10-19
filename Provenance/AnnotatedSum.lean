@@ -1042,6 +1042,7 @@ theorem withTagK_reads {κ : Fin k → ColKind} (t : T) (q : AggQueryIn T c k κ
   · rw [withTagK, AggQueryIn.nestReads_castKind]; rfl
   · rw [withTagK, AggQueryIn.nestOnce_castKind]; rfl
 
+omit [ValueType T] in
 /-- **A round of the construction reads, and feeds to a second-level
 aggregation, what its operand does**, passes no round to one, and stays
 at one storey. -/

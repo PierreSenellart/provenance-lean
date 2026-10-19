@@ -784,7 +784,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
       rw [Fin.append_right, Fin.append_right]
       show f _ = f _
       refine congrArg f ?_
-      rw [Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+      rw [NestedValue.occs_ofOccs, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
       refine Multiset.map_congr (Multiset.filter_congr fun _ _ => Iff.rfl)
         (fun r₀ _ => ?_)
       show (GenValue.innerValue (p.eval r₀.fst γ)).collapse = _

@@ -987,7 +987,7 @@ theorem AggQueryIn.newFun_GammaNest {c m n₁ lab : ℕ} {κ : Fin m → ColKind
   dsimp only at hx hy
   rw [Fin.append_right, Sum.inr.injEq] at hx hy
   subst hx hy
-  simp only [AggTok.fam, FamId.family, Prod.mk.injEq] at hxy
+  simp only [AggTok.fam, NestedValue.fam_ofOccs, FamId.family, Prod.mk.injEq] at hxy
   obtain ⟨-, hg, -⟩ := hxy
   rw [List.ofFn_injective hg]
 

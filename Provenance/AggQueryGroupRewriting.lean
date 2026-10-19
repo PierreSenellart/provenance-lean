@@ -211,13 +211,35 @@ theorem AggExpr.ofGroupWhen_toComposite {m : ℕ} (f : SeqAggFunc T)
     unfold Selection.keeps AnnotatedTuple.toComposite
     rw [Selection.castToAnnotatedTuple_eval3 φ p.fst p.snd]
 
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem AggExpr.annList_toComposite (a : AggExpr T K) :
+    a.toComposite.annList = a.annList := by
+  simp [AggExpr.annList, AggExpr.toComposite, List.map_map]
+
+/-- Transport a nested value to the composite value domain: its inner
+values the same way, each group keeping its family. -/
+def NestedValue.toComposite (a : NestedValue T K) : NestedValue (T ⊕ K) K :=
+  ⟨NestedValue.liftComposite a.agg,
+    a.groups.map (fun g => (g.1, g.2.map (fun o => (o.1.toComposite, o.2)))), a.scalar,
+    FamId.toComposite a.fam, by
+      intro g' hg' o' ho'
+      obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hg'
+      obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp ho'
+      rw [AggExpr.annList_toComposite]
+      exact a.grouped g hg o ho⟩
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem NestedValue.occs_toComposite (a : NestedValue T K) :
+    a.toComposite.occs = a.occs.map (fun o => (o.1.toComposite, o.2)) := by
+  unfold NestedValue.toComposite NestedValue.occs
+  rw [Multiset.bind_map, Multiset.map_bind]
+
 /-- Transport a token to the composite value domain. A nested token
 transports its inner values the same way, and an expression its shared
 occurrences, its leaf aggregates and its own function. -/
 def AggTok.toComposite : AggTok T K → AggTok (T ⊕ K) K
   | .tok a => .tok a.toComposite
-  | .nest a => .nest ⟨NestedValue.liftComposite a.agg,
-      a.occs.map (fun o => (o.1.toComposite, o.2)), a.scalar, FamId.toComposite a.fam⟩
+  | .nest a => .nest a.toComposite
   | .expr a => .expr a.toComposite
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
@@ -292,7 +314,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
     | expr a => exact AggExpr.collapse_toComposite a
     | nest a =>
       show (NestedValue.liftComposite a.agg) _ = Sum.inl (a.agg _)
-      rw [Multiset.map_map,
+      rw [NestedValue.occs_toComposite, Multiset.map_map,
         show ((fun o : AggExpr (T ⊕ K) K × K => o.1.collapse)
             ∘ fun o : AggExpr T K × K => (o.1.toComposite, o.2))
           = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggExpr T K × K => o.1.collapse)

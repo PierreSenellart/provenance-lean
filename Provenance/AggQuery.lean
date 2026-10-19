@@ -151,14 +151,7 @@ and the pushforward moves the annotations through it. -/
       rfl
     | nest b =>
       show NestedValue.constInner (NestedValue.collapse (b.mapAnn hm)) = _
-      rw [show NestedValue.collapse (b.mapAnn hm) = b.collapse from by
-        show (b.mapAnn hm).agg _ = _
-        refine congrArg b.agg ?_
-        show (b.occs.map (fun o => (o.fst.mapAnn hm, hm o.snd))).map
-            (fun o => o.fst.collapse) = _
-        rw [Multiset.map_map]
-        exact Multiset.map_congr rfl
-          (fun o _ => AggExpr.collapse_mapAnn hm o.1)]
+      rw [NestedValue.collapse_mapAnn]
       rfl
     | expr e => rfl
 
@@ -331,11 +324,6 @@ def flatExpr : AggTok T K → AggExpr T K
 
 end AggTok
 
-/-- A subfamily of one listing of a family read in another: the positions
-with the same index. -/
-def trW {a b : ℕ} (W : Finset (Fin a)) : Finset (Fin b) :=
-  Finset.univ.filter (fun i => ∃ j ∈ W, (j : ℕ) = i)
-
 section JointWorlds
 
 variable {n : ℕ}
@@ -418,10 +406,22 @@ nested value, its occurrences themselves) are part of the key so that
 the reading is defined on every row, a family being read in the worlds of
 the occurrences its members actually carry. -/
 def AggTok.classKey (x : AggTok T K) :
-    (ℕ × List T × List (T ⊕ FamId T)) × List K × Option (Multiset (AggExpr T K × K)) :=
+    (ℕ × List T × List (T ⊕ FamId T)) × List K
+      × Option (Multiset (List K × Multiset (AggExpr T K × K))) :=
   (x.fam.family, x.annList, match x with
-    | .nest a => some a.occs
+    | .nest a => some a.groups
     | _ => none)
+
+open Classical in
+/-- Decidable equality of a family key, stated once: the type is past the
+size instance search explores, and the nested component, which carries
+inner expressions, is compared classically – so that two keys with no
+nested component still compare in the kernel. -/
+noncomputable instance instDecidableEqClassKey :
+    DecidableEq ((ℕ × List T × List (T ⊕ FamId T)) × List K
+      × Option (Multiset (List K × Multiset (AggExpr T K × K)))) :=
+  @instDecidableEqProd _ _ FamId.instDecidableEqFamily
+    (@instDecidableEqProd _ _ inferInstance (@Option.instDecidableEq _ (Classical.decEq _)))
 
 open Classical in
 /-- **The joint worlds of the columns `cols` of a row**: one world of each
@@ -2542,8 +2542,8 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
           (fun row => (GenValue.innerValue (p.eval row.fst γ),
             row.snd.finalize))
       ⟨Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
-        (fun _ : Fin 1 => Sum.inr (AggTok.nest ⟨f, U, false,
-          .mk lab (List.ofFn g) (E.paramKey rd γ) 0 []⟩)),
+        (fun _ : Fin 1 => Sum.inr (AggTok.nest (NestedValue.ofOccs f U false
+          (.mk lab (List.ofFn g) (E.paramKey rd γ) 0 [])))),
        -- the group's existence factor, as the one annotation the bag of
        -- occurrences sums to – which is what `AggTok.annList` gives a
        -- nested token, so the supersede test can match the two
@@ -3845,8 +3845,7 @@ ask only `AggQueryIn.nestOnce`, and the hom commutation asks nothing.
 not a function of the four readings its occurrences' inner values carry.
 `NestedValue.World.ann` is `presentProd ⊗ (𝟙 ⊖ absentSum)` with the
 monus taken *once, globally*: `absentSum` adds the absent outer
-annotations and, for every occurrence, `Σ_{j ∉ sub} anns j` of its inner
-family. `AggExpr.predProvWith` instead bundles a monus *per inner world*,
+annotations and, for every inner family, `Σ_{j ∉ sub} anns j`. `AggExpr.predProvWith` instead bundles a monus *per inner world*,
 `∏_{j∈S} anns ⊗ (𝟙 ⊖ Σ_{j∉S} anns)`, and the bundle does not recover the
 pair. So what the nested reading asks of an occurrence is, per subfamily
 `S` of its inner family, the triple `(∏_{j∈S} anns j, Σ_{j∉S} anns j,
@@ -3857,9 +3856,12 @@ What answers it is to keep the pair apart: `GenRow.Sim` relates an
 aggregate column by its `AggExpr.worldStats`, the bag of those triples,
 which a tie-block permutation preserves (`AggExpr.worldStats_congr`) and
 which every operator's aggregate column therefore gives; a nested value's
-occurrences then carry their unsplit data (`NestedValue.occStatsU`), off
-which every world's product and absent sum, hence its weight, are read in
-every m-semiring (`NestedValue.predProvWith_eq_choicesU`). -/
+groups – one inner family each, with the outer occurrences reading it –
+then carry their unsplit data (`NestedValue.grpStatsU`), off which every
+world's product and absent sum, hence its weight, are read in every
+m-semiring (`NestedValue.predProvWith_eq_choicesU`), and two groups
+presented by related listings carry corresponding data
+(`NestedValue.grpStatsU_hom`). -/
 def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
