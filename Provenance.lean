@@ -74,6 +74,13 @@ import Provenance.AnnotatedApproxRows
 import Provenance.AnnotatedWhyRow
 import Provenance.MuUnion
 import Provenance.RecursionBasisTheorem
+import Provenance.SumByProd
+import Provenance.SymCode
+import Provenance.SymCells
+import Provenance.SymRel
+import Provenance.SymTerms
+import Provenance.SymOps
+import Provenance.SymGamma
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1410,6 +1417,23 @@ proven engine several general results reuse internally.
   `σ`/`−` and one of `×`/apply are in every generating set over `ℕ` with
   the counting aggregate. Whether `−` for `σ` or `×` for the apply give
   further bases is not settled
+- `Provenance.SumByProd` – **`⊎` and `−` with products**: `sumByMuX` is
+  `sumByMu` with each round's apply written as the product it stands for,
+  and `notInDiffX` the `NOT IN` difference over it, both over the classes
+  `{∅, Π, σ, ×, γ, μ^⊎}`
+- `Provenance.SymCode`, `Provenance.SymCells`, `Provenance.SymRel`,
+  `Provenance.SymTerms`, `Provenance.SymOps`, `Provenance.SymGamma` –
+  **evaluating a query at the types of its parameter row**: a parameter
+  value is coded relative to a finite cut of values (a value of the cut,
+  or a gap with a rank, `Sym.code`), equal codes standing for equal values
+  and the order of codes being the order of values (`Sym.Code.lt_iff`);
+  a code is stored in `7 + k` columns, and a comparison of two cells has
+  the three-valued truth of the comparison of their values
+  (`Sym.eval3_cellCmp`). A symbolic relation holds, under the descriptor
+  of each parameter row, the encodings of the rows the query computes
+  there (`Sym.SliceIs`); projection, selection, join, the leaves and the
+  grouping map these slices (`Sym.sliceIs_symProj`, `sliceIs_symSel`,
+  `sliceIs_joinL`/`R`, `sliceIs_leaf`, `gammaRows_slice`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
