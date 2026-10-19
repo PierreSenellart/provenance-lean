@@ -13,9 +13,10 @@ win, μ^⊎}` is a basis: it generates over every schema, and no proper
 subset does. The bases are not all of its shape: `−` for `σ` and `×`
 for the apply are the two alternatives the rows leave open, and each gives
 a basis too (`basisRecDiffOps_isBasis`, in `Provenance.DiffBasis`, and
-`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`). Whether the two
-together, `{∅, Π, −, ×, γ, win, μ^⊎}`, generate the whole algebra is not
-settled.
+`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`). The two together,
+`{∅, Π, −, ×, γ, win, μ^⊎}`, do not generate it: `σ` or the apply is in
+every basis, and the generating sets are exactly the supersets of the three
+bases (`generatesOnRec_iff`, in `Provenance.RecursionBases`).
 -/
 
 variable {T : Type} [ValueType T]

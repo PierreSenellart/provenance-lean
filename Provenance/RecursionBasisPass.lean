@@ -113,30 +113,6 @@ theorem AggQueryIn.hygienic_explodeBelow {c n : ℕ} :
     · rw [AggQueryIn.hygienic_castKind]
       exact ih q
 
-theorem AggQueryIn.inSig_explodeBelow {c n : ℕ} {Θ : Set (SeqAggFunc T)} :
-    ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      (q.explodeBelow m).inSig Θ ↔ q.inSig Θ := by
-  intro m
-  induction m with
-  | zero =>
-    intro κ l q
-    show ((q.castKind _).inSig Θ) ↔ _
-    rw [AggQueryIn.inSig_castKind]
-  | succ m ih =>
-    intro κ l q
-    unfold AggQueryIn.explodeBelow
-    split
-    · split
-      · rw [AggQueryIn.inSig_castKind]
-        show (AggQueryIn.Explode _ _ (q.explodeBelow m)).inSig Θ ↔ _
-        exact ih q
-      · rw [AggQueryIn.inSig_castKind]
-        exact ih q
-      · show (AggQueryIn.Retag _ (q.explodeBelow m)).inSig Θ ↔ _
-        exact ih q
-    · rw [AggQueryIn.inSig_castKind]
-      exact ih q
-
 theorem AggQueryIn.settlesAt_explodeBelow {c n : ℕ} :
     ∀ (m : ℕ) {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
         (D : Database T)
@@ -178,10 +154,6 @@ omit [ValueType T] in
     (q : AggQueryIn T c n κ l) : (q.allRegOf).hygienic ↔ q.hygienic := by
   rw [AggQueryIn.allRegOf, AggQueryIn.hygienic_castKind,
     AggQueryIn.hygienic_explodeBelow]
-
-@[simp] theorem AggQueryIn.inSig_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
-    (q : AggQueryIn T c n κ l) (Θ : Set (SeqAggFunc T)) : (q.allRegOf).inSig Θ ↔ q.inSig Θ := by
-  rw [AggQueryIn.allRegOf, AggQueryIn.inSig_castKind, AggQueryIn.inSig_explodeBelow]
 
 @[simp] theorem AggQueryIn.settlesAt_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List
     (String × ℕ)}

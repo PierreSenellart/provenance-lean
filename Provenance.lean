@@ -95,6 +95,8 @@ import Provenance.SymStruct
 import Provenance.SymOver
 import Provenance.SymPass
 import Provenance.DiffBasis
+import Provenance.RecursionBases
+import Provenance.RecFreeBasis
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1431,8 +1433,8 @@ proven engine several general results reuse internally.
   `σ`/`−` and one of `×`/apply are in every generating set over `ℕ` with
   the counting aggregate. `−` for `σ` and `×` for the apply each give a
   further basis (`basisRecDiffOps_isBasis`, in `Provenance.DiffBasis`, and
-  `Sym.basisProdOps_isBasis`, in `Provenance.SymPass`); whether the two
-  together do is not settled
+  `Sym.basisProdOps_isBasis`, in `Provenance.SymPass`), and the two
+  together do not (`Provenance.RecursionBases`)
 - `Provenance.SumByProd` – **`⊎` and `−` with products**: `sumByMuX` is
   `sumByMu` with each round's apply written as the product it stands for,
   and `notInDiffX` the `NOT IN` difference over it, both over the classes
@@ -1494,6 +1496,37 @@ proven engine several general results reuse internally.
   `DiffBasis.evaluatePlain_ltT`). Reading the count as a key is what
   `Explode` does, which `usesOnly` charges to no class; without it `σ` is in
   every basis (`sel_mem_of_generatesAtNoExplode`)
+- `Provenance.RecursionBases` – **all the bases of the whole algebra in the
+  minimal universe**: a recursive term reads its recursive relation under a
+  projection, a selection, a product, the left side of an apply, a union,
+  `Explode` and `Retag`, and only the selection and the apply drop a row.
+  Without them a round has `k · |X|` rows for a `k` the round does not
+  change, so a bag recursion that settles is its base
+  (`AggQueryIn.evaluatePlain_mu_degenerate`, `AggQueryIn.exists_dropMu`),
+  the answers are polynomial, and the chain of diamonds gives the row
+  `sel_or_apply_mem_of_generatesOnRec`. So `{∅, Π, −, ×, γ, win, μ^⊎}` is
+  not a basis (`not_generatesOnRec_prodDiff`), and `generatesOnRec_iff`
+  says a set of classes generates the whole algebra over `ℕ` with the count
+  exactly when it holds `basisRecOps`, `Sym.basisProdOps` or
+  `basisRecDiffOps`
+- `Provenance.RecFreeBasis` – **the bases of the recursion-free algebra in
+  the minimal universe**: `GeneratesOnRF` is the generation of every query
+  with no recursion, and `generatesOnRF_iff` says that among class sets with
+  no recursion the generating ones over `ℕ` with the count are exactly the
+  supersets of `∅`, `Π`, `⊎`, `γ`, `win` with `σ` or `−` and with `×` or the
+  apply – all four pairings, each minimal (`rfSelApplyOps_minimal` and its
+  three siblings). The rows are the whole algebra's at its recursion-free
+  witnesses, `⊎` added (`union_mem_of_generatesOnRF`). The positive halves
+  run a recursion-free pass (`AggQueryIn.exists_rfPass`) that keeps `⊎`,
+  keeps `×` or `−` where the target has them, and keeps a selection, where
+  the target has no `σ`, by its test from `Provenance.DiffBasis` decorrelated
+  over the distinct rows of its input (`AggQueryIn.exists_selByTest`). The
+  `×` bases first remove the applies by the decorrelation of
+  `Provenance.Decorrelate`, which stays in the signature for queries whose
+  parameter leaves are regular (`AggQueryIn.exists_applyFree_plainEquiv_sig`,
+  `AggQueryIn.paramsReg`) and asks `σ` and `ε` only of a product or an apply
+  (`AggQueryIn.hasDecorrelation_of_usesOnly_gen`). Recursion-free, `{−, ×}`
+  is a basis; with recursion it is not (`not_generatesOnRec_prodDiff`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
