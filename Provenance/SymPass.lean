@@ -1,4 +1,5 @@
 import Provenance.SymOver
+import Provenance.RecursionBasisTheorem
 
 /-!
 # The apply replaced by products, through a whole query
@@ -937,5 +938,41 @@ theorem basisProdOps_generatesOnRec (sch : Schema) (cnt : SeqAggFunc T) (hcnt : 
     hi₁ hr₁ sch (fun x => x ∈ q₁.names) f ⟨hf, hfsch, hfr⟩ hrel).1 rfl
   exact ⟨_, q₂, hO.1, hF.1, hF.2.1,
     fun D γ r h => (AggQueryIn.Extends.of_settles fun D γ hs => he D γ hs) D γ r (hx₁ D γ r h)⟩
+
+/-- **No proper subset of `basisProdOps` generates the whole algebra** in
+the minimal universe over `ℕ`. The rows of `required_mem_of_generatesOnRec`
+force each class: `σ` because `−` is not in the set, and `×` because the
+apply is not. -/
+theorem basisProdOps_minimal {S : Set OpKind} (hS : S ⊂ basisProdOps) :
+    ¬ ∀ sch : Schema, GeneratesOnRec ℕ sch SeqAggFunc.count S := by
+  intro hgen
+  obtain ⟨he, hp, hg, hm, hwin, hs, ha⟩ := required_mem_of_generatesOnRec hgen
+  obtain ⟨x, hx, hxS⟩ := Set.exists_of_ssubset hS
+  have hsub := hS.subset
+  have hdiff : OpKind.diff ∉ S := fun h => by
+    have := hsub h
+    simp [basisProdOps] at this
+  have happ : OpKind.apply ∉ S := fun h => by
+    have := hsub h
+    simp [basisProdOps] at this
+  simp only [basisProdOps, Set.mem_insert_iff, Set.mem_singleton_iff] at hx
+  rcases hx with rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  · exact hxS he
+  · exact hxS hp
+  · exact hxS (hs.resolve_right hdiff)
+  · exact hxS (ha.resolve_right happ)
+  · exact hxS hg
+  · exact hxS hwin
+  · exact hxS hm
+
+/-- **`basisProdOps` is a basis of the whole algebra in the minimal
+universe over `ℕ`**: it generates over every schema, and no proper subset
+does. -/
+theorem basisProdOps_isBasis :
+    (∀ sch : Schema, GeneratesOnRec ℕ sch SeqAggFunc.count basisProdOps)
+      ∧ ∀ S : Set OpKind, S ⊂ basisProdOps →
+          ¬ ∀ sch : Schema, GeneratesOnRec ℕ sch SeqAggFunc.count S :=
+  ⟨fun sch => basisProdOps_generatesOnRec sch _ SeqAggFunc.isCount_count_nat,
+    fun _ hS => basisProdOps_minimal hS⟩
 
 end Sym

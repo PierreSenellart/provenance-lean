@@ -1428,8 +1428,9 @@ proven engine several general results reuse internally.
   (`basisRecOps_minimal`), the rows gathered as
   `required_mem_of_generatesOnRec`: `∅`, `Π`, `γ`, `μ^⊎`, `win`, one of
   `σ`/`−` and one of `×`/apply are in every generating set over `ℕ` with
-  the counting aggregate. Whether `−` for `σ` or `×` for the apply give
-  further bases is not settled
+  the counting aggregate. `×` for the apply gives a second basis
+  (`Sym.basisProdOps_isBasis`, in `Provenance.SymPass`); whether `−` for
+  `σ` gives one is not settled
 - `Provenance.SumByProd` – **`⊎` and `−` with products**: `sumByMuX` is
   `sumByMu` with each round's apply written as the product it stands for,
   and `notInDiffX` the `NOT IN` difference over it, both over the classes
@@ -1474,7 +1475,8 @@ proven engine several general results reuse internally.
   recursive term, the values of the base and those the term creates – this
   gives **`Sym.basisProdOps_generatesOnRec`: the product in place of the
   apply, `{∅, Π, σ, ×, γ, win, μ^⊎}` generates the whole algebra** in the
-  minimal universe
+  minimal universe, and with the rows of `required_mem_of_generatesOnRec` it
+  is a basis there (`Sym.basisProdOps_minimal`, `Sym.basisProdOps_isBasis`)
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the
