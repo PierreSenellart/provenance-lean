@@ -83,6 +83,17 @@ import Provenance.SymOps
 import Provenance.SymGamma
 import Provenance.SymWin
 import Provenance.SymMu
+import Provenance.SymTab
+import Provenance.SymCorrect
+import Provenance.SymOrder
+import Provenance.SymEnvBuild
+import Provenance.SymCut
+import Provenance.SymSettle
+import Provenance.SymMatch
+import Provenance.SymApply
+import Provenance.SymStruct
+import Provenance.SymOver
+import Provenance.SymPass
 
 /- Relations read as families of occurrences -/
 import Provenance.Occurrence
@@ -1424,7 +1435,12 @@ proven engine several general results reuse internally.
   and `notInDiffX` the `NOT IN` difference over it, both over the classes
   `{∅, Π, σ, ×, γ, μ^⊎}`
 - `Provenance.SymCode`, `Provenance.SymCells`, `Provenance.SymRel`,
-  `Provenance.SymTerms`, `Provenance.SymOps`, `Provenance.SymGamma` –
+  `Provenance.SymTerms`, `Provenance.SymOps`, `Provenance.SymGamma`,
+  `Provenance.SymWin`, `Provenance.SymMu`, `Provenance.SymTab`,
+  `Provenance.SymCorrect`, `Provenance.SymOrder`, `Provenance.SymEnvBuild`,
+  `Provenance.SymCut`, `Provenance.SymSettle`, `Provenance.SymMatch`,
+  `Provenance.SymApply`, `Provenance.SymStruct`, `Provenance.SymOver`,
+  `Provenance.SymPass` –
   **evaluating a query at the types of its parameter row**: a parameter
   value is coded relative to a finite cut of values (a value of the cut,
   or a gap with a rank, `Sym.code`), equal codes standing for equal values
@@ -1435,7 +1451,30 @@ proven engine several general results reuse internally.
   of each parameter row, the encodings of the rows the query computes
   there (`Sym.SliceIs`); projection, selection, join, the leaves and the
   grouping map these slices (`Sym.sliceIs_symProj`, `sliceIs_symSel`,
-  `sliceIs_joinL`/`R`, `sliceIs_leaf`, `gammaRows_slice`)
+  `sliceIs_joinL`/`R`, `sliceIs_leaf`, `gammaRows_slice`), and so do the
+  windows (`Sym.sliceIs_symWin`) and a bag recursion run against a list of
+  counters (`Sym.sliceIs_symMu`). `Sym.sym` assembles the symbolic
+  evaluation of a query, and `Sym.sym_correct` says it is correct wherever
+  the values the evaluation reads are good and the environment provides
+  enough counters. The environment is built from a cut by products,
+  selections, projections and the `NOT IN` difference (`Sym.envOf`, sound by
+  `Sym.envOK_envOf`), and the cut of a query is defined by recursion, each
+  aggregation adding the values its symbolic counterpart computes at the cut
+  of its input (`Sym.cutQ`); `Sym.tabQ_correct` puts the two together, and
+  the table settles on every instance, its recursions bounded by counters
+  (`Sym.settlesAt_tabQ`). An apply is then a product of its left side with
+  the descriptors, the table and a pool of values, a row's own descriptor
+  being picked by a predicate that holds of it alone (`Sym.eval3_matchSP_true`)
+  and the table's cells read back as values (`Sym.eval3_decCell_true`):
+  `Sym.evaluatePlain_applyX`. The constructions stay in the fragment
+  (`Sym.fine_applyX`) and are well formed over the schema
+  (`Sym.over_applyX`). Run from the leaves up through a query over
+  `{∅, Π, σ, apply, γ, win, μ^⊎}` (`Sym.exists_prodPass_aux`), with each
+  apply's pool a closed query holding its left side's values – inside a
+  recursive term, the values of the base and those the term creates – this
+  gives **`Sym.basisProdOps_generatesOnRec`: the product in place of the
+  apply, `{∅, Π, σ, ×, γ, win, μ^⊎}` generates the whole algebra** in the
+  minimal universe
 - `Provenance.WindowPartition` – **a window over a whole partition is a join
   with its grouping**: `AggQuery.winByJoin` writes it without a window – join
   the query with its own grouping on the partition key with `≐`, the

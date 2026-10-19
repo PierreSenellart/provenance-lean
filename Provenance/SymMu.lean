@@ -15,9 +15,11 @@ restricted recursion over a bounded set of values does
 (`AggQueryIn.mu_eq_muSum_of_valsIn`) – the bounded one computes the same
 rows, the counter projected away.
 
-This file is the multiset-level part: the rounds of the bounded recursion
-(`Sym.simStep_iterate`) and its value (`Sym.muSumFix_simStep`), for a
-round function that carries the counter untouched.
+The bounded recursion is `Sym.symMuQ`; every row of a round carries that
+round's counter and the recursion stops after the last one
+(`Sym.simStep_suf`, `Sym.simStep_last`), and over symbolic rows its slice
+under a descriptor is the encoding of the recursion's rows
+(`Sym.sliceIs_symMu`).
 -/
 
 variable {T : Type} [ValueType T]
@@ -116,67 +118,6 @@ theorem muSum_eq_sum' {α : Type} (step : Multiset α → Multiset α) :
     rw [muSum, muSum_eq_sum' step k (step M), Finset.sum_range_succ' _ (k + 1)]
     simp only [Function.iterate_succ_apply, Function.iterate_zero, id]
     exact add_comm _ _
-
-/-- **The rounds of the bounded recursion**: the underlying rounds, each
-with the counter of its index, as long as there is one. -/
-theorem simStep_iterate (B : Multiset (Tuple T (N + K)) → Multiset (Tuple T (N + K)))
-    (B₀ : Multiset (Tuple T N) → Multiset (Tuple T N))
-    (hB : ∀ Y c, B (Y.map (fun r => Fin.append r c)) = (B₀ Y).map (fun r => Fin.append r c))
-    (hB0 : B₀ 0 = 0) (cs : List (Tuple T K)) (hnd : cs.Nodup) (hne : 0 < cs.length)
-    (P₀ : Multiset (Tuple T N)) :
-    ∀ j, (simStep B (succRel cs))^[j] (P₀.map (fun r => Fin.append r cs[0]))
-      = if h : j < cs.length then (B₀^[j] P₀).map (fun r => Fin.append r cs[j]) else 0 := by
-  have hBz : B 0 = 0 := by
-    have := hB 0 cs[0]
-    rw [Multiset.map_zero, hB0, Multiset.map_zero] at this
-    exact this
-  intro j
-  induction j with
-  | zero => rw [dite_eq_left hne]; rfl
-  | succ j ih =>
-    rw [Function.iterate_succ_apply', ih]
-    by_cases hj : j < cs.length
-    · rw [dite_eq_left hj]
-      unfold simStep
-      rw [hB, Multiset.bind_map, Function.iterate_succ_apply']
-      simp only [suf_append, pre_append]
-      rw [succRel_filter cs hnd j hj]
-      by_cases hj' : j + 1 < cs.length
-      · rw [dite_eq_left hj', dite_eq_left hj']
-        simp only [Multiset.map_singleton, suf_append, Multiset.bind_singleton]
-      · rw [dite_eq_right hj', dite_eq_right (by omega)]
-        simp only [Multiset.map_zero, Multiset.bind_zero]
-    · rw [dite_eq_right hj, dite_eq_right (by omega)]
-      unfold simStep
-      rw [hBz, Multiset.zero_bind]
-
-/-- **The bounded recursion is the sum of the underlying rounds**, as many
-as there are counters, each with its counter. -/
-theorem muSumFix_simStep (B : Multiset (Tuple T (N + K)) → Multiset (Tuple T (N + K)))
-    (B₀ : Multiset (Tuple T N) → Multiset (Tuple T N))
-    (hB : ∀ Y c, B (Y.map (fun r => Fin.append r c)) = (B₀ Y).map (fun r => Fin.append r c))
-    (hB0 : B₀ 0 = 0) (cs : List (Tuple T K)) (hnd : cs.Nodup) (hne : 0 < cs.length)
-    (P₀ : Multiset (Tuple T N)) :
-    (muSumFix (simStep B (succRel cs)) (P₀.map (fun r => Fin.append r cs[0]))).map pre
-      = muSum B₀ cs.length.pred P₀ := by
-  have hBz : B 0 = 0 := by
-    have := hB 0 cs[0]
-    rw [Multiset.map_zero, hB0, Multiset.map_zero] at this
-    exact this
-  have h0 : simStep B (succRel cs) 0 = 0 := by
-    unfold simStep; rw [hBz, Multiset.zero_bind]
-  have hlast : (simStep B (succRel cs))^[cs.length.pred + 1] (P₀.map (fun r => Fin.append r cs[0]))
-      = 0 := by
-    have := Nat.succ_pred_eq_of_pos hne
-    rw [simStep_iterate B B₀ hB hB0 cs hnd hne P₀, dite_eq_right (by omega)]
-  rw [muSumFix_eq_of_empty h0 hlast, muSum_eq_sum', muSum_eq_sum',
-    ← Multiset.mapAddMonoidHom_apply, map_sum]
-  refine Finset.sum_congr rfl (fun j hj => ?_)
-  rw [Finset.mem_range] at hj
-  have := Nat.succ_pred_eq_of_pos hne
-  rw [Multiset.mapAddMonoidHom_apply, simStep_iterate B B₀ hB hB0 cs hnd hne P₀,
-    dite_eq_left (by omega), Multiset.map_map]
-  simp [Function.comp]
 
 /-! ## The bounded recursion as a query -/
 
@@ -285,21 +226,17 @@ def symMuQ (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
   (AggQueryIn.Proj (projSA (fun i : Fin N => (.col (Fin.castAdd K i) : SA T c (N + K))))
     (AggQueryIn.Mu s (prodR Q₀ Lq) (stepQ s Bq Sq))).castKind (projSA_kind _)
 
-/-- **What the bounded recursion computes**: the underlying rounds summed,
-as many as there are counters. -/
-theorem evaluatePlain_symMuQ (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
+/-- **The bounded recursion, read as a fixpoint** of its round on the
+rows. -/
+theorem evaluatePlain_symMuQ_fix (s : String) (Q₀ : AggQueryIn T c N (ColKind.allReg N))
     (Bq : AggQueryIn T c (N + K) (ColKind.allReg (N + K)) [(s, N + K)])
     (Lq : AggQueryIn T c K (ColKind.allReg K))
     (Sq : AggQueryIn T c (K + K) (ColKind.allReg (K + K)))
-    (hS : Sq.noMention s) (D : Database T) (γ : Fin c → T)
-    (B₀ : Multiset (Tuple T N) → Multiset (Tuple T N))
-    (hB : ∀ Y c', (Bq.evaluatePlain (D.assign s (Y.map (fun r => Fin.append r c'))) γ
-        : Multiset (Tuple T (N + K))) = (B₀ Y).map (fun r => Fin.append r c'))
-    (hB0 : B₀ 0 = 0) (cs : List (Tuple T K)) (hnd : cs.Nodup) (hne : 0 < cs.length)
-    (hLv : Lq.evaluatePlain D γ = ({cs[0]} : Multiset (Tuple T K)))
-    (hSv : Sq.evaluatePlain D γ = (succRel cs : Multiset (Tuple T (K + K)))) :
+    (hS : Sq.noMention s) (D : Database T) (γ : Fin c → T) :
     ((symMuQ s Q₀ Bq Lq Sq).evaluatePlain D γ : Multiset (Tuple T N))
-      = muSum B₀ cs.length.pred (Q₀.evaluatePlain D γ) := by
+      = (muSumFix (simStep (fun Z => (Bq.evaluatePlain (D.assign s Z) γ
+          : Multiset (Tuple T (N + K)))) (Sq.evaluatePlain D γ))
+          ((prodR Q₀ Lq).evaluatePlain D γ)).map pre := by
   rw [symMuQ, AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u j => (projSA (fun i : Fin N =>
       (.col (Fin.castAdd K i) : SA T c (N + K))) j).evalPlain u γ)
@@ -310,62 +247,240 @@ theorem evaluatePlain_symMuQ (s : String) (Q₀ : AggQueryIn T c N (ColKind.allR
     funext u j
     rw [evalPlain_projSA]; rfl
   rw [hpre]
-  have hstep : ∀ X : Relation T (N + K),
-      ((stepQ s Bq Sq).evaluatePlain (D.assign s X) γ : Multiset (Tuple T (N + K)))
-        = simStep (fun Z => (Bq.evaluatePlain (D.assign s Z) γ : Multiset (Tuple T (N + K))))
-            (succRel cs) X := by
-    intro X
-    rw [evaluatePlain_stepQ, simStep, simStep,
-      AggQueryIn.evaluatePlain_assign_of_noMention X Sq hS D γ, hSv]
-  have hbase : ((prodR Q₀ Lq).evaluatePlain D γ : Multiset (Tuple T (N + K)))
-      = (Q₀.evaluatePlain D γ : Multiset (Tuple T N)).map (fun r => Fin.append r cs[0]) := by
+  congr 1
+  refine muSumFix_congr (fun X => ?_) rfl
+  rw [evaluatePlain_stepQ, simStep, simStep,
+    AggQueryIn.evaluatePlain_assign_of_noMention X Sq hS D γ]
+
+end Query
+
+/-! ## The rounds of the bounded recursion, round by round -/
+
+section Rounds
+
+/-- **Every row of a round carries that round's counter**, and there are
+no rows past the last counter, as long as the round function keeps each
+row's counter. -/
+theorem simStep_suf (B : Multiset (Tuple T (N + K)) → Multiset (Tuple T (N + K)))
+    (hpres : ∀ Y, ∀ y ∈ B Y, ∃ x ∈ Y, suf x = suf y) (cs : List (Tuple T K)) (hnd : cs.Nodup)
+    (Z₀ : Multiset (Tuple T (N + K))) (hne : 0 < cs.length) (h₀ : ∀ z ∈ Z₀, suf z = cs[0]) :
+    ∀ j, ∀ z ∈ (simStep B (succRel cs))^[j] Z₀, ∃ h : j < cs.length, suf z = cs[j] := by
+  intro j
+  induction j with
+  | zero => exact fun z hz => ⟨hne, h₀ z hz⟩
+  | succ j ih =>
+    intro z hz
+    rw [Function.iterate_succ_apply'] at hz
+    have hz' : z ∈ (B ((simStep B (succRel cs))^[j] Z₀)).bind (fun x =>
+        ((succRel cs).filter (fun ab => pre ab = suf x)).map
+          (fun ab => Fin.append (pre x) (suf ab))) := hz
+    obtain ⟨y, hy, hz⟩ := Multiset.mem_bind.mp hz'
+    obtain ⟨x, hx, hxy⟩ := hpres _ y hy
+    obtain ⟨hj, hxj⟩ := ih x hx
+    rw [hxy] at hxj
+    rw [hxj, succRel_filter cs hnd j hj] at hz
+    by_cases hj' : j + 1 < cs.length
+    · rw [dite_eq_left hj', Multiset.map_singleton, Multiset.mem_singleton] at hz
+      exact ⟨hj', by rw [hz, suf_append, suf_append]⟩
+    · rw [dite_eq_right hj'] at hz
+      exact absurd hz (Multiset.notMem_zero _)
+
+/-- **The bounded recursion stops after the last counter.** -/
+theorem simStep_last (B : Multiset (Tuple T (N + K)) → Multiset (Tuple T (N + K)))
+    (hpres : ∀ Y, ∀ y ∈ B Y, ∃ x ∈ Y, suf x = suf y) (cs : List (Tuple T K)) (hnd : cs.Nodup)
+    (Z₀ : Multiset (Tuple T (N + K))) (hne : 0 < cs.length) (h₀ : ∀ z ∈ Z₀, suf z = cs[0]) :
+    (simStep B (succRel cs))^[cs.length] Z₀ = 0 :=
+  Multiset.eq_zero_of_forall_notMem (fun z hz => by
+    obtain ⟨h, -⟩ := simStep_suf B hpres cs hnd Z₀ hne h₀ _ z hz
+    exact lt_irrefl _ h)
+
+end Rounds
+
+/-! ## The symbolic bounded recursion's slices -/
+
+section SliceSim
+
+variable {k c n : ℕ} {C : Finset T}
+
+omit [ValueType T] in
+theorem descP_pre {K' : ℕ} (x : Tuple T ((k + n) * (7 + k) + K')) :
+    descP (P := 0) (pre x : Tuple T ((k + n) * (7 + k))) = descP (P := K') x := by
+  funext y
+  simp only [descP, ofCells, pre]
+  rfl
+
+/-- **The rounds of the symbolic bounded recursion, under a descriptor**:
+the encodings of the recursion's rounds, each with its counter. -/
+theorem slice_simStep {par : Fin k → T} {K' : ℕ}
+    (B : Multiset (Tuple T ((k + n) * (7 + k) + K')) → Multiset (Tuple T ((k + n) * (7 + k) + K')))
+    (step : Multiset (Tuple T n) → Multiset (Tuple T n))
+    (cs : List (Tuple T K')) (hnd : cs.Nodup) (hne : 0 < cs.length)
+    (Z₀ : Multiset (Tuple T ((k + n) * (7 + k) + K'))) (X₀ : Multiset (Tuple T n))
+    (hbody : ∀ j, LT.lt (j + 1) cs.length → ∀ (Y : Multiset (Tuple T ((k + n) * (7 + k) + K')))
+      (e : Tuple T K'), SliceIs C par Y ((step^[j] X₀).map (fun v => (v, e))) →
+      SliceIs C par (B Y) ((step (step^[j] X₀)).map (fun v => (v, e))))
+    (h₀ : SliceIs C par Z₀ (X₀.map (fun v => (v, cs[0])))) :
+    ∀ j (hj : j < cs.length), SliceIs C par ((simStep B (succRel cs))^[j] Z₀)
+      ((step^[j] X₀).map (fun v => (v, cs[j]))) := by
+  intro j
+  induction j with
+  | zero => exact fun _ => h₀
+  | succ j ih =>
+    intro hj1
+    have hj : j < cs.length := by omega
+    have hB := hbody j hj1 _ cs[j] (ih hj)
+    rw [Function.iterate_succ_apply', Function.iterate_succ_apply']
+    unfold SliceIs at hB ⊢
+    show slice ((B _).bind _) _ = _
+    unfold slice at hB ⊢
+    rw [Multiset.filter_bind]
+    have hpart : ∀ x : Tuple T ((k + n) * (7 + k) + K'),
+        Multiset.filter (fun r => descP (P := K') r = descEnc C par)
+          (((succRel cs).filter (fun ab => pre ab = suf x)).map
+            (fun ab => Fin.append (pre x) (suf ab)))
+        = if descP (P := K') x = descEnc C par then
+            ((succRel cs).filter (fun ab => pre ab = suf x)).map
+              (fun ab => Fin.append (pre x) (suf ab)) else 0 := by
+      intro x
+      have hd : ∀ ab : Tuple T (K' + K'),
+          descP (P := K') (Fin.append (pre x) (suf ab) : Tuple T _) = descP (P := K') x := by
+        intro ab
+        rw [← descP_pre (Fin.append (pre x) (suf ab) : Tuple T _), pre_append, descP_pre]
+      split
+      · rename_i h
+        exact Multiset.filter_eq_self.mpr (fun r hr => by
+          obtain ⟨ab, -, rfl⟩ := Multiset.mem_map.mp hr
+          rw [hd]; exact h)
+      · rename_i h
+        exact Multiset.filter_eq_nil.mpr (fun r hr hr' => by
+          obtain ⟨ab, -, rfl⟩ := Multiset.mem_map.mp hr
+          rw [hd] at hr'; exact h hr')
+    simp only [hpart]
+    rw [AggQueryIn.Multiset.bind_ite (fun x => descP (P := K') x = descEnc C par), hB, encAll,
+      encAll, Multiset.map_map, Multiset.map_map, Multiset.bind_map]
+    rw [← Multiset.bind_singleton]
+    refine Multiset.bind_congr (fun v _ => ?_)
+    simp only [Function.comp, rowEncP, suf_append, pre_append]
+    rw [succRel_filter cs hnd j hj, dite_eq_left hj1, Multiset.map_singleton, suf_append]
+
+/-- A relation with no further columns, its slice as encoded rows. -/
+theorem sliceIs_zero_iff {par : Fin k → T} (Q : Multiset (Tuple T ((k + n) * (7 + k))))
+    (X : Multiset (Tuple T n)) :
+    SliceIs (P := 0) C par Q (X.map (fun v => (v, (Fin.elim0 : Tuple T 0))))
+      ↔ Q.filter (fun r => descP (P := 0) r = descEnc C par) = X.map (rowEnc C par) := by
+  unfold SliceIs slice encAll
+  rw [Multiset.map_map]
+  have : ((fun x : Tuple T n × Tuple T 0 => rowEncP C par x.1 x.2) ∘
+      (fun v => (v, (Fin.elim0 : Tuple T 0)))) = rowEnc C par :=
+    funext fun v => rowEncP_elim0 C par v
+  rw [this]
+
+/-- **The symbolic bounded recursion's slice**: the encodings of the
+recursion's rows, wherever the recursion settles within as many rounds as
+there are counters and its rounds hold good values. -/
+theorem sliceIs_symMu {par : Fin k → T} {K' : ℕ} (s : String)
+    (Q₀ : AggQueryIn T c ((k + n) * (7 + k)) (ColKind.allReg ((k + n) * (7 + k))))
+    (Bq : AggQueryIn T c ((k + n) * (7 + k) + K') (ColKind.allReg ((k + n) * (7 + k) + K'))
+      [(s, (k + n) * (7 + k) + K')])
+    (Lq : AggQueryIn T c K' (ColKind.allReg K'))
+    (Sq : AggQueryIn T c (K' + K') (ColKind.allReg (K' + K')))
+    (hS : Sq.noMention s) (D : Database T) (γ : Fin c → T)
+    (step : Multiset (Tuple T n) → Multiset (Tuple T n)) (X₀ : Multiset (Tuple T n))
+    (hQ₀ : SliceIs (P := 0) C par (Q₀.evaluatePlain D γ) (X₀.map (fun v => (v, Fin.elim0))))
+    (hpres : ∀ (Y : Multiset (Tuple T ((k + n) * (7 + k) + K')))
+      (y : Tuple T ((k + n) * (7 + k) + K')), Multiset.Mem (Bq.evaluatePlain (D.assign s Y) γ) y →
+      ∃ x ∈ Y, suf x = suf y)
+    (cs : List (Tuple T K')) (hnd : cs.Nodup) (hne : 0 < cs.length)
+    (hbody : ∀ j, LT.lt (j + 1) cs.length → ∀ (Y : Multiset (Tuple T ((k + n) * (7 + k) + K')))
+      (e : Tuple T K'), SliceIs C par Y ((step^[j] X₀).map (fun v => (v, e))) →
+      SliceIs C par (Bq.evaluatePlain (D.assign s Y) γ)
+        ((step (step^[j] X₀)).map (fun v => (v, e))))
+    (hLv : Lq.evaluatePlain D γ = ({cs[0]} : Multiset (Tuple T K')))
+    (hSv : Sq.evaluatePlain D γ = (succRel cs : Multiset (Tuple T (K' + K'))))
+    (h0 : step 0 = 0) (hset : step^[cs.length] X₀ = 0) :
+    SliceIs (P := 0) C par ((symMuQ s Q₀ Bq Lq Sq).evaluatePlain D γ)
+      ((muSumFix step X₀).map (fun v => (v, Fin.elim0))) := by
+  rw [sliceIs_zero_iff, evaluatePlain_symMuQ_fix s Q₀ Bq Lq Sq hS D γ]
+  erw [hSv]
+  set B : Multiset (Tuple T ((k + n) * (7 + k) + K')) → Multiset (Tuple T ((k + n) * (7 + k) + K'))
+    := fun Z => Bq.evaluatePlain (D.assign s Z) γ with hBdef
+  -- the base: the base's rows with the least counter
+  have hbase : ((prodR Q₀ Lq).evaluatePlain D γ : Multiset _)
+      = (Q₀.evaluatePlain D γ : Multiset (Tuple T ((k + n) * (7 + k)))).map
+          (fun r => Fin.append r cs[0]) := by
     rw [evaluatePlain_prodR]
     erw [hLv]
     simp only [Multiset.map_singleton]
     exact Multiset.bind_singleton _ _
-  rw [muSumFix_congr (fun X => hstep X) hbase]
-  exact muSumFix_simStep _ B₀ hB hB0 cs hnd hne _
-
-end Query
-
-/-! ## The bounded recursion over symbolic rows -/
-
-section SliceMu
-
-variable {k c n : ℕ} {C : Finset T}
-
-/-- **The symbolic bounded recursion's rows under a descriptor** are the
-encodings of the recursion's rows, wherever the recursion settles within
-as many rounds as there are counters and its rounds hold good values. -/
-theorem slice_muSum {par : Fin k → T}
-    (B₀ : Multiset (Tuple T ((k + n) * (7 + k))) → Multiset (Tuple T ((k + n) * (7 + k))))
-    (step : Multiset (Tuple T n) → Multiset (Tuple T n))
-    (hbody : ∀ (Y : Multiset (Tuple T ((k + n) * (7 + k)))) (X : Multiset (Tuple T n)),
-      (∀ v ∈ X, ∀ i, GoodVal (C := C) par (v i)) →
-      Y.filter (fun r => descP (P := 0) r = descEnc C par) = X.map (rowEnc C par) →
-      (B₀ Y).filter (fun r => descP (P := 0) r = descEnc C par) = (step X).map (rowEnc C par))
-    (P₀ : Multiset (Tuple T ((k + n) * (7 + k)))) (X₀ : Multiset (Tuple T n))
-    (h₀ : P₀.filter (fun r => descP (P := 0) r = descEnc C par) = X₀.map (rowEnc C par))
-    (hgood : ∀ j, ∀ v ∈ step^[j] X₀, ∀ i, GoodVal (C := C) par (v i)) :
-    ∀ L, (muSum B₀ L P₀).filter (fun r => descP (P := 0) r = descEnc C par)
-      = (muSum step L X₀).map (rowEnc C par) := by
-  have hit : ∀ j, (B₀^[j] P₀).filter (fun r => descP (P := 0) r = descEnc C par)
+  rw [hbase]
+  have hsuf0 : ∀ z ∈ (Q₀.evaluatePlain D γ : Multiset (Tuple T ((k + n) * (7 + k)))).map
+      (fun r => Fin.append r cs[0]), suf z = cs[0] := by
+    intro z hz
+    obtain ⟨r, -, rfl⟩ := Multiset.mem_map.mp hz
+    exact suf_append r _
+  have hz0 : SliceIs C par ((Q₀.evaluatePlain D γ : Multiset (Tuple T ((k + n) * (7 + k)))).map
+      (fun r => Fin.append r cs[0])) (X₀.map (fun v => (v, cs[0]))) := by
+    have h := (sliceIs_zero_iff _ _).mp hQ₀
+    unfold SliceIs slice encAll
+    rw [Multiset.filter_map]
+    have hdesc : Multiset.filter ((fun r => descP (P := K') r = descEnc C par) ∘
+        (fun r : Tuple T ((k + n) * (7 + k)) => (Fin.append r cs[0] : Tuple T _)))
+          (Q₀.evaluatePlain D γ)
+        = Multiset.filter (fun r => descP (P := 0) r = descEnc C par) (Q₀.evaluatePlain D γ) :=
+      Multiset.filter_congr (fun r _ => by
+        simp only [Function.comp]
+        rw [← descP_pre (Fin.append r cs[0] : Tuple T _), pre_append])
+    erw [hdesc, h]
+    rw [Multiset.map_map, Multiset.map_map]
+    rfl
+  -- it stops after the last counter
+  have hlast := simStep_last B (fun Y y hy => hpres Y y hy) cs hnd _ hne hsuf0
+  have hzero : simStep B (succRel cs) 0 = 0 := by
+    unfold simStep
+    have : B 0 = 0 := Multiset.eq_zero_of_forall_notMem (fun y hy => by
+      obtain ⟨x, hx, -⟩ := hpres 0 y hy
+      exact Multiset.notMem_zero _ hx)
+    rw [this, Multiset.zero_bind]
+  have hL : cs.length.pred + 1 = cs.length := Nat.succ_pred_eq_of_pos hne
+  erw [muSumFix_eq_of_empty hzero (k := cs.length.pred) (by rw [hL]; exact hlast)]
+  rw [muSumFix_eq_of_empty h0 (k := cs.length.pred) (by rw [hL]; exact hset),
+    muSum_eq_sum', muSum_eq_sum']
+  -- round by round
+  have hround := slice_simStep B step cs hnd hne _ X₀ (fun j hj Y e hY => hbody j hj Y e hY) hz0
+  have hj : ∀ j, LT.lt j cs.length →
+      Multiset.filter (fun r => descP (P := 0) r = descEnc C par)
+        (((simStep B (succRel cs))^[j] ((Q₀.evaluatePlain D γ
+          : Multiset (Tuple T ((k + n) * (7 + k)))).map (fun r => Fin.append r cs[0]))).map pre)
       = (step^[j] X₀).map (rowEnc C par) := by
-    intro j
-    induction j with
-    | zero => exact h₀
-    | succ j ih =>
-      rw [Function.iterate_succ_apply', Function.iterate_succ_apply']
-      exact hbody _ _ (hgood j) ih
-  intro L
-  rw [muSum_eq_sum', muSum_eq_sum']
-  induction L with
-  | zero => simpa using hit 0
-  | succ L ih =>
-    rw [Finset.sum_range_succ (fun j => B₀^[j] P₀) (L + 1),
-      Finset.sum_range_succ (fun j => step^[j] X₀) (L + 1), Multiset.filter_add, Multiset.map_add,
-      ih, hit]
+    intro j hjl
+    have h := hround j hjl
+    unfold SliceIs slice encAll at h
+    rw [Multiset.filter_map]
+    have hf : Multiset.filter ((fun r => descP (P := 0) r = descEnc C par) ∘
+        (pre : Tuple T ((k + n) * (7 + k) + K') → Tuple T ((k + n) * (7 + k))))
+          ((simStep B (succRel cs))^[j] ((Q₀.evaluatePlain D γ
+            : Multiset (Tuple T ((k + n) * (7 + k)))).map (fun r => Fin.append r cs[0])))
+        = Multiset.filter (fun r => descP (P := K') r = descEnc C par)
+          ((simStep B (succRel cs))^[j] ((Q₀.evaluatePlain D γ
+            : Multiset (Tuple T ((k + n) * (7 + k)))).map (fun r => Fin.append r cs[0]))) :=
+      Multiset.filter_congr (fun r _ => by simp only [Function.comp, descP_pre])
+    rw [hf, h, Multiset.map_map, Multiset.map_map]
+    refine Multiset.map_congr rfl (fun v _ => ?_)
+    simp only [Function.comp, rowEncP, pre_append]
+  have hsum : ∀ L, LE.le (L + 1) cs.length →
+      Multiset.filter (fun r => descP (P := 0) r = descEnc C par)
+        ((∑ j ∈ Finset.range (L + 1), (simStep B (succRel cs))^[j] ((Q₀.evaluatePlain D γ
+          : Multiset (Tuple T ((k + n) * (7 + k)))).map (fun r => Fin.append r cs[0]))).map pre)
+      = (∑ j ∈ Finset.range (L + 1), step^[j] X₀).map (rowEnc C par) := by
+    intro L hL'
+    induction L with
+    | zero => simpa using hj 0 hne
+    | succ L ih =>
+      rw [Finset.sum_range_succ (fun j => (simStep B (succRel cs))^[j] _) (L + 1),
+        Finset.sum_range_succ (fun j => step^[j] X₀) (L + 1), Multiset.map_add,
+        Multiset.filter_add, Multiset.map_add, ih (by omega), hj (L + 1) (by omega)]
+  exact hsum _ (by omega)
 
-end SliceMu
+end SliceSim
 
 end Sym
