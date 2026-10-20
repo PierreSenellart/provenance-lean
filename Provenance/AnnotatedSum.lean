@@ -88,7 +88,7 @@ theorem AggQueryIn.evaluate_congr_holes :
   | Win P O o w t f q hrr dist keep ih =>
     intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, EvalEnv.paramKey, hc, ih dB γ hh hc]
   | WinExpr P O o ws ts fs g q keeps ih =>
-    rename_i _ rd
+    rename_i _ rd _
     intro dB γ E E' hh hc
     simp only [AggQueryIn.evaluate]
     rw [ih dB γ hh hc,
@@ -1929,11 +1929,12 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
   | ProvSum is his t q ih => exact fun hq => hq.elim
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t fw q hrr dist keep ih =>
-    rename_i lab rd
+    rename_i lab rd _
     intro hq hr hi f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Win (lab := lab) (rd := rd) P O o w t fw q' hrr dist keep,
+    refine ⟨fun _ => ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t fw q'
+        hrr dist keep,
       ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
         hs.nom⟩, fun d γ E E' hE hset => ?_⟩,

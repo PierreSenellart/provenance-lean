@@ -2352,12 +2352,13 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c
     {P : AggQuery T c (ColKind.allReg c)}
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
     (P' : Tuple (Fin n) mp) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n κ} (hrr : WinReadsReg κ P' O t)
     (dist : Bool) (keep : Option (Selection T n))
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P
-      (AggQueryIn.Win (lab := lab) (rd := rd) P' O o w t f q hrr dist keep) := by
+      (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P' O o w t f q hrr dist keep)
+        := by
   classical
   obtain ⟨q', hu, hos, hsg, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
@@ -2366,7 +2367,8 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c
       = ColKind.liftKinds c (Fin.snoc κ ColKind.agg) j :=
     fun j => ColKind.snoc_winSrc κ (κ' := ColKind.liftKinds c κ) rfl j
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κw (winSrc c n j))
-      (AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) (winPart c P') (winOrd c O) o w t.lift f
+      (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := (fun _ => false)) (winPart c P')
+        (winOrd c O) o w t.lift f
           q'
         (winReadsReg_lift hrr) dist
         (keep.map (Selection.shift c)))).castKind
@@ -2441,19 +2443,21 @@ theorem AggQueryIn.hasDecorrelation_winExpr {lab : ℕ} {c n mp p na : ℕ} {rd 
     {P : AggQuery T c (ColKind.allReg c)}
     (hnd : ∀ D : Database T, (P.evaluatePlain D).Nodup)
     (P' : Tuple (Fin n) mp) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ws : Fin na → ValueFrame T p)
+    (ws : Fin na → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin na → TermIn T c n) (fs : Fin na → SeqAggFunc T)
     (g : (Fin na → T) → T) {q : AggQueryIn T c n (ColKind.allReg n)}
     (keeps : Fin na → Option (Selection T n))
     (h : AggQueryIn.HasDecorrelation S sch P q) :
     AggQueryIn.HasDecorrelation S sch P
-      (AggQueryIn.WinExpr (lab := lab) (rd := rd) P' O o ws ts fs g q keeps) := by
+      (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P' O o ws ts fs g q keeps)
+        := by
   classical
   obtain ⟨q', hu, hos, -, hd⟩ := h
   set κw : Fin ((c + n) + 1) → ColKind :=
     Fin.snoc (ColKind.allReg (c + n)) ColKind.agg with hκw
   refine ⟨(AggQueryIn.Proj (fun j => AggQueryIn.carryCol κw (winSrc c n j))
-      (AggQueryIn.WinExpr (lab := 0) (rd := (fun _ => false)) (winPart c P') (winOrd c O) o ws
+      (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := (fun _ => false)) (winPart c P')
+        (winOrd c O) o ws
         (fun l => (ts l).lift) fs g (q'.castKind (AggQueryIn.append_allReg c n))
         (fun l => (keeps l).map (Selection.shift c)))).castKind
       (funext (fun j => (AggQueryIn.carryCol_kind κw _).trans

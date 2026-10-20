@@ -848,6 +848,28 @@ theorem key_winOIdx (C : Finset T) (O : Tuple (Fin n) p) (par : Fin k → T) (v 
 def expandFrame (w : ValueFrame T p) : ValueFrame T (p * (3 + k)) :=
   ⟨expandCond w.cond, w.self⟩
 
+omit [ValueType T] in
+/-- **A frame of SQL read over the keys is one**, under the clause read over
+the keys: each comparison is the same comparison under the expanded clause. -/
+theorem isSQLUnder_expandFrame {o : OrderSpec p} {w : ValueFrame T p}
+    (h : w.IsSQLUnder o) : (expandFrame (k := k) w).IsSQLUnder (expandSpec o) := by
+  cases h with
+  | noOthers hc => cases hc <;> sql_frame_under
+  | current hc => cases hc <;> sql_frame_under
+  | group hc => cases hc <;> sql_frame_under
+  | ties hc => cases hc <;> sql_frame_under
+  | before => sql_frame_under
+  | after => sql_frame_under
+
+omit [ValueType T] in
+theorem isSQL_expandFrame {o : OrderSpec p} {w : ValueFrame T p} (h : w.IsSQL o) :
+    (expandFrame (k := k) w).IsSQL (expandSpec o) :=
+  h.imp isSQLUnder_expandFrame isSQLUnder_expandFrame
+
+/-- `sql_frame` also sees through a frame read over the keys. -/
+macro_rules
+  | `(tactic| sql_frame) => `(tactic| (apply Sym.isSQL_expandFrame; sql_frame))
+
 /-- **The frame of an encoded row is the encoding of the frame.** -/
 theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (w : ValueFrame T p) {Q : Multiset (Tuple T ((k + n) * (7 + k)))} {R : Multiset (Tuple T n)}

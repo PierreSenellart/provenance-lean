@@ -178,10 +178,10 @@ answer independent of any indexing of the occurrences
 (`ValueFrame.window_toMultiset_congr`). -/
 theorem AggQueryIn.evaluate_Win {lab : ℕ} {rd} {n m p : ℕ} {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr).evaluate d
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr).evaluate d
       = (q.evaluate d).map (fun x =>
           ValueFrame.windowGenRow lab [] κ P O o w t f none
             ((q.evaluate d).map (GenRow.readAnnotated κ)) x) := rfl
@@ -190,10 +190,11 @@ theorem AggQueryIn.evaluate_Win {lab : ℕ} {rd} {n m p : ℕ} {κ : Fin n → C
 none, and adds one column to each. -/
 @[simp] theorem AggQueryIn.card_evaluate_Win {lab : ℕ} {rd} {n m p : ℕ}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : Term T n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (f : SeqAggFunc T) (q : AggQueryIn T 0 n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) :
-    Multiset.card ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr).evaluate d)
+    Multiset.card ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q
+      hrr).evaluate d)
       = Multiset.card (q.evaluate d) :=
   Multiset.card_map _ _
 

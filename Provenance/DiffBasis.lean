@@ -344,7 +344,8 @@ the count read as a key. -/
 def winZ (cnt : SeqAggFunc T) (Z : AggQueryIn T C 1 (ColKind.allReg 1)) :
     AggQueryIn T C 2 (ColKind.allReg 2) :=
   (AggQueryIn.Explode (Fin.last 1) (Fin.snoc_last (α := fun _ => ColKind) _ _)
-    (AggQueryIn.Win (lab := 0) (rd := fun _ => false) (fun j : Fin 0 => j.elim0)
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun j : Fin 0 =>
+      j.elim0)
       (fun _ : Fin 1 => (0 : Fin 1)) (OrderSpec.asc 1) beforeW (TermIn.index 0) cnt
       Z (winReadsReg_allReg _ _ _))).castKind kinds_explode
 
@@ -1141,10 +1142,11 @@ theorem exists_selPass_of {Src Tgt : Set OpKind}
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
-  | @Win c' n' m' p' κ' lab rd P O o w t f q hrr dist keep ih =>
+  | @Win c' n' m' p' κ' lab rd P O o w _ t f q hrr dist keep ih =>
     intro hu hi hn
     obtain ⟨q', hu', hi', ho', hm', he'⟩ := ih hu.2 hi.2.2.2 hn
-    refine ⟨AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist
+        keep,
       ⟨hsub _ hu.1 (by decide), hu'⟩, ⟨hi.1, hi.2.1, hi.2.2.1, hi'⟩, ho', hm',
       fun D γ h => ⟨(he' D γ h).1, ?_⟩⟩
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]

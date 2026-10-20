@@ -601,19 +601,20 @@ variable [ValueType T] {n m p : ℕ}
 /-- `first_value(t)` over the frame `w`: the value of `t` on the first row
 of the frame in the clause's order. -/
 def firstValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : Term T n)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (lab := 0) (rd := fun _ => false) P O o w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t SeqAggFunc.pickFirst q
+    (winReadsReg_allReg P O t)
 
 /-- `last_value(t)`: the same frame, read backwards. Only the reading
 order is reversed – the frame is an argument, so a frame the clause
 bounds is still bounded by the clause as it stands. -/
 def lastValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : Term T n)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (lab := 0) (rd := fun _ =>
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ =>
       false) P O o.reverse w t SeqAggFunc.pickFirst q (winReadsReg_allReg P O t)
 
 /-- `lag(t)`: `last_value` over the rows strictly before the current
@@ -621,22 +622,23 @@ row's peers. -/
 def lag (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  lastValue P O o (ValueFrame.rangeBefore o) t q
+  lastValue (hsql := sql_frame%) P O o (ValueFrame.rangeBefore o) t q
 
 /-- `lead(t)`: `first_value` over the rows strictly after. -/
 def lead (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  firstValue P O o (ValueFrame.rangeAfter o) t q
+  firstValue (hsql := sql_frame%) P O o (ValueFrame.rangeAfter o) t q
 
 /-- `nth_value(t, i+1)` over the frame `w`: the value of `t` on the row
 at offset `i` of the frame in the clause's order, counting from `0`.
 `firstValue` is the case `i = 0`. -/
 def nthValue (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (i : ℕ) (t : Term T n)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (i : ℕ) (t : Term T n)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (lab := 0) (rd := fun _ => false) P O o w t (SeqAggFunc.pickNth i) q (winReadsReg_allReg P O
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t (SeqAggFunc.pickNth i) q
+    (winReadsReg_allReg P O
       t)
 
 /-- `lag(t, i+1)`: the value `i + 1` rows before the current row's
@@ -644,13 +646,13 @@ peers, the frame of `lag` read backwards from its end. -/
 def lagAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (i : ℕ) (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  nthValue P O o.reverse (ValueFrame.rangeBefore o) i t q
+  nthValue (hsql := sql_frame%) P O o.reverse (ValueFrame.rangeBefore o) i t q
 
 /-- `lead(t, i+1)`: the value `i + 1` rows after. -/
 def leadAt (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (i : ℕ) (t : Term T n) (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  nthValue P O o (ValueFrame.rangeAfter o) i t q
+  nthValue (hsql := sql_frame%) P O o (ValueFrame.rangeAfter o) i t q
 
 theorem lagAt_zero (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     (o : OrderSpec p) (t : Term T n)
@@ -735,7 +737,8 @@ def rank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (hrr : WinReadsReg κ P O (TermIn.const (c := 0) 1)) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
   (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
-    (Win (lab := 0) (rd := fun _ => false) P O o (ValueFrame.rangeBefore o) (TermIn.const 1) cnt q
+    (Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o (ValueFrame.rangeBefore o)
+      (TermIn.const 1) cnt q
       hrr)).castKind (funext (overWindow_kind κ _))
 
 /-- **What a rank computes over plain relations**: each row of the input,
@@ -774,7 +777,8 @@ def denseRank [One T] (cnt : SeqAggFunc T) (P : Tuple (Fin n) m)
     (hrr : WinReadsReg κ P O (TermIn.index (T := T) (c := 0) (O 0))) :
     AggQuery T (n + 1) (Fin.snoc κ ColKind.agg) :=
   (Proj (overWindow κ (TermIn.add (TermIn.const 1) (TermIn.outer 0)))
-    (Win (lab := 0) (rd := fun _ => false) P O o (ValueFrame.rangeBefore o) (TermIn.index (O 0))
+    (Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o (ValueFrame.rangeBefore o)
+      (TermIn.index (O 0))
         cnt q
       hrr true)).castKind (funext (overWindow_kind κ _))
 
@@ -826,7 +830,7 @@ def percentRank [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P O o
+  AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o
     ![ValueFrame.rangeBefore o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => if v 1 = 1 then 0 else divide (v 0) (v 1 - 1)) q
@@ -838,7 +842,7 @@ def cumeDist [One T] (cnt : SeqAggFunc T) (divide : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P O o
+  AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o
     ![ValueFrame.rangeUpTo o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => divide (v 0) (v 1)) q
@@ -852,7 +856,7 @@ def ntile [One T] (cnt : SeqAggFunc T) (bucket : T → T → T)
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
     (q : AggQuery T n (ColKind.allReg n)) :
     AggQuery T (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P O o
+  AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o
     ![ValueFrame.rangeBefore o, ValueFrame.whole]
     ![TermIn.const 1, TermIn.const 1] ![cnt, cnt]
     (fun v => bucket (v 1) (1 + v 0)) q
@@ -1477,11 +1481,11 @@ def gammaFilter {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (op : CompOp)
 
 /-- **A window aggregate with a `FILTER` clause.** -/
 def winFilter {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (op : CompOp)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (op : CompOp)
     (t₁ t₂ t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (lab := 0) (rd := fun _ => false) P O o w (filterTerm op t₁ t₂ t) f q
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w (filterTerm op t₁ t₂ t) f q
     (winReadsReg_allReg P O _)
 
 /-- **What a filtered null-skipping aggregation computes over plain
@@ -1594,21 +1598,22 @@ frame down to the rows it keeps, so a null-keeping aggregate is served
 here too, and the token is read in the scalar convention – the kept part
 of a frame may be empty where the frame is not. -/
 def winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (φ : Selection T n)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (φ : Selection T n)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool := false) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
-  Win (lab := 0) (rd := fun _ => false) P O o w t f q (winReadsReg_allReg P O t) dist (some φ)
+  Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t f q (winReadsReg_allReg P O
+    t) dist (some φ)
 
 /-- **What a filtered window aggregate computes over plain relations**:
 each row's aggregate reads the rows of its frame the clause keeps. No
 hypothesis on the aggregate. -/
 theorem evaluatePlain_winWhere {n mp p : ℕ} (P : Tuple (Fin n) mp)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (φ : Selection T n) (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (D : Database T)
     {γ : Fin c → T} :
-    (winWhere P O o w φ t f q dist).evaluatePlain D γ
+    (winWhere (hsql := sql_frame%) P O o w φ t f q dist).evaluatePlain D γ
       = (q.evaluatePlain D γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValueWhen P O o w t
@@ -1659,7 +1664,8 @@ def values (us : List (Tuple T k)) (h : us ≠ []) :
   match us, h with
   | [], h => absurd rfl h
   | u :: rest, _ =>
-      rest.foldl (fun (q : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q (rowOf v)) (rowOf u)
+      rest.foldl (fun (q : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q (rowOf v))
+        (rowOf u)
 
 /-- **The unit has one row, and it is the empty tuple.** Stated against
 any arity-`0` tuple, every one of them being that tuple. -/
@@ -1692,7 +1698,8 @@ any arity-`0` tuple, every one of them being that tuple. -/
 theorem evaluatePlain_foldl_rowOf (l : List (Tuple T k))
     (q : AggQuery T k (ColKind.allReg k)) (D : Database T) (γ : Fin 0 → T)
     (r : Multiset (Tuple T k)) (hq : q.evaluatePlain D γ = r) :
-    (l.foldl (fun (q' : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q' (rowOf v)) q).evaluatePlain D γ
+    (l.foldl (fun (q' : AggQuery T k (ColKind.allReg k)) v => AggQueryIn.Sum q' (rowOf v))
+      q).evaluatePlain D γ
       = r + Multiset.ofList l := by
   induction l generalizing q r with
   | nil =>

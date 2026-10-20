@@ -158,11 +158,13 @@ noncomputable def AggQueryIn.Builds : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab rd is his ts fs a q keep, d, γ, E, x =>
       (∃ r ∈ (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q keep).evaluate d γ E,
         ∃ j : Fin n₂, r.fst (Fin.castAdd 1 (Fin.natAdd _ j)) = Sum.inr x) ∨ q.Builds d γ E x
-  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab rd P O o w t f q hrr dist keep, d, γ, E, x =>
-      (∃ r ∈ (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ E,
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab rd P O o w hs t f q hrr dist keep, d, γ, E, x =>
+      (∃ r ∈ (AggQueryIn.Win (hsql := hs) (lab := lab) (rd := rd) P O o w t f q hrr dist
+        keep).evaluate d γ E,
         r.fst (Fin.last _) = Sum.inr x) ∨ q.Builds d γ E x
-  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab rd P O o ws ts fs g q keeps, d, γ, E, x =>
-      (∃ r ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluate d γ E,
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab rd P O o ws hs ts fs g q keeps, d, γ, E, x =>
+      (∃ r ∈ (AggQueryIn.WinExpr (hsql := hs) (lab := lab) (rd := rd) P O o ws ts fs g q
+        keeps).evaluate d γ E,
         r.fst (Fin.last _) = Sum.inr x) ∨ q.Builds d γ E x
 
 end Builds
@@ -349,7 +351,7 @@ theorem AggQueryIn.builds_spec :
       exact List.mem_cons_self
     · exact (ih d γ E x h).imp_right
         (fun h => by rw [AggQueryIn.labels]; exact mem_labCons_of_mem h)
-  | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hrr dist keep ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
     · simp only [AggQueryIn.evaluate] at hr
@@ -358,7 +360,7 @@ theorem AggQueryIn.builds_spec :
       obtain ⟨h1, h2⟩ := AggTok.stamp_spec (Sum.inr_injective hj).symm
       exact ⟨h1, by rw [h2]; exact List.mem_cons_self⟩
     · exact (ih d γ E x h).imp_right (List.mem_cons_of_mem _)
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
     · simp only [AggQueryIn.evaluate, OccFam.toMultiset] at hr
@@ -400,8 +402,8 @@ def AggQueryIn.labWidths : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .Retag _ q => q.labWidths
   | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab _ _ _ _ _ _ q _ => labCons n₂ (lab,
       n₂) q.labWidths
-  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ q _ _ _ => (lab, 1) :: q.labWidths
-  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ =>
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ _ _ => (lab, 1) :: q.labWidths
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ _ q _ =>
       (lab, 1) :: q.labWidths
 
 omit [ValueType T] in
@@ -509,7 +511,7 @@ theorem AggQueryIn.builds_col :
       exact List.mem_cons_self
     · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w,
         by rw [AggQueryIn.labWidths]; exact mem_labCons_of_mem hw, hc⟩
-  | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hrr dist keep ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
     · simp only [AggQueryIn.evaluate] at hr
@@ -519,7 +521,7 @@ theorem AggQueryIn.builds_col :
       refine ⟨1, ?_, by rw [AggTok.stamp_col he]; exact Nat.zero_lt_one⟩
       rw [(AggTok.stamp_spec he).2]; exact List.mem_cons_self
     · obtain ⟨w, hw, hc⟩ := ih d γ E x h; exact ⟨w, List.mem_cons_of_mem _ hw, hc⟩
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     intro d γ E x h
     rcases h with ⟨r, hr, hj⟩ | h
     · simp only [AggQueryIn.evaluate, OccFam.toMultiset] at hr
@@ -792,7 +794,7 @@ theorem AggQueryIn.rowToks :
       · rw [Fin.append_left, Fin.append_left] at hk; exact absurd hk (by simp)
       · exact TermCl.base (Or.inl (Or.inl ⟨_, hr₀, j', hk⟩))
     · rw [Fin.append_right] at hk; exact absurd hk (by simp)
-  | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hrr dist keep ih =>
     intro hsc d γ E r hr k x hk
     have hr₀ := hr
     simp only [AggQueryIn.evaluate] at hr
@@ -802,7 +804,7 @@ theorem AggQueryIn.rowToks :
     · exact TermCl.base (Or.inl (Or.inl ⟨_, hr₀, hk⟩))
     · simp only [ValueFrame.windowGenRow, Fin.snoc_castSucc] at hk
       exact (ih hsc d γ E y hy i x hk).mono (fun z hz => hz.imp Or.inr id)
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     intro _ d γ E r hr k x hk
     have hr₀ := hr
     simp only [AggQueryIn.evaluate, OccFam.toMultiset] at hr
@@ -1021,13 +1023,16 @@ theorem AggQueryIn.newFun_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
 per identifier**: the identifier records the tuple the window reads, and
 the value is that tuple's. -/
 theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql :
+      w.IsSQL o}
     (hc : w.ContainsSelf) (t : TermIn T c n) (f : SeqAggFunc T) (q : AggQueryIn T c n κ)
     (hrr : WinReadsReg κ P O t) (dist : Bool) (keep : Option (Selection T n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r r' : GenRow T K (n + 1)}
-    (hr : r ∈ (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ E)
+    (hr : r ∈ (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+      keep).evaluate d γ E)
     (hr' : r' ∈
-      (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ E)
+      (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+        keep).evaluate d γ E)
     {x y : AggTok T K} (hx : r.fst (Fin.last _) = Sum.inr x)
     (hy : r'.fst (Fin.last _) = Sum.inr y) (hxy : x.fam.family = y.fam.family) : x = y := by
   simp only [AggQueryIn.evaluate] at hr hr'
@@ -1055,13 +1060,15 @@ theorem AggQueryIn.newFun_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd :
 one value per identifier.** -/
 theorem AggQueryIn.newFun_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    {ws : Fin q → ValueFrame T p} (hc : ∀ l, (ws l).ContainsSelf)
+    {ws : Fin q → ValueFrame T p} {hsql : ∀ l, (ws l).IsSQL o} (hc : ∀ l, (ws l).ContainsSelf)
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (q₀ : AggQueryIn T c n (ColKind.allReg n)) (keeps : Fin q → Option (Selection T n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r r' : GenRow T K (n + 1)}
-    (hr : r ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q₀ keeps).evaluate
+    (hr : r ∈ (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q₀
+      keeps).evaluate
       d γ E)
-    (hr' : r' ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q₀ keeps).evaluate
+    (hr' : r' ∈ (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g
+      q₀ keeps).evaluate
       d γ E)
     {x y : AggTok T K} (hx : r.fst (Fin.last _) = Sum.inr x)
     (hy : r'.fst (Fin.last _) = Sum.inr y) (hxy : x.fam.family = y.fam.family) : x = y := by
@@ -1338,11 +1345,13 @@ theorem AggQueryIn.newFam_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
   exact ⟨_, _, AggTok.fam_setFam _ _⟩
 
 theorem AggQueryIn.newFam_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd : Fin c → Bool}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql :
+      w.IsSQL o}
     (t : TermIn T c n) (f : SeqAggFunc T) (q : AggQueryIn T c n κ)
     (hrr : WinReadsReg κ P O t) (dist : Bool) (keep : Option (Selection T n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K (n + 1)}
-    (hr : r ∈ (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ E)
+    (hr : r ∈ (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+      keep).evaluate d γ E)
     {x : AggTok T K} (hx : r.fst (Fin.last _) = Sum.inr x) :
     ∃ key j, x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
   simp only [AggQueryIn.evaluate] at hr
@@ -1353,11 +1362,12 @@ theorem AggQueryIn.newFam_Win {c n m p lab : ℕ} {κ : Fin n → ColKind} {rd :
 
 theorem AggQueryIn.newFam_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ws : Fin q → ValueFrame T p)
+    (ws : Fin q → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (q₀ : AggQueryIn T c n (ColKind.allReg n)) (keeps : Fin q → Option (Selection T n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K (n + 1)}
-    (hr : r ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q₀ keeps).evaluate
+    (hr : r ∈ (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q₀
+      keeps).evaluate
       d γ E)
     {x : AggTok T K} (hx : r.fst (Fin.last _) = Sum.inr x) :
     ∃ key j, x.fam = FamId.mk lab key (E.paramKey rd γ) j [] := by
@@ -1437,11 +1447,12 @@ theorem AggQueryIn.newRow_GammaTok {c m n₁ n₂ lab : ℕ} {κ : Fin m → Col
 
 theorem AggQueryIn.newRow_WinExpr {c n m p q lab : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ws : Fin q → ValueFrame T p)
+    (ws : Fin q → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin q → TermIn T c n) (fs : Fin q → SeqAggFunc T) (g : (Fin q → T) → T)
     (q₀ : AggQueryIn T c n (ColKind.allReg n)) (keeps : Fin q → Option (Selection T n))
     (d : AnnotatedDatabase T K) (γ : Fin c → T) (E : EvalEnv T K) {r : GenRow T K (n + 1)}
-    (hr : r ∈ (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q₀ keeps).evaluate
+    (hr : r ∈ (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q₀
+      keeps).evaluate
       d γ E) :
     ∃ key, (∀ i, ∃ v, r.fst (Fin.castSucc i) = Sum.inl v)
       ∧ ∀ j : Fin 1, ∃ x, r.fst (Fin.last n) = Sum.inr x
@@ -1873,7 +1884,7 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
       (fun x y hx hy hxy => ih (labCons_nodup hnd) hrr.2 hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
         (fun z hz => hb₁ z (Or.inr hz)) (fun z hz => hb₂ z (Or.inr hz)) x y hx hy hxy)
       x y hx hy hxy hM
-  | @Win cI nI mI pI κw lab rd P O o w t f q hwr dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hwr dist keep ih =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
     have hnd : (lab :: q.labels).Nodup := hld
     refine coh_cons hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)
@@ -1896,7 +1907,7 @@ theorem AggQueryIn.cohAt (U : AggTok T K → Prop) (hcl : ∀ x, TermCl U x → 
       (fun x y hx hy hxy => ih hnd.of_cons hrr.2 hsc hfc.2 d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂
         (fun z hz => hb₁ z (Or.inr hz)) (fun z hz => hb₂ z (Or.inr hz)) x y hx hy hxy)
       x y hx hy hxy hM
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     intro hld hrr hsc hfc d γ₁ E₁ γ₂ E₂ hs₁ hs₂ ht₁ ht₂ hb₁ hb₂ x y hx hy hxy hM
     have hnd : (lab :: q.labels).Nodup := hld
     refine coh_cons hnd (fun x y => (∀ φ, Sum.inr φ ∈ x.fam.family.2.2 → sizeOf φ < M) → CohRel x y)

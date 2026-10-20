@@ -683,10 +683,11 @@ noncomputable def AggQueryIn.countValsAll : {c n : ℕ} → {κ : Fin n → ColK
             ∧ v = u (Fin.natAdd n₁ 0)}
   | _, _, _, _, .ProvSum _ _ _ q, D => q.countValsAll D
   | _, _, _, _, .GammaTok _ _ _ _ _ q _, D => q.countValsAll D
-  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w t f q hrr dist keep, D =>
+  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w _ t f q hrr dist keep, D =>
       Union.union (q.countValsAll D)
         {v | ∃ (γ : Fin _ → T) (u : Tuple T (n + 1)),
-          Multiset.Mem ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist
+          Multiset.Mem ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q
+            hrr dist
               keep).evaluatePlain D
               γ) u
             ∧ v = u (Fin.last n)}
@@ -1191,7 +1192,8 @@ theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hc
     (h0 : τ 0 = 0)
     (h0W : (0 : T) ∈ W) {c n m p : ℕ} {rd1 rd2 : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple
         (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T
+      c n)
     (ht : t.noFun = true) (hct : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W) (f : SeqAggFunc T)
     {dist : Bool} (hfc : (if dist then f.distinct else f) = cnt) (keep : Option (Selection T n))
     (hk : Selection.noFunOpt keep = true) (hck : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W)
@@ -1200,9 +1202,11 @@ theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hc
     (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
     (hr : (q.evaluatePlain D' (τ ∘ γ) : Multiset (Tuple T n))
       = (q.evaluatePlain D γ : Multiset (Tuple T n)).map (fun u => (τ ∘ u : Tuple T n))) :
-    ((AggQueryIn.Win (lab := lab1) (rd := rd1) P O o w t f q hrr dist keep).evaluatePlain D' (τ ∘ γ)
+    ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab1) (rd := rd1) P O o w t f q hrr dist
+      keep).evaluatePlain D' (τ ∘ γ)
         : Multiset (Tuple T (n + 1)))
-      = ((AggQueryIn.Win (lab := lab2) (rd := rd2) P O o w t f q hrr dist keep).evaluatePlain D γ
+      = ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab2) (rd := rd2) P O o w t f q hrr dist
+        keep).evaluatePlain D γ
           : Multiset (Tuple T (n + 1))).map
           (fun u => Fin.snoc (τ ∘ Fin.init u : Tuple T n) (u (Fin.last n))) := by
   have hXW : ∀ v ∈ (q.evaluatePlain D γ : Multiset (Tuple T n)).map (ColKind.readTuple κ),
@@ -1649,7 +1653,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _ _
+    rename_i c' n' m' p' κ' _ _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
     obtain ⟨ht, hf, hk, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, τ a = a ∧ a ∈ W := fun a ha => hc a (Finset.mem_union_right _ ha)
@@ -1863,9 +1867,10 @@ noncomputable def AggQueryIn.countTypes (B : Finset T) : {c n : ℕ} → {κ : F
           {Fin.natAdd n₁ 0} D)
   | _, _, _, _, .ProvSum _ _ _ q, D => q.countTypes B D
   | _, _, _, _, .GammaTok _ _ _ _ _ q _, D => q.countTypes B D
-  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w t f q hrr dist keep, D =>
+  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ _ lab rd P O o w _ t f q hrr dist keep, D =>
       Union.union (q.countTypes B D)
-        ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).repVals (Union.union B
+        ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+          keep).repVals (Union.union B
             (q.countTypes B D))
           {Fin.last n} D)
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, D => q.countTypes B D
@@ -2183,7 +2188,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' lab rd
+    rename_i c' n' m' p' κ' lab rd _
     intro hs hh hn D D' hD' hD hc
     obtain ⟨ht, hf, hk, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, a ∈ B := fun a ha => hc a (Finset.mem_union_right _ ha)
@@ -2205,7 +2210,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hfix : ∀ a ∈ B, τ a = a ∧ a ∈ (↑(Union.union B
         (q.countTypes B D)) ∪ Set.range γ : Set T) :=
       fun a ha => ⟨hτS a (hBS ha), Set.mem_union_left _ (hBS ha)⟩
-    have hG := h.win_map (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 :=
+    have hG := h.win_map (hsql := sql_frame%) (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 :=
         rd) hcnt h0τ h0W P O o w t ht
       (fun a ha => hfix a (hc a (Finset.mem_union_left _
           (Finset.mem_union_left _ ha)))) f hfc keep hk
@@ -2373,13 +2378,14 @@ theorem AggQueryIn.card_win_vals_le {lab : ℕ} {cnt : SeqAggFunc T} (hcnt : cnt
     (hν : ∀ ν : T, ValueType.nullVal = some ν → ν ∈ B) (h0 : (0 : T) ∈ B)
     {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin
         n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (hs : q.inSig {cnt}) (hh : q.hygienic) (D : Database T)
     (hD : ∀ p ∈ q.leaves, ∀ r : Relation T p.1, D.find p.1 p.2 = some r →
       ∀ u, Multiset.Mem r u → ∀ j, u j ∈ B)
     (hc : ∀ a ∈ q.allConsts, a ∈ B) (γ : Fin c → T) :
-    (Relation.valsAtCols ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist
+    (Relation.valsAtCols ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f
+      q hrr dist
         keep).evaluatePlain D
         γ
         : Multiset (Tuple T (n + 1))) {Fin.last n}).card
@@ -2616,7 +2622,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
   | ProvSum is his t q ih => exact fun hs => hs.elim
   | GammaTok is his ts fs a q keep ih => exact fun hs => hs.elim
   | Win P O o w t f q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _ _
+    rename_i c' n' m' p' κ' _ _ _
     intro hs hh hn
     obtain ⟨fq, hfq, hb⟩ := ih hs.2.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c'))

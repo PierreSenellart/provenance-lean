@@ -651,8 +651,10 @@ theorem fine_cutCore {k : ℕ} (hc : cnt ∈ Θ) :
       exact ⟨⟨⟨mem_gamma, rfl⟩, hsy.1⟩, ⟨SA.noFun_toG _, hi.2.1, hsy.2.1⟩, hsy.2.2.1, hsy.2.2.2⟩
     | Win P O o w t g q hrr dist keep =>
       have hs : sizeOf q ≤ N := by simp at hq; omega
-      have hnm : ∀ s, q.noMention s → (winRaw (envOf (part f 3) cnt k (cutOf (part f 4)
-          (AggQueryIn.Win (lab := 0) (rd := fun _ => false) P O o w t g q hrr dist keep).allConsts
+      have hnm : ∀ s, q.noMention s → (winRaw (hsql := sql_frame%) (envOf (part f 3) cnt k (cutOf
+          (part f 4)
+          (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t g q hrr
+            dist keep).allConsts
           (cutCore cnt (part f 1) q))) (part f 5) P O o w t g q dist keep).noMention s := by
         intro s hs'
         unfold winRaw; rw [AggQueryIn.noMention_allRegOf]

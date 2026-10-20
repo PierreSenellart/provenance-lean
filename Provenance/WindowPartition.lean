@@ -183,7 +183,8 @@ theorem evaluatePlain_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tupl
     (t : Term T n) (f : SeqAggFunc T) (q : AggQuery T n (ColKind.allReg n))
     (d : Database T) :
     (winByJoin P t f q).evaluatePlain d
-      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.whole : ValueFrame T p) t f q
+      = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o (ValueFrame.whole :
+        ValueFrame T p) t f q
           (winReadsReg_allReg P O t)).evaluatePlain d := by
   rw [winByJoin, AggQueryIn.evaluatePlain_castKind, AggQueryIn.evaluatePlain_Win_eq]
   simp only [AggQueryIn.evaluatePlain]
@@ -269,7 +270,8 @@ theorem evaluate_winByJoin {lab : ℕ} {rd} (P : Tuple (Fin n) m) (O : Tuple (Fi
     (d : AnnotatedDatabase T K) :
     ((winByJoin P t f q).evaluate d).map
         (fun r => (fun k => AggValue.eraseFamSum (r.fst k), r.snd.finalize))
-      = ((AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.whole : ValueFrame T p) t f q
+      = ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o (ValueFrame.whole :
+        ValueFrame T p) t f q
           (winReadsReg_allReg P O t)).evaluate d).map
           (fun r => (fun k => AggValue.eraseFamSum (r.fst k), r.snd.finalize)) := by
   have hagg : (keyJoinCond (T' := T) (fun k : Fin m => winLeftPos m (P k)) (winKeyPos n)

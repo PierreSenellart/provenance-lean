@@ -333,10 +333,10 @@ theorem paramsReg_allRegOf {c n : ℕ} {κ : Fin n → ColKind} {l : List (Strin
   rw [AggQueryIn.allRegOf, AggQueryIn.paramsReg_castKind, paramsReg_explodeBelow]
 
 theorem paramsReg_winKept {c n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool)
     (keep : Option (Selection T n)) (h : q.paramsReg) :
-    (winKept P O o w t f κ q dist keep).paramsReg := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).paramsReg := by
   rw [winKept, AggQueryIn.paramsReg_castKind]
   show (doubled κ q).paramsReg
   rw [doubled, AggQueryIn.paramsReg_castKind]
@@ -618,14 +618,15 @@ theorem exists_rfPass {S U : Set OpKind} (he : OpKind.empty ∈ S) (hp : OpKind.
         exact (ProjColIn.evalPlain_toReg pc hq.1.2 u γ).symm
   | GammaTok is his ts fs a q keep ih => exact fun _ _ hq => hq.elim
   | ProvSum is his t q ih => exact fun _ _ hq => hq.elim
-  | @Win cw nw _mw _pw _κw _lab _rd P' O o w t fw q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw _lab _rd P' O o w _ t fw q hrr dist keep ih =>
     intro _ hc0 hq hi ho
     obtain ⟨q', hu', hi', hr', ho', he'⟩ := ih rfl hc0 hq.2 hi.2.2.2 ho
-    refine ⟨(winKept P' O o w t fw _κw q' dist keep).allRegOf, ?_, ?_,
+    refine ⟨(winKept (hsql := sql_frame%) P' O o w t fw _κw q' dist keep).allRegOf, ?_, ?_,
       fun h h' => (paramsReg_allRegOf _).mpr (paramsReg_winKept P' O o w t fw _κw q' dist keep
         (hr' h h')),
       (AggQueryIn.overSchema_allRegOf _).mpr
-        (overSchema_winKept P' O o w t fw _κw q' dist keep ho'), fun D γ hset => ?_⟩
+        (overSchema_winKept (hsql := sql_frame%) P' O o w t fw _κw q' dist keep ho'), fun D γ hset
+          => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact usesOnly_winKept P' O o w t fw _κw q' dist keep hw hp hu'
     · rw [AggQueryIn.inSig_allRegOf]

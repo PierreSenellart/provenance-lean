@@ -286,17 +286,19 @@ theorem exists_dropMu {S : Set OpKind} (hsel : OpKind.sel ∉ S) (hap : OpKind.a
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
-  | @Win c' n' m' p' κ' lab rd P O o w t f q hrr dist keep ih =>
+  | @Win c' n' m' p' κ' lab rd P O o w _ t f q hrr dist keep ih =>
     intro hu hr
     obtain ⟨q', hu', hr', hi', hm', he'⟩ := ih hu.2 hr
-    refine ⟨AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist
+        keep,
       ⟨hmem hu.1 (by decide), hu'⟩, hr', fun Θ hi => ⟨hi.1, hi.2.1, hi.2.2.1, hi' Θ hi.2.2.2⟩,
       hm', fun D γ h => ⟨(he' D γ h).1, ?_⟩⟩
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
-  | @WinExpr c' n' m' p' na lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr c' n' m' p' na lab rd P O o ws _ ts fs g q keeps ih =>
     intro hu hr
     obtain ⟨q', hu', hr', hi', hm', he'⟩ := ih hu.2 hr
-    refine ⟨AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q'
+        keeps,
       ⟨hmem hu.1 (by decide), hu'⟩, hr', fun Θ hi => hi.elim, hm',
       fun D γ h => ⟨(he' D γ h).1, ?_⟩⟩
     simp only [AggQueryIn.evaluatePlain]

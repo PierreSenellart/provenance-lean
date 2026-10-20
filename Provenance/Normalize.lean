@@ -66,9 +66,9 @@ def AggQueryIn.normalize : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       .GammaTok (lab := lab) (rd := rd) is his ts fs a q.normalize keep
   | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep =>
-      .Win (lab := lab) (rd := rd) P O o w t f q.normalize hrr dist keep
+      .Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q.normalize hrr dist keep
   | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q.normalize keeps
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q.normalize keeps
 
 /-- **No selection directly above a selection**: the shape a normalized
 query has, and the shape on which a chain and its merge cannot differ

@@ -330,10 +330,11 @@ to take decides nothing. -/
 theorem AggQueryIn.windowValue_eq_of_listing_of_determinateOn {lab : ℕ} {c n m p : ℕ}
     {rd : Fin c → Bool}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (D : Database T) (γ : Fin c → T)
-    (hdet : (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).DeterminateOn D γ)
+    (hdet : (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+      keep).DeterminateOn D γ)
     {u : Tuple T n} (hu : u ∈ q.readRows D γ) (L : List (Tuple T n))
     (hL : (↑L : Multiset (Tuple T n))
       = ValueFrame.frameOf (α := Tuple T n) id P O w (q.readRows D γ) u)

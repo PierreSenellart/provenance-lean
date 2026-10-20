@@ -682,7 +682,8 @@ theorem update_fresh {f : ℕ → String} {sch : Schema} {s : String} {m : ℕ}
 /-- **What stands in for a set recursion** where the target classes hold
 none: from the pass's rewriting of the base, the body and its closed
 part of `μ^∪R.(q₀, q₁)`, a query over the target classes defined and
-equal to the recursion wherever the recursion is. The supply `f` is the recursion's own, its children having
+equal to the recursion wherever the recursion is. The supply `f` is the recursion's own, its
+  children having
 been rewritten with its first and second thirds; the bodies are over the
 schema the recursion is written over, with its name declared. -/
 def MuSetHandler (S : Set OpKind) (Θ : Set (SeqAggFunc T)) : Prop :=
@@ -1441,13 +1442,13 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         exact (ProjColIn.evalPlain_toReg pc hq.1.2 u γ).symm
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
-  | @Win cw nw _mw _pw _κw _lab _rd P' O o w t fw q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw _lab _rd P' O o w _ t fw q hrr dist keep ih =>
     intro hq hr hi hw f hf hfr sch hsch ho
     by_cases hwin : OpKind.win ∈ S
     · -- the target keeps windows: the window over the re-typed child, through the doubling
       obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho
       obtain ⟨q', hb, he⟩ := hc rfl
-      refine ⟨fun _ => ⟨(winKept P' O o w t fw _κw q' dist keep).allRegOf, ?_,
+      refine ⟨fun _ => ⟨(winKept (hsql := sql_frame%) P' O o w t fw _κw q' dist keep).allRegOf, ?_,
           fun D γ hset => ?_⟩,
         fun _ _ hl _ => absurd hl (by simp)⟩
       · exact { usesOnly := by
@@ -1507,7 +1508,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
       refine ⟨by rw [AggQueryIn.settlesAt_allRegOf, settlesAt_winByApply]; exact hs', ?_⟩
       rw [AggQueryIn.evaluatePlain_allRegOf]
       refine Eq.trans ?_
-        (evaluatePlain_winByApplyOf (lab := 0) (rd := fun _ => false) P' O o hcs ψ t fw dist keep
+        (evaluatePlain_winByApplyOf (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o
+          hcs ψ t fw dist keep
             hψ q' D γ).symm
       simp only [AggQueryIn.evaluatePlain]
       rw [he']

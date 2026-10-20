@@ -185,6 +185,63 @@ structure ValueFrame (T : Type) (p : ℕ) where
   /-- Whether an occurrence is in its own frame. -/
   self : Bool
 
+/-! ## The frames of SQL
+
+A window of the algebra takes the frames of SQL that are determined by values,
+and no other: a frame clause reads every bound in the window's own `ORDER BY`.
+Its bounds are `UNBOUNDED PRECEDING` or `CURRENT ROW` at the start and
+`CURRENT ROW` or `UNBOUNDED FOLLOWING` at the end (`RANGE` and `GROUPS` agree
+on these, and `ROWS` agrees on the whole partition), which gives four
+conditions on the order values (`FrameCond.SqlBase`), and an `EXCLUDE` modifier
+takes out nothing, the current row, its peer group, or its peers.
+`ValueFrame.IsSQL o w` says that `w` is one of these under the clause `o`.
+
+The language of `FrameCond` is wider: it combines comparisons under any
+clauses by `and` and `or`, so it names frames no frame clause of SQL gives,
+such as one comparing two order columns each on its own. The windows of the
+syntax carry `IsSQL` as a field, which is what keeps them out. -/
+
+/-- The four conditions SQL's frame bounds name under the clause `o`:
+`UNBOUNDED PRECEDING` to `UNBOUNDED FOLLOWING`, `UNBOUNDED PRECEDING` to
+`CURRENT ROW`, `CURRENT ROW` to `UNBOUNDED FOLLOWING`, and `CURRENT ROW` to
+`CURRENT ROW`. -/
+inductive FrameCond.SqlBase (o : OrderSpec p) : FrameCond p → Prop
+  | whole : FrameCond.SqlBase o .whole
+  | upTo : FrameCond.SqlBase o (.le o)
+  | from_ : FrameCond.SqlBase o (.ge o)
+  | peers : FrameCond.SqlBase o (FrameCond.peers o)
+
+/-- **The frame is one of SQL's, written under the clause `o`**: one of the
+four bounds, with one of the four `EXCLUDE` modifiers (`NO OTHERS`,
+`CURRENT ROW`, `GROUP`, `TIES`). The last two constructors are the rows
+strictly before and strictly after the current row's peers, which are
+`EXCLUDE GROUP` of the frames up to and from the current row written as one
+comparison. -/
+inductive ValueFrame.IsSQLUnder (o : OrderSpec p) : ValueFrame T p → Prop
+  | noOthers {c : FrameCond p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, true⟩
+  | current {c : FrameCond p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, false⟩
+  | group {c : FrameCond p} : c.SqlBase o →
+      ValueFrame.IsSQLUnder o ⟨.and c (FrameCond.notPeers o), false⟩
+  | ties {c : FrameCond p} : c.SqlBase o →
+      ValueFrame.IsSQLUnder o ⟨.and c (FrameCond.notPeers o), true⟩
+  | before : ValueFrame.IsSQLUnder o ⟨.lt o, false⟩
+  | after : ValueFrame.IsSQLUnder o ⟨.gt o, false⟩
+
+/-- **The frame is one of SQL's under the clause `o`**: written under `o`, or
+under the reversed clause `o.reverse`. The second spelling names the same
+frames with their bounds mirrored, since `o.reverse` sorts `a` at or before `b`
+exactly when `o` sorts `b` at or before `a` (`OrderSpec.le_reverse`); it is what
+`last_value` and `lag` need, which read a frame of the clause backwards. -/
+def ValueFrame.IsSQL (o : OrderSpec p) (w : ValueFrame T p) : Prop :=
+  w.IsSQLUnder o ∨ w.IsSQLUnder o.reverse
+
+/-- A frame of SQL under a clause is one under the reversed clause. -/
+theorem ValueFrame.IsSQL.of_reverse {o : OrderSpec p} {w : ValueFrame T p}
+    (h : w.IsSQL o) : w.IsSQL o.reverse := by
+  unfold ValueFrame.IsSQL at h ⊢
+  rw [OrderSpec.reverse_reverse]
+  exact h.symm
+
 namespace ValueFrame
 
 variable [ValueType T]
@@ -1437,6 +1494,107 @@ rows strictly before are: the peers are outside the frame too. -/
 @[simp] theorem rangeAfter_containsSelf (o : OrderSpec p) :
     (rangeAfter o : ValueFrame T p).ContainsSelf := fun ov => by
   simp [rangeAfter]
+
+/-! ### Which named frames are SQL's -/
+
+/-- Prove that a frame is one of SQL's: from a hypothesis, or from the shape
+of the frame, unfolding a named one; under a `∀ l`, leaf by leaf. -/
+syntax "sql_frame" : tactic
+
+/-- `sql_frame` for one spelling of the clause (`ValueFrame.IsSQLUnder`). -/
+syntax "sql_frame_under" : tactic
+
+macro_rules
+  | `(tactic| sql_frame_under) => `(tactic| first
+      | exact ValueFrame.IsSQLUnder.before
+      | exact ValueFrame.IsSQLUnder.after
+      | (apply ValueFrame.IsSQLUnder.noOthers; constructor)
+      | (apply ValueFrame.IsSQLUnder.current; constructor)
+      | (apply ValueFrame.IsSQLUnder.group; constructor)
+      | (apply ValueFrame.IsSQLUnder.ties; constructor))
+
+macro_rules
+  | `(tactic| sql_frame) => `(tactic| first
+      | assumption
+      | (apply Or.inl; sql_frame_under)
+      | (apply Or.inr; sql_frame_under)
+      | (apply ValueFrame.IsSQL.of_reverse; first
+          | assumption | (apply Or.inl; sql_frame_under) | (apply Or.inr; sql_frame_under))
+      | (intro l; exact Fin.elim0 l)
+      | (rw [Fin.forall_fin_succ]; exact ⟨by sql_frame, by sql_frame⟩))
+
+open Lean Elab Term in
+/-- `sql_frame` run at once, as a term: unlike `by sql_frame`, which is
+postponed to the end of the enclosing term, it leaves no metavariable in the
+query it builds, so a goal about that query unfolds while the term is still
+being elaborated. Where the frame itself is not known yet, it is postponed
+like `by sql_frame`. -/
+elab "sql_frame%" : term <= ty => do
+  let ty ← instantiateMVars ty
+  if ty.hasMVar then
+    -- the frame is not known yet: leave the proof to the end of the term
+    return ← elabTerm (← `(by sql_frame)) ty
+  -- a fresh depth, so that no metavariable of the enclosing term (the type of
+  -- a binder not elaborated yet) is assigned to make a hypothesis fit
+  let tac ← `(tactic| sql_frame)
+  Meta.withNewMCtxDepth do
+    let m ← Meta.mkFreshExprMVar ty
+    let _ ← runTactic m.mvarId! tac
+    instantiateMVars m
+
+
+omit [ValueType T] in
+theorem isSQL_whole (o : OrderSpec p) : (whole : ValueFrame T p).IsSQL o :=
+  Or.inl (.noOthers .whole)
+
+omit [ValueType T] in
+theorem isSQL_rangeUpTo (o : OrderSpec p) : (rangeUpTo o : ValueFrame T p).IsSQL o :=
+  Or.inl (.noOthers .upTo)
+
+omit [ValueType T] in
+theorem isSQL_rangeFrom (o : OrderSpec p) : (rangeFrom o : ValueFrame T p).IsSQL o :=
+  Or.inl (.noOthers .from_)
+
+omit [ValueType T] in
+theorem isSQL_peerGroup (o : OrderSpec p) : (peerGroup o : ValueFrame T p).IsSQL o :=
+  Or.inl (.noOthers .peers)
+
+omit [ValueType T] in
+theorem isSQL_rangeBefore (o : OrderSpec p) :
+    (rangeBefore o : ValueFrame T p).IsSQL o :=
+  Or.inl (.before)
+
+omit [ValueType T] in
+theorem isSQL_rangeAfter (o : OrderSpec p) : (rangeAfter o : ValueFrame T p).IsSQL o :=
+  Or.inl (.after)
+
+omit [ValueType T] in
+/-- The frames up to the current row and strictly before it, under the
+all-ascending clause. -/
+theorem isSQL_upTo : (upTo : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
+  Or.inl (.noOthers .upTo)
+
+omit [ValueType T] in
+theorem isSQL_before : (before : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
+  Or.inl (.before)
+
+omit [ValueType T] in
+/-- `EXCLUDE CURRENT ROW` of a frame with no modifier. -/
+theorem isSQL_excludeCurrent {o : OrderSpec p} {c : FrameCond p} (h : c.SqlBase o) :
+    (excludeCurrent ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
+  Or.inl (.current h)
+
+omit [ValueType T] in
+/-- `EXCLUDE GROUP` of a frame with no modifier. -/
+theorem isSQL_excludeGroup {o : OrderSpec p} {c : FrameCond p} {b : Bool}
+    (h : c.SqlBase o) : (excludeGroup o ⟨c, b⟩ : ValueFrame T p).IsSQL o :=
+  Or.inl (.group h)
+
+omit [ValueType T] in
+/-- `EXCLUDE TIES` of a frame with no modifier. -/
+theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond p}
+    (h : c.SqlBase o) : (excludeTies o ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
+  Or.inl (.ties h)
 
 /-- Reading the clause backwards turns the rows up to the current one into
 the rows from it on, and the rows before into the rows after. The two

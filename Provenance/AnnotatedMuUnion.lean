@@ -2636,9 +2636,11 @@ noncomputable def muSetFreeA (ch : Bool) (f : ℕ → String) :
   | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       .GammaTok (lab := lab) (rd := rd) is his ts fs a (muSetFreeA ch f q) keep
   | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) (rd := rd) P O o w t g (muSetFreeA ch f q) hrr dist keep
+      .Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t g (muSetFreeA ch f q) hrr dist
+        keep
   | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (muSetFreeA ch f q) keeps
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g (muSetFreeA ch f q)
+        keeps
 
 /-- **The pass keeps a name unmentioned, and a recursive term linear.** The
 two go together: a product's closed side must stay unmentioning, and a set

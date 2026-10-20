@@ -121,9 +121,9 @@ def dedupFree (f : ℕ → String) : {c n : ℕ} → {κ : Fin n → ColKind} �
   | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       .GammaTok (lab := lab) (rd := rd) is his ts fs a (dedupFree f q) keep
   | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) (rd := rd) P O o w t g (dedupFree f q) hrr dist keep
+      .Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t g (dedupFree f q) hrr dist keep
   | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (dedupFree f q) keeps
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g (dedupFree f q) keeps
 
 /-- **The pass changes no annotated evaluation.** -/
 theorem evaluate_dedupFree :

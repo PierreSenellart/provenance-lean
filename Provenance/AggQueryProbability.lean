@@ -2479,7 +2479,7 @@ theorem AggQueryIn.evaluate_guarded :
       obtain ⟨β', hβ', hβ'v⟩ := multiset_sum_eval_eq_true_iff _ v |>.mp hβv
       obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.mp hβ'
       exact ⟨row, hrow, hβ'v⟩
-  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w _ t f q hrr dist keep ih =>
     -- a window creates no group, and its one token is guarded by the row it
     -- is computed for whenever that row is in its own frame; when it is not,
     -- the token is scalar and the guard is vacuous
@@ -2601,7 +2601,7 @@ theorem AggQueryIn.evaluate_guarded :
   | Retag h q ih =>
     intro d γ E r hr v hE hfin k a ha
     exact ih d E r hr v hE hfin k a ha
-  | @WinExpr cI nI mI pI qI _lab _rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab _rd P O o ws _ ts fs g q keeps ih =>
     -- the window creates no group, so the row's own annotation is the
     -- whole guard: a valuation that realizes it keeps the current
     -- occurrence, which every leaf whose frame contains the current row
@@ -4362,7 +4362,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
   | GammaTok is his ts fs a q keep ih =>
     intro hq
     exact hq.elim
-  | @Win cI nI mI pI κw _lab _rd P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw _lab _rd P O o w _ t f q hrr dist keep ih =>
     -- one output row per realized input row; the token specializes to the
     -- aggregate the realized world gives the row, because restricting the
     -- relation restricts every frame – and a clause cuts the frame by the
@@ -4437,7 +4437,7 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
   | Retag h q ih =>
     intro hq hh ρc HK hwk d v γ E D N hE hG hD hN hH hr
     exact ih hq hh hwk d v E D N hE hG hD hN hH hr
-  | @WinExpr cI nI mI pI qI _lab _rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab _rd P O o ws _ ts fs g q keeps ih =>
     -- one output row per realized occurrence. The column specializes to
     -- the plain window value the realized world gives the row
     -- (`exprOf_specialize`), so nothing depends on the indexing – which

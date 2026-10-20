@@ -6004,7 +6004,7 @@ the frame condition holds *and* the clause keeps the row, which is a
 conjunction of two predicates of the language. -/
 theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {κ' : Fin n → ColKind}
     (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Option (Selection T n))
@@ -6022,7 +6022,7 @@ theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {
     (D : Database T) (γ : Fin c → T) :
     (winByApplyOn P O o ψ t (if dist then f.distinct else f) q
         qf).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f qo hrr dist
+      = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f qo hrr dist
           keep).evaluatePlain D γ := by
   rw [winByApplyOn, AggQueryIn.evaluatePlain_castKind]
   show (q.evaluatePlain D γ).bind (fun u =>
@@ -6136,7 +6136,7 @@ theorem evaluatePlain_winByApplyOn {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} {
 /-- The all-regular case, which is the shape `prop:winderived` states:
 there the frame reads the input itself. -/
 theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Option (Selection T n))
@@ -6147,7 +6147,8 @@ theorem evaluatePlain_winByApplyOf {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (
     (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) :
     (winByApply P O o ψ t (if dist then f.distinct else f) q).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q (winReadsReg_allReg P O t) dist
+      = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q
+        (winReadsReg_allReg P O t) dist
           keep).evaluatePlain D γ :=
   evaluatePlain_winByApplyOn P O o hc ψ t f dist keep hρ
     (winReadsReg_allReg P O t) q q q (fun _ _ => rfl)
@@ -6160,7 +6161,7 @@ neither `DISTINCT` nor a `FILTER` clause;
 `evaluatePlain_winByApplyOf` has both. -/
 
 theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
       ψ.holdsPlain y (Fin.append u γ)
@@ -6169,9 +6170,10 @@ theorem evaluatePlain_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P 
     (q : AggQueryIn T c n (ColKind.allReg n)) (D : Database T)
     (γ : Fin c → T) :
     (winByApply P O o ψ t f q).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q
+      = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q
           (winReadsReg_allReg P O t)).evaluatePlain D γ := by
-  have h := evaluatePlain_winByApplyOf (lab := lab) (rd := rd) P O o hc ψ t f false none
+  have h := evaluatePlain_winByApplyOf (hsql := sql_frame%) (lab := lab) (rd := rd) P O o hc ψ t f
+      false none
     (fun y u γ => by
       rw [hρ y u γ]
       exact (and_iff_left rfl).symm) q D γ
@@ -6220,14 +6222,14 @@ theorem overSchema_winByApply {c : ℕ} {sch : Schema} (P : Tuple (Fin n) m)
 /-- **A window is expressible without one** (`prop:winderived`), as the
 equivalence of queries the classification uses. -/
 theorem plainEquiv_winByApply {lab : ℕ} {c : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p}
+    (O : Tuple (Fin n) p) (o : OrderSpec p) {w : ValueFrame T p} {hsql : w.IsSQL o}
     (hc : w.ContainsSelf) (ψ : GenPredIn T (n + c) (ColKind.allReg n))
     (hρ : ∀ (y u : Tuple T n) (γ : Fin c → T),
       ψ.holdsPlain y (Fin.append u γ)
         ↔ w.ρ (Tuple.key O y) (Tuple.key O u) = true)
     (t : TermIn T c n) (f : SeqAggFunc T)
     (q : AggQueryIn T c n (ColKind.allReg n)) :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q
         (winReadsReg_allReg P O t)).PlainEquiv (winByApply P O o ψ t f q) :=
   fun D γ => (evaluatePlain_winByApply P O o hc ψ hρ t f q D γ).symm
 

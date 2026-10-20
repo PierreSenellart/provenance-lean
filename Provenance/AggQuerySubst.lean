@@ -415,11 +415,13 @@ def AggQueryIn.substMap {c d n : ℕ} {κ : Fin n → ColKind} {l : List (String
           θ) fs (a.substMap θ)
         (q.substMap θ) keep
   | _, _, _, _, _, θ, .Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep =>
-      .Win (lab := lab) (rd := substRd θ rd) P O o w (t.substMap θ) f (q.substMap θ)
+      .Win (hsql := sql_frame%) (lab := lab) (rd := substRd θ rd) P O o w (t.substMap θ) f
+        (q.substMap θ)
         ⟨hrr.1, hrr.2.1, by rw [TermIn.regOnly_substMap]; exact hrr.2.2⟩
         dist keep
   | _, _, _, _, _, θ, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := substRd θ rd) P O o ws (fun l => (ts l).substMap
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := substRd θ rd) P O o ws (fun l => (ts
+        l).substMap
           θ) fs g (q.substMap θ) keeps
 termination_by structural q
 
@@ -550,7 +552,7 @@ theorem AggQueryIn.evaluate_congr_env :
     intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc, EvalEnv.paramKey, hc]
   | Win P O o w t f q hrr dist keep ih =>
     intro dB γ E E' hh hc; simp only [AggQueryIn.evaluate, ih dB γ hh hc, EvalEnv.paramKey, hc]
-  | @WinExpr cI nI mI pI qI _lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI _lab rd P O o ws _ ts fs g q keeps ih =>
     intro dB γ E E' hh hc
     have hk : E.paramKey rd γ = E'.paramKey rd γ := by simp only [EvalEnv.paramKey, hc]
     simp only [AggQueryIn.evaluate]
@@ -707,7 +709,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
       exact congrArg (Multiset.fold addFn 0)
         (Multiset.map_congr rfl
           (fun u _ => TermGIn.evalPlain_substMap θ a u γ))
-  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w _ t f q hrr dist keep ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -717,7 +719,7 @@ theorem AggQueryIn.evaluatePlain_substMap :
     rcases keep with _ | φ <;>
       exact congrArg (if dist then f.distinct else f)
         (List.map_congr_left (fun v _ => TermIn.eval_substMap θ t v γ))
-  | @WinExpr cI n' m' p' na _lab _rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab _rd P O o ws _ ts fs g q keeps ih =>
     intro d θ D γ
     rw [AggQueryIn.substMap]
     simp only [AggQueryIn.evaluatePlain]
@@ -1362,13 +1364,13 @@ theorem AggQueryIn.evaluate_substMap :
     simp only [AggQueryIn.evaluate, hk, AggValue.ofGroup_substMap,
       AggExpr.ofGroupWhen_substMap, TermGIn.evalPlain_substMap]
     rw [ih θ hθ dB γ E]
-  | @Win cI n' m' p' κw _lab rd P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab rd P O o w _ t f q hrr dist keep ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
     have hk := EvalEnv.paramKey_substRd hθ E rd γ
     simp only [AggQueryIn.evaluate, hk, ValueFrame.windowGenRow_substMap]
     rw [ih θ hθ dB γ E]
-  | @WinExpr cI n' m' p' na _lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab rd P O o ws _ ts fs g q keeps ih =>
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
     have hk := EvalEnv.paramKey_substRd hθ E rd γ

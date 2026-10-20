@@ -971,7 +971,7 @@ theorem AggQueryIn.exists_grade (hG : Graded G) {S : Set OpKind} (hS : OpKind.mu
           rw [← hcard]
           exact Multiset.card_le_card (Multiset.filter_le _ _)
   | Win P' O o w t g q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _ _
+    rename_i c' n' m' p' κ' _ _ _
     intro hu hi hx hh hl hm ρc HK hwk P γ H N D
     obtain ⟨N₁, D₁, hN, hD, hb⟩ := ih hu.2 hi.2.2.2 hx hh (by simp)
       (fun p hp => absurd hp List.not_mem_nil) hwk.2 P γ H N D

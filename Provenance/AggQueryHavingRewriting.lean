@@ -239,7 +239,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
       (fun k => Sum.inl (Fin.append g (fun _ : Fin 1 =>
         f ((r.filter (fun u => key u = g)).map
           (fun u => p.evalPlain u γ))) k)))
-  | _, _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' _lab _rd P O o w t f q _hrr dist keep,
+  | _, _, _, _, @AggQueryIn.Win _ _ n' _m' _p' κ' _lab _rd P O o w _ t f q _hrr dist keep,
       D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
@@ -252,7 +252,7 @@ noncomputable def AggQueryIn.evaluateRew : {c n : ℕ} → {κ : Fin n → ColKi
               (ColKind.readTuple κ' u) γ)
           : Tuple (T ⊕ K) (n' + 1)) k))
         : Tuple (GenValue (T ⊕ K) K) (n' + 1)))
-  | _, _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na _lab _rd P O o ws ts fs g q keeps, D, γ =>
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ n' _m' _p' _na _lab _rd P O o ws _ ts fs g q keeps, D, γ =>
     let r : Relation (T ⊕ K) n' := (q.evaluateRew D γ).map
       (fun u => (GenRow.plainTuple u : Tuple (T ⊕ K) n'))
     r.map (fun u : Tuple (T ⊕ K) n' =>
@@ -633,14 +633,14 @@ theorem AggQueryIn.evaluateRew_plain :
   | GammaTok is his ts fs a q keep ih =>
     intro hq hc D γ
     exact hq.elim
-  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w _ t f q hrr dist keep ih =>
     -- a window reads the collapsed rows, which the embedding leaves
     -- alone, and its `FILTER` clause cuts the frame on both sides
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew, AggQueryIn.evaluatePlain_Win_eq_opt]
     rw [ih hq hc D γ, map_plainTuple_map_inl, Multiset.map_map]
     exact Multiset.map_congr rfl (fun _ _ => rfl)
-  | @WinExpr cI n' m' p' na _lab _rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab _rd P O o ws _ ts fs g q keeps ih =>
     -- and so does a multi-frame one, leaf by leaf, clause and all
     intro hq hc D γ
     simp only [AggQueryIn.evaluateRew,

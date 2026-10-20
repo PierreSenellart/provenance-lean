@@ -269,26 +269,31 @@ theorem evaluatePlain_scalarRaw {m n₂ : ℕ} (ts : Tuple (TermIn T (k + c) m) 
 /-- **A symbolic window's rows**: the input's cells, then the window's
 value itself. -/
 noncomputable def winRaw {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T (k + c) n) (g : SeqAggFunc T) {κ : Fin n → ColKind}
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T (k + c) n) (g : SeqAggFunc T) {κ : Fin n
+      → ColKind}
     (q : AggQueryIn T (k + c) n κ) (dist : Bool) (keep : Option (Selection T n)) :
     AggQueryIn T c ((k + n) * (7 + k) + 1) (ColKind.allReg _) :=
-  AggQueryIn.allRegOf (AggQueryIn.Win (lab := 0) (rd := fun _ => false) (gKeyIdx P)
+  AggQueryIn.allRegOf (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false)
+    (gKeyIdx P)
     (winOIdx O) (expandSpec o) (expandFrame (k := k) w) (termV t) g (sym env f q)
     (winReadsReg_allReg _ _ _) dist (keep.map (fun φ => (transSel 0 φ).toSel)))
 
 theorem sym_Win {n m p : ℕ} {κ' : Fin n → ColKind} {lab : ℕ} {rd : Fin (k + c) → Bool}
-    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql :
+      w.IsSQL o}
     (t : TermIn T (k + c) n) (g : SeqAggFunc T) (q : AggQueryIn T (k + c) n κ')
     (hrr : WinReadsReg κ' P O t) (dist : Bool) (keep : Option (Selection T n)) :
-    sym env f (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep)
-      = projQ (wOutSA n) (winRaw env f P O o w t g q dist keep) := by
+    sym env f (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t g q hrr dist
+      keep)
+      = projQ (wOutSA n) (winRaw (hsql := sql_frame%) env f P O o w t g q dist keep) := by
   rw [sym]; rfl
 
 theorem evaluatePlain_winRaw {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T (k + c) n) (g : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T (k + c) n) (g :
+      SeqAggFunc T)
     {κ : Fin n → ColKind} (q : AggQueryIn T (k + c) n κ) (dist : Bool)
     (keep : Option (Selection T n)) (D : Database T) (γ : Fin c → T) :
-    ((winRaw env f P O o w t g q dist keep).evaluatePlain D γ : Multiset _)
+    ((winRaw (hsql := sql_frame%) env f P O o w t g q dist keep).evaluatePlain D γ : Multiset _)
       = winRows (gKeyIdx P) (winOIdx O) (expandSpec o) (expandFrame (k := k) w) (termV t)
           (if dist then g.distinct else g) (keep.map (fun φ => (transSel 0 φ).toSel))
           ((sym env f q).evaluatePlain D γ) γ := by
@@ -351,8 +356,9 @@ noncomputable def cutCore (cnt : SeqAggFunc T) (f : ℕ → String) :
         (cutCore cnt (part f 1) q))) (part f 5) is p g q) (fun j : Fin 1 => Fin.natAdd _ j))
   | _, _, _, .Win P O o w t g q hrr dist keep =>
     u2 (part f 0) (cutCore cnt (part f 1) q)
-      (colsQ (part f 2) (winRaw (envOf (part f 3) cnt k (cutOf (part f 4)
-        (AggQueryIn.Win (lab := 0) (rd := fun _ => false) P O o w t g q hrr dist keep).allConsts
+      (colsQ (part f 2) (winRaw (hsql := sql_frame%) (envOf (part f 3) cnt k (cutOf (part f 4)
+        (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t g q hrr
+          dist keep).allConsts
         (cutCore cnt (part f 1) q))) (part f 5) P O o w t g q dist keep)
         (fun _ : Fin 1 => Fin.last _))
   | _, _, _, .Apply _ _ => AggQueryIn.emptyRel 1
@@ -844,13 +850,15 @@ theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAgg
       have hs : sizeOf q ≤ N := by simp at hq; omega
       obtain ⟨hκ, hwq⟩ := hsrc.2.2.1
       subst hκ
-      set S := (AggQueryIn.Win (lab := 0) (rd := fun _ => false) P O o w t g q hrr dist
+      set S := (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t g
+        q hrr dist
         keep).allConsts
         with hSdef
       have hSq : q.allConsts ⊆ S := Finset.subset_union_right
       have hSC : S ⊆ C := hCk
       have hsrc' : SymSrc Θ q := ⟨hsrc.1.2.2.2, hsrc.2.1, hwq, hsrc.2.2.2⟩
-      have hrNM : ∀ s, q.noMention s → (winRaw (envOf (part f 3) cnt k (cutOf (part f 4) S
+      have hrNM : ∀ s, q.noMention s → (winRaw (hsql := sql_frame%) (envOf (part f 3) cnt k (cutOf
+          (part f 4) S
           (cutCore cnt (part f 1) q))) (part f 5) P O o w t g q dist keep).noMention s := by
         intro s hs'
         unfold winRaw
@@ -900,7 +908,8 @@ theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAgg
           (valsU ((cutOf (part f 4) S (cutCore cnt (part f 1) q)).evaluatePlain D γ)) par) ?_
         rw [hsl]
         exact Multiset.mem_map_of_mem _ hu
-      have hrow : Multiset.Mem ((winRaw (envOf (part f 3) cnt k (cutOf (part f 4) S
+      have hrow : Multiset.Mem ((winRaw (hsql := sql_frame%) (envOf (part f 3) cnt k (cutOf (part
+          f 4) S
             (cutCore cnt (part f 1) q))) (part f 5) P O o w t g q dist keep).evaluatePlain D γ)
           (Fin.snoc (rowEnc (valsU ((cutOf (part f 4) S (cutCore cnt (part f 1) q)).evaluatePlain
             D γ)) par u) (ValueFrame.windowValueOpt P O o w t (if dist then g.distinct else g) keep

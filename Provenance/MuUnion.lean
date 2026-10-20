@@ -457,9 +457,9 @@ def AggQueryIn.substRel (s : String) {c n : ℕ} (pv : Fin n → T ⊕ Fin c) :
   | _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep
   | _, _, _, .Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep =>
-      .Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep
+      .Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist keep
   | _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q keeps
 
 omit [ValueType T] in
 /-- A closed query not mentioning the name is unchanged. -/

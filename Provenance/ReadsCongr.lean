@@ -437,7 +437,7 @@ theorem AggQueryIn.evaluate_congr_reads :
     simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
         (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
             hk])), hpk, nestOfGroup, hp]
-  | @Win cI nI mI pI κw lab rd P O o w t f q hrr' dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hrr' dist keep ih =>
     intro hrr d γ γ' E E' hh hg hc
     have ht : ∀ r : Tuple T _, t.eval r γ = t.eval r γ' := fun r =>
       t.eval_congr_reads r (fun k hk => hg k (by simp [AggQueryIn.readsOuter, hk]))
@@ -447,7 +447,7 @@ theorem AggQueryIn.evaluate_congr_reads :
         (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
             hk])), hpk,
       ValueFrame.windowGenRow_congr_γ _ _ _ P O o w t f _ _ _ dist ht]
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     intro hrr d γ γ' E E' hh hg hc
     have hts : ∀ j (r : Tuple T _), (ts j).eval r γ = (ts j).eval r γ' := fun j r =>
       (ts j).eval_congr_reads r (fun k hk => hg k (by

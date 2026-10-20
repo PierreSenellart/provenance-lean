@@ -121,7 +121,7 @@ def AggQueryIn.WinsDerivable : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, .ProvSum _ _ _ q => q.WinsDerivable
   | _, _, _, _, .Retag _ q => q.WinsDerivable
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.WinsDerivable
-  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _lab _rd _ _ _ w _ _ q _ _ _ =>
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ κ' _lab _rd _ _ _ w _ _ _ q _ _ _ =>
       (∀ i, κ' i = ColKind.reg) ∧ w.ContainsSelf ∧ q.WinsDerivable
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
@@ -259,7 +259,7 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
     rw [he' D γ]
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | ProvSum is his t q ih => exact fun hq => hq.elim
-  | @Win cw nw _mw _pw _κw _lab _rd P' O o w t f q hrr dist keep ih =>
+  | @Win cw nw _mw _pw _κw _lab _rd P' O o w _ t f q hrr dist keep ih =>
     intro hq hd hqs
     obtain ⟨hreg, hcs, hd'⟩ := hd
     obtain ⟨q', hu', hs', he'⟩ := ih hq.2 hd' hqs
@@ -274,7 +274,8 @@ theorem AggQueryIn.exists_winFree {S : Set OpKind} {sch : Schema}
       overSchema_winByApply P' O o ψ t _ hs',
             fun D γ => ?_⟩
     refine Eq.trans ?_
-      (evaluatePlain_winByApplyOf (lab := 0) (rd := fun _ => false) P' O o hcs ψ t f dist keep hψ
+      (evaluatePlain_winByApplyOf (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o
+        hcs ψ t f dist keep hψ
           q' D γ).symm
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -428,7 +429,8 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o w t fn q'
+        hrr dist keep,
       ⟨mem_of_mem_insert (by decide)
         (mem_of_mem_insert (by decide) hq.1), hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -436,7 +438,8 @@ theorem AggQueryIn.exists_basisOps_of_dedupDiff {S : Set OpKind}
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hc hq hqs
     obtain ⟨q', hu', hs', he'⟩ := ih hc hq.2 hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o ws ts
+        fs g q' keeps,
       ⟨mem_of_mem_insert (by decide)
         (mem_of_mem_insert (by decide) hq.1), hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
@@ -966,14 +969,16 @@ theorem AggQueryIn.exists_prodFree {S : Set OpKind} {sch : Schema}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o w t fn q'
+        hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hl hq hw hqs
     obtain ⟨q', hu', hs', he'⟩ := ih rfl hq.2 hw hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o ws ts
+        fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -1107,14 +1112,16 @@ theorem AggQueryIn.exists_selFree {S : Set OpKind} {sch : Schema}
   | Win P' O o w t fn q hrr dist keep ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P' O o w t fn q' hrr dist keep,
+    refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o w t fn q'
+        hrr dist keep,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hl hc hq hw hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih rfl hc hq.2 hw hqs
-    refine ⟨AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) P' O o ws ts fs g q' keeps,
+    refine ⟨AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P' O o ws ts
+        fs g q' keeps,
       ⟨mem_of_mem_insert (by decide) hq.1, hu'⟩, hs', hw', fun D γ => ?_⟩
     simp only [AggQueryIn.evaluatePlain]
     rw [he' D γ]
@@ -1239,7 +1246,7 @@ theorem AggQueryIn.winsDerivable_win_whole {lab : ℕ} {c n m p : ℕ} {rd : Fin
     (O : Tuple (Fin n) p) (o : OrderSpec p) (t : TermIn T c n)
     (f : SeqAggFunc T) {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o ValueFrame.whole t f q
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ValueFrame.whole t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.containsSelf_whole, hq⟩
 
@@ -1250,7 +1257,8 @@ theorem AggQueryIn.winsDerivable_win_rangeUpTo {lab : ℕ} {c n m p : ℕ} {rd :
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.rangeUpTo o) t f q
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o (ValueFrame.rangeUpTo o) t
+      f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.rangeUpTo_containsSelf o, hq⟩
 
@@ -1262,7 +1270,8 @@ theorem AggQueryIn.winsDerivable_win_rangeBefore {lab : ℕ} {c n m p : ℕ} {rd
     (t : TermIn T c n) (f : SeqAggFunc T)
     {q : AggQueryIn T c n (ColKind.allReg n)} (dist : Bool)
     (keep : Option (Selection T n)) (hq : q.WinsDerivable) :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o (ValueFrame.rangeBefore o) t f q
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o (ValueFrame.rangeBefore o)
+      t f q
       (winReadsReg_allReg P O t) dist keep).WinsDerivable :=
   ⟨fun _ => rfl, ValueFrame.rangeBefore_containsSelf o, hq⟩
 

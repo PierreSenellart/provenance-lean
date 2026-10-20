@@ -125,7 +125,7 @@ before gives `0, 1, 2` and the whole partition gives `3` on every row.
 That pair is what `percent_rank` divides, and reading the two
 separately would allow `2` beside `1`. -/
 theorem winExpr_both_frames :
-    ((AggQueryIn.WinExpr (lab := 0) (rd := fun _ => false) noP ![0] ord
+    ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) noP ![0] ord
         ![ValueFrame.rangeBefore ord, ValueFrame.whole]
         ![TermIn.const 1, TermIn.const 1]
         ![SeqAggFunc.count, SeqAggFunc.count]

@@ -419,7 +419,7 @@ def AggQueryIn.Retypable : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Lis
   | _, _, _, _, .ProvSum _ _ _ q => q.Retypable
   | _, _, _, _, .Retag _ q => q.Retypable
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.Retypable
-  | c, _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _lab _rd _ O o _ t fn q _ dist keep =>
+  | c, _, _, _, @AggQueryIn.Win _ _ n _ _ κ' _lab _rd _ O o _ _ t fn q _ dist keep =>
       ((∀ i, κ' i = ColKind.reg)
           ∨ ((∀ (D : Database T) (γ : Fin c → T),
                 (if dist then fn.distinct else fn).Symmetric
@@ -946,7 +946,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
     · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
       have hκ := funext hreg
       subst hκ
-      refine ⟨(AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) P' O o w t fn q'
+      refine ⟨(AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := (fun _ => false)) P' O o w t
+          fn q'
           (winReadsReg_allReg P' O t) dist
         keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
       · rw [AggQueryIn.usesOnly_allRegOf]
@@ -960,7 +961,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
         rw [he' D γ]
         rfl
     · obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt' hqs
-      refine ⟨(AggQueryIn.Win (lab := 0) (rd := (fun _ => false)) P' O o w t fn q'
+      refine ⟨(AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := (fun _ => false)) P' O o w t
+          fn q'
           (winReadsReg_allReg P' O t) dist
         keep).allRegOf, ?_, ?_, ?_, fun D γ => ?_⟩
       · rw [AggQueryIn.usesOnly_allRegOf]
@@ -985,7 +987,8 @@ theorem AggQueryIn.exists_allReg {S : Set OpKind} {sch : Schema}
   | WinExpr P' O o ws ts fs g q keeps ih =>
     intro hq hnt hqs
     obtain ⟨q', hu', hs', hw', he'⟩ := ih hq.2 hnt hqs
-    refine ⟨(AggQueryIn.WinExpr (lab := 0) (rd := (fun _ => false)) P' O o ws ts fs g q'
+    refine ⟨(AggQueryIn.WinExpr (hsql := sql_frame%) (lab := 0) (rd := (fun _ => false)) P' O o ws
+        ts fs g q'
         keeps).allRegOf, ?_, ?_,
       ?_, fun D γ => ?_⟩
     · rw [AggQueryIn.usesOnly_allRegOf]

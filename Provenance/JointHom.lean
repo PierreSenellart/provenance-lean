@@ -1001,8 +1001,8 @@ def AggQueryIn.labels : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (
   | _, _, _, _, .ProvSum _ _ _ q => q.labels
   | _, _, _, _, .Retag _ q => q.labels
   | _, _, _, _, @AggQueryIn.GammaTok _ _ _ _ n₂ _ lab _ _ _ _ _ _ q _ => labCons n₂ lab q.labels
-  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ q _ _ _ => lab :: q.labels
-  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.Win _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ q _ _ _ => lab :: q.labels
+  | _, _, _, _, @AggQueryIn.WinExpr _ _ _ _ _ _ lab _ _ _ _ _ _ _ _ _ q _ => lab :: q.labels
 
 /-- **No two operators building aggregate values share a label.** -/
 def AggQueryIn.labelsDistinct {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}

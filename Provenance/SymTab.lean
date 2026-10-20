@@ -107,9 +107,10 @@ noncomputable def sym (env : SymEnv T k c) (f : ℕ → String) :
     (AggQueryIn.Proj (projSA (gOutSA _ 1))
       (AggQueryIn.allRegOf (AggQueryIn.GammaNest (lab := 0) (rd := fun _ => false) (gKeyIdx is)
         (fun _ h => by cases h) (projV p) g (sym env f q)))).castKind (projSA_kind _)
-  | _, _, _, @AggQueryIn.Win _ _ n _ _ _ _ _ P O o w t g q _ dist keep =>
+  | _, _, _, @AggQueryIn.Win _ _ n _ _ _ _ _ P O o w hs t g q _ dist keep =>
     (AggQueryIn.Proj (projSA (wOutSA n))
-      (AggQueryIn.allRegOf (AggQueryIn.Win (lab := 0) (rd := fun _ => false) (gKeyIdx P)
+      (AggQueryIn.allRegOf (AggQueryIn.Win (hsql := isSQL_expandFrame hs) (lab := 0) (rd := fun _
+        => false) (gKeyIdx P)
         (winOIdx O) (expandSpec o) (expandFrame w) (termV t) g (sym env f q)
         (winReadsReg_allReg _ _ _) dist (keep.map (fun φ => (transSel 0 φ).toSel))))).castKind
       (projSA_kind _)

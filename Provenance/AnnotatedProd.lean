@@ -388,13 +388,16 @@ theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {d : An
 theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {d : AnnotatedDatabase T K} {γ : Fin c → T}
     {E E' : EvalEnv T K}
     {κ : Fin n → ColKind} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) {q q' : AggQueryIn T c n κ}
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) {q q' :
+      AggQueryIn T c n κ}
     (hrr : WinReadsReg κ P O t) (dist : Bool) (keep : Option (Selection T n))
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin)
     (hc : E.ctxAt c γ = E'.ctxAt c γ) :
-    ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate d γ
+    ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+      keep).evaluate d γ
         E).map GenRow.fin
-      = ((AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep).evaluate d γ
+      = ((AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist
+        keep).evaluate d γ
           E').map GenRow.fin := by
   have hk : E.paramKey rd γ = E'.paramKey rd γ := by
     simp only [EvalEnv.paramKey, hc]
@@ -409,13 +412,16 @@ theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} {d : Annota
     {γ : Fin c → T}
     {E E' : EvalEnv T K}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p) (ws : Fin qn → ValueFrame T p)
+      {hsql : ∀ l, (ws l).IsSQL o}
     (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T) (g : (Fin qn → T) → T)
     (keeps : Fin qn → Option (Selection T n)) {q q' : AggQueryIn T c n (ColKind.allReg n)}
     (h : (q.evaluate d γ E).map GenRow.fin = (q'.evaluate d γ E').map GenRow.fin)
     (hc : E.ctxAt c γ = E'.ctxAt c γ) :
-    ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluate d γ
+    ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q
+      keeps).evaluate d γ
         E).map GenRow.fin
-      = ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q' keeps).evaluate d γ
+      = ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q'
+        keeps).evaluate d γ
           E').map GenRow.fin := by
   have hk : E.paramKey rd γ = E'.paramKey rd γ := by
     simp only [EvalEnv.paramKey, hc]
@@ -579,21 +585,25 @@ theorem gammaTok {lab : ℕ} {c m n₁ n₂ : ℕ} {rd : Fin c → Bool} {κ : F
 
 theorem win {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     {q q' : AggQueryIn T c n κ} (hrr : WinReadsReg κ P O t) (dist : Bool)
     (keep : Option (Selection T n)) (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep)
-      (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q' hrr dist keep)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w
+      t f q hrr dist keep)
+      (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist keep)  :=
   fun d γ E E' hE => AggQueryIn.FinAt.win P O o w t f hrr dist keep (h d γ E E' hE) hE.1
 
 theorem winExpr {lab : ℕ} {c n m p qn : ℕ} {rd : Fin c → Bool} (P : Tuple (Fin n) m)
     (O : Tuple (Fin n) p)
     (o : OrderSpec p)
-    (ws : Fin qn → ValueFrame T p) (ts : Fin qn → TermIn T c n) (fs : Fin qn → SeqAggFunc T)
+    (ws : Fin qn → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin qn → TermIn T c n) (fs :
+      Fin qn → SeqAggFunc T)
     (g : (Fin qn → T) → T) (keeps : Fin qn → Option (Selection T n))
     {q q' : AggQueryIn T c n (ColKind.allReg n)} (h : AggQueryIn.FinEq (K := K) q q') :
-    AggQueryIn.FinEq (K := K) (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps)
-      (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q' keeps)  :=
+    AggQueryIn.FinEq (K := K) (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O
+      o ws ts fs g q keeps)
+      (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q' keeps) 
+        :=
   fun d γ E E' hE => AggQueryIn.FinAt.winExpr P O o ws ts fs g keeps (h d γ E E' hE) hE.1
 
 theorem gammaNest {lab : ℕ} {c m n₁ : ℕ} {rd : Fin c → Bool} {κ : Fin m → ColKind}
@@ -1258,9 +1268,9 @@ def prodFree : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String ×
   | _, _, _, _, .GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       .GammaTok (lab := lab) (rd := rd) is his ts fs a (prodFree q) keep
   | _, _, _, _, .Win (lab := lab) (rd := rd) P O o w t g q hrr dist keep =>
-      .Win (lab := lab) (rd := rd) P O o w t g (prodFree q) hrr dist keep
+      .Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t g (prodFree q) hrr dist keep
   | _, _, _, _, .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      .WinExpr (lab := lab) (rd := rd) P O o ws ts fs g (prodFree q) keeps
+      .WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g (prodFree q) keeps
 
 /-- **The pass agrees with the query up to finalization.** -/
 theorem finEq_prodFree :

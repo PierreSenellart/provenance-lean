@@ -138,11 +138,13 @@ theorem enc_part1 {f : ℕ → String} (hf : Function.Injective f) {j : ℕ}
 /-! ## A window kept is of the fragment -/
 
 theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
+    (t : TermIn T c n)
     (f : SeqAggFunc T) (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n))
     (dist : Bool) (keep : Option (Selection T n)) (ht : t.noFun = true)
     (hf : if dist then f.distinct ∈ Θ else f ∈ Θ) (hkeep : Selection.noFunOpt keep = true)
-    (hq : Fine Θ q) : Fine Θ (AggQueryIn.winKept P O o w t f κ q dist keep) := by
+    (hq : Fine Θ q) :
+    Fine Θ (AggQueryIn.winKept (hsql := sql_frame%) P O o w t f κ q dist keep) := by
   refine ⟨AggQueryIn.usesOnly_winKept P O o w t f κ q dist keep mem_win mem_proj hq.1,
     AggQueryIn.inSig_winKept P O o w t f κ q dist keep ht hf hkeep hq.2.1, ?_,
     AggQueryIn.hygienic_winKept P O o w t f κ q dist keep hq.2.2.2⟩
@@ -152,10 +154,11 @@ theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n
   exact hq.2.2.1
 
 theorem over_winKept {c n m p : ℕ} {sch : Schema} {A : String → Prop} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
+    (t : TermIn T c n)
     (f : SeqAggFunc T) (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n))
     (dist : Bool) (keep : Option (Selection T n)) (hq : Over sch A q) :
-    Over sch A (AggQueryIn.winKept P O o w t f κ q dist keep) :=
+    Over sch A (AggQueryIn.winKept (hsql := sql_frame%) P O o w t f κ q dist keep) :=
   ⟨AggQueryIn.overSchema_winKept P O o w t f κ q dist keep hq.1, fun x hx => by
     rw [AggQueryIn.names_winKept] at hx; exact hq.2 x hx⟩
 
@@ -898,13 +901,16 @@ theorem exists_prodPass_aux {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T} (hcnt
         exact (ProjColIn.evalPlain_toReg pc hu.1.2 u γ).symm
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
   | ProvSum is his t q ih => exact fun hu => hu.elim
-  | @Win cw nw _mw _pw κw _lab _rd P' O o w t fw q hrr dist keep ih =>
+  | @Win cw nw _mw _pw κw _lab _rd P' O o w _ t fw q hrr dist keep ih =>
     intro hu hi hr sch A f hf hrel
     obtain ⟨q', hF, hO, he⟩ := (ih hu.2 hi.2.2.2 hr sch A f hf hrel).1 rfl
-    refine ⟨fun _ => ⟨(AggQueryIn.winKept P' O o w t fw κw q' dist keep).allRegOf, ?_,
-      over_allRegOf (over_winKept P' O o w t fw κw q' dist keep hO), fun D γ hset => ?_⟩,
+    refine ⟨fun _ => ⟨(AggQueryIn.winKept (hsql := sql_frame%) P' O o w t fw κw q' dist
+        keep).allRegOf, ?_,
+      over_allRegOf (over_winKept (hsql := sql_frame%) P' O o w t fw κw q' dist keep hO),
+      fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
-    · have := fine_winKept P' O o w t fw κw q' dist keep hi.1 hi.2.1 hi.2.2.1 hF
+    · have := fine_winKept (hsql := sql_frame%) P' O o w t fw κw q' dist keep hi.1 hi.2.1
+        hi.2.2.1 hF
       unfold Fine at this ⊢
       rw [AggQueryIn.usesOnly_allRegOf, AggQueryIn.inSig_allRegOf, winAllReg_allRegOf,
         AggQueryIn.hygienic_allRegOf]

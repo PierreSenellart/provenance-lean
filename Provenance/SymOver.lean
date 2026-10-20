@@ -1067,7 +1067,8 @@ theorem over_cutCore (cnt : SeqAggFunc T) :
     | Win P O o w t g q hrr dist keep =>
       rw [cutCore]
       exact over_aggCut cnt f hf (ih _ q (by simp at hq; omega) (supOK_of_part hf 1) hr) _ _ _
-        (hraw (AggQueryIn.Win (lab := 0) (rd := fun _ => false) P O o w t g q hrr dist keep) _ _
+        (hraw (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o w t g q
+          hrr dist keep) _ _
           (fun env g' => sym_Win env g' P O o w t g q hrr dist keep) (by exact hr))
     | Apply => rw [cutCore]; exact over_emptyRel 1
     | Sum => rw [cutCore]; exact over_emptyRel 1

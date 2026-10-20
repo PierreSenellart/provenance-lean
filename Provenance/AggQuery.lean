@@ -1404,6 +1404,11 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   frame is read in, which is what an aggregate that is not symmetric
   depends on.
 
+  The frame is one of SQL's under the clause `o` (`hsql`, `ValueFrame.IsSQL`):
+  a frame clause reads its bounds in the window's own `ORDER BY`, and the
+  wider language of `FrameCond`, which may compare order columns each under a
+  clause of its own, names frames no frame clause gives.
+
   It removes no row, merges none and changes no annotation, so it creates no
   group and produces no group-existence factor. Which occurrence a row is
   matters – two occurrences carrying the same row may have different frames,
@@ -1435,7 +1440,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   | Win : {c n m p : ℕ} → {κ : Fin n → ColKind} → {lab : ℕ} →
       {rd : Fin c → Bool} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
-      (w : ValueFrame T p) →
+      (w : ValueFrame T p) → {hsql : w.IsSQL o} →
       (t : TermIn T c n) → (f : SeqAggFunc T) →
       AggQueryIn T c n κ → WinReadsReg κ P O t → (dist : Bool := false) →
       (keep : Option (Selection T n) := none) →
@@ -1454,6 +1459,8 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   rank of three beside a count of one. Everything is indexed by
   occurrence, so an `EXCLUDE CURRENT ROW` frame is as exact here as a
   single-frame window's.
+  Each frame is one of SQL's under the clause `o` (`hsql`), as a
+  single-frame window's is.
 
   **Why this is an operator and not a projection, here.** It is a
   primitive of *this* syntax and not of the semantics. An aggregate
@@ -1493,7 +1500,7 @@ inductive AggQueryIn (T : Type) : (c n : ℕ) → (Fin n → ColKind) →
   | WinExpr : {c n m p q : ℕ} → {lab : ℕ} →
       {rd : Fin c → Bool} →
       (P : Tuple (Fin n) m) → (O : Tuple (Fin n) p) → (o : OrderSpec p) →
-      (ws : Fin q → ValueFrame T p) →
+      (ws : Fin q → ValueFrame T p) → {hsql : ∀ l, (ws l).IsSQL o} →
       (ts : Fin q → TermIn T c n) → (fs : Fin q → SeqAggFunc T) →
       (g : (Fin q → T) → T) →
       AggQueryIn T c n (ColKind.allReg n) →
@@ -2419,9 +2426,9 @@ def AggQueryIn.readsOuter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, @GammaTok _ _ _ _ _ _ _ rd _ _ ts _ a q _, k =>
       (List.finRange _).any (fun j => (ts j).readsOuter k) || a.readsOuter k || q.readsOuter k
         || rd k
-  | _, _, _, _, @Win _ _ _ _ _ _ _ rd _ _ _ _ t _ q _ _ _, k =>
+  | _, _, _, _, @Win _ _ _ _ _ _ _ rd _ _ _ _ _ t _ q _ _ _, k =>
       t.readsOuter k || q.readsOuter k || rd k
-  | _, _, _, _, @WinExpr _ _ _ _ _ _ _ rd _ _ _ _ ts _ _ q _, k =>
+  | _, _, _, _, @WinExpr _ _ _ _ _ _ _ rd _ _ _ _ _ ts _ _ q _, k =>
       (List.finRange _).any (fun j => (ts j).readsOuter k) || q.readsOuter k || rd k
 
 /-- **The values of the parameters an operator reads**, in the order of the
@@ -2683,7 +2690,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
           (((r.filter (fun p => ∀ k' : Fin n₁, p.fst (is k') = g k')).map
             (fun p => a.evalPlain p.fst γ)).fold addFn 0)),
        ⟨1, {U.map Prod.snd}⟩⟩)
-  | _, _, _, _, @Win _ _ n _m _p κ' lab rd P O o w t f q _hrr dist keep, d, γ, E =>
+  | _, _, _, _, @Win _ _ n _m _p κ' lab rd P O o w _ t f q _hrr dist keep, d, γ, E =>
     let rows := q.evaluate d γ E
     -- the relation the token is read over: what the window reads of each
     -- row (`ColKind.readTuple`), carrying the row's annotation
@@ -2694,7 +2701,7 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
       ValueFrame.windowGenRow lab
         (E.paramKey rd γ)
         κ' P O o w t f keep r x γ dist)
-  | _, _, _, _, @WinExpr _ _ n _m _p _na lab rd P O o ws ts fs g q keeps, d, γ, E =>
+  | _, _, _, _, @WinExpr _ _ n _m _p _na lab rd P O o ws _ ts fs g q keeps, d, γ, E =>
     let r : AnnotatedRelation T K n := (q.evaluate d γ E).map GenRow.toAnnotated
     let occ := OccFam.ofSorted r
     -- the column is an expression over the union of the frames, which the
@@ -2825,11 +2832,12 @@ legitimate – that an occurrence's token is determined by the relation even
 though its frame is not determined by its row – is `ValueFrame.tokenOf`. -/
 theorem AggQueryIn.evaluate_Win_eq {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool} {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) {γ : Fin c → T} {E : EvalEnv T K} :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist).evaluate d γ E
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist).evaluate
+      d γ E
       = (q.evaluate d γ E).map
           (fun x => ValueFrame.windowGenRow lab
             (E.paramKey rd γ)
@@ -3097,7 +3105,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
       (fun _ : Fin 1 =>
         ((r.filter (fun u => ∀ k' : Fin n₁, u (is k') = g k')).map
           (fun u => a.evalPlain u γ)).fold addFn 0))
-  | _, _, _, _, @Win _ _ n _m _p κ' _lab _rd P O o w t f q _hrr dist keep, d, γ =>
+  | _, _, _, _, @Win _ _ n _m _p κ' _lab _rd P O o w _ t f q _hrr dist keep, d, γ =>
     let rows := q.evaluatePlain d γ
     -- the window reads the regular columns of each row, as the annotated
     -- evaluator does, so the two agree on what a frame holds
@@ -3107,7 +3115,7 @@ noncomputable def AggQueryIn.evaluatePlain : {c n : ℕ} → {κ : Fin n → Col
           (if dist then f.distinct else f) keep read
             (ColKind.readTuple κ' u) γ)
         : Tuple T (n + 1)))
-  | _, _, _, _, @WinExpr _ _ n _m _p _na _lab _rd P O o ws ts fs g q keeps, d, γ =>
+  | _, _, _, _, @WinExpr _ _ n _m _p _na _lab _rd P O o ws _ ts fs g q keeps, d, γ =>
     let occ := OccFam.ofSorted (q.evaluatePlain d γ)
     (OccFam.mk occ.size (fun i =>
       (Fin.snoc (occ.row i)
@@ -3171,11 +3179,12 @@ theorem AggQueryIn.evaluatePlain_Gamma_eq {lab : ℕ} {c m n₁ n₂ : ℕ} {rd 
 theorem AggQueryIn.evaluatePlain_Win_eq {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist).evaluatePlain d γ
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr
+      dist).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValue P O o w t
@@ -3204,11 +3213,12 @@ the relation, as `AggQueryIn.evaluate_Win_eq` is without one. -/
 theorem AggQueryIn.evaluate_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o}
     (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool) (φ : Selection T n)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (d : AnnotatedDatabase T K) {γ : Fin c → T} {E : EvalEnv T K} :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist (some φ)).evaluate d γ E
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist (some
+      φ)).evaluate d γ E
       = (q.evaluate d γ E).map
           (fun x => ValueFrame.windowGenRow lab
             (E.paramKey rd γ)
@@ -3219,11 +3229,12 @@ theorem AggQueryIn.evaluate_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c 
 theorem AggQueryIn.evaluatePlain_Win_eq_when {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (φ : Selection T n) (q : AggQueryIn T c n κ)
     (hrr : WinReadsReg κ P O t)
     (d : Database T) {γ : Fin c → T} :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist (some φ)).evaluatePlain d γ
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist (some
+      φ)).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValueWhen P O o w t
@@ -3239,11 +3250,12 @@ is no clause and the cut one where there is. -/
 theorem AggQueryIn.evaluatePlain_Win_eq_opt {lab : ℕ} {c n m p : ℕ} {rd : Fin c → Bool}
     {κ : Fin n → ColKind}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) (dist : Bool)
     (keep : Option (Selection T n))
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluatePlain d γ
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+      keep).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (ValueFrame.windowValueOpt P O o w t
@@ -3261,11 +3273,12 @@ relation**: each leaf aggregates over its own frame, and `g` combines
 the values. -/
 theorem AggQueryIn.evaluatePlain_WinExpr_eq {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
+    (ws : Fin na → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin na → TermIn T c n)
     (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
     (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q).evaluatePlain d γ
+    (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g
+      q).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (g (fun l => ValueFrame.windowValue P O o (ws l) (ts l) (fs l)
@@ -3286,12 +3299,13 @@ theorem AggQueryIn.evaluatePlain_WinExpr_eq {lab : ℕ} {c n m p na : ℕ} {rd :
 each leaf aggregates over the part of its own frame its clause keeps. -/
 theorem AggQueryIn.evaluatePlain_WinExpr_eq_when {lab : ℕ} {c n m p na : ℕ} {rd : Fin c → Bool}
     (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (ws : Fin na → ValueFrame T p) (ts : Fin na → TermIn T c n)
+    (ws : Fin na → ValueFrame T p) {hsql : ∀ l, (ws l).IsSQL o} (ts : Fin na → TermIn T c n)
     (fs : Fin na → SeqAggFunc T) (g : (Fin na → T) → T)
     (keeps : Fin na → Option (Selection T n))
     (q : AggQueryIn T c n (ColKind.allReg n)) (d : Database T)
     {γ : Fin c → T} :
-    (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluatePlain d γ
+    (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q
+      keeps).evaluatePlain d γ
       = (q.evaluatePlain d γ).map (fun u : Tuple T n =>
           (Fin.snoc u
             (g (fun l => ValueFrame.windowValueOpt P O o (ws l) (ts l) (fs l)
@@ -3348,9 +3362,9 @@ def AggQueryIn.stripAgg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
   | _, _, _, _, GammaTok (lab := lab) (rd := rd) is his ts fs a q keep =>
       GammaTok (lab := lab) (rd := rd) is his ts fs a q.stripAgg keep
   | _, _, _, _, Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep =>
-      Win (lab := lab) (rd := rd) P O o w t f q.stripAgg hrr dist keep
+      Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q.stripAgg hrr dist keep
   | _, _, _, _, WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps =>
-      WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q.stripAgg keeps
+      WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q.stripAgg keeps
 
 /-- No plan-level provenance aggregation. The possible-world
 metatheorems (random-world commutation, PQE) are about source queries;
@@ -4061,11 +4075,13 @@ def AggQueryIn.readsRecorded : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, @GammaTok _ _ _ _ _ _ lab rd is his ts fs a q keep =>
       rd = (AggQueryIn.GammaTok (lab := lab) (rd := rd) is his ts fs a q keep).readsOuter
         ∧ q.readsRecorded
-  | _, _, _, _, @Win _ _ _ _ _ _ lab rd P O o w t f q hrr dist keep =>
-      rd = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).readsOuter
+  | _, _, _, _, @Win _ _ _ _ _ _ lab rd P O o w _ t f q hrr dist keep =>
+      rd = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+        keep).readsOuter
         ∧ q.readsRecorded
-  | _, _, _, _, @WinExpr _ _ _ _ _ _ lab rd P O o ws ts fs g q keeps =>
-      rd = (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).readsOuter
+  | _, _, _, _, @WinExpr _ _ _ _ _ _ lab rd P O o ws _ ts fs g q keeps =>
+      rd = (AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q
+        keeps).readsOuter
         ∧ q.readsRecorded
 
 /-- **No multi-frame window.** `WinExpr` is the one operator of the

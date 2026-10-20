@@ -375,24 +375,26 @@ input computing the same rows**: the window over the doubled input,
 reading its first block – partition, order, term and clause moved there –
 and the first block then dropped. -/
 def winKept {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-    (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (κ : Fin n → ColKind)
+    (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T) (κ : Fin n →
+      ColKind)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (keep : Option (Selection T n)) :
     AggQueryIn T c (n + 1) (Fin.snoc (ColKind.allReg n) ColKind.agg) :=
   (AggQueryIn.Proj (keptCols n)
-    (AggQueryIn.Win (lab := 0) (rd := fun _ => false) (castCols n P) (castCols n O) o w (t.widen n)
+    (AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (castCols n P)
+      (castCols n O) o w (t.widen n)
         f (doubled κ q)
       (winReadsReg_allReg _ _ _) dist (keep.map (fun φ => φ.widen n)))).castKind (keptCols_kinds n)
 
 /-- **It computes the window**, whatever the kinds of the input it stands
 for, as long as the rows agree. -/
 theorem evaluatePlain_winKept {lab : ℕ} {rd} {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T)
+    (o : OrderSpec p) (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
     {κ : Fin n → ColKind} (q₀ : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (keep : Option (Selection T n))
     (D : Database T) (γ : Fin c → T)
     (hq : (q₀.evaluatePlain D γ : Multiset (Tuple T n)) = q.evaluatePlain D γ) :
-    (winKept P O o w t f κ q dist keep).evaluatePlain D γ
-      = (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q₀ hrr dist
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).evaluatePlain D γ
+      = (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q₀ hrr dist
           keep).evaluatePlain D γ := by
   rw [winKept, AggQueryIn.evaluatePlain_castKind]
   simp only [AggQueryIn.evaluatePlain]
@@ -415,11 +417,14 @@ theorem evaluatePlain_winKept {lab : ℕ} {rd} {n m p : ℕ} (P : Tuple (Fin n) 
 section KeptStructure
 
 variable {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p) (o : OrderSpec p)
-  (w : ValueFrame T p) (t : TermIn T c n) (f : SeqAggFunc T) (κ : Fin n → ColKind)
+  (w : ValueFrame T p) {hsql : w.IsSQL o} (t : TermIn T c n) (f : SeqAggFunc T)
+  (κ : Fin n → ColKind)
   (q : AggQueryIn T c n (ColKind.allReg n)) (dist : Bool) (keep : Option (Selection T n))
 
+include hsql
+
 theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpKind.proj ∈ S)
-    (hq : q.usesOnly S) : (winKept P O o w t f κ q dist keep).usesOnly S := by
+    (hq : q.usesOnly S) : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).usesOnly S := by
   rw [winKept, AggQueryIn.usesOnly_castKind]
   refine ⟨⟨hproj, fun j => ?_⟩, hwin, ?_⟩
   · refine Fin.lastCases ?_ (fun i => ?_) j
@@ -435,7 +440,7 @@ theorem usesOnly_winKept {S : Set OpKind} (hwin : OpKind.win ∈ S) (hproj : OpK
       rfl
 
 theorem hygienic_winKept (hq : q.hygienic) :
-    (winKept P O o w t f κ q dist keep).hygienic := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).hygienic := by
   rw [winKept, AggQueryIn.hygienic_castKind]
   show (doubled κ q).hygienic
   rw [doubled, AggQueryIn.hygienic_castKind]
@@ -443,7 +448,7 @@ theorem hygienic_winKept (hq : q.hygienic) :
 
 theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
     (hf : if dist then f.distinct ∈ Θ else f ∈ Θ) (hkeep : Selection.noFunOpt keep = true)
-    (hq : q.inSig Θ) : (winKept P O o w t f κ q dist keep).inSig Θ := by
+    (hq : q.inSig Θ) : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).inSig Θ := by
   rw [winKept, AggQueryIn.inSig_castKind]
   refine ⟨fun j => ?_, ?_⟩
   · refine Fin.lastCases ?_ (fun i => ?_) j
@@ -461,34 +466,35 @@ theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
       rfl
 
 theorem overSchema_winKept {sch : Schema} (hq : q.overSchema sch) :
-    (winKept P O o w t f κ q dist keep).overSchema sch := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).overSchema sch := by
   rw [winKept, AggQueryIn.overSchema_castKind]
   show (doubled κ q).overSchema sch
   rw [doubled, AggQueryIn.overSchema_castKind]
   exact hq
 
-theorem names_winKept : (winKept P O o w t f κ q dist keep).names = q.names := by
+theorem names_winKept : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).names = q.names
+    := by
   rw [winKept, AggQueryIn.names_castKind]
   show (doubled κ q).names = _
   rw [doubled, AggQueryIn.names_castKind]
   rfl
 
 theorem noMention_winKept (s : String) (hq : q.noMention s) :
-    (winKept P O o w t f κ q dist keep).noMention s := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).noMention s := by
   rw [winKept, AggQueryIn.noMention_castKind]
   show (doubled κ q).noMention s
   rw [doubled, AggQueryIn.noMention_castKind]
   exact hq
 
 theorem sumsAllReg_winKept (hq : q.sumsAllReg) :
-    (winKept P O o w t f κ q dist keep).sumsAllReg := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).sumsAllReg := by
   rw [winKept, AggQueryIn.sumsAllReg_castKind]
   show (doubled κ q).sumsAllReg
   rw [doubled, AggQueryIn.sumsAllReg_castKind]
   exact hq
 
 theorem settlesAt_winKept (D : Database T) (γ : Fin c → T) (hq : q.SettlesAt D γ) :
-    (winKept P O o w t f κ q dist keep).SettlesAt D γ := by
+    (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).SettlesAt D γ := by
   rw [winKept, AggQueryIn.settlesAt_castKind]
   show (doubled κ q).SettlesAt D γ
   rw [doubled, AggQueryIn.settlesAt_castKind]

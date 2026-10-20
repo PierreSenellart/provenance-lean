@@ -2146,7 +2146,8 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
     intro hq hr hi hsa f hf hfr
     obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
-    refine ⟨fun _ => ⟨AggQueryIn.Win (lab := 0) (rd := fun _ => false) P O o w t fw q' hrr dist
+    refine ⟨fun _ => ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o
+        w t fw q' hrr dist
         keep, ⟨⟨memS nofun hq.1,
         hs.usesOnly⟩,
       hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,

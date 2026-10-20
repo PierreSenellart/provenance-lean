@@ -2635,7 +2635,8 @@ theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok
   | t :: ts, b', b, hr, hg => by
     have hg' : GPair 𝒰₀ 𝒰₀' ((AggTok.nest b').postcompTerm t, (AggTok.nest b).postcompTerm t) :=
       ⟨TermCl.step t hg.1, TermCl.step t hg.2.1, by
-        show (AggTok.postcompTerm t (AggTok.nest b')).fam = (AggTok.postcompTerm t (AggTok.nest b)).fam
+        show (AggTok.postcompTerm t (AggTok.nest b')).fam = (AggTok.postcompTerm t (AggTok.nest
+          b)).fam
         simp only [AggTok.postcompTerm, AggTok.fam_setFam]
         rw [hg.2.2]⟩
     obtain ⟨c, c', hc, hc', hr'⟩ := NestRelU.postcompTerm hr t hg'
@@ -3048,7 +3049,8 @@ theorem presBy_constInner {K₀ ρ β : Type} (w : T) {L : List β} (hL : L = []
     fun W => Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (by simp))
   refine ⟨rfl, fun i => absurd i.isLt (by simp), fun W => ?_, fun W => ?_⟩
   · rw [he W, iff_true]
-    exact (AggExpr.isWorld_empty_iff _).mpr (by rw [NestedValue.constInner, AggExpr.isScalar_ofValue])
+    exact (AggExpr.isWorld_empty_iff _).mpr (by rw [NestedValue.constInner,
+        AggExpr.isScalar_ofValue])
   · rw [he W]
     rfl
 
@@ -4085,7 +4087,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     obtain ⟨v, hv⟩ := hkey0 i
     rw [hv] at h2
     exact absurd h2 (by simp)
-  | @Win cI nI mI pI κw lab rd P O o w t f q hrr dist keep ih =>
+  | @Win cI nI mI pI κw lab rd P O o w _ t f q hrr dist keep ih =>
     intro d γ E' E hE hJ hb hb' hW hw hsc hrec
     have hpk := EvalEnv.paramKey_eq_of_envG hE hJ rd
     have hsim := ih d γ E' E hE hJ (fun x h => hb x (Or.inr h)) (fun x h => hb' x (Or.inr h))
@@ -4101,7 +4103,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     -- the rows of the two evaluations, as the window builds them
     have hev : ∀ x ∈ q.evaluate d γ E, ValueFrame.windowGenRow lab (E.paramKey rd γ) κw P O o
         w t f keep ((q.evaluate d γ E).map (GenRow.readAnnotated κw)) x γ dist
-        ∈ (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate
+        ∈ (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+          keep).evaluate
           d γ E := by
       intro x hx
       simp only [AggQueryIn.evaluate]
@@ -4111,7 +4114,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
           (((q.evaluate d γ E).map (GenRow.readAnnotated κw)).map
             (fun p : AnnotatedTuple T K nI =>
               ((p.fst, h.toRingHom p.snd) : AnnotatedTuple T K' nI))) x' γ dist
-        ∈ (AggQueryIn.Win (lab := lab) (rd := rd) P O o w t f q hrr dist keep).evaluate
+        ∈ (AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q hrr dist
+          keep).evaluate
           (h.mapAnnotatedDatabase d) γ E' := by
       intro x' hx'
       simp only [AggQueryIn.evaluate]
@@ -4201,7 +4205,7 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         simp only [ValueFrame.windowGenRow, Fin.snoc_last, hrd] at h1 h2
         rw [← Sum.inr_injective h1, ← Sum.inr_injective h2]
         exact ⟨hD, by simp only [AggTok.fam_setFam]; rfl⟩
-  | @WinExpr cI nI mI pI qI lab rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI nI mI pI qI lab rd P O o ws _ ts fs g q keeps ih =>
     -- one output row per occurrence of the shared family. The two sides
     -- index that family by their own sorted order, so they are compared
     -- through a bijection of indices rather than index by index; the
@@ -4212,9 +4216,11 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
     have hsim : Multiset.Rel (fun r' r => GenRow.Sim h r' r ∧ ∃ D : ListingRel h.toRingHom T,
         ∀ j : Fin 1, ∀ x' x, r'.fst (Fin.last nI) = Sum.inr x' → r.fst (Fin.last nI) = Sum.inr x →
           D.Member x' x ∧ x'.fam = x.fam)
-        ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluate
+        ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q
+          keeps).evaluate
           (h.mapAnnotatedDatabase d) γ E')
-        ((AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).evaluate d γ E) := by
+        ((AggQueryIn.WinExpr (hsql := sql_frame%) (lab := lab) (rd := rd) P O o ws ts fs g q
+          keeps).evaluate d γ E) := by
       simp only [AggQueryIn.evaluate]
       have hY : Multiset.map GenRow.toAnnotated
             (q.evaluate (h.mapAnnotatedDatabase d) γ E')
@@ -4227,7 +4233,8 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
               (Multiset.map GenRow.toAnnotated (q.evaluate d γ E)) := by
           rw [Multiset.map_map]
           exact map_eq_of_rel (ih d γ E' E hE hJ (fun x h => hb x (Or.inr h))
-            (fun x h => hb' x (Or.inr h)) (fun e he => hW e (List.mem_cons_of_mem _ he)) hw.2 hsc hrec)
+            (fun x h => hb' x (Or.inr h)) (fun e he => hW e (List.mem_cons_of_mem _ he)) hw.2 hsc
+              hrec)
             (fun r' r hs => GenRow.Sim.toAnnotated_eq h hs.1)
         exact h1.trans (Multiset.map_congr rfl (fun p _ => rfl))
       rw [hY]

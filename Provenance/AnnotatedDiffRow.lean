@@ -948,7 +948,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
   | Win P O o w t g q hrr dist keep ih =>
-    rename_i c' n' m' p' κ' _ _
+    rename_i c' n' m' p' κ' _ _ _
     intro hu hi hx γ E hctx hH r hr
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hxm, rfl⟩ := Multiset.mem_map.1 hr

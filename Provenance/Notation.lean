@@ -275,7 +275,8 @@ macro_rules
         | _ => Lean.Macro.throwUnsupported
       match a with
       | `(raAgg| $t:raTerm : $f:term) =>
-          `(AggQueryIn.Win (lab := 0) (rd := fun _ => false) ![$keys,*] ![$ords,*] $o $w (ra_cterm%
+          `(AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) ![$keys,*]
+            ![$ords,*] $o $w (ra_cterm%
               $t) $f
               (allReg (ra_query% $q)) (winReadsReg_allReg _ _ _))
       | _ => Lean.Macro.throwUnsupported

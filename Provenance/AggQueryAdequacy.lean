@@ -633,7 +633,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
     apply Multiset.map_congr rfl
     intro r _
     rfl
-  | @Win cI n' m' p' κw _lab _rd P O o w t f q hrr dist keep ih =>
+  | @Win cI n' m' p' κw _lab _rd P O o w _ t f q hrr dist keep ih =>
     -- one output row per input row; the data part of the added column is
     -- the token's deterministic reading, which is the plain aggregate over
     -- the frame of the plain relation
@@ -885,7 +885,7 @@ theorem AggQueryIn.evaluate_toPlain_env :
     show (q.evaluate d γ E).map (fun r => GenRow.plainTuple r.fst)
       = (q.stripAgg.evaluatePlain D γ : Relation T _)
     exact ih hq hh hwk d E D N hE hD hN hH hr
-  | @WinExpr cI n' m' p' na _lab _rd P O o ws ts fs g q keeps ih =>
+  | @WinExpr cI n' m' p' na _lab _rd P O o ws _ ts fs g q keeps ih =>
     -- one output row per input occurrence, as for a single-frame window;
     -- the data part of the added column is the expression's collapse,
     -- which is each leaf's plain aggregate over its own frame

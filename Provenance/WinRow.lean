@@ -34,7 +34,8 @@ def wholeExcludeSelf : ValueFrame ℕ 0 := ⟨FrameCond.whole, false⟩
 
 /-- **The witness**: `count(#1) OVER (EXCLUDE CURRENT ROW)` on `R`. -/
 def winWitness : AggQuery ℕ (1 + 1) (Fin.snoc (ColKind.allReg 1) ColKind.agg) :=
-  AggQueryIn.Win (lab := 0) (rd := fun _ => false) (fun i : Fin 0 => i.elim0) (fun i : Fin 0 =>
+  AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) (fun i : Fin 0 => i.elim0)
+    (fun i : Fin 0 =>
       i.elim0) (OrderSpec.asc 0)
     wholeExcludeSelf (TermIn.index 0) SeqAggFunc.count (AggQueryIn.Rel 1 "R")
     (winReadsReg_allReg _ _ _)
@@ -791,9 +792,11 @@ theorem AggQueryIn.countValsAll_congr_of_noMention {s : String} :
   | GammaTok is his ts fs a q keep ih => intro h D D' hD; exact ih h hD
   | Win P O o w t f q hrr dist keep ih =>
     intro h D D' hD
-    show Union.union _ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.Win P O o w t f q hrr dist
+    show Union.union _ {v | ∃ γ u, Multiset.Mem ((AggQueryIn.Win (hsql := sql_frame%) P O o w t f
+      q hrr dist
       keep).evaluatePlain D γ) u ∧ _} = Union.union _ {v | ∃ γ u, Multiset.Mem
-        ((AggQueryIn.Win P O o w t f q hrr dist keep).evaluatePlain D' γ) u ∧ _}
+        ((AggQueryIn.Win (hsql := sql_frame%) P O o w t f q hrr dist keep).evaluatePlain D' γ) u ∧
+          _}
     rw [ih h hD]
     congr 1
     ext v

@@ -44,7 +44,7 @@ def winAllReg : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String �
   | _, _, _, _, .ProvSum _ _ _ q => winAllReg q
   | _, _, _, _, .Retag _ q => winAllReg q
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => winAllReg q
-  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ κ _ _ _ _ _ _ _ _ q _ _ _ =>
+  | _, _, _, _, @AggQueryIn.Win _ _ n _ _ κ _ _ _ _ _ _ _ _ _ q _ _ _ =>
       κ = ColKind.allReg n ∧ winAllReg q
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => winAllReg q
 
