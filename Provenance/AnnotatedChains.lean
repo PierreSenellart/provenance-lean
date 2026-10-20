@@ -720,7 +720,6 @@ theorem rowBd_evaluate {Bd : T → K → Prop} (hB : BdClosed Bd)
         rw [show AggValue.collapseSum (row.fst (is i)) = gk i from congrFun hrg i] at h1
         exact (hb row hrow (is i) (gk i) h1).resolve_left hF
       refine Or.inr (hB.delta _ _ ?_)
-      rw [Multiset.map_map]
       refine hB.sum _ _ (ne_zero_of_mem' (Multiset.mem_map.2
         ⟨r₁, Multiset.mem_filter.2 ⟨hr₁, hr₁g⟩, rfl⟩)) fun a ha => ?_
       obtain ⟨row, hrow', rfl⟩ := Multiset.mem_map.1 ha

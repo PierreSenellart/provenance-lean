@@ -1347,7 +1347,7 @@ theorem AggQueryIn.evaluate_substMap :
     intro d θ hθ dB γ E
     rw [AggQueryIn.substMap]
     have hk := EvalEnv.paramKey_substRd hθ E rd γ
-    simp only [AggQueryIn.evaluate, hk, ProjColIn.eval_substMap]
+    simp only [AggQueryIn.evaluate, hk, nestOfGroup, ProjColIn.eval_substMap]
     rw [ih θ hθ dB γ E]
   | @ProvSum cI m n₁ κ' is his t q ih =>
     intro d θ hθ dB γ E

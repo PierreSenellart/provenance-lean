@@ -766,7 +766,7 @@ theorem AggExpr.prod_world_absorb (e : AggExpr T K) (hsc : e.isScalar = false)
   have hm : e.anns i₀ ∈ e.annList := List.mem_map.mpr ⟨e.occs.get i₀, List.get_mem _ _, rfl⟩
   rw [← Finset.mul_prod_erase W _ hi, mul_right_comm, delta_absorb_of_mem hm]
 
-omit [ValueType T] [HasAltLinearOrder K] [DecidableEq K] in
+omit [HasAltLinearOrder K] in
 open Classical in
 /-- The worlds of a family whose value is not nested, unfolded. -/
 theorem classWorlds_of_not_nest {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))
@@ -784,7 +784,7 @@ theorem classWorlds_of_not_nest {n : ℕ} (u : Tuple (GenValue T K) n) (M : List
   | tok a => rfl
   | expr a => rfl
 
-omit [ValueType T] [HasAltLinearOrder K] in
+omit [HasAltLinearOrder K] in
 open Classical in
 /-- **A world of a grouped family absorbs its guard**: its present
 product carries one of the family's annotations. -/
@@ -880,7 +880,7 @@ theorem jointWorlds_absorb {n : ℕ} (u : Tuple (GenValue T K) n) (cols : List (
       show w₁.1 * w₂.1 * _ = w₁.1 * w₂.1
       rw [mul_right_comm, habs]
 
-omit [ValueType T] [HasAltLinearOrder K] [DecidableEq K] in
+omit [HasAltLinearOrder K] in
 open Classical in
 /-- A world of one family assigns nothing to the columns outside it. -/
 theorem classWorlds_none {n : ℕ} (u : Tuple (GenValue T K) n) (M : List (Fin n))

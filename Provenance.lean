@@ -119,6 +119,7 @@ import Provenance.AggQueryAdequacy
 import Provenance.WindowPartition
 import Provenance.AggQueryBridges
 import Provenance.JointHom
+import Provenance.NestedPres
 import Provenance.Coherence
 import Provenance.Normalize
 import Provenance.Alternatives
@@ -540,9 +541,11 @@ proven engine several general results reuse internally.
   (`GammaNest`: the term aggregated reads an aggregate column, so the
   column built is a *nested* token whose occurrences are the group's rows
   as a bag, each carrying the aggregate *expression* read there –
-  `Provenance.NestedExample` writes it, the random world and the PQE
-  results ask one storey (`nestOnce`), the hom commutation nothing, and
-  `noGammaNest` is left excluding only
+  `Provenance.NestedExample` writes it; an occurrence may itself carry a
+  nested value, at any storey, a world deciding each inner occurrence
+  once (`NestedValue.World`); the random world, the PQE results and the
+  hom commutation ask nothing of it, and `noGammaNest` is left excluding
+  only
   the two syntactic token fences it is the counterexample to), the
   token-building grouping `GammaTok` and provenance aggregation
   `ProvSum` of rewritten plans, the generalized selection grammar
@@ -1385,8 +1388,7 @@ proven engine several general results reuse internally.
   (`generatesAtNoExplode_of_generatesAnnZ`, with
   `AggQueryIn.settlesAt_randomWorld`), the others keep their witnesses'
   rows; with the positive half, the nine classes are a basis up to `≈`
-  over the class, with one storey of second-level aggregation
-  (`annEpsOps_isBasis_in_class_approx`, under `AggQueryIn.nestOnce`)
+  over the class (`annEpsOps_isBasis_in_class_approx`)
 - `Provenance.AnnotatedWhyRow` – **the annotated basis theorem: set
   recursion is required**. `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}`
   generates the annotated algebra over every commutative m-semiring, and no
@@ -1552,12 +1554,21 @@ proven engine several general results reuse internally.
   built from a listing by one is read off the rows a world selects
   (`classWorlds_presented`), and two listings related by a tie-block
   permutation give corresponding worlds for every value built from them
-  together (`classWorlds_hom`); a nested family is read off its
-  occurrences' statistics, the present product and the absent sum kept
-  apart (`NestedValue.classWorlds_nest_eq`, `classWorlds_hom_nest`); a row
-  whose families correspond family by family has corresponding joint
+  together (`classWorlds_hom`); a nested family is read off two values
+  whose worlds correspond one by one, the kept product and the absent sum
+  pushed through the hom (`NestedValue.WCorr`, `classWorlds_of_wcorr`); a
+  row whose families correspond family by family has corresponding joint
   worlds (`jointWorlds_hom`), in particular one whose families are
   presented on both sides (`FamPres`, `jointWorlds_of_famPres`)
+- `Provenance.NestedPres` – **nested values under a homomorphism, at
+  every storey**: two nested values built from related rows are related
+  family by family (`NestInner.Rel`: an expression family presented on
+  each side by listings a tie-block permutation apart, a node's
+  occurrences paired with their annotations pushed through the hom), and
+  where related families share a key on one side exactly when they do on
+  the other (`KeysFaithful`, which a coherent evaluation gives) their
+  worlds are the images of one bag of decisions, each family and each
+  node decided once (`wcorr_of_rel`)
 - `Provenance.Coherence` – **one family identifier, one value, across
   every evaluation a query performs** (`AggQueryIn.builds_coherent`): the
   aggregate values the operators build – once per row of an apply's left

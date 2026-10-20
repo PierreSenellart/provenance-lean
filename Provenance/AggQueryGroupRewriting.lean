@@ -216,23 +216,58 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
     a.toComposite.annList = a.annList := by
   simp [AggExpr.annList, AggExpr.toComposite, List.map_map]
 
+/-- Transport an inner value to the composite value domain, storey by
+storey: an expression as `AggExpr.toComposite` does, a node with its
+outer aggregate lifted and its occurrences transported. -/
+def NestInner.toComposite : (j : ℕ) → NestInner T K j → NestInner (T ⊕ K) K j
+  | 0, e => AggExpr.toComposite (T := T) (K := K) e
+  | j + 1, Sum.inl x => Sum.inl (NestInner.toComposite j x)
+  | j + 1, Sum.inr N => Sum.inr ⟨NestedValue.liftComposite N.agg,
+      N.occs.map (fun o => (NestInner.toComposite j o.1, o.2)), N.scalar, FamId.toComposite N.fam⟩
+
 /-- Transport a nested value to the composite value domain: its inner
-values the same way, each group keeping its family. -/
+values the same way, each family keeping its occurrences. -/
 def NestedValue.toComposite (a : NestedValue T K) : NestedValue (T ⊕ K) K :=
-  ⟨NestedValue.liftComposite a.agg,
-    a.groups.map (fun g => (g.1, g.2.map (fun o => (o.1.toComposite, o.2)))), a.scalar,
-    FamId.toComposite a.fam, by
-      intro g' hg' o' ho'
-      obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hg'
-      obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp ho'
-      rw [AggExpr.annList_toComposite]
-      exact a.grouped g hg o ho⟩
+  ⟨a.lev, NestedValue.liftComposite a.agg,
+    a.occs.map (fun o => (NestInner.toComposite a.lev o.1, o.2)), a.scalar,
+    FamId.toComposite a.fam⟩
 
 omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem NestedValue.occs_toComposite (a : NestedValue T K) :
-    a.toComposite.occs = a.occs.map (fun o => (o.1.toComposite, o.2)) := by
-  unfold NestedValue.toComposite NestedValue.occs
-  rw [Multiset.bind_map, Multiset.map_bind]
+    a.toComposite.occs = a.occs.map (fun o => (NestInner.toComposite a.lev o.1, o.2)) := rfl
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The deterministic reading of an inner value commutes with the
+transport. -/
+theorem NestInner.collapse_toComposite : ∀ (j : ℕ) (x : NestInner T K j),
+    NestInner.collapse j (NestInner.toComposite j x) = Sum.inl (NestInner.collapse j x)
+  | 0, e => AggExpr.collapse_toComposite (K := K) e
+  | j + 1, Sum.inl x => NestInner.collapse_toComposite j x
+  | j + 1, Sum.inr N => by
+    show NestedValue.liftComposite N.agg _ = Sum.inl (N.agg _)
+    rw [Multiset.map_map]
+    rw [show ((fun o : NestInner (T ⊕ K) K j × K => NestInner.collapse j o.1)
+        ∘ fun o : NestInner T K j × K => (NestInner.toComposite j o.1, o.2))
+      = ((Sum.inl : T → T ⊕ K) ∘ fun o : NestInner T K j × K => NestInner.collapse j o.1)
+      from funext (fun o => NestInner.collapse_toComposite j o.1), ← Multiset.map_map]
+    exact NestedValue.liftComposite_map_inl N.agg _
+
+omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- The deterministic reading of a nested value commutes with the
+transport. -/
+theorem NestedValue.collapse_toComposite (a : NestedValue T K) :
+    a.toComposite.collapse = Sum.inl a.collapse := by
+  obtain ⟨lev, agg, occs, sc, φ⟩ := a
+  show NestedValue.liftComposite agg
+      ((occs.map (fun o => (NestInner.toComposite lev o.1, o.2))).map
+        (fun o => NestInner.collapse lev o.1))
+    = Sum.inl (agg (occs.map (fun o => NestInner.collapse lev o.1)))
+  rw [Multiset.map_map,
+    show ((fun o : NestInner (T ⊕ K) K lev × K => NestInner.collapse lev o.1)
+        ∘ fun o : NestInner T K lev × K => (NestInner.toComposite lev o.1, o.2))
+      = ((Sum.inl : T → T ⊕ K) ∘ fun o : NestInner T K lev × K => NestInner.collapse lev o.1)
+      from funext (fun o => NestInner.collapse_toComposite lev o.1), ← Multiset.map_map]
+  exact NestedValue.liftComposite_map_inl agg _
 
 /-- Transport a token to the composite value domain. A nested token
 transports its inner values the same way, and an expression its shared
@@ -312,16 +347,7 @@ omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
     cases x with
     | tok a => exact AggValue.collapse_toComposite a
     | expr a => exact AggExpr.collapse_toComposite a
-    | nest a =>
-      show (NestedValue.liftComposite a.agg) _ = Sum.inl (a.agg _)
-      rw [NestedValue.occs_toComposite, Multiset.map_map,
-        show ((fun o : AggExpr (T ⊕ K) K × K => o.1.collapse)
-            ∘ fun o : AggExpr T K × K => (o.1.toComposite, o.2))
-          = ((Sum.inl : T → T ⊕ K) ∘ fun o : AggExpr T K × K => o.1.collapse)
-          from funext (fun o => AggExpr.collapse_toComposite o.1),
-        ← Multiset.map_map]
-      exact NestedValue.liftComposite_map_inl a.agg
-        (a.occs.map (fun o => o.1.collapse))
+    | nest a => exact NestedValue.collapse_toComposite a
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
 /-- Coordinates of the token-aware embedding, in `dite` form. -/

@@ -52,7 +52,7 @@ def Sum.annPart : T ⊕ K → K
 value-reading constructors, with the `cmpAgg` gate interpreted by the
 predicate provenance of the token against the comparison term, and the
 `chiGate` gate by the characteristic value of its comparison. -/
-def TermGIn.evalRew {c n : ℕ} {κ : Fin n → ColKind} :
+noncomputable def TermGIn.evalRew {c n : ℕ} {κ : Fin n → ColKind} :
     TermGIn (T ⊕ K) c κ → Tuple (GenValue (T ⊕ K) K) n →
     (γ : Fin c → (T ⊕ K) := fun _ => 0) → T ⊕ K
   | .const a, _, _ => a
@@ -76,7 +76,7 @@ def TermGIn.evalRew {c n : ℕ} {κ : Fin n → ColKind} :
     else t₁.evalRew u γ
 
 /-- Projection-column evaluation in the rewritten world. -/
-def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
+noncomputable def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
     (p : ProjColIn (T ⊕ K) c κ) (u : Tuple (GenValue (T ⊕ K) K) n)
     (γ : Fin c → (T ⊕ K) := fun _ => 0) : GenValue (T ⊕ K) K :=
   match p with
@@ -89,7 +89,7 @@ def ProjColIn.evalRew {c n : ℕ} {κ : Fin n → ColKind}
 /-- Three-valued evaluation of a predicate in the rewritten world (compared
 tokens read through their deterministic collapse, as in
 `GenPredIn.eval3`). -/
-def GenPredIn.evalRew3 {c n : ℕ} {κ : Fin n → ColKind} :
+noncomputable def GenPredIn.evalRew3 {c n : ℕ} {κ : Fin n → ColKind} :
     GenPredIn (T ⊕ K) c κ → Tuple (GenValue (T ⊕ K) K) n →
     (γ : Fin c → (T ⊕ K) := fun _ => 0) → Kleene
   | .cmp op t₁ t₂, u, γ => op.eval3 (t₁.evalRew u γ) (t₂.evalRew u γ)
@@ -110,12 +110,12 @@ def GenPredIn.holdsRew {c n : ℕ} {κ : Fin n → ColKind}
   φ.evalRew3 u γ = Kleene.true
 
 /-- Structural decidability of `holdsRew`. -/
-def GenPredIn.decHoldsRew {c n : ℕ} {κ : Fin n → ColKind}
+noncomputable def GenPredIn.decHoldsRew {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn (T ⊕ K) c κ) (u : Tuple (GenValue (T ⊕ K) K) n)
     (γ : Fin c → (T ⊕ K) := fun _ => 0) : Decidable (φ.holdsRew u γ) :=
   inferInstanceAs (Decidable (_ = _))
 
-instance GenPredIn.instDecidableHoldsRew {c n : ℕ} {κ : Fin n → ColKind}
+noncomputable instance GenPredIn.instDecidableHoldsRew {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn (T ⊕ K) c κ) (γ : Fin c → (T ⊕ K))
     (u : Tuple (GenValue (T ⊕ K) K) n) : Decidable (φ.holdsRew u γ) :=
   φ.decHoldsRew u γ

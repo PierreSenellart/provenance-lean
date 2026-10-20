@@ -2398,13 +2398,6 @@ theorem noExplode_prodA {n₁ n₂ : ℕ} {l : List (String × ℕ)}
   rw [prodA, noExplode_castKind]
   exact ⟨h₁, (noExplode_substMap _ _).2 h₂⟩
 
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_prodA {n₁ n₂ : ℕ} {l : List (String × ℕ)}
-    (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂))
-    (h₁ : q₁.noGammaNest) (h₂ : q₂.noGammaNest) : (prodA q₁ q₂).noGammaNest := by
-  rw [prodA, noGammaNest_castKind]
-  exact ⟨h₁, (noGammaNest_substMap _ _).2 h₂⟩
-
 theorem noMention_valRel (ls : List (ℕ × String)) (cs : List T) (t : String)
     (hls : ∀ p ∈ ls, p.2 ≠ t) : (valRel (c := c) ls cs).noMention t := by
   show (listSum (valParts ls cs)).noMention t
@@ -2441,29 +2434,6 @@ theorem noExplode_valRel (ls : List (ℕ × String)) (cs : List T) :
     rw [unitC, noExplode_castKind]
     trivial
 
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_valRel (ls : List (ℕ × String)) (cs : List T) :
-    (valRel (c := c) ls cs).noGammaNest := by
-  show (listSum (valParts ls cs)).noGammaNest
-  have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)), (∀ q ∈ l, q.noGammaNest) →
-      (listSum l).noGammaNest := by
-    intro l
-    induction l with
-    | nil => intro _; rw [listSum, emptyRel, noGammaNest_castKind]; trivial
-    | cons q l ih => exact fun h => ⟨h q List.mem_cons_self,
-        ih fun q' hq' => h q' (List.mem_cons_of_mem _ hq')⟩
-  refine key _ fun q hq => ?_
-  rcases List.mem_append.1 hq with hq | hq
-  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
-    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
-    rw [colRel, noGammaNest_castKind]
-    trivial
-  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
-    rw [constRel, noGammaNest_castKind]
-    show (unitC : AggQueryIn T c 0 _).noGammaNest
-    rw [unitC, noGammaNest_castKind]
-    trivial
-
 section Ctr
 
 variable (EQ : AggQueryIn T c 1 (ColKind.allReg 1))
@@ -2478,16 +2448,6 @@ theorem noExplode_ctr (h : EQ.noExplode) (K' : ℕ) : (ctr EQ K').noExplode := b
     rw [dedupG, noExplode_castKind]
     exact h
 
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctr (h : EQ.noGammaNest) (K' : ℕ) : (ctr EQ K').noGammaNest := by
-  induction K' with
-  | zero => rw [ctr, pow, unitC, noGammaNest_castKind]; trivial
-  | succ K' ih =>
-    rw [ctr, pow]
-    refine noGammaNest_prodA _ _ ih ?_
-    rw [dedupG, noGammaNest_castKind]
-    exact h
-
 omit [ValueType T] in
 theorem noMention_ctr (t : String) (h : EQ.noMention t) (K' : ℕ) : (ctr EQ K').noMention t :=
   noMention_pow _ (noMention_dedupG _ t h) K'
@@ -2498,13 +2458,6 @@ theorem noExplode_ctrSucc (h : EQ.noExplode) (K' : ℕ) : (ctrSucc EQ K').noExpl
     noExplode_prodA _ _ (noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K'))
       (noExplode_ctr EQ h K')⟩
 
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctrSucc (h : EQ.noGammaNest) (K' : ℕ) : (ctrSucc EQ K').noGammaNest :=
-  ⟨noGammaNest_prodA _ _ (noGammaNest_ctr EQ h K') (noGammaNest_ctr EQ h K'),
-    noGammaNest_prodA _ _
-      (noGammaNest_prodA _ _ (noGammaNest_ctr EQ h K') (noGammaNest_ctr EQ h K'))
-      (noGammaNest_ctr EQ h K')⟩
-
 theorem noMention_ctrSucc (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrSucc EQ K').noMention t :=
   ⟨noMention_prodA _ _ (noMention_ctr EQ t h K') (noMention_ctr EQ t h K'),
@@ -2514,11 +2467,6 @@ theorem noMention_ctrSucc (t : String) (h : EQ.noMention t) (K' : ℕ) :
 omit [DecidableEq K] [HasAltLinearOrder K] in
 theorem noExplode_ctrLeast (h : EQ.noExplode) (K' : ℕ) : (ctrLeast EQ K').noExplode :=
   ⟨noExplode_ctr EQ h K', noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K')⟩
-
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctrLeast (h : EQ.noGammaNest) (K' : ℕ) : (ctrLeast EQ K').noGammaNest :=
-  ⟨noGammaNest_ctr EQ h K',
-    noGammaNest_prodA _ _ (noGammaNest_ctr EQ h K') (noGammaNest_ctr EQ h K')⟩
 
 theorem noMention_ctrLeast (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrLeast EQ K').noMention t :=
@@ -2532,25 +2480,11 @@ theorem noExplode_ctrStep (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
   · exact noExplode_prodA _ _ (noExplode_ctr EQ h K') (noExplode_ctr EQ h K')
 
 omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctrStep (ch : Bool) (h : EQ.noGammaNest) (K' : ℕ) :
-    (ctrStep ch EQ K').noGammaNest := by
-  cases ch
-  · exact noGammaNest_ctrSucc EQ h K'
-  · exact noGammaNest_prodA _ _ (noGammaNest_ctr EQ h K') (noGammaNest_ctr EQ h K')
-
-omit [DecidableEq K] [HasAltLinearOrder K] in
 theorem noExplode_ctrStart (ch : Bool) (h : EQ.noExplode) (K' : ℕ) :
     (ctrStart ch EQ K').noExplode := by
   cases ch
   · exact noExplode_ctrLeast EQ h K'
   · exact noExplode_ctr EQ h K'
-
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctrStart (ch : Bool) (h : EQ.noGammaNest) (K' : ℕ) :
-    (ctrStart ch EQ K').noGammaNest := by
-  cases ch
-  · exact noGammaNest_ctrLeast EQ h K'
-  · exact noGammaNest_ctr EQ h K'
 
 theorem noMention_ctrStep (ch : Bool) (t : String) (h : EQ.noMention t) (K' : ℕ) :
     (ctrStep ch EQ K').noMention t := by
@@ -2569,12 +2503,6 @@ theorem noExplode_ctrNext (ch : Bool) (h : EQ.noExplode) (n K' : ℕ) :
     (ctrNext ch EQ n K').noExplode := by
   show ((ctrStep ch EQ K').substMap (applyOuter T c (n + K'))).noExplode
   exact (noExplode_substMap _ _).2 (noExplode_ctrStep EQ ch h K')
-
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_ctrNext (ch : Bool) (h : EQ.noGammaNest) (n K' : ℕ) :
-    (ctrNext ch EQ n K').noGammaNest := by
-  show ((ctrStep ch EQ K').substMap (applyOuter T c (n + K'))).noGammaNest
-  exact (noGammaNest_substMap _ _).2 (noGammaNest_ctrStep EQ ch h K')
 
 theorem noMention_ctrNext (ch : Bool) (t : String) (h : EQ.noMention t) (n K' : ℕ) :
     (ctrNext ch EQ n K').noMention t := by
@@ -2609,43 +2537,6 @@ theorem noExplode_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
   | Dedup q ih => exact fun h => h.elim
   | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
   | Explode k hk q ih => exact fun _ h => h.elim
-  | Retag hk q ih => exact fun h hx => ih pv h hx
-  | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
-  | Gamma is ts fs q keep ord ih => exact fun h => h.elim
-  | GammaScalar ts fs q ord ih => exact fun h => h.elim
-  | GammaNest is his p fn q ih => exact fun h => h.elim
-  | ProvSum is his t q ih => exact fun h => h.elim
-  | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
-  | Win P O o w t fw q hrr dist keep ih => exact fun h => h.elim
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
-
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_substRel {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
-      q.recLinear s n → q.noGammaNest → (substRel s pv q).noGammaNest := by
-  intro m κ l q
-  induction q with
-  | Rel n' s' => exact fun h => h.elim
-  | Hole n' s' κh =>
-    rintro ⟨rfl, rfl⟩ _
-    rw [substRel, dite_eq_left ⟨rfl, rfl⟩, noGammaNest_castIdx]
-    trivial
-  | Param pv ρ => exact fun h => h.elim
-  | Empty => exact fun h => h.elim
-  | Proj ps q ih => exact fun h hx => ih pv h hx
-  | Sel φ q _ ih => exact fun h hx => ih pv h.2 hx
-  | Prod q₁ q₂ ih₁ ih₂ =>
-    rintro (⟨h₁, rfl, h₂⟩ | ⟨rfl, h₁, h₂⟩) ⟨hx₁, hx₂⟩
-    · rw [substRel, noGammaNest_castIdx, substRel_of_noMention pv q₂ h₂]
-      exact ⟨ih₁ pv h₁ hx₁, hx₂⟩
-    · rw [substRel, noGammaNest_castIdx, substRel_of_noMention pv q₁ h₁]
-      exact ⟨hx₁, ih₂ pv h₂ hx₂⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h hx => ⟨ih₁ pv h.1 hx.1, hx.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Dedup q ih => exact fun h => h.elim
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => h.elim
-  | Explode k hk q ih => exact fun h hx => ih pv h hx
   | Retag hk q ih => exact fun h hx => ih pv h hx
   | Mu s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
   | MuSet s' q₀ q₁ ih₀ ih₁ => exact fun h => h.elim
@@ -2703,370 +2594,8 @@ theorem noExplode_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
   exact noExplode_substRel _ _ ((recLinear_substMap q₁' _).2 hq₁')
     ((noExplode_substMap _ _).2 h₁)
 
-omit [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_muSetSim (ch : Bool) {n : ℕ} (s s' : String)
-    (q₀ : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
-    (q₀' : AggQueryIn T c n (ColKind.allReg n))
-    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) (hq₁' : q₁'.recLinear s n)
-    (h₀ : q₀'.noGammaNest) (h₁ : q₁'.noGammaNest) :
-    (muSetSim ch s s' q₀ q₁ q₀' q₁').noGammaNest := by
-  have hEQ := noGammaNest_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
-  show (keepCols (fun i => Fin.castAdd _ i) (simA s s' n _ _ _ q₀' q₁')).noGammaNest
-  rw [keepCols, noGammaNest_castKind]
-  refine ⟨noGammaNest_prodA _ _ h₀ (noGammaNest_ctrStart _ ch hEQ _), ?_⟩
-  rw [simBodyA, keepCols, noGammaNest_castKind]
-  refine (noGammaNest_castKind _ _).2
-    ⟨trivial, noGammaNest_prodA _ _ ?_ (noGammaNest_ctrNext _ ch hEQ n _)⟩
-  rw [noGammaNest_castIdx]
-  exact noGammaNest_substRel _ _ ((recLinear_substMap q₁' _).2 hq₁')
-    ((noGammaNest_substMap _ _).2 h₁)
-
 end SimStructure2
 
-/-! ## What the simulation feeds to a second-level aggregation -/
-
-section SimNest
-
-variable {c : ℕ}
-
-omit [ValueType T] in
-/-- **What a product written as an apply reads**, and feeds to a
-second-level aggregation: what its factors do. -/
-theorem prodA_reads {n₁ n₂ : ℕ} {l : List (String × ℕ)}
-    (q₁ : AggQueryIn T c n₁ (ColKind.allReg n₁) l) (q₂ : AggQueryIn T c n₂ (ColKind.allReg n₂)) :
-    (∀ k, (prodA q₁ q₂).readsOuter k = (q₁.readsOuter k || q₂.readsOuter k))
-      ∧ (∀ k, (prodA q₁ q₂).nestReads k = true
-          → q₁.nestReads k = true ∨ q₂.nestReads k = true)
-      ∧ (∀ p, (prodA q₁ q₂).holeNests p = q₁.holeNests p)
-      ∧ (q₁.nestOnce → q₂.nestOnce → (prodA q₁ q₂).nestOnce) := by
-  obtain ⟨hr, hn, hh, ho⟩ := applyOuter_reads q₁ q₂ rfl
-  exact ⟨fun k => by rw [prodA, readsOuter_castKind]; exact hr k,
-    fun k h => by rw [prodA, nestReads_castKind] at h; exact hn k h,
-    fun p => by rw [prodA, holeNests_castKind]; exact hh p,
-    fun h₁ h₂ => by rw [prodA, nestOnce_castKind]; exact ho h₁ h₂⟩
-
-theorem readsOuter_ltPredOnOf {p m : ℕ} (base : Fin p → GenPredIn T c (ColKind.allReg m))
-    (x y : Fin p → TermGIn T c (ColKind.allReg m)) (j : Fin c)
-    (hb : ∀ k, (base k).readsOuter j = false) (hx : ∀ k, (x k).readsOuter j = false)
-    (hy : ∀ k, (y k).readsOuter j = false) :
-    ∀ ks : List (Fin p), (OrderSpec.ltPredOnOf base x y ks).readsOuter j = false
-  | [] => rfl
-  | k :: ks => by
-    simp only [OrderSpec.ltPredOnOf, GenPredIn.readsOuter, hx, hy, hb,
-      readsOuter_ltPredOnOf base x y j hb hx hy ks, Bool.or_self]
-
-theorem readsOuter_ltPredOn {p m : ℕ} (o : OrderSpec p)
-    (x y : Fin p → TermGIn T c (ColKind.allReg m)) (j : Fin c)
-    (hx : ∀ k, (x k).readsOuter j = false) (hy : ∀ k, (y k).readsOuter j = false)
-    (ks : List (Fin p)) : (OrderSpec.ltPredOn o x y ks).readsOuter j = false := by
-  refine readsOuter_ltPredOnOf _ x y j (fun k => ?_) hx hy ks
-  unfold OrderCol.ltPred
-  split <;> simp [GenPredIn.readsOuter, hx, hy]
-
-omit [ValueType T] in
-theorem readsOuter_keepCols {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
-    (q : AggQueryIn T c n (ColKind.allReg n) l) (j : Fin c) :
-    (keepCols cols q).readsOuter j = q.readsOuter j := by
-  rw [keepCols, readsOuter_castKind]
-  simp [AggQueryIn.readsOuter, ProjColIn.readsOuter, TermGIn.readsOuter]
-
-omit [ValueType T] in
-theorem keepCols_nest {n m : ℕ} {l : List (String × ℕ)} (cols : Fin m → Fin n)
-    (q : AggQueryIn T c n (ColKind.allReg n) l) :
-    (keepCols cols q).nestReads = q.nestReads ∧ (keepCols cols q).holeNests = q.holeNests
-      ∧ ((keepCols cols q).nestOnce ↔ q.nestOnce) := by
-  rw [keepCols, nestReads_castKind, holeNests_castKind, nestOnce_castKind]
-  exact ⟨rfl, rfl, Iff.rfl⟩
-
-omit [ValueType T] in
-theorem readsOuter_unitC (j : Fin c) : (unitC : AggQueryIn T c 0 _).readsOuter j = false := by
-  rw [unitC, readsOuter_castKind]; rfl
-
-/-- **The counter values read no context value.** -/
-theorem readsOuter_valRel (ls : List (ℕ × String)) (cs : List T) (j : Fin c) :
-    (valRel (c := c) ls cs).readsOuter j = false := by
-  show (nonNullPred.readsOuter j || (listSum (valParts ls cs)).readsOuter j) = false
-  have key : ∀ l : List (AggQueryIn T c 1 (ColKind.allReg 1)),
-      (∀ q ∈ l, q.readsOuter j = false) → (listSum l).readsOuter j = false := by
-    intro l
-    induction l with
-    | nil =>
-      intro _
-      rw [listSum, emptyRel, readsOuter_castKind]
-      simp [AggQueryIn.readsOuter, ProjColIn.readsOuter, TermGIn.readsOuter]
-    | cons q l ih =>
-      intro h
-      show (q.readsOuter j || (listSum l).readsOuter j) = false
-      rw [h q List.mem_cons_self, ih fun q' hq' => h q' (List.mem_cons_of_mem _ hq')]; rfl
-  rw [key _ fun q hq => ?_]
-  · simp [nonNullPred, GenPredIn.readsOuter, TermGIn.readsOuter]
-  rcases List.mem_append.1 hq with hq | hq
-  · obtain ⟨p, -, hq⟩ := List.mem_flatMap.1 hq
-    obtain ⟨i, -, rfl⟩ := List.mem_map.1 hq
-    rw [colRel, readsOuter_castKind]
-    simp [AggQueryIn.readsOuter, ProjColIn.readsOuter, TermGIn.readsOuter]
-  · obtain ⟨a, -, rfl⟩ := List.mem_map.1 hq
-    rw [constRel, readsOuter_castKind]
-    simp [AggQueryIn.readsOuter, ProjColIn.readsOuter, TermGIn.readsOuter, readsOuter_unitC]
-
-omit [ValueType T] in
-theorem readsOuter_dedupG {n : ℕ} (q : AggQueryIn T c n (ColKind.allReg n)) (j : Fin c) :
-    (dedupG q).readsOuter j = q.readsOuter j := by
-  rw [dedupG, readsOuter_castKind]
-  simp [AggQueryIn.readsOuter]
-
-omit [ValueType T] in
-theorem readsOuter_ctr {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (j : Fin c)
-    (h : EQ.readsOuter j = false) : ∀ K', (ctr EQ K').readsOuter j = false
-  | 0 => by rw [ctr, pow]; exact readsOuter_unitC j
-  | K' + 1 => by
-    rw [ctr, pow, (prodA_reads _ _).1, readsOuter_dedupG, h]
-    have := readsOuter_ctr j h K'
-    rw [ctr] at this
-    rw [this]; rfl
-
-theorem readsOuter_halvesLt (K' : ℕ) (j : Fin c) :
-    (halvesLt (T := T) (c := c) K').readsOuter j = false :=
-  readsOuter_ltPredOn _ _ _ j (fun _ => rfl) (fun _ => rfl) _
-
-theorem readsOuter_midLt (K' : ℕ) (j : Fin c) :
-    (midLt (T := T) (c := c) K').readsOuter j = false :=
-  Bool.or_eq_false_iff.mpr ⟨readsOuter_ltPredOn _ _ _ j (fun _ => rfl) (fun _ => rfl) _,
-    readsOuter_ltPredOn _ _ _ j (fun _ => rfl) (fun _ => rfl) _⟩
-
-theorem readsOuter_ctrLt {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (j : Fin c)
-    (h : EQ.readsOuter j = false) (K' : ℕ) : (ctrLt EQ K').readsOuter j = false := by
-  show ((halvesLt K').readsOuter j || (prodA (ctr EQ K') (ctr EQ K')).readsOuter j) = false
-  rw [(prodA_reads _ _).1, readsOuter_ctr j h, readsOuter_halvesLt]
-  rfl
-
-theorem readsOuter_ctrStep {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (ch : Bool) (j : Fin c)
-    (h : EQ.readsOuter j = false) (K' : ℕ) : (ctrStep ch EQ K').readsOuter j = false := by
-  cases ch
-  · show ((ctrLt EQ K').readsOuter j || (ctrMid EQ K').readsOuter j) = false
-    rw [readsOuter_ctrLt j h, ctrMid, readsOuter_keepCols]
-    show (false || ((midLt K').readsOuter j || (prodA (prodA (ctr EQ K') (ctr EQ K'))
-      (ctr EQ K')).readsOuter j)) = false
-    rw [(prodA_reads _ _).1, (prodA_reads _ _).1, readsOuter_ctr j h, readsOuter_midLt]
-    rfl
-  · exact readsOuter_ctrLt j h K'
-
-theorem readsOuter_ctrStart {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (ch : Bool) (j : Fin c)
-    (h : EQ.readsOuter j = false) (K' : ℕ) : (ctrStart ch EQ K').readsOuter j = false := by
-  cases ch
-  · show ((ctr EQ K').readsOuter j || (keepCols _ (ctrLt EQ K')).readsOuter j) = false
-    rw [readsOuter_ctr j h, readsOuter_keepCols, readsOuter_ctrLt j h]; rfl
-  · exact readsOuter_ctr j h K'
-
-/-- The counters after the current row's read only the current row. -/
-theorem readsOuter_ctrNext {EQ : AggQueryIn T c 1 (ColKind.allReg 1)} (ch : Bool) (n K' : ℕ)
-    (h : ∀ j, EQ.readsOuter j = false) (j : Fin c) :
-    (ctrNext ch EQ n K').readsOuter (Fin.natAdd (n + K') j) = false := by
-  rw [ctrNext, readsOuter_keepCols]
-  show ((eqOuter n K').readsOuter _ || ((ctrStep ch EQ K').substMap
-    (applyOuter T c (n + K'))).readsOuter (Fin.natAdd (n + K') j)) = false
-  rw [readsOuter_applyOuter_natAdd, readsOuter_ctrStep ch j (h j), Bool.or_false]
-  unfold eqOuter
-  induction List.finRange K' with
-  | nil => simp [truePred, GenPredIn.readsOuter, TermGIn.readsOuter]
-  | cons k ks ih =>
-    simp only [List.map_cons, List.foldr_cons, GenPredIn.readsOuter, TermGIn.readsOuter, ih,
-      Bool.or_false, Bool.false_or, decide_eq_false_iff_not]
-    intro he
-    have := congrArg Fin.val he
-    simp at this; omega
-
-omit [ValueType T] in
-/-- **Replacing a hole by a parameter row** reads, besides what the query
-reads, only the parameters of the row; it feeds no more to a second-level
-aggregation than that, passes no more rounds to one, and keeps the query at
-one storey. -/
-theorem substRel_reads {s : String} {n : ℕ} (pv : Fin n → T ⊕ Fin c) :
-    ∀ {m : ℕ} {κ : Fin m → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c m κ l),
-      (∀ j, (substRel s pv q).readsOuter j = true
-          → q.readsOuter j = true ∨ ∃ i, pv i = Sum.inr j)
-        ∧ (∀ j, (substRel s pv q).nestReads j = true
-          → q.nestReads j = true ∨ ∃ i, pv i = Sum.inr j)
-        ∧ (∀ p, (substRel s pv q).holeNests p = true → q.holeNests p = true)
-        ∧ (q.noGammaNest → (substRel s pv q).noGammaNest)
-        ∧ (q.nestOnce → (substRel s pv q).nestOnce) := by
-  intro m κ l q
-  induction q with
-  | Hole n' s' κh =>
-    by_cases h : s' = s ∧ n' = n
-    · obtain ⟨rfl, rfl⟩ := h
-      rw [substRel, dite_eq_left ⟨rfl, rfl⟩]
-      refine ⟨fun j hj => ?_, fun j hj => ?_, fun p hp => ?_, fun _ => ?_, fun _ => ?_⟩
-      · rw [readsOuter_castIdx] at hj
-        simp only [AggQueryIn.readsOuter, List.any_eq_true, List.mem_finRange, true_and] at hj
-        obtain ⟨i, hi⟩ := hj
-        refine Or.inr ⟨Fin.cast rfl i, ?_⟩
-        cases hp : pv (Fin.cast rfl i) with
-        | inl a => rw [hp] at hi; simp at hi
-        | inr b => rw [hp] at hi; simp only [_root_.Sum.elim_inr, decide_eq_true_eq] at hi; rw [hi]
-      · rw [nestReads_castIdx] at hj; simp [AggQueryIn.nestReads] at hj
-      · rw [holeNests_castIdx] at hp; simp [AggQueryIn.holeNests] at hp
-      · rw [noGammaNest_castIdx]; trivial
-      · rw [nestOnce_castIdx]; trivial
-    · rw [substRel, dite_eq_right h]
-      exact ⟨fun j hj => by rw [readsOuter_castIdx] at hj; exact Or.inl hj,
-        fun j hj => by rw [nestReads_castIdx] at hj; exact Or.inl hj,
-        fun p hp => by rw [holeNests_castIdx] at hp; exact hp,
-        fun h' => by rw [noGammaNest_castIdx]; exact h',
-        fun h' => by rw [nestOnce_castIdx]; exact h'⟩
-  | Proj ps q ih =>
-    refine ⟨fun j hj => ?_, (ih pv).2.1, (ih pv).2.2.1, (ih pv).2.2.2.1, (ih pv).2.2.2.2⟩
-    simp only [substRel, AggQueryIn.readsOuter, Bool.or_eq_true] at hj ⊢
-    rcases hj with hj | hj
-    · exact Or.inl (Or.inl hj)
-    · exact ((ih pv).1 j hj).imp Or.inr id
-  | Sel φ q _ ih =>
-    refine ⟨fun j hj => ?_, (ih pv).2.1, (ih pv).2.2.1, (ih pv).2.2.2.1, (ih pv).2.2.2.2⟩
-    simp only [substRel, AggQueryIn.readsOuter, Bool.or_eq_true] at hj ⊢
-    rcases hj with hj | hj
-    · exact Or.inl (Or.inl hj)
-    · exact ((ih pv).1 j hj).imp Or.inr id
-  | Explode k hk q ih => exact ih pv
-  | Retag hk q ih => exact ih pv
-  | Prod q₁ q₂ ih₁ ih₂ =>
-    refine ⟨fun j hj => ?_, fun j hj => ?_, fun p hp => ?_, fun h => ?_, fun h => ?_⟩
-    · rw [substRel, readsOuter_castIdx] at hj
-      simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hj ⊢
-      rcases hj with hj | hj
-      · exact ((ih₁ pv).1 j hj).imp Or.inl id
-      · exact ((ih₂ pv).1 j hj).imp Or.inr id
-    · rw [substRel, nestReads_castIdx] at hj
-      simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hj ⊢
-      rcases hj with hj | hj
-      · exact ((ih₁ pv).2.1 j hj).imp Or.inl id
-      · exact ((ih₂ pv).2.1 j hj).imp Or.inr id
-    · rw [substRel, holeNests_castIdx] at hp
-      simp only [AggQueryIn.holeNests, Bool.or_eq_true] at hp ⊢
-      exact hp.imp ((ih₁ pv).2.2.1 p) ((ih₂ pv).2.2.1 p)
-    · rw [substRel, noGammaNest_castIdx]; exact ⟨(ih₁ pv).2.2.2.1 h.1, (ih₂ pv).2.2.2.1 h.2⟩
-    · rw [substRel, nestOnce_castIdx]; exact ⟨(ih₁ pv).2.2.2.2 h.1, (ih₂ pv).2.2.2.2 h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ =>
-    rename_i cI n₁ n₂ κ₁ κ₂ l₁
-    refine ⟨fun j hj => ?_, fun j hj => ?_, fun p hp => ?_, fun h => ⟨(ih₁ pv).2.2.2.1 h.1, h.2⟩,
-      fun h => ⟨(ih₁ pv).2.2.2.2 h.1, h.2.1, h.2.2.imp (ih₁ pv).2.2.2.1 id⟩⟩
-    · simp only [substRel, AggQueryIn.readsOuter, Bool.or_eq_true] at hj ⊢
-      rcases hj with hj | hj
-      · exact ((ih₁ pv).1 j hj).imp Or.inl id
-      · exact Or.inl (Or.inr hj)
-    · simp only [substRel, AggQueryIn.nestReads, Bool.or_eq_true, Bool.and_eq_true] at hj ⊢
-      rcases hj with (hj | hj) | ⟨hL, hj⟩
-      · exact ((ih₁ pv).2.1 j hj).imp (fun h => Or.inl (Or.inl h)) id
-      · exact Or.inl (Or.inl (Or.inr hj))
-      · exact ((ih₁ pv).1 j hj).imp (fun h => Or.inr ⟨hL, h⟩) id
-    · simp only [substRel, AggQueryIn.holeNests, Bool.or_eq_true] at hp ⊢
-      exact hp.imp ((ih₁ pv).2.2.1 p) id
-  | Sum q₁ q₂ ih₁ ih₂ =>
-    refine ⟨fun j hj => ?_, fun j hj => ?_, fun p hp => ?_, fun h => ?_, fun h => ?_⟩
-    · rw [substRel, readsOuter_castIdx] at hj
-      simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hj ⊢
-      rcases hj with hj | hj
-      · exact ((ih₁ pv).1 j hj).imp Or.inl id
-      · exact ((ih₂ pv).1 j hj).imp Or.inr id
-    · rw [substRel, nestReads_castIdx] at hj
-      simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hj ⊢
-      rcases hj with hj | hj
-      · exact ((ih₁ pv).2.1 j hj).imp Or.inl id
-      · exact ((ih₂ pv).2.1 j hj).imp Or.inr id
-    · rw [substRel, holeNests_castIdx] at hp
-      simp only [AggQueryIn.holeNests, Bool.or_eq_true] at hp ⊢
-      exact hp.imp ((ih₁ pv).2.2.1 p) ((ih₂ pv).2.2.1 p)
-    · rw [substRel, noGammaNest_castIdx]; exact ⟨(ih₁ pv).2.2.2.1 h.1, (ih₂ pv).2.2.2.1 h.2⟩
-    · rw [substRel, nestOnce_castIdx]; exact ⟨(ih₁ pv).2.2.2.2 h.1, (ih₂ pv).2.2.2.2 h.2⟩
-  | _ => exact ⟨fun j hj => Or.inl hj, fun j hj => Or.inl hj, fun p hp => hp, id, id⟩
-
-/-- **What the simulation of a set recursion reads**, and feeds to a
-second-level aggregation: what the rewritten base and body do; it passes
-no round to one, and stays at one storey. -/
-theorem muSetSim_reads (ch : Bool) {n : ℕ} (s s' : String)
-    (q₀ : AggQueryIn T c n (ColKind.allReg n))
-    (q₁ : AggQueryIn T c n (ColKind.allReg n) [(s, n)])
-    (q₀' : AggQueryIn T c n (ColKind.allReg n))
-    (q₁' : AggQueryIn T c n (ColKind.allReg n) [(s, n)]) :
-    (∀ j, (muSetSim ch s s' q₀ q₁ q₀' q₁').readsOuter j = true
-        → q₀'.readsOuter j = true ∨ q₁'.readsOuter j = true)
-      ∧ (∀ j, (muSetSim ch s s' q₀ q₁ q₀' q₁').nestReads j = true
-        → q₀'.nestReads j = true ∨ q₁'.nestReads j = true)
-      ∧ (∀ p, (muSetSim ch s s' q₀ q₁ q₀' q₁').holeNests p = false)
-      ∧ (q₀'.nestOnce → q₁'.nestOnce → (muSetSim ch s s' q₀ q₁ q₀' q₁').nestOnce) := by
-  have hEQ := noGammaNest_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
-  have hEQr := readsOuter_valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁)
-  set EQ := valRel (c := c) (ctrLeaves s q₀ q₁) (ctrConsts s q₀ q₁) with hEQd
-  set K' := ctrWidth c n
-  -- the term at the current row
-  set X := castIdx (subIdx_self s n)
-    (substRel s (rowPv n K') (q₁'.substMap (applyOuter T c (n + K')))) with hX
-  have hXr : ∀ j, X.readsOuter (Fin.natAdd (n + K') j) = true → q₁'.readsOuter j = true := by
-    intro j hj
-    rw [hX, readsOuter_castIdx] at hj
-    rcases (substRel_reads _ _).1 _ hj with hj | ⟨i, hi⟩
-    · rwa [readsOuter_applyOuter_natAdd] at hj
-    · have := congrArg Fin.val (Sum.inr.inj hi)
-      simp at this; omega
-  have hXn : ∀ j, X.nestReads (Fin.natAdd (n + K') j) = true → q₁'.nestReads j = true := by
-    intro j hj
-    rw [hX, nestReads_castIdx] at hj
-    rcases (substRel_reads _ _).2.1 _ hj with hj | ⟨i, hi⟩
-    · obtain ⟨k, hk, hr⟩ := nestReads_applyOuter _ _ hj
-      rw [Fin.natAdd_inj] at hk; subst hk; exact hr
-    · have := congrArg Fin.val (Sum.inr.inj hi)
-      simp at this; omega
-  have hXo : q₁'.nestOnce → X.nestOnce := fun h => by
-    rw [hX, nestOnce_castIdx]
-    exact (substRel_reads _ _).2.2.2.2 (AggQueryIn.nestOnce_substMap _ _ h)
-  have hNr : ∀ j, (ctrNext ch EQ n K').readsOuter (Fin.natAdd (n + K') j) = false :=
-    readsOuter_ctrNext ch n K' hEQr
-  have hNg := noGammaNest_ctrNext EQ ch hEQ n K'
-  have hSg := noGammaNest_ctrStart EQ ch hEQ K'
-  have hBr := (prodA_reads q₀' (ctrStart ch EQ K')).1
-  have hBn := (prodA_reads q₀' (ctrStart ch EQ K')).2.1
-  have hBo := (prodA_reads q₀' (ctrStart ch EQ K')).2.2.2
-  have hPr := (prodA_reads X (ctrNext ch EQ n K')).1
-  have hPn := (prodA_reads X (ctrNext ch EQ n K')).2.1
-  have hPo := (prodA_reads X (ctrNext ch EQ n K')).2.2.2
-  -- the body, unfolded
-  have hbody : simBodyA s s' n K' ch EQ q₁' = keepCols (fun j => Fin.natAdd (n + K') j)
-      ((Apply (Hole (n + K') s') (prodA X (ctrNext ch EQ n K'))).castKind
-        (append_allReg (n + K') (n + K'))) := rfl
-  have hsim : muSetSim ch s s' q₀ q₁ q₀' q₁' = Dedup (keepCols (fun i => Fin.castAdd K' i)
-      (Mu s' (prodA q₀' (ctrStart ch EQ K')) (simBodyA s s' n K' ch EQ q₁'))) := rfl
-  rw [hsim]
-  refine ⟨fun j hj => ?_, fun j hj => ?_, fun p => rfl, fun h₀ h₁ => ?_⟩
-  · change (keepCols _ (Mu s' _ _)).readsOuter j = true at hj
-    rw [readsOuter_keepCols] at hj
-    simp only [AggQueryIn.readsOuter, Bool.or_eq_true] at hj
-    rcases hj with hj | hj
-    · rw [hBr, readsOuter_ctrStart ch j (hEQr j), Bool.or_false] at hj
-      exact Or.inl hj
-    · rw [hbody, readsOuter_keepCols, readsOuter_castKind] at hj
-      simp only [AggQueryIn.readsOuter, Bool.false_or] at hj
-      rw [hPr, hNr, Bool.or_false] at hj
-      exact Or.inr (hXr j hj)
-  · change (keepCols _ (Mu s' _ _)).nestReads j = true at hj
-    rw [(keepCols_nest _ _).1] at hj
-    simp only [AggQueryIn.nestReads, Bool.or_eq_true] at hj
-    rcases hj with hj | hj
-    · refine Or.inl ((hBn j hj).resolve_right ?_)
-      rw [AggQueryIn.nestReads_of_noGammaNest _ hSg]; simp
-    · rw [hbody, (keepCols_nest _ _).1, nestReads_castKind] at hj
-      simp only [AggQueryIn.nestReads, Bool.false_or, Bool.or_eq_true, Bool.and_eq_true] at hj
-      rcases hj with hj | ⟨-, hj⟩
-      · refine Or.inr (hXn j ((hPn _ hj).resolve_right ?_))
-        rw [AggQueryIn.nestReads_of_noGammaNest _ hNg]; simp
-      · simp [AggQueryIn.readsOuter] at hj
-  · change (keepCols _ (Mu s' _ _)).nestOnce
-    rw [(keepCols_nest _ _).2.2]
-    refine ⟨hBo h₀ (AggQueryIn.nestOnce_of_noGammaNest _ hSg), ?_,
-      Or.inr fun _ => by simp [ColKind.allReg, ColKind.base]⟩
-    rw [hbody, (keepCols_nest _ _).2.2, nestOnce_castKind]
-    exact ⟨trivial, hPo (hXo h₁) (AggQueryIn.nestOnce_of_noGammaNest _ hNg), Or.inl trivial⟩
-
-end SimNest
 
 /-! ## The pass -/
 
@@ -3217,109 +2746,6 @@ theorem noExplode_muSetFreeA (ch : Bool) :
   | GammaTok is his ts fs a q keep ih => exact fun f hu _ _ => hu.elim
   | Win P O o w t g q hrr dist keep ih => exact fun f hu hh hx => ih f hu.2 hh hx
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh hx => ih f hu.2 hh hx
-
-theorem noGammaNest_muSetFreeA (ch : Bool) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic → q.noGammaNest →
-        (muSetFreeA ch f q).noGammaNest := by
-  intro c n κ l q
-  induction q with
-  | Rel _ _ => exact fun _ _ _ h => h
-  | Hole _ _ _ => exact fun _ _ _ h => h
-  | Param _ _ => exact fun _ _ _ h => h
-  | Empty => exact fun _ _ _ h => h
-  | Proj ps q ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | Sel φ q hφ ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu hh hx =>
-      ⟨ih₁ _ hu.2.1 hh.1 hx.1, ih₂ _ hu.2.2 hh.2 hx.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun f hu hh hx =>
-      ⟨ih₁ _ hu.2.1 hh.1 hx.1, ih₂ _ hu.2.2 hh.2 hx.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu _ _ => absurd hu.1 (by simp)
-  | Dedup q ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu hh hx =>
-      ⟨ih₁ _ hu.2.1 hh.1 hx.1, ih₂ _ hu.2.2 hh.2 hx.2⟩
-  | Explode k hk q ih => exact fun f hu hh hx => ih f hu hh hx
-  | Retag hk q ih => exact fun f hu hh hx => ih f hu hh hx
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu hh hx =>
-      ⟨ih₀ _ hu.2.1 hh.2.2.1 hx.1, ih₁ _ hu.2.2 hh.2.2.2 hx.2⟩
-  | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro f hu hh hx
-    have hlin : q₁.recLinear s _ := recLinear_of_usesOnly (by simp) q₁ rfl hh.2.1 hu.2.2
-    exact noGammaNest_muSetSim ch s _ q₀ q₁ _ _
-      ((muSetFreeA_struct ch q₁ _ hu.2.2 hh.2.2.2).2 s _ hlin)
-      (ih₀ _ hu.2.1 hh.2.2.1 hx.1) (ih₁ _ hu.2.2 hh.2.2.2 hx.2)
-  | Gamma is ts fs q keep ord ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | GammaScalar ts fs q ord ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | GammaNest is his p g q ih => exact fun _ _ _ hx => hx.elim
-  | ProvSum is his t q ih => exact fun f hu _ _ => hu.elim
-  | GammaTok is his ts fs a q keep ih => exact fun f hu _ _ => hu.elim
-  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh hx => ih f hu.2 hh hx
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh hx => ih f hu.2 hh hx
-
-/-- **The pass keeps a query at one storey**, and reads and feeds to a
-second-level aggregation no more than it. -/
-theorem nestPres_muSetFreeA (ch : Bool) :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String), q.usesOnly (Set.univ \ {OpKind.union}) → q.hygienic →
-        AggQueryIn.NestPres q (muSetFreeA ch f q) := by
-  intro c n κ l q
-  induction q with
-  | Rel _ _ => exact fun _ _ _ => AggQueryIn.NestPres.refl _
-  | Hole _ _ _ => exact fun _ _ _ => AggQueryIn.NestPres.refl _
-  | Param _ _ => exact fun _ _ _ => AggQueryIn.NestPres.refl _
-  | Empty => exact fun _ _ _ => AggQueryIn.NestPres.refl _
-  | Proj ps q ih => exact fun f hu hh => AggQueryIn.NestPres.proj ps (ih f hu.2 hh)
-  | Sel φ q hφ ih => exact fun f hu hh => AggQueryIn.NestPres.sel φ hφ hφ (ih f hu.2 hh)
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu hh =>
-      AggQueryIn.NestPres.prod (ih₁ _ hu.2.1 hh.1) (ih₂ _ hu.2.2 hh.2)
-  | Apply q₁ q₂ ih₁ ih₂ =>
-    intro f hu hh
-    exact AggQueryIn.NestPres.apply (ih₁ _ hu.2.1 hh.1) (ih₂ _ hu.2.2 hh.2)
-      (noGammaNest_muSetFreeA ch q₁ _ hu.2.1 hh.1)
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu _ => absurd hu.1 (by simp)
-  | Dedup q ih => exact fun f hu hh => AggQueryIn.NestPres.dedup (ih f hu.2 hh)
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu hh =>
-      AggQueryIn.NestPres.diff (ih₁ _ hu.2.1 hh.1) (ih₂ _ hu.2.2 hh.2)
-  | Explode k hk q ih => exact fun f hu hh => AggQueryIn.NestPres.explode k hk (ih f hu hh)
-  | Retag hk q ih => exact fun f hu hh => AggQueryIn.NestPres.retag hk (ih f hu hh)
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu hh =>
-      AggQueryIn.NestPres.mu (ih₀ _ hu.2.1 hh.2.2.1) (ih₁ _ hu.2.2 hh.2.2.2)
-  | MuSet s q₀ q₁ ih₀ ih₁ =>
-    intro f hu hh
-    have h₀ := ih₀ (tri f 1) hu.2.1 hh.2.2.1
-    have h₁ := ih₁ (tri f 2) hu.2.2 hh.2.2.2
-    obtain ⟨hr, hn, hh', ho⟩ := muSetSim_reads ch s (f 0) q₀ q₁ (muSetFreeA ch (tri f 1) q₀)
-      (muSetFreeA ch (tri f 2) q₁)
-    refine ⟨fun k hk => ?_, fun k hk => ?_, fun p hp => ?_, fun h => ho (h₀.once h.1)
-      (h₁.once h.2)⟩
-    · simp only [AggQueryIn.readsOuter, Bool.or_eq_true]
-      exact (hr k hk).imp (h₀.reads k) (h₁.reads k)
-    · simp only [AggQueryIn.nestReads, Bool.or_eq_true]
-      exact (hn k hk).imp (h₀.nest k) (h₁.nest k)
-    · change (muSetSim ch s (f 0) q₀ q₁ _ _).holeNests p = true at hp
-      rw [hh'] at hp; exact absurd hp (by simp)
-  | Gamma is ts fs q keep ord ih => exact fun f hu hh => ⟨fun k hk => by
-        simp only [muSetFreeA, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2 hh).reads k)) id, (ih f hu.2 hh).nest,
-        fun _ h => h, (ih f hu.2 hh).once⟩
-  | GammaScalar ts fs q ord ih => exact fun f hu hh => ⟨fun k hk => by
-        simp only [muSetFreeA, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2 hh).reads k)) id, (ih f hu.2 hh).nest,
-        fun _ h => h, (ih f hu.2 hh).once⟩
-  | GammaNest is his p g q ih => exact fun f hu hh => ⟨fun k hk => by
-        simp only [muSetFreeA, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2 hh).reads k)) id, (ih f hu.2 hh).reads,
-        fun _ h => h, noGammaNest_muSetFreeA ch q f hu.2 hh⟩
-  | ProvSum is his t q ih => exact fun f hu _ => hu.elim
-  | GammaTok is his ts fs a q keep ih => exact fun f hu _ => hu.elim
-  | Win P O o w t g q hrr dist keep ih => exact fun f hu hh => ⟨fun k hk => by
-        simp only [muSetFreeA, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2 hh).reads k)) id, (ih f hu.2 hh).nest,
-        fun _ h => h, (ih f hu.2 hh).once⟩
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu hh => ⟨fun k hk => by
-        simp only [muSetFreeA, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2 hh).reads k)) id, (ih f hu.2 hh).nest,
-        fun _ h => h, (ih f hu.2 hh).once⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 /-- **Two bag recursions agreeing along the rounds of one of them** have the
@@ -4641,8 +4067,7 @@ theorem exists_annEpsOps_matchU (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
     (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :
     ∃ q' : AggQuery T n κ,
       q'.overSchema sch ∧ q'.usesOnly annEpsOps ∧ q'.inMinimalSig cnt ∧ q'.noExplode
-        ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ (q.noGammaNest → q'.noGammaNest)
-        ∧ (q.nestOnce → q'.nestOnce)
+        ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty
         ∧ ∀ {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
           {P : AnnotatedDatabase T K → Prop}, AggQueryIn.NodeCorrect cnt ch P →
           ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
@@ -4704,10 +4129,7 @@ theorem exists_annEpsOps_matchU (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
   obtain ⟨q4, hs4, hm4⟩ := (AggQueryIn.exists_sumFreeAnn_aux hS4s
     (Set.mem_singleton cnt) q3 hu3 hh3 hi3 f3 hf3 hf3n).1 rfl
   refine ⟨q4, hs4.over sch hf3s ho3, hs4.usesOnly, hs4.inSig, hs4.noExplode ha3,
-    hs4.wellKinded _ _ hp3, fun hn => hs4.noNest (AggQueryIn.noGammaNest_muSetFreeA ch q2 f2 hU2
-      hh2 (hs2.noNest (noGammaNest_prodFree q hn))),
-    fun hn => hs4.np.once ((AggQueryIn.nestPres_muSetFreeA ch q2 f2 hU2 hh2).once
-      (hs2.np.once ((prodFree_reads q).2.2.2 hn))), fun hnode d γ hd hset => ?_⟩
+    hs4.wellKinded _ _ hp3, fun hnode d γ hd hset => ?_⟩
   -- the matches, composed
   have hs1 := annSettlesAt_prodFree q d γ {} {} (EvalEnv.FinRel.refl _) hset
   have he1 : ((prodFree q).evaluate d γ {}).map GenRow.fin = (q.evaluate d γ {}).map GenRow.fin :=
@@ -4728,14 +4150,13 @@ theorem exists_annEpsOps_match (sch : Schema) (cnt : SeqAggFunc T) (ch : Bool)
     (hp : q.wellKinded (ColKind.allReg 0) HoleKinds.empty) :
     ∃ q' : AggQuery T n κ,
       q'.overSchema sch ∧ q'.usesOnly annEpsOps ∧ q'.inMinimalSig cnt ∧ q'.noExplode
-        ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty ∧ (q.noGammaNest → q'.noGammaNest)
-        ∧ (q.nestOnce → q'.nestOnce)
+        ∧ q'.wellKinded (ColKind.allReg 0) HoleKinds.empty
         ∧ ∀ (d : AnnotatedDatabase T K) (γ : Fin 0 → T), P d → q.AnnSettlesAt d γ {} →
             q'.AnnSettlesAt d γ {}
               ∧ (q'.evaluate d γ).map GenRow.fin = (q.evaluate d γ).map GenRow.fin := by
-  obtain ⟨q', h1, h2, h3, h4, h5, h6, h6', h7⟩ :=
+  obtain ⟨q', h1, h2, h3, h4, h5, h7⟩ :=
     exists_annEpsOps_matchU sch cnt ch q ho hu hi ha hp
-  exact ⟨q', h1, h2, h3, h4, h5, h6, h6', fun d γ hd hs => h7 hnode d γ hd hs⟩
+  exact ⟨q', h1, h2, h3, h4, h5, fun d γ hd hs => h7 hnode d γ hd hs⟩
 /-- **The classes `{∅, Π, σ, apply, γ, win, μ^⊎, ε, −}` match every query
 of the annotated algebra in the minimal universe**, at the instances `P`
 admits, wherever the simulation of a set recursion is correct there. -/
@@ -4743,7 +4164,7 @@ theorem generatesAnnOn_annEpsOps_of (sch : Schema) (cnt : SeqAggFunc T) (ch : Bo
     {P : AnnotatedDatabase T K → Prop} (hnode : AggQueryIn.NodeCorrect cnt ch P) :
     GeneratesAnnOn T K sch cnt annEpsOps P := by
   intro n κ q ho hu hi ha hp
-  obtain ⟨q', ho', hu', hi', ha', hp', -, -, hm⟩ := exists_annEpsOps_match sch cnt ch hnode q ho
+  obtain ⟨q', ho', hu', hi', ha', hp', hm⟩ := exists_annEpsOps_match sch cnt ch hnode q ho
     hu hi ha hp
   exact ⟨q', ho', hu', hi', ha', hp', fun d γ hd hs =>
     ⟨(hm d γ hd hs).1, GenRow.map_toAnnotated_of_fin (hm d γ hd hs).2⟩⟩

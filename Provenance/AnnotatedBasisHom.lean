@@ -61,7 +61,7 @@ theorem exists_annEpsOps_match_hom (sch : Schema) (cnt : SeqAggFunc T) (ch : Boo
             q.AnnSettlesAt (h.mapAnnotatedDatabase d) (fun _ => 0) {} →
             q'.evaluateAnnotated (h.mapAnnotatedDatabase d)
               = SemiringWithMonusHom.mapAnnotatedRelation h (q'.evaluateAnnotated d) := by
-  obtain ⟨q', ho', hu', hi', ha', -, -, -, hm⟩ :=
+  obtain ⟨q', ho', hu', hi', ha', -, hm⟩ :=
     exists_annEpsOps_matchU sch cnt ch q ho hu hi ha hp
   refine ⟨q', ho', hu', hi', ha', fun h hn hn' hld hrr hsc hfc d hs hs' => ?_⟩
   refine annotatedMatch_hom h q q'

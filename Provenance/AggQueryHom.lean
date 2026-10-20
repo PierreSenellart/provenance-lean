@@ -8,6 +8,7 @@ import Provenance.AggValueCongr
 import Provenance.QueryAnnotatedDatabaseHom
 import Provenance.AggQueryBridges
 import Provenance.JointHom
+import Provenance.NestedPres
 import Provenance.Coherence
 
 /-!
@@ -265,90 +266,82 @@ theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
 
 end AggValue
 
-/-! ## The nested token pushforward
+/-! ## Nested values read through corresponding worlds
 
-A nested value's occurrences are a bag and its worlds are read off that
-bag, so the pushforward needs no reindexing: the worlds of the
-pushforward are the pushforwards of the worlds (`worlds_mapAnn`), each
-carrying the pushed annotation and reading the same value. That is what
-lets the predicate provenance of a nested column commute like an ordinary
-token's, with no exclusion. -/
+Two nested values whose worlds correspond (`NestedValue.WCorr`) – both
+enumerations the images of one bag of indices, the weights pushed through
+the homomorphism and the readings equal – have every reading related: the
+predicate provenance is pushed, the values a key reads are equal. That is
+what a nested column reads under a homomorphism; the correspondence itself
+is `wcorr_of_rel`'s, from how the two values were built. -/
 
 namespace NestedValue
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
-/-- **A transported world carries the pushed annotation**: the world
-annotation is an `⊗`/`⊖`-polynomial in the occurrence annotations, group
-by group, over the bag of groups rather than over an indexing of it. -/
-theorem World.ann_mapAnn (h : SemiringWithMonusHom K K') (W : World T K) :
-    (W.mapAnn ⇑h.toRingHom).ann = h.toRingHom W.ann := by
-  have hp : (W.mapAnn ⇑h.toRingHom).presentProd = h.toRingHom W.presentProd := by
-    unfold World.presentProd World.mapAnn
-    rw [map_multiset_prod, Multiset.map_map, Multiset.map_map]
-    exact congrArg Multiset.prod (Multiset.map_congr rfl
-      (fun G _ => WorldGrp.prod_mapAnn h.toRingHom G))
-  have ha : (W.mapAnn ⇑h.toRingHom).absentSum = h.toRingHom W.absentSum := by
-    unfold World.absentSum World.mapAnn
-    rw [map_multiset_sum, Multiset.map_map, Multiset.map_map]
-    exact congrArg Multiset.sum (Multiset.map_congr rfl
-      (fun G _ => WorldGrp.absent_mapAnn h.toRingHom G))
-  rw [World.ann, World.ann, hp, ha, map_mul, SemiringWithMonusHom.map_sub, map_one]
+omit [DecidableEq K] [DecidableEq K'] in
+theorem predProvWith_of_wcorr [DecidableEq K] [DecidableEq K'] (h : SemiringWithMonusHom K K')
+    {b' : NestedValue T K'} {b : NestedValue T K} (hagg : b'.agg = b.agg)
+    (hsc : b'.scalar = b.scalar) (hw : WCorr h.toRingHom b' b) (P : T → Kleene) :
+    b'.predProvWith P = h.toRingHom (b.predProvWith P) := by
+  obtain ⟨ι, I, φ, φ', h1, h2, hi⟩ := hw
+  unfold predProvWith
+  rw [h1, h2, Multiset.filter_map, Multiset.filter_map, Multiset.map_map, Multiset.map_map,
+    map_multiset_sum, Multiset.map_map]
+  rw [Multiset.filter_congr (p := (fun W => W.IsWorld b') ∘ φ') (q := (fun W => W.IsWorld b) ∘ φ)
+    (fun i hiI => by
+      obtain ⟨-, -, hk, hr⟩ := hi i hiI
+      exact WCorr.isWorld_iff hsc hk hr)]
+  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun i hiI => ?_))
+  obtain ⟨hp, ha, hk, -⟩ := hi i (Multiset.mem_of_mem_filter hiI)
+  simp only [Function.comp_apply]
+  rw [map_mul, World.ann, World.ann, hp, ha, map_mul, SemiringWithMonusHom.map_sub, map_one,
+    valOn, valOn, hk, hagg, AggValue.chiOf_hom h P _]
 
-omit [ValueType T] [DecidableEq K] [DecidableEq K'] in
-/-- **Predicate provenance commutes with a homomorphism** for a nested
-value as for an ordinary token: the worlds correspond, each carries the
-pushed annotation and reads the same value, and `χ` is `{𝟘,𝟙}`-valued. -/
-theorem predProvWith_mapAnn (h : SemiringWithMonusHom K K')
-    (a : NestedValue T K) (P : T → Kleene) :
-    (a.mapAnn ⇑h.toRingHom).predProvWith P
-      = h.toRingHom (a.predProvWith P) := by
-  have hfil : Multiset.filter
-      ((fun W : World T K' => W.IsWorld (a.mapAnn ⇑h.toRingHom))
-        ∘ World.mapAnn ⇑h.toRingHom) a.worlds
-      = Multiset.filter (fun W => W.IsWorld a) a.worlds :=
-    Multiset.filter_congr
-      (fun W _ => World.isWorld_mapAnn (a := a) ⇑h.toRingHom W)
-  rw [predProvWith, predProvWith, map_multiset_sum, Multiset.map_map,
-    worlds_mapAnn, Multiset.filter_map, hfil, Multiset.map_map]
-  refine congrArg Multiset.sum (Multiset.map_congr rfl (fun W _ => ?_))
-  show (World.mapAnn ⇑h.toRingHom W).ann
-      * Having.chiOf P ((a.mapAnn ⇑h.toRingHom).valOn
-        (World.mapAnn ⇑h.toRingHom W))
-    = h.toRingHom (W.ann * Having.chiOf P (a.valOn W))
-  rw [map_mul, World.ann_mapAnn, valOn_mapAnn, AggValue.chiOf_hom]
+omit [DecidableEq K] [DecidableEq K'] in
+theorem vals_of_wcorr [DecidableEq K] [DecidableEq K'] {f : K →+* K'} {b' : NestedValue T K'}
+    {b : NestedValue T K} (hagg : b'.agg = b.agg) (hsc : b'.scalar = b.scalar)
+    (hw : WCorr f b' b) : b'.vals = b.vals := by
+  obtain ⟨ι, I, φ, φ', h1, h2, hi⟩ := hw
+  unfold vals
+  rw [h1, h2, Multiset.filter_map, Multiset.filter_map, Multiset.map_map, Multiset.map_map]
+  rw [Multiset.filter_congr (p := (fun W => W.IsWorld b') ∘ φ') (q := (fun W => W.IsWorld b) ∘ φ)
+    (fun i hiI => by
+      obtain ⟨-, -, hk, hr⟩ := hi i hiI
+      exact WCorr.isWorld_iff hsc hk hr)]
+  refine congrArg Multiset.toFinset (Multiset.map_congr rfl (fun i hiI => ?_))
+  obtain ⟨-, -, hk, -⟩ := hi i (Multiset.mem_of_mem_filter hiI)
+  simp only [Function.comp_apply, valOn, hk, hagg]
 
 end NestedValue
 
 namespace AggTok
 
 /-- **The predicate provenance of an aggregate column commutes with the
-pushforward**, whichever kind of token the column holds: on an ordinary
-token through `AggValue.predProvOfWith_mapAnn`, on a nested one through
-`NestedValue.predProvWith_mapAnn`, on an expression through
-`AggExpr.predProvWith_mapAnn`. -/
+pushforward**, on an ordinary token through `AggValue.predProvOfWith_mapAnn`
+and on an expression through `AggExpr.predProvWith_mapAnn`. A nested
+value's worlds are keyed by its families, which a pushforward identifying
+two annotations may merge; a nested column is read through its world
+correspondence instead (`NestedValue.predProvWith_of_wcorr`). -/
 theorem predProvOfWith_mapAnn (h : SemiringWithMonusHom K K')
-    (x : AggTok T K) (P : T → Kleene) :
+    (x : AggTok T K) (hx : x.isNested = false) (P : T → Kleene) :
     (x.mapAnn ⇑h.toRingHom).predProvOfWith P
       = h.toRingHom (x.predProvOfWith P) := by
   cases x with
   | tok a => exact AggValue.predProvOfWith_mapAnn h a P
-  | nest a =>
-    show (NestedValue.mapAnn ⇑h.toRingHom a).predProvWith P = _
-    exact NestedValue.predProvWith_mapAnn h a P
+  | nest a => exact absurd hx (by simp [AggTok.isNested])
   | expr e => exact (AggExpr.predProvWith_mapAnn h e P).symm
 
 /-- A comparison is one such test. -/
 theorem predProvOf_mapAnn (h : SemiringWithMonusHom K K')
-    (x : AggTok T K) (op : CompOp) (c : T) :
+    (x : AggTok T K) (hx : x.isNested = false) (op : CompOp) (c : T) :
     (x.mapAnn ⇑h.toRingHom).predProvOf op c
       = h.toRingHom (x.predProvOf op c) :=
-  predProvOfWith_mapAnn h x _
+  predProvOfWith_mapAnn h x hx _
 
 /-- So is the alternative test. -/
 theorem altProv_mapAnn (h : SemiringWithMonusHom K K')
-    (x : AggTok T K) (v : T) :
+    (x : AggTok T K) (hx : x.isNested = false) (v : T) :
     (x.mapAnn ⇑h.toRingHom).altProv v = h.toRingHom (x.altProv v) :=
-  predProvOfWith_mapAnn h x _
+  predProvOfWith_mapAnn h x hx _
 
 end AggTok
 
@@ -381,15 +374,16 @@ theorem TermGIn.eval_mapAnnSum {c n : ℕ} {κ : Fin n → ColKind}
     rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂, ih₃, ih₄]
   | coalesce t₁ t₂ ih₁ ih₂ => rw [TermGIn.eval, TermGIn.eval, ih₁, ih₂]
 
-/-- **Predicate-level hom commutation.** The predicate provenance of a
-generalized predicate commutes with every `SemiringWithMonusHom`:
-regular atoms through `χ`, aggregate atoms through the token-level
-commutation – whichever kind of token the column holds, a nested one
-included – `∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, and
-`¬` by polarity. -/
+/-- **Predicate-level hom commutation.** The structural predicate
+provenance of a generalized predicate commutes with every
+`SemiringWithMonusHom` on a row holding no nested column: regular atoms
+through `χ`, aggregate atoms through the token-level commutation,
+`∧ ↦ ⊗` and `∨ ↦ ⊕` through `map_mul` and `map_add`, and `¬` by polarity.
+The evaluator reads a selection jointly, and its commutation, nested
+columns included, is `GenPredIn.predsemJ_hom_famPres`. -/
 theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
     (h : SemiringWithMonusHom K K') (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool)
-    (u : Tuple (GenValue T K) n) :
+    (u : Tuple (GenValue T K) n) (hnn : ∀ k x, u k = Sum.inr x → x.isNested = false) :
     φ.predsem neg (fun k => AggValue.mapAnnSum ⇑h.toRingHom (u k)) γ
       = h.toRingHom (φ.predsem neg u γ) := by
   induction φ generalizing neg with
@@ -410,7 +404,7 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
       simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t u,
-        AggTok.predProvOf_mapAnn h x]
+        AggTok.predProvOf_mapAnn h x (hnn k x hu)]
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     cases hu : u k with
     | inl w =>
@@ -422,7 +416,7 @@ theorem GenPredIn.predsem_mapAnn {c n : ℕ} {κ : Fin n → ColKind}
           = Sum.inr (x.mapAnn ⇑h.toRingHom) := rfl
       simp only [GenPredIn.predsem, hu, hred]
       rw [TermGIn.eval_mapAnnSum h t₁ u, TermGIn.eval_mapAnnSum h t₂ u,
-        AggTok.predProvOfWith_mapAnn h x]
+        AggTok.predProvOfWith_mapAnn h x (hnn k x hu)]
   | and φ ψ ihφ ihψ =>
     cases neg with
     | false =>
@@ -822,8 +816,7 @@ def GenValue.Equiv : GenValue T K → GenValue T K → Prop
       a'.agg = a.agg ∧ a'.scalar = a.scalar ∧
         TiePerm (fun p q : T × K => p.1 = q.1) a'.occs a.occs
   | Sum.inr (AggTok.nest b'), Sum.inr (AggTok.nest b) =>
-      b'.collapse = b.collapse ∧ b'.scalar = b.scalar ∧ b'.agg = b.agg
-        ∧ b'.groups.map NestedValue.grpStatsU = b.groups.map NestedValue.grpStatsU
+      b'.lev = b.lev ∧ b'.collapse = b.collapse ∧ b'.scalar = b.scalar ∧ b'.agg = b.agg
   | Sum.inr (AggTok.expr e'), Sum.inr (AggTok.expr e) =>
       e'.collapse = e.collapse ∧ e'.isScalar = e.isScalar
         ∧ e'.vals = e.vals
@@ -878,7 +871,7 @@ theorem GenValue.Equiv.scalar_eq {x' x : AggTok T K}
   cases x' with
   | nest b' =>
     cases x with
-    | nest b => exact h.2.1
+    | nest b => exact h.2.2.1
     | tok a => exact absurd h not_false
     | expr e => exact absurd h not_false
   | tok a' =>
@@ -899,7 +892,7 @@ theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
   cases x' with
   | nest b' =>
     cases x with
-    | nest b => exact h.1
+    | nest b => exact h.2.1
     | tok a => exact absurd h not_false
     | expr e => exact absurd h not_false
   | tok a' =>
@@ -914,13 +907,15 @@ theorem GenValue.Equiv.collapse_eq {x' x : AggTok T K}
     | nest a => exact absurd h not_false
 
 /-- They take the same values over their worlds, so they read as the same
-key. -/
+key – where they are not nested: a nested column's values are read through
+its world correspondence (`NestedValue.vals_of_wcorr`). -/
 theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) : x'.vals = x.vals := by
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) :
+    x'.vals = x.vals := by
   cases x' with
   | nest b' =>
     cases x with
-    | nest b => exact NestedValue.vals_congr_of_grpStatsU h.2.2.1 h.2.1 h.2.2.2
+    | nest b => exact absurd hx (by simp [AggTok.isNested])
     | tok a => exact absurd h not_false
     | expr e => exact absurd h not_false
   | tok a' =>
@@ -937,14 +932,15 @@ theorem GenValue.Equiv.vals_eq {x' x : AggTok T K}
 /-- **And every three-valued test of them has the same provenance** –
 the congruence layer on an ordinary token, the expression's own
 conjunct on an expression. This is what carries the simulation through
-`GenPredIn.predsem`. -/
+`GenPredIn.predsem`; a nested column is read through its world
+correspondence (`NestedValue.predProvWith_of_wcorr`). -/
 theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (P : T → Kleene) :
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (P : T → Kleene) :
     x'.predProvOfWith P = x.predProvOfWith P := by
   cases x' with
   | nest b' =>
     cases x with
-    | nest b => exact NestedValue.predProvWith_congr_of_grpStatsU h.2.2.1 h.2.1 h.2.2.2 P
+    | nest b => exact absurd hx (by simp [AggTok.isNested])
     | tok a => exact absurd h not_false
     | expr e => exact absurd h not_false
   | tok a' =>
@@ -960,15 +956,15 @@ theorem GenValue.Equiv.predProvOfWith_eq {x' x : AggTok T K}
 
 /-- A comparison is one such test. -/
 theorem GenValue.Equiv.predProvOf_eq {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (op : CompOp) (c : T) :
-    x'.predProvOf op c = x.predProvOf op c :=
-  h.predProvOfWith_eq _
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (op : CompOp)
+    (c : T) : x'.predProvOf op c = x.predProvOf op c :=
+  h.predProvOfWith_eq hx _
 
 /-- So is the alternative test `[a ≐ v]`. -/
 theorem GenValue.Equiv.altProv_eq {x' x : AggTok T K}
-    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (v : T) :
+    (h : GenValue.Equiv (Sum.inr x') (Sum.inr x)) (hx : x.isNested = false) (v : T) :
     x'.altProv v = x.altProv v :=
-  h.predProvOfWith_eq _
+  h.predProvOfWith_eq hx _
 
 /-- **Two expression columns over tie-permuted families are
 equivalent**: the four readings `GenValue.Equiv` asks of them are
@@ -986,58 +982,6 @@ theorem GenValue.Equiv.of_expr_tiePerm {q : ℕ} {φ₁ φ₂ : FamId T}
   obtain ⟨hcol, hsc', hvals, hprov⟩ := AggExpr.readings_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h
   exact ⟨hcol, hsc', hvals, hprov, AggExpr.worldStats_congr (φ₁ := φ₁) (φ₂ := φ₂) aggs sc₁ g h⟩
 
-/-- **Equivalent columns give a nested value the same statistics.** The
-inner reading of a column is its own expression where it holds one, the
-token's own where it holds a token, and its collapse where it holds a
-nested value – and in each case what a nested value reads of it is fixed
-by the equivalence: by the statistics it now carries for an expression,
-by the tie-block permutation for a token, and by the collapse for a
-nested value or a regular one. -/
-theorem GenValue.Equiv.innerValue_worldStats {v' v : GenValue T K}
-    (h : GenValue.Equiv v' v) :
-    (GenValue.innerValue v').worldStats = (GenValue.innerValue v).worldStats := by
-  cases v' with
-  | inl w' =>
-    cases v with
-    | inl w => rw [show w' = w from h]
-    | inr x => exact absurd h GenValue.Equiv.not_inl_inr
-  | inr x' =>
-    cases v with
-    | inl w => exact absurd h GenValue.Equiv.not_inr_inl
-    | inr x =>
-      cases x' with
-      | tok a' =>
-        cases x with
-        | tok a =>
-          have hagg : a'.agg = a.agg := h.1
-          have hsc : a'.scalar = a.scalar := h.2.1
-          show (AggExpr.ofValue a').worldStats = (AggExpr.ofValue a).worldStats
-          unfold AggExpr.ofValue
-          rw [hagg, hsc]
-          refine AggExpr.worldStats_congr (fun _ => a.agg) (fun _ => a.scalar)
-            (fun v => v 0) ?_
-          exact h.2.2.map
-            (eqv' := fun z z' : (Fin 1 → T) × K × (Fin 1 → Bool) × (Fin 1 → Bool) =>
-              z.fst = z'.fst ∧ z.snd.snd = z'.snd.snd)
-            (fun o => ((fun _ : Fin 1 => o.fst), o.snd,
-              (fun _ : Fin 1 => true), (fun _ : Fin 1 => true)))
-            (fun hpq => ⟨funext (fun _ => hpq), rfl⟩)
-        | nest b => exact absurd h not_false
-        | expr e => exact absurd h not_false
-      | nest b' =>
-        cases x with
-        | nest b =>
-          show (NestedValue.constInner b'.collapse).worldStats
-            = (NestedValue.constInner b.collapse).worldStats
-          rw [show b'.collapse = b.collapse from h.1]
-        | tok a => exact absurd h not_false
-        | expr e => exact absurd h not_false
-      | expr e' =>
-        cases x with
-        | expr e => exact h.2.2.2.2
-        | tok a => exact absurd h not_false
-        | nest b => exact absurd h not_false
-
 /-- **Reading an aggregate column through a function preserves the
 equivalence**: a term over one aggregate column moves `g` and leaves
 the family, the convention and the worlds alone. -/
@@ -1049,7 +993,7 @@ theorem GenValue.Equiv.postcomp {x' x : AggTok T K} (gf : T → T)
   | nest b' =>
     cases x with
     | nest b =>
-      exact ⟨congrArg gf h.1, h.2.1, congrArg (fun f => fun L => gf (f L)) h.2.2.1, h.2.2.2⟩
+      exact ⟨h.1, congrArg gf h.2.1, h.2.2.1, congrArg (fun f => fun L => gf (f L)) h.2.2.2⟩
     | tok a => exact absurd h not_false
     | expr e => exact absurd h not_false
   | tok a' =>
@@ -1137,7 +1081,8 @@ tokens are read only through their predicate provenance
 (`AggValue.predProv_congr`) and their collapse. -/
 theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
     (φ : GenPredIn T c κ) {γ : Fin c → T} (neg : Bool) {u' u : Tuple (GenValue T K) n}
-    (hu : ∀ k, GenValue.Equiv (u' k) (u k)) :
+    (hu : ∀ k, GenValue.Equiv (u' k) (u k))
+    (hnn : ∀ k x, u k = Sum.inr x → x.isNested = false) :
     φ.predsem neg u' γ = φ.predsem neg u γ := by
   induction φ generalizing neg with
   | cmp op t₁ t₂ =>
@@ -1161,7 +1106,7 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
       | inr x =>
         rw [hu'k, huk] at hk'
         rw [TermGIn.eval_equiv t hu]
-        exact hk'.predProvOf_eq _ _
+        exact hk'.predProvOf_eq (hnn k x huk) _ _
   | aggRange k hk op₁ t₁ op₂ t₂ =>
     have hk' := hu k
     simp only [GenPredIn.predsem]
@@ -1180,7 +1125,7 @@ theorem GenPredIn.predsem_equiv {c n : ℕ} {κ : Fin n → ColKind}
       | inr x =>
         rw [hu'k, huk] at hk'
         rw [TermGIn.eval_equiv t₁ hu, TermGIn.eval_equiv t₂ hu]
-        exact hk'.predProvOfWith_eq _
+        exact hk'.predProvOfWith_eq (hnn k x huk) _
   | and φ ψ ihφ ihψ =>
     simp only [GenPredIn.predsem]
     rw [ihφ, ihψ]
@@ -1563,10 +1508,14 @@ omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **Reading an aggregate column as a key commutes with a
 homomorphism**: the values the column takes are untouched by the
 pushforward and by tie-block equivalence, so the two occurrences have
-the same alternatives, and each pair of them is again simulated. -/
+the same alternatives, and each pair of them is again simulated. A nested
+column's values and tests are read through the world correspondence of
+its two sides. -/
 theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
     {r' : GenRow T K' n} {r : GenRow T K n} (hs : GenRow.Sim h r' r)
-    (k : Fin n) :
+    (k : Fin n)
+    (hnest : ∀ b b', r.fst k = Sum.inr (.nest b) → r'.fst k = Sum.inr (.nest b') →
+      NestedValue.WCorr h.toRingHom b' b) :
     Multiset.Rel (GenRow.Sim h) (r'.alternativesAt k) (r.alternativesAt k) := by
   have hk := hs.1 k
   cases hrk : r.fst k with
@@ -1584,12 +1533,23 @@ theorem sim_alternativesAt (h : SemiringWithMonusHom K K') {n : ℕ}
     | inl w' => rw [hr'k] at hk; exact absurd hk GenValue.Equiv.not_inl_inr
     | inr x' =>
       rw [hr'k] at hk
-      have hvals : x'.vals = x.vals := by
-        rw [hk.vals_eq]
-        exact AggTok.vals_mapAnn _ x
-      have hprov : ∀ v : T, x'.altProv v = h.toRingHom (x.altProv v) := by
-        intro v
-        rw [hk.altProv_eq, AggTok.altProv_mapAnn h x]
+      have hreads : x'.vals = x.vals ∧ ∀ v : T, x'.altProv v = h.toRingHom (x.altProv v) := by
+        cases hx : x.isNested with
+        | false =>
+          have hx' : (x.mapAnn ⇑h.toRingHom).isNested = false := by
+            rw [AggTok.isNested_mapAnn]; exact hx
+          exact ⟨by rw [hk.vals_eq hx']; exact AggTok.vals_mapAnn _ x hx,
+            fun v => by rw [hk.altProv_eq hx', AggTok.altProv_mapAnn h x hx]⟩
+        | true =>
+          obtain ⟨b, rfl⟩ : ∃ b, x = AggTok.nest b := by
+            cases x <;> simp_all [AggTok.isNested]
+          obtain ⟨b', rfl⟩ : ∃ b', x' = AggTok.nest b' := by
+            cases x' <;> first | exact ⟨_, rfl⟩ | exact absurd hk not_false
+          have hw := hnest b b' hrk hr'k
+          obtain ⟨-, -, hsc, hagg⟩ := hk
+          exact ⟨NestedValue.vals_of_wcorr hagg hsc hw,
+            fun v => NestedValue.predProvWith_of_wcorr h hagg hsc hw _⟩
+      obtain ⟨hvals, hprov⟩ := hreads
       simp only [GenRow.alternativesAt, hrk, hr'k, hvals]
       refine rel_map_of_forall (fun v _ => ⟨fun j => ?_, ?_⟩)
       · by_cases hj : j = k
@@ -2431,14 +2391,55 @@ def GPair (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Prop)
     (p : AggTok T K' × AggTok T K) : Prop :=
   TermCl 𝒰₀' p.1 ∧ TermCl 𝒰₀ p.2 ∧ p.1.fam = p.2.fam
 
+/-- A listing pair with nothing in it: what presents a family with no
+occurrence. -/
+def ListingRel.empty (f : K →+* K') (T : Type) : ListingRel f T :=
+  ⟨Unit, Unit, Unit, [], fun _ => 0, fun _ => (), [], fun _ => 0, fun _ => (), fun _ => (),
+    fun _ _ => True, fun _ => rfl, TiePerm.nil, fun _ => rfl, fun _ => by simp⟩
+
+open Classical in
+/-- **The listing pair the universes give an expression family**, by key:
+one presenting every pair of flat values of the universes with that key,
+where there is one. -/
+noncomputable def lpU (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
+    (𝒰₀' : AggTok T K' → Prop) (κ : LeafKey T K) : ListingRel h.toRingHom T :=
+  if hD : ∃ D : ListingRel h.toRingHom T, D.L.length = κ.2.length
+      ∧ ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.isNested = false → leafKey q.2.flatExpr = κ → D.Member q.1 q.2
+  then Classical.choose hD else ListingRel.empty h.toRingHom T
+
+/-- **The expression pairs a nested value of the universes reads**: the
+expressions of a pair of flat values of the universes, or one regular
+value read as an expression on both sides. -/
+def LGU (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Prop) (e' : AggExpr T K')
+    (e : AggExpr T K) : Prop :=
+  (∃ y' y, GPair 𝒰₀ 𝒰₀' (y', y) ∧ y.isNested = false ∧ y'.isNested = false
+      ∧ e = y.flatExpr ∧ e' = y'.flatExpr)
+    ∨ ∃ v, e = NestedValue.constInner v ∧ e' = NestedValue.constInner v
+
+/-- **The node pairs a nested value of the universes reads**: those of a
+pair of nested values of the universes. -/
+def NGU (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Prop) (j : ℕ)
+    (N' : NestNode T K' (NestInner T K' j)) (N : NestNode T K (NestInner T K j)) : Prop :=
+  GPair 𝒰₀ 𝒰₀' (.nest (NestedValue.ofNode N'), .nest (NestedValue.ofNode N))
+
+/-- **Two nested values related as towers** through the universes'
+presentations. -/
+def NestRelU (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
+    (𝒰₀' : AggTok T K' → Prop) (b' : NestedValue T K') (b : NestedValue T K) : Prop :=
+  ∃ (j : ℕ) (N' : NestNode T K' (NestInner T K' j)) (N : NestNode T K (NestInner T K j)),
+    b = NestedValue.ofNode N ∧ b' = NestedValue.ofNode N'
+      ∧ NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') (j + 1)
+        (Sum.inr N') (Sum.inr N)
+
 /-- **The class of `x` is presented** across the two universes: one
-listing on each side presents every pair of the class. -/
+listing on each side presents every pair of the class, or every pair of
+the class is a pair of nested values related as towers. -/
 def ClassPres (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
     (𝒰₀' : AggTok T K' → Prop) (x : AggTok T K) : Prop :=
   (∃ D : ListingRel h.toRingHom T, ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = x.classKey →
       D.Member q.1 q.2)
-    ∨ (∃ O O', NestRel h.toRingHom O' O ∧ ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = x.classKey →
-      NestMember O' O q.1 q.2)
+    ∨ ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = x.classKey →
+      ∃ b b', q.2 = .nest b ∧ q.1 = .nest b' ∧ NestRelU h 𝒰₀ 𝒰₀' b' b
 
 /-- **What a row carries**: each pair of corresponding values records one
 identifier, and its class is presented. -/
@@ -2459,7 +2460,112 @@ structure HomUniv (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Pr
   key' : FamKeyed (TermCl 𝒰₀')
   col : ∀ x, 𝒰₀ x → ∀ w, (x.lab, w) ∈ W → x.fam.col < w
 
+omit [ValueType T] in
+theorem AggTok.classKey_of_flat {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
+    (hy : y.isNested = false) : y.classKey = (y.fam.family, y.annList, none) := by
+  cases y with
+  | tok a => rfl
+  | expr e => rfl
+  | nest b => exact absurd hy (by simp [AggTok.isNested])
+
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- The key of an expression read by a nested value of the universes:
+its family's, which the universe determines from the family and the
+number of occurrences. -/
+theorem LGU.key_eq {𝒰₀ : AggTok T K → Prop} {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)}
+    (hU : HomUniv 𝒰₀ 𝒰₀' W) {e'₁ e'₂ : AggExpr T K'} {e₁ e₂ : AggExpr T K}
+    (h₁ : LGU 𝒰₀ 𝒰₀' e'₁ e₁) (h₂ : LGU 𝒰₀ 𝒰₀' e'₂ e₂)
+    (hf : (leafKey e₁).1 = (leafKey e₂).1) (hl : (leafKey e₁).2.length = (leafKey e₂).2.length) :
+    leafKey e₁ = leafKey e₂ := by
+  have hflat : ∀ y : AggTok T K, y.isNested = false →
+      leafKey y.flatExpr = (y.fam.family, y.annList) := by
+    intro y hy
+    unfold leafKey
+    rw [AggTok.flatExpr_annList_of_not_nest _ hy]
+    cases y with
+    | tok a => rfl
+    | expr e => rfl
+    | nest b => exact absurd hy (by simp [AggTok.isNested])
+  have hcst : ∀ v : T, leafKey (NestedValue.constInner v : AggExpr T K)
+      = (FamId.none.family, []) := fun _ => rfl
+  rcases h₁ with ⟨y'₁, y₁, hg₁, hn₁, -, rfl, -⟩ | ⟨v₁, rfl, -⟩ <;>
+    rcases h₂ with ⟨y'₂, y₂, hg₂, hn₂, -, rfl, -⟩ | ⟨v₂, rfl, -⟩
+  · rw [hflat _ hn₁, hflat _ hn₂] at hf ⊢
+    have hf' : y₁.fam.family = y₂.fam.family := hf
+    have := hU.key y₁ y₂ hg₁.2.1 hg₂.2.1 hf'
+    rw [AggTok.classKey_of_flat _ hn₁, AggTok.classKey_of_flat _ hn₂] at this
+    exact Prod.ext hf' (congrArg (fun k => k.2.1) this)
+  · rw [hflat _ hn₁, hcst] at hf hl ⊢
+    rw [show y₁.annList = [] from List.eq_nil_of_length_eq_zero hl]
+    exact Prod.ext hf rfl
+  · rw [hflat _ hn₂, hcst] at hf hl ⊢
+    rw [show y₂.annList = [] from List.eq_nil_of_length_eq_zero hl.symm]
+    exact Prod.ext hf rfl
+  · rw [hcst, hcst]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **A coherent evaluation keys its families faithfully**: two related
+families have one key on one side exactly when they have one on the
+other, the family identifier deciding the key on each side. -/
+theorem keysFaithful_of_homUniv {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W) :
+    KeysFaithful h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') := by
+  refine ⟨fun e'₁ e₁ e'₂ e₂ h₁ h₂ => ?_, fun j N'₁ N₁ N'₂ N₂ h₁ h₂ => ?_⟩
+  · rw [Rel.leafKey_eq h₁, Rel.leafKey_eq h₂]
+    refine ⟨fun hk => ?_, fun hk => by rw [hk]⟩
+    have hlen : ∀ {e' : AggExpr T K'} {e : AggExpr T K},
+        NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') 0 e' e →
+          (lkey (lpU h 𝒰₀ 𝒰₀') (leafKey e)).2.length = (leafKey e).2.length := by
+      intro e' e hr
+      obtain ⟨-, -, ok, val, hP, -⟩ := hr
+      show ((lpU h 𝒰₀ 𝒰₀' (leafKey e)).L'.map _).length = e.annList.length
+      rw [annList_of_presBy hP, List.length_map, List.length_map,
+        (lpU h 𝒰₀ 𝒰₀' (leafKey e)).hperm.perm.length_eq, List.length_map]
+    have hfst : (leafKey e₁).1 = (leafKey e₂).1 := by
+      have := congrArg Prod.fst hk
+      simpa only [lkey] using this
+    refine LGU.key_eq hU h₁.1 h₂.1 hfst ?_
+    rw [← hlen h₁, ← hlen h₂, hk]
+  · have hg₁ : NGU 𝒰₀ 𝒰₀' j N'₁ N₁ := h₁.1
+    have hg₂ : NGU 𝒰₀ 𝒰₀' j N'₂ N₂ := h₂.1
+    have hf₁ : N'₁.fam = N₁.fam := hg₁.2.2
+    have hf₂ : N'₂.fam = N₂.fam := hg₂.2.2
+    have hocc : ∀ {K₀ : Type} [CommSemiringWithMonus K₀] {M₁ M₂ : NestNode T K₀ (NestInner T K₀ j)},
+        (AggTok.nest (NestedValue.ofNode M₁)).classKey
+          = (AggTok.nest (NestedValue.ofNode M₂)).classKey → M₁.occs = M₂.occs := by
+      intro K₀ _ M₁ M₂ hc
+      have := congrArg (fun k => k.2.2) hc
+      simp only [AggTok.classKey, NestedValue.ofNode, Option.some.injEq] at this
+      exact eq_of_heq (Sigma.mk.inj_iff.mp this).2
+    constructor
+    · intro hk
+      have hf : N₁.fam.family = N₂.fam.family := by
+        rw [← hf₁, ← hf₂]; exact congrArg Prod.fst hk
+      have hc := hU.key _ _ hg₁.2.1 hg₂.2.1 hf
+      show (N₁.fam.family, N₁.occs) = (N₂.fam.family, N₂.occs)
+      rw [hf, hocc hc]
+    · intro hk
+      have hf : N'₁.fam.family = N'₂.fam.family := by
+        rw [hf₁, hf₂]; exact congrArg Prod.fst hk
+      have hc := hU.key' _ _ hg₁.1 hg₂.1 hf
+      show (N'₁.fam.family, N'₁.occs) = (N'₂.fam.family, N'₂.occs)
+      rw [hf, hocc hc]
+
+omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **A nested pair of the universes whose class is presented has
+corresponding worlds.** -/
+theorem wcorr_of_classPres {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
+    {b : NestedValue T K} {b' : NestedValue T K'} (hg : GPair 𝒰₀ 𝒰₀' (.nest b', .nest b))
+    (hc : ClassPres h 𝒰₀ 𝒰₀' (.nest b)) : NestedValue.WCorr h.toRingHom b' b := by
+  rcases hc with ⟨D, hD⟩ | hN
+  · exact absurd (hD _ hg rfl).1 (by simp [AggTok.isNested])
+  · obtain ⟨c, c', hc, hc', j, N', N, rfl, rfl, hr⟩ := hN _ hg rfl
+    cases hc
+    cases hc'
+    exact wcorr_of_rel (keysFaithful_of_homUniv hU) hr
+
+omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **The families of pairs drawn from the universes, each class
 presented, are presented together.** -/
 theorem famPres_of_good {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
@@ -2478,9 +2584,14 @@ theorem famPres_of_good {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
       have hf : p.2.fam.family = q.2.fam.family := congrArg (fun z => z.1) hk
       rw [← hpf, ← hqf] at hf
       exact hU.key' p.1 q.1 hp1 hq1 hf
-  · rcases (hS p₀ hp₀).2 with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+  · rcases (hS p₀ hp₀).2 with ⟨D, hD⟩ | hN
     · exact Or.inl ⟨D, fun q hq hk => hD q (hS q hq).1 hk⟩
-    · exact Or.inr ⟨O, O', hO, fun q hq hk => hN q (hS q hq).1 hk⟩
+    · obtain ⟨b, b', hb, hb', j, N', N, rfl, rfl, hr⟩ := hN p₀ (hS p₀ hp₀).1 rfl
+      refine Or.inr ⟨⟨_, _, hb, hb', wcorr_of_rel (keysFaithful_of_homUniv hU) hr⟩,
+        fun q hq hk => ?_⟩
+      obtain ⟨c, c', hc, hc', j', M', M, rfl, rfl, hr'⟩ := hN q (hS q hq).1 hk
+      obtain ⟨-, hagg, hsc, -⟩ := hr'
+      exact ⟨_, _, hc, hc', hagg, hsc⟩
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 theorem ListingRel.Member.postcompTerms {f : K →+* K'} {D : ListingRel f T}
@@ -2494,22 +2605,45 @@ theorem ListingRel.Member.postcompTerms {f : K →+* K'} {D : ListingRel f T}
         by rw [AggTok.isNested_postcompTerm]; exact hn', ok, fun s => t.unary (val s),
         hP.postcompTerm hn t, hP'.postcompTerm hn' t⟩ ts
 
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K']
-  [CommSemiringWithMonus K] [CommSemiringWithMonus K'] in
-theorem NestMember.postcompTerms {O' : Multiset (List K' × Multiset (AggExpr T K' × K'))}
-    {O : Multiset (List K × Multiset (AggExpr T K × K))} {y' : AggTok T K'} {y : AggTok T K}
-    (hm : NestMember O' O y' y) : ∀ ts, NestMember O' O (y'.postcompTerms ts) (y.postcompTerms ts)
-  | [] => hm
-  | t :: ts => by
-    obtain ⟨b, b', h₁, h₂, ho, ho', hagg, hsc⟩ := hm
-    subst h₁ h₂
-    refine NestMember.postcompTerms (y' := (AggTok.nest b').postcompTerm t)
-      (y := (AggTok.nest b).postcompTerm t)
-      ⟨{ b.postcomp t.unary with fam := (AggTok.nest b).fam.addTerm t },
-        { b'.postcomp t.unary with fam := (AggTok.nest b').fam.addTerm t }, rfl, rfl, ho, ho',
-        ?_, hsc⟩ ts
-    show (fun s => t.unary (b'.agg s)) = (fun s => t.unary (b.agg s))
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **A term over two related nested values keeps them related**: it
+moves the outer aggregate and the recorded terms, not the occurrences. -/
+theorem NestRelU.postcompTerm {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {b' : NestedValue T K'} {b : NestedValue T K}
+    (hr : NestRelU h 𝒰₀ 𝒰₀' b' b) (t : TermIn T 1 0)
+    (hg : GPair 𝒰₀ 𝒰₀' ((AggTok.nest b').postcompTerm t, (AggTok.nest b).postcompTerm t)) :
+    ∃ c c', (AggTok.nest b).postcompTerm t = .nest c
+      ∧ (AggTok.nest b').postcompTerm t = .nest c' ∧ NestRelU h 𝒰₀ 𝒰₀' c' c := by
+  obtain ⟨j, N', N, rfl, rfl, hrel⟩ := hr
+  obtain ⟨-, hagg, hsc, hfam, hZ⟩ := hrel
+  refine ⟨NestedValue.ofNode ⟨fun s => t.unary (N.agg s), N.occs, N.scalar, N.fam.addTerm t⟩,
+    NestedValue.ofNode ⟨fun s => t.unary (N'.agg s), N'.occs, N'.scalar, N'.fam.addTerm t⟩,
+    rfl, rfl, j, _, _, rfl, rfl, hg, ?_, hsc, ?_, hZ⟩
+  · show (fun s => t.unary (N'.agg s)) = (fun s => t.unary (N.agg s))
     rw [hagg]
+  · show (N'.fam.addTerm t).family = (N.fam.addTerm t).family
+    rw [FamId.family_addTerm, FamId.family_addTerm, hfam]
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+theorem NestRelU.postcompTerms {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} :
+    ∀ (ts : List (TermIn T 1 0)) {b' : NestedValue T K'} {b : NestedValue T K},
+      NestRelU h 𝒰₀ 𝒰₀' b' b → GPair 𝒰₀ 𝒰₀' (.nest b', .nest b) →
+        ∃ c c', (AggTok.nest b).postcompTerms ts = .nest c
+          ∧ (AggTok.nest b').postcompTerms ts = .nest c' ∧ NestRelU h 𝒰₀ 𝒰₀' c' c
+  | [], b', b, hr, _ => ⟨b, b', rfl, rfl, hr⟩
+  | t :: ts, b', b, hr, hg => by
+    have hg' : GPair 𝒰₀ 𝒰₀' ((AggTok.nest b').postcompTerm t, (AggTok.nest b).postcompTerm t) :=
+      ⟨TermCl.step t hg.1, TermCl.step t hg.2.1, by
+        show (AggTok.postcompTerm t (AggTok.nest b')).fam = (AggTok.postcompTerm t (AggTok.nest b)).fam
+        simp only [AggTok.postcompTerm, AggTok.fam_setFam]
+        rw [hg.2.2]⟩
+    obtain ⟨c, c', hc, hc', hr'⟩ := NestRelU.postcompTerm hr t hg'
+    show ∃ d d', ((AggTok.nest b).postcompTerm t).postcompTerms ts = .nest d
+      ∧ ((AggTok.nest b').postcompTerm t).postcompTerms ts = .nest d' ∧ NestRelU h 𝒰₀ 𝒰₀' d' d
+    rw [hc, hc']
+    rw [hc, hc'] at hg'
+    exact NestRelU.postcompTerms ts hr' hg'
 
 omit [ValueType T] in
 theorem FamId.eq_mk_of {φ : FamId T} {l : ℕ} {k : List T} {p : List (T ⊕ FamId T)} {c : ℕ}
@@ -2539,8 +2673,8 @@ theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → 
     (heq : ∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x → x'.fam = x.fam)
     (hD : (∃ D : ListingRel h.toRingHom T, ∀ j x' x, r'.fst (col j) = Sum.inr x' →
         r.fst (col j) = Sum.inr x → D.Member x' x)
-      ∨ (∃ O O', NestRel h.toRingHom O' O ∧ ∀ j x' x, r'.fst (col j) = Sum.inr x' →
-        r.fst (col j) = Sum.inr x → NestMember O' O x' x))
+      ∨ (∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x →
+        ∃ b b', x = .nest b ∧ x' = .nest b' ∧ NestRelU h 𝒰₀ 𝒰₀' b' b))
     (j₀ : Fin w) {x₀ : AggTok T K} (hx₀ : r.fst (col j₀) = Sum.inr x₀) :
     ClassPres h 𝒰₀ 𝒰₀' x₀ := by
   -- every pair of the class is a term over one of the row's pairs
@@ -2573,65 +2707,21 @@ theorem classPres_row {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → 
     refine ⟨⟨y₀.fam.col, hcol⟩, z', z, hz1', hz1, Prod.ext ?_ ?_⟩
     · exact hey'.trans (by rw [hyz', hqf])
     · exact hey.trans (by rw [hyz])
-  rcases hD with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+  rcases hD with ⟨D, hD⟩ | hN
   · refine Or.inl ⟨D, fun q hq hk => ?_⟩
     obtain ⟨j, z', z, h1, h2, he⟩ := hcls q hq hk
     rw [he]
     exact (hD j z' z h1 h2).postcompTerms _
-  · refine Or.inr ⟨O, O', hO, fun q hq hk => ?_⟩
+  · refine Or.inr (fun q hq hk => ?_)
     obtain ⟨j, z', z, h1, h2, he⟩ := hcls q hq hk
+    obtain ⟨b, b', rfl, rfl, hr⟩ := hN j z' z h1 h2
+    obtain ⟨x, hx, hx𝒰, -⟩ := hz j
+    obtain ⟨x', hx', hx𝒰'⟩ := hz' j
+    rw [hx, Sum.inr.injEq] at h2
+    rw [hx', Sum.inr.injEq] at h1
+    subst h1 h2
     rw [he]
-    exact (hN j z' z h1 h2).postcompTerms _
-
-/-! ### The groups a second-level aggregation builds, presented
-
-The occurrences of a nested value are grouped by the inner family they
-read (`NestedValue.groupOccs`). Two corresponding bags of occurrences –
-the two sides of one group of rows – give corresponding groups: related
-occurrences are keyed alike, because the key of a token is its class
-(`HomUniv.key`), and a group of a non-empty family is presented, every
-occurrence of it reading one class of the universes. A group of the
-empty family reads nothing, and its occurrences' own statistics suffice. -/
-
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- An expression presented by a listing carries the listing's
-annotations. -/
-theorem AggExpr.annList_of_presBy {ρ β : Type} {e : AggExpr T K} {L : List β}
-    {ann : β → K} {str : β → ρ} {ok : List ρ → Prop} {val : List ρ → T}
-    (hP : e.PresBy L ann str ok val) : e.annList = L.map ann := by
-  obtain ⟨h, ha, -, -⟩ := hP
-  unfold AggExpr.annList
-  refine List.ext_get (by simp [h]) (fun i h₁ h₂ => ?_)
-  have := ha ⟨i, by simpa using h₂⟩
-  simp only [AggExpr.anns] at this
-  simp only [List.get_eq_getElem, List.getElem_map] at this ⊢
-  exact this
-
-omit [ValueType T] in
-/-- The inner reading of a column that holds no flat token reads the empty
-family. -/
-theorem innerKey_innerValue_const {K₀ : Type} (v : GenValue T K₀)
-    (hv : ∀ y, v = Sum.inr y → y.isNested = true) (k : K₀) :
-    NestedValue.innerKey (GenValue.innerValue v, k) = (FamId.none.family, []) := by
-  rcases v with w | y
-  · rfl
-  · cases y with
-    | nest b => rfl
-    | tok a => exact absurd (hv _ rfl) (by simp [AggTok.isNested])
-    | expr e => exact absurd (hv _ rfl) (by simp [AggTok.isNested])
-
-omit [ValueType T] in
-/-- The inner reading of a flat token reads the token's own family. -/
-theorem innerKey_innerValue_tok {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
-    (hy : y.isNested = false) (k : K₀) :
-    NestedValue.innerKey (GenValue.innerValue (Sum.inr y), k) = (y.fam.family, y.annList) := by
-  cases y with
-  | tok a =>
-    show ((AggExpr.ofValue a).fam.family, (AggExpr.ofValue a).annList) = _
-    rw [AggExpr.annList_ofValue]
-    rfl
-  | expr e => rfl
-  | nest b => exact absurd hy (by simp [AggTok.isNested])
+    exact NestRelU.postcompTerms _ hr ⟨TermCl.base hx𝒰', TermCl.base hx𝒰, heq j _ _ hx' hx⟩
 
 omit [ValueType T] in
 theorem innerValue_tok {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
@@ -2641,6 +2731,7 @@ theorem innerValue_tok {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T 
   | expr e => rfl
   | nest b => exact absurd hy (by simp [AggTok.isNested])
 
+
 omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
 /-- **A presented flat class presents every member of it.** -/
 theorem ClassPres.member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
@@ -2648,11 +2739,9 @@ theorem ClassPres.member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K �
     (hc : ClassPres h 𝒰₀ 𝒰₀' y) :
     ∃ D : ListingRel h.toRingHom T, ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.classKey = y.classKey →
       D.Member q.1 q.2 := by
-  rcases hc with ⟨D, hD⟩ | ⟨O, O', -, hN⟩
+  rcases hc with ⟨D, hD⟩ | hN
   · exact ⟨D, hD⟩
-  · refine ⟨⟨Unit, Unit, Unit, [], fun _ => 0, fun _ => (), [], fun _ => 0, fun _ => (),
-      fun _ => (), fun _ _ => True, fun _ => rfl, TiePerm.nil, fun _ => rfl,
-      fun _ => by simp⟩, fun q hq hk => ?_⟩
+  · refine ⟨ListingRel.empty h.toRingHom T, fun q hq hk => ?_⟩
     obtain ⟨b, -, hb, -⟩ := hN q hq hk
     have : q.2.classKey.2.2 = none := by
       rw [hk]
@@ -2671,296 +2760,10 @@ theorem ListingRel.Member.length_annList {f : K →+* K'} {D : ListingRel f T}
     y'.annList.length = y.annList.length := by
   obtain ⟨hn, hn', ok, val, hP, hP'⟩ := hm
   rw [← AggTok.flatExpr_annList_of_not_nest _ hn, ← AggTok.flatExpr_annList_of_not_nest _ hn',
-    AggExpr.annList_of_presBy hP, AggExpr.annList_of_presBy hP', List.length_map,
+    annList_of_presBy hP, annList_of_presBy hP', List.length_map,
     List.length_map, D.hperm.perm.length_eq, List.length_map]
 
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-/-- An expression reading no occurrence reads one world, the empty one. -/
-theorem AggExpr.worldStats_of_nil (e : AggExpr T K) (he : e.occs = []) :
-    e.worldStats = {(1, 0, e.valOn ∅, decide (e.IsWorld ∅))} := by
-  have hl : e.occs.length = 0 := by rw [he]; rfl
-  unfold AggExpr.worldStats
-  have : (Finset.univ : Finset (Finset (Fin e.occs.length))) = {∅} := by
-    ext W
-    simp only [Finset.mem_univ, Finset.mem_singleton, true_iff]
-    ext i
-    exact absurd i.isLt (by omega)
-  have hs : ∑ j ∈ (∅ : Finset (Fin e.occs.length))ᶜ, e.anns j = 0 :=
-    Finset.sum_eq_zero (fun i _ => absurd i.isLt (by omega))
-  rw [this]
-  simp only [Finset.singleton_val, Multiset.map_singleton, Finset.prod_empty, hs]
 
-/-- **The occurrence pairs a second-level aggregation groups, and what each
-carries**: the inner readings of two corresponding column values, the
-annotations pushed, and – for a token – its pair in the universes, with
-its class presented. -/
-def NestPair (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
-    (𝒰₀' : AggTok T K' → Prop) (o' : AggExpr T K' × K') (o : AggExpr T K × K) : Prop :=
-  ∃ v' v, o'.1 = GenValue.innerValue v' ∧ o.1 = GenValue.innerValue v ∧ o'.2 = h.toRingHom o.2
-    ∧ GenValue.Equiv v' (AggValue.mapAnnSum ⇑h.toRingHom v)
-    ∧ ∀ y' y, v' = Sum.inr y' → v = Sum.inr y → GPair 𝒰₀ 𝒰₀' (y', y) ∧ ClassPres h 𝒰₀ 𝒰₀' y
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- In a pair, both sides hold a flat token or neither does. -/
-theorem NestPair.flat_iff {h : SemiringWithMonusHom K K'} {v' : GenValue T K'} {v : GenValue T K}
-    (he : GenValue.Equiv v' (AggValue.mapAnnSum ⇑h.toRingHom v)) :
-    (∃ y', v' = Sum.inr y' ∧ y'.isNested = false) ↔ (∃ y, v = Sum.inr y ∧ y.isNested = false) := by
-  rcases v' with w' | y' <;> rcases v with w | y
-  · simp
-  · exact absurd he GenValue.Equiv.not_inl_inr
-  · exact absurd he GenValue.Equiv.not_inr_inl
-  · simp only [Sum.inr.injEq, exists_eq_left']
-    cases y' <;> cases y <;> first | rfl | exact absurd he not_false
-
-omit [ValueType T] in
-theorem AggTok.classKey_of_flat {K₀ : Type} [CommSemiringWithMonus K₀] (y : AggTok T K₀)
-    (hy : y.isNested = false) : y.classKey = (y.fam.family, y.annList, none) := by
-  cases y with
-  | tok a => rfl
-  | expr e => rfl
-  | nest b => exact absurd hy (by simp [AggTok.isNested])
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- **What a pair's key is**: a flat token's own family on both sides, or
-the empty family on both. -/
-theorem NestPair.key {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {a' : AggExpr T K' × K'} {a : AggExpr T K × K}
-    (hp : NestPair h 𝒰₀ 𝒰₀' a' a) :
-    (∃ y' y, a'.1 = y'.flatExpr ∧ a.1 = y.flatExpr ∧ y'.isNested = false ∧ y.isNested = false
-      ∧ NestedValue.innerKey a' = (y'.fam.family, y'.annList)
-      ∧ NestedValue.innerKey a = (y.fam.family, y.annList)
-      ∧ GPair 𝒰₀ 𝒰₀' (y', y) ∧ ClassPres h 𝒰₀ 𝒰₀' y)
-    ∨ (NestedValue.innerKey a' = (FamId.none.family, [])
-      ∧ NestedValue.innerKey a = (FamId.none.family, [])) := by
-  obtain ⟨v', v, h1, h2, h3, he, hg⟩ := hp
-  by_cases hf : ∃ y, v = Sum.inr y ∧ y.isNested = false
-  · obtain ⟨y, rfl, hy⟩ := hf
-    obtain ⟨y', rfl, hy'⟩ := (NestPair.flat_iff he).mpr ⟨y, rfl, hy⟩
-    obtain ⟨hG, hC⟩ := hg y' y rfl rfl
-    refine Or.inl ⟨y', y, by rw [h1, innerValue_tok y' hy'], by rw [h2, innerValue_tok y hy], hy',
-      hy, ?_, ?_, hG, hC⟩
-    · obtain ⟨o', k'⟩ := a'
-      simp only at h1
-      subst h1
-      exact innerKey_innerValue_tok y' hy' k'
-    · obtain ⟨o, k⟩ := a
-      simp only at h2
-      subst h2
-      exact innerKey_innerValue_tok y hy k
-  · have hf' : ¬ ∃ y', v' = Sum.inr y' ∧ y'.isNested = false :=
-      fun h' => hf ((NestPair.flat_iff he).mp h')
-    refine Or.inr ⟨?_, ?_⟩
-    · obtain ⟨o', k'⟩ := a'
-      simp only at h1
-      subst h1
-      exact innerKey_innerValue_const v' (fun y hy => by
-        by_contra hn
-        exact hf' ⟨y, hy, by simpa using hn⟩) k'
-    · obtain ⟨o, k⟩ := a
-      simp only at h2
-      subst h2
-      exact innerKey_innerValue_const v (fun y hy => by
-        by_contra hn
-        exact hf ⟨y, hy, by simpa using hn⟩) k
-
-omit [DecidableEq K] [DecidableEq K'] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- Two flat tokens of a presented class read the empty family together. -/
-theorem ClassPres.annList_nil_iff {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {y' : AggTok T K'} {y : AggTok T K} (hy : y.isNested = false)
-    (hG : GPair 𝒰₀ 𝒰₀' (y', y)) (hC : ClassPres h 𝒰₀ 𝒰₀' y) :
-    y'.annList = [] ↔ y.annList = [] := by
-  obtain ⟨D, hD⟩ := hC.member hy
-  have := (hD (y', y) hG rfl).length_annList
-  rw [← List.length_eq_zero_iff, ← List.length_eq_zero_iff, this]
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- A pair reads the empty family on both sides or on neither. -/
-theorem NestPair.nil_iff {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {a' : AggExpr T K' × K'} {a : AggExpr T K × K}
-    (hp : NestPair h 𝒰₀ 𝒰₀' a' a) :
-    (NestedValue.innerKey a').2 = [] ↔ (NestedValue.innerKey a).2 = [] := by
-  rcases hp.key with ⟨y', y, -, -, -, hny, hk', hk, hG, hC⟩ | ⟨hk', hk⟩
-  · simp [hk', hk]
-    exact hC.annList_nil_iff hny hG
-  · simp [hk', hk]
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- **Related occurrences are keyed alike.** -/
-theorem NestPair.key_iff {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
-    {a' b' : AggExpr T K' × K'} {a b : AggExpr T K × K}
-    (ha : NestPair h 𝒰₀ 𝒰₀' a' a) (hb : NestPair h 𝒰₀ 𝒰₀' b' b) :
-    NestedValue.innerKey a' = NestedValue.innerKey b'
-      ↔ NestedValue.innerKey a = NestedValue.innerKey b := by
-  rcases ha.key with ⟨ya', ya, -, -, hna', hna, hka', hka, hGa, hCa⟩ | ⟨hka', hka⟩ <;>
-    rcases hb.key with ⟨yb', yb, -, -, hnb', hnb, hkb', hkb, hGb, hCb⟩ | ⟨hkb', hkb⟩
-  · rw [hka', hkb', hka, hkb]
-    have hca := AggTok.classKey_of_flat ya hna
-    have hcb := AggTok.classKey_of_flat yb hnb
-    have hca' := AggTok.classKey_of_flat ya' hna'
-    have hcb' := AggTok.classKey_of_flat yb' hnb'
-    constructor
-    · intro hk
-      have hf : ya.fam.family = yb.fam.family := by
-        rw [← hGa.2.2, ← hGb.2.2]; exact congrArg Prod.fst hk
-      have := hU.key ya yb hGa.2.1 hGb.2.1 hf
-      rw [hca, hcb] at this
-      simp only [Prod.mk.injEq] at this ⊢
-      exact ⟨this.1, this.2.1⟩
-    · intro hk
-      have hf : ya'.fam.family = yb'.fam.family := by
-        rw [hGa.2.2, hGb.2.2]; exact congrArg Prod.fst hk
-      have := hU.key' ya' yb' hGa.1 hGb.1 hf
-      rw [hca', hcb'] at this
-      simp only [Prod.mk.injEq] at this ⊢
-      exact ⟨this.1, this.2.1⟩
-  · rw [hka', hkb', hka, hkb, hGa.2.2]
-    simp only [Prod.mk.injEq]
-    exact and_congr Iff.rfl (hCa.annList_nil_iff hna hGa)
-  · rw [hka', hkb', hka, hkb, hGb.2.2]
-    simp only [Prod.mk.injEq]
-    have := hCb.annList_nil_iff hnb hGb
-    constructor
-    · rintro ⟨h1, h2⟩
-      exact ⟨h1, (this.mp h2.symm).symm⟩
-    · rintro ⟨h1, h2⟩
-      exact ⟨h1, (this.mpr h2.symm).symm⟩
-  · rw [hka', hkb', hka, hkb]
-    simp
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- **A pair reading the empty family reads alike on both sides.** -/
-theorem NestPair.memData_nil {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {a' : AggExpr T K' × K'} {a : AggExpr T K × K}
-    (hp : NestPair h 𝒰₀ 𝒰₀' a' a) (ha' : a'.1.occs = []) (ha : a.1.occs = []) {L L' : ℕ} :
-    NestedValue.memData (∅ : Finset (Fin L')) a'
-      = (h.toRingHom (NestedValue.memData (∅ : Finset (Fin L)) a).1,
-          (NestedValue.memData (∅ : Finset (Fin L)) a).2) := by
-  obtain ⟨v', v, h1, h2, h3, he, -⟩ := hp
-  have hws := he.innerValue_worldStats
-  rw [GenValue.innerValue_mapAnnSum, AggExpr.worldStats_mapAnn, ← h1, ← h2,
-    AggExpr.worldStats_of_nil _ ha', AggExpr.worldStats_of_nil _ ha, Multiset.map_singleton,
-    Multiset.singleton_inj] at hws
-  simp only [Prod.mk.injEq] at hws
-  unfold NestedValue.memData
-  rw [trW_empty, trW_empty, h3, hws.2.2.1, hws.2.2.2]
-
-omit [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- **Two corresponding bags of occurrences group into corresponding
-groups**, their statistics pushed through the homomorphism. -/
-theorem nestRel_groupOccs {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
-    {𝒰₀' : AggTok T K' → Prop} {W : List (ℕ × ℕ)} (hU : HomUniv 𝒰₀ 𝒰₀' W)
-    {U' : Multiset (AggExpr T K' × K')} {U : Multiset (AggExpr T K × K)}
-    (hR : Multiset.Rel (NestPair h 𝒰₀ 𝒰₀') U' U) :
-    NestRel h.toRingHom (NestedValue.groupOccs U') (NestedValue.groupOccs U) := by
-  classical
-  have hg := NestedValue.groupOccs_rel hR (fun a' a b' b ha hb => NestPair.key_iff hU ha hb)
-  unfold NestRel
-  refine map_eq_of_rel hg (fun g' g ⟨u, hg', hgu, hu, ⟨p₀, hp₀⟩, hkeys, hsame⟩ => ?_)
-  obtain ⟨A', M'⟩ := g'
-  obtain ⟨A, M⟩ := g
-  simp only at hg' hgu hkeys
-  subst hg' hgu
-  by_cases hA : A = []
-  · -- the empty family: each occurrence's own statistics
-    subst hA
-    have hocc : ∀ p ∈ u, p.2.1.occs = [] := by
-      intro p hp
-      have := (hkeys p hp).1
-      unfold NestedValue.innerKey at this
-      have h0 : p.2.1.annList.length = 0 := by rw [show p.2.1.annList = [] from this]; rfl
-      rw [AggExpr.annList, List.length_map, List.length_eq_zero_iff] at h0
-      exact h0
-    have hA' : A' = [] := by
-      rw [← (hkeys p₀ hp₀).2]
-      exact (hu p₀ hp₀).nil_iff.mpr (hkeys p₀ hp₀).1
-    subst hA'
-    have hocc' : ∀ p ∈ u, p.1.1.occs = [] := by
-      intro p hp
-      have := (hu p hp).nil_iff.mpr (by rw [(hkeys p hp).1])
-      unfold NestedValue.innerKey at this
-      have h0 : p.1.1.annList.length = 0 := by rw [show p.1.1.annList = [] from this]; rfl
-      rw [AggExpr.annList, List.length_map, List.length_eq_zero_iff] at h0
-      exact h0
-    rw [NestedValue.grpStatsU_nil, NestedValue.grpStatsU_nil, Multiset.map_coe, Multiset.map_coe,
-      List.map_map, List.map_map]
-    have hmap : ((u.map (NestedValue.memData (∅ : Finset (Fin ([] : List K').length)) ∘ Prod.fst)
-        : List _) : Multiset (K' × T × Bool))
-        = ((u.map (NestedValue.memData (∅ : Finset (Fin ([] : List K).length)) ∘ Prod.snd)
-          : List _) : Multiset (K × T × Bool)).map (fun z => (h.toRingHom z.1, z.2)) := by
-      rw [Multiset.map_coe, List.map_map]
-      exact congrArg _ (List.map_congr_left (fun p hp =>
-        (hu p hp).memData_nil (hocc' p hp) (hocc p hp)))
-    rw [hmap, NestedValue.choicesD_map]
-  · -- a non-empty family: one listing presents every occurrence
-    have hflat : ∀ p ∈ u, ∃ y' y, p.1.1 = y'.flatExpr ∧ p.2.1 = y.flatExpr
-        ∧ y'.isNested = false ∧ y.isNested = false
-        ∧ NestedValue.innerKey p.1 = (y'.fam.family, y'.annList)
-        ∧ NestedValue.innerKey p.2 = (y.fam.family, y.annList)
-        ∧ GPair 𝒰₀ 𝒰₀' (y', y) ∧ ClassPres h 𝒰₀ 𝒰₀' y := by
-      intro p hp
-      rcases (hu p hp).key with hf | ⟨-, hk⟩
-      · exact hf
-      · exact absurd ((hkeys p hp).1.symm.trans (by rw [hk])) hA
-    obtain ⟨y₀', y₀, -, -, -, hn₀, -, hk₀, hG₀, hC₀⟩ := hflat p₀ hp₀
-    obtain ⟨D, hD⟩ := hC₀.member hn₀
-    have hmem : ∀ p ∈ u, ∃ okv : (List D.ρ → Prop) × (List D.ρ → T),
-        p.2.1.PresBy D.L D.ann D.str okv.1 okv.2
-          ∧ p.1.1.PresBy D.L' D.ann' D.str' okv.1 okv.2 := by
-      intro p hp
-      obtain ⟨y', y, he', he, -, hn, -, hk, hG, -⟩ := hflat p hp
-      have hcls : y.classKey = y₀.classKey := by
-        rw [AggTok.classKey_of_flat y hn, AggTok.classKey_of_flat y₀ hn₀]
-        have := hsame p hp p₀ hp₀
-        rw [hk, hk₀] at this
-        rw [Prod.mk.injEq] at this
-        rw [this.1, this.2]
-      obtain ⟨-, -, ok, val, hP, hP'⟩ := hD (y', y) hG hcls
-      exact ⟨(ok, val), by rw [he]; exact hP, by rw [he']; exact hP'⟩
-    let okv : (AggExpr T K' × K') × (AggExpr T K × K) → (List D.ρ → Prop) × (List D.ρ → T) :=
-      fun p => if hp : ∃ okv : (List D.ρ → Prop) × (List D.ρ → T),
-          p.2.1.PresBy D.L D.ann D.str okv.1 okv.2
-            ∧ p.1.1.PresBy D.L' D.ann' D.str' okv.1 okv.2
-        then Classical.choose hp else (fun _ => True, fun _ => 0)
-    have hokv : ∀ p ∈ u, p.2.1.PresBy D.L D.ann D.str (okv p).1 (okv p).2
-        ∧ p.1.1.PresBy D.L' D.ann' D.str' (okv p).1 (okv p).2 := by
-      intro p hp
-      have hx := hmem p hp
-      simp only [okv, dite_eq_left hx]
-      exact Classical.choose_spec hx
-    have hA₀ : A = D.L.map D.ann := by
-      rw [← (hkeys p₀ hp₀).1]
-      exact AggExpr.annList_of_presBy (hokv p₀ hp₀).1
-    have hA₀' : A' = D.L'.map D.ann' := by
-      rw [← (hkeys p₀ hp₀).2]
-      exact AggExpr.annList_of_presBy (hokv p₀ hp₀).2
-    subst hA₀ hA₀'
-    have := NestedValue.grpStatsU_hom h.toRingHom D.L D.ann D.str D.L' D.ann' D.str' D.e
-      D.heqv D.hperm D.hstr D.hann
-      (Multiset.ofList (u.map (fun p => (p.1, p.2, (okv p).1, (okv p).2))))
-      (fun z hz => by
-        obtain ⟨p, hp, rfl⟩ := List.mem_map.mp (Multiset.mem_coe.mp hz)
-        obtain ⟨_, _, _, _, h3, _, _⟩ := hu p hp
-        exact ⟨h3, (hokv p hp).1, (hokv p hp).2⟩)
-    rw [Multiset.map_coe, Multiset.map_coe, List.map_map, List.map_map] at this
-    exact this
-
-omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
-/-- **Two nested values whose groups carry corresponding statistics are
-equivalent**, once their outer aggregates, conventions and collapses
-agree: what a nested value reads of its occurrences is a function of the
-groups' statistics in every m-semiring
-(`NestedValue.predProvWith_congr_of_grpStatsU`). -/
-theorem GenValue.Equiv.of_nestRel (h : SemiringWithMonusHom K K') {a' : NestedValue T K'}
-    {a : NestedValue T K} (hagg : a'.agg = a.agg) (hsc : a'.scalar = a.scalar)
-    (hcol : a'.collapse = a.collapse) (hr : NestRel h.toRingHom a'.groups a.groups) :
-    GenValue.Equiv (Sum.inr (AggTok.nest a'))
-      (AggValue.mapAnnSum ⇑h.toRingHom (Sum.inr (AggTok.nest a))) := by
-  refine ⟨by rw [hcol]; exact (NestedValue.collapse_mapAnn _ a).symm, hsc, hagg, ?_⟩
-  show a'.groups.map NestedValue.grpStatsU
-    = (a.groups.map (NestedValue.mapGrp ⇑h.toRingHom)).map NestedValue.grpStatsU
-  rw [hr, Multiset.map_map]
-  exact Multiset.map_congr rfl (fun g _ => (NestedValue.grpStatsU_mapAnn h.toRingHom g).symm)
 
 /-- **An environment of the evaluation**: its context's values carry one
 identifier on both sides with their class presented, its rounds simulate
@@ -3132,6 +2935,240 @@ theorem muSumFix_rel_it {α β : Type} {R : β → α → Prop} {step : Multiset
     rw [muSum_succ, muSum_succ]
     exact ih.add (hit (b + 1))
 
+/-- **The column values a second-level aggregation reads on the two
+sides**: equivalent, and, where they are aggregate values, a pair of the
+universes with its class presented. -/
+def ColPair (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop) (𝒰₀' : AggTok T K' → Prop)
+    (v' : GenValue T K') (v : GenValue T K) : Prop :=
+  GenValue.Equiv v' (AggValue.mapAnnSum ⇑h.toRingHom v)
+    ∧ ∀ y' y, v' = Sum.inr y' → v = Sum.inr y → GPair 𝒰₀ 𝒰₀' (y', y) ∧ ClassPres h 𝒰₀ 𝒰₀' y
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- The universes present an empty family by empty listings. -/
+theorem lpU_nil (h : SemiringWithMonusHom K K') (𝒰₀ : AggTok T K → Prop)
+    (𝒰₀' : AggTok T K' → Prop) (φ : ℕ × List T × List (T ⊕ FamId T)) :
+    (lpU h 𝒰₀ 𝒰₀' (φ, [])).L = [] ∧ (lpU h 𝒰₀ 𝒰₀' (φ, [])).L' = [] := by
+  have hL : (lpU h 𝒰₀ 𝒰₀' (φ, [])).L = [] := by
+    unfold lpU
+    by_cases hD : ∃ D : ListingRel h.toRingHom T,
+        D.L.length = (((φ, []) : LeafKey T K)).2.length ∧ ∀ q, GPair 𝒰₀ 𝒰₀' q →
+          q.2.isNested = false → leafKey q.2.flatExpr = ((φ, []) : LeafKey T K) → D.Member q.1 q.2
+    · rw [dite_eq_left hD]
+      exact List.eq_nil_of_length_eq_zero (Classical.choose_spec hD).1
+    · rw [dite_eq_right hD]
+      rfl
+  refine ⟨hL, List.eq_nil_of_length_eq_zero ?_⟩
+  rw [(lpU h 𝒰₀ 𝒰₀' (φ, [])).hperm.perm.length_eq, List.length_map, hL]
+  rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **The universes' listing of a flat class presents its members.** -/
+theorem lpU_member {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {y' : AggTok T K'} {y : AggTok T K} (hy : y.isNested = false)
+    (hc : ClassPres h 𝒰₀ 𝒰₀' y) (hg : GPair 𝒰₀ 𝒰₀' (y', y)) :
+    (lpU h 𝒰₀ 𝒰₀' (leafKey y.flatExpr)).Member y' y := by
+  obtain ⟨D, hD⟩ := ClassPres.member hy hc
+  have hkey : ∀ x : AggTok T K, x.isNested = false →
+      leafKey x.flatExpr = (x.fam.family, x.annList) := by
+    intro x hx
+    unfold leafKey
+    rw [AggTok.flatExpr_annList_of_not_nest _ hx]
+    cases x with
+    | tok a => rfl
+    | expr e => rfl
+    | nest b => exact absurd hx (by simp [AggTok.isNested])
+  have hex : ∃ D : ListingRel h.toRingHom T, D.L.length = (leafKey y.flatExpr).2.length
+      ∧ ∀ q, GPair 𝒰₀ 𝒰₀' q → q.2.isNested = false → leafKey q.2.flatExpr = leafKey y.flatExpr →
+        D.Member q.1 q.2 := by
+    refine ⟨D, ?_, fun q hq hqn hk => hD q hq ?_⟩
+    · obtain ⟨-, -, ok, val, hP, -⟩ := hD _ hg rfl
+      show D.L.length = y.flatExpr.annList.length
+      rw [annList_of_presBy hP, List.length_map]
+    · rw [hkey _ hqn, hkey _ hy, Prod.mk.injEq] at hk
+      rw [AggTok.classKey_of_flat _ hqn, AggTok.classKey_of_flat _ hy, hk.1, hk.2]
+  unfold lpU
+  rw [dite_eq_left_of_eq_true (eq_true hex)]
+  exact (Classical.choose_spec hex).2 _ hg hy rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **What a non-nested column reads at every storey**, related: the
+expression it is, lifted. -/
+theorem rel_innerAt_flat {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {v' : GenValue T K'} {v : GenValue T K}
+    (hv : ∀ y, v = Sum.inr y → y.isNested = false)
+    (hv' : ∀ y, v' = Sum.inr y → y.isNested = false)
+    (h0 : NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') 0
+      (GenValue.innerValue v') (GenValue.innerValue v)) :
+    ∀ D : ℕ, NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') D
+      (v'.innerAt D) (v.innerAt D)
+  | 0 => h0
+  | D + 1 => by
+    have e : ∀ {K₀ : Type} (x : GenValue T K₀), (∀ y, x = Sum.inr y → y.isNested = false) →
+        x.innerAt (D + 1) = Sum.inl (x.innerAt D) := by
+      intro K₀ x hx
+      rcases x with w | y
+      · rfl
+      · cases y with
+        | tok a => rfl
+        | expr e => rfl
+        | nest b => exact absurd (hx _ rfl) (by simp [AggTok.isNested])
+    rw [e v hv, e v' hv']
+    exact rel_innerAt_flat hv hv' h0 D
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
+/-- **What a nested column reads at every storey above its own**,
+related: its node, placed at its storey and lifted. -/
+theorem rel_innerAt_nest {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {j : ℕ} {N' : NestNode T K' (NestInner T K' j)}
+    {N : NestNode T K (NestInner T K j)}
+    (hr : NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') (j + 1)
+      (Sum.inr N') (Sum.inr N)) :
+    ∀ D : ℕ, j + 1 ≤ D → NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') D
+      (GenValue.innerAt (Sum.inr (AggTok.nest (NestedValue.ofNode N')) : GenValue T K') D)
+      (GenValue.innerAt (Sum.inr (AggTok.nest (NestedValue.ofNode N)) : GenValue T K) D)
+  | 0, hD => absurd hD (by omega)
+  | D + 1, hD => by
+    by_cases hj : j = D
+    · subst hj
+      simp only [GenValue.innerAt, NestedValue.ofNode, dite_true]
+      exact hr
+    · simp only [GenValue.innerAt, NestedValue.ofNode, hj, dite_false]
+      exact rel_innerAt_nest hr D (by omega)
+
+omit [ValueType T] in
+/-- **A regular value read as an expression is presented by an empty
+listing**: it reads nothing, and its one world is the empty one. -/
+theorem presBy_constInner {K₀ ρ β : Type} (w : T) {L : List β} (hL : L = []) (ann : β → K₀)
+    (str : β → ρ) :
+    (NestedValue.constInner w : AggExpr T K₀).PresBy L ann str (fun _ => True) (fun _ => w) := by
+  subst hL
+  have he : ∀ W : Finset (Fin ([] : List β).length),
+      W.map (finCongr (rfl : ([] : List β).length
+        = (NestedValue.constInner w : AggExpr T K₀).occs.length)).toEmbedding = ∅ :=
+    fun W => Finset.eq_empty_of_forall_notMem (fun i => absurd i.isLt (by simp))
+  refine ⟨rfl, fun i => absurd i.isLt (by simp), fun W => ?_, fun W => ?_⟩
+  · rw [he W, iff_true]
+    exact (AggExpr.isWorld_empty_iff _).mpr (by rw [NestedValue.constInner, AggExpr.isScalar_ofValue])
+  · rw [he W]
+    rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **Two column values a second-level aggregation reads, at every storey
+with room for them**: related as towers, at the same storey. -/
+theorem ColPair.innerAt {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} {v' : GenValue T K'} {v : GenValue T K}
+    (hc : ColPair h 𝒰₀ 𝒰₀' v' v) :
+    v'.innerLev = v.innerLev ∧ ∀ D, v.innerLev ≤ D →
+      NestInner.Rel h.toRingHom (lpU h 𝒰₀ 𝒰₀') (LGU 𝒰₀ 𝒰₀') (NGU 𝒰₀ 𝒰₀') D
+        (v'.innerAt D) (v.innerAt D) := by
+  obtain ⟨he, hp⟩ := hc
+  rcases v with w | y
+  · rcases v' with w' | y'
+    · have hw : w' = w := he
+      subst hw
+      refine ⟨rfl, fun D _ => rel_innerAt_flat (by simp) (by simp) ?_ D⟩
+      obtain ⟨hL, hL'⟩ := lpU_nil h 𝒰₀ 𝒰₀' FamId.none.family
+      exact ⟨Or.inr ⟨w', rfl, rfl⟩, rfl, fun _ => True, fun _ => w',
+        presBy_constInner w' hL _ _, presBy_constInner w' hL' _ _⟩
+    · exact absurd he GenValue.Equiv.not_inr_inl
+  · rcases v' with w' | y'
+    · exact absurd he GenValue.Equiv.not_inl_inr
+    · obtain ⟨hg, hc⟩ := hp y' y rfl rfl
+      cases hy : y.isNested with
+      | false =>
+        have hy' : y'.isNested = false := by
+          have := he.isNested_eq
+          rw [AggTok.isNested_mapAnn, hy] at this
+          exact this
+        have hlev : ∀ {K₀ : Type} (x : AggTok T K₀), x.isNested = false →
+            GenValue.innerLev (Sum.inr x : GenValue T K₀) = 0 := by
+          intro K₀ x hx
+          cases x with
+          | nest b => exact absurd hx (by simp [AggTok.isNested])
+          | tok a => rfl
+          | expr e => rfl
+        refine ⟨by rw [hlev _ hy, hlev _ hy'], fun D _ => rel_innerAt_flat
+          (fun z hz => by cases hz; exact hy) (fun z hz => by cases hz; exact hy') ?_ D⟩
+        obtain ⟨-, -, ok, val, hP, hP'⟩ := lpU_member hy hc hg
+        have hfi : ∀ {K₀ : Type} (x : AggTok T K₀), x.isNested = false →
+            GenValue.innerValue (Sum.inr x : GenValue T K₀) = x.flatExpr := by
+          intro K₀ x hx
+          cases x with
+          | nest b => exact absurd hx (by simp [AggTok.isNested])
+          | tok a => rfl
+          | expr e => rfl
+        rw [hfi _ hy, hfi _ hy']
+        refine ⟨Or.inl ⟨y', y, hg, hy, hy', rfl, rfl⟩, ?_, ok, val, hP, hP'⟩
+        have hf : y'.fam = y.fam := hg.2.2
+        cases y with
+        | nest b => exact absurd hy (by simp [AggTok.isNested])
+        | tok a =>
+          cases y' with
+          | nest b => exact absurd hy' (by simp [AggTok.isNested])
+          | tok a' => exact congrArg FamId.family hf
+          | expr e' => exact congrArg FamId.family hf
+        | expr e =>
+          cases y' with
+          | nest b => exact absurd hy' (by simp [AggTok.isNested])
+          | tok a' => exact congrArg FamId.family hf
+          | expr e' => exact congrArg FamId.family hf
+      | true =>
+        obtain ⟨b, rfl⟩ : ∃ b, y = AggTok.nest b := by
+          cases y <;> simp_all [AggTok.isNested]
+        obtain ⟨b', rfl⟩ : ∃ b', y' = AggTok.nest b' := by
+          cases y' <;> first | exact ⟨_, rfl⟩ | exact absurd he not_false
+        rcases hc with ⟨D, hD⟩ | hN
+        · exact absurd (hD _ hg rfl).1 (by simp [AggTok.isNested])
+        · obtain ⟨c, c', hcb, hcb', j, N', N, rfl, rfl, hr⟩ := hN _ hg rfl
+          cases hcb
+          cases hcb'
+          exact ⟨rfl, fun D hD => rel_innerAt_nest hr D hD⟩
+
+omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] in
+/-- **Two nested values built over related bags of column values are
+related as towers**, at the storey the bags need – which is one, the
+related values sitting at the same storeys. -/
+theorem nestRelU_nestOfVals {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
+    {𝒰₀' : AggTok T K' → Prop} (f : Multiset T → T) {φ' φ : FamId T}
+    {V' : Multiset (GenValue T K' × K')} {V : Multiset (GenValue T K × K)}
+    (hV : Multiset.Rel (fun v' v => ColPair h 𝒰₀ 𝒰₀' v'.1 v.1 ∧ v'.2 = h.toRingHom v.2) V' V)
+    (hg : GPair 𝒰₀ 𝒰₀' (.nest (nestOfVals f φ' V'), .nest (nestOfVals f φ V))) :
+    NestRelU h 𝒰₀ 𝒰₀' (nestOfVals f φ' V') (nestOfVals f φ V) := by
+  have hsup : (V'.map (fun v => v.1.innerLev)).sup = (V.map (fun v => v.1.innerLev)).sup :=
+    congrArg Multiset.sup (map_eq_of_rel hV (fun v' v hv => (hv.1.innerAt).1))
+  obtain ⟨D, hD⟩ : ∃ D, D = (V.map (fun v => v.1.innerLev)).sup := ⟨_, rfl⟩
+  have hb : nestOfVals f φ V = NestedValue.ofNode
+      (⟨f, V.map (fun v => (v.1.innerAt D, v.2)), false, φ⟩ : NestNode T K (NestInner T K D)) := by
+    rw [hD]; rfl
+  have hb' : nestOfVals f φ' V' = NestedValue.ofNode
+      (⟨f, V'.map (fun v => (v.1.innerAt D, v.2)), false, φ'⟩
+        : NestNode T K' (NestInner T K' D)) := by
+    rw [hD, ← hsup]; rfl
+  have hle : ∀ v ∈ V, v.1.innerLev ≤ D := fun v hv => by
+    rw [hD]; exact Multiset.le_sup (Multiset.mem_map_of_mem _ hv)
+  rw [hb, hb'] at hg ⊢
+  obtain ⟨l', l, rfl, rfl, hl⟩ := Multiset.exists_forall₂_of_rel hV
+  obtain ⟨u, hu1, hu2, hu3⟩ := Multiset.exists_zip_of_forall₂ hl
+  refine ⟨D, _, _, rfl, rfl, hg, rfl, rfl, congrArg FamId.family hg.2.2,
+    ((u.map (fun p => ((p.1.1.innerAt D, p.1.2, p.2.1.innerAt D), p.2.2)) :
+      List ((NestInner T K' D × K' × NestInner T K D) × K)) : Multiset _), ?_, ?_, ?_⟩
+  · rw [Multiset.map_coe, ← hu1]
+    show _ = Multiset.map _ (Multiset.ofList (List.map Prod.fst u))
+    rw [Multiset.map_coe]
+    simp only [List.map_map]
+    rfl
+  · rw [Multiset.map_coe, ← hu2]
+    show _ = Multiset.map _ (Multiset.ofList (List.map Prod.snd u))
+    rw [Multiset.map_coe]
+    simp only [List.map_map]
+    rfl
+  · intro z hz
+    obtain ⟨pr, hpr, rfl⟩ := List.mem_map.mp (Multiset.mem_coe.mp hz)
+    obtain ⟨hc, hk⟩ := hu3 pr hpr
+    refine ⟨hk, (hc.innerAt).2 D (hle _ ?_)⟩
+    rw [← hu2]
+    exact Multiset.mem_coe.mpr (List.mem_map_of_mem hpr)
+
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The fresh columns of an operator row carry what a row carries.** -/
 theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
@@ -3142,20 +3179,20 @@ theorem freshG {h : SemiringWithMonusHom K K'} {𝒰₀ : AggTok T K → Prop}
     (hz' : ∀ j, ∃ x', r'.fst (col j) = Sum.inr x' ∧ 𝒰₀' x')
     (hD : (∃ D : ListingRel h.toRingHom T, ∀ j x' x, r'.fst (col j) = Sum.inr x' →
         r.fst (col j) = Sum.inr x → D.Member x' x ∧ x'.fam = x.fam)
-      ∨ (∃ O O', NestRel h.toRingHom O' O ∧ ∀ j x' x, r'.fst (col j) = Sum.inr x' →
-        r.fst (col j) = Sum.inr x → NestMember O' O x' x ∧ x'.fam = x.fam)) :
+      ∨ (∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x →
+        (∃ b b', x = .nest b ∧ x' = .nest b' ∧ NestRelU h 𝒰₀ 𝒰₀' b' b) ∧ x'.fam = x.fam)) :
     ∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x →
       x'.fam = x.fam ∧ ClassPres h 𝒰₀ 𝒰₀' x := by
   have heq : ∀ j x' x, r'.fst (col j) = Sum.inr x' → r.fst (col j) = Sum.inr x →
       x'.fam = x.fam := by
-    rcases hD with ⟨D, hD⟩ | ⟨O, O', -, hN⟩
+    rcases hD with ⟨D, hD⟩ | hN
     · exact fun j x' x h1 h2 => (hD j x' x h1 h2).2
     · exact fun j x' x h1 h2 => (hN j x' x h1 h2).2
   intro j x' x h1 h2
   refine ⟨heq j x' x h1 h2, classPres_row hU r' r col lab key ps hW hz hz' heq ?_ j h2⟩
-  rcases hD with ⟨D, hD⟩ | ⟨O, O', hO, hN⟩
+  rcases hD with ⟨D, hD⟩ | hN
   · exact Or.inl ⟨D, fun j x' x h1 h2 => (hD j x' x h1 h2).1⟩
-  · exact Or.inr ⟨O, O', hO, fun j x' x h1 h2 => (hN j x' x h1 h2).1⟩
+  · exact Or.inr (fun j x' x h1 h2 => (hN j x' x h1 h2).1)
 
 omit [DecidableEq K] [HasAltLinearOrder K] [HasAltLinearOrder K'] [DecidableEq K'] in
 /-- **The columns of one group of a grouping are presented by one
@@ -3337,8 +3374,18 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
   | Explode k hk q ih =>
     intro d γ E' E hE hJ hb hb' hW hw hsc hrec
     simp only [AggQueryIn.evaluate]
-    refine rel_bind_of_rel (ih d γ E' E hE hJ hb hb' hW hw hsc hrec)
-      (fun r' r hs => (sim_alternativesAt h hs.1 k).mono (fun a' ha' a ha hsa =>
+    have hin := q.rowToks_in hsc d γ E 𝒰₀ hb hJ.toks
+    have hin' := q.rowToks_in hsc (h.mapAnnotatedDatabase d) γ E' 𝒰₀' hb' hJ.toks'
+    have hrel : Multiset.Rel (fun r' r => (GenRow.Sim h r' r ∧ RowG h 𝒰₀ 𝒰₀' r' r)
+        ∧ (∀ k x, r'.fst k = Sum.inr x → TermCl 𝒰₀' x)
+        ∧ (∀ k x, r.fst k = Sum.inr x → TermCl 𝒰₀ x))
+        (q.evaluate (h.mapAnnotatedDatabase d) γ E') (q.evaluate d γ E) :=
+      (ih d γ E' E hE hJ hb hb' hW hw hsc hrec).mono
+        (fun r' hr' r hr hs => ⟨hs, hin' r' hr', hin r hr⟩)
+    refine rel_bind_of_rel hrel
+      (fun r' r ⟨hs, hr'in, hrin⟩ => (sim_alternativesAt h hs.1 k (fun b b' h1 h2 =>
+        wcorr_of_classPres hU ⟨hr'in k _ h2, hrin k _ h1, (hs.2 (.nest b', .nest b) ⟨k, h2, h1⟩).1⟩
+          (hs.2 (.nest b', .nest b) ⟨k, h2, h1⟩).2)).mono (fun a' ha' a ha hsa =>
         ⟨hsa, fun p ⟨j, h1, h2⟩ => hs.2 p ⟨j, GenRow.inr_of_mem_alternativesAt ha' h1,
           GenRow.inr_of_mem_alternativesAt ha h2⟩⟩))
   | Retag hκ q ih =>
@@ -3929,15 +3976,16 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
   | @GammaNest cI mI nI₁ κ' lab rd is his p f q ih =>
     -- one output row per key, and the keys are the columns' deterministic
     -- values, which a simulation keeps. For one key the two groups are
-    -- related row for row, so their occurrences carry pushed annotations
-    -- and inner readings drawn from the universes, grouped alike by inner
-    -- family, each group's statistics corresponding (`nestRel_groupOccs`)
-    -- – which is all a nested value reads of them
+    -- related row for row, so the two nested values are built over two
+    -- related bags of column values (`ColPair`), which relates them as
+    -- towers (`nestRelU_nestOfVals`)
     intro d γ E' E hE hJ hb hb' hW hw hsc hrec
     have hpk := EvalEnv.paramKey_eq_of_envG hE hJ rd
-    have hsim : Multiset.Rel (fun r' r => GenRow.Sim h r' r ∧ ∃ O O', NestRel h.toRingHom O' O ∧
+    have hsim : Multiset.Rel (fun r' r => GenRow.Sim h r' r ∧
         ∀ j x' x, r'.fst (Fin.natAdd nI₁ j) = Sum.inr x' → r.fst (Fin.natAdd nI₁ j) = Sum.inr x →
-          NestMember O' O x' x ∧ x'.fam = x.fam)
+          ∃ (φ : FamId T) (V' : Multiset (GenValue T K' × K')) (V : Multiset (GenValue T K × K)),
+            x = .nest (nestOfVals f φ V) ∧ x' = .nest (nestOfVals f φ V')
+            ∧ Multiset.Rel (fun v' v => ColPair h 𝒰₀ 𝒰₀' v'.1 v.1 ∧ v'.2 = h.toRingHom v.2) V' V)
         ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluate
           (h.mapAnnotatedDatabase d) γ E')
         ((AggQueryIn.GammaNest (lab := lab) (rd := rd) is his p f q).evaluate d γ E) := by
@@ -3945,13 +3993,12 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
       have hfull := ih d γ E' E hE hJ (fun x h => hb x (Or.inr h))
         (fun x h => hb' x (Or.inr h)) (fun e he => hW e (List.mem_cons_of_mem _ he)) hw hsc.2 hrec
       have hrel := hfull.mono (fun _ _ _ _ hs => hs.1)
-      -- each row pair gives a pair of occurrences: the inner readings of
-      -- the column the term reads, with its pair in the universes
-      have hpair : Multiset.Rel (fun r' r => GenRow.Sim h r' r ∧ NestPair h 𝒰₀ 𝒰₀'
-            (GenValue.innerValue (p.eval r'.fst γ), r'.snd.finalize)
-            (GenValue.innerValue (p.eval r.fst γ), r.snd.finalize))
+      -- each row pair gives a pair of column values, with its pair in the
+      -- universes
+      have hpair : Multiset.Rel (fun r' r => GenRow.Sim h r' r
+            ∧ ColPair h 𝒰₀ 𝒰₀' (p.eval r'.fst γ) (p.eval r.fst γ))
           (q.evaluate (h.mapAnnotatedDatabase d) γ E') (q.evaluate d γ E) := by
-        refine hfull.mono (fun r' hr' r hr hs => ⟨hs.1, _, _, rfl, rfl, hs.1.2,
+        refine hfull.mono (fun r' hr' r hr hs => ⟨hs.1,
           p.equiv_eval_of_sim h hs.1.1, fun y' y h1 h2 => ?_⟩)
         refine p.pair_eval hsc.1 (fun pr => GPair 𝒰₀ 𝒰₀' pr ∧ ClassPres h 𝒰₀ 𝒰₀' pr.2)
           (fun x' x t hp => ⟨⟨TermCl.step t hp.1.1, TermCl.step t hp.1.2.1,
@@ -3983,37 +4030,12 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         (q := fun row : GenRow T K mI =>
           (fun k => AggValue.collapseSum (row.fst (is k)) : Tuple T nI₁) = g)
         hpair (fun r' r hs => by rw [hkey r' r hs.1])
-      -- and so are the occurrences they become, grouped by inner family
-      have hocc : Multiset.Rel (NestPair h 𝒰₀ 𝒰₀')
-          (((q.evaluate (h.mapAnnotatedDatabase d) γ E').filter
-              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                : Tuple T nI₁) = g)).map
-            (fun row => (GenValue.innerValue (p.eval row.fst γ),
-              row.snd.finalize)))
-          (((q.evaluate d γ E).filter
-              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                : Tuple T nI₁) = g)).map
-            (fun row => (GenValue.innerValue (p.eval row.fst γ),
-              row.snd.finalize))) :=
-        rel_map_of_rel hgroup (fun r' r hs => hs.2)
-      have hnr := nestRel_groupOccs hU hocc
-      have hcol : ∀ (φ' φ : FamId T), (NestedValue.ofOccs f
-            (((q.evaluate (h.mapAnnotatedDatabase d) γ E').filter
-              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                : Tuple T nI₁) = g)).map
-            (fun row => (GenValue.innerValue (p.eval row.fst γ),
-              row.snd.finalize))) false φ').collapse
-          = (NestedValue.ofOccs f (((q.evaluate d γ E).filter
-              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                : Tuple T nI₁) = g)).map
-            (fun row => (GenValue.innerValue (p.eval row.fst γ),
-              row.snd.finalize))) false φ).collapse := by
-        intro φ' φ
-        show f _ = f _
-        rw [NestedValue.occs_ofOccs, NestedValue.occs_ofOccs]
-        refine congrArg f (map_eq_of_rel hocc (fun o' o ⟨v', v, h1, h2, _, he, _⟩ => ?_))
-        rw [h1, h2, NestedValue.collapse_innerValue, NestedValue.collapse_innerValue,
-          GenValue.Equiv.collapseSum_eq he, AggValue.collapseSum_mapAnnSum]
+      -- and so are the column values they become
+      have hV := rel_map_of_rel (f := fun row : GenRow T K' mI => (p.eval row.fst γ,
+          row.snd.finalize)) (g := fun row : GenRow T K mI => (p.eval row.fst γ,
+          row.snd.finalize))
+          (S := fun v' v => ColPair h 𝒰₀ 𝒰₀' v'.1 v.1 ∧ v'.2 = h.toRingHom v.2)
+          hgroup (fun r' r hs => ⟨hs.2, hs.1.2⟩)
       refine ⟨⟨fun k => ?_, ?_⟩, ?_⟩
       · refine Fin.addCases (fun i => ?_) (fun j => ?_) k
         · dsimp only
@@ -4021,33 +4043,28 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
           rfl
         · dsimp only
           rw [Fin.append_right, Fin.append_right]
-          exact GenValue.Equiv.of_nestRel h rfl rfl (hcol _ _) hnr
+          refine ⟨?_, ?_, rfl, rfl⟩
+          · show Multiset.sup _ = Multiset.sup _
+            exact congrArg Multiset.sup (map_eq_of_rel hV (fun v' v hv => (hv.1.innerAt).1))
+          · show NestedValue.collapse _ = NestedValue.collapse (NestedValue.mapAnn _ _)
+            rw [NestedValue.collapse_mapAnn, collapse_nestOfGroup, collapse_nestOfGroup]
+            refine congrArg f (map_eq_of_rel hgroup (fun r' r hs => ?_))
+            rw [GenValue.Equiv.collapseSum_eq hs.2.1, AggValue.collapseSum_mapAnnSum]
       · dsimp only
         rw [GenAnn.finalize_gamma, GenAnn.finalize_gamma,
           SemiringWithMonusHom.map_delta]
         refine congrArg SemiringWithMonus.delta ?_
-        rw [List.sum_singleton, List.sum_singleton]
-        rw [show (((q.evaluate (h.mapAnnotatedDatabase d) γ E').filter
-              (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                : Tuple T nI₁) = g)).map
-              (fun row => (GenValue.innerValue (p.eval row.fst γ),
-                row.snd.finalize))).map Prod.snd
-            = ((((q.evaluate d γ E).filter
-                (fun row => (fun k => AggValue.collapseSum (row.fst (is k))
-                  : Tuple T nI₁) = g)).map
-                (fun row => (GenValue.innerValue (p.eval row.fst γ),
-                  row.snd.finalize))).map Prod.snd).map ⇑h.toRingHom from by
-          rw [Multiset.map_map, Multiset.map_map, Multiset.map_map]
-          exact map_eq_of_rel hgroup (fun r' r hs => hs.1.2)]
-        exact (map_multiset_sum h.toRingHom _).symm
-      · rw [hpk]
-        refine ⟨_, _, hnr, fun j x' x h1 h2 => ?_⟩
+        rw [List.sum_singleton, List.sum_singleton, map_multiset_sum, Multiset.map_map]
+        exact congrArg Multiset.sum (map_eq_of_rel hgroup (fun r' r hs => hs.1.2))
+      · intro j x' x h1 h2
         dsimp only at h1 h2
         rw [Fin.append_right] at h1 h2
         have e1 := (Sum.inr_injective h1).symm
         have e2 := (Sum.inr_injective h2).symm
         subst e1 e2
-        exact ⟨⟨_, _, rfl, rfl, rfl, rfl, rfl, rfl⟩, rfl⟩
+        rw [hpk]
+        exact ⟨_, _, _, (rfl : _ = AggTok.nest (nestOfVals f _ _)),
+          (rfl : _ = AggTok.nest (nestOfVals f _ _)), hV⟩
     refine hsim.mono (fun r' hr' r hr hs => ⟨hs.1, ?_⟩)
     obtain ⟨key, hkey0, hkey⟩ := AggQueryIn.newRow_GammaNest is his p f q d γ E hr
     obtain ⟨key', -, hkey'⟩ := AggQueryIn.newRow_GammaNest is his p f q _ γ E' hr'
@@ -4057,7 +4074,11 @@ theorem AggQueryIn.evaluate_hom_univ (h : SemiringWithMonusHom K K') {𝒰₀ : 
         ⟨x, h1, hb x (Or.inl ⟨r, hr, Fin.fin_one_eq_zero j ▸ h1⟩), h2⟩)
       (fun j => let ⟨x, h1, _⟩ := hkey' j
         ⟨x, h1, hb' x (Or.inl ⟨r', hr', Fin.fin_one_eq_zero j ▸ h1⟩)⟩)
-      (Or.inr hs.2)
+      (Or.inr (fun j x' x h1 h2 => by
+        obtain ⟨φ, V', V, rfl, rfl, hV⟩ := hs.2 j x' x h1 h2
+        refine ⟨⟨_, _, rfl, rfl, nestRelU_nestOfVals f hV
+          ⟨TermCl.base (hb' _ (Or.inl ⟨r', hr', Fin.fin_one_eq_zero j ▸ h1⟩)),
+            TermCl.base (hb _ (Or.inl ⟨r, hr, Fin.fin_one_eq_zero j ▸ h2⟩)), rfl⟩⟩, rfl⟩))
     intro p ⟨k, h1, h2⟩
     revert h1 h2
     refine Fin.addCases (fun i h1 h2 => ?_) (fun j h1 h2 => hfr j _ _ h1 h2) k

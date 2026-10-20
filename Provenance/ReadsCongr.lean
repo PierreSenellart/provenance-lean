@@ -436,7 +436,7 @@ theorem AggQueryIn.evaluate_congr_reads :
       EvalEnv.paramKey_congr_reads rd (by rw [hrr.1]; exact hc)
     simp only [AggQueryIn.evaluate, ih hrr.2 d hh (fun k hk => hg k
         (by simp [AggQueryIn.readsOuter, hk])) (fun k hk => hc k (by simp [AggQueryIn.readsOuter,
-            hk])), hpk, hp]
+            hk])), hpk, nestOfGroup, hp]
   | @Win cI nI mI pI κw lab rd P O o w t f q hrr' dist keep ih =>
     intro hrr d γ γ' E E' hh hg hc
     have ht : ∀ r : Tuple T _, t.eval r γ = t.eval r γ' := fun r =>

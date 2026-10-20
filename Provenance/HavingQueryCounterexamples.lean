@@ -1373,49 +1373,70 @@ abbrev innerOf {K : Type} (l : ℕ) (β : K) : AggExpr ℕ K :=
 its own. -/
 abbrev nestOf {K : Type} [CommSemiringWithMonus K] (α₀ α₁ β₀ β₁ : K) :
     NestedValue ℕ K :=
-  ⟨SeqAggFunc.count.onBag SeqAggFunc.count_symmetric,
-    {([β₀], {(innerOf 0 β₀, α₀)}), ([β₁], {(innerOf 1 β₁, α₁)})},
-    false, FamId.none, by
-      intro g hg o ho
-      rcases Multiset.mem_cons.mp hg with rfl | hg
-      · rw [Multiset.mem_singleton.mp ho]; rfl
-      · rw [Multiset.mem_singleton.mp hg] at ho ⊢
-        rw [Multiset.mem_singleton.mp ho]; rfl⟩
+  ⟨0, SeqAggFunc.count.onBag SeqAggFunc.count_symmetric,
+    {(innerOf 0 β₀, α₀), (innerOf 1 β₁, α₁)}, false, FamId.none⟩
 
 /-- **The invented world**: it keeps the first outer occurrence and the
 inner occurrence of the second, which it drops. -/
-abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K]
-    (α₀ α₁ β₀ β₁ : K) : NestedValue.World ℕ K :=
-  ⟨{⟨[β₀], Finset.univ, {(innerOf 0 β₀, α₀, true)}⟩,
-    ⟨[β₁], Finset.univ, {(innerOf 1 β₁, α₁, false)}⟩}⟩
+abbrev incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
+    (α₀ α₁ β₀ β₁ : K) : NestedValue.World ℕ K 0 :=
+  ⟨{(innerOf 0 β₀, α₀, true), (innerOf 1 β₁, α₁, false)},
+    {(leafKey (innerOf 0 β₀ : AggExpr ℕ K), {0}), (leafKey (innerOf 1 β₁ : AggExpr ℕ K), {0})}, 0⟩
 
-/-- It decides on exactly the groups of `nestOf`. -/
-theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K]
+/-- It decides on exactly the families of `nestOf`. -/
+theorem isWorldOf_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
     (α₀ α₁ β₀ β₁ : K) :
-    (incoherentWorld α₀ α₁ β₀ β₁).IsWorldOf (nestOf α₀ α₁ β₀ β₁) := rfl
+    (incoherentWorld α₀ α₁ β₀ β₁).IsWorldOf (nestOf α₀ α₁ β₀ β₁) := by
+  have hne : leafKey (innerOf 0 β₀ : AggExpr ℕ K) ≠ leafKey (innerOf 1 β₁ : AggExpr ℕ K) := by
+    simp [leafKey, innerOf, AggExpr.ofValue, FamId.family]
+  refine ⟨rfl, ?_, ?_, ?_, ?_⟩
+  · show {leafKey (innerOf 0 β₀ : AggExpr ℕ K), leafKey (innerOf 1 β₁ : AggExpr ℕ K)}
+      = Multiset.dedup _
+    refine (Multiset.dedup_eq_self.mpr ?_).symm
+    simp [hne]
+  · intro e he
+    simp only [Multiset.insert_eq_cons, Multiset.mem_cons, Multiset.mem_singleton] at he
+    rcases he with rfl | rfl <;> simp [leafKey, innerOf, AggExpr.annList, AggExpr.ofValue]
+  · rfl
+  · intro e he; exact absurd he (Multiset.notMem_zero _)
 
 /-- **It is a world of the nested reading** – an occurrence is kept with
 its inner family met – and it is barred by the coherent reading, which is
 what makes it the world at issue. -/
-theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K]
+theorem isWorld_incoherentWorld {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
     (α₀ α₁ β₀ β₁ : K) :
     (incoherentWorld α₀ α₁ β₀ β₁).IsWorld (nestOf α₀ α₁ β₀ β₁)
       ∧ ¬ (incoherentWorld α₀ α₁ β₀ β₁).IsWorldCoherent
         (nestOf α₀ α₁ β₀ β₁) := by
+  have hne : leafKey (innerOf 0 β₀ : AggExpr ℕ K) ≠ leafKey (innerOf 1 β₁ : AggExpr ℕ K) := by
+    simp [leafKey, innerOf, AggExpr.ofValue, FamId.family]
+  have hsub : (incoherentWorld α₀ α₁ β₀ β₁).dec.leaf (leafKey (innerOf 0 β₀ : AggExpr ℕ K))
+      = {0} := by
+    refine NestedValue.leafSub_of_mem (T := ℕ) (K := K)
+      (L := (incoherentWorld α₀ α₁ β₀ β₁).leaf) ?_ (by
+        show _ ∈ ((_, _) ::ₘ {(_, _)} : Multiset (LeafKey ℕ K × Finset ℕ))
+        exact Multiset.mem_cons_self _ _)
+    simp [hne]
   have hcard : 0 < (incoherentWorld α₀ α₁ β₀ β₁).kept.card := by
-    simp [NestedValue.World.kept, NestedValue.WorldGrp.vals, Multiset.filter_singleton]
-  refine ⟨⟨Or.inr hcard, fun G hG m hm hp => ?_, trivial⟩, fun hco => ?_⟩
+    simp [NestedValue.World.kept, Multiset.filter_singleton]
+  refine ⟨⟨Or.inr hcard, fun m hm hp => ?_, trivial⟩, fun hco => ?_⟩
   · -- the one present occurrence reads a one-occurrence grouped family,
     -- all of which the world keeps
-    simp only [Multiset.insert_eq_cons, Multiset.mem_cons, Multiset.mem_singleton] at hG
-    rcases hG with rfl | rfl <;> simp only [Multiset.mem_singleton] at hm <;> subst hm
-    · exact fun j _ => ⟨⟨0, by simp [innerOf, AggExpr.ofValue]⟩, by
-        simp [trW, AggExpr.inFrame, innerOf, AggExpr.ofValue]⟩
+    simp only [Multiset.insert_eq_cons, Multiset.mem_cons, Multiset.mem_singleton] at hm
+    rcases hm with rfl | rfl
+    · show AggExpr.IsWorld (innerOf 0 β₀) (trS _)
+      rw [hsub]
+      exact fun j _ => ⟨⟨0, by simp [innerOf, AggExpr.ofValue]⟩, by
+        simp [AggExpr.inFrame, innerOf, AggExpr.ofValue]⟩
     · exact absurd hp (by simp)
-  · have := hco.2.2 ⟨[β₁], Finset.univ, {(innerOf 1 β₁, α₁, false)}⟩ (by simp) (by simp)
-    -- the second family's occurrence is kept, so its subfamily is not empty
-    have hu : (Finset.univ : Finset (Fin [β₁].length)) = ∅ := this
-    exact Finset.notMem_empty (⟨0, by simp⟩ : Fin [β₁].length) (hu ▸ Finset.mem_univ _)
+  · -- the second family is kept though no present occurrence reads it
+    have := hco.2.2 (leafKey (innerOf 1 β₁ : AggExpr ℕ K), {0}) (by simp) (fun m hm hp => by
+      simp only [Multiset.insert_eq_cons, Multiset.mem_cons, Multiset.mem_singleton] at hm
+      rcases hm with rfl | rfl
+      · show leafKey (innerOf 1 β₁ : AggExpr ℕ K) ∉ ({leafKey (innerOf 0 β₀ : AggExpr ℕ K)} : Multiset _)
+        simpa using hne.symm
+      · exact absurd hp (by simp))
+    exact absurd this (by simp)
 
 /-- **Over `ℕ` the invented world is annotated `𝟘`.** -/
 theorem nat_incoherentWorld_eq_zero :
@@ -1516,16 +1537,8 @@ each carrying an inner family of its own with one occurrence annotated
 `⊤`. The second is the row a selection keeps annotated `𝟘` whose
 aggregate column is still realized. -/
 def nestedIncoherentWitness : NestedValue ℕ Bool :=
-  { agg := fun s => s.card
-    groups := {([true], {(nestedInner 0 true, true)}), ([true], {(nestedInner 1 true, false)})}
-    scalar := false
-    fam := FamId.none
-    grouped := by
-      intro g hg o ho
-      rcases Multiset.mem_cons.mp hg with rfl | hg
-      · rw [Multiset.mem_singleton.mp ho]; rfl
-      · rw [Multiset.mem_singleton.mp hg] at ho ⊢
-        rw [Multiset.mem_singleton.mp ho]; rfl }
+  ⟨0, fun s => s.card, {(nestedInner 0 true, true), (nestedInner 1 true, false)}, false,
+    FamId.none⟩
 
 /-- **The current reading admits five worlds, the coherent reading
 three.** -/
@@ -1534,7 +1547,8 @@ theorem nestedIncoherentWitness_world_counts :
         (fun W => W.IsWorld nestedIncoherentWitness)),
       Multiset.card (nestedIncoherentWitness.worlds.filter
         (fun W => W.IsWorld nestedIncoherentWitness
-          ∧ ∀ G ∈ W.grps, (∀ m ∈ G.mems, m.2.2 = false) → G.sub = ∅)))
+          ∧ ∀ e ∈ W.leaf, (∀ m ∈ W.root, m.2.2 = true → e.1 ∉ NestInner.leaves 0 m.1)
+            → e.2 = ∅)))
       = (5, 3) := by decide
 
 /-- **And they weigh the row differently over `𝔹`**: `⊤` against `𝟘`. So
@@ -1546,20 +1560,22 @@ theorem nestedIncoherent_ne_coherent :
       NestedValue.World.ann).sum
       ≠ ((nestedIncoherentWitness.worlds.filter
           (fun W => W.IsWorld nestedIncoherentWitness
-            ∧ ∀ G ∈ W.grps, (∀ m ∈ G.mems, m.2.2 = false) → G.sub = ∅)).map
+            ∧ ∀ e ∈ W.leaf, (∀ m ∈ W.root, m.2.2 = true → e.1 ∉ NestInner.leaves 0 m.1)
+              → e.2 = ∅)).map
         NestedValue.World.ann).sum := by decide
 
 /-- **The world a valuation realizes is this incoherent one**, which is
 what settles the question rather than merely opening it: the realized
 world sets an occurrence present exactly when the valuation makes its
 *outer* annotation true, and keeps the inner occurrences the valuation
-makes true, independently (`NestedValue.realizedGrp`). So where a
+makes true, independently (`NestedValue.realizedWorld`). So where a
 selection has brought a row's annotation to `𝟘` while its aggregate
 column stays realized, the actual world keeps the inner occurrences of an
 absent outer one. -/
 theorem realizedWorld_not_coherent :
-    ¬ (∀ G ∈ (nestedIncoherentWitness.realizedWorld id).grps,
-        (∀ m ∈ G.mems, m.2.2 = false) → G.sub = ∅) := by decide
+    ¬ (∀ e ∈ (nestedIncoherentWitness.realizedWorld id).leaf,
+        (∀ m ∈ (nestedIncoherentWitness.realizedWorld id).root,
+          m.2.2 = true → e.1 ∉ NestInner.leaves 0 m.1) → e.2 = ∅) := by decide
 
 /-- **And the current reading admits it**, so it is the reading under
 which the `𝔹`-sum is the indicator of the actual world. A reading that

@@ -29,9 +29,8 @@ of powers of its input annotations, which sums and products reach.
 The basis theorem follows (`annMuOps_isBasis`): `{∅, Π, σ, apply, γ, win,
 μ^⊎, −, μ^∪}` generates the annotated algebra over every commutative
 m-semiring, and no proper subset of it does over all of them. It holds up
-to `≈` too (`annMuOps_isBasis_approx`), with one storey of second-level
-aggregation: the passes agree with their source row by row up to
-finalization and keep one storey, and the witness's row is not `𝟘`.
+to `≈` too (`annMuOps_isBasis_approx`): the passes agree with their source
+row by row up to finalization, and the witness's row is not `𝟘`.
 -/
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
@@ -157,33 +156,79 @@ theorem card_add_sum_le {α : Type} (s : Multiset α) (g h : α → ℕ) (D : �
 
 section Tokens
 
+/-- **How many annotations a world of an inner value multiplies at
+most**: each occurrence of each storey, an expression family's with it. -/
+def NestInner.annCount : (j : ℕ) → NestInner T K j → ℕ
+  | 0, e => e.occs.length
+  | j + 1, Sum.inl x => NestInner.annCount j x
+  | j + 1, Sum.inr N => (N.occs.map (fun o => 1 + NestInner.annCount j o.1)).sum
+
 /-- **How many annotations a world of a token multiplies at most**: its
-occurrences, and for a nested value each outer occurrence and each inner
-family's occurrences, once per family. -/
+occurrences, and for a nested value each of its own occurrences and every
+inner one, at every storey. -/
 def AggTok.annCount : AggTok T K → ℕ
   | .tok a => a.occs.length
   | .expr e => e.occs.length
-  | .nest a => (a.groups.map (fun g => g.1.length + Multiset.card g.2)).sum
+  | .nest a => (a.occs.map (fun o => 1 + NestInner.annCount a.lev o.1)).sum
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 @[simp] theorem AggTok.annCount_setFam (φ : FamId T) (x : AggTok T K) :
     (x.setFam φ).annCount = x.annCount := by
   cases x <;> rfl
 
-omit [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-/-- **Counting a grouped bag**: each inner family once is no more than
-each occurrence with its own. -/
-theorem NestedValue.sum_groupOccs_le (U : Multiset (AggExpr T K × K)) :
-    ((NestedValue.groupOccs U).map (fun g => g.1.length + Multiset.card g.2)).sum
-      ≤ (U.map (fun o => 1 + o.1.occs.length)).sum := by
-  conv_rhs => rw [← NestedValue.bind_groupOccs U, Multiset.map_bind, Multiset.sum_bind]
-  refine Multiset.sum_map_le_sum_map _ _ (fun g hg => ?_)
-  obtain ⟨o, ho, hA, -⟩ := NestedValue.mem_groupOccs hg
-  rw [Multiset.sum_map_add, Multiset.map_const', Multiset.sum_replicate, smul_eq_mul, mul_one,
-    add_comm]
-  refine Nat.add_le_add_left ?_ _
-  rw [hA, AggExpr.annList, List.length_map]
-  exact Multiset.le_sum_of_mem (Multiset.mem_map_of_mem (fun o => o.1.occs.length) ho)
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **What an inner value counts is what its families and nodes hold**,
+with repetition. -/
+theorem NestInner.count_eq : ∀ (j : ℕ) (x : NestInner T K j),
+    ((NestInner.leaves j x).map (fun κ => κ.2.length)).sum
+      + ((NestInner.nodes j x).map (fun κ => Multiset.card κ.2.2)).sum
+      = NestInner.annCount j x
+  | 0, e => by
+    simp [NestInner.leaves, NestInner.nodes, NestInner.annCount, leafKey, AggExpr.annList]
+  | j + 1, Sum.inl x => NestInner.count_eq j x
+  | j + 1, Sum.inr N => by
+    simp only [NestInner.leaves, NestInner.nodes, NestInner.annCount, Multiset.map_bind,
+      Multiset.sum_bind, Multiset.map_cons, Multiset.sum_cons, NestNode.key]
+    have h : ∀ o ∈ N.occs, 1 + NestInner.annCount j o.1
+        = 1 + (((NestInner.leaves j o.1).map (fun κ => κ.2.length)).sum
+          + ((NestInner.nodes j o.1).map (fun κ => Multiset.card κ.2.2)).sum) :=
+      fun o _ => by rw [NestInner.count_eq j o.1]
+    rw [Multiset.map_congr rfl h, Multiset.sum_map_add, Multiset.sum_map_add,
+      Multiset.map_const', Multiset.sum_replicate, smul_eq_mul, mul_one]
+    omega
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem sum_map_le_of_le {α : Type} {s t : Multiset α} (h : s ≤ t) (f : α → ℕ) :
+    (s.map f).sum ≤ (t.map f).sum := by
+  obtain ⟨u, rfl⟩ := Multiset.le_iff_exists_add.mp h
+  rw [Multiset.map_add, Multiset.sum_add]
+  exact Nat.le_add_right _ _
+
+omit [ValueType T] [CommSemiringWithMonus K] [HasAltLinearOrder K] in
+/-- **A nested value's families and nodes, each once, count no more than
+its occurrences' inner values do.** -/
+theorem NestedValue.count_le [DecidableEq T] (a : NestedValue T K) :
+    (a.leaves.map (fun κ => κ.2.length)).sum
+      + (a.nodes.map (fun κ => Multiset.card κ.2.2)).sum
+      ≤ (a.occs.map (fun o => NestInner.annCount a.lev o.1)).sum := by
+  classical
+  have h1 := sum_map_le_of_le (Multiset.dedup_le (a.occs.bind
+    (fun o => NestInner.leaves a.lev o.1))) (fun κ => κ.2.length)
+  have h2 : (a.nodes.map (fun κ => Multiset.card κ.2.2)).sum
+      ≤ ((a.occs.bind (fun o => NestInner.nodes a.lev o.1)).map
+        (fun κ => Multiset.card κ.2.2)).sum := by
+    unfold NestedValue.nodes
+    exact sum_map_le_of_le (Multiset.dedup_le _) _
+  have h3 : (a.occs.map (fun o => NestInner.annCount a.lev o.1)).sum
+      = ((a.occs.bind (fun o => NestInner.leaves a.lev o.1)).map (fun κ => κ.2.length)).sum
+        + ((a.occs.bind (fun o => NestInner.nodes a.lev o.1)).map
+          (fun κ => Multiset.card κ.2.2)).sum := by
+    rw [Multiset.map_bind, Multiset.sum_bind, Multiset.map_bind, Multiset.sum_bind,
+      ← Multiset.sum_map_add]
+    exact congrArg Multiset.sum (Multiset.map_congr rfl fun o _ =>
+      (NestInner.count_eq _ o.1).symm)
+  unfold NestedValue.leaves at h1 ⊢
+  omega
 
 /-- **A token within grade `D`, with at most `N` annotations to a world.** -/
 def AggTok.Grade (G : ℕ → K → Prop) (N D : ℕ) (x : AggTok T K) : Prop :=
@@ -213,17 +258,14 @@ theorem AggTok.Grade.mono {N N' D D' : ℕ} {x : AggTok T K}
   cases x with
   | tok a => exact fun p hp => hG.mono hD (h.1 p hp)
   | expr e => exact fun p hp => hG.mono hD (h.1 p hp)
-  | nest a =>
-    intro g hg
-    exact ⟨fun k hk => hG.mono hD ((h.1 g hg).1 k hk), fun o ho =>
-      ⟨hG.mono hD ((h.1 g hg).2 o ho).1, fun p hp => hG.mono hD (((h.1 g hg).2 o ho).2 p hp)⟩⟩
+  | nest a => exact NestedValue.AnnsIn.mono (Q := G D) (fun _ hk => hG.mono hD hk) h.1
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
 theorem GenRow.Grade.mono {N N' D D' n : ℕ} {r : GenRow T K n}
     (h : r.Grade G N D) (hG : Graded G) (hN : N ≤ N') (hD : D ≤ D') : r.Grade G N' D' :=
   ⟨hG.mono hD h.1, fun k a hk => (h.2 k a hk).mono hG hN hD⟩
 
-omit [ValueType T] [HasAltLinearOrder K] [DecidableEq K] in
+omit [HasAltLinearOrder K] in
 /-- **The worlds of one family multiply at most its count of annotations.** -/
 theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K) n)
     (M : List (Fin n)) {x₀ : AggTok T K} (h : x₀.Grade G N D) :
@@ -233,45 +275,77 @@ theorem classWorlds_grade (hG : Graded G) {n N D : ℕ} (u : Tuple (GenValue T K
   | nest a =>
     simp only [classWorlds] at hw
     obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.1 hw
-    have hW' := NestedValue.isWorldOf_of_mem_worlds (Multiset.mem_of_mem_filter hW)
-    have hGr := NestedValue.AnnsIn.grp h.1 (Multiset.mem_of_mem_filter hW)
-    have hcount : (W.grps.map (fun G => G.anns.length + Multiset.card G.mems)).sum ≤ N := by
-      have := h.2
-      simp only [AggTok.annCount] at this
-      rw [← hW', Multiset.map_map] at this
-      simpa [NestedValue.WorldGrp.base, Function.comp_def] using this
+    have hWm := Multiset.mem_of_mem_filter hW
+    obtain ⟨h1, h2, h3, h4, h5⟩ := NestedValue.isWorldOf_of_mem_worlds hWm
+    obtain ⟨hr, hl, hn⟩ := NestedValue.AnnsIn.world h.1 hWm
+    have hget : ∀ e ∈ W.leaf, ∀ i, G D (e.1.2.getD i 0) := fun e he i => by
+      rw [List.getD_eq_getElem?_getD]
+      cases hi : e.1.2[i]? with
+      | none => exact hG.zero D
+      | some k => exact hl e he k (List.mem_of_getElem? hi)
+    -- the count of what a world can keep
+    have hcR : Multiset.card W.root = Multiset.card a.occs := by
+      rw [← h1, Multiset.card_map]
+    have hcL : (W.leaf.map (fun e => e.2.card)).sum
+        ≤ (a.leaves.map (fun κ => κ.2.length)).sum := by
+      rw [← h2, Multiset.map_map]
+      refine Multiset.sum_map_le_sum_map _ _ fun e he => ?_
+      have := Finset.card_le_card (h3 e he)
+      rwa [Finset.card_range] at this
+    have hcN : (W.node.map (fun e => Multiset.card e.2.2)).sum
+        = (a.nodes.map (fun κ => Multiset.card κ.2.2)).sum := by
+      rw [← h4, Multiset.map_map]
+      exact congrArg Multiset.sum (Multiset.map_congr rfl fun e he => by
+        rw [Function.comp_apply, ← h5 e he, Multiset.card_map])
+    have hcount : Multiset.card W.root + (W.leaf.map (fun e => e.2.card)).sum
+        + (W.node.map (fun e => Multiset.card e.2.2)).sum ≤ N := by
+      have hle := NestedValue.count_le a
+      have h2' := h.2
+      simp only [AggTok.annCount] at h2'
+      rw [Multiset.sum_map_add, Multiset.map_const', Multiset.sum_replicate, smul_eq_mul,
+        mul_one] at h2'
+      omega
     refine ⟨?_, ?_⟩
-    · have h1 := hG.mprod_sum (W.grps.map (fun G => (G.prod,
-          (Multiset.card G.mems + G.sub.card) * D))) fun p hp => by
-        obtain ⟨Gr, hGm, rfl⟩ := Multiset.mem_map.1 hp
-        have ha := hG.mprod (D := D) (Gr.mems.map (fun m => if m.2.2 = true then m.2.1 else 1))
-          fun y hy => by
-            obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
-            split_ifs
-            · exact (hGr Gr hGm).2 m hm
-            · exact hG.one' D
-        have hb := hG.fprod Gr.sub (fun j => Gr.anns.get j) fun j _ => (hGr Gr hGm).1 j
-        rw [Multiset.card_map] at ha
-        rw [Nat.add_mul]
-        exact hG.mul ha hb
-      simp only [Multiset.map_map, Function.comp_def] at h1
-      refine hG.mono ?_ h1
-      calc (W.grps.map (fun Gr => (Multiset.card Gr.mems + Gr.sub.card) * D)).sum
-          ≤ (W.grps.map (fun Gr => (Gr.anns.length + Multiset.card Gr.mems) * D)).sum := by
-            refine Multiset.sum_map_le_sum_map _ _ (fun Gr _ => Nat.mul_le_mul_right D ?_)
-            have := Finset.card_le_univ Gr.sub
-            rw [Fintype.card_fin] at this
-            omega
-        _ = (W.grps.map (fun Gr => Gr.anns.length + Multiset.card Gr.mems)).sum * D :=
-            Multiset.sum_map_mul_right
-        _ ≤ N * D := Nat.mul_le_mul_right D hcount
-    · refine hG.msum _ fun y hy => ?_
-      obtain ⟨Gr, hGm, rfl⟩ := Multiset.mem_map.1 hy
-      refine hG.add (hG.msum _ fun z hz => ?_) (hG.fsum _ _ fun j _ => (hGr Gr hGm).1 j)
-      obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hz
-      split_ifs
-      · exact hG.zero D
-      · exact (hGr Gr hGm).2 m hm
+    · have hR := hG.mprod (D := D) (W.root.map (fun m => if m.2.2 = true then m.2.1 else 1))
+        fun y hy => by
+          obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+          split_ifs
+          · exact hr m hm
+          · exact hG.one' D
+      rw [Multiset.card_map] at hR
+      have hL := hG.mprod_sum (W.leaf.map (fun e => (NestedValue.leafProd e, e.2.card * D)))
+        fun p hp => by
+          obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hp
+          exact hG.fprod _ _ fun i _ => hget e he i
+      have hN := hG.mprod_sum (W.node.map (fun e => (NestedValue.decProd e.2.2,
+          Multiset.card e.2.2 * D))) fun p hp => by
+          obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hp
+          have := hG.mprod (D := D) (e.2.2.map (fun m => if m.2.2 = true then m.2.1 else 1))
+            fun y hy => by
+              obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+              split_ifs
+              · exact hn e he m hm
+              · exact hG.one' D
+          rwa [Multiset.card_map] at this
+      simp only [Multiset.map_map, Function.comp_def] at hL hN
+      have hP := hG.mul (hG.mul hR hL) hN
+      refine hG.mono ?_ hP
+      rw [Multiset.sum_map_mul_right, Multiset.sum_map_mul_right, ← Nat.add_mul, ← Nat.add_mul]
+      exact Nat.mul_le_mul_right D hcount
+    · refine hG.add (hG.add (hG.msum _ fun y hy => ?_) (hG.msum _ fun y hy => ?_))
+        (hG.msum _ fun y hy => ?_)
+      · obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+        split_ifs
+        · exact hG.zero D
+        · exact hr m hm
+      · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+        exact hG.fsum _ _ fun i _ => hget e he i
+      · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+        refine hG.msum _ fun z hz => ?_
+        obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hz
+        split_ifs
+        · exact hG.zero D
+        · exact hn e he m hm
   | tok a =>
     simp only [classWorlds] at hw
     obtain ⟨W, -, rfl⟩ := Multiset.mem_map.1 hw
@@ -516,6 +590,27 @@ theorem length_innerValue_le {N : ℕ} (x : GenValue T K)
       simpa [GenValue.innerValue, AggExpr.ofValue, AggTok.annCount] using this
     | nest a => simp [GenValue.innerValue, NestedValue.constInner, AggExpr.ofValue]
     | expr e => exact hx _ rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The inner reading of a column at any storey has at most its count
+of annotations.** -/
+theorem annCount_innerAt_le {N : ℕ} (x : GenValue T K)
+    (hx : ∀ a, x = Sum.inr a → a.annCount ≤ N) :
+    ∀ D : ℕ, NestInner.annCount D (x.innerAt D) ≤ N
+  | 0 => length_innerValue_le x hx
+  | D + 1 => by
+    rcases x with v | a
+    · exact annCount_innerAt_le (Sum.inl v) hx D
+    · cases a with
+      | nest b =>
+        by_cases hb : b.lev = D
+        · subst hb
+          simp only [GenValue.innerAt, dite_true]
+          exact hx _ rfl
+        · simp only [GenValue.innerAt, hb, dite_false]
+          exact annCount_innerAt_le _ hx D
+      | tok a => exact annCount_innerAt_le _ hx D
+      | expr e => exact annCount_innerAt_le _ hx D
 
 omit [CommSemiringWithMonus K] [DecidableEq K] in
 theorem length_havingGroupOrd_le {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (ord : GroupOrder T m)
@@ -857,20 +952,20 @@ theorem AggQueryIn.exists_grade (hG : Graded G) {S : Set OpKind} (hS : OpKind.mu
     · simp only [Fin.append_left] at hk; simp at hk
     · simp only [Fin.append_right, Sum.inr.injEq] at hk
       subst hk
-      refine ⟨NestedValue.annsIn_ofOccs fun o ho => ?_, ?_⟩
-      · obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
+      refine ⟨fun o ho => ?_, ?_⟩
+      · simp only [nestOfGroup, nestOfVals, NestedValue.occs_ofOccs, Multiset.map_map] at ho
+        obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
         have hrow' := hb' row (Multiset.mem_of_mem_filter hrow)
-        exact ⟨hrow'.finalize hG, GenValue.annsIn_innerValue _ fun a ha =>
-          (ProjColIn.grade_eval p γ hrow'.2 ha).1⟩
+        exact ⟨hrow'.finalize hG, GenValue.annsIn_innerAt _ (fun a ha =>
+          (ProjColIn.grade_eval p γ hrow'.2 ha).1) _⟩
       · refine le_trans ?_ (le_max_right _ _)
-        simp only [AggTok.annCount, NestedValue.groups_ofOccs]
-        refine le_trans (NestedValue.sum_groupOccs_le _) ?_
-        simp only [Multiset.map_map, Function.comp_def]
+        simp only [AggTok.annCount, nestOfGroup, nestOfVals, NestedValue.occs_ofOccs,
+          Multiset.map_map, Function.comp_def]
         refine le_trans (Multiset.sum_le_card_nsmul _ (1 + N₁) fun x hx => ?_) ?_
         · obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 hx
           have hrow' := hb' row (Multiset.mem_of_mem_filter hrow)
-          exact Nat.add_le_add_left (length_innerValue_le _ fun a ha =>
-            (ProjColIn.grade_eval p γ hrow'.2 ha).2) 1
+          exact Nat.add_le_add_left (annCount_innerAt_le _ (fun a ha =>
+            (ProjColIn.grade_eval p γ hrow'.2 ha).2) _) 1
         · rw [Multiset.card_map, smul_eq_mul]
           refine Nat.mul_le_mul_right _ ?_
           rw [← hcard]
@@ -1508,105 +1603,14 @@ theorem not_generatesAnn_annEpsOps_why :
 
 section Approx
 
-omit [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem noGammaNest_dedupFree :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String), q.noGammaNest → (dedupFree f q).noGammaNest := by
-  intro c n κ l q
-  induction q with
-  | Rel _ _ => exact fun _ h => h
-  | Hole _ _ _ => exact fun _ h => h
-  | Param _ _ => exact fun _ h => h
-  | Empty => exact fun _ h => h
-  | Proj ps q ih => exact fun f h => ih f h
-  | Sel φ q hφ ih => exact fun f h => ih f h
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Dedup q ih => exact fun f h => ⟨ih _ h, trivial⟩
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f h => ⟨ih₁ _ h.1, ih₂ _ h.2⟩
-  | Explode k hk q ih => exact fun f h => ih f h
-  | Retag hk q ih => exact fun f h => ih f h
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun f h => ⟨ih₀ _ h.1, ih₁ _ h.2⟩
-  | Gamma is ts fs q keep ord ih => exact fun f h => ih f h
-  | GammaScalar ts fs q ord ih => exact fun f h => ih f h
-  | GammaNest is his p g q ih => exact fun _ h => h.elim
-  | ProvSum is his t q ih => exact fun f h => ih f h
-  | GammaTok is his ts fs a q keep ih => exact fun f h => ih f h
-  | Win P O o w t g q hrr dist keep ih => exact fun f h => ih f h
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f h => ih f h
-
-/-- **The `ε` pass keeps a query at one storey**, and reads and feeds to a
-second-level aggregation no more than it. -/
-theorem nestPres_dedupFree {S : Set OpKind} :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l)
-      (f : ℕ → String), q.usesOnly S → AggQueryIn.NestPres q (dedupFree f q) := by
-  intro c n κ l q
-  induction q with
-  | Rel _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
-  | Hole _ _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
-  | Param _ _ => exact fun _ _ => AggQueryIn.NestPres.refl _
-  | Empty => exact fun _ _ => AggQueryIn.NestPres.refl _
-  | Proj ps q ih => exact fun f hu => AggQueryIn.NestPres.proj ps (ih f hu.2)
-  | Sel φ q hφ ih => exact fun f hu => AggQueryIn.NestPres.sel φ hφ hφ (ih f hu.2)
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun f hu =>
-      AggQueryIn.NestPres.prod (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
-  | Apply q₁ q₂ ih₁ ih₂ =>
-    intro f hu
-    exact AggQueryIn.NestPres.apply (ih₁ _ hu.2.1) (ih₂ _ hu.2.2) (noGammaNest_dedupFree q₁ _)
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun f hu => AggQueryIn.NestPres.sum (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
-  | Dedup q ih =>
-    intro f hu
-    have h := ih (AggQueryIn.tri f 1) hu.2
-    refine ⟨fun k hk => ?_, fun k hk => ?_, fun _ h => h, fun ho => ⟨h.once ho, trivial⟩⟩
-    · simp only [dedupFree, dedupMu, AggQueryIn.readsOuter, Bool.or_eq_true] at hk
-      rcases hk with hk | hk | hk
-      · exact h.reads k hk
-      · simp [falsePred, GenPredIn.readsOuter, TermGIn.readsOuter] at hk
-      · simp at hk
-    · simp only [dedupFree, dedupMu, AggQueryIn.nestReads, Bool.or_eq_true] at hk
-      rcases hk with hk | hk
-      · exact h.nest k hk
-      · simp at hk
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun f hu =>
-      AggQueryIn.NestPres.diff (ih₁ _ hu.2.1) (ih₂ _ hu.2.2)
-  | Explode k hk q ih => exact fun f hu => AggQueryIn.NestPres.explode k hk (ih f hu)
-  | Retag hk q ih => exact fun f hu => AggQueryIn.NestPres.retag hk (ih f hu)
-  | Mu s q₀ q₁ ih₀ ih₁ => exact fun f hu => AggQueryIn.NestPres.mu (ih₀ _ hu.2.1) (ih₁ _ hu.2.2)
-  | MuSet s q₀ q₁ ih₀ ih₁ => exact fun f hu =>
-      AggQueryIn.NestPres.muSet (ih₀ _ hu.2.1) (ih₁ _ hu.2.2)
-  | Gamma is ts fs q keep ord ih => exact fun f hu => ⟨fun k hk => by
-        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
-        fun _ h => h, (ih f hu.2).once⟩
-  | GammaScalar ts fs q ord ih => exact fun f hu => ⟨fun k hk => by
-        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
-        fun _ h => h, (ih f hu.2).once⟩
-  | GammaNest is his p g q ih => exact fun f hu => ⟨fun k hk => by
-        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).reads,
-        fun _ h => h, noGammaNest_dedupFree q f⟩
-  | ProvSum is his t q ih => exact fun f hu => hu.elim
-  | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
-  | Win P O o w t g q hrr dist keep ih => exact fun f hu => ⟨fun k hk => by
-        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
-        fun _ h => h, (ih f hu.2).once⟩
-  | WinExpr P O o ws ts fs g q keeps ih => exact fun f hu => ⟨fun k hk => by
-        simp only [dedupFree, AggQueryIn.readsOuter, Bool.or_eq_true] at hk ⊢
-        exact hk.imp (fun h => h.imp id ((ih f hu.2).reads k)) id, (ih f hu.2).nest,
-        fun _ h => h, (ih f hu.2).once⟩
-
 /-- **The classes `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}` generate the
-annotated algebra up to `≈` over every commutative m-semiring**, with one
-storey of second-level aggregation: each pass agrees with its source row by
-row up to finalization, which is what `≈` reads, and keeps one storey. -/
+annotated algebra up to `≈` over every commutative m-semiring**: each pass
+agrees with its source row by row up to finalization, which is what `≈`
+reads. -/
 theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
     [DecidableEq K] [HasAltLinearOrder K] (sch : Schema) (cnt : SeqAggFunc T) :
     GeneratesAnnZ T K sch cnt annMuOps := by
-  intro n κ q ho hu hi ha hp hn
+  intro n κ q ho hu hi ha hp
   -- `ε` as a set recursion
   obtain ⟨f, hf, hfsch, hfr⟩ := AggQueryIn.exists_freshSupply sch q.names
   have ho₁ := overSchema_dedupFree q f hfr sch hfsch ho
@@ -1615,7 +1619,6 @@ theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiring
   have hi₁ := inSig_dedupFree q f hi
   have ha₁ := noExplode_dedupFree q f ha
   have hp₁ := wellKinded_dedupFree q f hp
-  have hn₁ := (nestPres_dedupFree q f hu).once hn
   set q₁ := dedupFree f q
   -- `×` as an apply
   have ho₂ := overSchema_prodFree q₁ sch ho₁
@@ -1623,7 +1626,6 @@ theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiring
       basisOps]) (by decide))
     (mem_diff_dedup (by simp [plainRecOps, plainOps, basisDD, basisOps]) (by decide))
     q₁ (by simp) hu₁
-  have hn₂ := (prodFree_reads q₁).2.2.2 hn₁
   set q₂ := prodFree q₁
   -- `⊎` as two bag recursions
   have hS : AggQueryIn.sumMuOps ⊆ annMuOps := by
@@ -1641,7 +1643,7 @@ theorem generatesAnnZ_annMuOps {T : Type} [ValueType T] {K : Type} [CommSemiring
     (Set.mem_singleton cnt) q₂ hu₂' (AggQueryIn.hygienic_of_overSchema q₂ sch ho₂)
     (inSig_prodFree q₁ hi₁) g hg hgn).1 rfl
   refine ⟨q₃, hs.over sch hgs ho₂, hs.usesOnly, hs.inSig, hs.noExplode (noExplode_prodFree q₁ ha₁),
-    hs.wellKinded _ _ (wellKinded_prodFree q₁ hp₁), hs.np.once hn₂, fun d γ hset => ?_⟩
+    hs.wellKinded _ _ (wellKinded_prodFree q₁ hp₁), fun d γ hset => ?_⟩
   have hs₁ := annSettlesAt_dedupFree q f d γ {} hset
   have hs₂ := annSettlesAt_prodFree q₁ d γ {} {} (EvalEnv.FinRel.refl _) hs₁
   have he₂ : (q₂.evaluate d γ {}).map GenRow.fin = (q₁.evaluate d γ {}).map GenRow.fin :=
@@ -1675,10 +1677,9 @@ of `m` variables. -/
 theorem muSet_mem_of_generatesAnnZ {S : Set OpKind}
     (h : GeneratesAnnZ ℕ (Why ℕ) schemaRS SeqAggFunc.count S) : OpKind.muSet ∈ S := by
   by_contra hS
-  obtain ⟨q', ho', hu', hi', ha', hwk', -, hm⟩ := h whyWitness overSchema_whyWitness
+  obtain ⟨q', ho', hu', hi', ha', hwk', hm⟩ := h whyWitness overSchema_whyWitness
     usesOnly_whyWitness inMinimalSig_whyWitness ⟨trivial, noExplode_whyBody⟩
-    wellKinded_whyWitness (AggQueryIn.nestOnce_of_noGammaNest _ (by
-      simp [whyWitness, whyBody, AggQueryIn.noGammaNest]))
+    wellKinded_whyWitness
   obtain ⟨N', D', -, -, hb⟩ := AggQueryIn.exists_grade (Why.graded (α := ℕ)) hS q' hu' hi' ha'
     (q'.hygienic_of_overSchema _ ho') (by simp) (fun p hp => absurd hp List.not_mem_nil) hwk'
     (dWhy 0).toPlain (fun k => k.elim0) (fun _ _ => 0) 0 1
@@ -1730,8 +1731,8 @@ theorem annMuOps_minimal_approx {S : Set OpKind} (hS : S ⊆ annMuOps)
   | muBag => exact muBag_mem_of_generatesAnnZ SeqAggFunc.isCount_count_nat.readsCount (hB _)
   | muSet => exact muSet_mem_of_generatesAnnZ (hW schemaRS)
 
-/-- **The annotated basis theorem up to `≈`**, with one storey of
-second-level aggregation: `{∅, Π, σ, apply, γ, win, μ^⊎, −, μ^∪}` generates
+/-- **The annotated basis theorem up to `≈`**: `{∅, Π, σ, apply, γ, win,
+μ^⊎, −, μ^∪}` generates
 the annotated algebra up to `≈` over every commutative m-semiring, and no
 proper subset of it does over all of them – set recursion being required
 over `Why[X]` (`muSet_mem_of_generatesAnnZ`). -/

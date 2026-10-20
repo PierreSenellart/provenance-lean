@@ -178,7 +178,7 @@ theorem outerNest_occs :
     (outerNest.evaluate dN).map (fun r =>
         match r.fst 0 with
         | Sum.inr (AggTok.nest a) =>
-          a.occs.map (fun o : AggExpr ℕ ℕ × ℕ => (o.fst.collapse, o.snd))
+          a.occs.map (fun o : NestInner ℕ ℕ a.lev × ℕ => (NestInner.collapse a.lev o.1, o.2))
         | _ => 0)
       = (([(([(2, 1), (1, 1)] : List (ℕ × ℕ)) : Multiset _)]
           : List (Multiset (ℕ × ℕ))) : Multiset _) := by

@@ -220,11 +220,16 @@ def AggValue.AnnsIn (Q : K → Prop) (a : AggValue T K) : Prop := ∀ p ∈ a.oc
 /-- Every occurrence of an aggregate expression is annotated within `Q`. -/
 def AggExpr.AnnsIn (Q : K → Prop) (e : AggExpr T K) : Prop := ∀ p ∈ e.occs, Q p.2.1
 
-/-- Every occurrence of a nested value, and every inner one, is annotated
-within `Q`: each group's family and each outer occurrence with its own
-inner value. -/
+/-- Every annotation of an inner value, at every storey, is within `Q`. -/
+def NestInner.AnnsIn (Q : K → Prop) : (j : ℕ) → NestInner T K j → Prop
+  | 0, e => AggExpr.AnnsIn (T := T) Q e
+  | j + 1, Sum.inl x => NestInner.AnnsIn Q j x
+  | j + 1, Sum.inr N => ∀ o ∈ N.occs, Q o.2 ∧ NestInner.AnnsIn Q j o.1
+
+/-- Every occurrence of a nested value, and every inner one at every
+storey, is annotated within `Q`. -/
 def NestedValue.AnnsIn (Q : K → Prop) (a : NestedValue T K) : Prop :=
-  ∀ g ∈ a.groups, (∀ k ∈ g.1, Q k) ∧ ∀ o ∈ g.2, Q o.2 ∧ o.1.AnnsIn Q
+  ∀ o ∈ a.occs, Q o.2 ∧ NestInner.AnnsIn Q a.lev o.1
 
 /-- Every annotation a token carries is within `Q`. -/
 def AggTok.AnnsIn (Q : K → Prop) : AggTok T K → Prop
@@ -300,43 +305,67 @@ theorem AggExpr.annsIn_ofSeqDistWhen (hQ : AnnClosed Q) {c m : ℕ} (f : SeqAggF
   · obtain ⟨p', hp', rfl⟩ := List.mem_map.1 hp
     exact hU p' (List.mem_of_mem_filter hp')
 
-omit [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-/-- **A group of a grouped bag** reads the family of one of its
-occurrences, all of which come from the bag. -/
-theorem NestedValue.mem_groupOccs {U : Multiset (AggExpr T K × K)}
-    {g : List K × Multiset (AggExpr T K × K)} (hg : g ∈ NestedValue.groupOccs U) :
-    ∃ o ∈ g.2, g.1 = o.1.annList ∧ ∀ o' ∈ g.2, o' ∈ U
-      ∧ NestedValue.innerKey o' = NestedValue.innerKey o := by
-  obtain ⟨κ, hκ, rfl⟩ := Multiset.mem_map.mp hg
-  obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp (Multiset.mem_dedup.mp hκ)
-  refine ⟨o, Multiset.mem_filter.mpr ⟨ho, rfl⟩, rfl, fun o' ho' => ?_⟩
-  exact ⟨Multiset.mem_of_mem_filter ho', (Multiset.mem_filter.mp ho').2⟩
-
-omit [HasAltLinearOrder K] [CommSemiringWithMonus K] in
-/-- **A nested value built from occurrences within `Q` is within `Q`.** -/
-theorem NestedValue.annsIn_ofOccs {f : Multiset T → T} {U : Multiset (AggExpr T K × K)}
-    {sc : Bool} {φ : FamId T} (hU : ∀ o ∈ U, Q o.2 ∧ o.1.AnnsIn Q) :
-    (NestedValue.ofOccs f U sc φ).AnnsIn Q := by
-  intro g hg
-  obtain ⟨o, ho, hA, hall⟩ := NestedValue.mem_groupOccs hg
-  refine ⟨fun k hk => ?_, fun o' ho' => hU o' (hall o' ho').1⟩
-  rw [hA] at hk
-  obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hk
-  exact (hU o (hall o ho).1).2 p hp
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The expression families an inner value within `Q` reads are within
+`Q`.** -/
+theorem NestInner.AnnsIn.leaves : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
+    ∀ κ ∈ NestInner.leaves j x, ∀ k ∈ κ.2, Q k
+  | 0, e, h, κ, hκ, k, hk => by
+    simp only [NestInner.leaves, Multiset.mem_singleton] at hκ
+    subst hκ
+    simp only [leafKey, AggExpr.annList] at hk
+    obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hk
+    exact h p hp
+  | j + 1, Sum.inl x, h, κ, hκ, k, hk => NestInner.AnnsIn.leaves j x h κ hκ k hk
+  | j + 1, Sum.inr N, h, κ, hκ, k, hk => by
+    obtain ⟨o, ho, hκo⟩ := Multiset.mem_bind.mp hκ
+    exact NestInner.AnnsIn.leaves j o.1 (h o ho).2 κ hκo k hk
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-/-- **A world of a nested value within `Q` decides groups within `Q`.** -/
-theorem NestedValue.AnnsIn.grp {a : NestedValue T K} (h : a.AnnsIn Q)
-    {W : NestedValue.World T K} (hW : W ∈ a.worlds) :
-    ∀ G ∈ W.grps, (∀ j, Q (G.anns.get j)) ∧ ∀ m ∈ G.mems, Q m.2.1 := by
-  intro G hG
-  have hb : G.base ∈ a.groups := by
-    rw [← NestedValue.isWorldOf_of_mem_worlds hW]
-    exact Multiset.mem_map_of_mem _ hG
-  obtain ⟨hA, hM⟩ := h G.base hb
-  refine ⟨fun j => hA _ (List.get_mem _ _), fun m hm => ?_⟩
-  exact (hM (m.1, m.2.1) (Multiset.mem_map_of_mem
-    (fun m : AggExpr T K × K × Bool => (m.1, m.2.1)) hm)).1
+/-- **And so are the nodes it reads.** -/
+theorem NestInner.AnnsIn.nodes : ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x →
+    ∀ e ∈ NestInner.nodes j x, ∀ o ∈ e.2.2, Q o.2
+  | 0, _, _, e, he => absurd he (Multiset.notMem_zero _)
+  | j + 1, Sum.inl x, h, e, he => NestInner.AnnsIn.nodes j x h e he
+  | j + 1, Sum.inr N, h, e, he => by
+    rcases Multiset.mem_cons.mp he with rfl | he
+    · exact fun o ho => (h o ho).1
+    · obtain ⟨o, ho, heo⟩ := Multiset.mem_bind.mp he
+      exact NestInner.AnnsIn.nodes j o.1 (h o ho).2 e heo
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem NestInner.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) :
+    ∀ (j : ℕ) (x : NestInner T K j), NestInner.AnnsIn Q j x → NestInner.AnnsIn Q' j x
+  | 0, _, h => fun p hp => hQ _ (h p hp)
+  | j + 1, Sum.inl x, h => NestInner.AnnsIn.mono hQ j x h
+  | j + 1, Sum.inr _, h => fun o ho => ⟨hQ _ (h o ho).1, NestInner.AnnsIn.mono hQ j o.1 (h o ho).2⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+theorem NestedValue.AnnsIn.mono {Q' : K → Prop} (hQ : ∀ k, Q k → Q' k) {a : NestedValue T K}
+    (h : a.AnnsIn Q) : a.AnnsIn Q' :=
+  fun o ho => ⟨hQ _ (h o ho).1, NestInner.AnnsIn.mono hQ _ o.1 (h o ho).2⟩
+
+omit [ValueType T] [CommSemiringWithMonus K] [HasAltLinearOrder K] in
+/-- **A world of a nested value within `Q` decides within `Q`**: its own
+occurrences, each expression family and each node it holds. -/
+theorem NestedValue.AnnsIn.world [DecidableEq T] {a : NestedValue T K} (h : a.AnnsIn Q)
+    {W : NestedValue.World T K a.lev} (hW : W ∈ a.worlds) :
+    (∀ m ∈ W.root, Q m.2.1) ∧ (∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k)
+      ∧ ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1 := by
+  classical
+  obtain ⟨h1, h2, -, h4, h5⟩ := NestedValue.isWorldOf_of_mem_worlds hW
+  refine ⟨fun m hm => (h (m.1, m.2.1) (by rw [← h1]; exact Multiset.mem_map_of_mem _ hm)).1,
+    fun e he k hk => ?_, fun e he m hm => ?_⟩
+  · have hκ : e.1 ∈ a.leaves := by rw [← h2]; exact Multiset.mem_map_of_mem _ he
+    obtain ⟨o, ho, hκo⟩ := Multiset.mem_bind.mp (Multiset.mem_dedup.mp hκ)
+    exact NestInner.AnnsIn.leaves _ o.1 (h o ho).2 e.1 hκo k hk
+  · have hκ : (⟨e.1, e.2.1⟩ : Σ i, NodeKey T K i) ∈ a.nodes := by
+      rw [← h4]; exact Multiset.mem_map_of_mem _ he
+    unfold NestedValue.nodes at hκ
+    obtain ⟨o, ho, hκo⟩ := Multiset.mem_bind.mp (Multiset.mem_dedup.mp hκ)
+    have hm' : (m.1, m.2.1) ∈ e.2.1.2 := by
+      rw [← h5 e he]; exact Multiset.mem_map_of_mem _ hm
+    exact NestInner.AnnsIn.nodes _ o.1 (h o ho).2 _ hκo _ hm'
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 theorem AggExpr.annsIn_ofValue {a : AggValue T K} (h : a.AnnsIn Q) :
@@ -356,6 +385,26 @@ theorem GenValue.annsIn_innerValue (x : GenValue T K)
     | nest a => intro p hp; exact absurd hp (by simp [GenValue.innerValue,
         NestedValue.constInner, AggExpr.ofValue])
     | expr e => exact h _ rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **What a lifted value reads as an occurrence of a second-level
+aggregation, at every storey, is within `Q`** where the value is. -/
+theorem GenValue.annsIn_innerAt (x : GenValue T K) (h : ∀ a, x = Sum.inr a → a.AnnsIn Q) :
+    ∀ D : ℕ, NestInner.AnnsIn Q D (x.innerAt D)
+  | 0 => GenValue.annsIn_innerValue x h
+  | D + 1 => by
+    rcases x with v | a
+    · exact GenValue.annsIn_innerAt (Sum.inl v) h D
+    · cases a with
+      | nest b =>
+        by_cases hb : b.lev = D
+        · subst hb
+          simp only [GenValue.innerAt, dite_true]
+          exact h _ rfl
+        · simp only [GenValue.innerAt, hb, dite_false]
+          exact GenValue.annsIn_innerAt _ h D
+      | tok a => exact GenValue.annsIn_innerAt _ h D
+      | expr e => exact GenValue.annsIn_innerAt _ h D
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
 theorem AggTok.annsIn_postcomp (gf : T → T) {x : AggTok T K} (h : x.AnnsIn Q) :
@@ -381,38 +430,62 @@ theorem AggExpr.annIn_predProvWith (hQ : AnnClosed Q) {e : AggExpr T K}
   hQ.fsum _ _ fun W _ => hQ.mul _ _ (hQ.worldAnn _ h.anns W) (hQ.chiOf P _)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestedValue.World.annIn_presentProd (hQ : AnnClosed Q) {W : NestedValue.World T K}
-    (hG : ∀ G ∈ W.grps, (∀ j, Q (G.anns.get j)) ∧ ∀ m ∈ G.mems, Q m.2.1) :
+theorem annIn_getD (hQ : AnnClosed Q) {A : List K} (hA : ∀ k ∈ A, Q k) (i : ℕ) :
+    Q (A.getD i 0) := by
+  rw [List.getD_eq_getElem?_getD]
+  cases hi : A[i]? with
+  | none => exact hQ.zero
+  | some k => exact hA k (List.mem_of_getElem? hi)
+
+omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
+theorem NestedValue.World.annIn_presentProd (hQ : AnnClosed Q) {d : ℕ}
+    {W : NestedValue.World T K d} (hr : ∀ m ∈ W.root, Q m.2.1)
+    (hl : ∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k) (hn : ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1) :
     Q W.presentProd := by
-  refine hQ.mprod _ fun y hy => ?_
-  obtain ⟨G, hGm, rfl⟩ := Multiset.mem_map.1 hy
-  refine hQ.mul _ _ (hQ.mprod _ fun z hz => ?_) (hQ.fprod _ _ fun j _ => (hG G hGm).1 j)
-  obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hz
-  split_ifs
-  · exact (hG G hGm).2 m hm
-  · exact hQ.one
+  have hdec : ∀ {X : Type} (D : Multiset (X × K × Bool)), (∀ m ∈ D, Q m.2.1) →
+      Q (NestedValue.decProd D) := by
+    intro X D hD
+    refine hQ.mprod _ fun y hy => ?_
+    obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+    split_ifs
+    · exact hD m hm
+    · exact hQ.one
+  refine hQ.mul _ _ (hQ.mul _ _ (hdec _ hr) (hQ.mprod _ fun y hy => ?_))
+    (hQ.mprod _ fun y hy => ?_)
+  · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+    exact hQ.fprod _ _ fun i _ => annIn_getD hQ (hl e he) i
+  · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+    exact hdec _ (hn e he)
 
 omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
-theorem NestedValue.World.annIn_absentSum (hQ : AnnClosed Q) {W : NestedValue.World T K}
-    (hG : ∀ G ∈ W.grps, (∀ j, Q (G.anns.get j)) ∧ ∀ m ∈ G.mems, Q m.2.1) :
+theorem NestedValue.World.annIn_absentSum (hQ : AnnClosed Q) {d : ℕ}
+    {W : NestedValue.World T K d} (hr : ∀ m ∈ W.root, Q m.2.1)
+    (hl : ∀ e ∈ W.leaf, ∀ k ∈ e.1.2, Q k) (hn : ∀ e ∈ W.node, ∀ m ∈ e.2.2, Q m.2.1) :
     Q W.absentSum := by
-  refine hQ.msum _ fun y hy => ?_
-  obtain ⟨G, hGm, rfl⟩ := Multiset.mem_map.1 hy
-  refine hQ.add _ _ (hQ.msum _ fun z hz => ?_) (hQ.fsum _ _ fun j _ => (hG G hGm).1 j)
-  obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hz
-  split_ifs
-  · exact hQ.zero
-  · exact (hG G hGm).2 m hm
+  have hdec : ∀ {X : Type} (D : Multiset (X × K × Bool)), (∀ m ∈ D, Q m.2.1) →
+      Q (NestedValue.decAbs D) := by
+    intro X D hD
+    refine hQ.msum _ fun y hy => ?_
+    obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.1 hy
+    split_ifs
+    · exact hQ.zero
+    · exact hD m hm
+  refine hQ.add _ _ (hQ.add _ _ (hdec _ hr) (hQ.msum _ fun y hy => ?_))
+    (hQ.msum _ fun y hy => ?_)
+  · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+    exact hQ.fsum _ _ fun i _ => annIn_getD hQ (hl e he) i
+  · obtain ⟨e, he, rfl⟩ := Multiset.mem_map.1 hy
+    exact hdec _ (hn e he)
 
-omit [ValueType T] [DecidableEq K] [HasAltLinearOrder K] in
+omit [HasAltLinearOrder K] in
 theorem NestedValue.annIn_predProvWith (hQ : AnnClosed Q) {a : NestedValue T K}
     (h : a.AnnsIn Q) (P : T → Kleene) : Q (a.predProvWith P) := by
   unfold NestedValue.predProvWith
   refine hQ.msum _ fun x hx => ?_
   obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.1 hx
-  have hG := h.grp (Multiset.mem_of_mem_filter hW)
-  exact hQ.mul _ _ (hQ.mul _ _ (NestedValue.World.annIn_presentProd hQ hG)
-    (hQ.one_sub _ (NestedValue.World.annIn_absentSum hQ hG))) (hQ.chiOf P _)
+  obtain ⟨hr, hl, hn⟩ := h.world (Multiset.mem_of_mem_filter hW)
+  exact hQ.mul _ _ (hQ.mul _ _ (NestedValue.World.annIn_presentProd hQ hr hl hn)
+    (hQ.one_sub _ (NestedValue.World.annIn_absentSum hQ hr hl hn))) (hQ.chiOf P _)
 
 omit [HasAltLinearOrder K] in
 theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.AnnsIn Q)
@@ -422,7 +495,7 @@ theorem AggTok.annIn_predProvOfWith (hQ : AnnClosed Q) {x : AggTok T K} (h : x.A
   | nest a => exact NestedValue.annIn_predProvWith hQ h P
   | expr e => exact AggExpr.annIn_predProvWith hQ h P
 
-omit [ValueType T] [HasAltLinearOrder K] [DecidableEq K] in
+omit [HasAltLinearOrder K] in
 /-- The worlds of one family carry products and sums of its annotations. -/
 theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K) n)
     (M : List (Fin n)) {x₀ : AggTok T K} (h : x₀.AnnsIn Q) :
@@ -432,8 +505,9 @@ theorem classWorlds_annIn (hQ : AnnClosed Q) {n : ℕ} (u : Tuple (GenValue T K)
   | nest a =>
     simp only [classWorlds] at hw
     obtain ⟨W, hW, rfl⟩ := Multiset.mem_map.1 hw
-    have hG := NestedValue.AnnsIn.grp h (Multiset.mem_of_mem_filter hW)
-    exact ⟨NestedValue.World.annIn_presentProd hQ hG, NestedValue.World.annIn_absentSum hQ hG⟩
+    obtain ⟨hr, hl, hn⟩ := NestedValue.AnnsIn.world h (Multiset.mem_of_mem_filter hW)
+    exact ⟨NestedValue.World.annIn_presentProd hQ hr hl hn,
+      NestedValue.World.annIn_absentSum hQ hr hl hn⟩
   | tok a =>
     simp only [classWorlds] at hw
     obtain ⟨W, -, rfl⟩ := Multiset.mem_map.1 hw
@@ -848,15 +922,12 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨gk, -, rfl⟩ := Multiset.mem_map.1 hr
     have hb := ih hu.2 hi.2.2 hx γ E hctx hH
-    have hocc : ∀ o ∈ ((q.evaluate d γ E).filter (fun row =>
-        (fun k => AggValue.collapseSum (row.fst (is k))) = gk)).map
-          (fun row => (GenValue.innerValue (p.eval row.fst γ), row.snd.finalize)),
-        Q o.2 ∧ o.1.AnnsIn Q := by
-      intro o ho
-      obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
+    have hrows : ∀ row ∈ (q.evaluate d γ E).filter (fun row =>
+        (fun k => AggValue.collapseSum (row.fst (is k))) = gk),
+        Q row.snd.finalize ∧ ∀ a, p.eval row.fst γ = Sum.inr a → a.AnnsIn Q := by
+      intro row hrow
       have hrow' := hb row (Multiset.mem_of_mem_filter hrow)
-      exact ⟨hrow'.finalize hQ, GenValue.annsIn_innerValue _ fun a ha =>
-        ProjColIn.annsIn_eval p γ hrow'.2.2 ha⟩
+      exact ⟨hrow'.finalize hQ, fun a ha => ProjColIn.annsIn_eval p γ hrow'.2.2 ha⟩
     refine ⟨hQ.one, fun l hl => ?_, fun k a hk => ?_⟩
     · rw [Multiset.mem_singleton] at hl
       subst hl
@@ -864,13 +935,16 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
       rw [List.mem_singleton] at hx'
       subst hx'
       refine hQ.msum _ fun y hy => ?_
-      obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.1 hy
-      exact (hocc o ho).1
+      obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 hy
+      exact (hrows row hrow).1
     · refine Fin.addCases (fun i hk => ?_) (fun i hk => ?_) k hk
       · simp only [Fin.append_left] at hk; simp at hk
       · simp only [Fin.append_right, Sum.inr.injEq] at hk
         subst hk
-        exact NestedValue.annsIn_ofOccs hocc
+        intro o ho
+        simp only [nestOfGroup, nestOfVals, NestedValue.occs_ofOccs, Multiset.map_map] at ho
+        obtain ⟨row, hrow, rfl⟩ := Multiset.mem_map.1 ho
+        exact ⟨(hrows row hrow).1, GenValue.annsIn_innerAt _ (hrows row hrow).2 _⟩
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
   | Win P O o w t g q hrr dist keep ih =>

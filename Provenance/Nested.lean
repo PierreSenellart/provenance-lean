@@ -72,7 +72,7 @@ the predicate is a parameter of everything below so that the refuted
 reading can be stated.
 -/
 
-variable {T K : Type} [ValueType T]
+variable {T K : Type}
 
 /-- A subfamily of one listing of a family read in another: the positions
 with the same index. -/
@@ -91,7 +91,6 @@ theorem trW_eq_map {a b : ℕ} (h : a = b) (W : Finset (Fin a)) :
   · intro hi
     exact ⟨(finCongr h).symm i, hi, by simp⟩
 
-omit [ValueType T] in
 /-- Nothing read in another listing is nothing. -/
 @[simp] theorem trW_empty {a b : ℕ} : trW (a := a) (b := b) ∅ = ∅ := by
   ext i
@@ -115,10 +114,20 @@ theorem trW_trW_map {a b b' : ℕ} (h : b = b') (W : Finset (Fin a)) :
   simp only [trW, Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_map_equiv]
   rfl
 
-/-- **A nested aggregate value**: an outer aggregate over occurrences
-that carry aggregate values rather than values, grouped by the inner
-family they read. -/
-structure NestedValue (T K : Type) where
+/-! ## Storeys
+
+A nested value reads, at each of its occurrences, an inner value that may
+itself be nested. The types say how deep: `NestInner T K j` is what an
+occurrence of a value of storey `j` reads – at storey `0` an aggregate
+expression, at storey `j + 1` either something storey `j` reads or a
+**node** of storey `j`, an outer aggregate over a bag of occurrences
+reading storey-`j` values. A node can only hold inner values of lower
+storeys, which is what makes every reading a recursion on the storey. -/
+
+/-- **A node of a nested value**: an outer aggregate over a bag of
+occurrences, each carrying what it reads (of type `X`) and its
+annotation. -/
+structure NestNode (T K X : Type) where
   /-- **The outer aggregate, as a function of a bag.** It cannot read a
   sequence: the order `≼` is an order on plain tuples, and an occurrence
   of a nested value carries a tuple with an aggregate column, so there is
@@ -128,161 +137,271 @@ structure NestedValue (T K : Type) where
   nested reading at all – it goes through the alternatives
   (`AggQueryIn.Explode`), after which nothing is nested. -/
   agg : Multiset T → T
-  /-- **The occurrences, grouped by the inner family they read**: per
-  group, the annotations of the family's occurrences, and the outer
-  occurrences reading it – what the term reads there and the occurrence's
-  own annotation. What it reads is an aggregate *expression* and not one
-  aggregate value, because a term over several aggregate columns is one
-  – `sum(c₁ - c₂)` over a block with two counts is as ordinary as
-  `avg(c)` over one – and an ordinary token embeds as the expression of
-  itself (`AggExpr.ofValue`). Bags for the reason the aggregate is a
-  function of one – nothing orders a tuple with an aggregate column. -/
-  groups : Multiset (List K × Multiset (AggExpr T K × K))
+  /-- **The occurrences**: per occurrence, what the term reads there and
+  the occurrence's own annotation. A bag, for the reason the aggregate is
+  a function of one – nothing orders a tuple with an aggregate column. -/
+  occs : Multiset (X × K)
   /-- Whether the outer reading is scalar – whether the empty world is
   one of its worlds. -/
   scalar : Bool
   /-- Which occurrence family the value reads (`AggValue.fam`). -/
   fam : FamId T
-  /-- Every occurrence of a group reads the group's family. -/
-  grouped : ∀ g ∈ groups, ∀ o ∈ g.2, o.1.annList = g.1
+
+/-- **What an occurrence of a nested value of storey `j` reads.** At
+storey `0`, an aggregate expression: a term over several aggregate
+columns is one – `sum(c₁ - c₂)` over a block with two counts is as
+ordinary as `avg(c)` over one – and an ordinary token embeds as the
+expression of itself (`AggExpr.ofValue`). At storey `j + 1`, what storey
+`j` reads, or a node of storey `j`. -/
+def NestInner (T K : Type) : ℕ → Type
+  | 0 => AggExpr T K
+  | j + 1 => NestInner T K j ⊕ NestNode T K (NestInner T K j)
+
+/-- **A nested aggregate value**: a node of some storey. Storey `0` is a
+value whose occurrences read aggregate expressions; storey `j + 1` one
+whose occurrences may read nested values of storey `j` and below. -/
+structure NestedValue (T K : Type) where
+  /-- The storey. -/
+  lev : ℕ
+  /-- The outer aggregate (`NestNode.agg`). -/
+  agg : Multiset T → T
+  /-- The occurrences (`NestNode.occs`). -/
+  occs : Multiset (NestInner T K lev × K)
+  /-- Whether the outer reading is scalar. -/
+  scalar : Bool
+  /-- Which occurrence family the value reads. -/
+  fam : FamId T
+
+/-! ## Which occurrences are one
+
+A nested value's occurrences are its own **and** those of every value it
+reads, at every storey, and an occurrence is one object however many
+times it is read. Two outer occurrences may read one inner family: a join,
+a product or an apply repeats a row carrying an aggregate value, and a
+grouping over the result sees the value once per copy. The inner family
+is then one family, decided once in each world – the inner occurrences
+are objects, and an object is present or absent, not both. The same holds
+one storey up: a nested value repeated by a join, then read by a
+second-level grouping, has its occurrences decided once.
+
+So a world decides each **family** once. An aggregate expression's family
+is keyed by its family identifier and its annotations (`leafKey`) – the
+key a joint reading groups a row's aggregate columns by
+(`AggTok.classKey`); a node's occurrences by its family identifier and the
+occurrences themselves (`nodeKey`). -/
+
+/-- **The key of an expression's family**: its family identifier and its
+occurrence annotations. -/
+abbrev LeafKey (T K : Type) := (ℕ × List T × List (T ⊕ FamId T)) × List K
+
+/-- The key of an expression's family. -/
+def leafKey (e : AggExpr T K) : LeafKey T K := (e.fam.family, e.annList)
+
+/-- **The key of a node's occurrences**: its family identifier and its
+occurrences. -/
+abbrev NodeKey (T K : Type) (j : ℕ) :=
+  (ℕ × List T × List (T ⊕ FamId T)) × Multiset (NestInner T K j × K)
+
+/-- The key of a node's occurrences. -/
+def NestNode.key {j : ℕ} (N : NestNode T K (NestInner T K j)) : NodeKey T K j :=
+  (N.fam.family, N.occs)
+
+instance [DecidableEq T] [DecidableEq K] : DecidableEq (LeafKey T K) :=
+  @instDecidableEqProd _ _ FamId.instDecidableEqFamily inferInstance
+
+namespace NestInner
+
+/-- **The expression families an inner value reads**, with repetition. -/
+def leaves : (j : ℕ) → NestInner T K j → Multiset (LeafKey T K)
+  | 0, e => {leafKey (T := T) (K := K) e}
+  | j + 1, Sum.inl x => leaves j x
+  | j + 1, Sum.inr N => N.occs.bind (fun o => leaves j o.1)
+
+/-- **The nodes an inner value reads**, each with its storey, with
+repetition. -/
+def nodes : (j : ℕ) → NestInner T K j → Multiset (Σ i, NodeKey T K i)
+  | 0, _ => 0
+  | j + 1, Sum.inl x => nodes j x
+  | j + 1, Sum.inr N => ⟨j, N.key⟩ ::ₘ N.occs.bind (fun o => nodes j o.1)
+
+/-- **The deterministic reading**: every occurrence present. -/
+def collapse : (j : ℕ) → NestInner T K j → T
+  | 0, e => AggExpr.collapse (T := T) (K := K) e
+  | j + 1, Sum.inl x => collapse j x
+  | j + 1, Sum.inr N => N.agg (N.occs.map (fun o => collapse j o.1))
+
+end NestInner
 
 namespace NestedValue
 
-/-- **The outer occurrences**, all groups together. -/
-def occs (a : NestedValue T K) : Multiset (AggExpr T K × K) :=
-  a.groups.bind Prod.snd
+/-- The value as a node of its storey. -/
+def toNode (a : NestedValue T K) : NestNode T K (NestInner T K a.lev) :=
+  ⟨a.agg, a.occs, a.scalar, a.fam⟩
 
-/-- **What groups two inner values into one family**: the family
-identifier they carry and their occurrence annotations – the key a joint
-reading groups a row's aggregate columns by (`AggTok.classKey`). -/
-def innerKey (o : AggExpr T K × K) : (ℕ × List T × List (T ⊕ FamId T)) × List K :=
-  (o.1.fam.family, o.1.annList)
+/-- The value of a node of storey `j`. -/
+def ofNode {j : ℕ} (N : NestNode T K (NestInner T K j)) : NestedValue T K :=
+  ⟨j, N.agg, N.occs, N.scalar, N.fam⟩
 
-/-- **The outer occurrences, grouped by inner family.** -/
-def groupOccs [DecidableEq K] (U : Multiset (AggExpr T K × K)) :
-    Multiset (List K × Multiset (AggExpr T K × K)) :=
-  (U.map innerKey).dedup.map (fun κ => (κ.2, U.filter (fun o => innerKey o = κ)))
+/-- **The nested value of a bag of occurrences.** -/
+def ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+    (scalar : Bool) (fam : FamId T) : NestedValue T K :=
+  ⟨j, agg, U, scalar, fam⟩
 
-theorem groupOccs_grouped [DecidableEq K] (U : Multiset (AggExpr T K × K)) :
-    ∀ g ∈ groupOccs U, ∀ o ∈ g.2, o.1.annList = g.1 := by
-  intro g hg o ho
-  obtain ⟨κ, -, rfl⟩ := Multiset.mem_map.mp hg
-  have := (Multiset.mem_filter.mp ho).2
-  rw [← this]
-  rfl
+@[simp] theorem agg_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+    (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).agg = agg := rfl
+
+@[simp] theorem lev_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+    (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).lev = j := rfl
+
+@[simp] theorem occs_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+    (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).occs = U := rfl
+
+@[simp] theorem scalar_ofOccs (agg : Multiset T → T) {j : ℕ}
+    (U : Multiset (NestInner T K j × K)) (scalar : Bool) (fam : FamId T) :
+    (ofOccs agg U scalar fam).scalar = scalar := rfl
+
+@[simp] theorem fam_ofOccs (agg : Multiset T → T) {j : ℕ} (U : Multiset (NestInner T K j × K))
+    (scalar : Bool) (fam : FamId T) : (ofOccs agg U scalar fam).fam = fam := rfl
+
+variable [DecidableEq T] [DecidableEq K]
+
+/-- **The expression families of a nested value**, each once. -/
+def leaves (a : NestedValue T K) : Multiset (LeafKey T K) :=
+  (a.occs.bind (fun o => NestInner.leaves a.lev o.1)).dedup
+
+open Classical in
+/-- **The inner nodes of a nested value**, each once. Two nodes are one
+when their keys are, and a key carries inner values, so they are compared
+classically: a value of storey `0` has no inner node, and nothing is
+compared there. -/
+noncomputable def nodes (a : NestedValue T K) : Multiset (Σ i, NodeKey T K i) :=
+  (a.occs.bind (fun o => NestInner.nodes a.lev o.1)).dedup
+
+theorem nodup_leaves (a : NestedValue T K) : a.leaves.Nodup := Multiset.nodup_dedup _
+
+open Classical in
+theorem nodup_nodes (a : NestedValue T K) : a.nodes.Nodup := by
+  unfold nodes; exact Multiset.nodup_dedup _
+
+/-- The deterministic reading: the outer aggregate of the inner
+collapses. -/
+def collapse (a : NestedValue T K) : T :=
+  a.agg (a.occs.map (fun o => NestInner.collapse a.lev o.1))
 
 end NestedValue
 
-namespace Multiset
+/-! ## Reading under a decision
 
-/-- **A bag split by a key**: the parts with the distinct keys sum back to
-the bag. -/
-theorem bind_dedup_filter {α κ : Type} [DecidableEq κ] (f : α → κ) (s : Multiset α) :
-    ((s.map f).dedup.map (fun k => s.filter (fun x => f x = k))).bind id = s := by
-  classical
-  ext x
-  rw [Multiset.count_bind]
-  simp only [Multiset.map_map, Function.comp_apply, id]
-  rw [Multiset.sum_map_eq_nsmul_single (f x) (fun k hk _ => by
-    rw [Multiset.count_filter_of_neg (fun h => hk h.symm)])]
-  by_cases hx : x ∈ s
-  · rw [Multiset.count_filter_of_pos (p := fun y => f y = f x) rfl, Multiset.count_eq_one_of_mem (Multiset.nodup_dedup _)
-      (Multiset.mem_dedup.mpr (Multiset.mem_map_of_mem f hx)), one_smul]
-  · rw [Multiset.count_eq_zero.mpr hx, Multiset.count_eq_zero.mpr
-      (fun h => hx (Multiset.mem_of_mem_filter h)), smul_eq_mul, mul_zero]
+A world is a decision about every occurrence a value holds. The readings
+are written against a **decider** – what is kept of each expression
+family (by position) and of each node's occurrences (each with a presence
+flag) – so that a world read off the enumeration and the world a valuation
+cuts out are read by one recursion. -/
 
-end Multiset
+/-- **A decision about every family**: the positions kept of each
+expression family, and of each node's occurrences, each with whether it
+is present. -/
+structure NestDec (T K : Type) where
+  /-- The positions kept of an expression family. -/
+  leaf : LeafKey T K → Finset ℕ
+  /-- The occurrences of a node, each with whether it is present. -/
+  node : (j : ℕ) → NodeKey T K j → Multiset (NestInner T K j × K × Bool)
+
+/-- **A set of positions, read on a family of a given length.** -/
+def trS {n : ℕ} (S : Finset ℕ) : Finset (Fin n) :=
+  Finset.univ.filter (fun i => (i : ℕ) ∈ S)
+
+@[simp] theorem mem_trS {n : ℕ} (S : Finset ℕ) (i : Fin n) : i ∈ (trS S : Finset (Fin n)) ↔ (i : ℕ) ∈ S := by
+  simp [trS]
+
+namespace NestInner
+
+/-- **The value an inner value reads under a decision.** -/
+def val (D : NestDec T K) : (j : ℕ) → NestInner T K j → T
+  | 0, e => AggExpr.valOn (T := T) (K := K) e (trS (D.leaf (leafKey (T := T) (K := K) e)))
+  | j + 1, Sum.inl x => val D j x
+  | j + 1, Sum.inr N => N.agg (((D.node j N.key).filter (fun m => m.2.2 = true)).map
+      (fun m => val D j m.1))
+
+/-- **Whether a decision is a world of an inner value**: each expression
+family it reads met where its leaves are grouped (`AggExpr.IsWorld`), and
+each node it reads met unless scalar – and, of each node, only the
+occurrences the decision keeps are asked anything. The condition is
+one-directional: a present occurrence asks its inner family to be met, a
+met inner family does not make an occurrence present. -/
+def ok (D : NestDec T K) : (j : ℕ) → NestInner T K j → Prop
+  | 0, e => AggExpr.IsWorld (T := T) (K := K) e (trS (D.leaf (leafKey (T := T) (K := K) e)))
+  | j + 1, Sum.inl x => ok D j x
+  | j + 1, Sum.inr N => (N.scalar = true ∨ ∃ m ∈ D.node j N.key, m.2.2 = true)
+      ∧ ∀ m ∈ D.node j N.key, m.2.2 = true → ok D j m.1
+
+/-- Whether a decision is a world of an inner value is decidable. -/
+def decOk (D : NestDec T K) : (j : ℕ) → (x : NestInner T K j) → Decidable (ok D j x)
+  | 0, e => inferInstanceAs (Decidable (AggExpr.IsWorld (T := T) (K := K) e _))
+  | j + 1, Sum.inl x => decOk D j x
+  | j + 1, Sum.inr N =>
+    haveI : ∀ x, Decidable (ok D j x) := decOk D j
+    haveI : Decidable (∃ m ∈ D.node j N.key, m.2.2 = true) := Multiset.decidableExistsMultiset
+    inferInstanceAs (Decidable ((N.scalar = true ∨ ∃ m ∈ D.node j N.key, m.2.2 = true)
+      ∧ ∀ m ∈ D.node j N.key, m.2.2 = true → ok D j m.1))
+
+instance (D : NestDec T K) (j : ℕ) (x : NestInner T K j) : Decidable (ok D j x) :=
+  decOk D j x
+
+end NestInner
+
+/-! ## Worlds
+
+A world of a nested value decides its own occurrences (`root`), each
+expression family once (`leaf`, the positions kept) and each inner node
+once (`node`, its occurrences with presence flags). It is read through
+the decider looking each family up by its key. -/
+
+/-- **A world of a nested value of storey `d`.** -/
+structure NestedValue.World (T K : Type) (d : ℕ) where
+  /-- The value's own occurrences, each with whether it is present. -/
+  root : Multiset (NestInner T K d × K × Bool)
+  /-- Each expression family, with the positions kept. -/
+  leaf : Multiset (LeafKey T K × Finset ℕ)
+  /-- Each inner node, with its occurrences and whether each is
+  present. -/
+  node : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))
 
 namespace NestedValue
 
-/-- **The grouped bag holds the occurrences it was built from.** -/
-theorem bind_groupOccs [DecidableEq K] (U : Multiset (AggExpr T K × K)) :
-    (groupOccs U).bind Prod.snd = U := by
-  have h := Multiset.bind_dedup_filter innerKey U
-  rw [Multiset.bind_map] at h
-  unfold groupOccs
-  rw [Multiset.bind_map]
-  exact h
+/-- The positions an expression family keeps, looked up by key. -/
+def leafSub [DecidableEq T] [DecidableEq K] (L : Multiset (LeafKey T K × Finset ℕ))
+    (κ : LeafKey T K) : Finset ℕ :=
+  ((L.filter (fun e => e.1 = κ)).map Prod.snd).sup
 
-/-- **The nested value of a bag of occurrences**, grouped by the inner
-family each reads. -/
-def ofOccs [DecidableEq K] (agg : Multiset T → T) (U : Multiset (AggExpr T K × K))
-    (scalar : Bool) (fam : FamId T) : NestedValue T K :=
-  ⟨agg, groupOccs U, scalar, fam, groupOccs_grouped U⟩
+open Classical in
+/-- The decision about a node's occurrences, looked up by key. -/
+noncomputable def nodeDec (N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool)))
+    (j : ℕ) (κ : NodeKey T K j) : Multiset (NestInner T K j × K × Bool) :=
+  N.bind (fun e => match e with
+    | ⟨i, κ', D⟩ => if h : i = j then (by subst h; exact if κ' = κ then D else 0) else 0)
 
-@[simp] theorem agg_ofOccs [DecidableEq K] (agg : Multiset T → T)
-    (U : Multiset (AggExpr T K × K)) (scalar : Bool) (fam : FamId T) :
-    (ofOccs agg U scalar fam).agg = agg := rfl
+/-- **The decider a world reads by.** -/
+noncomputable def World.dec [DecidableEq T] [DecidableEq K] {d : ℕ} (W : World T K d) :
+    NestDec T K :=
+  ⟨leafSub W.leaf, nodeDec W.node⟩
 
-@[simp] theorem groups_ofOccs [DecidableEq K] (agg : Multiset T → T)
-    (U : Multiset (AggExpr T K × K)) (scalar : Bool) (fam : FamId T) :
-    (ofOccs agg U scalar fam).groups = groupOccs U := rfl
-
-@[simp] theorem scalar_ofOccs [DecidableEq K] (agg : Multiset T → T)
-    (U : Multiset (AggExpr T K × K)) (scalar : Bool) (fam : FamId T) :
-    (ofOccs agg U scalar fam).scalar = scalar := rfl
-
-@[simp] theorem fam_ofOccs [DecidableEq K] (agg : Multiset T → T)
-    (U : Multiset (AggExpr T K × K)) (scalar : Bool) (fam : FamId T) :
-    (ofOccs agg U scalar fam).fam = fam := rfl
-
-@[simp] theorem occs_ofOccs [DecidableEq K] (agg : Multiset T → T)
-    (U : Multiset (AggExpr T K × K)) (scalar : Bool) (fam : FamId T) :
-    (ofOccs agg U scalar fam).occs = U :=
-  bind_groupOccs U
-
-omit [ValueType T] in
-/-- An occurrence of a group reads a family of the group's length. -/
-theorem length_of_grouped {a : NestedValue T K} {g : List K × Multiset (AggExpr T K × K)}
-    (hg : g ∈ a.groups) {o : AggExpr T K × K} (ho : o ∈ g.2) :
-    g.1.length = o.1.occs.length := by
-  rw [← a.grouped g hg o ho, AggExpr.annList, List.length_map]
-
-omit [ValueType T] in
-/-- An occurrence of a group reads the group's annotations. -/
-theorem anns_of_annList {e : AggExpr T K} {A : List K} (h : e.annList = A)
-    (hl : A.length = e.occs.length) (i : Fin A.length) :
-    e.anns (finCongr hl i) = A.get i := by
-  subst h
-  simp [AggExpr.anns, AggExpr.annList]
-
-/-- **A group as a world sees it**: the family's annotations, the
-subfamily the world keeps of it, and each outer occurrence reading it
-with whether the world keeps that occurrence. -/
-structure WorldGrp (T K : Type) where
-  /-- The annotations of the inner family. -/
-  anns : List K
-  /-- The inner occurrences the world keeps. -/
-  sub : Finset (Fin anns.length)
-  /-- The outer occurrences reading the family, each with whether it is
-  present. -/
-  mems : Multiset (AggExpr T K × K × Bool)
-
-/-- What a decided group decides about: the group itself. -/
-def WorldGrp.base (G : WorldGrp T K) : List K × Multiset (AggExpr T K × K) :=
-  (G.anns, G.mems.map (fun m => (m.1, m.2.1)))
-
-/-- **What a decided group reads**: the inner value at each present
-occurrence, in the subfamily the world keeps. -/
-def WorldGrp.vals (G : WorldGrp T K) : Multiset T :=
-  (G.mems.filter (fun m => m.2.2 = true)).map (fun m => m.1.valOn (trW G.sub))
-
-/-- **A world of a nested value**: a decision per group – which inner
-occurrences of its family are present, and which outer occurrences. -/
-structure World (T K : Type) where
-  /-- Each group of the value, with the world's decision about it. -/
-  grps : Multiset (WorldGrp T K)
-
-/-- **Whose world it is**: the groups a world decides on are the
-value's own, with their multiplicities. -/
-def World.IsWorldOf (W : World T K) (a : NestedValue T K) : Prop :=
-  W.grps.map WorldGrp.base = a.groups
+variable [DecidableEq T] [DecidableEq K]
 
 /-- **The inner values a world reads**: one per outer occurrence it
 keeps. The outer family is met when this is not empty, and the value read
 in the world is the outer aggregate of it. -/
-def World.kept (W : World T K) : Multiset T :=
-  W.grps.bind WorldGrp.vals
+noncomputable def World.kept {d : ℕ} (W : World T K d) : Multiset T :=
+  (W.root.filter (fun m => m.2.2 = true)).map (fun m => NestInner.val W.dec d m.1)
+
+/-- **Whose world it is**: it decides on exactly the value's own
+occurrences, expression families and inner nodes, each family's kept
+positions among its own. -/
+def World.IsWorldOf (a : NestedValue T K) (W : World T K a.lev) : Prop :=
+  W.root.map (fun m => (m.1, m.2.1)) = a.occs ∧ W.leaf.map Prod.fst = a.leaves
+    ∧ (∀ e ∈ W.leaf, e.2 ⊆ Finset.range e.1.2.length)
+    ∧ W.node.map (fun e => ⟨e.1, e.2.1⟩) = a.nodes
+    ∧ (∀ e ∈ W.node, e.2.2.map (fun m => (m.1, m.2.1)) = e.2.1.2)
 
 /-- **Admissibility, with the coherence condition as a parameter.**
 `extra` is the clause asking whether a world is barred from meeting an
@@ -305,92 +424,237 @@ The condition is one-directional and must be: a present outer occurrence
 needs its inner family met, but a met family does **not** make its
 occurrence present. The parameter stays because it is what the two
 readings are compared through. -/
-def World.IsWorldWith (W : World T K) (a : NestedValue T K)
-    (extra : World T K → Prop) : Prop :=
+def World.IsWorldWith {d : ℕ} (W : World T K d) (a : NestedValue T K)
+    (extra : World T K d → Prop) : Prop :=
   (a.scalar = true ∨ 0 < Multiset.card W.kept)
-    ∧ (∀ G ∈ W.grps, ∀ m ∈ G.mems, m.2.2 = true → m.1.IsWorld (trW G.sub))
+    ∧ (∀ m ∈ W.root, m.2.2 = true → NestInner.ok W.dec d m.1)
     ∧ extra W
 
 /-- **The worlds a nested value admits**: the outer family met unless
-the reading is scalar, and, of each inner expression *the world reads*,
-the family of each of its grouped leaves met – which is that
-expression's own world condition (`AggExpr.IsWorld`). -/
-def World.IsWorld (W : World T K) (a : NestedValue T K) : Prop :=
+the reading is scalar, and, of each inner value *the world reads*, its
+own world condition (`NestInner.ok`) – each grouped expression family
+met, each grouped node met, recursively along the occurrences kept. -/
+def World.IsWorld {d : ℕ} (W : World T K d) (a : NestedValue T K) : Prop :=
   W.IsWorldWith a (fun _ => True)
 
-/-- The reading that bars a world from meeting an inner family no
-present occurrence reads. **Refuted**, not an alternative: it removes the
-world a valuation realizes where a selection has brought an outer
-annotation to `𝟘`, which `IsWorldWith`'s docstring sets out. Kept so that
-the refutation can be stated. -/
-def World.IsWorldCoherent (W : World T K) (a : NestedValue T K) : Prop :=
-  W.IsWorldWith a (fun W => ∀ G ∈ W.grps, (∀ m ∈ G.mems, m.2.2 = false) → G.sub = ∅)
+/-- The reading that bars a world from meeting an expression family no
+present occurrence of the value reads directly. **Refuted**, not an
+alternative: it removes the world a valuation realizes where a selection
+has brought an outer annotation to `𝟘`, which `IsWorldWith`'s docstring
+sets out. Kept so that the refutation can be stated. -/
+def World.IsWorldCoherent {d : ℕ} (W : World T K d) (a : NestedValue T K) : Prop :=
+  W.IsWorldWith a (fun W => ∀ e ∈ W.leaf,
+    (∀ m ∈ W.root, m.2.2 = true → e.1 ∉ NestInner.leaves d m.1) → e.2 = ∅)
 
-instance (W : World T K) (a : NestedValue T K) : Decidable (W.IsWorld a) :=
+noncomputable instance {d : ℕ} (W : World T K d) (a : NestedValue T K) :
+    Decidable (W.IsWorld a) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- **The value of a nested aggregate in a world**: the outer aggregate
 of the bag of inner values read there. -/
-def valOn (a : NestedValue T K) (W : World T K) : T :=
+noncomputable def valOn {d : ℕ} (a : NestedValue T K) (W : World T K d) : T :=
   a.agg W.kept
 
-/-- The world in which every occurrence, outer and inner, is present. -/
-def World.full (a : NestedValue T K) : World T K :=
-  ⟨a.groups.map (fun g => ⟨g.1, Finset.univ, g.2.map (fun o => (o.1, o.2, true))⟩)⟩
+end NestedValue
 
-omit [ValueType T] in
-/-- The full world is a world of the value it is built from. -/
-@[simp] theorem World.isWorldOf_full (a : NestedValue T K) :
-    (World.full a).IsWorldOf a := by
-  unfold World.IsWorldOf World.full WorldGrp.base
-  rw [Multiset.map_map]
-  conv_rhs => rw [← Multiset.map_id' a.groups]
-  refine Multiset.map_congr rfl (fun g _ => ?_)
-  simp only [Function.comp_apply, Multiset.map_map]
-  exact Prod.ext rfl (Multiset.map_id' _)
+/-! ## Looking a family up -/
 
-/-- **The deterministic reading**: the outer aggregate of the inner
-collapses. -/
-def collapse (a : NestedValue T K) : T :=
-  a.agg (a.occs.map (fun o => o.1.collapse))
+namespace NestedValue
 
-omit [ValueType T] in
-/-- **Everything present reads as the collapse.** -/
-theorem valOn_full (a : NestedValue T K) :
-    a.valOn (World.full a) = a.collapse := by
-  unfold valOn collapse World.kept World.full occs
-  refine congrArg a.agg ?_
-  rw [Multiset.bind_map, Multiset.map_bind]
-  refine Multiset.bind_congr (fun g hg => ?_)
-  unfold WorldGrp.vals
+theorem filter_fst_eq_singleton {α β : Type} [DecidableEq α] {L : Multiset (α × β)}
+    (hnd : (L.map Prod.fst).Nodup) {a : α} {b : β} (h : (a, b) ∈ L) :
+    L.filter (fun e => e.1 = a) = {(a, b)} := by
+  obtain ⟨L', rfl⟩ := Multiset.exists_cons_of_mem h
+  rw [Multiset.map_cons, Multiset.nodup_cons] at hnd
+  have h0 : L'.filter (fun e => e.1 = a) = 0 := Multiset.filter_eq_nil.mpr
+    (fun e he hea => hnd.1 (by
+      show a ∈ L'.map Prod.fst; rw [← hea]; exact Multiset.mem_map_of_mem Prod.fst he))
+  rw [Multiset.filter_cons, h0]
+  simp
+
+theorem leafSub_of_mem [DecidableEq T] [DecidableEq K] {L : Multiset (LeafKey T K × Finset ℕ)}
+    (hnd : (L.map Prod.fst).Nodup) {κ : LeafKey T K} {S : Finset ℕ} (h : (κ, S) ∈ L) :
+    leafSub L κ = S := by
+  unfold leafSub
+  rw [filter_fst_eq_singleton hnd h]
+  simp
+
+open Classical in
+theorem nodeDec_cons_self (N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool)))
+    {j : ℕ} (κ κ' : NodeKey T K j) (D : Multiset (NestInner T K j × K × Bool)) :
+    nodeDec (⟨j, κ', D⟩ ::ₘ N) j κ = (if κ' = κ then D else 0) + nodeDec N j κ := by
+  unfold nodeDec
+  rw [Multiset.cons_bind]
+  simp
+
+open Classical in
+theorem nodeDec_eq_zero {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
+    {j : ℕ} {κ : NodeKey T K j}
+    (h : ∀ e ∈ N, (⟨e.1, e.2.1⟩ : Σ i, NodeKey T K i) ≠ ⟨j, κ⟩) : nodeDec N j κ = 0 := by
+  unfold nodeDec
+  rw [Multiset.bind, Multiset.join, Multiset.sum_eq_zero]
+  intro x hx
+  obtain ⟨e, he, rfl⟩ := Multiset.mem_map.mp hx
+  obtain ⟨i, κ', D⟩ := e
   dsimp only
-  rw [Multiset.filter_eq_self.mpr (fun m hm => by
-    obtain ⟨o, -, rfl⟩ := Multiset.mem_map.mp hm; rfl), Multiset.map_map]
-  refine Multiset.map_congr rfl (fun o ho => ?_)
-  simp only [Function.comp_apply, AggExpr.collapse]
-  rw [trW_eq_map (length_of_grouped hg ho), Finset.map_univ_equiv]
+  by_cases hij : i = j
+  · subst hij
+    have hne : κ' ≠ κ := fun hk => h _ he (by rw [hk])
+    simp [hne]
+  · simp [hij]
+
+theorem nodeDec_of_mem {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))}
+    (hnd : (N.map (fun e => (⟨e.1, e.2.1⟩ : Σ i, NodeKey T K i))).Nodup) {j : ℕ}
+    {κ : NodeKey T K j} {D : Multiset (NestInner T K j × K × Bool)} (h : ⟨j, κ, D⟩ ∈ N) :
+    nodeDec N j κ = D := by
+  classical
+  obtain ⟨N', rfl⟩ := Multiset.exists_cons_of_mem h
+  rw [Multiset.map_cons, Multiset.nodup_cons] at hnd
+  rw [nodeDec_cons_self, nodeDec_eq_zero, add_zero]
+  · simp
+  intro e he hek
+  exact hnd.1 (hek ▸ Multiset.mem_map_of_mem _ he)
+
+end NestedValue
+
+/-! ## Reading with the support fixed
+
+What an inner value reads depends on the decision only at the families it
+reads. -/
+
+namespace NestInner
+
+/-- **Two decisions that agree on what an inner value reads read it
+alike**, the second deciding each node it reads on that node's own
+occurrences. -/
+theorem val_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
+    (∀ κ ∈ leaves j x, D.leaf κ = D'.leaf κ) →
+    (∀ e ∈ nodes j x, D.node e.1 e.2 = D'.node e.1 e.2
+      ∧ (D'.node e.1 e.2).map (fun m => (m.1, m.2.1)) = e.2.2) →
+    val D j x = val D' j x
+  | 0, e, hl, _ => by
+    show AggExpr.valOn e _ = AggExpr.valOn e _
+    rw [hl _ (Multiset.mem_singleton_self _)]
+  | j + 1, Sum.inl x, hl, hn => val_congr D D' j x hl hn
+  | j + 1, Sum.inr N, hl, hn => by
+    show N.agg _ = N.agg _
+    obtain ⟨heq, hproj⟩ := hn ⟨j, N.key⟩ (Multiset.mem_cons_self _ _)
+    rw [heq]
+    refine congrArg N.agg (Multiset.map_congr rfl (fun m hm => ?_))
+    have hm' : (m.1, m.2.1) ∈ N.occs := by
+      have := Multiset.mem_map_of_mem (fun m => (m.1, m.2.1)) (Multiset.mem_of_mem_filter hm)
+      rwa [hproj] at this
+    refine val_congr D D' j m.1 (fun κ hκ => hl κ ?_) (fun e he => hn e ?_)
+    · exact Multiset.mem_bind.mpr ⟨_, hm', hκ⟩
+    · exact Multiset.mem_cons_of_mem (Multiset.mem_bind.mpr ⟨_, hm', he⟩)
+
+/-- **And agree on whether it is a world.** -/
+theorem ok_congr (D D' : NestDec T K) : ∀ (j : ℕ) (x : NestInner T K j),
+    (∀ κ ∈ leaves j x, D.leaf κ = D'.leaf κ) →
+    (∀ e ∈ nodes j x, D.node e.1 e.2 = D'.node e.1 e.2
+      ∧ (D'.node e.1 e.2).map (fun m => (m.1, m.2.1)) = e.2.2) →
+    (ok D j x ↔ ok D' j x)
+  | 0, e, hl, _ => by
+    show AggExpr.IsWorld e _ ↔ AggExpr.IsWorld e _
+    rw [hl _ (Multiset.mem_singleton_self _)]
+  | j + 1, Sum.inl x, hl, hn => ok_congr D D' j x hl hn
+  | j + 1, Sum.inr N, hl, hn => by
+    show (_ ∧ _) ↔ (_ ∧ _)
+    obtain ⟨heq, hproj⟩ := hn ⟨j, N.key⟩ (Multiset.mem_cons_self _ _)
+    rw [heq]
+    refine and_congr Iff.rfl (forall₂_congr (fun m hm => imp_congr Iff.rfl ?_))
+    have hm' : (m.1, m.2.1) ∈ N.occs := by
+      have := Multiset.mem_map_of_mem (fun m => (m.1, m.2.1)) hm
+      rwa [hproj] at this
+    refine ok_congr D D' j m.1 (fun κ hκ => hl κ ?_) (fun e he => hn e ?_)
+    · exact Multiset.mem_bind.mpr ⟨_, hm', hκ⟩
+    · exact Multiset.mem_cons_of_mem (Multiset.mem_bind.mpr ⟨_, hm', he⟩)
+
+/-- **The full decision**: everything kept. -/
+def fullDec : NestDec T K :=
+  ⟨fun κ => Finset.range κ.2.length, fun _ κ => κ.2.map (fun o => (o.1, o.2, true))⟩
+
+theorem trS_range (e : AggExpr T K) :
+    (trS (Finset.range (leafKey e).2.length) : Finset (Fin e.occs.length)) = Finset.univ := by
+  ext i
+  simp [leafKey, AggExpr.annList, i.isLt]
+
+/-- **Everything kept reads as the collapse.** -/
+theorem val_fullDec : ∀ (j : ℕ) (x : NestInner T K j), val fullDec j x = collapse j x
+  | 0, e => by
+    show AggExpr.valOn e (trS (Finset.range (leafKey e).2.length)) = AggExpr.collapse e
+    rw [trS_range]
+    rfl
+  | j + 1, Sum.inl x => val_fullDec j x
+  | j + 1, Sum.inr N => by
+    show N.agg _ = N.agg _
+    refine congrArg N.agg ?_
+    show (((N.occs.map (fun o => (o.1, o.2, true))).filter (fun m => m.2.2 = true)).map _) = _
+    rw [Multiset.filter_eq_self.mpr (fun m hm => by
+      obtain ⟨o, -, rfl⟩ := Multiset.mem_map.mp hm; rfl), Multiset.map_map]
+    exact Multiset.map_congr rfl (fun o _ => val_fullDec j o.1)
+
+/-- **The decision a valuation of the annotations makes**: it keeps the
+occurrences, of every family and every node, whose annotations it makes
+true. -/
+def realDec (ν : K → Bool) : NestDec T K :=
+  ⟨fun κ => (Finset.range κ.2.length).filter (fun i => ∃ h : i < κ.2.length, ν (κ.2.get ⟨i, h⟩)),
+    fun _ κ => κ.2.map (fun o => (o.1, o.2, ν o.2))⟩
+
+/-- **The world-faithful reading** of an inner value under a valuation. -/
+def specialize (ν : K → Bool) (j : ℕ) (x : NestInner T K j) : T := val (realDec ν) j x
+
+theorem trS_realDec (e : AggExpr T K) (ν : K → Bool) :
+    (trS ((realDec (T := T) ν).leaf (leafKey e)) : Finset (Fin e.occs.length))
+      = e.realizedWorld ν := by
+  ext i
+  simp [realDec, leafKey, AggExpr.realizedWorld, AggExpr.annList, AggExpr.anns, i.isLt]
+
+theorem specialize_zero (ν : K → Bool) (e : AggExpr T K) :
+    specialize ν 0 e = AggExpr.specialize e ν := by
+  show AggExpr.valOn e _ = _
+  rw [trS_realDec]
+  rfl
+
+theorem specialize_inl (ν : K → Bool) {j : ℕ} (x : NestInner T K j) :
+    specialize ν (j + 1) (Sum.inl x) = specialize ν j x := rfl
+
+theorem specialize_inr (ν : K → Bool) {j : ℕ} (N : NestNode T K (NestInner T K j)) :
+    specialize ν (j + 1) (Sum.inr N)
+      = N.agg ((N.occs.filter (fun o => ν o.2 = true)).map (fun o => specialize ν j o.1)) := by
+  show N.agg _ = N.agg _
+  refine congrArg N.agg ?_
+  show (((N.occs.map (fun o => (o.1, o.2, ν o.2))).filter (fun m => m.2.2 = true)).map _) = _
+  rw [Multiset.filter_map, Multiset.map_map]
+  rfl
+
+end NestInner
 
 /-! ## The worlds of a nested value, enumerated
 
-The worlds are the decisions one can make at each group – a subfamily of
-its inner family, and, at each outer occurrence reading it, present or
-not – so they are built by running over the groups and letting every
-world so far gain every decision available at the next one. The groups
-and their occurrences are bags and the construction has to be read off
-them rather than off a listing, which is what the steps being
-left-commutative says – and the multiplicities are kept: two occurrences
-carrying the same inner value and the same annotation are two
-occurrences, and a world may keep one and drop the other. -/
+The worlds are the decisions one can make about each family – at each of
+the value's own occurrences and each inner node's, present or not; at each
+expression family, which positions are kept – so they are built by
+running over the families and letting every world so far gain every
+decision available at the next one. Everything is a bag and the
+construction has to be read off it rather than off a listing, which is
+what the steps being left-commutative says – and the multiplicities are
+kept: two occurrences carrying the same inner value and the same
+annotation are two occurrences, and a world may keep one and drop the
+other. -/
+
+namespace NestedValue
 
 section Enumeration
 
-/-- The presence decisions over a bag of outer occurrences. -/
-def addMem (o : AggExpr T K × K) (acc : Multiset (Multiset (AggExpr T K × K × Bool))) :
-    Multiset (Multiset (AggExpr T K × K × Bool)) :=
+variable {X : Type}
+
+/-- The presence decisions over a bag of occurrences. -/
+def addMem (o : X × K) (acc : Multiset (Multiset (X × K × Bool))) :
+    Multiset (Multiset (X × K × Bool)) :=
   ({true, false} : Multiset Bool).bind (fun b => acc.map (fun ms => (o.1, o.2, b) ::ₘ ms))
 
-omit [ValueType T] in
-instance : LeftCommutative (addMem (T := T) (K := K)) where
+instance : LeftCommutative (addMem (X := X) (K := K)) where
   left_comm o₁ o₂ acc := by
     unfold addMem
     simp only [Multiset.map_bind, Multiset.map_map, Function.comp_def]
@@ -398,574 +662,407 @@ instance : LeftCommutative (addMem (T := T) (K := K)) where
     exact Multiset.bind_congr (fun b₂ _ => Multiset.bind_congr
       (fun b₁ _ => Multiset.map_congr rfl (fun ms _ => Multiset.cons_swap _ _ _)))
 
-/-- Every choice of presence over a bag of outer occurrences. -/
-def memChoices (M : Multiset (AggExpr T K × K)) : Multiset (Multiset (AggExpr T K × K × Bool)) :=
+/-- Every choice of presence over a bag of occurrences. -/
+def memChoices (M : Multiset (X × K)) : Multiset (Multiset (X × K × Bool)) :=
   M.foldr addMem {0}
 
-/-- The decisions available at one group: a subfamily of its inner
-family, and a presence choice per outer occurrence reading it. -/
-def decisions (g : List K × Multiset (AggExpr T K × K)) : Multiset (WorldGrp T K) :=
-  (Finset.univ : Finset (Finset (Fin g.1.length))).val.bind
-    (fun S => (memChoices g.2).map (fun ms => ⟨g.1, S, ms⟩))
-
-/-- One more group: every world so far gains every decision available at
-it. -/
-def addGrp (g : List K × Multiset (AggExpr T K × K))
-    (ws : Multiset (Multiset (WorldGrp T K))) : Multiset (Multiset (WorldGrp T K)) :=
-  (decisions g).bind (fun G => ws.map (fun W => G ::ₘ W))
-
-omit [ValueType T] in
-/-- **The order the groups are taken in does not matter**, which is what
-lets the worlds be read off the bag. -/
-instance : LeftCommutative (addGrp (T := T) (K := K)) where
-  left_comm g₁ g₂ ws := by
-    unfold addGrp
-    simp only [Multiset.map_bind, Multiset.map_map, Function.comp_def]
-    rw [Multiset.bind_bind]
-    exact Multiset.bind_congr (fun d₂ _ => Multiset.bind_congr
-      (fun d₁ _ => Multiset.map_congr rfl
-        (fun W _ => Multiset.cons_swap _ _ _)))
-
-/-- **The worlds of a nested value.** -/
-def worlds (a : NestedValue T K) : Multiset (World T K) :=
-  (Multiset.foldr addGrp {0} a.groups).map World.mk
-
-omit [ValueType T] in
-theorem map_of_mem_memChoices {M : Multiset (AggExpr T K × K)}
-    {ms : Multiset (AggExpr T K × K × Bool)} (h : ms ∈ memChoices M) :
-    ms.map (fun m => (m.1, m.2.1)) = M := by
+theorem map_of_mem_memChoices {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)}
+    (h : ms ∈ memChoices M) : ms.map (fun m => (m.1, m.2.1)) = M := by
   induction M using Multiset.induction_on generalizing ms with
   | empty =>
     rw [memChoices, Multiset.foldr_zero, Multiset.mem_singleton] at h
     rw [h, Multiset.map_zero]
   | cons o M ih =>
-    rw [memChoices, Multiset.foldr_cons, addMem, Multiset.mem_bind] at h
-    obtain ⟨b, -, hms⟩ := h
-    obtain ⟨ms', hms', rfl⟩ := Multiset.mem_map.mp hms
+    rw [memChoices, Multiset.foldr_cons, addMem] at h
+    obtain ⟨b, -, hb⟩ := Multiset.mem_bind.mp h
+    obtain ⟨ms', hms', rfl⟩ := Multiset.mem_map.mp hb
     rw [Multiset.map_cons, ih hms']
 
-omit [ValueType T] in
-theorem mem_memChoices_of_map : ∀ {ms : Multiset (AggExpr T K × K × Bool)}
-    {M : Multiset (AggExpr T K × K)}, ms.map (fun m => (m.1, m.2.1)) = M →
-    ms ∈ memChoices M := by
+theorem mem_memChoices_of_map : ∀ {ms : Multiset (X × K × Bool)} {M : Multiset (X × K)},
+    ms.map (fun m => (m.1, m.2.1)) = M → ms ∈ memChoices M := by
   intro ms
   induction ms using Multiset.induction_on with
   | empty =>
-    intro M hM
-    rw [← hM, Multiset.map_zero, memChoices, Multiset.foldr_zero]
-    exact Multiset.mem_singleton_self 0
+    intro M h
+    rw [Multiset.map_zero] at h
+    subst h
+    exact Multiset.mem_singleton_self _
   | cons m ms ih =>
-    intro M hM
-    rw [← hM, Multiset.map_cons, memChoices, Multiset.foldr_cons, addMem, Multiset.mem_bind]
-    refine ⟨m.2.2, by cases m.2.2 <;> simp, Multiset.mem_map.mpr ⟨ms, ih rfl, rfl⟩⟩
+    intro M h
+    rw [Multiset.map_cons] at h
+    subst h
+    rw [memChoices, Multiset.foldr_cons, addMem]
+    refine Multiset.mem_bind.mpr ⟨m.2.2, by cases m.2.2 <;> simp, ?_⟩
+    exact Multiset.mem_map.mpr ⟨ms, ih rfl, rfl⟩
 
-omit [ValueType T] in
-theorem base_of_mem_decisions {g : List K × Multiset (AggExpr T K × K)} {G : WorldGrp T K}
-    (h : G ∈ decisions g) : G.base = g := by
-  unfold decisions at h
-  obtain ⟨S, -, hG⟩ := Multiset.mem_bind.mp h
-  obtain ⟨ms, hms, rfl⟩ := Multiset.mem_map.mp hG
-  exact Prod.ext rfl (map_of_mem_memChoices hms)
+theorem mem_memChoices_iff {M : Multiset (X × K)} {ms : Multiset (X × K × Bool)} :
+    ms ∈ memChoices M ↔ ms.map (fun m => (m.1, m.2.1)) = M :=
+  ⟨map_of_mem_memChoices, mem_memChoices_of_map⟩
 
-omit [ValueType T] in
-theorem mem_decisions_base (G : WorldGrp T K) : G ∈ decisions G.base := by
-  unfold decisions
-  refine Multiset.mem_bind.mpr ⟨G.sub, Finset.mem_val.mpr (Finset.mem_univ _), ?_⟩
-  exact Multiset.mem_map.mpr ⟨G.mems, mem_memChoices_of_map rfl, rfl⟩
+/-- The positions one can keep of an expression family. -/
+def addLeaf (κ : LeafKey T K) (acc : Multiset (Multiset (LeafKey T K × Finset ℕ))) :
+    Multiset (Multiset (LeafKey T K × Finset ℕ)) :=
+  (Finset.range κ.2.length).powerset.val.bind (fun S => acc.map ((κ, S) ::ₘ ·))
 
-omit [ValueType T] in
-theorem map_base_of_mem_foldr {s : Multiset (List K × Multiset (AggExpr T K × K))}
-    {W : Multiset (WorldGrp T K)} (h : W ∈ Multiset.foldr addGrp {0} s) :
-    W.map WorldGrp.base = s := by
-  induction s using Multiset.induction_on generalizing W with
-  | empty =>
-    rw [Multiset.foldr_zero, Multiset.mem_singleton] at h
-    rw [h, Multiset.map_zero]
-  | cons g s ih =>
-    rw [Multiset.foldr_cons, addGrp, Multiset.mem_bind] at h
-    obtain ⟨G, hG, hW⟩ := h
-    obtain ⟨W', hW', rfl⟩ := Multiset.mem_map.mp hW
-    rw [Multiset.map_cons, ih hW', base_of_mem_decisions hG]
+instance : LeftCommutative (addLeaf (T := T) (K := K)) where
+  left_comm κ₁ κ₂ acc := by
+    unfold addLeaf
+    simp only [Multiset.map_bind, Multiset.map_map, Function.comp_def]
+    rw [Multiset.bind_bind]
+    exact Multiset.bind_congr (fun S₂ _ => Multiset.bind_congr
+      (fun S₁ _ => Multiset.map_congr rfl (fun ms _ => Multiset.cons_swap _ _ _)))
 
-omit [ValueType T] in
-/-- **Every world the enumeration produces is a world of the value.** -/
-theorem isWorldOf_of_mem_worlds {a : NestedValue T K} {W : World T K}
-    (h : W ∈ a.worlds) : W.IsWorldOf a := by
-  rw [worlds, Multiset.mem_map] at h
-  obtain ⟨W', hW', rfl⟩ := h
-  exact map_base_of_mem_foldr hW'
+/-- The decisions one can make about a node's occurrences. -/
+def addNode (κ : Σ j, NodeKey T K j)
+    (acc : Multiset (Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool)))) :
+    Multiset (Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))) :=
+  (memChoices κ.2.2).bind (fun D => acc.map (⟨κ.1, κ.2, D⟩ ::ₘ ·))
 
-omit [ValueType T] in
-theorem mem_foldr_of_map_base : ∀ {W : Multiset (WorldGrp T K)}
-    {s : Multiset (List K × Multiset (AggExpr T K × K))}, W.map WorldGrp.base = s →
-    W ∈ Multiset.foldr addGrp {0} s := by
-  intro W
-  induction W using Multiset.induction_on with
-  | empty =>
-    intro s hs
-    rw [← hs, Multiset.map_zero, Multiset.foldr_zero]
-    exact Multiset.mem_singleton_self 0
-  | cons G W ih =>
-    intro s hs
-    rw [← hs, Multiset.map_cons, Multiset.foldr_cons, addGrp, Multiset.mem_bind]
-    exact ⟨G, mem_decisions_base G, Multiset.mem_map_of_mem _ (ih rfl)⟩
+instance : LeftCommutative (addNode (T := T) (K := K)) where
+  left_comm κ₁ κ₂ acc := by
+    unfold addNode
+    simp only [Multiset.map_bind, Multiset.map_map, Function.comp_def]
+    rw [Multiset.bind_bind]
+    exact Multiset.bind_congr (fun S₂ _ => Multiset.bind_congr
+      (fun S₁ _ => Multiset.map_congr rfl (fun ms _ => Multiset.cons_swap _ _ _)))
 
-omit [ValueType T] in
-/-- **The worlds of a value are exactly the decisions on its groups.** -/
-theorem mem_worlds_iff {a : NestedValue T K} {W : World T K} :
-    W ∈ a.worlds ↔ W.IsWorldOf a := by
-  refine ⟨isWorldOf_of_mem_worlds, fun h => ?_⟩
-  rw [worlds, Multiset.mem_map]
-  exact ⟨W.grps, mem_foldr_of_map_base h, rfl⟩
-
-omit [ValueType T] in
-/-- Summing a filtered map is summing the map with the rejected entries
-read as `𝟘`. -/
-theorem sum_map_filter {α β : Type} [AddCommMonoid β] (p : α → Prop)
-    [DecidablePred p] (f : α → β) :
-    ∀ s : Multiset α,
-      ((s.filter p).map f).sum = (s.map (fun x => if p x then f x else 0)).sum := by
+theorem mem_foldr_addLeaf_iff : ∀ {s : Multiset (LeafKey T K)}
+    {L : Multiset (LeafKey T K × Finset ℕ)},
+    L ∈ s.foldr addLeaf {0} ↔ L.map Prod.fst = s ∧ ∀ e ∈ L, e.2 ⊆ Finset.range e.1.2.length := by
   intro s
   induction s using Multiset.induction_on with
-  | empty => rfl
-  | cons x t ih =>
-    by_cases hx : p x
-    · rw [Multiset.filter_cons_of_pos _ hx, Multiset.map_cons, Multiset.sum_cons,
-        Multiset.map_cons, Multiset.sum_cons, ih]
-      simp [hx]
-    · rw [Multiset.filter_cons_of_neg _ hx, ih, Multiset.map_cons,
-        Multiset.sum_cons]
-      simp [hx]
+  | empty =>
+    intro L
+    rw [Multiset.foldr_zero, Multiset.mem_singleton]
+    constructor
+    · rintro rfl; simp
+    · rintro ⟨h, -⟩; exact Multiset.map_eq_zero.mp h
+  | cons κ s ih =>
+    intro L
+    rw [Multiset.foldr_cons, addLeaf]
+    constructor
+    · intro h
+      obtain ⟨S, hS, hL⟩ := Multiset.mem_bind.mp h
+      obtain ⟨L', hL', rfl⟩ := Multiset.mem_map.mp hL
+      obtain ⟨h1, h2⟩ := ih.mp hL'
+      refine ⟨by rw [Multiset.map_cons, h1], fun e he => ?_⟩
+      rcases Multiset.mem_cons.mp he with rfl | he
+      · exact Finset.mem_powerset.mp (Finset.mem_val.mp hS)
+      · exact h2 e he
+    · rintro ⟨h1, h2⟩
+      have hκ : κ ∈ L.map Prod.fst := by rw [h1]; exact Multiset.mem_cons_self _ _
+      obtain ⟨e, he, hek⟩ := Multiset.mem_map.mp hκ
+      obtain ⟨L', rfl⟩ := Multiset.exists_cons_of_mem he
+      refine Multiset.mem_bind.mpr ⟨e.2, Finset.mem_val.mpr (Finset.mem_powerset.mpr ?_), ?_⟩
+      · have := h2 e (Multiset.mem_cons_self _ _); rwa [hek] at this
+      · refine Multiset.mem_map.mpr ⟨L', ih.mpr ⟨?_, fun e' he' => h2 e'
+          (Multiset.mem_cons_of_mem he')⟩, ?_⟩
+        · rw [Multiset.map_cons, hek] at h1; exact Multiset.cons_inj_right _ |>.mp h1
+        · rw [← hek]
+    
+theorem mem_foldr_addNode_iff : ∀ {s : Multiset (Σ j, NodeKey T K j)}
+    {N : Multiset (Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))},
+    N ∈ s.foldr addNode {0} ↔ N.map (fun e => (⟨e.1, e.2.1⟩ : Σ j, NodeKey T K j)) = s
+      ∧ ∀ e ∈ N, e.2.2.map (fun m => (m.1, m.2.1)) = e.2.1.2 := by
+  intro s
+  induction s using Multiset.induction_on with
+  | empty =>
+    intro N
+    rw [Multiset.foldr_zero, Multiset.mem_singleton]
+    constructor
+    · rintro rfl; simp
+    · rintro ⟨h, -⟩; exact Multiset.map_eq_zero.mp h
+  | cons κ s ih =>
+    intro N
+    rw [Multiset.foldr_cons, addNode]
+    constructor
+    · intro h
+      obtain ⟨D, hD, hN⟩ := Multiset.mem_bind.mp h
+      obtain ⟨N', hN', rfl⟩ := Multiset.mem_map.mp hN
+      obtain ⟨h1, h2⟩ := ih.mp hN'
+      refine ⟨by rw [Multiset.map_cons, h1], fun e he => ?_⟩
+      rcases Multiset.mem_cons.mp he with rfl | he
+      · exact map_of_mem_memChoices hD
+      · exact h2 e he
+    · rintro ⟨h1, h2⟩
+      have hκ : κ ∈ N.map (fun e => (⟨e.1, e.2.1⟩ : Σ j, NodeKey T K j)) := by
+        rw [h1]; exact Multiset.mem_cons_self _ _
+      obtain ⟨e, he, hek⟩ := Multiset.mem_map.mp hκ
+      obtain ⟨N', rfl⟩ := Multiset.exists_cons_of_mem he
+      subst hek
+      refine Multiset.mem_bind.mpr ⟨e.2.2, mem_memChoices_of_map
+        (h2 e (Multiset.mem_cons_self _ _)), ?_⟩
+      refine Multiset.mem_map.mpr ⟨N', ih.mpr ⟨?_, fun e' he' => h2 e'
+        (Multiset.mem_cons_of_mem he')⟩, rfl⟩
+      rw [Multiset.map_cons] at h1; exact Multiset.cons_inj_right _ |>.mp h1
+
+variable [DecidableEq T] [DecidableEq K]
+
+/-- **The worlds of a nested value.** -/
+noncomputable def worlds (a : NestedValue T K) : Multiset (World T K a.lev) :=
+  (memChoices a.occs).bind (fun R => (a.leaves.foldr addLeaf {0}).bind
+    (fun L => (a.nodes.foldr addNode {0}).map (fun N => ⟨R, L, N⟩)))
+
+theorem mem_worlds_iff {a : NestedValue T K} {W : World T K a.lev} :
+    W ∈ a.worlds ↔ W.IsWorldOf a := by
+  unfold worlds World.IsWorldOf
+  constructor
+  · intro h
+    obtain ⟨R, hR, h⟩ := Multiset.mem_bind.mp h
+    obtain ⟨L, hL, h⟩ := Multiset.mem_bind.mp h
+    obtain ⟨N, hN, rfl⟩ := Multiset.mem_map.mp h
+    obtain ⟨hL1, hL2⟩ := mem_foldr_addLeaf_iff.mp hL
+    obtain ⟨hN1, hN2⟩ := mem_foldr_addNode_iff.mp hN
+    exact ⟨map_of_mem_memChoices hR, hL1, hL2, hN1, hN2⟩
+  · rintro ⟨h1, h2, h3, h4, h5⟩
+    exact Multiset.mem_bind.mpr ⟨W.root, mem_memChoices_of_map h1, Multiset.mem_bind.mpr
+      ⟨W.leaf, mem_foldr_addLeaf_iff.mpr ⟨h2, h3⟩, Multiset.mem_map.mpr
+        ⟨W.node, mem_foldr_addNode_iff.mpr ⟨h4, h5⟩, rfl⟩⟩⟩
+
+theorem isWorldOf_of_mem_worlds {a : NestedValue T K} {W : World T K a.lev}
+    (h : W ∈ a.worlds) : W.IsWorldOf a :=
+  mem_worlds_iff.mp h
 
 end Enumeration
+
+end NestedValue
 
 /-! ## What a world of a nested value is annotated
 
 The annotation is the one every family gets: the product of what is
-present times `𝟙 ⊖` the sum of what is absent – the outer occurrences, and
-each inner family **once**, however many outer occurrences read it. It does
-not depend on which worlds are admitted, that being a separate question
-from how a given one is weighed. -/
+present times `𝟙 ⊖` the sum of what is absent – the value's own
+occurrences, each expression family **once** and each inner node's
+occurrences **once**, however many occurrences read them, at every storey
+together. It does not depend on which worlds are admitted, that being a
+separate question from how a given one is weighed. -/
+
+namespace NestedValue
 
 section Annotation
 
-variable [CommSemiringWithMonus K]
+variable [CommSemiringWithMonus K] {X : Type}
 
-/-- What a decided group keeps: its present outer occurrences and its
-kept inner ones. -/
-def WorldGrp.prod (G : WorldGrp T K) : K :=
-  (G.mems.map (fun m => if m.2.2 = true then m.2.1 else 1)).prod
-    * ∏ j ∈ G.sub, G.anns.get j
+/-- What a decision over a bag of occurrences keeps. -/
+def decProd (D : Multiset (X × K × Bool)) : K :=
+  (D.map (fun m => if m.2.2 = true then m.2.1 else 1)).prod
 
-/-- What a decided group leaves out. -/
-def WorldGrp.absent (G : WorldGrp T K) : K :=
-  (G.mems.map (fun m => if m.2.2 = true then 0 else m.2.1)).sum
-    + ∑ j ∈ G.subᶜ, G.anns.get j
+/-- What a decision over a bag of occurrences leaves out. -/
+def decAbs (D : Multiset (X × K × Bool)) : K :=
+  (D.map (fun m => if m.2.2 = true then 0 else m.2.1)).sum
+
+/-- What a decision about an expression family keeps. -/
+def leafProd (e : LeafKey T K × Finset ℕ) : K := ∏ i ∈ e.2, e.1.2.getD i 0
+
+/-- What a decision about an expression family leaves out. -/
+def leafAbs (e : LeafKey T K × Finset ℕ) : K :=
+  ∑ i ∈ Finset.range e.1.2.length \ e.2, e.1.2.getD i 0
 
 /-- The product of the annotations a world keeps. -/
-def World.presentProd (W : World T K) : K :=
-  (W.grps.map WorldGrp.prod).prod
+def World.presentProd {d : ℕ} (W : World T K d) : K :=
+  decProd W.root * (W.leaf.map leafProd).prod * (W.node.map (fun e => decProd e.2.2)).prod
 
 /-- The sum of the annotations a world leaves out. -/
-def World.absentSum (W : World T K) : K :=
-  (W.grps.map WorldGrp.absent).sum
+def World.absentSum {d : ℕ} (W : World T K d) : K :=
+  decAbs W.root + (W.leaf.map leafAbs).sum + (W.node.map (fun e => decAbs e.2.2)).sum
 
 /-- **The annotation of a world of a nested value.** -/
-def World.ann (W : World T K) : K :=
+def World.ann {d : ℕ} (W : World T K d) : K :=
   W.presentProd * (1 - W.absentSum)
 
-omit [ValueType T] in
-/-- **A decided group's own factor splits over its parts**, where `K` is
-complemented: each outer occurrence contributes its annotation or the
-complement of it, and the inner family its own world annotation. -/
-theorem WorldGrp.split (hc : complemented K) (G : WorldGrp T K) :
-    G.prod * (1 - G.absent)
-      = (G.mems.map (fun m => if m.2.2 = true then m.2.1 else (1 - m.2.1))).prod
-        * ((∏ j ∈ G.sub, G.anns.get j) * (1 - ∑ j ∈ G.subᶜ, G.anns.get j)) := by
-  unfold WorldGrp.prod WorldGrp.absent
-  rw [hc, monus_multiset_sum hc, Multiset.map_map]
-  have hout : ((fun a => 1 - a) ∘ fun m : AggExpr T K × K × Bool =>
-      if m.2.2 = true then 0 else m.2.1)
-      = fun m => if m.2.2 = true then 1 else 1 - m.2.1 := by
-    funext m
-    by_cases hp : m.2.2 = true <;> simp [hp, monus_zero]
-  rw [hout]
-  rw [show ∀ x y z w : K, x * y * (z * w) = (x * z) * (y * w) from
-    fun x y z w => mul_mul_mul_comm x y z w, ← Multiset.prod_map_mul]
-  refine congrArg₂ (· * ·) (congrArg Multiset.prod (Multiset.map_congr rfl (fun m _ => ?_))) rfl
-  by_cases hp : m.2.2 = true <;> simp [hp]
-
-omit [ValueType T] in
-/-- **The annotation of a nested world splits over its groups**, where
-`K` is complemented: one monus over everything the world leaves out is
-the product of one monus per group. -/
-theorem World.ann_split (hc : complemented K) (W : World T K) :
-    W.ann = (W.grps.map (fun G => G.prod * (1 - G.absent))).prod := by
-  unfold World.ann World.presentProd World.absentSum
-  rw [monus_multiset_sum hc, Multiset.map_map, ← Multiset.prod_map_mul]
+/-- **The annotation of an occurrence a world keeps is a factor of what
+it keeps.** -/
+theorem decProd_eq_mul {D : Multiset (X × K × Bool)} {m : X × K × Bool} (hm : m ∈ D)
+    (hp : m.2.2 = true) : ∃ x : K, decProd D = m.2.1 * x := by
+  obtain ⟨u, rfl⟩ := Multiset.exists_cons_of_mem hm
+  refine ⟨decProd u, ?_⟩
+  rw [decProd, Multiset.map_cons, Multiset.prod_cons, ite_eq_left hp]
   rfl
 
-omit [ValueType T] in
-/-- Nothing is absent from the full world. -/
-@[simp] theorem World.absentSum_full (a : NestedValue T K) :
-    (World.full a).absentSum = 0 := by
-  unfold World.absentSum World.full WorldGrp.absent
-  simp
-
-omit [ValueType T] in
-/-- **The full world is annotated by the product of everything.** -/
-theorem World.ann_full (a : NestedValue T K) :
-    (World.full a).ann = (World.full a).presentProd := by
-  rw [World.ann, World.absentSum_full, monus_zero, mul_one]
-
-omit [ValueType T] in
 /-- **The annotation of an occurrence a world keeps is a factor of the
 world's annotation.** This is what lets a world swallow the `δ`-guard of
 the family it reads. -/
-theorem World.exists_ann_eq_mul {W : World T K} {G : WorldGrp T K}
-    (hG : G ∈ W.grps) {m : AggExpr T K × K × Bool} (hm : m ∈ G.mems)
-    (hp : m.2.2 = true) : ∃ x : K, W.ann = m.2.1 * x := by
-  obtain ⟨t, ht⟩ := Multiset.exists_cons_of_mem hG
-  obtain ⟨u, hu⟩ := Multiset.exists_cons_of_mem hm
-  refine ⟨(u.map (fun m => if m.2.2 = true then m.2.1 else 1)).prod
-      * (∏ j ∈ G.sub, G.anns.get j) * (t.map WorldGrp.prod).prod
-        * (1 - W.absentSum), ?_⟩
-  rw [World.ann, World.presentProd, ht, Multiset.map_cons, Multiset.prod_cons,
-    WorldGrp.prod, hu, Multiset.map_cons, Multiset.prod_cons, ite_eq_left hp]
+theorem World.exists_ann_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
+    (hm : m ∈ W.root) (hp : m.2.2 = true) : ∃ x : K, W.ann = m.2.1 * x := by
+  obtain ⟨x, hx⟩ := decProd_eq_mul hm hp
+  refine ⟨x * (W.leaf.map leafProd).prod * (W.node.map (fun e => decProd e.2.2)).prod
+    * (1 - W.absentSum), ?_⟩
+  rw [World.ann, World.presentProd, hx]
   simp only [mul_assoc]
 
-omit [ValueType T] in
-/-- **A world that reads something absorbs the `δ`-guard of the outer
-family**: one of the outer annotations it keeps swallows `δ` of the
-family's sum. -/
-theorem World.presentProd_delta_absorb {a : NestedValue T K} {W : World T K}
-    (hW : W.IsWorldOf a) (hk : 0 < Multiset.card W.kept) :
-    W.presentProd * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = W.presentProd := by
-  obtain ⟨v, hv⟩ := Multiset.card_pos_iff_exists_mem.mp hk
-  obtain ⟨G, hG, hvG⟩ := Multiset.mem_bind.mp hv
-  obtain ⟨m, hm, -⟩ := Multiset.mem_map.mp hvG
-  obtain ⟨hmG, hp⟩ := Multiset.mem_filter.mp hm
-  have hfam : m.2.1 ∈ a.occs.map Prod.snd := by
-    rw [occs, ← hW, Multiset.bind_map, Multiset.map_bind]
-    refine Multiset.mem_bind.mpr ⟨G, hG, ?_⟩
-    unfold WorldGrp.base
-    rw [Multiset.map_map]
-    exact Multiset.mem_map_of_mem _ hmG
-  obtain ⟨s, hs⟩ := Multiset.exists_cons_of_mem hfam
-  have key : m.2.1 * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = m.2.1 := by
-    rw [hs, Multiset.sum_cons]
-    exact SemiringWithMonus.delta_absorb _ _
-  obtain ⟨t, ht⟩ := Multiset.exists_cons_of_mem hG
-  obtain ⟨u, hu⟩ := Multiset.exists_cons_of_mem hmG
-  have hx : W.presentProd = m.2.1 * ((u.map (fun m => if m.2.2 = true then m.2.1 else 1)).prod
-      * (∏ j ∈ G.sub, G.anns.get j) * (t.map WorldGrp.prod).prod) := by
-    rw [World.presentProd, ht, Multiset.map_cons, Multiset.prod_cons, WorldGrp.prod, hu,
-      Multiset.map_cons, Multiset.prod_cons, ite_eq_left hp]
-    simp only [mul_assoc]
-  rw [hx, mul_right_comm, key]
+theorem World.presentProd_eq_mul {d : ℕ} {W : World T K d} {m : NestInner T K d × K × Bool}
+    (hm : m ∈ W.root) (hp : m.2.2 = true) : ∃ x : K, W.presentProd = m.2.1 * x := by
+  obtain ⟨x, hx⟩ := decProd_eq_mul hm hp
+  refine ⟨x * (W.leaf.map leafProd).prod * (W.node.map (fun e => decProd e.2.2)).prod, ?_⟩
+  rw [World.presentProd, hx]
+  simp only [mul_assoc]
 
 end Annotation
 
-omit [ValueType T] in
-/-- A world of the nested reading is one of the coherent reading's as
-soon as it keeps no inner occurrence no present occurrence reads. -/
-theorem World.isWorld_of_isWorldCoherent {a : NestedValue T K}
-    {W : World T K} (h : W.IsWorldCoherent a) : W.IsWorld a :=
-  ⟨h.1, h.2.1, trivial⟩
+/-! ## Worlds built from a decision
 
-/-! ## The pushforward of the annotations
+The full world and the realized one are each a decision applied to every
+family the value holds (`World.ofDec`), which a world reads back exactly
+where the value reads. -/
 
-Changing the annotation semiring moves no value and no occurrence: each
-group keeps its occurrences, each inner value keeps its own, and a world
-of the pushforward is a world of the original. Only the annotations
-travel, and the readings follow them. The groups are carried as they are:
-a pushforward that identifies two annotations does not merge two inner
-families, which is what makes it commute with every reading. -/
+variable [DecidableEq T] [DecidableEq K]
 
-section MapAnn
+/-- **The world a decision makes of a value**: its own occurrences
+decided by `R`, and every family by `D`. -/
+noncomputable def World.ofDec (a : NestedValue T K) (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K) : World T K a.lev :=
+  ⟨R, a.leaves.map (fun κ => (κ, D.leaf κ)), a.nodes.map (fun e => ⟨e.1, e.2, D.node e.1 e.2⟩)⟩
 
-variable {K' : Type}
+theorem mem_leaves {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
+    {κ : LeafKey T K} (hκ : κ ∈ NestInner.leaves a.lev o.1) : κ ∈ a.leaves :=
+  Multiset.mem_dedup.mpr (Multiset.mem_bind.mpr ⟨o, ho, hκ⟩)
 
-/-- The pushforward of one group. -/
-def mapGrp (h : K → K') (g : List K × Multiset (AggExpr T K × K)) :
-    List K' × Multiset (AggExpr T K' × K') :=
-  (g.1.map h, g.2.map (fun o => (o.1.mapAnn h, h o.2)))
-
-omit [ValueType T] in
-theorem annList_mapAnn (h : K → K') (e : AggExpr T K) :
-    (e.mapAnn h).annList = e.annList.map h := by
-  simp [AggExpr.annList, AggExpr.mapAnn, List.map_map]
-
-/-- **The pushforward of a nested value**: both the inner values and the
-outer annotations go through `h`. -/
-def mapAnn (h : K → K') (a : NestedValue T K) : NestedValue T K' where
-  agg := a.agg
-  groups := a.groups.map (mapGrp h)
-  scalar := a.scalar
-  fam := a.fam
-  grouped := by
-    intro g' hg' o' ho'
-    obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hg'
-    obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp ho'
-    show (o.1.mapAnn h).annList = g.1.map h
-    rw [annList_mapAnn, a.grouped g hg o ho]
-
-omit [ValueType T] in
-@[simp] theorem agg_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).agg = a.agg := rfl
-
-omit [ValueType T] in
-@[simp] theorem scalar_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).scalar = a.scalar := rfl
-
-omit [ValueType T] in
-@[simp] theorem groups_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).groups = a.groups.map (mapGrp h) := rfl
-
-omit [ValueType T] in
-@[simp] theorem occs_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).occs = a.occs.map (fun o => (o.1.mapAnn h, h o.2)) := by
-  unfold occs
-  rw [groups_mapAnn, Multiset.bind_map, Multiset.map_bind]
-  rfl
-
-/-- **The pushforward of one decided group**: the inner values and the
-annotations travel, and the inner subfamily is the same one, read through
-the pushforward's own annotation list. -/
-def WorldGrp.mapAnn (h : K → K') (G : WorldGrp T K) : WorldGrp T K' where
-  anns := G.anns.map h
-  sub := G.sub.map (finCongr (List.length_map h).symm).toEmbedding
-  mems := G.mems.map (fun m => (m.1.mapAnn h, h m.2.1, m.2.2))
-
-/-- **A world of the pushforward is a world of the original**, the
-groups being the same ones and each keeping its decision. -/
-def World.mapAnn (h : K → K') (W : World T K) : World T K' :=
-  ⟨W.grps.map (WorldGrp.mapAnn h)⟩
-
-omit [ValueType T] in
-theorem WorldGrp.base_mapAnn (h : K → K') (G : WorldGrp T K) :
-    (G.mapAnn h).base = mapGrp h G.base := by
-  unfold WorldGrp.base WorldGrp.mapAnn mapGrp
-  simp [Multiset.map_map]
-
-omit [ValueType T] in
-/-- **A transported inner value reads its transported subfamily as the
-original reads its own.** -/
-theorem valOn_trW_mapAnn (h : K → K') (e : AggExpr T K) {L : ℕ} (hL : L = L')
-    (S : Finset (Fin L)) :
-    (e.mapAnn h).valOn (trW (S.map (finCongr hL).toEmbedding)) = e.valOn (trW S) := by
-  rw [trW_map_finCongr, trW_trW_map (AggExpr.length_map_occs h e)]
-  exact AggExpr.valOn_mapAnn h e _
-
-omit [ValueType T] in
-/-- And has its worlds where the original has its own. -/
-theorem isWorld_trW_mapAnn (h : K → K') (e : AggExpr T K) {L : ℕ} (hL : L = L')
-    (S : Finset (Fin L)) :
-    (e.mapAnn h).IsWorld (trW (S.map (finCongr hL).toEmbedding)) ↔ e.IsWorld (trW S) := by
-  rw [trW_map_finCongr, trW_trW_map (AggExpr.length_map_occs h e)]
-  exact AggExpr.isWorld_mapAnn h e _
-
-omit [ValueType T] in
-/-- The pushforward reads what the group read. -/
-theorem WorldGrp.vals_mapAnn (h : K → K') (G : WorldGrp T K) :
-    (G.mapAnn h).vals = G.vals := by
-  unfold WorldGrp.vals WorldGrp.mapAnn
-  dsimp only
-  rw [Multiset.filter_map, Multiset.map_map]
-  refine Multiset.map_congr (Multiset.filter_congr (fun _ _ => Iff.rfl)) (fun m _ => ?_)
-  exact valOn_trW_mapAnn h m.1 _ G.sub
-
-omit [ValueType T] in
-/-- The pushforward keeps what the world read. -/
-theorem World.kept_mapAnn (h : K → K') (W : World T K) :
-    (W.mapAnn h).kept = W.kept := by
-  unfold World.kept World.mapAnn
-  rw [Multiset.bind_map]
-  exact Multiset.bind_congr (fun G _ => WorldGrp.vals_mapAnn h G)
-
-omit [ValueType T] in
-/-- The pushforward of a world of a value is a world of its
-pushforward. -/
-theorem World.isWorldOf_mapAnn (h : K → K') {a : NestedValue T K}
-    {W : World T K} (hW : W.IsWorldOf a) :
-    (W.mapAnn h).IsWorldOf (a.mapAnn h) := by
-  unfold World.IsWorldOf World.mapAnn at *
-  rw [groups_mapAnn, ← hW, Multiset.map_map, Multiset.map_map]
-  exact Multiset.map_congr rfl (fun G _ => WorldGrp.base_mapAnn h G)
-
-omit [ValueType T] in
-/-- **A transported world is admissible exactly when the world it came
-from is.** The condition reads the conventions and the non-emptiness of
-the families, and the pushforward moves neither. -/
-theorem World.isWorld_mapAnn (h : K → K') {a : NestedValue T K}
-    (W : World T K) : (W.mapAnn h).IsWorld (a.mapAnn h) ↔ W.IsWorld a := by
-  unfold World.IsWorld World.IsWorldWith
-  rw [World.kept_mapAnn, scalar_mapAnn]
-  refine and_congr Iff.rfl (and_congr ?_ Iff.rfl)
-  constructor
-  · intro hall G hG m hm hp
-    have := hall (G.mapAnn h) (Multiset.mem_map_of_mem _ hG) (m.1.mapAnn h, h m.2.1, m.2.2)
-      (Multiset.mem_map_of_mem _ hm) hp
-    exact (isWorld_trW_mapAnn h m.1 _ G.sub).mp this
-  · intro hall G' hG' m' hm' hp
-    obtain ⟨G, hG, rfl⟩ := Multiset.mem_map.mp hG'
-    obtain ⟨m, hm, rfl⟩ := Multiset.mem_map.mp hm'
-    exact (isWorld_trW_mapAnn h m.1 _ G.sub).mpr (hall G hG m hm hp)
-
-/-! ### The worlds travel with the groups
-
-The groups are a bag and the worlds are read off that bag, so the
-pushforward needs no reindexing of anything: the worlds of the
-pushforward are the pushforwards of the worlds, each reading the value its
-own world reads. Only the annotations move, which is what
-`NestedValue.World.ann_mapAnn` says of the weight and
-`AggQueryHom`'s `predProvWith_mapAnn` of the reading. -/
-
-omit [ValueType T] in
-theorem memChoices_mapAnn (h : K → K') (M : Multiset (AggExpr T K × K)) :
-    memChoices (M.map (fun o => (o.1.mapAnn h, h o.2)))
-      = (memChoices M).map (Multiset.map (fun m => (m.1.mapAnn h, h m.2.1, m.2.2))) := by
-  induction M using Multiset.induction_on with
-  | empty => simp [memChoices]
-  | cons o M ih =>
-    simp only [memChoices, Multiset.map_cons, Multiset.foldr_cons] at ih ⊢
-    rw [ih, addMem, addMem, Multiset.map_bind]
-    refine Multiset.bind_congr (fun b _ => ?_)
-    rw [Multiset.map_map, Multiset.map_map]
-    exact Multiset.map_congr rfl (fun ms _ => by simp)
-
-omit [ValueType T] in
-/-- **The decisions available at a group travel with it.** -/
-theorem decisions_mapAnn (h : K → K') (g : List K × Multiset (AggExpr T K × K)) :
-    decisions (mapGrp h g) = (decisions g).map (WorldGrp.mapAnn h) := by
+theorem mem_nodes {a : NestedValue T K} {o : NestInner T K a.lev × K} (ho : o ∈ a.occs)
+    {e : Σ i, NodeKey T K i} (he : e ∈ NestInner.nodes a.lev o.1) : e ∈ a.nodes := by
   classical
-  let eqv : Finset (Fin g.1.length) ≃ Finset (Fin (g.1.map h).length) :=
-    (finCongr (List.length_map h).symm).finsetCongr
-  unfold decisions
-  rw [Multiset.map_bind]
-  conv_lhs => rw [← Finset.map_univ_equiv eqv]
-  rw [Finset.map_val, Multiset.bind_map]
-  refine Multiset.bind_congr (fun S _ => ?_)
-  show (memChoices (g.2.map _)).map _ = _
-  rw [memChoices_mapAnn, Multiset.map_map, Multiset.map_map]
-  refine Multiset.map_congr rfl (fun ms _ => ?_)
-  simp only [Function.comp_apply, WorldGrp.mapAnn, eqv]
-  rfl
+  rw [nodes, Multiset.mem_dedup]
+  exact Multiset.mem_bind.mpr ⟨o, ho, he⟩
 
-omit [ValueType T] in
-/-- The enumeration travels with them. -/
-theorem foldr_addGrp_mapAnn (h : K → K')
-    (s : Multiset (List K × Multiset (AggExpr T K × K))) :
-    Multiset.foldr addGrp {0} (s.map (mapGrp h))
-      = (Multiset.foldr addGrp {0} s).map (fun W => W.map (WorldGrp.mapAnn h)) := by
-  induction s using Multiset.induction_on with
-  | empty =>
-    rw [Multiset.map_zero, Multiset.foldr_zero, Multiset.foldr_zero]
-    rfl
-  | cons g s ih =>
-    rw [Multiset.map_cons, Multiset.foldr_cons, Multiset.foldr_cons, addGrp,
-      addGrp, ih, decisions_mapAnn, Multiset.bind_map, Multiset.map_bind]
-    refine Multiset.bind_congr (fun G _ => ?_)
-    rw [Multiset.map_map, Multiset.map_map]
-    refine Multiset.map_congr rfl (fun W _ => ?_)
-    show WorldGrp.mapAnn h G ::ₘ W.map (WorldGrp.mapAnn h)
-      = (G ::ₘ W).map (WorldGrp.mapAnn h)
-    rw [Multiset.map_cons]
+theorem leafSub_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K) {κ : LeafKey T K} (hκ : κ ∈ a.leaves) :
+    (World.ofDec a R D).dec.leaf κ = D.leaf κ := by
+  refine leafSub_of_mem ?_ (Multiset.mem_map_of_mem _ hκ)
+  show (Multiset.map Prod.fst (a.leaves.map _)).Nodup
+  rw [Multiset.map_map]
+  exact (Multiset.map_id' _).symm ▸ a.nodup_leaves
 
-omit [ValueType T] in
-/-- **The worlds of the pushforward are the pushforwards of the
-worlds**, with their multiplicities – no reindexing, the groups being a
-bag on both sides. -/
-theorem worlds_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).worlds = a.worlds.map (World.mapAnn h) := by
-  show (Multiset.foldr addGrp {0} (a.groups.map _)).map World.mk
-    = (((Multiset.foldr addGrp {0} a.groups).map World.mk).map (World.mapAnn h))
-  rw [foldr_addGrp_mapAnn, Multiset.map_map, Multiset.map_map]
-  rfl
+theorem nodeDec_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K) {e : Σ i, NodeKey T K i} (he : e ∈ a.nodes) :
+    (World.ofDec a R D).dec.node e.1 e.2 = D.node e.1 e.2 := by
+  refine nodeDec_of_mem ?_ (Multiset.mem_map_of_mem
+    (fun e : Σ i, NodeKey T K i => (⟨e.1, e.2, D.node e.1 e.2⟩ :
+      Σ j, NodeKey T K j × Multiset (NestInner T K j × K × Bool))) he)
+  show (Multiset.map _ (a.nodes.map _)).Nodup
+  rw [Multiset.map_map]
+  exact (Multiset.map_id' _).symm ▸ a.nodup_nodes
 
-omit [ValueType T] in
-/-- **The pushforward moves no value**: a transported world reads what
-the world it came from reads. -/
-theorem valOn_mapAnn (h : K → K') (a : NestedValue T K) (W : World T K) :
-    (a.mapAnn h).valOn (W.mapAnn h) = a.valOn W := by
-  show a.agg _ = a.agg _
-  rw [World.kept_mapAnn]
+/-- **A world built from a decision reads every occurrence of the value as
+the decision does**, when the decision decides each node on that node's
+own occurrences. -/
+theorem val_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K)
+    (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2)
+    {o : NestInner T K a.lev × K} (ho : o ∈ a.occs) :
+    NestInner.val (World.ofDec a R D).dec a.lev o.1 = NestInner.val D a.lev o.1 :=
+  NestInner.val_congr _ _ _ _ (fun _ hκ => leafSub_ofDec R D (mem_leaves ho hκ))
+    (fun e he => ⟨nodeDec_ofDec R D (mem_nodes ho he), hD e.1 e.2⟩)
 
-omit [ValueType T] in
-/-- The deterministic reading survives the pushforward. -/
-@[simp] theorem collapse_mapAnn (h : K → K') (a : NestedValue T K) :
-    (a.mapAnn h).collapse = a.collapse := by
-  show a.agg _ = a.agg _
-  rw [occs_mapAnn, Multiset.map_map]
-  exact congrArg a.agg (Multiset.map_congr rfl (fun o _ => AggExpr.collapse_mapAnn h o.1))
+theorem ok_ofDec {a : NestedValue T K} (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K)
+    (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2)
+    {o : NestInner T K a.lev × K} (ho : o ∈ a.occs) :
+    NestInner.ok (World.ofDec a R D).dec a.lev o.1 ↔ NestInner.ok D a.lev o.1 :=
+  NestInner.ok_congr _ _ _ _ (fun _ hκ => leafSub_ofDec R D (mem_leaves ho hκ))
+    (fun e he => ⟨nodeDec_ofDec R D (mem_nodes ho he), hD e.1 e.2⟩)
 
-end MapAnn
+theorem isWorldOf_ofDec (a : NestedValue T K) (R : Multiset (NestInner T K a.lev × K × Bool))
+    (D : NestDec T K) (hR : R.map (fun m => (m.1, m.2.1)) = a.occs)
+    (hL : ∀ κ, D.leaf κ ⊆ Finset.range κ.2.length)
+    (hD : ∀ (j : ℕ) (κ : NodeKey T K j), (D.node j κ).map (fun m => (m.1, m.2.1)) = κ.2) :
+    (World.ofDec a R D).IsWorldOf a := by
+  refine ⟨hR, ?_, ?_, ?_, ?_⟩
+  · show Multiset.map Prod.fst (a.leaves.map _) = _
+    rw [Multiset.map_map]; exact Multiset.map_id' _
+  · intro e he
+    obtain ⟨κ, -, rfl⟩ := Multiset.mem_map.mp he
+    exact hL κ
+  · show Multiset.map _ (a.nodes.map _) = _
+    rw [Multiset.map_map]; exact Multiset.map_id' _
+  · intro e he
+    obtain ⟨e', -, rfl⟩ := Multiset.mem_map.mp he
+    exact hD e'.1 e'.2
 
-/-! ## The readings over the nested worlds
+omit [DecidableEq T] [DecidableEq K] in
+theorem fullDec_node (j : ℕ) (κ : NodeKey T K j) :
+    ((NestInner.fullDec (T := T) (K := K)).node j κ).map (fun m => (m.1, m.2.1)) = κ.2 := by
+  show (κ.2.map _).map _ = _
+  rw [Multiset.map_map]; exact Multiset.map_id' _
 
-With the world set fixed – the coherence clause not imposed – the two
-readings a nested value owes can be written: the predicate provenance
-of a test of its value, and the world-faithful reading under a
-valuation of the annotations. Both are the `AggValue` ones with
-`World` in place of a subfamily and `World.ann` in place of
-`Having.worldAnn`, and the sum runs over the enumerated worlds. -/
+omit [DecidableEq T] [DecidableEq K] in
+theorem realDec_node (ν : K → Bool) (j : ℕ) (κ : NodeKey T K j) :
+    ((NestInner.realDec (T := T) ν).node j κ).map (fun m => (m.1, m.2.1)) = κ.2 := by
+  show (κ.2.map _).map _ = _
+  rw [Multiset.map_map]; exact Multiset.map_id' _
 
-section Readings
+/-- The world in which every occurrence, outer and inner, is present. -/
+noncomputable def World.full (a : NestedValue T K) : World T K a.lev :=
+  World.ofDec a (a.occs.map (fun o => (o.1, o.2, true))) NestInner.fullDec
 
-variable [CommSemiringWithMonus K] [DecidableEq K]
+theorem World.isWorldOf_full (a : NestedValue T K) : (World.full a).IsWorldOf a :=
+  isWorldOf_ofDec _ _ _ (by rw [Multiset.map_map]; exact Multiset.map_id' _)
+    (fun _ => subset_refl _) fullDec_node
 
-/-- **The predicate provenance of a test of a nested value**: the `⊕`
-over its worlds of the world's annotation times the truth of the test
-there. -/
-def predProvWith (a : NestedValue T K) (P : T → Kleene) : K :=
-  ((a.worlds.filter (fun W => W.IsWorld a)).map
-    (fun W => W.ann * Having.chiOf P (a.valOn W))).sum
-
-/-- The comparison case. -/
-def predProvOf (a : NestedValue T K) (op : CompOp) (c : T) : K :=
-  a.predProvWith (fun v => op.eval3 v c)
-
-/-- **What a valuation of the annotations decides about a group**: it
-keeps the inner occurrences whose annotations it makes true, and the
-outer occurrences whose annotations it makes true – independently. -/
-def realizedGrp (ν : K → Bool) (g : List K × Multiset (AggExpr T K × K)) : WorldGrp T K :=
-  ⟨g.1, Finset.univ.filter (fun j => ν (g.1.get j)), g.2.map (fun o => (o.1, o.2, ν o.2))⟩
+/-- **Everything present reads as the collapse.** -/
+theorem valOn_full (a : NestedValue T K) : a.valOn (World.full a) = a.collapse := by
+  unfold valOn collapse World.kept
+  refine congrArg a.agg ?_
+  show ((a.occs.map (fun o => (o.1, o.2, true))).filter _).map _ = _
+  rw [Multiset.filter_eq_self.mpr (fun m hm => by
+    obtain ⟨o, -, rfl⟩ := Multiset.mem_map.mp hm; rfl), Multiset.map_map]
+  refine Multiset.map_congr rfl (fun o ho => ?_)
+  simp only [Function.comp_apply]
+  rw [show (World.full a).dec = (World.ofDec a _ NestInner.fullDec).dec from rfl,
+    val_ofDec _ _ fullDec_node ho, NestInner.val_fullDec]
 
 /-- **The world a valuation of the annotations realizes**: every
-occurrence, outer or inner, whose annotation the valuation makes
-true. -/
-def realizedWorld (a : NestedValue T K) (ν : K → Bool) : World T K :=
-  ⟨a.groups.map (realizedGrp ν)⟩
+occurrence, of the value, of each expression family and of each inner
+node, whose annotation the valuation makes true – the outer and the
+inner ones independently. -/
+noncomputable def realizedWorld (a : NestedValue T K) (ν : K → Bool) : World T K a.lev :=
+  World.ofDec a (a.occs.map (fun o => (o.1, o.2, ν o.2))) (NestInner.realDec ν)
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- The realized world is a world of the value it is read off. -/
-@[simp] theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
-    (a.realizedWorld ν).IsWorldOf a := by
-  unfold World.IsWorldOf realizedWorld
-  rw [Multiset.map_map]
-  conv_rhs => rw [← Multiset.map_id' a.groups]
-  refine Multiset.map_congr rfl (fun g _ => ?_)
-  simp only [Function.comp_apply, WorldGrp.base, realizedGrp, Multiset.map_map]
-  exact Prod.ext rfl (Multiset.map_id' _)
+theorem isWorldOf_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
+    (a.realizedWorld ν).IsWorldOf a :=
+  isWorldOf_ofDec _ _ _ (by rw [Multiset.map_map]; exact Multiset.map_id' _)
+    (fun _ => Finset.filter_subset _ _) (realDec_node ν)
+
+/-- **What the realized world reads, occurrence by occurrence**: the
+valuation keeps the occurrences whose annotation it makes true, and reads
+each of them in the world it cuts out of everything that occurrence
+reads. -/
+theorem kept_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
+    (a.realizedWorld ν).kept
+      = (a.occs.filter (fun o => ν o.2 = true)).map
+          (fun o => NestInner.specialize ν a.lev o.1) := by
+  unfold World.kept
+  show ((a.occs.map (fun o => (o.1, o.2, ν o.2))).filter _).map _ = _
+  rw [Multiset.filter_map, Multiset.map_map]
+  refine Multiset.map_congr (Multiset.filter_congr (fun _ _ => Iff.rfl)) (fun o ho => ?_)
+  simp only [Function.comp_apply]
+  exact val_ofDec _ _ (realDec_node ν) (Multiset.mem_of_mem_filter ho)
 
 /-- **The world-faithful reading**: the value in the realized world. -/
-def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
+noncomputable def specialize (a : NestedValue T K) (ν : K → Bool) : T :=
   a.valOn (a.realizedWorld ν)
 
-/-- **The values a nested value takes over its worlds**, for a key
-reading. -/
-def vals (a : NestedValue T K) : Finset T :=
-  (((a.worlds.filter (fun W => W.IsWorld a)).map a.valOn)).toFinset
+/-- **The world-faithful reading, occurrence by occurrence.** -/
+theorem specialize_eq (a : NestedValue T K) (ν : K → Bool) :
+    a.specialize ν
+      = a.agg ((a.occs.filter (fun o => ν o.2 = true)).map
+          (fun o => NestInner.specialize ν a.lev o.1)) :=
+  congrArg a.agg (kept_realizedWorld a ν)
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+omit [DecidableEq T] [DecidableEq K] in
+theorem realDec_of_forall (ν : K → Bool) (h : ∀ x : K, ν x = true) :
+    NestInner.realDec (T := T) ν = NestInner.fullDec := by
+  unfold NestInner.realDec NestInner.fullDec
+  congr 1
+  · funext κ
+    exact Finset.filter_true_of_mem (fun i hi => ⟨Finset.mem_range.mp hi, h _⟩)
+  · funext j κ
+    simp [h]
+
 /-- A valuation that keeps every occurrence realizes the full world. -/
 theorem realizedWorld_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.realizedWorld ν = World.full a := by
   unfold realizedWorld World.full
-  refine congrArg World.mk (Multiset.map_congr rfl (fun g _ => ?_))
-  simp [realizedGrp, h]
+  rw [realDec_of_forall ν h]
+  simp [h]
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 /-- **Where every occurrence is realized the reading is the
 collapse**, so the world-faithful reading and the deterministic one
 agree on the database as it is. -/
@@ -973,75 +1070,63 @@ theorem specialize_of_forall (a : NestedValue T K) (ν : K → Bool)
     (h : ∀ x : K, ν x = true) : a.specialize ν = a.collapse := by
   rw [specialize, realizedWorld_of_forall a ν h, valOn_full]
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- **The world a valuation cuts out of a group's family is the one it
-cuts out of each inner value reading it.** -/
-theorem trW_realized {a : NestedValue T K} {g : List K × Multiset (AggExpr T K × K)}
-    (hg : g ∈ a.groups) {o : AggExpr T K × K} (ho : o ∈ g.2) (ν : K → Bool) :
-    trW (Finset.univ.filter (fun j : Fin g.1.length => ν (g.1.get j)))
-      = o.1.realizedWorld ν := by
-  have hl := length_of_grouped hg ho
-  rw [trW_eq_map hl]
-  ext i
-  simp only [Finset.mem_map_equiv, Finset.mem_filter, Finset.mem_univ, true_and,
-    AggExpr.realizedWorld]
-  rw [← anns_of_annList (a.grouped g hg o ho) hl ((finCongr hl).symm i)]
-  simp
+end NestedValue
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- **What the realized world reads, occurrence by occurrence**: the
-valuation keeps the occurrences whose annotation it makes true, and reads
-each of them in the world it cuts out of that occurrence's own
-expression – which is the world it cuts out of the shared family. -/
-theorem kept_realizedWorld (a : NestedValue T K) (ν : K → Bool) :
-    (a.realizedWorld ν).kept
-      = (a.occs.filter (fun o => ν o.2 = true)).map (fun o => o.1.specialize ν) := by
-  unfold World.kept realizedWorld occs
-  rw [Multiset.bind_map, Multiset.filter_bind, Multiset.map_bind]
-  refine Multiset.bind_congr (fun g hg => ?_)
-  unfold WorldGrp.vals realizedGrp
-  dsimp only
-  rw [Multiset.filter_map, Multiset.map_map]
-  refine Multiset.map_congr (Multiset.filter_congr (fun _ _ => Iff.rfl)) (fun o ho => ?_)
-  simp only [Function.comp_apply]
-  rw [trW_realized hg (Multiset.mem_of_mem_filter ho)]
-  rfl
+/-! ## The readings over the nested worlds
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- **The world-faithful reading, occurrence by occurrence.** -/
-theorem specialize_eq (a : NestedValue T K) (ν : K → Bool) :
-    a.specialize ν
-      = a.agg ((a.occs.filter (fun o => ν o.2 = true)).map
-          (fun o => o.1.specialize ν)) :=
-  congrArg a.agg (kept_realizedWorld a ν)
+With the world set fixed – the coherence clause not imposed – the
+readings a nested value owes can be written: the predicate provenance of
+a test of its value, and the values it takes. Both are the `AggValue`
+ones with `World` in place of a subfamily and `World.ann` in place of
+`Having.worldAnn`, and the sum runs over the enumerated worlds. -/
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-/-- **A decision of the realized world** is an occurrence of the value,
-present as its annotation is realized, reading the world the valuation
-cuts out of its own expression. -/
-theorem mem_realizedWorld {a : NestedValue T K} {ν : K → Bool} {G : WorldGrp T K}
-    (hG : G ∈ (a.realizedWorld ν).grps) {m : AggExpr T K × K × Bool} (hm : m ∈ G.mems) :
-    ∃ o ∈ a.occs, m = (o.1, o.2, ν o.2) ∧ trW G.sub = o.1.realizedWorld ν := by
-  obtain ⟨g, hg, rfl⟩ := Multiset.mem_map.mp hG
-  obtain ⟨o, ho, rfl⟩ := Multiset.mem_map.mp hm
-  exact ⟨o, Multiset.mem_bind.mpr ⟨g, hg, ho⟩, rfl, trW_realized hg ho ν⟩
+namespace NestedValue
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
-/-- **The values a nested value takes survive the pushforward**: the
-worlds correspond, and each reads what the world it came from reads. -/
-theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
-    (h : K → K') (a : NestedValue T K) : (a.mapAnn h).vals = a.vals := by
-  have hfil : Multiset.filter
-      ((fun W : World T K' => W.IsWorld (a.mapAnn h)) ∘ World.mapAnn h)
-        a.worlds
-      = Multiset.filter (fun W => W.IsWorld a) a.worlds :=
-    Multiset.filter_congr (fun W _ => World.isWorld_mapAnn (a := a) h W)
-  unfold vals
-  rw [worlds_mapAnn, Multiset.filter_map, hfil, Multiset.map_map]
-  exact congrArg Multiset.toFinset
-    (Multiset.map_congr rfl (fun W _ => valOn_mapAnn h a W))
+section Readings
 
-omit [ValueType T] [DecidableEq K] in
+variable [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+
+/-- **The predicate provenance of a test of a nested value**: the `⊕`
+over its worlds of the world's annotation times the truth of the test
+there. -/
+noncomputable def predProvWith (a : NestedValue T K) (P : T → Kleene) : K :=
+  ((a.worlds.filter (fun W => W.IsWorld a)).map
+    (fun W => W.ann * Having.chiOf P (a.valOn W))).sum
+
+/-- The comparison case. -/
+noncomputable def predProvOf (a : NestedValue T K) (op : CompOp) (c : T) : K :=
+  a.predProvWith (fun v => op.eval3 v c)
+
+/-- **The values a nested value takes over its worlds**, for a key
+reading. -/
+noncomputable def vals (a : NestedValue T K) : Finset T :=
+  (((a.worlds.filter (fun W => W.IsWorld a)).map a.valOn)).toFinset
+
+omit [ValueType T] [CommSemiringWithMonus K] in
+/-- A kept occurrence is one of the value's. -/
+theorem mem_occs_of_root [DecidableEq T] {a : NestedValue T K} {W : World T K a.lev}
+    (hW : W.IsWorldOf a) {m : NestInner T K a.lev × K × Bool} (hm : m ∈ W.root) :
+    (m.1, m.2.1) ∈ a.occs := by
+  rw [← hW.1]; exact Multiset.mem_map_of_mem _ hm
+
+omit [ValueType T] in
+/-- **A world that reads something absorbs the `δ`-guard of the outer
+family**: one of the outer annotations it keeps swallows `δ` of the
+family's sum. -/
+theorem World.presentProd_delta_absorb [DecidableEq T] {a : NestedValue T K}
+    {W : World T K a.lev} (hW : W.IsWorldOf a) (hk : 0 < Multiset.card W.kept) :
+    W.presentProd * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = W.presentProd := by
+  obtain ⟨v, hv⟩ := Multiset.card_pos_iff_exists_mem.mp hk
+  obtain ⟨m, hm, -⟩ := Multiset.mem_map.mp hv
+  obtain ⟨hmR, hp⟩ := Multiset.mem_filter.mp hm
+  have hfam : m.2.1 ∈ a.occs.map Prod.snd :=
+    Multiset.mem_map_of_mem Prod.snd (mem_occs_of_root hW hmR)
+  obtain ⟨s, hs⟩ := Multiset.exists_cons_of_mem hfam
+  have key : m.2.1 * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = m.2.1 := by
+    rw [hs, Multiset.sum_cons]; exact SemiringWithMonus.delta_absorb _ _
+  obtain ⟨x, hx⟩ := World.presentProd_eq_mul hmR hp
+  rw [hx, mul_right_comm, key]
+
 /-- **A nested value's predicate provenance absorbs the `δ`-guard of its
 own outer family**, provided the reading is grouped – which is what makes
 every admissible world keep an occurrence, so that one occurrence
@@ -1061,20 +1146,15 @@ theorem predProvWith_delta_absorb (a : NestedValue T K)
     · exact absurd (hsc.symm.trans hs) Bool.false_ne_true
     · exact hs
   obtain ⟨v, hv⟩ := Multiset.card_pos_iff_exists_mem.mp hkept
-  obtain ⟨G, hG, hvG⟩ := Multiset.mem_bind.mp hv
-  obtain ⟨m, hm, -⟩ := Multiset.mem_map.mp hvG
-  obtain ⟨hmG, hp⟩ := Multiset.mem_filter.mp hm
-  have hfam : m.2.1 ∈ a.occs.map Prod.snd := by
-    rw [occs, ← isWorldOf_of_mem_worlds hmem, Multiset.bind_map, Multiset.map_bind]
-    refine Multiset.mem_bind.mpr ⟨G, hG, ?_⟩
-    unfold WorldGrp.base
-    rw [Multiset.map_map]
-    exact Multiset.mem_map_of_mem _ hmG
+  obtain ⟨m, hm, -⟩ := Multiset.mem_map.mp hv
+  obtain ⟨hmR, hp⟩ := Multiset.mem_filter.mp hm
+  have hfam : m.2.1 ∈ a.occs.map Prod.snd :=
+    Multiset.mem_map_of_mem Prod.snd (mem_occs_of_root (isWorldOf_of_mem_worlds hmem) hmR)
   obtain ⟨s, hs⟩ := Multiset.exists_cons_of_mem hfam
   have key : m.2.1 * SemiringWithMonus.delta (a.occs.map Prod.snd).sum = m.2.1 := by
     rw [hs, Multiset.sum_cons]
     exact SemiringWithMonus.delta_absorb _ _
-  obtain ⟨x, hx⟩ := World.exists_ann_eq_mul hG hmG hp
+  obtain ⟨x, hx⟩ := World.exists_ann_eq_mul hmR hp
   rw [hx]
   calc m.2.1 * x * Having.chiOf P (a.valOn W)
         * SemiringWithMonus.delta (a.occs.map Prod.snd).sum
@@ -1089,11 +1169,11 @@ term over the aggregate column it produces reads. The occurrences, the
 convention and so the worlds are untouched, so every reading is the
 reading of the value, read through `gf`. -/
 def postcomp (gf : T → T) (a : NestedValue T K) : NestedValue T K :=
-  ⟨fun s => gf (a.agg s), a.groups, a.scalar, a.fam, a.grouped⟩
+  ⟨a.lev, fun s => gf (a.agg s), a.occs, a.scalar, a.fam⟩
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
-@[simp] theorem groups_postcomp (gf : T → T) (a : NestedValue T K) :
-    (postcomp gf a).groups = a.groups := rfl
+@[simp] theorem lev_postcomp (gf : T → T) (a : NestedValue T K) :
+    (postcomp gf a).lev = a.lev := rfl
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem occs_postcomp (gf : T → T) (a : NestedValue T K) :
@@ -1107,7 +1187,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem collapse_postcomp (gf : T → T) (a : NestedValue T K) :
     (postcomp gf a).collapse = gf a.collapse := rfl
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
 /-- The values it takes are the values of the nested value, read through
 the function. -/
 theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
@@ -1124,13 +1204,11 @@ theorem vals_postcomp (gf : T → T) (a : NestedValue T K) :
   · rintro ⟨u, ⟨W, hW, rfl⟩, rfl⟩
     exact ⟨W, hW, rfl⟩
 
-omit [ValueType T] [DecidableEq K] in
 /-- And a test of `gf(a)` is the composed test of `a`. -/
 theorem predProvWith_postcomp (gf : T → T) (a : NestedValue T K)
     (P : T → Kleene) :
     (postcomp gf a).predProvWith P = a.predProvWith (fun v => P (gf v)) := rfl
 
-omit [ValueType T] [DecidableEq K] in
 /-- **A test no value satisfies annotates `𝟘`.** -/
 theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
     (h : ∀ v : T, P v ≠ Kleene.true) : a.predProvWith P = 0 := by
@@ -1140,6 +1218,67 @@ theorem predProvWith_of_never (a : NestedValue T K) {P : T → Kleene}
   rw [Having.chiOf, ite_eq_right (h _), mul_zero]
 
 end Readings
+
+/-- A world of the nested reading is one of the coherent reading's as
+soon as it keeps no inner occurrence no present occurrence reads. -/
+theorem World.isWorld_of_isWorldCoherent [DecidableEq T] [DecidableEq K] {d : ℕ}
+    {a : NestedValue T K} {W : World T K d} (h : W.IsWorldCoherent a) : W.IsWorld a :=
+  ⟨h.1, h.2.1, trivial⟩
+
+/-! ## The pushforward of the annotations
+
+Changing the annotation semiring moves no value and no occurrence: each
+inner value keeps its occurrences and each node its own. Only the
+annotations travel. -/
+
+section MapAnn
+
+variable {K' : Type}
+
+/-- **The pushforward of an inner value.** -/
+def _root_.NestInner.mapAnn (h : K → K') : (j : ℕ) → NestInner T K j → NestInner T K' j
+  | 0, e => AggExpr.mapAnn (T := T) h e
+  | j + 1, Sum.inl x => Sum.inl (NestInner.mapAnn h j x)
+  | j + 1, Sum.inr N => Sum.inr ⟨N.agg, N.occs.map (fun o => (NestInner.mapAnn h j o.1, h o.2)),
+      N.scalar, N.fam⟩
+
+/-- **The pushforward of a nested value**: both the inner values and the
+outer annotations go through `h`. -/
+def mapAnn (h : K → K') (a : NestedValue T K) : NestedValue T K' :=
+  ⟨a.lev, a.agg, a.occs.map (fun o => (NestInner.mapAnn h a.lev o.1, h o.2)), a.scalar, a.fam⟩
+
+@[simp] theorem lev_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).lev = a.lev := rfl
+
+@[simp] theorem agg_mapAnn (h : K → K') (a : NestedValue T K) : (a.mapAnn h).agg = a.agg := rfl
+
+@[simp] theorem scalar_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).scalar = a.scalar := rfl
+
+@[simp] theorem fam_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).fam = a.fam := rfl
+
+@[simp] theorem occs_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).occs = a.occs.map (fun o => (NestInner.mapAnn h a.lev o.1, h o.2)) := rfl
+
+theorem _root_.NestInner.collapse_mapAnn (h : K → K') :
+    ∀ (j : ℕ) (x : NestInner T K j),
+      NestInner.collapse j (NestInner.mapAnn h j x) = NestInner.collapse j x
+  | 0, e => AggExpr.collapse_mapAnn h e
+  | j + 1, Sum.inl x => NestInner.collapse_mapAnn h j x
+  | j + 1, Sum.inr N => by
+    show N.agg _ = N.agg _
+    rw [Multiset.map_map]
+    exact congrArg N.agg (Multiset.map_congr rfl
+      (fun o _ => NestInner.collapse_mapAnn h j o.1))
+
+/-- The deterministic reading survives the pushforward. -/
+@[simp] theorem collapse_mapAnn (h : K → K') (a : NestedValue T K) :
+    (a.mapAnn h).collapse = a.collapse := by
+  show a.agg _ = a.agg _
+  rw [occs_mapAnn, Multiset.map_map]
+  exact congrArg a.agg (Multiset.map_congr rfl (fun o _ => NestInner.collapse_mapAnn h _ o.1))
+
+end MapAnn
 
 /-! ## Nothing nested: the degenerate case
 
@@ -1157,7 +1296,6 @@ the empty one, and it contributes no occurrence. -/
 def constInner (v : T) : AggExpr T K :=
   AggExpr.ofValue ⟨fun _ => v, [], true, FamId.none⟩
 
-omit [ValueType T] in
 @[simp] theorem annList_constInner (v : T) : (constInner v : AggExpr T K).annList = [] := rfl
 
 /-- **The nested value of an ordinary token**: nothing is nested, each
@@ -1165,52 +1303,65 @@ occurrence carrying a value rather than a family. The token's aggregate
 has to be symmetric to be the outer one, a nested value's aggregate being
 a function of the bag. -/
 def ofAggValue (a : AggValue T K) (hsym : a.agg.Symmetric) : NestedValue T K :=
-  ⟨a.agg.onBag hsym,
-    {([], ((a.occs.map (fun o => ((constInner o.fst : AggExpr T K), o.snd)) :
-      List (AggExpr T K × K)) : Multiset (AggExpr T K × K)))},
-    a.scalar, a.fam, by
-      intro g hg o ho
-      rw [Multiset.mem_singleton] at hg
-      subst hg
-      obtain ⟨p, -, rfl⟩ := List.mem_map.mp (Multiset.mem_coe.mp ho)
-      rfl⟩
+  ⟨0, a.agg.onBag hsym,
+    ((a.occs.map (fun o => ((constInner o.fst : AggExpr T K), o.snd)) :
+      List (AggExpr T K × K)) : Multiset (AggExpr T K × K)),
+    a.scalar, a.fam⟩
 
 /-- **A world of an unnested token, as a world of its nested form**: the
 one empty inner family, and the occurrences the subfamily keeps. -/
-def worldOf (a : AggValue T K) (W : Finset (Fin a.occs.length)) : World T K :=
-  ⟨{⟨[], ∅, ((List.finRange a.occs.length).map (fun i =>
+def worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
+    (W : Finset (Fin a.occs.length)) : World T K 0 :=
+  ⟨(((List.finRange a.occs.length).map (fun i =>
       ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd, decide (i ∈ W))) :
-        List (AggExpr T K × K × Bool))⟩}⟩
+        List (AggExpr T K × K × Bool)) : Multiset (AggExpr T K × K × Bool)),
+    (((a.occs.map (fun o => leafKey (constInner o.fst : AggExpr T K))) :
+      List (LeafKey T K)) : Multiset (LeafKey T K)).dedup.map (fun κ => (κ, ∅)),
+    0⟩
 
-omit [ValueType T] in
 /-- It is a world of the nested form. -/
-theorem isWorldOf_worldOf (a : AggValue T K) (hsym : a.agg.Symmetric)
-    (W : Finset (Fin a.occs.length)) :
+theorem isWorldOf_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
+    (hsym : a.agg.Symmetric) (W : Finset (Fin a.occs.length)) :
     (worldOf a W).IsWorldOf (ofAggValue a hsym) := by
-  unfold World.IsWorldOf worldOf ofAggValue
-  rw [Multiset.map_singleton]
-  refine congrArg _ (Prod.ext rfl ?_)
-  show (Multiset.ofList _).map _ = Multiset.ofList _
-  rw [Multiset.map_coe]
-  refine congrArg Multiset.ofList ?_
-  refine List.ext_getElem (by simp) (fun n h₁ h₂ => ?_)
-  simp
+  classical
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · show (Multiset.ofList _).map _ = Multiset.ofList _
+    rw [Multiset.map_coe]
+    refine congrArg Multiset.ofList ?_
+    refine List.ext_getElem (by simp) (fun n h₁ h₂ => ?_)
+    simp
+  · dsimp only [worldOf]
+    rw [Multiset.map_map]
+    simp only [Function.comp_def, Multiset.map_id']
+    show _ = (Multiset.bind _
+      (fun o : AggExpr T K × K => ({leafKey o.1} : Multiset (LeafKey T K)))).dedup
+    rw [Multiset.bind_singleton]
+    show _ = (Multiset.map _ (Multiset.ofList _)).dedup
+    rw [Multiset.map_coe, List.map_map]
+    rfl
+  · intro e he
+    dsimp only [worldOf] at he
+    obtain ⟨κ, -, rfl⟩ := Multiset.mem_map.mp he
+    exact Finset.empty_subset _
+  · show (0 : Multiset _).map _ = _
+    unfold nodes ofAggValue
+    simp [NestInner.nodes]
+  · intro e he; exact absurd he (Multiset.notMem_zero _)
 
 section DegenerateAnn
 
 variable [CommSemiringWithMonus K]
 
-omit [ValueType T] in
 /-- **A world of an unnested value is annotated as the token's own
 family annotates it.** -/
-theorem ann_worldOf (a : AggValue T K)
+theorem ann_worldOf [DecidableEq T] [DecidableEq K] (a : AggValue T K)
     (W : Finset (Fin a.occs.length)) :
     (worldOf a W).ann = Having.worldAnn a.anns W := by
-  have hpres : ((Multiset.ofList ((List.finRange a.occs.length).map (fun i =>
-      ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd, decide (i ∈ W))))).map
-      (fun m : AggExpr T K × K × Bool => if m.2.2 = true then m.2.1 else 1)).prod
+  have hpres : decProd (((List.finRange a.occs.length).map (fun i =>
+      ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd, decide (i ∈ W))) :
+        List (AggExpr T K × K × Bool)) : Multiset (AggExpr T K × K × Bool))
       = ∏ i ∈ W, a.anns i := by
-    rw [Multiset.map_coe, Multiset.prod_coe, List.map_map,
+    rw [decProd, Multiset.map_coe, Multiset.prod_coe, List.map_map,
       show ((List.finRange a.occs.length).map
           ((fun m : AggExpr T K × K × Bool => if m.2.2 = true then m.2.1 else 1) ∘
             (fun i => ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd,
@@ -1221,11 +1372,11 @@ theorem ann_worldOf (a : AggValue T K)
             (fun i _ => by simp [AggValue.anns])),
       ← Finset.prod_filter]
     exact Finset.prod_congr (Finset.filter_univ_mem W) (fun _ _ => rfl)
-  have habs : ((Multiset.ofList ((List.finRange a.occs.length).map (fun i =>
-      ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd, decide (i ∈ W))))).map
-      (fun m : AggExpr T K × K × Bool => if m.2.2 = true then 0 else m.2.1)).sum
+  have habs : decAbs (((List.finRange a.occs.length).map (fun i =>
+      ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd, decide (i ∈ W))) :
+        List (AggExpr T K × K × Bool)) : Multiset (AggExpr T K × K × Bool))
       = ∑ i ∈ Wᶜ, a.anns i := by
-    rw [Multiset.map_coe, Multiset.sum_coe, List.map_map,
+    rw [decAbs, Multiset.map_coe, Multiset.sum_coe, List.map_map,
       show ((List.finRange a.occs.length).map
           ((fun m : AggExpr T K × K × Bool => if m.2.2 = true then 0 else m.2.1) ∘
             (fun i => ((constInner (a.occs.get i).fst : AggExpr T K), (a.occs.get i).snd,
@@ -1236,17 +1387,28 @@ theorem ann_worldOf (a : AggValue T K)
           by_cases hi : i ∈ W <;> simp [AggValue.anns, hi],
       ← Finset.sum_filter]
     exact Finset.sum_congr (Finset.filter_univ_mem Wᶜ) (fun _ _ => rfl)
-  unfold World.ann World.presentProd World.absentSum worldOf
-  simp only [Multiset.map_singleton, Multiset.prod_singleton, Multiset.sum_singleton,
-    WorldGrp.prod, WorldGrp.absent]
-  rw [hpres, habs, Finset.prod_empty, mul_one,
-    show (∑ x ∈ (∅ : Finset (Fin ([] : List K).length))ᶜ, ([] : List K).get x) = 0 from
-      Finset.sum_eq_zero (fun j _ => absurd j.isLt (Nat.not_lt_zero _)), add_zero,
-    Having.worldAnn]
+  have hl : ∀ e ∈ (worldOf a W).leaf, leafProd e = (1 : K) ∧ leafAbs e = (0 : K) := by
+    intro e he
+    dsimp only [worldOf] at he
+    obtain ⟨κ, hκ, rfl⟩ := Multiset.mem_map.mp he
+    obtain ⟨o, -, rfl⟩ := List.mem_map.mp (Multiset.mem_coe.mp (Multiset.mem_dedup.mp hκ))
+    simp [leafProd, leafAbs, leafKey]
+  unfold World.ann World.presentProd World.absentSum
+  dsimp only [worldOf] at hl ⊢
+  rw [hpres, habs,
+    Multiset.prod_eq_one (fun x hx => by
+      obtain ⟨e, he, rfl⟩ := Multiset.mem_map.mp hx; exact (hl e he).1),
+    Multiset.sum_eq_zero (fun x hx => by
+      obtain ⟨e, he, rfl⟩ := Multiset.mem_map.mp hx; exact (hl e he).2)]
+  simp [Having.worldAnn]
 
 end DegenerateAnn
 
 end NestedValue
+
+
+variable [ValueType T]
+
 
 /-! ## The aggregate side of a lifted value
 
@@ -1459,7 +1621,7 @@ variable [CommSemiringWithMonus K] [DecidableEq K]
 /-- The predicate provenance of a comparison against the token, in its
 own convention. On a nested token it is the sum over the nested
 worlds. -/
-def predProvOfWith (P : T → Kleene) : AggTok T K → K
+noncomputable def predProvOfWith (P : T → Kleene) : AggTok T K → K
   | .tok a => a.predProvOfWith P
   | .nest a => a.predProvWith P
   | .expr a => a.predProvWith P
@@ -1482,30 +1644,30 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
   cases x <;> rfl
 
 /-- The comparison case. -/
-def predProvOf (op : CompOp) (c : T) (x : AggTok T K) : K :=
+noncomputable def predProvOf (op : CompOp) (c : T) (x : AggTok T K) : K :=
   x.predProvOfWith (fun v => op.eval3 v c)
 
 /-- The world-faithful reading under a valuation of the annotations. On
 a nested token it is the value in the world the valuation realizes, inner
 occurrences included. -/
-def specialize (ν : K → Bool) : AggTok T K → T
+noncomputable def specialize (ν : K → Bool) : AggTok T K → T
   | .tok a => a.specialize ν
   | .nest a => a.specialize ν
   | .expr a => a.specialize ν
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
 @[simp] theorem specialize_tok (a : AggValue T K) (ν : K → Bool) :
     (AggTok.tok a).specialize ν = a.specialize ν := rfl
 
 /-- The values the token takes over its worlds, for a key reading – the
 nested worlds on a nested token. -/
-def vals : AggTok T K → Finset T
+noncomputable def vals : AggTok T K → Finset T
   | .tok a => a.vals
   | .nest a => a.vals
   | .expr a => a.vals
 
 /-- `[a ≐ v]`. -/
-def altProv (x : AggTok T K) (v : T) : K :=
+noncomputable def altProv (x : AggTok T K) (v : T) : K :=
   x.predProvOfWith (fun y => CompOp.syneq.eval3 y v)
 
 @[simp] theorem predProvOfWith_tok (a : AggValue T K) (P : T → Kleene) :
@@ -1517,7 +1679,7 @@ def altProv (x : AggTok T K) (v : T) : K :=
 @[simp] theorem predProvOf_tok (a : AggValue T K) (op : CompOp) (c : T) :
     (AggTok.tok a).predProvOf op c = a.predProvOf op c := rfl
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
 @[simp] theorem vals_tok (a : AggValue T K) :
     (AggTok.tok a).vals = a.vals := rfl
 
@@ -1544,14 +1706,14 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem scalar_mapAnn {K' : Type} (f : K → K') (x : AggTok T K) :
     (x.mapAnn f).scalar = x.scalar := by cases x <;> rfl
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
-/-- The values a column takes survive the pushforward, whichever kind of
-token it holds. -/
+omit [CommSemiringWithMonus K] in
+/-- The values a column takes survive the pushforward, on a token that is
+not nested. -/
 theorem vals_mapAnn {K' : Type} [CommSemiringWithMonus K'] [DecidableEq K']
-    (f : K → K') (x : AggTok T K) : (x.mapAnn f).vals = x.vals := by
+    (f : K → K') (x : AggTok T K) (hx : x.isNested = false) : (x.mapAnn f).vals = x.vals := by
   cases x with
   | tok a => exact AggValue.vals_mapAnn f a
-  | nest a => exact NestedValue.vals_mapAnn f a
+  | nest a => exact absurd hx (by simp [isNested])
   | expr e => exact AggExpr.vals_mapAnn f e
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
@@ -1593,11 +1755,11 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
 @[simp] theorem predProvOf_setFam (φ : FamId T) (op : CompOp) (c : T) (x : AggTok T K) :
     (x.setFam φ).predProvOf op c = x.predProvOf op c := by cases x <;> rfl
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
 @[simp] theorem specialize_setFam (φ : FamId T) (ν : K → Bool) (x : AggTok T K) :
     (x.setFam φ).specialize ν = x.specialize ν := by cases x <;> rfl
 
-omit [CommSemiringWithMonus K] [DecidableEq K] in
+omit [CommSemiringWithMonus K] in
 @[simp] theorem vals_setFam (φ : FamId T) (x : AggTok T K) :
     (x.setFam φ).vals = x.vals := by cases x <;> rfl
 

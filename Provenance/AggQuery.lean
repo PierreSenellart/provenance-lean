@@ -115,20 +115,39 @@ abbrev GenValue (T K : Type) := T ⊕ AggTok T K
 def GenValue.collapse : GenValue T K → T :=
   Sum.elim id AggTok.collapse
 
-/-- **How a lifted value is read as the inner reading of a nested
-aggregation**: an aggregate expression is itself – a term over several
-aggregate columns is one, and `sec:aggcols` reads it as such – an
-ordinary token is the expression of itself (`AggExpr.ofValue`), and a
-regular value reads no occurrence and returns itself
-(`NestedValue.constInner`), so that aggregating a regular column nests
-nothing. A *nested* column is read through its collapse: a second level
-of nesting is what resolution takes innermost first, and this is the
-total modeling semantics `GammaTok` is given too. -/
+/-- **How a lifted value is read as an aggregate expression**: an
+aggregate expression is itself – a term over several aggregate columns is
+one, and `sec:aggcols` reads it as such – an ordinary token is the
+expression of itself (`AggExpr.ofValue`), and a regular value reads no
+occurrence and returns itself (`NestedValue.constInner`), so that
+aggregating a regular column nests nothing. A *nested* value is no
+expression and is read here through its collapse; a second-level
+aggregation reads it as a node instead (`GenValue.innerAt`). -/
 def GenValue.innerValue : GenValue T K → AggExpr T K
   | Sum.inl v => NestedValue.constInner v
   | Sum.inr (AggTok.tok a) => AggExpr.ofValue a
   | Sum.inr (AggTok.nest a) => NestedValue.constInner a.collapse
   | Sum.inr (AggTok.expr e) => e
+
+/-- **The storey a lifted value is read at** by a second-level
+aggregation: one above a nested value's own, `0` for anything else. -/
+def GenValue.innerLev : GenValue T K → ℕ
+  | Sum.inr (AggTok.nest a) => a.lev + 1
+  | _ => 0
+
+/-- **How a lifted value is read as the inner reading of a nested
+aggregation of storey `D`**: a nested value of storey `D - 1` is a node of
+that storey, read world by world with its own occurrences; anything else
+is what storey `D - 1` reads, down to an aggregate expression at storey
+`0` (`GenValue.innerValue`). The aggregation takes `D` to be the largest
+storey its group's rows need, so every nested value is placed at its own
+storey and none is read through its collapse. -/
+def GenValue.innerAt (x : GenValue T K) : (D : ℕ) → NestInner T K D
+  | 0 => (GenValue.innerValue x : AggExpr T K)
+  | D + 1 => match x with
+    | Sum.inr (AggTok.nest a) =>
+      if h : a.lev = D then Sum.inr (h ▸ a.toNode) else Sum.inl (GenValue.innerAt x D)
+    | _ => Sum.inl (GenValue.innerAt x D)
 
 omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K] in
@@ -174,6 +193,28 @@ deterministic reading does not see the nesting. -/
       rw [NestedValue.constInner, AggExpr.collapse_ofValue]
       rfl
     | expr e => rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
+  [HasAltLinearOrder K] in
+/-- **The inner reading of a lifted value collapses to its collapse**, at
+every storey. -/
+@[simp] theorem NestedValue.collapse_innerAt (x : GenValue T K) :
+    ∀ D : ℕ, NestInner.collapse D (x.innerAt D) = AggValue.collapseSum x
+  | 0 => NestedValue.collapse_innerValue x
+  | D + 1 => by
+    cases x with
+    | inl v => exact NestedValue.collapse_innerAt (Sum.inl v) D
+    | inr y =>
+      cases y with
+      | nest a =>
+        by_cases h : a.lev = D
+        · subst h
+          simp only [GenValue.innerAt, dite_true]
+          rfl
+        · simp only [GenValue.innerAt, h, dite_false]
+          exact NestedValue.collapse_innerAt _ D
+      | tok a => exact NestedValue.collapse_innerAt _ D
+      | expr e => exact NestedValue.collapse_innerAt _ D
 
 /-- The factored annotation of a row of the general evaluator: the
 concrete part `base`, and one pending group-existence factor per
@@ -338,7 +379,8 @@ def flatOk (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W : Finset
 
 /-- Whether a world of a nested family is a world of every nested value
 the columns `M` hold. -/
-def nestOk (u : Tuple (GenValue T K) n) (M : List (Fin n)) (W : NestedValue.World T K) :
+noncomputable def nestOk (u : Tuple (GenValue T K) n) (M : List (Fin n)) {d : ℕ}
+    (W : NestedValue.World T K d) :
     Bool :=
   M.all (fun k => match u k with
     | Sum.inr (.nest b) => decide (W.IsWorld b)
@@ -349,7 +391,7 @@ hold its values: per world, the product of the present annotations, the
 sum of the absent ones, and the value of each of those columns. The
 family is listed by the first of them, `x₀`; a world is one every value
 of the family accepts – one meeting the group of each grouped value. -/
-def classWorlds (u : Tuple (GenValue T K) n) (M : List (Fin n)) :
+noncomputable def classWorlds (u : Tuple (GenValue T K) n) (M : List (Fin n)) :
     AggTok T K → Multiset (K × K × (Fin n → Option T))
   | .nest a =>
     (a.worlds.filter (fun W => nestOk u M W = true)).map
@@ -376,8 +418,9 @@ theorem flatOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {m : ℕ} (W 
   | inl w => simp
   | inr y => simp
 
-omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
-theorem nestOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) (W : NestedValue.World T K) :
+omit [CommSemiringWithMonus K] [HasAltLinearOrder K] in
+theorem nestOk_iff (u : Tuple (GenValue T K) n) (M : List (Fin n)) {d : ℕ}
+    (W : NestedValue.World T K d) :
     nestOk u M W = true ↔ ∀ k ∈ M, ∀ b, u k = Sum.inr (.nest b) → W.IsWorld b := by
   unfold nestOk
   rw [List.all_eq_true]
@@ -407,9 +450,9 @@ the reading is defined on every row, a family being read in the worlds of
 the occurrences its members actually carry. -/
 def AggTok.classKey (x : AggTok T K) :
     (ℕ × List T × List (T ⊕ FamId T)) × List K
-      × Option (Multiset (List K × Multiset (AggExpr T K × K))) :=
+      × Option (Σ j, Multiset (NestInner T K j × K)) :=
   (x.fam.family, x.annList, match x with
-    | .nest a => some a.groups
+    | .nest a => some ⟨a.lev, a.occs⟩
     | _ => none)
 
 open Classical in
@@ -419,7 +462,7 @@ inner expressions, is compared classically – so that two keys with no
 nested component still compare in the kernel. -/
 noncomputable instance instDecidableEqClassKey :
     DecidableEq ((ℕ × List T × List (T ⊕ FamId T)) × List K
-      × Option (Multiset (List K × Multiset (AggExpr T K × K)))) :=
+      × Option (Σ j, Multiset (NestInner T K j × K))) :=
   @instDecidableEqProd _ _ FamId.instDecidableEqFamily
     (@instDecidableEqProd _ _ inferInstance (@Option.instDecidableEq _ (Classical.decEq _)))
 
@@ -608,7 +651,7 @@ witness the difference (`bool_or_ne_joint`, `nat_or_ne_joint`), so
 there the sum has to be computed rather than short cut. A range is the
 same point for `∧` on one family, which is why `aggRange` is an atom of
 its own rather than two atoms conjoined. -/
-def predsem (φ : GenPredIn T c κ) (neg : Bool)
+noncomputable def predsem (φ : GenPredIn T c κ) (neg : Bool)
     (u : Tuple (GenValue T K) n) (γ : Fin c → T := fun _ => 0) : K :=
   match φ with
   | cmp op t₁ t₂ =>
@@ -1631,7 +1674,7 @@ regular and the annotation multiplied by `[a ≐ v]`
 (`AggValue.altProv`). A column already regular has the occurrence
 itself as its only alternative. This is how an operator that compares
 keys reads an aggregate column. -/
-def GenRow.alternativesAt {n : ℕ} (r : GenRow T K n) (i : Fin n) :
+noncomputable def GenRow.alternativesAt {n : ℕ} (r : GenRow T K n) (i : Fin n) :
     Multiset (GenRow T K n) :=
   match r.fst i with
   | Sum.inl _ => {r}
@@ -2406,6 +2449,74 @@ def EvalEnv.paramKey (E : EvalEnv T K) {c : ℕ} (r : Fin c → Bool) (γ : Fin 
     List (T ⊕ FamId T) :=
   ctxKey r (fun k => GenValue.paramId (E.ctxAt c γ k))
 
+/-- **The nested value of a bag of lifted values**, each with its
+annotation: one occurrence per element, carrying what the value reads at
+the storey the bag needs – one above the deepest nested value it holds
+(`GenValue.innerAt`). -/
+def nestOfVals (f : Multiset T → T) (φ : FamId T) (V : Multiset (GenValue T K × K)) :
+    NestedValue T K :=
+  let D := (V.map (fun v => v.1.innerLev)).sup
+  NestedValue.ofOccs f (V.map (fun v => (v.1.innerAt D, v.2))) false φ
+
+/-- **The nested value a second-level aggregation builds over a group**:
+one occurrence per row, carrying what the column reads there, and the
+row's annotation. -/
+def nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ) (γ : Fin c → T)
+    (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) : NestedValue T K :=
+  nestOfVals f φ (grp.map (fun row => (p.eval row.fst γ, row.snd.finalize)))
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem fam_nestOfVals (f : Multiset T → T) (φ : FamId T)
+    (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).fam = φ := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem agg_nestOfVals (f : Multiset T → T) (φ : FamId T)
+    (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).agg = f := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem scalar_nestOfVals (f : Multiset T → T) (φ : FamId T)
+    (V : Multiset (GenValue T K × K)) : (nestOfVals f φ V).scalar = false := rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem fam_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+    (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
+    (nestOfGroup p γ f φ grp).fam = φ := rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem agg_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+    (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
+    (nestOfGroup p γ f φ grp).agg = f := rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem scalar_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+    (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
+    (nestOfGroup p γ f φ grp).scalar = false := rfl
+
+omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K] in
+/-- **The deterministic reading of a nested value built over a bag** is
+the outer aggregate of the values' collapses. -/
+@[simp] theorem collapse_nestOfVals (f : Multiset T → T) (φ : FamId T)
+    (V : Multiset (GenValue T K × K)) :
+    (nestOfVals f φ V).collapse = f (V.map (fun v => AggValue.collapseSum v.1)) := by
+  simp only [nestOfVals, NestedValue.collapse, NestedValue.ofOccs, Multiset.map_map,
+    Function.comp_def, NestedValue.collapse_innerAt]
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+@[simp] theorem collapse_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+    (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
+    (nestOfGroup p γ f φ grp).collapse
+      = f (grp.map (fun row => AggValue.collapseSum (p.eval row.fst γ))) := by
+  rw [nestOfGroup, collapse_nestOfVals, Multiset.map_map]
+  rfl
+
+omit [DecidableEq K] [HasAltLinearOrder K] in
+/-- The annotations of its occurrences are the rows'. -/
+@[simp] theorem occs_snd_nestOfGroup {c m : ℕ} {κ : Fin m → ColKind} (p : ProjColIn T c κ)
+    (γ : Fin c → T) (f : Multiset T → T) (φ : FamId T) (grp : Multiset (GenRow T K m)) :
+    (nestOfGroup p γ f φ grp).occs.map Prod.snd = grp.map (fun row => row.snd.finalize) := by
+  simp only [nestOfGroup, nestOfVals, NestedValue.occs_ofOccs, Multiset.map_map]
+  rfl
+
 /-- **The general annotated evaluator.** All operators preserve the
 factored-annotation discipline described in the module docstring. -/
 noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)}
@@ -2537,17 +2648,14 @@ noncomputable def AggQueryIn.evaluate {c n : ℕ} {κ : Fin n → ColKind} {l : 
     ((rows.map key).dedup).map (fun g =>
       -- the group's rows, as a bag: they carry tokens, which nothing
       -- orders, and the outer aggregate asks for no order
-      let U : Multiset (AggExpr T K × K) :=
-        (rows.filter (fun row => key row = g)).map
-          (fun row => (GenValue.innerValue (p.eval row.fst γ),
-            row.snd.finalize))
+      let grp := rows.filter (fun row => key row = g)
       ⟨Fin.append (fun k => (Sum.inl (g k) : GenValue T K))
-        (fun _ : Fin 1 => Sum.inr (AggTok.nest (NestedValue.ofOccs f U false
-          (.mk lab (List.ofFn g) (E.paramKey rd γ) 0 [])))),
+        (fun _ : Fin 1 => Sum.inr (AggTok.nest (nestOfGroup p γ f
+          (.mk lab (List.ofFn g) (E.paramKey rd γ) 0 []) grp))),
        -- the group's existence factor, as the one annotation the bag of
        -- occurrences sums to – which is what `AggTok.annList` gives a
        -- nested token, so the supersede test can match the two
-       ⟨1, {[(U.map Prod.snd).sum]}⟩⟩)
+       ⟨1, {[(grp.map (fun row => row.snd.finalize)).sum]}⟩⟩)
   | _, _, _, _, Retag _ q, d, γ, E => q.evaluate d γ E
   | _, _, _, _, @ProvSum _ _ _m n₁ _κ is _his t q, d, γ, E =>
     let r : AnnotatedRelation T K _ := (q.evaluate d γ E).map GenRow.toAnnotated
@@ -3836,32 +3944,22 @@ def AggQueryIn.noFilter : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List
 the syntax that builds a *nested* token, and what this excludes is the
 two syntactic token fences it is the counterexample to
 (`AggQueryIn.evaluate_noNested`, `AggQueryIn.evaluate_ordinaryTokens`).
-Everything else covers it: the evaluators and the kind conformance ask
-nothing, the data-part adequacy, the guardedness and the rewritten
-world's plain reading are proved, the random world and the PQE results
-ask only `AggQueryIn.nestOnce`, and the hom commutation asks nothing.
+Everything else covers it, at every storey: the evaluators and the kind
+conformance ask nothing, the data-part adequacy, the guardedness and the
+rewritten world's plain reading are proved, and so are the random world,
+the PQE results and the hom commutation.
 
-**What the hom needs, and what gives it.** A nested world's weight is
-not a function of the four readings its occurrences' inner values carry.
-`NestedValue.World.ann` is `presentProd ⊗ (𝟙 ⊖ absentSum)` with the
-monus taken *once, globally*: `absentSum` adds the absent outer
-annotations and, for every inner family, `Σ_{j ∉ sub} anns j`. `AggExpr.predProvWith` instead bundles a monus *per inner world*,
-`∏_{j∈S} anns ⊗ (𝟙 ⊖ Σ_{j∉S} anns)`, and the bundle does not recover the
-pair. So what the nested reading asks of an occurrence is, per subfamily
-`S` of its inner family, the triple `(∏_{j∈S} anns j, Σ_{j∉S} anns j,
-valOn S)` – data about positions, which the four readings do not
-determine.
-
-What answers it is to keep the pair apart: `GenRow.Sim` relates an
-aggregate column by its `AggExpr.worldStats`, the bag of those triples,
-which a tie-block permutation preserves (`AggExpr.worldStats_congr`) and
-which every operator's aggregate column therefore gives; a nested value's
-groups – one inner family each, with the outer occurrences reading it –
-then carry their unsplit data (`NestedValue.grpStatsU`), off which every
-world's product and absent sum, hence its weight, are read in every
-m-semiring (`NestedValue.predProvWith_eq_choicesU`), and two groups
-presented by related listings carry corresponding data
-(`NestedValue.grpStatsU_hom`). -/
+**What the hom reads of a nested value.** A nested world's weight is not
+a function of the four readings its occurrences' inner values carry:
+`NestedValue.World.ann` is `presentProd ⊗ (𝟙 ⊖ absentSum)` with the monus
+taken *once*, over the value's own occurrences, each expression family
+and each inner node together, while a reading bundles a monus per world.
+So `GenValue.Equiv` relates a nested column by its collapse, convention
+and aggregate only, and the hom carries the rest structurally: two nested
+values built from related listings are related occurrence by occurrence
+(`NestInner.Rel`), and their worlds then correspond one by one, with the
+kept product and the absent sum pushed through the hom
+(`NestedValue.WCorr`, `wcorr_of_rel`). -/
 def AggQueryIn.noGammaNest : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
     AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
@@ -3929,104 +4027,6 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
-
-/-- **The context positions whose values reach a second-level
-aggregation's input.** A second-level aggregation reads every position
-its input reads; an apply passes on what its right side feeds past the
-left row and, where the right side feeds a left column to one, every
-position its left side reads too, that column being built from them. -/
-def AggQueryIn.nestReads : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Fin c → Bool
-  | _, _, _, _, .Rel _ _, _ => false
-  | _, _, _, _, .Hole _ _ _, _ => false
-  | _, _, _, _, .Param _ _, _ => false
-  | _, _, _, _, .Empty, _ => false
-  | _, _, _, _, .Proj _ q, k => q.nestReads k
-  | _, _, _, _, .Sel _ q _, k => q.nestReads k
-  | _, _, _, _, .Prod q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
-  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂, k =>
-      q₁.nestReads k || q₂.nestReads (Fin.natAdd n₁ k)
-        || ((List.finRange n₁).any (fun i => q₂.nestReads (Fin.castAdd c i))
-          && q₁.readsOuter k)
-  | _, _, _, _, .Sum q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
-  | _, _, _, _, .Dedup q, k => q.nestReads k
-  | _, _, _, _, .Diff q₁ q₂, k => q₁.nestReads k || q₂.nestReads k
-  | _, _, _, _, .Explode _ _ q, k => q.nestReads k
-  | _, _, _, _, .Mu _ q₀ q₁, k => q₀.nestReads k || q₁.nestReads k
-  | _, _, _, _, .MuSet _ q₀ q₁, k => q₀.nestReads k || q₁.nestReads k
-  | _, _, _, _, .Gamma _ _ _ q _ _, k => q.nestReads k
-  | _, _, _, _, .GammaScalar _ _ q _, k => q.nestReads k
-  | _, _, _, _, .GammaNest _ _ _ _ q, k => q.readsOuter k
-  | _, _, _, _, .ProvSum _ _ _ q, k => q.nestReads k
-  | _, _, _, _, .Retag _ q, k => q.nestReads k
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _, k => q.nestReads k
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _, k => q.nestReads k
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _, k => q.nestReads k
-
-/-- **The rounds whose values reach a second-level aggregation's input**:
-those an apply's left side reads, where its right side reads a left
-column into one. -/
-def AggQueryIn.holeNests : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → String × ℕ → Bool
-  | _, _, _, _, .Proj _ q, p => q.holeNests p
-  | _, _, _, _, .Sel _ q _, p => q.holeNests p
-  | _, _, _, _, .Prod q₁ q₂, p => q₁.holeNests p || q₂.holeNests p
-  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂, p =>
-      q₁.holeNests p || (List.finRange n₁).any (fun i => q₂.nestReads (Fin.castAdd c i))
-  | _, _, _, _, .Sum q₁ q₂, p => q₁.holeNests p || q₂.holeNests p
-  | _, _, _, _, .Explode _ _ q, p => q.holeNests p
-  | _, _, _, _, .Retag _ q, p => q.holeNests p
-  | _, _, _, _, _, _ => false
-
-/-- **No second-level aggregation reads a second-level aggregation.**
-One level of nesting is what `sec:aggcols` reads as values: an occurrence
-of a nested value carries the aggregate *expression* read there, and an
-expression's leaves are ordinary aggregate values. A column holding a
-*nested* value at such an occurrence is a second level, which
-`GenValue.innerValue` reads through its collapse – total, and the
-deterministic reading of it is right, but not the world reading. A third
-level is what resolution takes innermost first, so the possible-world
-results ask this of the query: no `GammaNest` inside a `GammaNest`.
-
-A nested value reaches a second-level aggregation's input through the
-context and the rounds of a recursion too, so the condition follows it
-there, and only as far as it actually goes: an apply whose right side
-feeds a column of the left row to a second-level aggregation
-(`AggQueryIn.nestReads`) has a left side that builds no nested value, and
-a bag recursion whose body feeds a round to one (`AggQueryIn.holeNests`)
-has no aggregate column. So an apply with a second-level aggregation on
-each side, the right one reading only the ambient context, is at one
-storey, and so is a bag recursion carrying nested values from round to
-round that its body reads only as values.
-
-It is strictly weaker than `AggQueryIn.noGammaNest`, which excludes the
-operator outright. -/
-def AggQueryIn.nestOnce : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.nestOnce
-  | _, _, _, _, .Sel _ q _ => q.nestOnce
-  | _, _, _, _, .Prod q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, _, @Apply _ c n₁ _ _ _ _ q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-      ∧ (q₁.noGammaNest ∨ ∀ i : Fin n₁, q₂.nestReads (Fin.castAdd c i) = false)
-  | _, _, _, _, .Sum q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, _, .Dedup q => q.nestOnce
-  | _, _, _, _, .Diff q₁ q₂ => q₁.nestOnce ∧ q₂.nestOnce
-  | _, _, _, _, .Explode _ _ q => q.nestOnce
-  | _, _, _, _, @Mu _ _ n κ s q₀ q₁ =>
-      q₀.nestOnce ∧ q₁.nestOnce ∧ (q₁.holeNests (s, n) = false ∨ ∀ k, (κ k).base ≠ ColKind.agg)
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestOnce ∧ q₁.nestOnce
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestOnce
-  | _, _, _, _, .GammaScalar _ _ q _ => q.nestOnce
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noGammaNest
-  | _, _, _, _, .ProvSum _ _ _ q => q.nestOnce
-  | _, _, _, _, .Retag _ q => q.nestOnce
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestOnce
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestOnce
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestOnce
 
 /-- No window anywhere in the query. -/
 def AggQueryIn.noWin : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
@@ -4145,96 +4145,6 @@ def AggQueryIn.readsRecorded : {c n : ℕ} → {κ : Fin n → ColKind} → {l :
   | _, _, _, _, @WinExpr _ _ _ _ _ _ lab rd P O o ws ts fs g q keeps =>
       rd = (AggQueryIn.WinExpr (lab := lab) (rd := rd) P O o ws ts fs g q keeps).readsOuter
         ∧ q.readsRecorded
-
-omit [ValueType T] in
-/-- A query with no second-level aggregation passes no context position
-to one. -/
-theorem AggQueryIn.nestReads_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noGammaNest → ∀ k, q.nestReads k = false := by
-  intro c n κ l q
-  induction q with
-  | Rel n s => exact fun _ _ => rfl
-  | Hole n s => exact fun _ _ => rfl
-  | Param pv ρ => exact fun _ _ => rfl
-  | Empty => exact fun _ _ => rfl
-  | Proj ps q ih => exact ih
-  | Sel φ q _ ih => exact ih
-  | Prod q₁ q₂ ih₁ ih₂ =>
-      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
-  | Apply q₁ q₂ ih₁ ih₂ =>
-      intro h k
-      simp [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2]
-  | Sum q₁ q₂ ih₁ ih₂ =>
-      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
-  | Dedup q ih => exact ih
-  | Diff q₁ q₂ ih₁ ih₂ =>
-      exact fun h k => by simp only [AggQueryIn.nestReads, ih₁ h.1, ih₂ h.2, Bool.or_false]
-  | Explode a b q ih => exact ih
-  | Mu a q₀ q₁ ih₀ ih₁ =>
-      exact fun h k => by simp only [AggQueryIn.nestReads, ih₀ h.1, ih₁ h.2, Bool.or_false]
-  | MuSet a q₀ q₁ ih₀ ih₁ =>
-      exact fun h k => by simp only [AggQueryIn.nestReads, ih₀ h.1, ih₁ h.2, Bool.or_false]
-  | Gamma a b cc q kp od ih => exact ih
-  | GammaScalar a b q od ih => exact ih
-  | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
-  | ProvSum a b cc q ih => exact ih
-  | Retag a q ih => exact ih
-  | GammaTok a b cc dd e q keep ih => exact ih
-  | Win a b cc dd e ff q hrr dist kp ih => exact ih
-  | WinExpr a b cc dd e ff gg q kps ih => exact ih
-
-omit [ValueType T] in
-/-- A query with no second-level aggregation passes no round to one. -/
-theorem AggQueryIn.holeNests_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noGammaNest → ∀ p, q.holeNests p = false := by
-  intro c n κ l q
-  induction q with
-  | Proj ps q ih => exact ih
-  | Sel φ q _ ih => exact ih
-  | Prod q₁ q₂ ih₁ ih₂ =>
-      exact fun h p => by simp only [AggQueryIn.holeNests, ih₁ h.1, ih₂ h.2, Bool.or_false]
-  | Apply q₁ q₂ ih₁ ih₂ =>
-      intro h p
-      simp [AggQueryIn.holeNests, ih₁ h.1, AggQueryIn.nestReads_of_noGammaNest q₂ h.2]
-  | Sum q₁ q₂ ih₁ ih₂ =>
-      exact fun h p => by simp only [AggQueryIn.holeNests, ih₁ h.1, ih₂ h.2, Bool.or_false]
-  | Explode a b q ih => exact ih
-  | Retag a q ih => exact ih
-  | _ => exact fun _ _ => rfl
-
-omit [ValueType T] in
-/-- A query with no second-level aggregation at all nests at most
-once. -/
-theorem AggQueryIn.nestOnce_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noGammaNest → q.nestOnce := by
-  intro c n κ l q
-  induction q with
-  | Rel n s => exact fun _ => trivial
-  | Hole n s => exact fun _ => trivial
-  | Param pv ρ => exact fun _ => trivial
-  | Empty => exact fun _ => trivial
-  | Proj ps q ih => exact ih
-  | Sel φ q _ ih => exact ih
-  | Prod q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2, Or.inl h.1⟩
-  | Sum q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Dedup q ih => exact ih
-  | Diff q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2⟩
-  | Explode a b q ih => exact ih
-  | Mu a q₀ q₁ ih₀ ih₁ =>
-      exact fun h => ⟨ih₀ h.1, ih₁ h.2, Or.inl (AggQueryIn.holeNests_of_noGammaNest q₁ h.2 _)⟩
-  | MuSet a q₀ q₁ ih₀ ih₁ => exact fun h => ⟨ih₀ h.1, ih₁ h.2⟩
-  | Gamma a b cc q kp od ih => exact ih
-  | GammaScalar a b q od ih => exact ih
-  | GammaNest a b cc dd q ih => exact fun h => absurd h not_false
-  | ProvSum a b cc q ih => exact ih
-  | Retag a q ih => exact ih
-  | GammaTok a b cc dd e q keep ih => exact ih
-  | Win a b cc dd e ff q hrr dist kp ih => exact ih
-  | WinExpr a b cc dd e ff gg q kps ih => exact ih
 
 /-- **No multi-frame window.** `WinExpr` is the one operator of the
 syntax that builds an aggregate column holding an expression rather than
