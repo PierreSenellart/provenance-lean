@@ -106,7 +106,6 @@ theorem ColKind.base_eq_reg_of_ne_agg {c : ColKind} (h : c ≠ ColKind.agg) :
   · exact absurd rfl h
   · rfl
 
-
 /-- A lifted column value: a regular value or an aggregate token, the
 token being an ordinary one or a nested one (`AggTok`). -/
 abbrev GenValue (T K : Type) := T ⊕ AggTok T K
@@ -712,7 +711,6 @@ def comparedCols : GenPredIn T c κ → Finset (Fin n)
   | and φ ψ | or φ ψ => φ.comparedCols ∪ ψ.comparedCols
   | not φ => φ.comparedCols
 
-
 /-- The predicate's truth when each compared column takes the value `v`
 gives it. -/
 def eval3W (φ : GenPredIn T c κ) (v : Fin n → Option T) (u : Tuple (GenValue T K) n)
@@ -775,7 +773,6 @@ theorem predsemJ_aggCmp (k : Fin n) (h : κ k = ColKind.agg) (op : CompOp) (t : 
   dsimp only
   rcases Option.eq_none_or_eq_some (v k) with hv | ⟨a, hv⟩ <;> simp only [hv, Option.elim] <;>
     cases neg <;> simp [Having.chiOf]
-
 
 /-- Does the predicate provenance entail the compared groups' existence
 (under the polarity `neg` of the enclosing negations)? An aggregate atom
@@ -1990,7 +1987,6 @@ theorem muSumFix_eq_of_empty {α : Type} {step : Multiset α → Multiset α}
         = muSum step (muRounds step M) M := by
       rw [muSum_succ, hspec, add_zero]
     exact h2.symm.trans h1.symm
-
 
 /-- **The sums of two simulating round sequences simulate each other**:
 the rounds are related one by one, so the first empty one is the same on
@@ -3871,7 +3867,6 @@ This is an invariant *lemma*, not a hypothesis: the kind-indexed syntax
 makes it hold by construction, and downstream theorems (the random-world
 commutation in particular) invoke it instead of assuming wellformedness. -/
 
-
 /-- **Every aggregate column of a tuple holds an ordinary token** –
 neither a nested value nor an expression over several of them. This is
 the metatheory's standing assumption while those two readings are
@@ -4027,79 +4022,6 @@ def AggQueryIn.recSettles : {c n : ℕ} → {κ : Fin n → ColKind} → {l : Li
   | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.recSettles
   | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.recSettles
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.recSettles
-
-/-- No window anywhere in the query. -/
-def AggQueryIn.noWin : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.noWin
-  | _, _, _, _, .Sel _ q _ => q.noWin
-  | _, _, _, _, .Prod q₁ q₂ => q₁.noWin ∧ q₂.noWin
-  | _, _, _, _, .Apply q₁ q₂ => q₁.noWin ∧ q₂.noWin
-  | _, _, _, _, .Sum q₁ q₂ => q₁.noWin ∧ q₂.noWin
-  | _, _, _, _, .Dedup q => q.noWin
-  | _, _, _, _, .Diff q₁ q₂ => q₁.noWin ∧ q₂.noWin
-  | _, _, _, _, .Explode _ _ q => q.noWin
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.noWin ∧ q₁.noWin
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.noWin ∧ q₁.noWin
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.noWin
-  | _, _, _, _, .GammaScalar _ _ q _ => q.noWin
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noWin
-  | _, _, _, _, .ProvSum _ _ _ q => q.noWin
-  | _, _, _, _, .Retag _ q => q.noWin
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.noWin
-  | _, _, _, _, .Win _ _ _ _ _ _ _ _ _ _ => False
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
-
-/-- **No second-level aggregation reads a window's output.** A world of a
-nested value decides each outer occurrence's inner family on its own,
-which is the paper's reading where the inner families are disjoint – a
-grouping's groups, or evaluations kept apart – but not where they
-overlap, as the frames of one window partition do: there the paper
-decides each shared occurrence once. So a nested value over a window's
-output is refused until the worlds of a nested value decide a shared
-occurrence once. A window's token reaches a second-level aggregation
-through its input, or through the left side of an apply whose right side
-aggregates the parameter row. -/
-def AggQueryIn.nestNoWin : {c n : ℕ} → {κ : Fin n → ColKind} → {l : List (String × ℕ)} →
-    AggQueryIn T c n κ l → Prop
-  | _, _, _, _, .Rel _ _ => True
-  | _, _, _, _, .Hole _ _ _ => True
-  | _, _, _, _, .Param _ _ => True
-  | _, _, _, _, .Empty => True
-  | _, _, _, _, .Proj _ q => q.nestNoWin
-  | _, _, _, _, .Sel _ q _ => q.nestNoWin
-  | _, _, _, _, .Prod q₁ q₂ => q₁.nestNoWin ∧ q₂.nestNoWin
-  | _, _, _, _, .Apply q₁ q₂ => q₁.nestNoWin ∧ q₂.nestNoWin ∧ (q₂.noGammaNest ∨ q₁.noWin)
-  | _, _, _, _, .Sum q₁ q₂ => q₁.nestNoWin ∧ q₂.nestNoWin
-  | _, _, _, _, .Dedup q => q.nestNoWin
-  | _, _, _, _, .Diff q₁ q₂ => q₁.nestNoWin ∧ q₂.nestNoWin
-  | _, _, _, _, .Explode _ _ q => q.nestNoWin
-  | _, _, _, _, .Mu _ q₀ q₁ => q₀.nestNoWin ∧ q₁.nestNoWin
-  | _, _, _, _, .MuSet _ q₀ q₁ => q₀.nestNoWin ∧ q₁.nestNoWin
-  | _, _, _, _, .Gamma _ _ _ q _ _ => q.nestNoWin
-  | _, _, _, _, .GammaScalar _ _ q _ => q.nestNoWin
-  | _, _, _, _, .GammaNest _ _ _ _ q => q.noWin ∧ q.nestNoWin
-  | _, _, _, _, .ProvSum _ _ _ q => q.nestNoWin
-  | _, _, _, _, .Retag _ q => q.nestNoWin
-  | _, _, _, _, .GammaTok _ _ _ _ _ q _ => q.nestNoWin
-  | _, _, _, _, .Win _ _ _ _ _ _ q _ _ _ => q.nestNoWin
-  | _, _, _, _, .WinExpr _ _ _ _ _ _ _ q _ => q.nestNoWin
-
-omit [ValueType T] in
-/-- A query with no second-level aggregation reads no window's output
-through one. -/
-theorem AggQueryIn.nestNoWin_of_noGammaNest :
-    ∀ {c n : ℕ} {κ : Fin n → ColKind} {l : List (String × ℕ)} (q : AggQueryIn T c n κ l),
-      q.noGammaNest → q.nestNoWin := by
-  intro c n κ l q
-  induction q with
-  | GammaNest _ _ _ _ q _ => exact fun h => h.elim
-  | Apply q₁ q₂ ih₁ ih₂ => exact fun h => ⟨ih₁ h.1, ih₂ h.2, Or.inl h.2⟩
-  | _ => simp_all [AggQueryIn.noGammaNest, AggQueryIn.nestNoWin]
 
 /-- **Every aggregating operator records the parameters it reads**: its
 read set `rd` holds every outer column its subtree reads – the operator's

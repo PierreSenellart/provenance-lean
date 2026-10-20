@@ -1264,9 +1264,7 @@ does **not** give is one storey of recursion – the *other* side of a
 product, and an apply's right side, are arbitrary queries that do not
 read `R`, and either may be a recursion of its own. So a body is not
 recursion-free, and the value analysis has to reach those sub-recursions
-through the outer induction rather than through
-`AggQueryIn.exists_valsIn_assign`, which asks `noRec` of what it
-aggregates.
+through the outer induction (`AggQueryIn.exists_polyBound_rec`).
 
 `Explode` and `Retag` are on the list here though the document does not name
 them: they are the kind discipline's two operators, identities on plain
