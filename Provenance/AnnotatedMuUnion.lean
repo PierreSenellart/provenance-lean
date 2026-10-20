@@ -2915,7 +2915,7 @@ theorem muSetFreeA_correct (cnt : SeqAggFunc T) (ch : Bool) {P : AnnotatedDataba
   | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
   | Win P O o w t g q hrr dist keep ih =>
     intro f hu hi hh hx ρc HK hw d hd γ E hE hs
-    obtain ⟨h₁, h₂⟩ := ih f hu.2 hi.2.2.2 hh hx hw.2 d hd γ E hE hs
+    obtain ⟨h₁, h₂⟩ := ih f hu.2 hi.2.2.2.2 hh hx hw.2 d hd γ E hE hs
     exact ⟨h₁, by simp only [muSetFreeA, evaluate, h₂]⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f _ hi => hi.elim
 
@@ -3208,7 +3208,7 @@ theorem inSig_muSetFreeA (ch : Bool) :
   | ProvSum is his t q ih => exact fun f hu => hu.elim
   | GammaTok is his ts fs a q keep ih => exact fun f hu => hu.elim
   | Win P O o w t g q hrr dist keep ih => exact fun f hu hh h => ⟨h.1, h.2.1, h.2.2.1,
-      ih f hu.2 hh h.2.2.2⟩
+      h.2.2.2.1, ih f hu.2 hh h.2.2.2.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun f _ _ h => h.elim
 
 end Signature

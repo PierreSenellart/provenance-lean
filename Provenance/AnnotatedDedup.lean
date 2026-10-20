@@ -418,7 +418,8 @@ theorem inSig_dedupFree {Θ : Set (SeqAggFunc T)} :
   | GammaNest is his p g q ih => exact fun f h => ⟨h.1, h.2.1, ih f h.2.2⟩
   | ProvSum is his t q ih => exact fun _ h => h.elim
   | GammaTok is his ts fs a q keep ih => exact fun _ h => h.elim
-  | Win P O o w t g q hrr dist keep ih => exact fun f h => ⟨h.1, h.2.1, h.2.2.1, ih f h.2.2.2⟩
+  | Win P O o w t g q hrr dist keep ih => exact fun f h => ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, ih f
+    h.2.2.2.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ h => h.elim
 
 theorem noExplode_dedupFree :

@@ -469,14 +469,15 @@ theorem fine_sym_aux {k c : ℕ} (env : SymEnv T k c) (henv : EnvFine Θ env) :
         AggQueryIn.hygienic_allRegOf]
       exact ⟨⟨⟨mem_gamma, rfl⟩, h₁.1⟩, ⟨SA.noFun_toG _, hi.2.1, h₁.2.1⟩, h₁.2.2.1, h₁.2.2.2⟩
     | Win P O o w t g q hrr dist keep =>
-      obtain ⟨h₁, -⟩ := ih f q (by simp at hq; omega) hi.2.2.2 hfresh
+      obtain ⟨h₁, -⟩ := ih f q (by simp at hq; omega) hi.2.2.2.2 hfresh
       refine ⟨?_, fun P s m => by rw [symB]; exact fine_junkB _⟩
       rw [sym]
       refine fine_projQ _ ?_
       unfold Fine
       rw [AggQueryIn.usesOnly_allRegOf, AggQueryIn.inSig_allRegOf, winAllReg_allRegOf,
         AggQueryIn.hygienic_allRegOf]
-      exact ⟨⟨mem_win, h₁.1⟩, ⟨noFun_termV _, hi.2.1, noFun_transSelOpt _, h₁.2.1⟩,
+      exact ⟨⟨mem_win, h₁.1⟩, ⟨noFun_termV _, hi.2.1, noFun_transSelOpt _, noOff_expandFrame _,
+          h₁.2.1⟩,
         ⟨rfl, h₁.2.2.1⟩, h₁.2.2.2⟩
     | Apply => exact ⟨by rw [sym]; exact hemp _, fun P s m => by rw [symB]; exact fine_junkB _⟩
     | Sum => exact ⟨by rw [sym]; exact hemp _, fun P s m => by rw [symB]; exact fine_junkB _⟩
@@ -659,15 +660,16 @@ theorem fine_cutCore {k : ℕ} (hc : cnt ∈ Θ) :
         intro s hs'
         unfold winRaw; rw [AggQueryIn.noMention_allRegOf]
         exact noMention_symCut cnt f _ q hs'
-      obtain ⟨hsy, -⟩ := hsym q _ _ (fun i => hfr _) hs hi.2.2.2 hfr
+      obtain ⟨hsy, -⟩ := hsym q _ _ (fun i => hfr _) hs hi.2.2.2.2 hfr
       rw [cutCore]
-      refine fine_sumByMuX _ _ (ih _ q hs hi.2.2.2 (fun i => hfr _))
+      refine fine_sumByMuX _ _ (ih _ q hs hi.2.2.2.2 (fun i => hfr _))
         (fine_colsQ _ _ (fun i => hnm _ (hfr _)) ?_) (noMention_cutCore cnt _ _ q le_rfl (hfr _))
         (noMention_cutCore cnt _ _ q le_rfl (hfr _)) (noMention_colsQ _ _ _ (hnm _ (hfr _)))
       unfold winRaw Fine
       rw [AggQueryIn.usesOnly_allRegOf, AggQueryIn.inSig_allRegOf, winAllReg_allRegOf,
         AggQueryIn.hygienic_allRegOf]
-      exact ⟨⟨mem_win, hsy.1⟩, ⟨noFun_termV _, hi.2.1, noFun_transSelOpt _, hsy.2.1⟩,
+      exact ⟨⟨mem_win, hsy.1⟩, ⟨noFun_termV _, hi.2.1, noFun_transSelOpt _, noOff_expandFrame _,
+          hsy.2.1⟩,
         ⟨rfl, hsy.2.2.1⟩, hsy.2.2.2⟩
     | Apply => rw [cutCore]; exact fine_emptyRel 1
     | Sum => rw [cutCore]; exact fine_emptyRel 1

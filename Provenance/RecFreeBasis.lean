@@ -620,7 +620,7 @@ theorem exists_rfPass {S U : Set OpKind} (he : OpKind.empty ∈ S) (hp : OpKind.
   | ProvSum is his t q ih => exact fun _ _ hq => hq.elim
   | @Win cw nw _mw _pw _κw _lab _rd P' O o w _ t fw q hrr dist keep ih =>
     intro _ hc0 hq hi ho
-    obtain ⟨q', hu', hi', hr', ho', he'⟩ := ih rfl hc0 hq.2 hi.2.2.2 ho
+    obtain ⟨q', hu', hi', hr', ho', he'⟩ := ih rfl hc0 hq.2 hi.2.2.2.2 ho
     refine ⟨(winKept (hsql := sql_frame%) P' O o w t fw _κw q' dist keep).allRegOf, ?_, ?_,
       fun h h' => (paramsReg_allRegOf _).mpr (paramsReg_winKept P' O o w t fw _κw q' dist keep
         (hr' h h')),
@@ -630,7 +630,7 @@ theorem exists_rfPass {S U : Set OpKind} (he : OpKind.empty ∈ S) (hp : OpKind.
     · rw [AggQueryIn.usesOnly_allRegOf]
       exact usesOnly_winKept P' O o w t fw _κw q' dist keep hw hp hu'
     · rw [AggQueryIn.inSig_allRegOf]
-      exact inSig_winKept P' O o w t fw _κw q' dist keep hi.1 hi.2.1 hi.2.2.1 hi'
+      exact inSig_winKept P' O o w t fw _κw q' dist keep hi.1 hi.2.1 hi.2.2.1 hi.2.2.2.1 hi'
     · obtain ⟨hs', he''⟩ := he' D γ hset
       refine ⟨by rw [AggQueryIn.settlesAt_allRegOf]
                  exact settlesAt_winKept P' O o w t fw _κw q' dist keep D γ hs', ?_⟩

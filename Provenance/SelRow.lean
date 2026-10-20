@@ -679,7 +679,7 @@ theorem AggQueryIn.evaluatePlain_orderBlind {Θ : Set (SeqAggFunc T)} {S : Set O
   | Win P O o w t f q hrr dist keep ih =>
     rename_i c' n' m' p' κ' _ _ _
     intro hq hs ha hh ρc HK hwk τ hτ h0 D D' γ γ' hD' hN hH hγ hc
-    have hr := ih hq.2 hs.2.2.2 ha hh hwk.2 hτ h0 D D' γ γ' hD' hN hH hγ
+    have hr := ih hq.2 hs.2.2.2.2 ha hh hwk.2 hτ h0 D D' γ γ' hD' hN hH hγ
       (fun a ha => hc a (Finset.mem_union_right _ ha))
     simp only [AggQueryIn.evaluatePlain]
     have hrow : ∀ (X : Multiset (Tuple T n')) (F : Tuple T n' → T),

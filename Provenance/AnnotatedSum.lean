@@ -1931,11 +1931,11 @@ theorem exists_sumFreeAnn_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (
   | Win P O o w t fw q hrr dist keep ih =>
     rename_i lab rd _
     intro hq hr hi f hf hfr
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 f hf hfr
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2.2 f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
     refine ⟨fun _ => ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t fw q'
         hrr dist keep,
-      ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
+      ⟨⟨memS nofun hq.1, hs.usesOnly⟩, hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hi.2.2.2.1, hs.inSig⟩,
         hs.noExplode, fun ρc HK h => ⟨h.1, hs.wellKinded ρc HK h.2⟩, hs.over, hs.names,
         hs.nom⟩, fun d γ E E' hE hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩

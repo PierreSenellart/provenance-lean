@@ -418,7 +418,7 @@ theorem AggQueryIn.inSig_substMap {Θ : Set (SeqAggFunc T)} :
   | GammaTok is his ts fs a q keep ih => exact fun θ => Iff.rfl
   | Win P O o w t fw q hrr dist keep ih =>
     exact fun θ => and_congr (by rw [TermIn.noFun_substMap])
-      (and_congr Iff.rfl (and_congr Iff.rfl (ih θ)))
+      (and_congr Iff.rfl (and_congr Iff.rfl (and_congr Iff.rfl (ih θ))))
   | WinExpr P O o ws ts fs g q keeps ih => exact fun θ => Iff.rfl
 
 /-- **A substituted query is defined where the query is**, under the
@@ -2144,13 +2144,13 @@ theorem exists_sumFree_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) {Θ : Set (Seq
   | GammaTok is his ts fs a q keep ih => exact fun hq => hq.elim
   | Win P O o w t fw q hrr dist keep ih =>
     intro hq hr hi hsa f hf hfr
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 hsa f hf hfr
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2.2 hsa f hf hfr
     obtain ⟨q', hs, he⟩ := hc rfl
     refine ⟨fun _ => ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := 0) (rd := fun _ => false) P O o
         w t fw q' hrr dist
         keep, ⟨⟨memS nofun hq.1,
         hs.usesOnly⟩,
-      hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hs.inSig⟩,
+      hs.hygienic, ⟨hi.1, hi.2.1, hi.2.2.1, hi.2.2.2.1, hs.inSig⟩,
       fun hw => ⟨hw.1, hw.2.1, hs.wins hw.2.2⟩, hs.over, hs.names,
       hs.nom⟩, fun D γ hset => ?_⟩, fun _ _ hl _ => absurd hl (by simp)⟩
     obtain ⟨hs', he'⟩ := he D γ hset

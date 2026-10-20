@@ -739,8 +739,10 @@ theorem le_expand (o : OrderSpec p) {par : Fin k → T} (cx cy : Fin p → Code 
   rw [OrderSpec.le_of_first_idx _ _ _ q₀ hqbelow hq₀]
   simp [expandSpec, flatKey]
 
-/-- **A frame condition read over the keys.** -/
-def expandCond : FrameCond p → FrameCond (p * (3 + k))
+/-- **A frame condition read over the keys.** An offset bound has no reading
+there (it moves a value, not a key) and is sent to the whole partition; it is
+outside the signature the pass works in (`FrameCond.noOff`). -/
+def expandCond : FrameCond T p → FrameCond T (p * (3 + k))
   | .whole => .whole
   | .le o => .le (expandSpec o)
   | .lt o => .lt (expandSpec o)
@@ -749,38 +751,45 @@ def expandCond : FrameCond p → FrameCond (p * (3 + k))
   | .and a b => .and (expandCond a) (expandCond b)
   | .or a b => .or (expandCond a) (expandCond b)
   | .orAll cs => .orAll (fun j => expandCond (cs j))
+  | .geOff .. | .leOff .. => .whole
 
 /-- **A frame condition over the keys holds as it does over the values.** -/
 theorem holds_expandCond {par : Fin k → T} (cx cy : Fin p → Code T)
     (hx : ∀ ℓ, CodeOK C par (cx ℓ)) (hy : ∀ ℓ, CodeOK C par (cy ℓ)) :
-    ∀ c : FrameCond p, (expandCond (k := k) c).holds (flatKey (fun ℓ => enc C k (cx ℓ)))
+    ∀ c : FrameCond T p, c.noOff = true →
+      (expandCond (k := k) c).holds (flatKey (fun ℓ => enc C k (cx ℓ)))
         (flatKey (fun ℓ => enc C k (cy ℓ)))
       = c.holds (fun ℓ => dec C par (cx ℓ)) (fun ℓ => dec C par (cy ℓ))
-  | .whole => rfl
-  | .le o => le_expand o cx cy hx hy
-  | .lt o => by
+  | .whole, _ => rfl
+  | .le o, _ => le_expand o cx cy hx hy
+  | .lt o, _ => by
     show (!(expandSpec (k := k) o).le (flatKey (fun ℓ => enc C k (cy ℓ)))
       (flatKey (fun ℓ => enc C k (cx ℓ))))
       = (!o.le (fun ℓ => dec C par (cy ℓ)) (fun ℓ => dec C par (cx ℓ)))
     rw [le_expand o cy cx hy hx]
-  | .ge o => le_expand o cy cx hy hx
-  | .gt o => by
+  | .ge o, _ => le_expand o cy cx hy hx
+  | .gt o, _ => by
     show (!(expandSpec (k := k) o).le (flatKey (fun ℓ => enc C k (cx ℓ)))
       (flatKey (fun ℓ => enc C k (cy ℓ))))
       = (!o.le (fun ℓ => dec C par (cx ℓ)) (fun ℓ => dec C par (cy ℓ)))
     rw [le_expand o cx cy hx hy]
-  | .and a b => by
+  | .and a b, hn => by
+    simp only [FrameCond.noOff, Bool.and_eq_true] at hn
     show ((expandCond a).holds _ _ && (expandCond b).holds _ _) = (a.holds _ _ && b.holds _ _)
-    rw [holds_expandCond cx cy hx hy a, holds_expandCond cx cy hx hy b]
-  | .or a b => by
+    rw [holds_expandCond cx cy hx hy a hn.1, holds_expandCond cx cy hx hy b hn.2]
+  | .or a b, hn => by
+    simp only [FrameCond.noOff, Bool.and_eq_true] at hn
     show ((expandCond a).holds _ _ || (expandCond b).holds _ _) = (a.holds _ _ || b.holds _ _)
-    rw [holds_expandCond cx cy hx hy a, holds_expandCond cx cy hx hy b]
-  | .orAll cs => by
+    rw [holds_expandCond cx cy hx hy a hn.1, holds_expandCond cx cy hx hy b hn.2]
+  | .orAll cs, hn => by
+    simp only [FrameCond.noOff, List.all_eq_true, List.mem_finRange, true_implies] at hn
     show (List.finRange _).any (fun j => (expandCond (cs j)).holds _ _)
       = (List.finRange _).any (fun j => (cs j).holds _ _)
     congr 1
     funext j
-    exact holds_expandCond cx cy hx hy (cs j)
+    exact holds_expandCond cx cy hx hy (cs j) (hn j)
+  | .geOff .., hn => absurd hn (by simp [FrameCond.noOff])
+  | .leOff .., hn => absurd hn (by simp [FrameCond.noOff])
 
 end Expand
 
@@ -846,20 +855,52 @@ theorem key_winOIdx (C : Finset T) (O : Tuple (Fin n) p) (par : Fin k → T) (v 
 
 /-- **The frame expanded over the keys.** -/
 def expandFrame (w : ValueFrame T p) : ValueFrame T (p * (3 + k)) :=
-  ⟨expandCond w.cond, w.self⟩
+  if w.cond.noOff then ⟨expandCond w.cond, w.self⟩ else ValueFrame.whole
+
+omit [ValueType T] in
+/-- A condition read over the keys names no offset. -/
+theorem noOff_expandCond : ∀ c : FrameCond T p, (expandCond (k := k) c).noOff = true
+  | .whole | .le _ | .lt _ | .ge _ | .gt _ | .geOff .. | .leOff .. => rfl
+  | .and a b | .or a b => by
+    simp only [expandCond, FrameCond.noOff, noOff_expandCond a, noOff_expandCond b, Bool.and_self]
+  | .orAll cs => by
+    simp only [expandCond, FrameCond.noOff, List.all_eq_true]
+    exact fun j _ => noOff_expandCond (cs j)
+
+omit [ValueType T] in
+/-- So does a frame read over the keys: it is in the signature whatever the
+frame it reads. -/
+theorem noOff_expandFrame (w : ValueFrame T p) : (expandFrame (k := k) w).cond.noOff = true := by
+  unfold expandFrame
+  split
+  · exact noOff_expandCond _
+  · rfl
+
+omit [ValueType T] in
+theorem expandFrame_of_noOff {w : ValueFrame T p} (hw : w.cond.noOff = true) :
+    expandFrame (k := k) w = ⟨expandCond w.cond, w.self⟩ := by
+  rw [expandFrame, ite_eq_left hw]
 
 omit [ValueType T] in
 /-- **A frame of SQL read over the keys is one**, under the clause read over
 the keys: each comparison is the same comparison under the expanded clause. -/
 theorem isSQLUnder_expandFrame {o : OrderSpec p} {w : ValueFrame T p}
     (h : w.IsSQLUnder o) : (expandFrame (k := k) w).IsSQLUnder (expandSpec o) := by
-  cases h with
-  | noOthers hc => cases hc <;> sql_frame_under
-  | current hc => cases hc <;> sql_frame_under
-  | group hc => cases hc <;> sql_frame_under
-  | ties hc => cases hc <;> sql_frame_under
-  | before => sql_frame_under
-  | after => sql_frame_under
+  unfold expandFrame
+  split
+  · rename_i hn
+    cases h with
+    | noOthers hc => cases hc <;> (first
+        | sql_frame_under | exact absurd hn (by simp [FrameCond.noOff]))
+    | current hc => cases hc <;> (first
+        | sql_frame_under | exact absurd hn (by simp [FrameCond.noOff]))
+    | group hc => cases hc <;> (first
+        | sql_frame_under | exact absurd hn (by simp [FrameCond.noOff]))
+    | ties hc => cases hc <;> (first
+        | sql_frame_under | exact absurd hn (by simp [FrameCond.noOff]))
+    | before => sql_frame_under
+    | after => sql_frame_under
+  · exact ValueFrame.IsSQLUnder.noOthers FrameCond.SqlBase.whole
 
 omit [ValueType T] in
 theorem isSQL_expandFrame {o : OrderSpec p} {w : ValueFrame T p} (h : w.IsSQL o) :
@@ -872,27 +913,32 @@ macro_rules
 
 /-- **The frame of an encoded row is the encoding of the frame.** -/
 theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) {Q : Multiset (Tuple T ((k + n) * (7 + k)))} {R : Multiset (Tuple T n)}
+    (w : ValueFrame T p) (hw : w.cond.noOff = true) {Q : Multiset (Tuple T ((k + n) * (7 + k)))}
+      {R : Multiset (Tuple T n)}
     (hsl : Q.filter (fun r => descP (P := 0) r = descEnc C par) = R.map (rowEnc C par))
     (hR : ∀ v ∈ R, ∀ i, GoodVal (C := C) par (v i)) {v : Tuple T n} (hv : v ∈ R) :
     ValueFrame.frameOf id (gKeyIdx P) (winOIdx O) (expandFrame (k := k) w) Q (rowEnc C par v)
       = (ValueFrame.frameOf id P O w R v).map (rowEnc C par) := by
+  rw [expandFrame_of_noOff hw]
   classical
   have hinj := rowEnc_injective (C := C) (n := n) par
   -- the rows of the partition the condition keeps
   have hfil : Q.filter (fun y => Tuple.key (gKeyIdx P) (id y)
         = Tuple.key (gKeyIdx P) (id (rowEnc C par v))
-        ∧ (expandFrame (k := k) w).ρ (Tuple.key (winOIdx O) (id y))
+        ∧ (⟨expandCond (k := k) w.cond, w.self⟩ : ValueFrame T (p * (3 + k))).ρ (Tuple.key
+          (winOIdx O) (id y))
           (Tuple.key (winOIdx O) (id (rowEnc C par v))) = true)
       = (R.filter (fun y => Tuple.key P (id y) = Tuple.key P (id v)
         ∧ w.ρ (Tuple.key O (id y)) (Tuple.key O (id v)) = true)).map (rowEnc C par) := by
     have h1 : Q.filter (fun y => Tuple.key (gKeyIdx P) (id y)
           = Tuple.key (gKeyIdx P) (id (rowEnc C par v))
-          ∧ (expandFrame (k := k) w).ρ (Tuple.key (winOIdx O) (id y))
+          ∧ (⟨expandCond (k := k) w.cond, w.self⟩ : ValueFrame T (p * (3 + k))).ρ (Tuple.key
+            (winOIdx O) (id y))
             (Tuple.key (winOIdx O) (id (rowEnc C par v))) = true)
         = (Q.filter (fun r => descP (P := 0) r = descEnc C par)).filter (fun y =>
           Tuple.key (gKeyIdx P) (id y) = Tuple.key (gKeyIdx P) (id (rowEnc C par v))
-          ∧ (expandFrame (k := k) w).ρ (Tuple.key (winOIdx O) (id y))
+          ∧ (⟨expandCond (k := k) w.cond, w.self⟩ : ValueFrame T (p * (3 + k))).ρ (Tuple.key
+            (winOIdx O) (id y))
             (Tuple.key (winOIdx O) (id (rowEnc C par v))) = true) := by
       rw [Multiset.filter_filter]
       refine Multiset.filter_congr (fun y _ => ⟨fun h => ⟨h, ?_⟩, And.left⟩)
@@ -909,12 +955,13 @@ theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin 
           (Tuple.key (winOIdx O) (rowEnc C par v)) = true ↔ _
     rw [key_rowEnc_encK, key_rowEnc_encK, (encK_injective C par).eq_iff, key_winOIdx, key_winOIdx,
       holds_expandCond _ _ (fun ℓ => codeOK_vcode (hR y hy (O ℓ)))
-        (fun ℓ => codeOK_vcode (hR v hv (O ℓ)))]
+        (fun ℓ => codeOK_vcode (hR v hv (O ℓ))) _ hw]
     simp only [dec_vcode]
     rfl
   unfold ValueFrame.frameOf
   simp only [id]
-  rw [show (expandFrame (k := k) w).s (Tuple.key (winOIdx O) (rowEnc C par v)) = w.self from rfl,
+  rw [show (⟨expandCond (k := k) w.cond, w.self⟩ : ValueFrame T (p * (3 + k))).s (Tuple.key
+    (winOIdx O) (rowEnc C par v)) = w.self from rfl,
     show w.s (Tuple.key O v) = w.self from rfl]
   simp only [id] at hfil
   rw [hfil, Multiset.map_erase_inj' _ _ hinj]
@@ -924,7 +971,8 @@ theorem frameOf_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin 
 
 /-- **The window's value at an encoded row is its value at the row.** -/
 theorem windowValue_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T (k + c) n) (ht : t.noFun = true)
+    (o : OrderSpec p) (w : ValueFrame T p) (hw : w.cond.noOff = true) (t : TermIn T (k + c) n) (ht
+      : t.noFun = true)
     {f : SeqAggFunc T} (hf : f.ReadsCount) (keep : Option (Selection T n))
     (hkeep : ∀ φ, keep = some φ → φ.noFun = true ∧ ∀ a ∈ φ.consts, CG C a)
     {Q : Multiset (Tuple T ((k + n) * (7 + k)))} {R : Multiset (Tuple T n)}
@@ -935,7 +983,7 @@ theorem windowValue_slice (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (
         (keep.map (fun φ => (transSel 0 φ).toSel)) Q (rowEnc C par v) γ
       = ValueFrame.windowValueOpt P O o w t f keep R v (Fin.append par γ) := by
   rw [windowValueOpt_readsCount hf, windowValueOpt_readsCount hf,
-    frameOf_slice par P O w hsl hR hv]
+    frameOf_slice par P O w hw hsl hR hv]
   refine congrArg hf.choose ?_
   rw [Multiset.filter_map, Multiset.map_map, Multiset.countP_map, Multiset.countP_map,
     Multiset.filter_filter, Multiset.filter_filter]
@@ -1013,7 +1061,8 @@ noncomputable def winRows {c' n' : ℕ} (P : Tuple (Fin n') m) (O : Tuple (Fin n
 /-- **The symbolic window's slice**: the encodings of the window's rows,
 its values being values of the cut. -/
 theorem sliceIs_symWin (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T (k + c) n) (ht : t.noFun = true)
+    (o : OrderSpec p) (w : ValueFrame T p) (hw : w.cond.noOff = true) (t : TermIn T (k + c) n) (ht
+      : t.noFun = true)
     {f : SeqAggFunc T} (hf : f.ReadsCount) (keep : Option (Selection T n))
     (hkeep : ∀ φ, keep = some φ → φ.noFun = true ∧ ∀ a ∈ φ.consts, CG C a)
     (Q : Multiset (Tuple T ((k + n) * (7 + k)))) (R : Multiset (Tuple T n))
@@ -1034,7 +1083,7 @@ theorem sliceIs_symWin (par : Fin k → T) (P : Tuple (Fin n) m) (O : Tuple (Fin
   rw [Multiset.map_map, Multiset.map_map, Multiset.map_map]
   refine Multiset.map_congr rfl (fun v hv => ?_)
   simp only [Function.comp]
-  rw [windowValue_slice par P O o w t ht hf keep hkeep hsl hR hv, wOutSA_eval C par v _ γ
+  rw [windowValue_slice par P O o w hw t ht hf keep hkeep hsl hR hv, wOutSA_eval C par v _ γ
     (hcnt v hv)]
 
 end Window

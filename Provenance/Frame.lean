@@ -89,33 +89,59 @@ beyond containing its current row. -/
 occurrence (the first argument) against the current row's (the second).
 `OrderSpec.lt` being `OrderSpec.le` reversed and negated, the strict
 cases are not a negation of the language but conditions of their own. -/
-inductive FrameCond (p : ℕ) where
+inductive FrameCond (T : Type) (p : ℕ) where
   /-- Every occurrence of the partition: `RANGE BETWEEN UNBOUNDED
   PRECEDING AND UNBOUNDED FOLLOWING`, and the default under no clause. -/
-  | whole : FrameCond p
+  | whole : FrameCond T p
   /-- The clause sorts the occurrence at or before the current row. -/
-  | le (o : OrderSpec p) : FrameCond p
+  | le (o : OrderSpec p) : FrameCond T p
   /-- …strictly before it, so the current row's peers are out. -/
-  | lt (o : OrderSpec p) : FrameCond p
+  | lt (o : OrderSpec p) : FrameCond T p
   /-- …at or after the current row. -/
-  | ge (o : OrderSpec p) : FrameCond p
+  | ge (o : OrderSpec p) : FrameCond T p
   /-- …strictly after it. -/
-  | gt (o : OrderSpec p) : FrameCond p
+  | gt (o : OrderSpec p) : FrameCond T p
   /-- Both conditions, which is what an `EXCLUDE` modifier builds. -/
-  | and : FrameCond p → FrameCond p → FrameCond p
+  | and : FrameCond T p → FrameCond T p → FrameCond T p
   /-- Either condition. -/
-  | or : FrameCond p → FrameCond p → FrameCond p
+  | or : FrameCond T p → FrameCond T p → FrameCond T p
   /-- Any of several, which is the union of the frames of a multi-frame
   window. -/
-  | orAll {q : ℕ} (cs : Fin q → FrameCond p) : FrameCond p
+  | orAll {q : ℕ} (cs : Fin q → FrameCond T p) : FrameCond T p
+  /-- **An offset start**, `RANGE` with `a PRECEDING` (`pre`) or `a FOLLOWING`
+  as its first bound: the occurrence sorts, in column `k` of the clause, at or
+  after the current row's value moved by `a` (`FrameCond.shift`). Where the
+  current row's value is null the bound is `CURRENT ROW`, which is
+  PostgreSQL's reading. -/
+  | geOff (o : OrderSpec p) (k : Fin p) (pre : Bool) (a : T) : FrameCond T p
+  /-- **An offset end**, `b PRECEDING` or `b FOLLOWING` as the last bound: the
+  occurrence sorts at or before the moved value. -/
+  | leOff (o : OrderSpec p) (k : Fin p) (pre : Bool) (a : T) : FrameCond T p
 
 namespace FrameCond
 
 variable [ValueType T]
 
+/-- The current row's value `v` moved by the offset `a` of a bound: back
+(`a PRECEDING`, `pre`) or forward (`a FOLLOWING`) in the column's direction,
+so down for an ascending column and up for a descending one. -/
+def shift (cl : OrderCol) (pre : Bool) (a v : T) : T :=
+  if pre != cl.desc then v - a else v + a
+
+omit [ValueType T] in
+/-- Whether the condition names no offset bound: every comparison is of the
+two order values as they stand. A frame with an offset applies `+` or `-` to
+the current row's value, which is a function the minimal signature does not
+have. -/
+def noOff : FrameCond T p → Bool
+  | .whole | .le _ | .lt _ | .ge _ | .gt _ => true
+  | .and a b | .or a b => a.noOff && b.noOff
+  | .orAll cs => (List.finRange _).all (fun j => (cs j).noOff)
+  | .geOff .. | .leOff .. => false
+
 /-- Whether an occurrence with order value `o'` satisfies the condition
 against a current row with order value `ov`. -/
-def holds : FrameCond p → Tuple T p → Tuple T p → Bool
+def holds : FrameCond T p → Tuple T p → Tuple T p → Bool
   | .whole, _, _ => true
   | .le o, o', ov => o.le o' ov
   | .lt o, o', ov => o.lt o' ov
@@ -124,9 +150,15 @@ def holds : FrameCond p → Tuple T p → Tuple T p → Bool
   | .and a b, o', ov => a.holds o' ov && b.holds o' ov
   | .or a b, o', ov => a.holds o' ov || b.holds o' ov
   | .orAll cs, o', ov => (List.finRange _).any (fun j => (cs j).holds o' ov)
+  | .geOff o k pre a, o', ov =>
+      if ValueType.isNull (ov k) then (o k).le (ov k) (o' k)
+      else (o k).le (shift (o k) pre a (ov k)) (o' k)
+  | .leOff o k pre a, o', ov =>
+      if ValueType.isNull (ov k) then (o k).le (o' k) (ov k)
+      else (o k).le (o' k) (shift (o k) pre a (ov k))
 
 @[simp] theorem holds_whole (o' ov : Tuple T p) :
-    (FrameCond.whole : FrameCond p).holds o' ov = true := rfl
+    (FrameCond.whole : FrameCond T p).holds o' ov = true := rfl
 
 @[simp] theorem holds_le (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.le o).holds o' ov = o.le o' ov := rfl
@@ -140,28 +172,30 @@ def holds : FrameCond p → Tuple T p → Tuple T p → Bool
 @[simp] theorem holds_gt (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.gt o).holds o' ov = o.lt ov o' := rfl
 
-@[simp] theorem holds_and (a b : FrameCond p) (o' ov : Tuple T p) :
+@[simp] theorem holds_and (a b : FrameCond T p) (o' ov : Tuple T p) :
     (FrameCond.and a b).holds o' ov = (a.holds o' ov && b.holds o' ov) := rfl
 
-@[simp] theorem holds_or (a b : FrameCond p) (o' ov : Tuple T p) :
+@[simp] theorem holds_or (a b : FrameCond T p) (o' ov : Tuple T p) :
     (FrameCond.or a b).holds o' ov = (a.holds o' ov || b.holds o' ov) := rfl
 
-@[simp] theorem holds_orAll {q : ℕ} (cs : Fin q → FrameCond p)
+@[simp] theorem holds_orAll {q : ℕ} (cs : Fin q → FrameCond T p)
     (o' ov : Tuple T p) :
     (FrameCond.orAll cs).holds o' ov
       = (List.finRange q).any (fun j => (cs j).holds o' ov) := rfl
 
+omit [ValueType T] in
 /-- The current row's peer group: neither sorts before the other. -/
-def peers (o : OrderSpec p) : FrameCond p := .and (.le o) (.ge o)
+def peers (o : OrderSpec p) : FrameCond T p := .and (.le o) (.ge o)
 
 @[simp] theorem holds_peers (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.peers o).holds o' ov = o.peer o' ov := rfl
 
+omit [ValueType T] in
 /-- Everything outside the current row's peer group. The order being
 total, this is a condition of the language and not a negation: an
 occurrence is not a peer exactly when one of the two sorts strictly
 before the other. -/
-def notPeers (o : OrderSpec p) : FrameCond p := .or (.lt o) (.gt o)
+def notPeers (o : OrderSpec p) : FrameCond T p := .or (.lt o) (.gt o)
 
 theorem holds_notPeers (o : OrderSpec p) (o' ov : Tuple T p) :
     (FrameCond.notPeers o).holds o' ov = !o.peer o' ov := by
@@ -181,7 +215,7 @@ from its peers: the current row and a peer have the same order value, so
 no condition on order values alone could drop one and keep the other. -/
 structure ValueFrame (T : Type) (p : ℕ) where
   /-- The condition the frame names. -/
-  cond : FrameCond p
+  cond : FrameCond T p
   /-- Whether an occurrence is in its own frame. -/
   self : Bool
 
@@ -192,8 +226,15 @@ and no other: a frame clause reads every bound in the window's own `ORDER BY`.
 Its bounds are `UNBOUNDED PRECEDING` or `CURRENT ROW` at the start and
 `CURRENT ROW` or `UNBOUNDED FOLLOWING` at the end (`RANGE` and `GROUPS` agree
 on these, and `ROWS` agrees on the whole partition), which gives four
-conditions on the order values (`FrameCond.SqlBase`), and an `EXCLUDE` modifier
-takes out nothing, the current row, its peer group, or its peers.
+conditions on the order values, and under a clause of exactly one column a
+`RANGE` frame may also start `a PRECEDING` or end `b FOLLOWING`
+(`FrameCond.SqlBase`, which says why the other offset frames are left out).
+An `EXCLUDE` modifier takes out nothing, the current row, its peer group, or
+its peers.
+
+The offset itself is any value: SQL refuses a null or negative offset when
+the query runs, which no condition here can see, the syntax not knowing the
+domain's null or its zero.
 `ValueFrame.IsSQL o w` says that `w` is one of these under the clause `o`.
 
 The language of `FrameCond` is wider: it combines comparisons under any
@@ -201,15 +242,39 @@ clauses by `and` and `or`, so it names frames no frame clause of SQL gives,
 such as one comparing two order columns each on its own. The windows of the
 syntax carry `IsSQL` as a field, which is what keeps them out. -/
 
-/-- The four conditions SQL's frame bounds name under the clause `o`:
+/-- The conditions SQL's frame bounds name under the clause `o`:
 `UNBOUNDED PRECEDING` to `UNBOUNDED FOLLOWING`, `UNBOUNDED PRECEDING` to
-`CURRENT ROW`, `CURRENT ROW` to `UNBOUNDED FOLLOWING`, and `CURRENT ROW` to
-`CURRENT ROW`. -/
-inductive FrameCond.SqlBase (o : OrderSpec p) : FrameCond p → Prop
+`CURRENT ROW`, `CURRENT ROW` to `UNBOUNDED FOLLOWING`, `CURRENT ROW` to
+`CURRENT ROW`, and the `RANGE` frames with an offset bound, which SQL allows
+under a clause of exactly one column (`hk`), with an `a PRECEDING` start or a
+`b FOLLOWING` end.
+
+SQL's other offset frames, those that start `a FOLLOWING` or end
+`b PRECEDING`, are not among them. Such a frame holds its current row or not
+according to the row's value – not for a value and an offset `a > 0`, yes
+for a null value, whose bound is `CURRENT ROW` – whereas a frame here decides
+it once for every row (`ValueFrame.self`). The frames admitted all hold the
+current row, as `self` says. -/
+inductive FrameCond.SqlBase (o : OrderSpec p) : FrameCond T p → Prop
   | whole : FrameCond.SqlBase o .whole
   | upTo : FrameCond.SqlBase o (.le o)
   | from_ : FrameCond.SqlBase o (.ge o)
   | peers : FrameCond.SqlBase o (FrameCond.peers o)
+  /-- `a PRECEDING` to `UNBOUNDED FOLLOWING`. -/
+  | offFrom {k : Fin p} (hk : ∀ j, j = k) (a : T) :
+      FrameCond.SqlBase o (.geOff o k true a)
+  /-- `UNBOUNDED PRECEDING` to `b FOLLOWING`. -/
+  | offUpTo {k : Fin p} (hk : ∀ j, j = k) (b : T) :
+      FrameCond.SqlBase o (.leOff o k false b)
+  /-- `a PRECEDING` to `b FOLLOWING`. -/
+  | offBoth {k : Fin p} (hk : ∀ j, j = k) (a b : T) :
+      FrameCond.SqlBase o (.and (.geOff o k true a) (.leOff o k false b))
+  /-- `a PRECEDING` to `CURRENT ROW`. -/
+  | offToCur {k : Fin p} (hk : ∀ j, j = k) (a : T) :
+      FrameCond.SqlBase o (.and (.geOff o k true a) (.le o))
+  /-- `CURRENT ROW` to `b FOLLOWING`. -/
+  | curToOff {k : Fin p} (hk : ∀ j, j = k) (b : T) :
+      FrameCond.SqlBase o (.and (.ge o) (.leOff o k false b))
 
 /-- **The frame is one of SQL's, written under the clause `o`**: one of the
 four bounds, with one of the four `EXCLUDE` modifiers (`NO OTHERS`,
@@ -218,11 +283,11 @@ strictly before and strictly after the current row's peers, which are
 `EXCLUDE GROUP` of the frames up to and from the current row written as one
 comparison. -/
 inductive ValueFrame.IsSQLUnder (o : OrderSpec p) : ValueFrame T p → Prop
-  | noOthers {c : FrameCond p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, true⟩
-  | current {c : FrameCond p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, false⟩
-  | group {c : FrameCond p} : c.SqlBase o →
+  | noOthers {c : FrameCond T p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, true⟩
+  | current {c : FrameCond T p} : c.SqlBase o → ValueFrame.IsSQLUnder o ⟨c, false⟩
+  | group {c : FrameCond T p} : c.SqlBase o →
       ValueFrame.IsSQLUnder o ⟨.and c (FrameCond.notPeers o), false⟩
-  | ties {c : FrameCond p} : c.SqlBase o →
+  | ties {c : FrameCond T p} : c.SqlBase o →
       ValueFrame.IsSQLUnder o ⟨.and c (FrameCond.notPeers o), true⟩
   | before : ValueFrame.IsSQLUnder o ⟨.lt o, false⟩
   | after : ValueFrame.IsSQLUnder o ⟨.gt o, false⟩
@@ -253,11 +318,11 @@ def ρ (w : ValueFrame T p) : Tuple T p → Tuple T p → Bool := w.cond.holds
 /-- Whether an occurrence with order value `o` is in its own frame. -/
 def s (w : ValueFrame T p) : Tuple T p → Bool := fun _ => w.self
 
-@[simp] theorem ρ_mk (c : FrameCond p) (b : Bool) :
+@[simp] theorem ρ_mk (c : FrameCond T p) (b : Bool) :
     (ValueFrame.mk c b : ValueFrame T p).ρ = FrameCond.holds c := rfl
 
 omit [ValueType T] in
-@[simp] theorem s_mk (c : FrameCond p) (b : Bool) (o : Tuple T p) :
+@[simp] theorem s_mk (c : FrameCond T p) (b : Bool) (o : Tuple T p) :
     (ValueFrame.mk c b : ValueFrame T p).s o = b := rfl
 
 omit [ValueType T] in
@@ -1580,19 +1645,19 @@ theorem isSQL_before : (before : ValueFrame T p).IsSQL (OrderSpec.asc p) :=
 
 omit [ValueType T] in
 /-- `EXCLUDE CURRENT ROW` of a frame with no modifier. -/
-theorem isSQL_excludeCurrent {o : OrderSpec p} {c : FrameCond p} (h : c.SqlBase o) :
+theorem isSQL_excludeCurrent {o : OrderSpec p} {c : FrameCond T p} (h : c.SqlBase o) :
     (excludeCurrent ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.current h)
 
 omit [ValueType T] in
 /-- `EXCLUDE GROUP` of a frame with no modifier. -/
-theorem isSQL_excludeGroup {o : OrderSpec p} {c : FrameCond p} {b : Bool}
+theorem isSQL_excludeGroup {o : OrderSpec p} {c : FrameCond T p} {b : Bool}
     (h : c.SqlBase o) : (excludeGroup o ⟨c, b⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.group h)
 
 omit [ValueType T] in
 /-- `EXCLUDE TIES` of a frame with no modifier. -/
-theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond p}
+theorem isSQL_excludeTies {o : OrderSpec p} {c : FrameCond T p}
     (h : c.SqlBase o) : (excludeTies o ⟨c, true⟩ : ValueFrame T p).IsSQL o :=
   Or.inl (.ties h)
 

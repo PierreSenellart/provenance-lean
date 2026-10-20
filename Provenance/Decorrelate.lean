@@ -2381,7 +2381,7 @@ theorem AggQueryIn.hasDecorrelation_win {lab : ℕ} {c n mp p : ℕ} {rd : Fin c
     exact hos
   · rw [AggQueryIn.inSig_castKind]
     exact ⟨fun j => AggQueryIn.noFun_carryCol _ _, (TermIn.noFun_lift t).trans hi.1, hi.2.1,
-      (Selection.noFunOpt_map_shift c keep).trans hi.2.2.1, hsg Θ hPi hi.2.2.2 hr⟩
+      (Selection.noFunOpt_map_shift c keep).trans hi.2.2.1, hi.2.2.2.1, hsg Θ hPi hi.2.2.2.2 hr⟩
   rw [AggQueryIn.evaluatePlain_castKind]
   show Multiset.map (fun u => (fun j =>
       (AggQueryIn.carryCol κw (winSrc c n j)).evalPlain u (fun _ => 0)))

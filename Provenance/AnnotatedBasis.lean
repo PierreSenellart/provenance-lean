@@ -206,7 +206,8 @@ theorem AggQueryIn.inSig_stripAgg {Θ : Set (SeqAggFunc T)} :
   | GammaNest is his p f q ih => exact fun h => ⟨h.1, h.2.1, ih h.2.2⟩
   | ProvSum is his t q ih => exact fun h => h.elim
   | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
-  | Win P O o w t f q hrr dist keep ih => exact fun h => ⟨h.1, h.2.1, h.2.2.1, ih h.2.2.2⟩
+  | Win P O o w t f q hrr dist keep ih => exact fun h => ⟨h.1, h.2.1, h.2.2.1, h.2.2.2.1, ih
+    h.2.2.2.2⟩
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in

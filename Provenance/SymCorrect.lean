@@ -990,7 +990,7 @@ theorem sym_correct_aux {k c : ℕ} (env : SymEnv T k c) (Θ : Set (SeqAggFunc T
       have hs : sizeOf q ≤ N := by simp at hq; omega
       obtain ⟨hκ, hwq⟩ := hsrc.2.2.1
       subst hκ
-      obtain ⟨hcl, -⟩ := ih f q hs ⟨hsrc.1.2.2.2, hsrc.2.1, hwq, hsrc.2.2.2⟩ hfresh D γ par
+      obtain ⟨hcl, -⟩ := ih f q hs ⟨hsrc.1.2.2.2.2, hsrc.2.1, hwq, hsrc.2.2.2⟩ hfresh D γ par
         ⟨hnd, hdesc, hctr⟩ hamb
       refine ⟨fun hl hgood hset => ?_, fun s s' m hl => absurd hl hnil⟩
       obtain ⟨hS, hG⟩ := hcl rfl hgood.1 hset
@@ -1001,7 +1001,8 @@ theorem sym_correct_aux {k c : ℕ} (env : SymEnv T k c) (Θ : Set (SeqAggFunc T
         · exact hsrc.2.1 _ this
       have hkeep : ∀ φ, keep = some φ → φ.noFun = true ∧ ∀ a ∈ φ.consts, CG (cutAt env D γ) a :=
         fun φ h => ⟨by have := hsrc.1.2.2.1; rw [h] at this; exact this, hgood.2.1 φ h⟩
-      have := sliceIs_symWin par P O o w t hsrc.1.1 hf keep hkeep _ _ hG hS γ (fun v hv => by
+      have := sliceIs_symWin par P O o w hsrc.1.2.2.2.1 t hsrc.1.1 hf keep hkeep _ _ hG hS γ
+        (fun v hv => by
         have := hgood.2.2 (Fin.snoc v (ValueFrame.windowValueOpt P O o w t
           (if dist then g.distinct else g) keep
           ((q.evaluatePlain D (Fin.append par γ)).map (ColKind.readTuple (ColKind.allReg _)))

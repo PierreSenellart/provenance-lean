@@ -576,7 +576,7 @@ theorem le1_evaluate {d : AnnotatedDatabase T ℕ} {S : Set OpKind} (hS₁ : OpK
       | false => rfl
       | true => exact absurd hi.2.1 (hΘ g)
     subst hdist
-    have hb := ih hu.2 hi.2.2.2 hx γ E hctx hH
+    have hb := ih hu.2 hi.2.2.2.2 hx γ E hctx hH
     have hX : ∀ y ∈ (q.evaluate d γ E).map (GenRow.readAnnotated κ'), y.2 ≤ 1 := by
       intro y hy
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hy

@@ -46,7 +46,7 @@ theorem usesOnly_winWitness : winWitness.usesOnly plainRecOps :=
 theorem overSchema_winWitness : winWitness.overSchema schemaR := rfl
 
 theorem inSig_winWitness : winWitness.inMinimalSig SeqAggFunc.count :=
-  ⟨rfl, Set.mem_singleton _, rfl, trivial⟩
+  ⟨rfl, Set.mem_singleton _, rfl, rfl, trivial⟩
 
 theorem settlesAt_winWitness (D : Database ℕ) (γ : Fin 0 → ℕ) : winWitness.SettlesAt D γ :=
   trivial

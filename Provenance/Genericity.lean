@@ -114,7 +114,8 @@ theorem orderSpec_peer (h : FaithfulOn τ W) {p : ℕ} (o : OrderSpec p)
   rw [h.orderSpec_le o hx hy, h.orderSpec_le o hy hx]
 
 /-- A frame condition reads alike. -/
-theorem frameCond_holds (h : FaithfulOn τ W) {p : ℕ} (c : FrameCond p)
+theorem frameCond_holds (h : FaithfulOn τ W) {p : ℕ} (c : FrameCond T p)
+    (hc : c.noOff = true)
     {x y : Tuple T p} (hx : ∀ k, x k ∈ W) (hy : ∀ k, y k ∈ W) :
     c.holds (τ ∘ x) (τ ∘ y) = c.holds x y := by
   induction c with
@@ -123,11 +124,18 @@ theorem frameCond_holds (h : FaithfulOn τ W) {p : ℕ} (c : FrameCond p)
   | lt o => exact h.orderSpec_lt o hx hy
   | ge o => exact h.orderSpec_le o hy hx
   | gt o => exact h.orderSpec_lt o hy hx
-  | and a b iha ihb => simp only [FrameCond.holds, iha, ihb]
-  | or a b iha ihb => simp only [FrameCond.holds, iha, ihb]
+  | and a b iha ihb =>
+    simp only [FrameCond.noOff, Bool.and_eq_true] at hc
+    simp only [FrameCond.holds, iha hc.1, ihb hc.2]
+  | or a b iha ihb =>
+    simp only [FrameCond.noOff, Bool.and_eq_true] at hc
+    simp only [FrameCond.holds, iha hc.1, ihb hc.2]
   | orAll cs ih =>
+    simp only [FrameCond.noOff, List.all_eq_true, List.mem_finRange, true_implies] at hc
     simp only [FrameCond.holds]
-    exact congrArg _ (funext fun j => ih j)
+    exact congrArg _ (funext fun j => ih j (hc j))
+  | geOff => exact absurd hc (by simp [FrameCond.noOff])
+  | leOff => exact absurd hc (by simp [FrameCond.noOff])
 
 end FaithfulOn
 
@@ -554,7 +562,8 @@ theorem _root_.Multiset.erase_map_of_injAt {α : Type} [LinearOrder α] (f : α 
 
 /-- The frame of a mapped row in the mapped relation is the mapped frame. -/
 theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
-    (w : ValueFrame T p) {X : Multiset (Tuple T n)} (hX : ∀ u ∈ X, ∀ j, u j ∈ W)
+    (w : ValueFrame T p) (hw : w.cond.noOff = true) {X : Multiset (Tuple T n)} (hX : ∀ u ∈ X, ∀ j,
+      u j ∈ W)
     {x : Tuple T n} (hx : ∀ j, x j ∈ W) :
     ValueFrame.frameOf (α := Tuple T n) id P O w (X.map (fun u => (τ ∘ u : Tuple T n)))
         (τ ∘ x)
@@ -570,7 +579,7 @@ theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O
     intro y hy
     simp only [id]
     rw [hkey P y, hkey P x, hkey O y, hkey O x, ValueFrame.ρ_apply, ValueFrame.ρ_apply,
-      h.frameCond_holds w.cond (x := Tuple.key O y) (y := Tuple.key O x)
+      h.frameCond_holds w.cond hw (x := Tuple.key O y) (y := Tuple.key O x)
         (fun k => hX y hy _) (fun k => hx _)]
     exact and_congr (h.row_eq_iff (x := Tuple.key P y) (y := Tuple.key P x)
       (fun k => hX y hy _) (fun k => hx _)) Iff.rfl
@@ -600,7 +609,8 @@ theorem frameOf_map (h : FaithfulOn τ W) {n m p : ℕ} (P : Tuple (Fin n) m) (O
 
 /-- The non-null count of a window's frame, under a clause or not. -/
 theorem frame_nonNullCount (h : FaithfulOn τ W) {c n m p : ℕ} (P : Tuple (Fin n) m)
-    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (t : TermIn T c n)
+    (O : Tuple (Fin n) p) (o : OrderSpec p) (w : ValueFrame T p) (hw : w.cond.noOff = true)
+    (t : TermIn T c n)
     (ht : t.noFun = true) (hc : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W)
     (keep : Option (Selection T n)) (hk : Selection.noFunOpt keep = true)
     (hkc : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W)
@@ -619,7 +629,7 @@ theorem frame_nonNullCount (h : FaithfulOn τ W) {c n m p : ℕ} (P : Tuple (Fin
     · exact hx
     · exact hX u hu'
   rw [← Multiset.filter_coe, ← Multiset.filter_coe, ValueFrame.frameListOf_coe,
-    ValueFrame.frameListOf_coe, h.frameOf_map P O w hX hx, h.filter_keeps_map keep hk hkc hmem,
+    ValueFrame.frameListOf_coe, h.frameOf_map P O w hw hX hx, h.filter_keeps_map keep hk hkc hmem,
     h.nonNullCount_map t ht hc hγ (fun u hu => hmem u (Multiset.mem_of_mem_filter hu))]
 
 end FaithfulOn
@@ -923,7 +933,7 @@ theorem AggQueryIn.valsIn_evaluatePlain {Θ : Set (SeqAggFunc T)} :
     have hu0 := hu
     rw [AggQueryIn.evaluatePlain] at hu
     obtain ⟨v, hv, rfl⟩ := Multiset.mem_map.mp hu
-    have hvV : ∀ i, v i ∈ V := ih hs.2.2.2 D γ V hD hγ
+    have hvV : ∀ i, v i ∈ V := ih hs.2.2.2.2 D γ V hD hγ
       (fun a ha => hc a (Finset.mem_union_right _ ha)) (subset_trans Set.subset_union_left hV) v hv
     exact Tuple.snoc_mem hvV (hV (Set.mem_union_right _ ⟨γ, _, hu0, by rw [Fin.snoc_last]⟩))
   | WinExpr P O o ws ts fs g q keeps ih => exact fun hs => hs.elim
@@ -1196,7 +1206,8 @@ theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hc
       c n)
     (ht : t.noFun = true) (hct : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W) (f : SeqAggFunc T)
     {dist : Bool} (hfc : (if dist then f.distinct else f) = cnt) (keep : Option (Selection T n))
-    (hk : Selection.noFunOpt keep = true) (hck : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W)
+    (hk : Selection.noFunOpt keep = true) (hwo : w.cond.noOff = true)
+    (hck : ∀ a ∈ Selection.constsOpt keep, τ a = a ∧ a ∈ W)
     (q : AggQueryIn T c n κ) (hrr : WinReadsReg κ P O t)
     (D D' : Database T) {γ : Fin c → T} (hγ : ∀ j, γ j ∈ W)
     (hvals : ∀ u, Multiset.Mem (q.evaluatePlain D γ) u → ∀ j, u j ∈ W)
@@ -1230,7 +1241,7 @@ theorem win_map {lab1 lab2 : ℕ} (h : FaithfulOn τ W) {cnt : SeqAggFunc T} (hc
   rw [hfc, ColKind.readTuple_comp κ h0 u]
   erw [hread']
   have hxW : ∀ j, ColKind.readTuple κ u j ∈ W := hXW _ (Multiset.mem_map.mpr ⟨u, hu, rfl⟩)
-  have key := h.frame_nonNullCount P O o w t ht hct keep hk hck hXW hxW hγ
+  have key := h.frame_nonNullCount P O o w hwo t ht hct keep hk hck hXW hxW hγ
   cases keep with
   | none =>
     rw [ValueFrame.windowValueOpt_none, ValueFrame.windowValueOpt_none, ValueFrame.windowValue,
@@ -1655,7 +1666,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
   | Win P O o w t f q hrr dist keep ih =>
     rename_i c' n' m' p' κ' _ _ _
     intro hs τ W h h0 h0W D D' γ hD' hD hγ hc hV
-    obtain ⟨ht, hf, hk, hsq⟩ := hs
+    obtain ⟨ht, hf, hk, hwo, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, τ a = a ∧ a ∈ W := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hct : ∀ a ∈ t.consts, τ a = a ∧ a ∈ W := fun a ha =>
       hc a (Finset.mem_union_left _ (Finset.mem_union_left _ ha))
@@ -1670,7 +1681,7 @@ theorem AggQueryIn.evaluatePlain_faithful {cnt : SeqAggFunc T} (hcnt : cnt.Reads
       cases dist with
       | false => exact Set.mem_singleton_iff.mp hf
       | true => exact Set.mem_singleton_iff.mp hf
-    rw [h.win_map hcnt h0 h0W P O o w t ht hct f hfc keep hk hck q hrr D D' hγ hvals hr]
+    rw [h.win_map hcnt h0 h0W P O o w t ht hct f hfc keep hk hwo hck q hrr D D' hγ hvals hr]
     refine Multiset.map_congr rfl (fun u hu => ?_)
     funext i
     refine Fin.lastCases ?_ (fun i => ?_) i
@@ -2190,7 +2201,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
   | Win P O o w t f q hrr dist keep ih =>
     rename_i c' n' m' p' κ' lab rd _
     intro hs hh hn D D' hD' hD hc
-    obtain ⟨ht, hf, hk, hsq⟩ := hs
+    obtain ⟨ht, hf, hk, hwo, hsq⟩ := hs
     have hcq : ∀ a ∈ q.allConsts, a ∈ B := fun a ha => hc a (Finset.mem_union_right _ ha)
     have hD'q : ∀ p ∈ q.leaves, D'.find p.1 p.2 = D.find p.1 p.2 :=
       fun p hp => hD' p hp List.not_mem_nil
@@ -2213,7 +2224,7 @@ theorem AggQueryIn.countValsAll_subset {cnt : SeqAggFunc T} (hcnt : cnt.ReadsCou
     have hG := h.win_map (hsql := sql_frame%) (lab1 := lab) (lab2 := lab) (rd1 := rd) (rd2 :=
         rd) hcnt h0τ h0W P O o w t ht
       (fun a ha => hfix a (hc a (Finset.mem_union_left _
-          (Finset.mem_union_left _ ha)))) f hfc keep hk
+          (Finset.mem_union_left _ ha)))) f hfc keep hk hwo
       (fun a ha => hfix a (hc a (Finset.mem_union_left _ (Finset.mem_union_right _ ha)))) q hrr D' D
       (fun j => Set.mem_union_right _ ⟨j, rfl⟩) hvals hr
     rw [hcomp] at hG
@@ -2624,7 +2635,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
   | Win P O o w t f q hrr dist keep ih =>
     rename_i c' n' m' p' κ' _ _ _
     intro hs hh hn
-    obtain ⟨fq, hfq, hb⟩ := ih hs.2.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
+    obtain ⟨fq, hfq, hb⟩ := ih hs.2.2.2.2 hh (fun p hp => absurd hp List.not_mem_nil)
     refine ⟨fun m => fq m + ((2 * (m + fq m + 1)) ^ c' * 2 ^ (c' * c'))
         * (m + fq m + c' + 1) ^ n',
       hfq.add ((((PolyBounded.const 2).mul ((PolyBounded.id.add hfq).add
@@ -2641,7 +2652,7 @@ theorem AggQueryIn.exists_polyBound_countTypes {cnt : SeqAggFunc T} (hcnt : cnt.
     refine le_trans (Finset.card_union_le _ _) (Nat.add_le_add hBq ?_)
     refine le_trans (AggQueryIn.card_repVals_le _ _ _ D
       (((Union.union B (q.countTypes B D)).card + c' + 1) ^ n') (fun ω => ?_)) ?_
-    · exact AggQueryIn.card_win_vals_le hcnt hν h0 P O o w t f q hrr dist keep hs.2.2.2 hh D hDq
+    · exact AggQueryIn.card_win_vals_le hcnt hν h0 P O o w t f q hrr dist keep hs.2.2.2.2 hh D hDq
         hcq _
     · refine Nat.mul_le_mul (Nat.mul_le_mul_right _ (Nat.pow_le_pow_left (by omega) _))
         (Nat.pow_le_pow_left (by omega) _)

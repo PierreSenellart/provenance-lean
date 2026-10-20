@@ -1634,7 +1634,7 @@ theorem AggQueryIn.exists_polyBound_rec_aux {S : Set OpKind}
   | GammaTok is his ts fs a q keep ih => intro _ _ hsig; exact hsig.elim
   | Win P O o w t f q hrr dist keep ih =>
     intro hq hr hsig ha
-    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2.2 ha
+    obtain ⟨⟨b, k, hM⟩, -⟩ := ih hq.2 hr hsig.2.2.2.2 ha
     refine ⟨⟨b + 1, k, fun D γ hs => ⟨?_, fun V hD hγ hc hV u hu => ?_⟩⟩,
       fun _ _ h _ => absurd h (by simp)⟩
     · show Multiset.card (Multiset.map _ (q.evaluatePlain D γ)) ≤ _

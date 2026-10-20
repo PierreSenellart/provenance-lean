@@ -851,7 +851,7 @@ theorem testOK_winZ (hS : selTestOps ⊆ S) {cnt : SeqAggFunc T} (hc : cnt ∈ �
     TestOK S Θ Q (winZ cnt Z) :=
   TestOK.castKind _ {
     uses := ⟨hS (by simp [selTestOps]), hZ.uses⟩
-    sig := ⟨rfl, by simpa using hc, rfl, hZ.sig⟩
+    sig := ⟨rfl, by simpa using hc, rfl, rfl, hZ.sig⟩
     over := fun sch hs => hZ.over sch hs
     noM := fun x => hZ.noM x
     settles := fun D γ => hZ.settles D γ
@@ -1144,10 +1144,10 @@ theorem exists_selPass_of {Src Tgt : Set OpKind}
   | GammaTok is his ts fs a q keep ih => exact fun hu => hu.elim
   | @Win c' n' m' p' κ' lab rd P O o w _ t f q hrr dist keep ih =>
     intro hu hi hn
-    obtain ⟨q', hu', hi', ho', hm', he'⟩ := ih hu.2 hi.2.2.2 hn
+    obtain ⟨q', hu', hi', ho', hm', he'⟩ := ih hu.2 hi.2.2.2.2 hn
     refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist
         keep,
-      ⟨hsub _ hu.1 (by decide), hu'⟩, ⟨hi.1, hi.2.1, hi.2.2.1, hi'⟩, ho', hm',
+      ⟨hsub _ hu.1 (by decide), hu'⟩, ⟨hi.1, hi.2.1, hi.2.2.1, hi.2.2.2.1, hi'⟩, ho', hm',
       fun D γ h => ⟨(he' D γ h).1, ?_⟩⟩
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
   | WinExpr P O o ws ts fs g q keeps ih => exact fun _ hi => hi.elim

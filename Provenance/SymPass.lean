@@ -143,10 +143,10 @@ theorem fine_winKept {Θ : Set (SeqAggFunc T)} {c n m p : ℕ} (P : Tuple (Fin n
     (f : SeqAggFunc T) (κ : Fin n → ColKind) (q : AggQueryIn T c n (ColKind.allReg n))
     (dist : Bool) (keep : Option (Selection T n)) (ht : t.noFun = true)
     (hf : if dist then f.distinct ∈ Θ else f ∈ Θ) (hkeep : Selection.noFunOpt keep = true)
-    (hq : Fine Θ q) :
+    (hw : w.cond.noOff = true) (hq : Fine Θ q) :
     Fine Θ (AggQueryIn.winKept (hsql := sql_frame%) P O o w t f κ q dist keep) := by
   refine ⟨AggQueryIn.usesOnly_winKept P O o w t f κ q dist keep mem_win mem_proj hq.1,
-    AggQueryIn.inSig_winKept P O o w t f κ q dist keep ht hf hkeep hq.2.1, ?_,
+    AggQueryIn.inSig_winKept P O o w t f κ q dist keep ht hf hkeep hw hq.2.1, ?_,
     AggQueryIn.hygienic_winKept P O o w t f κ q dist keep hq.2.2.2⟩
   rw [AggQueryIn.winKept, winAllReg_castKind]
   refine ⟨rfl, ?_⟩
@@ -903,14 +903,14 @@ theorem exists_prodPass_aux {Θ : Set (SeqAggFunc T)} {cnt : SeqAggFunc T} (hcnt
   | ProvSum is his t q ih => exact fun hu => hu.elim
   | @Win cw nw _mw _pw κw _lab _rd P' O o w _ t fw q hrr dist keep ih =>
     intro hu hi hr sch A f hf hrel
-    obtain ⟨q', hF, hO, he⟩ := (ih hu.2 hi.2.2.2 hr sch A f hf hrel).1 rfl
+    obtain ⟨q', hF, hO, he⟩ := (ih hu.2 hi.2.2.2.2 hr sch A f hf hrel).1 rfl
     refine ⟨fun _ => ⟨(AggQueryIn.winKept (hsql := sql_frame%) P' O o w t fw κw q' dist
         keep).allRegOf, ?_,
       over_allRegOf (over_winKept (hsql := sql_frame%) P' O o w t fw κw q' dist keep hO),
       fun D γ hset => ?_⟩,
       fun _ _ hl _ => absurd hl (by simp)⟩
     · have := fine_winKept (hsql := sql_frame%) P' O o w t fw κw q' dist keep hi.1 hi.2.1
-        hi.2.2.1 hF
+        hi.2.2.1 hi.2.2.2.1 hF
       unfold Fine at this ⊢
       rw [AggQueryIn.usesOnly_allRegOf, AggQueryIn.inSig_allRegOf, winAllReg_allRegOf,
         AggQueryIn.hygienic_allRegOf]

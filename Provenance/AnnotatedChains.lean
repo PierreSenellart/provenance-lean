@@ -732,7 +732,7 @@ theorem rowBd_evaluate {Bd : T → K → Prop} (hB : BdClosed Bd)
     intro hi hx ρc HK hw F hc hD γ E hγ hctx hH r hr
     simp only [evaluate] at hr
     obtain ⟨x, hxm, rfl⟩ := Multiset.mem_map.1 hr
-    have hb := ih hi.2.2.2 hx hw.2 F (fun x hx' => hc x (Finset.mem_union_right _ hx')) hD γ E
+    have hb := ih hi.2.2.2.2 hx hw.2 F (fun x hx' => hc x (Finset.mem_union_right _ hx')) hD γ E
       hγ hctx hH x hxm
     intro k v hk
     simp only [ValueFrame.windowGenRow] at hk ⊢

@@ -1446,7 +1446,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
     intro hq hr hi hw f hf hfr sch hsch ho
     by_cases hwin : OpKind.win ∈ S
     · -- the target keeps windows: the window over the re-typed child, through the doubling
-      obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho
+      obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2.2 (Or.inl hwin) f hf hfr sch hsch ho
       obtain ⟨q', hb, he⟩ := hc rfl
       refine ⟨fun _ => ⟨(winKept (hsql := sql_frame%) P' O o w t fw _κw q' dist keep).allRegOf, ?_,
           fun D γ hset => ?_⟩,
@@ -1459,7 +1459,8 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
                   exact hygienic_winKept P' O o w t fw _κw q' dist keep hb.hygienic
                 inSig := by
                   rw [AggQueryIn.inSig_allRegOf]
-                  exact inSig_winKept P' O o w t fw _κw q' dist keep hi.1 hi.2.1 hi.2.2.1 hb.inSig
+                  exact inSig_winKept P' O o w t fw _κw q' dist keep hi.1 hi.2.1 hi.2.2.1
+                      hi.2.2.2.1 hb.inSig
                 over := fun sch hsch ho => by
                   rw [AggQueryIn.overSchema_allRegOf]
                   exact overSchema_winKept P' O o w t fw _κw q' dist keep (hb.over sch hsch ho)
@@ -1475,7 +1476,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
         rw [AggQueryIn.evaluatePlain_allRegOf,
           evaluatePlain_winKept P' O o w t fw q hrr q' dist keep D γ he']
     obtain ⟨hreg, hcs, hd'⟩ := hw.resolve_left hwin
-    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2 (Or.inr hd') f hf hfr sch hsch ho
+    obtain ⟨hc, -⟩ := ih hq.2 hr hi.2.2.2.2 (Or.inr hd') f hf hfr sch hsch ho
     obtain ⟨q', hb, he⟩ := hc rfl
     have hκ := funext hreg
     subst hκ
@@ -1494,7 +1495,7 @@ theorem exists_basisRec_aux {S : Set OpKind} (hS : sumMuOps ⊆ S) (hnu : OpKind
                 exact hb.hygienic
               inSig := by
                 rw [AggQueryIn.inSig_allRegOf]
-                exact inSig_winByApply P' O o ψ t _ q' hfΘ hi.1 (hψn hi.2.2.1) hb.inSig
+                exact inSig_winByApply P' O o ψ t _ q' hfΘ hi.1 (hψn hi.2.2.1 hi.2.2.2.1) hb.inSig
               over := fun sch hsch ho => by
                 rw [AggQueryIn.overSchema_allRegOf]
                 exact overSchema_winByApply P' O o ψ t _ (hb.over sch hsch ho)

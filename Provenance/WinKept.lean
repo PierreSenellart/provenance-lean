@@ -448,6 +448,7 @@ theorem hygienic_winKept (hq : q.hygienic) :
 
 theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
     (hf : if dist then f.distinct ∈ Θ else f ∈ Θ) (hkeep : Selection.noFunOpt keep = true)
+    (hw : w.cond.noOff = true)
     (hq : q.inSig Θ) : (winKept (hsql := sql_frame%) P O o w t f κ q dist keep).inSig Θ := by
   rw [winKept, AggQueryIn.inSig_castKind]
   refine ⟨fun j => ?_, ?_⟩
@@ -455,7 +456,7 @@ theorem inSig_winKept {Θ : Set (SeqAggFunc T)} (ht : t.noFun = true)
     · simp only [keptCols, Fin.snoc_last]; rfl
     · simp only [keptCols, Fin.snoc_castSucc]; rfl
   · refine ⟨by rw [TermIn.noFun_widen]; exact ht, hf, by rw [Selection.noFunOpt_widen]; exact hkeep,
-      ?_⟩
+      hw, ?_⟩
     rw [doubled, AggQueryIn.inSig_castKind]
     refine ⟨fun j => ?_, hq⟩
     refine Fin.addCases (fun i => ?_) (fun i => ?_) j

@@ -856,7 +856,7 @@ theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAgg
         with hSdef
       have hSq : q.allConsts ⊆ S := Finset.subset_union_right
       have hSC : S ⊆ C := hCk
-      have hsrc' : SymSrc Θ q := ⟨hsrc.1.2.2.2, hsrc.2.1, hwq, hsrc.2.2.2⟩
+      have hsrc' : SymSrc Θ q := ⟨hsrc.1.2.2.2.2, hsrc.2.1, hwq, hsrc.2.2.2⟩
       have hrNM : ∀ s, q.noMention s → (winRaw (hsql := sql_frame%) (envOf (part f 3) cnt k (cutOf
           (part f 4) S
           (cutCore cnt (part f 1) q))) (part f 5) P O o w t g q dist keep).noMention s := by
@@ -899,7 +899,8 @@ theorem good_cutCore (Θ : Set (SeqAggFunc T)) {cnt : SeqAggFunc T} (hc : SeqAgg
         simp only [AggQueryIn.evaluatePlain, ColKind.readTuple_allReg, Multiset.map_id'] at this
         exact this
       obtain ⟨u, hu, rfl⟩ := Multiset.mem_map.mp hy'
-      have hwv := windowValue_slice par P O o w t hsrc.1.1 hf keep hkeep hsl hG hu (expandSpec o) γ
+      have hwv := windowValue_slice par P O o w hsrc.1.2.2.2.1 t hsrc.1.1 hf keep hkeep hsl hG hu
+          (expandSpec o) γ
       have hrin : Multiset.Mem ((sym (envOf (part f 3) cnt k (cutOf (part f 4) S
           (cutCore cnt (part f 1) q))) (part f 5) q).evaluatePlain D γ)
           (rowEnc (valsU ((cutOf (part f 4) S (cutCore cnt (part f 1) q)).evaluatePlain D γ))

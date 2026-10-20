@@ -646,9 +646,11 @@ which `Ω` does not hold: the two of the rewritten world fold the
 domain's `+` into their provenance column (`ProvSum`, `GammaTok`), and a
 multi-frame window combines its leaves by an arbitrary function – which
 is why SQL's distribution functions take their arithmetic as a parameter
-here. So a value of the result of a query in the signature is a value of
-the instance, a constant of the query, or an aggregate of one of `Θ`,
-which is what the row of `μ^⊎` reads. -/
+here. A frame with an offset bound moves the current row's value by `+` or
+`-` (`FrameCond.noOff`), so it is not in the signature either. So a
+value of the result of a query in the signature is a value of the
+instance, a constant of the query, or an aggregate of one of `Θ`, which
+is what the row of `μ^⊎` reads. -/
 def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
     {κ : Fin n → ColKind} → {l : List (String × ℕ)} → AggQueryIn T c n κ l → Prop
   | _, _, _, _, .Rel _ _ => True
@@ -679,9 +681,9 @@ def AggQueryIn.inSig (Θ : Set (SeqAggFunc T)) : {c n : ℕ} →
   | _, _, _, _, .ProvSum _ _ _ _ => False
   | _, _, _, _, .Retag _ q => q.inSig Θ
   | _, _, _, _, .GammaTok _ _ _ _ _ _ _ => False
-  | _, _, _, _, .Win _ _ _ _ t f q _ dist keep =>
+  | _, _, _, _, .Win _ _ _ w t f q _ dist keep =>
       t.noFun = true ∧ (if dist then f.distinct ∈ Θ else f ∈ Θ)
-        ∧ Selection.noFunOpt keep = true ∧ q.inSig Θ
+        ∧ Selection.noFunOpt keep = true ∧ w.cond.noOff = true ∧ q.inSig Θ
   | _, _, _, _, .WinExpr _ _ _ _ _ _ _ _ _ => False
 
 /-- **The minimal signature** `𝒜(∅, {count})`: no function on values,
@@ -2918,7 +2920,7 @@ theorem AggQueryIn.noFunCols_of_inSig {Θ : Set (SeqAggFunc T)} :
   | ProvSum is his t q ih => exact fun h => h.elim
   | Retag hk q ih => exact fun h => ih h
   | GammaTok is his ts fs a q keep ih => exact fun h => h.elim
-  | Win P O o w t f q hrr dist keep ih => exact fun h => ih h.2.2.2
+  | Win P O o w t f q hrr dist keep ih => exact fun h => ih h.2.2.2.2
   | WinExpr P O o ws ts fs g q keeps ih => exact fun h => h.elim
 
 omit [ValueType T] in
@@ -5864,79 +5866,174 @@ one on *truth*, which is what a selection keeps a row by. -/
 /-- A disjunction over a list of conditions, each of which is a
 predicate. -/
 private theorem exists_anyPred {c : ℕ} {β : Type} (O : Tuple (Fin n) p)
-    (f : β → Tuple T p → Tuple T p → Bool)
+    (f : β → Tuple T p → Tuple T p → Bool) (Q : β → Prop)
     (hf : ∀ b : β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
-      ψ.noFun = true ∧
+      (Q b → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ f b (Tuple.key O y) (Tuple.key O u) = true) :
     ∀ L : List β, ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
-      ψ.noFun = true ∧
+      ((∀ b ∈ L, Q b) → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ L.any (fun b => f b (Tuple.key O y) (Tuple.key O u)) = true := by
   intro L
   induction L with
   | nil =>
-    refine ⟨falsePred, rfl, fun y u γ => ?_⟩
+    refine ⟨falsePred, fun _ => rfl, fun y u γ => ?_⟩
     exact ⟨fun h => absurd h (holdsPlain_falsePred y _),
       fun h => absurd h (by simp)⟩
   | cons b L ih =>
     obtain ⟨ψ₁, hn₁, hψ₁⟩ := hf b
     obtain ⟨ψ₂, hn₂, hψ₂⟩ := ih
-    refine ⟨GenPredIn.or ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
+    refine ⟨GenPredIn.or ψ₁ ψ₂, fun hQ => by
+      show (_ && _) = true
+      rw [hn₁ (hQ b (List.mem_cons_self ..)),
+        hn₂ (fun b' hb' => hQ b' (List.mem_cons_of_mem _ hb'))]
+      rfl, fun y u γ => ?_⟩
     rw [holdsPlain_or_iff, hψ₁, hψ₂, List.any_cons]
     simp
 
+/-- The current row's value moved by an offset, as a term. -/
+def OrderCol.shiftTerm {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
+    (x : TermGIn T c (ColKind.allReg m)) : TermGIn T c (ColKind.allReg m) :=
+  if pre != cl.desc then .sub x (.const a) else .add x (.const a)
+
+theorem OrderCol.evalPlain_shiftTerm {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
+    (x : TermGIn T c (ColKind.allReg m)) (u : Tuple T m) (γ : Fin c → T) :
+    (cl.shiftTerm pre a x).evalPlain u γ = FrameCond.shift cl pre a (x.evalPlain u γ) := by
+  unfold OrderCol.shiftTerm FrameCond.shift
+  split <;> rfl
+
+/-- **An offset bound is a predicate**: the comparison with the moved value,
+or, where the current row's value is null, with the value itself. Where the
+domain names its null the two cases are told apart by `IS NOT DISTINCT FROM`
+it; where it names none there is only the first. `lower` chooses the start
+(`x` moved at or before `y`) or the end (`y` at or before `x` moved). -/
+theorem OrderCol.exists_offPred {c m : ℕ} (cl : OrderCol) (pre : Bool) (a : T)
+    (lower : Bool) (x y : TermGIn T c (ColKind.allReg m)) :
+    ∃ ψ : GenPredIn T c (ColKind.allReg m), ∀ (u : Tuple T m) (γ : Fin c → T),
+      ψ.holdsPlain u γ ↔
+        (if ValueType.isNull (x.evalPlain u γ) then
+            (if lower then cl.le (x.evalPlain u γ) (y.evalPlain u γ)
+              else cl.le (y.evalPlain u γ) (x.evalPlain u γ))
+          else
+            (if lower then cl.le (FrameCond.shift cl pre a (x.evalPlain u γ)) (y.evalPlain u γ)
+              else cl.le (y.evalPlain u γ) (FrameCond.shift cl pre a (x.evalPlain u γ))))
+          = true := by
+  cases h : (ValueType.nullVal : Option T) with
+  | none =>
+    have : NoNulls T := ValueType.noNulls_of_nullVal_none h
+    refine ⟨if lower then cl.lePred (cl.shiftTerm pre a x) y
+      else cl.lePred y (cl.shiftTerm pre a x), fun u γ => ?_⟩
+    rw [isNull_eq_false (x.evalPlain u γ)]
+    cases lower <;>
+      simp only [Bool.false_eq_true, ite_false, ite_true, OrderCol.holdsPlain_lePred,
+        OrderCol.evalPlain_shiftTerm]
+  | some ν =>
+    have hν := ValueType.isNull_nullVal h
+    have hνu : ∀ b : T, ValueType.isNull b = true → b = ν := fun b hb =>
+      Option.some.inj (((ValueType.isNull_iff_nullVal b).mp hb).symm.trans h)
+    refine ⟨.or (.and (.cmp CompOp.syneq x (.const ν))
+        (if lower then cl.lePredN ν x y else cl.lePredN ν y x))
+      (.and (.cmp CompOp.synne x (.const ν))
+        (if lower then cl.lePredN ν (cl.shiftTerm pre a x) y
+          else cl.lePredN ν y (cl.shiftTerm pre a x))), fun u γ => ?_⟩
+    rw [holdsPlain_or_iff, holdsPlain_and_iff, holdsPlain_and_iff, holdsPlain_syneq,
+      holdsPlain_synne, evalPlain_constN]
+    by_cases hx : x.evalPlain u γ = ν
+    · have hxn : ValueType.isNull (x.evalPlain u γ) = true := hx ▸ hν
+      rw [hxn]
+      cases lower <;>
+        simp only [Bool.false_eq_true, ite_false, ite_true, OrderCol.holdsPlain_lePredN cl hν hνu,
+          hx, ne_eq, not_true_eq_false, false_and, or_false, true_and]
+    · have hxn : ValueType.isNull (x.evalPlain u γ) = false := by
+        cases hb : ValueType.isNull (x.evalPlain u γ)
+        · rfl
+        · exact absurd (hνu _ hb) hx
+      rw [hxn]
+      cases lower <;>
+        simp only [Bool.false_eq_true, ite_false, ite_true, OrderCol.holdsPlain_lePredN cl hν hνu,
+          OrderCol.evalPlain_shiftTerm, hx, ne_eq, not_false_eq_true, true_and, false_and,
+          false_or]
+
 /-- **Every frame condition is a predicate of the query language.** -/
 theorem FrameCond.exists_condPred {c : ℕ} (O : Tuple (Fin n) p) :
-    ∀ fc : FrameCond p,
+    ∀ fc : FrameCond T p,
       ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
-        ψ.noFun = true ∧
+        (fc.noOff = true → ψ.noFun = true) ∧
         ∀ (y u : Tuple T n) (γ : Fin c → T),
           ψ.holdsPlain y (Fin.append u γ)
             ↔ fc.holds (Tuple.key O y) (Tuple.key O u) = true := by
   intro fc
   induction fc with
   | whole =>
-    exact ⟨truePred, rfl, fun y u γ =>
+    exact ⟨truePred, fun _ => rfl, fun y u γ =>
       ⟨fun _ => rfl, fun _ => holdsPlain_truePred y _⟩⟩
   | le o =>
     obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o (none : Option (Selection T n))
-    exact ⟨ψ, hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+    exact ⟨ψ, fun _ => hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
   | lt o =>
     obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeBefore (c := c) O o (none : Option (Selection T n))
-    exact ⟨ψ, hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
+    exact ⟨ψ, fun _ => hn rfl, fun y u γ => (hψ y u γ).trans (and_iff_left rfl)⟩
   | ge o =>
     obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeUpTo (c := c) O o.reverse
       (none : Option (Selection T n))
-    refine ⟨ψ, hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    refine ⟨ψ, fun _ => hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
     show OrderSpec.le o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
     rw [OrderSpec.le_reverse]
     exact Iff.rfl
   | gt o =>
     obtain ⟨ψ, hn, hψ⟩ := exists_framePred_rangeBefore (c := c) O o.reverse
       (none : Option (Selection T n))
-    refine ⟨ψ, hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
+    refine ⟨ψ, fun _ => hn rfl, fun y u γ => ((hψ y u γ).trans (and_iff_left rfl)).trans ?_⟩
     show OrderSpec.lt o.reverse (Tuple.key O y) (Tuple.key O u) = true ↔ _
     rw [OrderSpec.lt_reverse]
     exact Iff.rfl
   | and a b iha ihb =>
     obtain ⟨ψ₁, hn₁, hψ₁⟩ := iha
     obtain ⟨ψ₂, hn₂, hψ₂⟩ := ihb
-    refine ⟨GenPredIn.and ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
+    refine ⟨GenPredIn.and ψ₁ ψ₂, fun h => by
+      simp only [FrameCond.noOff, Bool.and_eq_true] at h
+      show (_ && _) = true; rw [hn₁ h.1, hn₂ h.2]; rfl, fun y u γ => ?_⟩
     rw [holdsPlain_and_iff, hψ₁, hψ₂]
     show _ ↔ (_ && _) = true
     rw [Bool.and_eq_true]
   | or a b iha ihb =>
     obtain ⟨ψ₁, hn₁, hψ₁⟩ := iha
     obtain ⟨ψ₂, hn₂, hψ₂⟩ := ihb
-    refine ⟨GenPredIn.or ψ₁ ψ₂, by show (_ && _) = true; rw [hn₁, hn₂]; rfl, fun y u γ => ?_⟩
+    refine ⟨GenPredIn.or ψ₁ ψ₂, fun h => by
+      simp only [FrameCond.noOff, Bool.and_eq_true] at h
+      show (_ && _) = true; rw [hn₁ h.1, hn₂ h.2]; rfl, fun y u γ => ?_⟩
     rw [holdsPlain_or_iff, hψ₁, hψ₂]
     show _ ↔ (_ || _) = true
     rw [Bool.or_eq_true]
   | orAll cs ih =>
-    exact exists_anyPred O (fun j => (cs j).holds) ih _
+    obtain ⟨ψ, hn, hψ⟩ := exists_anyPred O (fun j => (cs j).holds)
+      (fun j => (cs j).noOff = true) ih (List.finRange _)
+    refine ⟨ψ, fun h => hn (fun j _ => ?_), hψ⟩
+    simp only [FrameCond.noOff, List.all_eq_true, List.mem_finRange, true_implies] at h
+    exact h j
+  | geOff o k pre a =>
+    obtain ⟨ψ, hψ⟩ := (o k).exists_offPred pre a true (frameOuterTerms (c := c) O k)
+      (frameSelfTerms (c := c) O k)
+    refine ⟨ψ, fun h => absurd h (by simp [FrameCond.noOff]), fun y u γ => ?_⟩
+    rw [hψ y (Fin.append u γ)]
+    show _ ↔ FrameCond.holds (.geOff o k pre a) (Tuple.key O y) (Tuple.key O u) = true
+    simp only [FrameCond.holds, Tuple.key, ite_true]
+    rw [show (frameOuterTerms (c := c) O k).evalPlain y (Fin.append u γ) = u (O k) from
+      Fin.append_left u γ (O k)]
+    rfl
+  | leOff o k pre a =>
+    obtain ⟨ψ, hψ⟩ := (o k).exists_offPred pre a false (frameOuterTerms (c := c) O k)
+      (frameSelfTerms (c := c) O k)
+    refine ⟨ψ, fun h => absurd h (by simp [FrameCond.noOff]), fun y u γ => ?_⟩
+    rw [hψ y (Fin.append u γ)]
+    show _ ↔ FrameCond.holds (.leOff o k pre a) (Tuple.key O y) (Tuple.key O u) = true
+    simp only [FrameCond.holds, Tuple.key, Bool.false_eq_true, ite_false]
+    rw [show (frameOuterTerms (c := c) O k).evalPlain y (Fin.append u γ) = u (O k) from
+      Fin.append_left u γ (O k)]
+    rfl
 
 /-- **A frame and a `FILTER` clause are a predicate of the language**:
 what `prop:winderived` spells a window's frame out with, for every frame
@@ -5944,14 +6041,15 @@ the syntax can name and every clause. -/
 theorem ValueFrame.exists_framePred {c : ℕ} (O : Tuple (Fin n) p)
     (w : ValueFrame T p) (keep : Option (Selection T n)) :
     ∃ ψ : GenPredIn T (n + c) (ColKind.allReg n),
-      (Selection.noFunOpt keep = true → ψ.noFun = true) ∧
+      (Selection.noFunOpt keep = true → w.cond.noOff = true → ψ.noFun = true) ∧
       ∀ (y u : Tuple T n) (γ : Fin c → T),
         ψ.holdsPlain y (Fin.append u γ)
           ↔ (w.ρ (Tuple.key O y) (Tuple.key O u) = true
               ∧ Selection.keepsOpt keep y = true) := by
   obtain ⟨ψ, hn, hψ⟩ := FrameCond.exists_condPred (T := T) (c := c) O w.cond
   refine ⟨GenPredIn.and ψ (clausePredOpt keep),
-    fun hk => by simp only [GenPredIn.noFun, hn, noFun_clausePredOpt, hk, Bool.and_self],
+    fun hk hw => by
+      simp only [GenPredIn.noFun, hn hw, noFun_clausePredOpt, hk, Bool.and_self],
     fun y u γ => ?_⟩
   rw [holdsPlain_and_iff, holdsPlain_clausePredOpt, hψ]
   exact Iff.rfl

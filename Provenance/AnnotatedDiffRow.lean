@@ -952,7 +952,7 @@ theorem annIn_evaluate (hQ : AnnClosed Q) {d : AnnotatedDatabase T K} {S : Set O
     intro hu hi hx γ E hctx hH r hr
     simp only [AggQueryIn.evaluate] at hr
     obtain ⟨x, hxm, rfl⟩ := Multiset.mem_map.1 hr
-    have hb := ih hu.2 hi.2.2.2 hx γ E hctx hH
+    have hb := ih hu.2 hi.2.2.2.2 hx γ E hctx hH
     have hX : ∀ y ∈ (q.evaluate d γ E).map (GenRow.readAnnotated κ'), Q y.2 := by
       intro y hy
       obtain ⟨r₀, hr₀, rfl⟩ := Multiset.mem_map.1 hy

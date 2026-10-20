@@ -291,7 +291,8 @@ theorem exists_dropMu {S : Set OpKind} (hsel : OpKind.sel ∉ S) (hap : OpKind.a
     obtain ⟨q', hu', hr', hi', hm', he'⟩ := ih hu.2 hr
     refine ⟨AggQueryIn.Win (hsql := sql_frame%) (lab := lab) (rd := rd) P O o w t f q' hrr dist
         keep,
-      ⟨hmem hu.1 (by decide), hu'⟩, hr', fun Θ hi => ⟨hi.1, hi.2.1, hi.2.2.1, hi' Θ hi.2.2.2⟩,
+      ⟨hmem hu.1 (by decide), hu'⟩, hr', fun Θ hi => ⟨hi.1, hi.2.1, hi.2.2.1, hi.2.2.2.1, hi' Θ
+        hi.2.2.2.2⟩,
       hm', fun D γ h => ⟨(he' D γ h).1, ?_⟩⟩
     simp only [AggQueryIn.evaluatePlain, (he' D γ h).2]
   | @WinExpr c' n' m' p' na lab rd P O o ws _ ts fs g q keeps ih =>
