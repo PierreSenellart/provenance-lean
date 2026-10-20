@@ -1049,8 +1049,8 @@ proven engine several general results reuse internally.
   recursions settle at this instance – is the one hypothesis a statement
   about a recursion's value needs, and `AggQueryIn.recRestricted` is
   `sec:plain`'s restriction on a recursive term. `GeneratesOn` asks the
-  query it produces to be of the algebra and to settle everywhere, as
-  the plain query it stands for does.
+  set of classes to hold no recursion, so the query it produces settles
+  everywhere, as the plain query it stands for does.
   What a window has to be for the first pass to reach it is
   `AggQueryIn.WinsDerivable`: its frame contains its current row, its
   input is all-regular, a predicate of the language holds exactly where

@@ -3,7 +3,7 @@ import Provenance.RecursionBasis
 /-!
 # `⊎` from `μ^⊎` in the minimal universe
 
-`tab:basisclasses`'s `⊎` row holds of the recursion-free fragment only
+`tab:basisclasses`'s `⊎` row holds of recursion-free class sets only
 (`union_mem_of_generatesOn`): with a bag recursion, the union is a
 derived operator. The construction (semantics session, 2026-10-12,
 checked on PostgreSQL 18): for `R`, `S` of arity `k`, two constants
