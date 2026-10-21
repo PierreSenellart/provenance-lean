@@ -62,7 +62,6 @@ instance : CommSemiring (BoolFunc X) where
     intro a
     apply funext
     simp
-    tauto
 
   nsmul := nsmulRec
 
@@ -87,7 +86,6 @@ instance : CommSemiring (BoolFunc X) where
     intro a
     apply funext
     simp
-    tauto
 
   mul_assoc := by
     intro a b c

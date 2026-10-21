@@ -507,7 +507,6 @@ theorem Relation.groupSeqOptOrd_coe {m n₁ : ℕ} (is : Tuple (Fin m) n₁) (or
       : Multiset (Tuple T m)) = _
     rw [← hbase, Multiset.filter_coe]
     congr 1
-    exact List.filter_congr (fun u _ => Bool.decide_eq_true.symm)
 
 /-! ## Frames and window values under a faithful map -/
 

@@ -14,8 +14,8 @@ authors:
 repository-code: "https://github.com/PierreSenellart/provenance-lean"
 url: "https://provsql.org/lean-docs/Provenance.html"
 license: MIT
-version: "1.2.0"
-date-released: "2026-09-22"
+version: "1.3.0"
+date-released: "2026-10-21"
 abstract: >-
   A Lean 4 formalization of database provenance in the semiring framework of
   Green, Karvounarakis and Tannen. It defines semirings with monus and twelve

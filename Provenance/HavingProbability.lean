@@ -1492,7 +1492,7 @@ lemma chi_eval_iff (op : CompOp) (a c : T) (v : X → Bool) :
   unfold Having.chi
   split_ifs with h
   · exact iff_of_true rfl h
-  · exact iff_of_false (fun hh => Bool.noConfusion hh) h
+  · exact iff_of_false (fun hh => hh.elim) h
 
 /-- Evaluation of the characteristic of an arbitrary test. -/
 lemma chiOf_eval_iff (P : T → Kleene) (a : T) (v : X → Bool) :
@@ -1500,7 +1500,7 @@ lemma chiOf_eval_iff (P : T → Kleene) (a : T) (v : X → Bool) :
   unfold Having.chiOf
   split_ifs with h
   · exact iff_of_true rfl h
-  · exact iff_of_false (fun hh => Bool.noConfusion hh) h
+  · exact iff_of_false (fun hh => hh.elim) h
 
 /-- **PQE bridge for aggregate comparisons.** Under a valuation `v`, the
 predicate provenance of `f(t) op c` on the group sequence `U` evaluates to

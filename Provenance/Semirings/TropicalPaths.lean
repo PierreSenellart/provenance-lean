@@ -1,5 +1,5 @@
 import Mathlib.Computability.Language
-import Mathlib.Data.Prod.Lex
+import Mathlib.Order.Prod.Lex.Basic
 import Mathlib.Order.WithBot
 import Mathlib.Algebra.Order.Monoid.Defs
 

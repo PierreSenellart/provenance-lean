@@ -861,7 +861,6 @@ theorem yv_not_le_xv : ¬ yv ≤ xv := fun h => by
 theorem yv_ne_zero : yv ≠ 0 := fun h => by
   have := congrFun h (fun b => b)
   simp [yv, BoolFunc.var] at this
-  exact absurd this (by decide)
 
 /-- **The instance of size `n`**: `R` holds `2` to `n + 1`, each annotated
 `x`, and `S` holds `1`, annotated `y`. -/
@@ -888,7 +887,6 @@ def applyWitness : AggQuery ℕ 2 (Fin.append (ColKind.allReg 1) (fun _ : Fin 1 
 theorem xv_ne_zero : xv ≠ 0 := fun h => by
   have := congrFun h (fun b => !b)
   simp [xv, BoolFunc.var] at this
-  exact absurd this (by decide)
 
 /-- **The selection keeps the row of `S`** where the parameter is at least
 `2`. -/

@@ -1,4 +1,4 @@
-import Mathlib.Data.Prod.Lex
+import Mathlib.Order.Prod.Lex.Basic
 import Mathlib.Data.List.Lex
 import Mathlib.Order.WithBot
 import Mathlib.Algebra.Order.Monoid.Defs

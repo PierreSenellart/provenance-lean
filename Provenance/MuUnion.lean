@@ -877,8 +877,8 @@ theorem settlesAt_substRel {s : String} {c n : ℕ} (pv : Fin n → T ⊕ Fin c)
   | Apply q₁ q₂ ih₁ ih₂ =>
     intro h D γ hρ hq
     refine ⟨ih₁ pv h.1 D γ hρ hq.1, fun u hu => ?_⟩
-    have hu' : Multiset.Mem (q₁.evaluatePlain (D.assign s ({fun k => _root_.Sum.elim id γ
-        (pv k)} : Multiset (Tuple T n))) γ) u := by
+    have hu' : Multiset.Mem (q₁.evaluatePlain (D.assign s (singleton fun k => _root_.Sum.elim id γ
+        (pv k) : Multiset (Tuple T n))) γ) u := by
       rw [← AggQueryIn.evaluatePlain_substRel pv q₁ h.1 D γ]; exact hu
     exact AggQueryIn.settlesAt_assign_of_noMention _ q₂ h.2 D _ (hq.2 u hu')
   | Sum q₁ q₂ ih₁ ih₂ => exact fun h => h.elim

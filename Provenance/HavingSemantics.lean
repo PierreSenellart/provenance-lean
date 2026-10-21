@@ -1169,8 +1169,6 @@ theorem havingProv_count_lt (U : List (AnnotatedTuple ℕ K m)) (t : Term ℕ m)
   unfold havingProv
   refine Finset.sum_congr rfl fun W _ => ?_
   congr 1
-  rw [chi_eq_ite_of_noNulls, chi_eq_ite_of_noNulls]
-  exact if_congr (by rw [aggValOn_count]; exact Nat.lt_succ_iff) rfl rfl
 
 omit [DecidableEq K] in
 /-- **The `≠` comparison splits.** For any aggregate and any m-semiring,

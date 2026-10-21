@@ -4292,9 +4292,9 @@ theorem AggQueryIn.genRandomWorld_evaluate_env :
             ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst).map
               Prod.snd) v
         from Iff.trans (Iff.trans (GenAnn.finalize_eval_iff
-            ⟨1, {(Having.havingGroupOrd is ord
+            ⟨1, singleton ((Having.havingGroupOrd is ord
               ((q.evaluate d γ E).map GenRow.toAnnotated) kv.fst).map
-                Prod.snd}⟩ v)
+                Prod.snd)⟩ v)
           ⟨fun h => h.2 _ (Multiset.mem_singleton_self _),
            fun h => ⟨rfl, fun l hl => (Multiset.mem_singleton.mp hl) ▸ h⟩⟩)
           (annGuard_havingGroupOrd is ord

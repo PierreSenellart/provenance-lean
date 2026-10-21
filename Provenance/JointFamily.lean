@@ -440,7 +440,6 @@ theorem row_absorb_singleton (hmul : mulIdempotent K) (hadd : idempotent K)
     simp only [Kleene.or, ite_true, ite_false, reduceCtorEq, mul_one, mul_zero,
       add_zero, zero_add] <;>
     first
-      | rfl
       | rw [mul_assoc, hmul]
       | rw [mul_right_comm, hmul]
       | rw [mul_add, mul_right_comm α β α, hmul α, mul_assoc α β β, hmul β,

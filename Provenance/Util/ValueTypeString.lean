@@ -98,7 +98,7 @@ theorem toDigitsCore_spec : ∀ (fuel : ℕ), 0 < fuel → ∀ n : ℕ, n < 10 ^
           Nat.add_comm]
     · have hlt : n / 10 < 10 ^ fuel := by
         rw [pow_succ, Nat.mul_comm] at hn
-        exact Nat.div_lt_of_lt_mul (by rwa [Nat.mul_comm] at hn ⊢)
+        exact Nat.div_lt_of_lt_mul (by rw [Nat.mul_comm] at hn ⊢; exact hn)
       have hfuel : 0 < fuel := by
         rcases Nat.eq_zero_or_pos fuel with rfl | hp
         · exact absurd (Nat.lt_one_iff.mp (by simpa using hlt)) hx

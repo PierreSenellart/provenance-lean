@@ -1,4 +1,4 @@
-import Mathlib.Data.Prod.Lex
+import Mathlib.Order.Prod.Lex.Basic
 import Mathlib.Data.Fin.Tuple.Basic
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.Data.Multiset.MapFold

@@ -1,11 +1,11 @@
 import Mathlib.Data.Finsupp.Defs
 import Mathlib.Data.Fin.VecNotation
-import Mathlib.Data.FunLike.Basic
+import Mathlib.Basic.FunLike.Basic
 import Mathlib.Data.Vector.Basic
 import Mathlib.Data.Multiset.Dedup
 import Mathlib.Data.Multiset.Filter
 import Mathlib.Data.Multiset.Sort
-import Mathlib.Data.Prod.Lex
+import Mathlib.Order.Prod.Lex.Basic
 
 import Provenance.Algorithms.CompOp
 import Provenance.Database

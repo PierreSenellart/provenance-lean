@@ -309,11 +309,6 @@ theorem frameOf_beforeW (Z : Multiset (Tuple T 1)) (x : Tuple T 1) :
   unfold ValueFrame.frameOf
   rw [ite_eq_right (by simp [beforeW]), Multiset.erase_instEq _ instDecidableEqTuple]
   congr 1
-  apply Multiset.filter_congr
-  intro y _
-  constructor
-  · exact fun h => h.2
-  · exact fun h => ⟨funext fun j => j.elim0, h⟩
 
 theorem windowValue_beforeW {cnt : SeqAggFunc T} {g : ℕ → T}
     (hg : ∀ L : List T, cnt L = g (L.countP (fun x => !ValueType.isNull x)))
@@ -326,8 +321,6 @@ theorem windowValue_beforeW {cnt : SeqAggFunc T} {g : ℕ → T}
   rw [hg, ← frameOf_beforeW, ← ValueFrame.frameListOf_coe, Multiset.map_coe,
     Multiset.coe_countP]
   congr 1
-  refine List.countP_congr fun v _ => ?_
-  cases ValueType.isNull v <;> simp
 
 theorem kinds_explode :
     Function.update (Fin.snoc (α := fun _ => ColKind) (ColKind.allReg 1) ColKind.agg)
@@ -597,9 +590,7 @@ theorem cmpTF_spec {cnt : SeqAggFunc T} (hcnt : cnt.IsCount)
       · simp [CompOp.eval3, hs, hb]
     · simp [CompOp.eval3, hs, ha]
   cases op
-  all_goals first
-    | exact hstrict _ rfl
-    | skip
+  all_goals try exact hstrict _ rfl
   · show (eqT a b).evaluatePlain D γ = _ ∧ (notT (eqT a b)).evaluatePlain D γ = _
     rw [evaluatePlain_notT (evaluatePlain_eqT a b), evaluatePlain_eqT]
     by_cases h : val γ a = val γ b <;>
