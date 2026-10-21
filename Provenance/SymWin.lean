@@ -1,4 +1,6 @@
-import Provenance.SymGamma
+module
+
+public import Provenance.SymGamma
 
 /-!
 # The order of cells, and the symbolic window
@@ -10,6 +12,8 @@ columns placing a code against its value, and the rank. Read
 lexicographically with the column's own direction and null placement,
 they sort the cells as the values they stand for (`Sym.leOn_key`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

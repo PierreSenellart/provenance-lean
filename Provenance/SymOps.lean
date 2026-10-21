@@ -1,4 +1,6 @@
-import Provenance.SymTerms
+module
+
+public import Provenance.SymTerms
 
 /-!
 # The symbolic operators: projection, selection, join
@@ -12,6 +14,8 @@ the encodings of the input's rows to the encodings of the output's. The
 rows may carry further columns after their cells (`P` of them), which a
 recursive term carries through its rounds untouched.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

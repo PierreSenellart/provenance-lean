@@ -1,4 +1,6 @@
-import Provenance.SymCorrect
+module
+
+public import Provenance.SymCorrect
 
 /-!
 # The successor relation of a finite relation, without a recursion
@@ -13,6 +15,8 @@ a row with no row below it, a row with no row above it
 `Sym.evaluatePlain_greatestQ`). These are what a bounded recursion's
 counters and the gaps of a cut are read off.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

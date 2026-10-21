@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.JointHom
+module
+
+public import Provenance.JointHom
 
 /-!
 # Nested values under a homomorphism, at every storey
@@ -26,6 +28,8 @@ both sides' worlds are the images of one bag of indices: a decision over
 the root's pairs, a set of positions of each expression family, and a
 decision over the pairs of each node, chosen once per node (`Zof`).
 -/
+
+@[expose] public section
 
 
 namespace TiePerm

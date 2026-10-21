@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedApproxRows
-import Provenance.AnnotatedChains
+module
+
+public import Provenance.AnnotatedApproxRows
+public import Provenance.AnnotatedChains
 
 /-!
 # The apply row up to `≈` with occurrence identity
@@ -33,6 +35,8 @@ identities the evaluator stamps on them (`AggValue.oids`,
   over `AnnBasisClass`: the nine classes generate, no proper subset of them
   does, and no set of classes does without the apply.
 -/
+
+@[expose] public section
 
 variable {T K : Type} [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 

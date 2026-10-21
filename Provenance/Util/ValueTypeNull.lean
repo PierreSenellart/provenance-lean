@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Util.ValueType
-import Provenance.Util.Kleene
-import Provenance.Algorithms.CompOp
+module
+
+public import Provenance.Util.ValueType
+public import Provenance.Util.Kleene
+public import Provenance.Algorithms.CompOp
 
 /-!
 # Value domains with a null
@@ -29,6 +31,8 @@ statements proved over a domain without a null stay true as stated, and
 `WithNull T` builds the canonical instance over any value type: a copy of
 `T` with one further value, where strictness holds by construction.
 -/
+
+@[expose] public section
 
 /-- A value domain with a null: null-strict arithmetic, and a null distinct
 from the zero of the domain. -/

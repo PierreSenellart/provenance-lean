@@ -1,4 +1,6 @@
-import Provenance.AnnotatedBasis
+module
+
+public import Provenance.AnnotatedBasis
 
 /-!
 # Duplicate elimination from the set recursion, annotated
@@ -18,6 +20,8 @@ generate the annotated algebra (`GeneratesAnn`). The products go next
 being all-regular by typing and nothing re-typing an aggregate column
 without exploding it.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

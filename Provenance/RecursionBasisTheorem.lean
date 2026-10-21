@@ -1,5 +1,7 @@
-import Provenance.MuUnion
-import Provenance.WinRow
+module
+
+public import Provenance.MuUnion
+public import Provenance.WinRow
 
 /-!
 # The bases of the whole algebra in the minimal universe
@@ -18,6 +20,8 @@ a basis too (`basisRecDiffOps_isBasis`, in `Provenance.DiffBasis`, and
 every basis, and the generating sets are exactly the supersets of the three
 bases (`generatesOnRec_iff`, in `Provenance.RecursionBases`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

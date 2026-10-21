@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQuery
+module
+
+public import Provenance.AggQuery
 
 /-!
 # Determinacy: the listing an aggregate reads, and the query that is refused
@@ -51,6 +53,8 @@ column's tag lets it into the tie-break, and
 `ValueFrame.windowValueOpt_readTuple_of_det` is where `rowsAgree` and
 `OrderSpec.map_eq_of_keySorted` are put to work.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {n m p : ℕ}
 

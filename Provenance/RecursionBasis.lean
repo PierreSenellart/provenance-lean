@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.BasisAssembly
+module
+
+public import Provenance.BasisAssembly
 
 /-!
 # The recursions in the classification
@@ -30,6 +32,8 @@ holds the nodes at distance `i` from the source, each with its number of
 paths, and the round past the sink is empty, which is where SQL's
 iteration stops (`MuSettles`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

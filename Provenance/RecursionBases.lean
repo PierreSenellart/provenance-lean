@@ -1,4 +1,6 @@
-import Provenance.DiffBasis
+module
+
+public import Provenance.DiffBasis
 
 /-!
 # The bases of the whole algebra, all of them
@@ -16,6 +18,8 @@ not one. With the other rows this classifies the generating sets
 completely (`generatesOnRec_iff`): they are the supersets of the three
 bases `basisRecOps`, `Sym.basisProdOps` and `basisRecDiffOps`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

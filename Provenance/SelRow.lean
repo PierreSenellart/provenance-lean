@@ -1,5 +1,7 @@
-import Provenance.Genericity
-import Mathlib.Tactic.FinCases
+module
+
+public import Provenance.Genericity
+public import Mathlib.Tactic.FinCases
 
 /-!
 # The selection row: `σ` is the only operator reading the order
@@ -26,6 +28,8 @@ no selection-free query expresses it (`ltWitness_not_expressible`), and
 `σ` is in every basis whose produced queries read no aggregate column as
 a key (`sel_mem_of_generatesOnRecNoExplode`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

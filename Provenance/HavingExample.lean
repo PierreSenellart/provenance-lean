@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Tactic.NormNum
-import Provenance.Having
-import Provenance.HavingProbability
-import Provenance.Semirings.BoolFunc
+module
+
+public import Mathlib.Tactic.NormNum
+public import Provenance.Having
+public import Provenance.HavingProbability
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Worked examples: HAVING provenance and probability on a three-occurrence group
@@ -28,6 +30,8 @@ Two fully computed examples on a group with three occurrences.
   assembly (`HavingProbability.funcProb_count_filter`) gives
   `Pr[COUNT(*) ≥ 2] = 1/4 + 1/24 = 7/24`.
 -/
+
+@[expose] public section
 
 namespace HavingExample
 

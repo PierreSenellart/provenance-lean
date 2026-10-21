@@ -1,8 +1,10 @@
-import Std.Data.HashMap.Lemmas
+module
 
-import Provenance.AnnotatedDatabase
-import Provenance.Query
-import Provenance.Util.KeyAccValueList
+public import Std.Data.HashMap.Lemmas
+
+public import Provenance.AnnotatedDatabase
+public import Provenance.Query
+public import Provenance.Util.KeyAccValueList
 
 /-!
 # Query semantics over annotated databases
@@ -27,6 +29,8 @@ multiset semantics with explicit duplicate elimination and multiset difference.
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section IV-B)
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 -/
+
+@[expose] public section
 
 variable {T: Type} [ValueType T]
 variable {K: Type} [SemiringWithMonus K] [DecidableEq K]

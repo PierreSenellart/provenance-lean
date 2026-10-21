@@ -3,217 +3,218 @@
   Authors: Pierre Senellart
 -/
 
+module
+
 /- Three-valued logic and value domains with a null -/
-import Provenance.Util.Kleene
-import Provenance.Util.ValueTypeNull
+public import Provenance.Util.Kleene
+public import Provenance.Util.ValueTypeNull
 
 /- Queries on annotated relations -/
-import Provenance.QueryAnnotatedDatabase
-import Provenance.QueryAnnotatedDatabaseHom
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.QueryAnnotatedDatabaseHom
 
 /- Data-part adequacy of the annotated semantics -/
-import Provenance.QueryAdequacy
+public import Provenance.QueryAdequacy
 
 /- HAVING algebraic identities -/
-import Provenance.Having
+public import Provenance.Having
 
 /- Possible-world semantics of the fused Having operator -/
-import Provenance.HavingSemantics
+public import Provenance.HavingSemantics
 
 /- Symbolic aggregate tokens for the general HAVING semantics -/
-import Provenance.AggValue
-import Provenance.AggExpr
-import Provenance.Nested
-import Provenance.JointFamily
-import Provenance.AggValueCongr
-import Provenance.SubWorlds
+public import Provenance.AggValue
+public import Provenance.AggExpr
+public import Provenance.Nested
+public import Provenance.JointFamily
+public import Provenance.AggValueCongr
+public import Provenance.SubWorlds
 
 /- Kind-indexed general queries and their annotated semantics -/
-import Provenance.AggQuery
-import Provenance.AggQuerySubst
-import Provenance.ReadsCongr
+public import Provenance.AggQuery
+public import Provenance.AggQuerySubst
+public import Provenance.ReadsCongr
 
 /- Operators that abbreviate a query of the basis -/
-import Provenance.Derived
-import Provenance.DerivedAnn
+public import Provenance.Derived
+public import Provenance.DerivedAnn
 
 /- The listing an aggregate reads, and the query that is refused -/
-import Provenance.Determinacy
+public import Provenance.Determinacy
 
 /- Which operators a query cannot do without -/
-import Provenance.PlainBasis
+public import Provenance.PlainBasis
 
 /- An apply read as a product -/
-import Provenance.Decorrelate
+public import Provenance.Decorrelate
 
 /- Reading every column as a value -/
-import Provenance.AllRegular
+public import Provenance.AllRegular
 
 /- The basis, assembled -/
-import Provenance.BasisAssembly
-import Provenance.RecursionBasis
-import Provenance.SumByMu
-import Provenance.WinKept
-import Provenance.RecursionBasisPass
-import Provenance.Genericity
-import Provenance.WinRow
-import Provenance.SelRow
-import Provenance.RoundBound
-import Provenance.AnnotatedBasis
-import Provenance.AnnotatedDedup
-import Provenance.AnnotatedProd
-import Provenance.AnnotatedSum
-import Provenance.PathSum
-import Provenance.AnnotatedMuUnion
-import Provenance.AnnotatedChains
-import Provenance.AnnotatedDiffRow
-import Provenance.AnnotatedEpsRow
-import Provenance.AnnotatedBasisClass
-import Provenance.AnnotatedBasisHom
-import Provenance.AnnotatedApproxRows
-import Provenance.AnnotatedWhyRow
-import Provenance.AnnotatedApplyRow
-import Provenance.MuUnion
-import Provenance.RecursionBasisTheorem
-import Provenance.SumByProd
-import Provenance.SymCode
-import Provenance.SymCells
-import Provenance.SymRel
-import Provenance.SymTerms
-import Provenance.SymOps
-import Provenance.SymGamma
-import Provenance.SymWin
-import Provenance.SymMu
-import Provenance.SymTab
-import Provenance.SymCorrect
-import Provenance.SymOrder
-import Provenance.SymEnvBuild
-import Provenance.SymCut
-import Provenance.SymSettle
-import Provenance.SymMatch
-import Provenance.SymApply
-import Provenance.SymStruct
-import Provenance.SymOver
-import Provenance.SymPass
-import Provenance.DiffBasis
-import Provenance.RecursionBases
-import Provenance.RecFreeBasis
+public import Provenance.BasisAssembly
+public import Provenance.RecursionBasis
+public import Provenance.SumByMu
+public import Provenance.WinKept
+public import Provenance.RecursionBasisPass
+public import Provenance.Genericity
+public import Provenance.WinRow
+public import Provenance.SelRow
+public import Provenance.RoundBound
+public import Provenance.AnnotatedBasis
+public import Provenance.AnnotatedDedup
+public import Provenance.AnnotatedProd
+public import Provenance.AnnotatedSum
+public import Provenance.PathSum
+public import Provenance.AnnotatedMuUnion
+public import Provenance.AnnotatedChains
+public import Provenance.AnnotatedDiffRow
+public import Provenance.AnnotatedEpsRow
+public import Provenance.AnnotatedBasisClass
+public import Provenance.AnnotatedBasisHom
+public import Provenance.AnnotatedApproxRows
+public import Provenance.AnnotatedWhyRow
+public import Provenance.AnnotatedApplyRow
+public import Provenance.MuUnion
+public import Provenance.RecursionBasisTheorem
+public import Provenance.SumByProd
+public import Provenance.SymCode
+public import Provenance.SymCells
+public import Provenance.SymRel
+public import Provenance.SymTerms
+public import Provenance.SymOps
+public import Provenance.SymGamma
+public import Provenance.SymWin
+public import Provenance.SymMu
+public import Provenance.SymTab
+public import Provenance.SymCorrect
+public import Provenance.SymOrder
+public import Provenance.SymEnvBuild
+public import Provenance.SymCut
+public import Provenance.SymSettle
+public import Provenance.SymMatch
+public import Provenance.SymApply
+public import Provenance.SymStruct
+public import Provenance.SymOver
+public import Provenance.SymPass
+public import Provenance.DiffBasis
+public import Provenance.RecursionBases
+public import Provenance.RecFreeBasis
 
 /- Relations read as families of occurrences -/
-import Provenance.Occurrence
+public import Provenance.Occurrence
 
 /- Window frames determined by values -/
-import Provenance.OrderSpec
-import Provenance.Frame
+public import Provenance.OrderSpec
+public import Provenance.Frame
 
 /- The window operator's token -/
-import Provenance.Window
+public import Provenance.Window
 
 /- Surface syntax for kind-indexed queries -/
-import Provenance.Notation
+public import Provenance.Notation
 
 /- Data-part adequacy of the general evaluator -/
-import Provenance.AggQueryAdequacy
+public import Provenance.AggQueryAdequacy
 
 /- Regression bridges: the fused Having recovered from the general syntax -/
 /- A window over a whole partition is a join with its grouping -/
-import Provenance.WindowPartition
-import Provenance.AggQueryBridges
-import Provenance.JointHom
-import Provenance.NestedPres
-import Provenance.Coherence
-import Provenance.Normalize
-import Provenance.Alternatives
+public import Provenance.WindowPartition
+public import Provenance.AggQueryBridges
+public import Provenance.JointHom
+public import Provenance.NestedPres
+public import Provenance.Coherence
+public import Provenance.Normalize
+public import Provenance.Alternatives
 
 /- Possible-world foundations for the general evaluator -/
-import Provenance.AggQueryProbability
+public import Provenance.AggQueryProbability
 
 /- Hom commutation for the general evaluator, token and annotation layer -/
-import Provenance.AggQueryHom
-import Provenance.QueryToAgg
-import Provenance.AggQueryEmbedding
+public import Provenance.AggQueryHom
+public import Provenance.QueryToAgg
+public import Provenance.AggQueryEmbedding
 
 /- Provenance-aware rewriting stated natively on the general syntax -/
-import Provenance.AggQueryRewriting
-import Provenance.AggQueryStrip
-import Provenance.AggQueryRewritingValid
+public import Provenance.AggQueryRewriting
+public import Provenance.AggQueryStrip
+public import Provenance.AggQueryRewritingValid
 
 /- The rewritten world's token-bearing evaluator (HAVING rewriting) -/
-import Provenance.AggQueryHavingRewriting
+public import Provenance.AggQueryHavingRewriting
 
 /- The bare-grouping rewriting: aggregate results as output values -/
-import Provenance.AggQueryGroupRewriting
+public import Provenance.AggQueryGroupRewriting
 
 /- Compositional closure of the rewriting rules -/
-import Provenance.AggQueryClosure
+public import Provenance.AggQueryClosure
 
 /- Scan-computable HAVING provenance for MIN, MAX and PICKFIRST -/
-import Provenance.HavingMinMax
+public import Provenance.HavingMinMax
 
 /- Probability distributions over Boolean variables -/
-import Provenance.Probability
+public import Provenance.Probability
 
 /- Support adequacy over 𝔹 and transfer along monus homomorphisms -/
-import Provenance.SupportAdequacy
+public import Provenance.SupportAdequacy
 
 /- Boolean circuits, read-once and d-D correctness -/
-import Provenance.Circuit
+public import Provenance.Circuit
 
 /- Categorical-block probability and deterministic-OR (mulinput) soundness -/
-import Provenance.CategoricalBlock
+public import Provenance.CategoricalBlock
 
 /- Probability identities for HAVING aggregate comparisons under independence -/
-import Provenance.HavingProbability
+public import Provenance.HavingProbability
 
 /- Worked examples: HAVING provenance collapse and Poisson-binomial probability -/
-import Provenance.HavingExample
+public import Provenance.HavingExample
 
 /- Query-level correctness of the fused Having operator vs the JOIN rewriting -/
-import Provenance.HavingQueryCorrectness
-import Provenance.HavingJoinCompositional
-import Provenance.HavingMonotone
+public import Provenance.HavingQueryCorrectness
+public import Provenance.HavingJoinCompositional
+public import Provenance.HavingMonotone
 
 /- Query-level counterexamples for the HAVING / JOIN correspondence -/
-import Provenance.HavingQueryCounterexamples
+public import Provenance.HavingQueryCounterexamples
 
 /- Tseitin CNF encoding (equisatisfiability) -/
-import Provenance.Tseitin
+public import Provenance.Tseitin
 
 /- Algorithms (HAVING enumeration) -/
-import Provenance.Algorithms.CountEnum
-import Provenance.Algorithms.SumDP
+public import Provenance.Algorithms.CountEnum
+public import Provenance.Algorithms.SumDP
 
 /- Complexity of the HAVING semantics -/
-import Provenance.HavingComplexity
+public import Provenance.HavingComplexity
 
 /- Various semirings -/
-import Provenance.Semirings.BestPath
-import Provenance.Semirings.Bool
-import Provenance.Semirings.BoolFunc
-import Provenance.Semirings.ChainFive
-import Provenance.Semirings.How
-import Provenance.Semirings.IntervalUnion
-import Provenance.Semirings.Lukasiewicz
-import Provenance.Semirings.MinMax
-import Provenance.Semirings.Nat
-import Provenance.Semirings.Regex
-import Provenance.Semirings.Security
-import Provenance.Semirings.Tropical
-import Provenance.Semirings.TropicalPaths
-import Provenance.Semirings.Viterbi
-import Provenance.Semirings.Which
-import Provenance.Semirings.Why
+public import Provenance.Semirings.BestPath
+public import Provenance.Semirings.Bool
+public import Provenance.Semirings.BoolFunc
+public import Provenance.Semirings.ChainFive
+public import Provenance.Semirings.How
+public import Provenance.Semirings.IntervalUnion
+public import Provenance.Semirings.Lukasiewicz
+public import Provenance.Semirings.MinMax
+public import Provenance.Semirings.Nat
+public import Provenance.Semirings.Regex
+public import Provenance.Semirings.Security
+public import Provenance.Semirings.Tropical
+public import Provenance.Semirings.TropicalPaths
+public import Provenance.Semirings.Viterbi
+public import Provenance.Semirings.Which
+public import Provenance.Semirings.Why
 
 /- Frozen restatements of the claims of published papers -/
-import Provenance.Papers.Icde2026
 
 /- A worked query checked against ProvSQL's own answer -/
-import Provenance.ProvsqlExample
+public import Provenance.ProvsqlExample
 
 /- Example -/
-import Provenance.DistributionExample
-import Provenance.NestedExample
-import Provenance.Example
+public import Provenance.DistributionExample
+public import Provenance.NestedExample
+public import Provenance.Example
 
 /-!
 # Provenance in databases
@@ -2271,3 +2272,5 @@ development inherits from Datacert.
 * [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini, *A Coq formalization
   of data provenance*][benzaken2021coq]
 -/
+
+@[expose] public section

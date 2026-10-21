@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Occurrence
-import Provenance.AggExpr
-import Provenance.OrderSpec
+module
+
+public import Provenance.Occurrence
+public import Provenance.AggExpr
+public import Provenance.OrderSpec
 
 /-!
 # Window frames determined by values
@@ -30,6 +32,8 @@ an occurrence among the present rows is its frame in the whole relation,
 intersected with them. That is what lets a window be read in every world, and
 it is the only property of frames the annotated semantics uses.
 -/
+
+@[expose] public section
 
 variable {T K : Type} {n m p : ℕ}
 
@@ -1000,7 +1004,8 @@ theorem frameListOf_of_peer {α : Type} [LinearOrder α] (val : α → Tuple T n
     (ho : ∀ y z : Tuple T p, o.peer y z = true)
     (hval : ∀ a b : α, a ≤ b → val a ≤ val b) :
     frameListOf val P O o w X x = sortList (frameOf val P O w X x) := by
-  unfold frameListOf OrderSpec.sortSeq
+  unfold frameListOf
+  rw [OrderSpec.sortSeq_eq_insertionSort]
   refine List.Pairwise.insertionSort_eq ?_
   refine (sortList_pairwise _).imp (fun {a b} hab => ?_)
   show OrderSpec.readLe (Tuple.key O) val o a b = true
@@ -1284,8 +1289,9 @@ theorem sortSeq_mapAnn {K' : Type} (O : Tuple (Fin n) p) (o : OrderSpec p)
         (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
       = OrderSpec.sortSeq (Tuple.key O) Prod.fst o
           (List.map (fun q : AnnotatedTuple T K n =>
-            ((q.fst, g q.snd) : AnnotatedTuple T K' n)) L) :=
-  List.map_insertionSort _
+            ((q.fst, g q.snd) : AnnotatedTuple T K' n)) L) := by
+  rw [OrderSpec.sortSeq_eq_insertionSort, OrderSpec.sortSeq_eq_insertionSort]
+  exact List.map_insertionSort _
     (fun x y => OrderSpec.readLe (Tuple.key O)
       (Prod.fst : AnnotatedTuple T K' n → Tuple T n) o x y = true)
     (fun q : AnnotatedTuple T K n =>
@@ -1301,8 +1307,9 @@ theorem sortSeq_map_fst (O : Tuple (Fin n) p) (o : OrderSpec p)
     List.map (α := AnnotatedTuple T K n) Prod.fst
         (OrderSpec.sortSeq (Tuple.key O) Prod.fst o L)
       = OrderSpec.sortSeq (Tuple.key O) (id : Tuple T n → Tuple T n) o
-          (List.map (α := AnnotatedTuple T K n) Prod.fst L) :=
-  List.map_insertionSort _
+          (List.map (α := AnnotatedTuple T K n) Prod.fst L) := by
+  rw [OrderSpec.sortSeq_eq_insertionSort, OrderSpec.sortSeq_eq_insertionSort]
+  exact List.map_insertionSort _
     (fun x y => OrderSpec.readLe (Tuple.key O)
       (id : Tuple T n → Tuple T n) o x y = true)
     (Prod.fst : AnnotatedTuple T K n → Tuple T n) L
@@ -1314,7 +1321,8 @@ theorem frameSeqOn_plain (P : Tuple (Fin n) m) (O : Tuple (Fin n) p)
     List.map (α := AnnotatedTuple T K n) Prod.fst
         (frameSeqOn (α := AnnotatedTuple T K n) Prod.fst P O o w r i)
       = frameSeqOn (α := Tuple T n) id P O o w r.plain i := by
-  unfold frameSeqOn OrderSpec.sortSeq
+  unfold frameSeqOn
+  simp only [OrderSpec.sortSeq_eq_insertionSort]
   refine Eq.trans (List.map_insertionSort _
       (fun x y => OrderSpec.readLe (Tuple.key O)
         (id : Tuple T n → Tuple T n) o x y = true)

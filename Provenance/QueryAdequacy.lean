@@ -1,6 +1,8 @@
-import Provenance.QueryAnnotatedDatabase
-import Provenance.QueryRewriting
-import Provenance.Semirings.Nat
+module
+
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.QueryRewriting
+public import Provenance.Semirings.Nat
 
 /-!
 # Data-part adequacy of the annotated semantics
@@ -64,6 +66,8 @@ annotated result both under- and over-approximate the plain result.
   formalization of data provenance*][benzaken2021coq]
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]
 -/
+
+@[expose] public section
 
 variable {T : Type} {K : Type}
 

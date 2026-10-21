@@ -1,15 +1,17 @@
-import Mathlib.Data.Finsupp.Defs
-import Mathlib.Data.Fin.VecNotation
-import Mathlib.Basic.FunLike.Basic
-import Mathlib.Data.Vector.Basic
-import Mathlib.Data.Multiset.Dedup
-import Mathlib.Data.Multiset.Filter
-import Mathlib.Data.Multiset.Sort
-import Mathlib.Order.Prod.Lex.Basic
+module
 
-import Provenance.Algorithms.CompOp
-import Provenance.Database
-import Provenance.Util.ValueTypeNull
+public import Mathlib.Data.Finsupp.Defs
+public import Mathlib.Data.Fin.VecNotation
+public import Mathlib.Basic.FunLike.Basic
+public import Mathlib.Data.Vector.Basic
+public import Mathlib.Data.Multiset.Dedup
+public import Mathlib.Data.Multiset.Filter
+public import Mathlib.Data.Multiset.Sort
+public import Mathlib.Order.Prod.Lex.Basic
+
+public import Provenance.Algorithms.CompOp
+public import Provenance.Database
+public import Provenance.Util.ValueTypeNull
 
 /-!
 # Relational algebra
@@ -33,6 +35,8 @@ explicit duplicate elimination, multiset difference, and aggregation.
 
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section III)
 -/
+
+@[expose] public section
 
 variable {T: Type} [ValueType T]
 

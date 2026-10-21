@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedMuUnion
-import Provenance.Semirings.Nat
-import Mathlib.Algebra.Order.Monoid.Prod
+module
+
+public import Provenance.AnnotatedMuUnion
+public import Provenance.Semirings.Nat
+public import Mathlib.Algebra.Order.Monoid.Prod
 
 /-!
 # The difference is necessary in the annotated algebra
@@ -26,6 +28,8 @@ evaluator builds – a row's, the occurrences' of the tokens it carries,
 and the predicate provenance of a selection on aggregate values
 (`annIn_evaluate`).
 -/
+
+@[expose] public section
 
 /-! ## Two copies of `ℕ` -/
 

@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryBridges
-import Provenance.AggQueryHom
+module
+
+public import Provenance.AggQueryBridges
+public import Provenance.AggQueryHom
 
 /-!
 # Embedding the classical query syntax into the general evaluator
@@ -29,6 +31,8 @@ theorems over the embedded general query directly, with no side
 hypothesis. The compositional JOIN rewriting built on top of the
 embedding lives in `Provenance.AggQueryEmbedding`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

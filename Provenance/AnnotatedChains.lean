@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedMuUnion
+module
+
+public import Provenance.AnnotatedMuUnion
 
 /-!
 # The set recursion from the bag recursion and `ε`: the two counters
@@ -40,6 +42,8 @@ many such chains as the tuples a derivation through distinct tuples can
 visit, at width `(2c + 2) n`, which needs no bound of the plain semantics:
 counting the tuples over those values is enough, for either counter.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]

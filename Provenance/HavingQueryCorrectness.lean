@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryToAgg
-import Provenance.QueryAnnotatedDatabaseHom
+module
+
+public import Provenance.QueryToAgg
+public import Provenance.QueryAnnotatedDatabaseHom
 
 /-!
 # Query-level correctness of the fused HAVING operator vs the JOIN rewriting
@@ -52,6 +54,8 @@ per-key evaluation invariant of the join chain
   and the group-level content is `Having.G_eq_S_monus_S` and
   `Having.atMost_eq_S_monus_S`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

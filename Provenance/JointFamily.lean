@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggExpr
+module
+
+public import Provenance.AggExpr
 
 /-!
 # Two occurrence families as one
@@ -24,6 +26,8 @@ complemented (`worldAnn_catWorld`) – so the split form in which a
 two-family reading is usually written is the union reading there, and
 need not be elsewhere.
 -/
+
+@[expose] public section
 
 namespace Having
 

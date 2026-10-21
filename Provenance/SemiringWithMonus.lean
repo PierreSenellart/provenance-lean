@@ -2,16 +2,18 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
-import Mathlib.Algebra.CharP.Defs
-import Mathlib.Algebra.Order.BigOperators.Group.Multiset
-import Mathlib.Algebra.Order.Monoid.Canonical.Defs
-import Mathlib.Algebra.Order.Group.Nat
-import Mathlib.Algebra.Order.Ring.Canonical
-import Mathlib.Algebra.Order.Ring.Defs
-import Mathlib.Algebra.Ring.Hom.Defs
-import Mathlib.Data.Set.Basic
-import Mathlib.Data.Set.Insert
+module
+
+public import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
+public import Mathlib.Algebra.CharP.Defs
+public import Mathlib.Algebra.Order.BigOperators.Group.Multiset
+public import Mathlib.Algebra.Order.Monoid.Canonical.Defs
+public import Mathlib.Algebra.Order.Group.Nat
+public import Mathlib.Algebra.Order.Ring.Canonical
+public import Mathlib.Algebra.Order.Ring.Defs
+public import Mathlib.Algebra.Ring.Hom.Defs
+public import Mathlib.Data.Set.Basic
+public import Mathlib.Data.Set.Insert
 
 /-!
 # Semirings with monus
@@ -37,6 +39,8 @@ K-relations*][geerts2010database]
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Definition 5)
 
 -/
+
+@[expose] public section
 
 section SemiringWithMonus
 

@@ -1,5 +1,7 @@
-import Provenance.Genericity
-import Mathlib.Analysis.Polynomial.Basic
+module
+
+public import Provenance.Genericity
+public import Mathlib.Analysis.Polynomial.Basic
 
 /-!
 # Windows are needed in every basis of the whole algebra
@@ -15,6 +17,8 @@ The polynomials are Mathlib's `Polynomial ℕ`; what the invariant needs
 of them is that two of them are eventually equal, or eventually strictly
 ordered one way, which is read off their real asymptotics.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

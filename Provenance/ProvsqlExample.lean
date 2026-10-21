@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.DerivedAnn
-import Provenance.Probability
-import Provenance.Semirings.BoolFunc
+module
+
+public import Provenance.DerivedAnn
+public import Provenance.Probability
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # A worked query against ProvSQL's own answer
@@ -50,6 +52,8 @@ function. The one place the two readings are worded differently is the
 average of a padded row: ProvSQL prints `NaN`, which it takes for a
 display artefact, and the semantics says null – `world_noB1`.
 -/
+
+@[expose] public section
 
 namespace ProvsqlExample
 

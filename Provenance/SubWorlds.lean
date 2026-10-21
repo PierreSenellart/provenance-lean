@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggValueCongr
+module
+
+public import Provenance.AggValueCongr
 
 /-!
 # The subfamilies of a listing, as a bag
@@ -23,6 +25,8 @@ joint reading of several aggregate values of one family is, are then
 blind to the permutation *together*, since all of them are read off the
 same selected sequence.
 -/
+
+@[expose] public section
 
 variable {β β' K K' : Type}
 

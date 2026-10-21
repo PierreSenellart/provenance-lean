@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggValue
+module
+
+public import Provenance.AggValue
 
 /-!
 # Aggregate expressions
@@ -44,6 +46,8 @@ expression of a token has the token's predicate provenance, in the
 token's own convention. Any deterministic function of SQL can be `g`,
 since only its value in each world is used.
 -/
+
+@[expose] public section
 
 variable {T K : Type}
 

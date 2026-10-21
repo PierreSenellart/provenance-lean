@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Basic.Logic.Basic
+module
+
+public import Mathlib.Basic.Logic.Basic
 
 /-!
 # Kleene's three-valued logic
@@ -18,6 +20,8 @@ The connectives are the minimum and maximum of the order
 Every law of a De Morgan algebra holds; what fails is the excluded middle,
 `a ⊔ ¬a = true`, exactly at `unknown`.
 -/
+
+@[expose] public section
 
 /-- A three-valued truth value. -/
 inductive Kleene where

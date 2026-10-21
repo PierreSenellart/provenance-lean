@@ -1,10 +1,12 @@
-import Mathlib.Computability.Language
-import Mathlib.Order.Prod.Lex.Basic
-import Mathlib.Order.WithBot
-import Mathlib.Algebra.Order.Monoid.Defs
+module
 
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.Regex
+public import Mathlib.Computability.Language
+public import Mathlib.Order.Prod.Lex.Basic
+public import Mathlib.Order.WithBot
+public import Mathlib.Algebra.Order.Monoid.Defs
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.Regex
 
 /-!
 # The min-cost-paths m-semiring (ProvSQL's `sr_tropical_paths`)
@@ -41,6 +43,8 @@ unbounded), which is what `recursion-cycle-no-value` refuses.
 The costs are any linearly ordered cancellative additive monoid (`ℝ`
 for ProvSQL), the labels any type.
 -/
+
+@[expose] public section
 
 noncomputable section
 

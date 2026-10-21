@@ -1,4 +1,6 @@
-import Provenance.SymMu
+module
+
+public import Provenance.SymMu
 
 /-!
 # The symbolic evaluation of a query, operator by operator
@@ -17,6 +19,8 @@ rewritten world's operators – translates to an empty relation: such a
 query is not a symbolic evaluation's input, and the correctness theorem
 excludes it by hypothesis.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

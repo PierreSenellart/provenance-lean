@@ -1,4 +1,6 @@
-import Provenance.Genericity
+module
+
+public import Provenance.Genericity
 
 /-!
 # `μ^∪` from `μ^⊎`
@@ -28,6 +30,8 @@ are polynomially many (`AggQueryIn.exists_card_bound_muSet` in
 `Provenance.Genericity`), so `|F| ≤ |E|^K` for a `K` read off that
 polynomial.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

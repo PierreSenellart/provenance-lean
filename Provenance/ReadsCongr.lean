@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQuerySubst
+module
+
+public import Provenance.AggQuerySubst
 
 /-!
 # An evaluation reads its context only where it says it does
@@ -19,6 +21,8 @@ This is what makes an operator's values a function of their family
 identifier: two evaluations of one operator under contexts that agree on
 the parameters it records build the same values.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

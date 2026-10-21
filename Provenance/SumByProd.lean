@@ -1,4 +1,6 @@
-import Provenance.MuUnion
+module
+
+public import Provenance.MuUnion
 
 /-!
 # `⊎` from `μ^⊎` with products
@@ -15,6 +17,8 @@ The difference read as a `NOT IN` (`AggQueryIn.notInDiff`) is a product
 already; `AggQueryIn.notInDiffX` is it with its tagged union written by
 `sumByMuX`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

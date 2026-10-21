@@ -1,9 +1,11 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
-import Mathlib.Order.Interval.Set.Defs
-import Mathlib.Data.Rat.Init
-import Mathlib.Algebra.Order.Ring.Rat
-import Mathlib.Tactic.Ring.RingNF
+module
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
+public import Mathlib.Order.Interval.Set.Defs
+public import Mathlib.Data.Rat.Init
+public import Mathlib.Algebra.Order.Ring.Rat
+public import Mathlib.Tactic.Ring.RingNF
 
 /-!
 # Łukasiewicz m-semiring
@@ -24,6 +26,8 @@ Logic*][gradel2005provenance].
 * [Grädel & Tannen, *Provenance Analysis and Semiring Semantics for First-Order
   Logic*][gradel2005provenance]
 -/
+
+@[expose] public section
 
 /-- The Łukasiewicz semiring: rationals in `[0,1]` with `max` as addition and the
 Łukasiewicz t-norm `max(a + b - 1, 0)` as multiplication. -/
@@ -300,10 +304,10 @@ instance Lukasiewicz.instCharPZero : CharP Lukasiewicz 0 :=
   CharP.zero_of_idempotent Lukasiewicz.idempotent
 
 /-- ProvSQL's `Lukasiewicz::delta`: the support indicator. -/
-private def Lukasiewicz.deltaInd (a : Lukasiewicz) : Lukasiewicz :=
+def Lukasiewicz.deltaInd (a : Lukasiewicz) : Lukasiewicz :=
   if a = 0 then 0 else 1
 
-private theorem Lukasiewicz.deltaInd_isIndicator : IsDeltaIndicator Lukasiewicz.deltaInd where
+theorem Lukasiewicz.deltaInd_isIndicator : IsDeltaIndicator Lukasiewicz.deltaInd where
   zero := by simp [Lukasiewicz.deltaInd]
   nonzero := fun a ha => by simp [Lukasiewicz.deltaInd, ha]
 

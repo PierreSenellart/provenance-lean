@@ -1,5 +1,7 @@
-import Provenance.AggQueryRewritingValid
-import Provenance.AggQueryBridges
+module
+
+public import Provenance.AggQueryRewritingValid
+public import Provenance.AggQueryBridges
 
 /-! # The rewritten world's evaluator: tokens as ordinary column values
 
@@ -36,6 +38,8 @@ The rewriting rules built on this evaluator live downstream:
 `Provenance.AggQueryGroupRewriting` (the bare grouping and the `HAVING`
 site) and `Provenance.AggQueryClosure` (the compositional closure).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
   [DecidableEq K] [HasAltLinearOrder K]
@@ -837,7 +841,7 @@ omit [ValueType T] [CommSemiringWithMonus K] [DecidableEq K]
 theorem AnnotatedTuple.toComposite_coord {m : ℕ}
     (p : AnnotatedTuple T K m) (j : Fin (m + 1)) :
     p.toComposite j
-      = if h : (j : ℕ) < m then Sum.inl (p.fst ⟨j, h⟩)
+      = if h : ((j : ℕ) < m : Prop) then Sum.inl (p.fst ⟨j, h⟩)
         else Sum.inr p.snd := by
   unfold AnnotatedTuple.toComposite
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j

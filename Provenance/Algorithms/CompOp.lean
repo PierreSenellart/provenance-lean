@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Basic.Logic.Basic
-import Mathlib.Data.Nat.Init
-import Mathlib.Order.Defs.LinearOrder
+module
+
+public import Mathlib.Basic.Logic.Basic
+public import Mathlib.Data.Nat.Init
+public import Mathlib.Order.Defs.LinearOrder
 
 /-!
 # Comparison operator for HAVING enumeration algorithms
@@ -13,6 +15,8 @@ Shared definition used by `Provenance.Algorithms.CountEnum`,
 `Provenance.Algorithms.SumDP` and `Provenance.HavingMinMax`. The operator
 parameter is `op ∈ {=, ≠, <, ≤, >, ≥}`.
 -/
+
+@[expose] public section
 
 /-- Comparison operator, as used by the HAVING enumeration algorithms.
 

@@ -1,4 +1,6 @@
-import Provenance.SymStruct
+module
+
+public import Provenance.SymStruct
 
 /-!
 # The apply written with products is well formed over the schema
@@ -11,6 +13,8 @@ binds. `Sym.Over sch A q` says that `q` is well formed over `sch` and names
 nothing outside `A`; each construction is shown to keep it, with `A` the
 names of its input and its supply's.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

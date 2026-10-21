@@ -1,9 +1,11 @@
-import Mathlib.Data.Fin.VecNotation
+module
 
-import Provenance.AnnotatedDatabase
-import Provenance.Query
-import Provenance.QueryAnnotatedDatabase
-import Provenance.Util.ValueType
+public import Mathlib.Data.Fin.VecNotation
+
+public import Provenance.AnnotatedDatabase
+public import Provenance.Query
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.Util.ValueType
 
 /-!
 # Query evaluation by rewriting
@@ -37,6 +39,8 @@ token rather than a quotiented K-tensor.
 * [Sen, Maniu & Senellart, *ProvSQL: A General System for Keeping Track of the
   Provenance and Probability of Data*][sen2026provsql]
 -/
+
+@[expose] public section
 
 def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) (n+1) := match q with
 | Rel   n  s  => Rel (n+1) s
@@ -80,7 +84,7 @@ def Query.rewriting [ValueType T] (q: Query T n) (hq: q.source) : Query (T⊕K) 
   let prod₂r := ProvSum (λ (k: Fin n) ↦ (k.castLE (by simp))) #(Fin.last n) q'₂
   let prod₂ := prod₂t (prod₂r)
   let ts₁ := (λ (k: Fin (n+1)) ↦ #(k.castLE (by omega)))
-  let ts₂ := (λ (k: Fin (n+1)) ↦ if ↑k<n then #(k.castLE (by omega))
+  let ts₂ := (λ (k: Fin (n+1)) ↦ if (↑k < n : Prop) then #(k.castLE (by omega))
                                  else TermIn.sub #(Fin.ofNat _ n) #(Fin.last (2*n+1)))
   Sum (Proj ts₁ prod₁) (Proj ts₂ prod₂)
 | ProvSum _ _ _ => by simp[source] at hq

@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedDiffRow
+module
+
+public import Provenance.AnnotatedDiffRow
 
 /-!
 # Duplicate elimination is necessary in the annotated algebra
@@ -30,6 +32,8 @@ With the other rows this makes the basis `{∅, Π, σ, apply, γ, win, μ^⊎,
 ε, −}` minimal: no proper subset generates the annotated algebra over both
 `ℕ` and `ℕ × ℕ` (`annEpsOps_minimal`).
 -/
+
+@[expose] public section
 
 /-! ## The weight of a world, over `ℕ` -/
 

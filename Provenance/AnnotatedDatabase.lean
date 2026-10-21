@@ -1,11 +1,13 @@
-import Mathlib.Order.Prod.Lex.Basic
-import Mathlib.Data.Fin.Tuple.Basic
-import Mathlib.Data.Fin.VecNotation
-import Mathlib.Data.Multiset.MapFold
-import Mathlib.Data.Multiset.Count
+module
 
-import Provenance.Database
-import Provenance.SemiringWithMonus
+public import Mathlib.Order.Prod.Lex.Basic
+public import Mathlib.Data.Fin.Tuple.Basic
+public import Mathlib.Data.Fin.VecNotation
+public import Mathlib.Data.Multiset.MapFold
+public import Mathlib.Data.Multiset.Count
+
+public import Provenance.Database
+public import Provenance.SemiringWithMonus
 
 /-!
 # Annotated databases
@@ -27,6 +29,8 @@ Provenance and Probability of Data*][sen2026provsql] (a multiset variant of the
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql] (Section IV-A)
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 -/
+
+@[expose] public section
 
 variable {T: Type} [ValueType T]
 variable {K: Type} [Zero K]

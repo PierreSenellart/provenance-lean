@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Normalize
+module
+
+public import Provenance.Normalize
 
 /-!
 # Aggregate columns read as keys: the alternatives
@@ -37,6 +39,8 @@ occurrence holds under each valuation, and that over `ℕ[X]`, where
 exclusivity fails, an operator combining two alternatives of one
 occurrence counts worlds that do not exist.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

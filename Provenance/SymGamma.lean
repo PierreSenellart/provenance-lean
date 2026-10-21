@@ -1,4 +1,6 @@
-import Provenance.SymOps
+module
+
+public import Provenance.SymOps
 
 /-!
 # The symbolic grouping
@@ -15,6 +17,8 @@ the symbolic relation computes, under each such descriptor, the encodings
 of the keys and the very counts of the grouping
 (`Sym.gammaRows_slice`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

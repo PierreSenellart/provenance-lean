@@ -2,12 +2,14 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Data.Finset.Powerset
-import Mathlib.Data.Finset.Card
-import Mathlib.Data.List.Range
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.Order.BigOperators.Group.Finset
-import Provenance.Algorithms.CompOp
+module
+
+public import Mathlib.Data.Finset.Powerset
+public import Mathlib.Data.Finset.Card
+public import Mathlib.Data.List.Range
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Provenance.Algorithms.CompOp
 
 /-!
 # Correctness of SUM enumeration via dynamic programming
@@ -33,6 +35,8 @@ enumerations.
 The aggregate term `t` enters as `α → ℕ`; an annotation `α_i` would be
 part of the occurrence type and does not enter the sum.
 -/
+
+@[expose] public section
 
 namespace SumDP
 

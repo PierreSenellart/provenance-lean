@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Determinacy
-import Provenance.PlainBasis
+module
+
+public import Provenance.Determinacy
+public import Provenance.PlainBasis
 
 /-!
 # Reading every column as a value
@@ -55,6 +57,8 @@ left side take. Regularizing first is what lets them apply to a query
 that has aggregate columns in its *type* and ordinary values in its
 rows.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

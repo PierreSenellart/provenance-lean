@@ -2,15 +2,17 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.JointFamily
-import Provenance.Nested
-import Provenance.QueryToAgg
-import Provenance.Semirings.ChainFive
-import Provenance.Semirings.Tropical
-import Provenance.Semirings.Nat
-import Provenance.Semirings.MinMax
-import Provenance.Semirings.Viterbi
-import Provenance.Derived
+module
+
+public import Provenance.JointFamily
+public import Provenance.Nested
+public import Provenance.QueryToAgg
+public import Provenance.Semirings.ChainFive
+public import Provenance.Semirings.Tropical
+public import Provenance.Semirings.Nat
+public import Provenance.Semirings.MinMax
+public import Provenance.Semirings.Viterbi
+public import Provenance.Derived
 
 /-!
 # Query-level counterexamples for the HAVING / JOIN correspondence
@@ -82,6 +84,8 @@ comparison is on the multisets of annotations.
   give instead – the group fixing the worlds and the clause fixing what
   the leaf reads – is `chainExprNone_zero` and `chainExprMixed_zero`.
 -/
+
+@[expose] public section
 
 namespace HavingQueryCounterexamples
 

@@ -1,19 +1,32 @@
-import Mathlib.Data.Fin.VecNotation
-import Mathlib.Data.Finsupp.Single
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Multiset.Fintype
+module
 
-import Provenance.QueryAnnotatedDatabase
-import Provenance.AggQueryClosure
-import Provenance.QueryRewriting
-import Provenance.Notation
-import Provenance.OrderSpec
-import Provenance.SemiringWithMonus
+public import Mathlib.Data.Fin.VecNotation
+public import Mathlib.Data.Finsupp.Single
+public import Mathlib.Data.Multiset.Basic
+public import Mathlib.Data.Multiset.Fintype
 
-import Provenance.Semirings.Nat
-import Provenance.Semirings.Tropical
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.AggQueryClosure
+public import Provenance.QueryRewriting
+public import Provenance.Notation
+public import Provenance.OrderSpec
+public import Provenance.SemiringWithMonus
 
-import Provenance.Util.ValueTypeString
+public import Provenance.Semirings.Nat
+public import Provenance.Semirings.Tropical
+
+public import Provenance.Util.ValueTypeString
+
+public meta import Provenance.Database
+public meta import Provenance.AnnotatedDatabase
+public meta import Provenance.QueryAnnotatedDatabase
+public meta import Provenance.AggQueryClosure
+public meta import Provenance.QueryRewriting
+public meta import Provenance.Semirings.Nat
+public meta import Provenance.Semirings.Tropical
+public meta import Provenance.Util.ValueTypeString
+
+@[expose] public section
 
 
 /-- A header line printed before an `#eval!`, so that the interleaved
@@ -42,7 +55,7 @@ def q₁ := ε ( Π ![#3]
   (
     σ (Selection.BT (#0 < #4)) (
       Query.Sel (Selection.BT (#3 == #7))
-        (qPersonnel × qPersonnel)
+        (qPersonnel × qPersonnel : Query String 8)
     )
   )
 )

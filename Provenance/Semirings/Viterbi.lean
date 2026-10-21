@@ -1,8 +1,12 @@
-import Mathlib.Basic.NNReal.Basic
-import Mathlib.Algebra.Order.Ring.Basic
+module
 
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
+public import Mathlib.Basic.NNReal.Basic
+public import Mathlib.Algebra.Order.Ring.Basic
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
+
+@[expose] public section
 
 open scoped Classical
 
@@ -141,10 +145,10 @@ nontrivial. -/
 instance instCharPZero : CharP Viterbi 0 := CharP.zero_of_idempotent idempotent
 
 /-- ProvSQL's `Viterbi::delta`: the support indicator. -/
-private noncomputable def Viterbi.deltaInd (a : Viterbi) : Viterbi :=
+noncomputable def deltaInd (a : Viterbi) : Viterbi :=
   if a = 0 then 0 else 1
 
-private theorem Viterbi.deltaInd_isIndicator : IsDeltaIndicator Viterbi.deltaInd where
+theorem deltaInd_isIndicator : IsDeltaIndicator Viterbi.deltaInd where
   zero := by simp [Viterbi.deltaInd]
   nonzero := fun a ha => by simp [Viterbi.deltaInd, ha]
 

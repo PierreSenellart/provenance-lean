@@ -1,6 +1,8 @@
-import Provenance.AnnotatedDedup
-import Provenance.MuUnion
-import Provenance.AggQueryProbability
+module
+
+public import Provenance.AnnotatedDedup
+public import Provenance.MuUnion
+public import Provenance.AggQueryProbability
 
 /-!
 # The product from the apply, annotated
@@ -26,6 +28,8 @@ comparison) and which is all the annotated evaluation reads.
 `prodFree` replaces each product, and `generatesAnn_dedupProdFree` says
 the classes other than `ε` and `×` generate the annotated algebra.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

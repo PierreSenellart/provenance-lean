@@ -1,4 +1,6 @@
-import Provenance.SymPass
+module
+
+public import Provenance.SymPass
 
 /-!
 # The difference in place of the selection
@@ -11,6 +13,8 @@ for the order: `x < y` is read by a window counting, over the relation
 `{x, y}` (a bag recursion of one round), the rows strictly before `y`, and
 that count is compared with `0` as a key, which `Explode` allows.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

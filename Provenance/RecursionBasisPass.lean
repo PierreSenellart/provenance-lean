@@ -1,4 +1,6 @@
-import Provenance.WinKept
+module
+
+public import Provenance.WinKept
 
 /-!
 # The pass over the whole algebra
@@ -33,6 +35,8 @@ wrappers every case uses: the substitution an apply's right side is read
 through (`AggQueryIn.substMap`) and the re-typing of an operator's
 output (`AggQueryIn.allRegOf`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

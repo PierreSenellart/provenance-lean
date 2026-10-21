@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Data.Finset.Powerset
-import Mathlib.Data.Finset.Card
-import Mathlib.Data.List.Range
-import Provenance.Algorithms.CompOp
+module
+
+public import Mathlib.Data.Finset.Powerset
+public import Mathlib.Data.Finset.Card
+public import Mathlib.Data.List.Range
+public import Provenance.Algorithms.CompOp
 
 /-!
 # Correctness of COUNT enumeration
@@ -23,6 +25,8 @@ the Lean signature. The “distinct occurrences” hypothesis is encoded as
 matches list length: without it, the algorithm still returns subsets of
 `occs.toFinset`, but cardinality bookkeeping breaks.
 -/
+
+@[expose] public section
 
 namespace CountEnum
 

@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AllRegular
+module
+
+public import Provenance.AllRegular
 
 /-!
 # Decorrelation: an apply read as a product
@@ -32,6 +34,8 @@ query. A term's outer column `j` becomes the column `j` of the result, a
 column `i` of its own becomes the column `c + i`, and the reading is
 unchanged (`TermGIn.evalPlain_lift`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 
@@ -1538,8 +1542,9 @@ theorem OrderSpec.sortSeq_map_append {c k p : ℕ} (O : Tuple (Fin k) p)
         (id : Tuple T (c + k) → Tuple T (c + k)) o
         (L.map (fun x => (Fin.append v x : Tuple T (c + k))))
       = (OrderSpec.sortSeq (Tuple.key O) (id : Tuple T k → Tuple T k) o L).map
-          (fun x => (Fin.append v x : Tuple T (c + k))) :=
-  (List.map_insertionSort _
+          (fun x => (Fin.append v x : Tuple T (c + k))) := by
+  rw [OrderSpec.sortSeq_eq_insertionSort, OrderSpec.sortSeq_eq_insertionSort]
+  exact (List.map_insertionSort _
     (fun x y => OrderSpec.readLe (Tuple.key (winOrd c O))
       (id : Tuple T (c + k) → Tuple T (c + k)) o x y = true)
     (fun x => (Fin.append v x : Tuple T (c + k))) L
@@ -2931,7 +2936,7 @@ theorem regBelow_append_right {m : ℕ} (κ : Fin m → ColKind) (i : Fin m) :
   rw [ite_eq_right (fun h => absurd h (by simp)), Fin.append_right]
 
 omit [ValueType T] in
-private theorem dup_kind {m : ℕ} (κ : Fin m → ColKind) :
+theorem dup_kind {m : ℕ} (κ : Fin m → ColKind) :
     (fun j : Fin (m + m) =>
       (AggQueryIn.carryCol (T := T) κ (Fin.addCases id id j)).kind) = Fin.append κ κ := by
   funext j

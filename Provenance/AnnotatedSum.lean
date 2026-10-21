@@ -1,4 +1,6 @@
-import Provenance.AnnotatedProd
+module
+
+public import Provenance.AnnotatedProd
 
 /-!
 # The union from the bag recursion, annotated
@@ -15,6 +17,8 @@ columns and its finalized annotation – the projections that re-tag a row
 cash its pending group factors, so the agreement is up to finalization
 (`AggQueryIn.FinEq`), which is all the annotated evaluation reads.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQuery
-import Provenance.QueryAdequacy
-import Provenance.PlainBasis
+module
+
+public import Provenance.AggQuery
+public import Provenance.QueryAdequacy
+public import Provenance.PlainBasis
 
 /-!
 # Data-part adequacy of the general evaluator
@@ -33,6 +35,8 @@ tokens contributing through their deterministic `collapse` reading:
 * one output row of `Gamma` per group key, whose aggregate columns
   collapse to the plain aggregates of the whole group.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

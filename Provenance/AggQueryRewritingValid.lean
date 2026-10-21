@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryStrip
+module
+
+public import Provenance.AggQueryStrip
 
 /-!
 # Correctness of the native rewriting
@@ -14,6 +16,8 @@ semantics (`AggQueryIn.rewriting_plain`), whence the correctness theorem
 folding the rows into composite `T ⊕ K` tuples is evaluating the
 rewritten query over the composite database.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

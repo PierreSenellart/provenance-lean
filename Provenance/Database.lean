@@ -1,9 +1,12 @@
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Set.Finite.Basic
-import Mathlib.Data.Multiset.AddSub
-import Mathlib.Data.Multiset.Bind
+module
 
-import Provenance.Util.ValueType
+public import Mathlib.Data.Multiset.Basic
+public import Mathlib.Data.Set.Finite.Basic
+public import Mathlib.Data.Multiset.AddSub
+public import Mathlib.Data.Multiset.Bind
+
+public import Provenance.Util.ListSort
+public import Provenance.Util.ValueType
 
 /-!
 # Tuples, relations, and databases
@@ -18,6 +21,8 @@ This file defines the basic relational model used throughout the library.
 * `Database T` – a mapping from relation names (strings) to relations of the
   corresponding arities
 -/
+
+@[expose] public section
 
 variable {T: Type} [ValueType T]
 
@@ -295,7 +300,8 @@ theorem Database.find_assign_of_ne (s s' : String) {k k' : ℕ}
 
 def sortedInsert [LinearOrder α] (x : α) (l : {l : List α // List.Pairwise (· ≤ ·) l}) :
     {l : List α // List.Pairwise (· ≤ ·) l} :=
-  ⟨l.val.orderedInsert (· ≤ ·) x, List.Pairwise.orderedInsert x l.val l.property⟩
+  ⟨l.val.orderedIns (· ≤ ·) x, by
+    rw [List.orderedIns_eq]; exact List.Pairwise.orderedInsert x l.val l.property⟩
 
 instance [LinearOrder α] :
   @LeftCommutative α _ sortedInsert where
@@ -336,7 +342,9 @@ def sortList {α : Type} [LinearOrder α] (M : Multiset α) : List α :=
     rw [sortList, Multiset.foldr_cons]
     calc (↑((sortedInsert a (M.foldr sortedInsert ⟨[], by simp⟩)).val) : Multiset α)
         = ↑(a :: (M.foldr sortedInsert ⟨[], by simp⟩).val) :=
-          Multiset.coe_eq_coe.mpr (List.perm_orderedInsert _ a _)
+          Multiset.coe_eq_coe.mpr (by
+            simp only [sortedInsert, List.orderedIns_eq]
+            exact List.perm_orderedInsert _ a _)
       _ = a ::ₘ ↑((M.foldr sortedInsert ⟨[], by simp⟩).val) := rfl
       _ = a ::ₘ M := by rw [← sortList, ih]
 

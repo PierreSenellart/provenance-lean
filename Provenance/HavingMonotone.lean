@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.HavingJoinCompositional
+module
+
+public import Provenance.HavingJoinCompositional
 
 /-!
 # Monotone `HAVING` conditions: absorptivity suffices
@@ -50,6 +52,8 @@ qualifying occurrence (`Having.Existential`).
 The base query has the `(key, value, identifier)` schema of
 `Provenance.HavingQueryCorrectness`, with the group key in column `#0`.
 -/
+
+@[expose] public section
 
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]
 

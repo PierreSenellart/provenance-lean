@@ -1,5 +1,7 @@
-import Provenance.SymOver
-import Provenance.RecursionBasisTheorem
+module
+
+public import Provenance.SymOver
+public import Provenance.RecursionBasisTheorem
 
 /-!
 # The apply replaced by products, through a whole query
@@ -22,6 +24,8 @@ applies read. Each recursion is renamed to a name of the supply, as the
 copies of its base the pool holds would otherwise nest a recursion inside
 one of the same name.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

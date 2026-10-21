@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryBridges
-import Provenance.AggQuerySubst
-import Provenance.JointFamily
-import Provenance.HavingProbability
+module
+
+public import Provenance.AggQueryBridges
+public import Provenance.AggQuerySubst
+public import Provenance.JointFamily
+public import Provenance.HavingProbability
 
 /-!
 # Possible-world foundations for the general evaluator
@@ -32,6 +34,8 @@ rows is the plain evaluation of the realized world):
   of a row and the realized world of a general evaluation: the rows whose
   finalized annotation is true, with tokens specialized.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {X : Type} [Fintype X] [DecidableEq X]

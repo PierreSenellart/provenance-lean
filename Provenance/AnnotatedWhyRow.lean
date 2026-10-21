@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedApproxRows
-import Provenance.Semirings.Why
+module
+
+public import Provenance.AnnotatedApproxRows
+public import Provenance.Semirings.Why
 
 /-!
 # `μ^∪` is necessary in the annotated algebra: the why-provenance semiring
@@ -32,6 +34,8 @@ m-semiring, and no proper subset of it does over all of them. It holds up
 to `≈` too (`annMuOps_isBasis_approx`): the passes agree with their source
 row by row up to finalization, and the witness's row is not `𝟘`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]

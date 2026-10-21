@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Derived
-import Provenance.HavingQueryCorrectness
-import Provenance.AggQuerySubst
+module
+
+public import Provenance.Derived
+public import Provenance.HavingQueryCorrectness
+public import Provenance.AggQuerySubst
 
 /-!
 # Annotations of the derived operators
@@ -21,6 +23,8 @@ that comes to mind, `ε(q₁ - (q₁ - q₂))`, has the same rows and the same
 support over `𝔹`, and annotates them by a difference of differences
 instead.
 -/
+
+@[expose] public section
 
 variable {T : Type}
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

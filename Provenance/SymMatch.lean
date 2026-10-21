@@ -1,4 +1,6 @@
-import Provenance.SymSettle
+module
+
+public import Provenance.SymSettle
 
 /-!
 # Recognizing a parameter row's descriptor
@@ -12,6 +14,8 @@ fresh cells of one gap are ordered as their components, without a hole
 below any of them. Over cells the cut can produce, it holds exactly of
 the row's own descriptor (`Sym.eval3_matchSP`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

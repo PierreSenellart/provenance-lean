@@ -1,20 +1,22 @@
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Data.EReal.Basic
-import Mathlib.Data.Fintype.Basic
-import Mathlib.Data.Fintype.Pi
-import Mathlib.Data.List.Sort
-import Mathlib.Data.Set.Lattice.Bounded
-import Mathlib.Data.Set.Lattice.Disjoint
-import Mathlib.Data.Set.Lattice.Image
-import Mathlib.Data.Set.Lattice.Indexed
-import Mathlib.Data.Set.Lattice.Order
-import Mathlib.Basic.Nontrivial.Defs
-import Mathlib.Order.CompleteLattice.Finset
-import Mathlib.Tactic.Linarith
-import Provenance.Semirings.BoolFunc
-import Provenance.Semirings.Interval
-import Provenance.SemiringWithMonus
+module
+
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Data.EReal.Basic
+public import Mathlib.Data.Fintype.Basic
+public import Mathlib.Data.Fintype.Pi
+public import Mathlib.Data.List.Sort
+public import Mathlib.Data.Set.Lattice.Bounded
+public import Mathlib.Data.Set.Lattice.Disjoint
+public import Mathlib.Data.Set.Lattice.Image
+public import Mathlib.Data.Set.Lattice.Indexed
+public import Mathlib.Data.Set.Lattice.Order
+public import Mathlib.Basic.Nontrivial.Defs
+public import Mathlib.Order.CompleteLattice.Finset
+public import Mathlib.Tactic.Linarith
+public import Provenance.Semirings.BoolFunc
+public import Provenance.Semirings.Interval
+public import Provenance.SemiringWithMonus
 
 /-!
 # Interval-union semiring
@@ -57,6 +59,8 @@ set inclusion.
 * [Widiaatmaja, Djeffal, Dandekar & Senellart, *Demonstration of ProvSQL Update
   Provenance through Temporal Databases*][widiaatmaja2025demonstration]
 -/
+
+@[expose] public section
 
 /-- A finite union of pairwise-disjoint intervals sorted from left to right.
 The invariants `pairwise_disjoint` and `pairwise_before` ensure the canonical

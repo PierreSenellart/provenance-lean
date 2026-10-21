@@ -1,4 +1,6 @@
-import Provenance.RecursionBasisPass
+module
+
+public import Provenance.RecursionBasisPass
 
 /-!
 # Genericity of the minimal universe: a query reads its parameters only up to order
@@ -11,6 +13,8 @@ value map** – a function of values that keeps the null apart and the order
 among the values it is read on – and the fact that every comparison the
 evaluator makes commutes with one.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

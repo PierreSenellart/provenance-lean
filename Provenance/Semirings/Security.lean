@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.SemiringWithMonus
-import Mathlib.Order.BooleanAlgebra.Defs
+module
+
+public import Provenance.SemiringWithMonus
+public import Mathlib.Order.BooleanAlgebra.Defs
 
 /-!
 # The security semiring, and every Boolean algebra as an m-semiring
@@ -30,6 +32,8 @@ complementedness, left-distributivity of `⊗` over `⊖`, and `δ = id`.
 Among m-semirings that are lattices, exclusivity *is* being a Boolean algebra
 (`monus_one_isCompl`, `monus_one_unique_compl`).
 -/
+
+@[expose] public section
 
 namespace BooleanAlgebra
 

@@ -2,8 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Algorithms.CompOp
-import Provenance.Having
+module
+
+public import Provenance.Algorithms.CompOp
+public import Provenance.Having
+
+@[expose] public section
 
 set_option linter.unusedSectionVars false
 

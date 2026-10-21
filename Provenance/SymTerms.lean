@@ -1,4 +1,6 @@
-import Provenance.SymRel
+module
+
+public import Provenance.SymRel
 
 /-!
 # Terms and predicates over symbolic rows
@@ -14,6 +16,8 @@ value (`Sym.CS.eval_sa`), and a predicate translated cell by cell
 (`Sym.transPred`) has the three-valued truth of the original on the
 decoded row (`Sym.eval3_transPred`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AllRegular
-import Provenance.Decorrelate
+module
+
+public import Provenance.AllRegular
+public import Provenance.Decorrelate
 
 /-!
 # The basis, assembled
@@ -77,6 +79,8 @@ of `AggQueryIn.Retypable` is the window's own condition, and that is
 vacuous here: the first pass replaces every window by an apply of a
 scalar aggregation (`AggQueryIn.retypable_of_usesOnly`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

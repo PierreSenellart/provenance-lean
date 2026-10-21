@@ -1,7 +1,9 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
+module
 
-import Mathlib.Order.BoundedOrder.Basic
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
+
+public import Mathlib.Order.BoundedOrder.Basic
 
 /-!
 # Min-max semiring
@@ -37,6 +39,8 @@ The security/access control semiring is discussed in
 
 * [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
 -/
+
+@[expose] public section
 
 section MinMax
 

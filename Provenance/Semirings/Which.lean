@@ -1,7 +1,9 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Finset.Lattice.Basic
+module
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
+public import Mathlib.Data.Finset.Basic
+public import Mathlib.Data.Finset.Lattice.Basic
 
 /-!
 # Which-provenance m-semiring (lineage)
@@ -20,6 +22,8 @@ The lineage semiring is discussed in
 
 * [Green & Tannen, *The Semiring Framework for Database Provenance*][green2017provenance]
 -/
+
+@[expose] public section
 
 section Which
 
@@ -208,12 +212,12 @@ instance : IsOrderedAddMonoid (Which α) where
 label set (`𝟙`) otherwise. The identity choice (ProvSQL's historical
 `Which::delta`) violates `delta_absorb` – `Which` is not absorptive,
 `⊗` and `⊕` both being union. -/
-private def Which.deltaInd : Which α → Which α
+def Which.deltaInd : Which α → Which α
   | .wbot => .wbot
   | .wset _ => .wset ∅
 
 omit [DecidableEq α] in
-private lemma Which.deltaInd_of_ne {a : Which α} (h : a ≠ 0) :
+lemma Which.deltaInd_of_ne {a : Which α} (h : a ≠ 0) :
     Which.deltaInd a = 1 := by
   cases a with
   | wbot => exact absurd rfl h

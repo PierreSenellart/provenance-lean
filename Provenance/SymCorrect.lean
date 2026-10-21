@@ -1,5 +1,7 @@
-import Provenance.SymTab
-import Provenance.RoundBound
+module
+
+public import Provenance.SymTab
+public import Provenance.RoundBound
 
 /-!
 # The symbolic evaluation is correct
@@ -13,6 +15,8 @@ compares or groups is good (`Sym.Good`): a value of the cut, the null, or a
 component of the parameter row. What makes the second hold is the cut, a
 separate matter.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

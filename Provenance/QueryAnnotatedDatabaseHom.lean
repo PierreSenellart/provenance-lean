@@ -1,5 +1,7 @@
-import Provenance.QueryAnnotatedDatabase
-import Provenance.QueryRewriting
+module
+
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.QueryRewriting
 
 /-!
 # Query evaluation commutes with m-semiring homomorphisms
@@ -75,6 +77,8 @@ single universal factorization through `ℕ[X]`.
   ([Green et al., Proposition 3.5][green2007provenance],
   [Geerts & Poggi, Proposition 1][geerts2010database]).
 -/
+
+@[expose] public section
 
 set_option linter.unusedSectionVars false
 

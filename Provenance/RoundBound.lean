@@ -1,4 +1,6 @@
-import Provenance.Genericity
+module
+
+public import Provenance.Genericity
 
 /-!
 # The rounds of a bag recursion that settles are bounded
@@ -16,6 +18,8 @@ This is what any bounded simulation of a bag recursion rests on – a
 simulation that settles everywhere and agrees with the recursion wherever
 the recursion settles.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

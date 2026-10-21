@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Algebra.Order.BigOperators.Group.Finset
-import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
-import Mathlib.Tactic.Ring
+module
+
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
+public import Mathlib.Tactic.Ring
 
 /-!
 # Linear recursions over a semiring, read path by path
@@ -40,6 +42,8 @@ end, and its weight is the sum of the two paths with one of them cut
 (`wt_trunc_settle_lin`). The data part, which annotations do not see, is
 the same argument over `ℕ` (`exists_lt_ne_zero`).
 -/
+
+@[expose] public section
 
 open Finset
 

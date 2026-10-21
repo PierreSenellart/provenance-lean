@@ -1,5 +1,7 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
+module
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Why-provenance m-semiring `Why[X]`
@@ -18,6 +20,8 @@ queries with differences*, Table on p. 4][amsterdamer2011limitations].
 * [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries
   with differences*][amsterdamer2011limitations]
 -/
+
+@[expose] public section
 
 @[ext]
 structure Why (α: Type) where
@@ -183,10 +187,10 @@ instance : CommSemiring (Why α) where
 witness family, `𝟙` otherwise. The witness-preserving identity choice
 (ProvSQL's historical `Why::delta`) violates `delta_absorb` – `Why` is
 not absorptive – so `δ` collapses group existence to a bare “exists”. -/
-private def Why.deltaInd (a : Why α) : Why α :=
+def Why.deltaInd (a : Why α) : Why α :=
   ⟨{s | s = ∅ ∧ a.carrier.Nonempty}⟩
 
-private lemma Why.deltaInd_zero : Why.deltaInd (0 : Why α) = 0 := by
+lemma Why.deltaInd_zero : Why.deltaInd (0 : Why α) = 0 := by
   ext z
   show z ∈ {s | s = ∅ ∧ (∅ : Set (Set α)).Nonempty} ↔ z ∈ (∅ : Set (Set α))
   simp
@@ -197,7 +201,7 @@ private lemma Why.carrier_nonempty_of_ne {a : Why α} (h : a ≠ 0) :
   · exact absurd (by ext z; rw [he]; exact Iff.rfl) h
   · exact hne
 
-private lemma Why.deltaInd_of_ne {a : Why α} (h : a ≠ 0) :
+lemma Why.deltaInd_of_ne {a : Why α} (h : a ≠ 0) :
     Why.deltaInd a = 1 := by
   ext z
   show z ∈ {s | s = ∅ ∧ a.carrier.Nonempty} ↔ z ∈ ({∅} : Set (Set α))

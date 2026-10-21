@@ -1,4 +1,6 @@
-import Provenance.SymOrder
+module
+
+public import Provenance.SymOrder
 
 /-!
 # The environment of the symbolic evaluation, built from a cut
@@ -14,6 +16,8 @@ non-null values of the cut with the two constants `0` and
 `ValueType.nonzero`, and `K = n (k + 3)`: there are at least as many as
 the rounds a restricted bag recursion over good values can run.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

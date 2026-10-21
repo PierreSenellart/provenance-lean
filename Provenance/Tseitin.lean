@@ -1,4 +1,6 @@
-import Provenance.Circuit
+module
+
+public import Provenance.Circuit
 
 /-!
 # Tseitin CNF encoding of Boolean circuits
@@ -51,6 +53,8 @@ restricted to the original variables is a model of the circuit.
 
 * [Sen, Maniu & Senellart][sen2026provsql] (Section V-D step 3)
 -/
+
+@[expose] public section
 
 /-- A literal: a variable together with a polarity flag. `isPos = true`
 means the positive literal `var`, `isPos = false` means the negative

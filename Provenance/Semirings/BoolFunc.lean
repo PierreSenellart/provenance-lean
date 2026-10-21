@@ -1,4 +1,6 @@
-import Provenance.SemiringWithMonus
+module
+
+public import Provenance.SemiringWithMonus
 
 /-!
 # Boolean-function m-semiring `Bool[X]`
@@ -22,6 +24,8 @@ Databases*][senellart2017provenance].
 * [Green, Karvounarakis & Tannen, *Provenance Semirings*][green2007provenance]
 * [Senellart, *Provenance and Probabilities in Relational Databases*][senellart2017provenance]
 -/
+
+@[expose] public section
 
 /-- The type of Boolean functions over Boolean assignments to `X`:
 `(X → Bool) → Bool` with pointwise operations. -/

@@ -1,9 +1,11 @@
-import Mathlib.Order.Defs.LinearOrder
-import Mathlib.Data.Set.Lattice.Bounded
-import Mathlib.Data.Set.Lattice.Disjoint
-import Mathlib.Data.Set.Lattice.Image
-import Mathlib.Data.Set.Lattice.Indexed
-import Mathlib.Data.Set.Lattice.Order
+module
+
+public import Mathlib.Order.Defs.LinearOrder
+public import Mathlib.Data.Set.Lattice.Bounded
+public import Mathlib.Data.Set.Lattice.Disjoint
+public import Mathlib.Data.Set.Lattice.Image
+public import Mathlib.Data.Set.Lattice.Indexed
+public import Mathlib.Data.Set.Lattice.Order
 
 /-!
 # Intervals over linear orders
@@ -33,6 +35,8 @@ needed to build the interval-union semiring.
 * `Interval.mem_diff` – membership in the difference is membership minus exclusion
 * `Interval.disjoint_of_before` – `before` implies `disjoint`
 -/
+
+@[expose] public section
 
 /-- An endpoint of an interval: a value together with a boolean flag indicating
 whether the endpoint is included (`closed = true`) or excluded (`closed = false`). -/

@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedSum
-import Provenance.PathSum
-import Provenance.HavingQueryCorrectness
+module
+
+public import Provenance.AnnotatedSum
+public import Provenance.PathSum
+public import Provenance.HavingQueryCorrectness
 
 /-!
 # The set recursion from the bag recursion and `ε`, in the annotated semantics
@@ -34,6 +36,8 @@ proved in `Provenance.AnnotatedChains`.
 This module works on the annotated relation a query gives, `ann`, which
 is all the construction reads: every relation it builds is all-regular.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]

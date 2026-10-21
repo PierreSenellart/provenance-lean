@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedEpsRow
-import Provenance.AnnotatedChains
-import Provenance.Semirings.How
-import Provenance.Semirings.Which
+module
+
+public import Provenance.AnnotatedEpsRow
+public import Provenance.AnnotatedChains
+public import Provenance.Semirings.How
+public import Provenance.Semirings.Which
 
 /-!
 # The annotated basis over a class of semirings
@@ -32,6 +34,8 @@ while every annotation a query without a difference builds has an
 property of `𝟘`, `𝟙`, sums and products, of `δ` and of `𝟙 ⊖ ·`, the last
 two giving constants.
 -/
+
+@[expose] public section
 
 /-! ## `ℕ[x, y]` -/
 

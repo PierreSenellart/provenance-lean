@@ -1,12 +1,14 @@
-import Mathlib.Algebra.Tropical.Basic
-import Mathlib.Algebra.Order.Ring.Rat
-import Mathlib.Basic.Real.Basic
-import Mathlib.Tactic.Linarith
+module
 
-import Provenance.Having
-import Provenance.HavingMinMax
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
+public import Mathlib.Algebra.Tropical.Basic
+public import Mathlib.Algebra.Order.Ring.Rat
+public import Mathlib.Basic.Real.Basic
+public import Mathlib.Tactic.Linarith
+
+public import Provenance.Having
+public import Provenance.HavingMinMax
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Tropical m-semiring
@@ -47,6 +49,8 @@ operator.
 * [Geerts & Poggi, *On database query languages for K-relations*][geerts2010database]
 -/
 
+@[expose] public section
+
 instance [ToString α] : ToString (WithTop α) where
   toString x := match x with | none => "⊤" | some x => toString x
 
@@ -61,7 +65,7 @@ theorem tropical_order_ge [LinearOrder α] :
     exact MinTropical.add_eq_right_iff.symm
 
 /-- ProvSQL's `Tropical::delta`: the indicator of being nonzero. -/
-private noncomputable def MinTropical.deltaInd
+noncomputable def MinTropical.deltaInd
     [LinearOrderedAddCommMonoidWithTop α] (a : MinTropical α) : MinTropical α :=
   if a = 0 then 0 else 1
 
@@ -361,7 +365,7 @@ theorem MinTropicalR.not_absorptive : ¬ absorptive (MinTropical (WithTop ℝ)) 
 namespace MinTropicalR
 
 /-- Counterexample family: the constant `α ≡ trop (-1)` on `Bool`. -/
-private noncomputable def α_ce : Bool → MinTropical (WithTop ℝ) :=
+noncomputable def α_ce : Bool → MinTropical (WithTop ℝ) :=
   fun _ => MinTropical.trop ((-1 : ℝ) : WithTop ℝ)
 
 private theorem A_ce_singleton (b : Bool) :
@@ -493,7 +497,7 @@ theorem MinTropicalR.F_ne_S :
 namespace MinTropicalR
 
 /-- Counterexample aggregate term: the constant `t ≡ 0` on `Bool`. -/
-private noncomputable def t_ce : Bool → ℝ := fun _ => 0
+noncomputable def t_ce : Bool → ℝ := fun _ => 0
 
 /-- On the counterexample instance, the possible-world provenance of
 `MIN(t) ≥ 0` sums over all non-empty worlds (the predicate holds

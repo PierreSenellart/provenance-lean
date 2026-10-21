@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.ReadsCongr
-import Provenance.JointHom
+module
+
+public import Provenance.ReadsCongr
+public import Provenance.JointHom
 
 /-!
 # One family identifier, one value
@@ -32,6 +34,8 @@ otherwise not determine the value:
   two rows with the same tuple but different annotations remove
   differently.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Derived
-import Provenance.QueryAdequacy
-import Provenance.Semirings.Nat
+module
+
+public import Provenance.Derived
+public import Provenance.QueryAdequacy
+public import Provenance.Semirings.Nat
 
 /-!
 # Second-level aggregation, both ways
@@ -41,6 +43,8 @@ queries built with `AggQueryIn.castKind` need `evaluate_castKind` or
 `evaluatePlain_castKind` first – the kernel does not reduce a cast along a
 proof.
 -/
+
+@[expose] public section
 
 namespace NestedExample
 

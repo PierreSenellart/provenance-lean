@@ -2,13 +2,17 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Data.Finset.Union
-import Provenance.Circuit
-import Provenance.HavingSemantics
-import Provenance.Probability
-import Provenance.Semirings.BoolFunc
+module
+
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Data.Finset.Union
+public import Provenance.Circuit
+public import Provenance.HavingSemantics
+public import Provenance.Probability
+public import Provenance.Semirings.BoolFunc
+
+@[expose] public section
 
 set_option linter.unusedSectionVars false
 

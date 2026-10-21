@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryAdequacy
-import Provenance.Window
+module
+
+public import Provenance.AggQueryAdequacy
+public import Provenance.Window
 
 /-!
 # A window over a whole partition is a join with its grouping
@@ -21,6 +23,8 @@ the group of a row *contains that row* – so the factor reads
 `α ⊗ δ(α ⊕ β')`, which is `α` by δ-absorption. A frame that excluded the
 current row would have no such identity, and no such rewriting.
 -/
+
+@[expose] public section
 
 variable {T K : Type} {n m p : ℕ} [ValueType T]
 variable [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

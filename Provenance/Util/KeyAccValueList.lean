@@ -1,8 +1,13 @@
-import Mathlib.Algebra.Group.Defs
-import Mathlib.Logic.OpClass
-import Mathlib.Data.List.Sort
-import Mathlib.Order.Defs.LinearOrder
-import Mathlib.Data.List.Nodup
+module
+
+public import Mathlib.Algebra.Group.Defs
+public import Mathlib.Logic.OpClass
+public import Mathlib.Data.List.Sort
+public import Provenance.Util.ListSort
+public import Mathlib.Order.Defs.LinearOrder
+public import Mathlib.Data.List.Nodup
+
+@[expose] public section
 
 variable {α: Type} [LinearOrder α]
 
@@ -32,8 +37,8 @@ def KeyValueList (l : List (α×β)) := match l with
 
 def List.addKV [DecidableEq β] [Add β] (l: List (α×β)) (a: α) (b: β) :=
   match l.find? (·.1=a) with
-  | none        => l.orderedInsert LEByKey (a,b)
-  | some (a,b') => (l.eraseP (Prod.fst · = a)).orderedInsert LEByKey (a,b+b')
+  | none        => l.orderedIns LEByKey (a,b)
+  | some (a,b') => (l.eraseP (Prod.fst · = a)).orderedIns LEByKey (a,b+b')
 
 theorem KeyValueList.sorted (l: List (α×β)) (h: KeyValueList l) :
   l.Pairwise LEByKey := by
@@ -314,7 +319,9 @@ theorem KeyValueList.orderedInsert [DecidableEq β]
           simp[hfindtl] at ih
           exact ih h.left
         . cases tl with
-          | nil          => exact lt_of_not_ge hnle
+          | nil          =>
+            rw [List.orderedInsert_nil]
+            exact lt_of_not_ge hnle
           | cons hd' _   =>
             simp
             by_cases h'': a<=hd'.1 <;> simp[h'',LEByKey]
@@ -331,8 +338,7 @@ theorem KeyValueList.addKV [DecidableEq β] [Add β] (l : List (α×β)) (h: Key
       unfold List.addKV
       match h' : (hd::tl).find? (·.1=a) with
       | none =>
-        simp[h']
-        exact orderedInsert (hd::tl) h a b h'
+        simpa [h'] using orderedInsert (hd::tl) h a b h'
       | some (a,b') =>
         simp[h']
         exact orderedInsert

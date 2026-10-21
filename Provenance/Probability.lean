@@ -1,18 +1,20 @@
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
-import Mathlib.Algebra.BigOperators.Pi
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Algebra.Order.BigOperators.Group.Finset
-import Mathlib.Algebra.Order.BigOperators.Ring.Finset
-import Mathlib.Algebra.Order.Ring.Rat
-import Mathlib.Data.Fintype.Pi
-import Mathlib.Tactic.Linarith
+module
 
-import Provenance.QueryAnnotatedDatabase
-import Provenance.QueryAnnotatedDatabaseHom
-import Provenance.QueryRewriting
-import Provenance.Semirings.Bool
-import Provenance.Semirings.BoolFunc
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.BigOperators.Group.Multiset.Basic
+public import Mathlib.Algebra.BigOperators.Pi
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Mathlib.Algebra.Order.BigOperators.Ring.Finset
+public import Mathlib.Algebra.Order.Ring.Rat
+public import Mathlib.Data.Fintype.Pi
+public import Mathlib.Tactic.Linarith
+
+public import Provenance.QueryAnnotatedDatabase
+public import Provenance.QueryAnnotatedDatabaseHom
+public import Provenance.QueryRewriting
+public import Provenance.Semirings.Bool
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Probability distributions over Boolean variables
@@ -69,6 +71,8 @@ duplicate elimination included); see the section
 * [Sen, Maniu & Senellart][sen2026provsql] (Section IV-D)
 * [Benzaken, Cohen-Boulakia, Contejean, Keller & Zucchini][benzaken2021coq]
 -/
+
+@[expose] public section
 
 variable {X : Type} [Fintype X] [DecidableEq X]
 

@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryGroupRewriting
+module
+
+public import Provenance.AggQueryGroupRewriting
 
 /-!
 # The compositional closure of the rewriting rules
@@ -94,6 +96,8 @@ rewrite them, and what is absent here is a *specification* of that
 rewriting, which this library does not give. So the
 window rules are out of scope rather than impossible.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
   [DecidableEq K] [HasAltLinearOrder K]
@@ -787,7 +791,7 @@ def AggQueryIn.havingPredCols {n₁ n₂ : ℕ}
     (φ : GenPred T (ColKind.gammaKinds n₁ n₂)) :
     Tuple (ProjCol (T ⊕ K) (ColKind.gammaRewKinds n₁ n₂)) (n₁ + n₂ + 1) :=
   fun j =>
-    if hj : (j : ℕ) < n₁ + n₂ then
+    if hj : ((j : ℕ) < n₁ + n₂ : Prop) then
       ProjColIn.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin (n₁ + n₂)))
     else
       ProjColIn.provTerm (φ.siteProvTerm (K := K))
@@ -1081,10 +1085,10 @@ def AggQueryIn.prodRewCols {n₁ n₂ : ℕ} (κ₁ : Fin n₁ → ColKind)
         (Fin.append (ColKind.rewKindsOf κ₁) (ColKind.rewKindsOf κ₂)))
       (n₁ + n₂ + 1) :=
   fun j =>
-    if hj₁ : (j : ℕ) < n₁ then
+    if hj₁ : ((j : ℕ) < n₁ : Prop) then
       ProjColIn.copy (Fin.castAdd (n₂ + 1)
         (⟨(j : ℕ), Nat.lt_succ_of_lt hj₁⟩ : Fin (n₁ + 1)))
-    else if hj₂ : (j : ℕ) < n₁ + n₂ then
+    else if hj₂ : ((j : ℕ) < n₁ + n₂ : Prop) then
       ProjColIn.copy (Fin.natAdd (n₁ + 1)
         (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1)))
     else
@@ -1281,7 +1285,7 @@ def AggQueryIn.diffColsU {n : ℕ} :
         (Fin.append (ColKind.rewKindsOf (ColKind.allReg n))
           (ColKind.allReg n))) (n + 1) :=
   fun j =>
-    if hj : (j : ℕ) < n then
+    if hj : ((j : ℕ) < n : Prop) then
       ProjColIn.term (TermGIn.index
         (Fin.castAdd n (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))
         ((Fin.append_left _ _ _).trans
@@ -1298,7 +1302,7 @@ def AggQueryIn.diffColsM {n : ℕ} :
         (Fin.append (ColKind.rewKindsOf (ColKind.allReg n))
           (ColKind.rewKindsOf (ColKind.allReg n)))) (n + 1) :=
   fun j =>
-    if hj : (j : ℕ) < n then
+    if hj : ((j : ℕ) < n : Prop) then
       ProjColIn.term (TermGIn.index
         (Fin.castAdd (n + 1) (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n)))
         ((Fin.append_left _ _ _).trans
@@ -1850,7 +1854,7 @@ provenance column. -/
 def AggQueryIn.selAggCols {n : ℕ} {κ : Fin n → ColKind} (φ : GenPred T κ) :
     Tuple (ProjCol (T ⊕ K) (ColKind.rewKindsOf κ)) (n + 1) :=
   fun j =>
-    if hj : (j : ℕ) < n then
+    if hj : ((j : ℕ) < n : Prop) then
       ProjColIn.copy (Fin.castAdd 1 (⟨(j : ℕ), hj⟩ : Fin n))
     else
       ProjColIn.provTerm (φ.selProvTerm (K := K))
@@ -2081,7 +2085,7 @@ inductive AggQueryIn.RewritesTo :
               rfl)
           (AggQueryIn.Proj
             (fun j : Fin (m + 1) =>
-              if hj : (j : ℕ) < m then (ps ⟨(j : ℕ), hj⟩).castRew
+              if hj : ((j : ℕ) < m : Prop) then (ps ⟨(j : ℕ), hj⟩).castRew
               else ProjColIn.provTerm (TermGIn.provIndex (c := 0) (Fin.last n)
                 (ColKind.rewKindsOf_last κ)))
             q'))

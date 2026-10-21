@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Tactic.Ring
+module
 
-import Provenance.Derived
+public import Mathlib.Tactic.Ring
+
+public import Provenance.Derived
 
 /-!
 # The plain basis: which operators a query cannot do without
@@ -24,6 +26,8 @@ locality row they belong to is a different argument.
 semantics unchanged (`AggQueryIn.evaluatePlain`), so a plain-semantics
 statement cannot see them, and they are in no class.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

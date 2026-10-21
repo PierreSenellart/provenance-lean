@@ -1,4 +1,6 @@
-import Provenance.SymCode
+module
+
+public import Provenance.SymCode
 
 /-!
 # Codes as columns, and comparisons between them
@@ -22,6 +24,8 @@ values they stand for (`Sym.eval3_cellCmp`), unknown included: a
 comparison with the null is unknown whatever the code it is compared
 with.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

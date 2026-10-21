@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggValueCongr
-import Provenance.Util.ValueTypeNull
+module
+
+public import Provenance.AggValueCongr
+public import Provenance.Util.ValueTypeNull
 
 /-!
 # Order specifications: what a window's `ORDER BY` orders by
@@ -45,6 +47,8 @@ A window with no `ORDER BY` has no order columns at all, `OrderSpec.unordered`;
 the clause then separates nothing (`peer_of_zero`) and the frame is read as a
 group is read (`ValueFrame.frameListOf_of_peer`).
 -/
+
+@[expose] public section
 variable {T : Type} {p : ℕ}
 
 /-! ## One order column -/
@@ -583,7 +587,7 @@ theorem val_eq_of_readLe {x y : α} (h₁ : readLe key val o x y = true)
 /-- **The occurrences of a frame, in the order the clause reads them.** -/
 def sortSeq (key : β → Tuple T p) (val : α → β) (o : OrderSpec p)
     (L : List α) : List α :=
-  L.insertionSort (fun x y => readLe key val o x y = true)
+  L.insSort (fun x y => readLe key val o x y = true)
 
 /-- The clause's reading is total and transitive, which is what sorting a
 sequence by it asks. -/
@@ -593,12 +597,18 @@ instance total_readLe : Std.Total (fun x y : α => readLe key val o x y = true) 
 instance isTrans_readLe : IsTrans α (fun x y => readLe key val o x y = true) :=
   ⟨fun _ _ _ => readLe_trans⟩
 
-theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L :=
-  List.perm_insertionSort _ L
+/-- The sort is Mathlib's insertion sort, which the lemmas about it are
+stated for. -/
+theorem sortSeq_eq_insertionSort (L : List α) :
+    sortSeq key val o L = L.insertionSort (fun x y => readLe key val o x y = true) :=
+  List.insSort_eq _ L
+
+theorem sortSeq_perm (L : List α) : (sortSeq key val o L).Perm L := by
+  rw [sortSeq_eq_insertionSort]; exact List.perm_insertionSort _ L
 
 theorem sortSeq_sorted (L : List α) :
-    (sortSeq key val o L).Pairwise (fun x y => readLe key val o x y = true) :=
-  List.pairwise_insertionSort _ L
+    (sortSeq key val o L).Pairwise (fun x y => readLe key val o x y = true) := by
+  rw [sortSeq_eq_insertionSort]; exact List.pairwise_insertionSort _ L
 
 /-- **Any two readings of one frame in the clause's order give the same
 sequence of values.** They differ only inside blocks of occurrences carrying

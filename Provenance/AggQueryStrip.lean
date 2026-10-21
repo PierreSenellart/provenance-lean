@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryRewriting
+module
+
+public import Provenance.AggQueryRewriting
 
 /-!
 # Stripping the classical fragment to the classical syntax
@@ -19,6 +21,8 @@ The strips of terms, predicates and projection columns send an *outer*
 column to the constant `𝟘`, which is what the valuation a closed query
 reads gives it, so the agreement statements below hold as they stand.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

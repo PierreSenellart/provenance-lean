@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Frame
-import Provenance.AggQuery
+module
+
+public import Provenance.Frame
+public import Provenance.AggQuery
 
 /-!
 # The window operator's token
@@ -24,6 +26,8 @@ That is the second user of the scalar convention, and it arrives for the same
 reason as the first: a row whose existence does not guarantee its aggregate
 anything to range over.
 -/
+
+@[expose] public section
 
 variable {T K : Type} {n m p : ℕ} [ValueType T] [HasAltLinearOrder K]
 

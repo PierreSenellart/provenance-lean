@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggExpr
+module
+
+public import Provenance.AggExpr
 
 /-!
 # Nested aggregate values
@@ -76,6 +78,8 @@ present occurrence reads is settled in the negative (`World.IsWorldWith`
 sets out why); the refuted reading is kept as `World.IsWorldCoherent` so
 that its refutation can be stated.
 -/
+
+@[expose] public section
 
 variable {T K : Type}
 

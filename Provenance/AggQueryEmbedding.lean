@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.QueryToAgg
-import Provenance.HavingJoinCompositional
+module
+
+public import Provenance.QueryToAgg
+public import Provenance.HavingJoinCompositional
 
 /-!
 # The compositional JOIN rewriting, on the general syntax
@@ -22,6 +24,8 @@ exactly the ProvSQL-legal ones: the kind discipline forbids
 deduplicating, differencing or re-grouping aggregate values, matching
 the system.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

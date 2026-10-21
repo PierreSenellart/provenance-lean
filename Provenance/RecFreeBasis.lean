@@ -1,4 +1,6 @@
-import Provenance.RecursionBases
+module
+
+public import Provenance.RecursionBases
 
 /-!
 # The bases of the recursion-free algebra in the minimal universe
@@ -10,6 +12,8 @@ with no recursion either. The rows are the whole algebra's at the same
 witnesses, all recursion-free, with `⊎` added: without a recursion it has
 nothing to be derived from.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

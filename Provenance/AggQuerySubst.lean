@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQuery
+module
+
+public import Provenance.AggQuery
 
 /-!
 # Substituting the outer columns
@@ -25,6 +27,8 @@ neighbor's columns *and* the ambient outer ones, and closing the
 ambient part must leave the neighbor's alone. Closing everything is the
 special case `subst`.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

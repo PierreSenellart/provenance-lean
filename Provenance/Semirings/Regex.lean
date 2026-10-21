@@ -1,6 +1,8 @@
-import Mathlib.Computability.Language
+module
 
-import Provenance.SemiringWithMonus
+public import Mathlib.Computability.Language
+
+public import Provenance.SemiringWithMonus
 
 /-!
 # The regular-expression m-semiring (ProvSQL's `sr_regex`)
@@ -38,6 +40,8 @@ ProvSQL writes its values as regular expressions and its operations keep
 them regular, so its values form a subsemiring of this one, closed under
 the star; the algebra is the same.
 -/
+
+@[expose] public section
 
 namespace Language
 

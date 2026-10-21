@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryHavingRewriting
+module
+
+public import Provenance.AggQueryHavingRewriting
 
 /-!
 # Rewriting a bare grouping: aggregate results as output values
@@ -42,6 +44,8 @@ group-existence factor included – is computed by the rewritten
 token-building grouping over the classically rewritten subquery, with the
 group guard `δ(⊕ U)` landing in the provenance column.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T] {K : Type} [CommSemiringWithMonus K]
   [DecidableEq K] [HasAltLinearOrder K]
@@ -355,7 +359,7 @@ omit [DecidableEq K] [HasAltLinearOrder K] in
 theorem GenRow.toCompositeRow_coord {n : ℕ} (r : GenRow T K n)
     (j : Fin (n + 1)) :
     r.toCompositeRow j
-      = if h : (j : ℕ) < n then GenValue.toComposite (r.fst ⟨j, h⟩)
+      = if h : ((j : ℕ) < n : Prop) then GenValue.toComposite (r.fst ⟨j, h⟩)
         else Sum.inl (Sum.inr r.snd.finalize) := by
   refine Fin.addCases (fun i => ?_) (fun i => ?_) j
   · rw [GenRow.toCompositeRow_castAdd,

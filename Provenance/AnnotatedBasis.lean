@@ -1,7 +1,9 @@
-import Provenance.SelRow
-import Provenance.WinRow
-import Provenance.RoundBound
-import Provenance.AggQueryAdequacy
+module
+
+public import Provenance.SelRow
+public import Provenance.WinRow
+public import Provenance.RoundBound
+public import Provenance.AggQueryAdequacy
 
 /-!
 # The basis of the annotated semantics: the statement and the inherited rows
@@ -33,6 +35,8 @@ selection row holds outright here, the alternatives being out of the
 language. The trivial generating set is every class
 (`generatesAnn_plainRecOps`); the smaller ones are the next step.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K] [HasAltLinearOrder K]

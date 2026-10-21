@@ -1,5 +1,7 @@
-import Provenance.Probability
-import Provenance.QueryAdequacy
+module
+
+public import Provenance.Probability
+public import Provenance.QueryAdequacy
 
 /-!
 # Support adequacy over `𝔹` and transfer along monus homomorphisms
@@ -49,6 +51,8 @@ the algebraic reason why `ℕ`-adequacy is restricted to the positive fragment
   formalization of data provenance*][benzaken2021coq]
 * [Sen, Maniu & Senellart, *ProvSQL*][sen2026provsql]
 -/
+
+@[expose] public section
 
 variable {T : Type}
 

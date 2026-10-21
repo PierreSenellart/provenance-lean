@@ -1,4 +1,6 @@
-import Provenance.SymApply
+module
+
+public import Provenance.SymApply
 
 /-!
 # What the apply written with products is made of
@@ -9,6 +11,8 @@ its terms and aggregates in the signature, its recursions hygienic, and
 every window over an all-regular input. `Sym.Fine` bundles the four, and
 each construction is shown to keep it.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

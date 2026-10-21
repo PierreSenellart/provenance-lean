@@ -1,4 +1,6 @@
-import Provenance.SymEnvBuild
+module
+
+public import Provenance.SymEnvBuild
 
 /-!
 # The cut a query's symbolic evaluation is taken relative to
@@ -14,6 +16,8 @@ recursion on the query (`Sym.cutQ`), each aggregation adding the values
 its symbolic counterpart computes, and it is proved to make the
 evaluation good (`Sym.good_cutQ`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

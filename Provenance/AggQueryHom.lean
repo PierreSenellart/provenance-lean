@@ -2,14 +2,16 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Tactic.Ring
-import Provenance.AggQuery
-import Provenance.AggValueCongr
-import Provenance.QueryAnnotatedDatabaseHom
-import Provenance.AggQueryBridges
-import Provenance.JointHom
-import Provenance.NestedPres
-import Provenance.Coherence
+module
+
+public import Mathlib.Tactic.Ring
+public import Provenance.AggQuery
+public import Provenance.AggValueCongr
+public import Provenance.QueryAnnotatedDatabaseHom
+public import Provenance.AggQueryBridges
+public import Provenance.JointHom
+public import Provenance.NestedPres
+public import Provenance.Coherence
 
 /-!
 # Hom commutation, token and annotation layer
@@ -55,6 +57,8 @@ query or the m-semiring:
   `GenRow.Sim.toAnnotated_eq` cashes it into an equality of finalized
   annotated tuples.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K K' : Type} [CommSemiringWithMonus K] [DecidableEq K]

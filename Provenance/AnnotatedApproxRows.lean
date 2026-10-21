@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedBasisClass
+module
+
+public import Provenance.AnnotatedBasisClass
 
 /-!
 # The necessity rows up to `≈`
@@ -43,6 +45,8 @@ classes generate (`generatesAnnZ_annEpsOps_of_class`, the constructions
 agreeing with their source row by row up to finalization), and no proper
 subset does (`annEpsOps_minimal_in_class_approx`).
 -/
+
+@[expose] public section
 
 /-! ## Plain settling on the realized world -/
 

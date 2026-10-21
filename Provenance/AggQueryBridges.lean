@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryAdequacy
+module
+
+public import Provenance.AggQueryAdequacy
 
 /-!
 # Regression bridges for the general evaluator
@@ -23,6 +25,8 @@ form as the working lemma; no separate fused evaluator is needed. The
 kind transport `AggQueryIn.castKind` is transparent to evaluation
 (`AggQueryIn.evaluate_castKind`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

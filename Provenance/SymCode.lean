@@ -1,4 +1,6 @@
-import Provenance.SumByProd
+module
+
+public import Provenance.SumByProd
 
 /-!
 # Codes of parameter values relative to a cut
@@ -20,6 +22,8 @@ two components have the same code exactly when they are equal
 bound and the rank and never the value, is the order of the values
 wherever the concrete side is in the cut (`Sym.Code.lt_iff`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

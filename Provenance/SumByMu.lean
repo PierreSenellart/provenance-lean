@@ -1,4 +1,6 @@
-import Provenance.RecursionBasis
+module
+
+public import Provenance.RecursionBasis
 
 /-!
 # `⊎` from `μ^⊎` in the minimal universe
@@ -41,6 +43,8 @@ included – so the pass takes a supply of fresh names, an injective
 `exists_freshSupply` provides the supply for a finitely-supported
 schema, `String` being infinite.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

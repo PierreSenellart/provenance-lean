@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Logic.Equiv.Fin.Basic
-import Provenance.AnnotatedDatabase
+module
+
+public import Mathlib.Logic.Equiv.Fin.Basic
+public import Provenance.AnnotatedDatabase
 
 /-!
 # Relations read as families of occurrences
@@ -30,6 +32,8 @@ the index. An operator defined on families is meaningful exactly when its
 result does not depend on which indexing was chosen, which is what
 `Congr` below expresses.
 -/
+
+@[expose] public section
 
 variable {α : Type}
 

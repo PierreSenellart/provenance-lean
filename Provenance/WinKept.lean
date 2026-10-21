@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.SumByMu
+module
+
+public import Provenance.SumByMu
 
 /-!
 # A window kept as a window over an all-regular input
@@ -21,6 +23,8 @@ afterwards. Peers that agree on the nulled row are then listed in an
 order the window cannot tell apart, the values it reads being read off
 the first block, and `AggQueryIn.evaluatePlain_winKept` is the equality.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

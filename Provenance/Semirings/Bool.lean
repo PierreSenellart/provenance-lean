@@ -1,5 +1,7 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
+module
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Boolean m-semiring
@@ -11,6 +13,8 @@ natural homomorphism from `BoolFunc X`.
 The semiring is absorptive (`true || a = true`), idempotent, and satisfies
 left-distributivity of multiplication over monus.
 -/
+
+@[expose] public section
 
 section Bool
 

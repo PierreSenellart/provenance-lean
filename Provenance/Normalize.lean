@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryBridges
+module
+
+public import Provenance.AggQueryBridges
 
 /-!
 # Normalizing a chain of selections
@@ -28,6 +30,8 @@ with an aggregate atom keeps its failing rows annotated `𝟘` where a
 regular one removes them, so merging a regular selection into the
 predicate below it keeps rows the chain had dropped.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

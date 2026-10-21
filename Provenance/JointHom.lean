@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryBridges
-import Provenance.SubWorlds
+module
+
+public import Provenance.AggQueryBridges
+public import Provenance.SubWorlds
 
 /-!
 # The joint reading of a family, and homomorphisms
@@ -25,6 +27,8 @@ world of the family is read off the sequence of rows it selects
 permutation of the listing (`subWorlds_tiePerm`), and the joint worlds of
 the two sides correspond (`classWorlds_hom`).
 -/
+
+@[expose] public section
 
 /-- **How an aggregate value reads an occurrence of its family**, as a
 function of the occurrence's row `ρ`: the value each leaf reads, whether

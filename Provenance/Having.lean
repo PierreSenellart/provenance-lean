@@ -2,11 +2,13 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Algebra.Order.BigOperators.Group.Finset
-import Mathlib.Data.Finset.Powerset
-import Provenance.SemiringWithMonus
+module
+
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Algebra.Order.BigOperators.Group.Finset
+public import Mathlib.Data.Finset.Powerset
+public import Provenance.SemiringWithMonus
 
 /-!
 # Algebraic identities behind HAVING (count) provenance
@@ -30,6 +32,8 @@ minimal elements in an absorptive m-semiring (`upward_closed_collapse`, with
 recurrences for `S` and `F`, and the per-world bound `world_bound` behind the
 `=` and `≤` cases.
 -/
+
+@[expose] public section
 
 namespace Having
 

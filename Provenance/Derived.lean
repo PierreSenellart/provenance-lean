@@ -2,9 +2,11 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Data.Finset.Sort
+module
 
-import Provenance.AggQuerySubst
+public import Mathlib.Data.Finset.Sort
+
+public import Provenance.AggQuerySubst
 
 /-!
 # Derived operators
@@ -46,6 +48,8 @@ that is what gives each distinct value one occurrence, annotated by the
 `⊕` of the occurrences it stands for; over plain ones it is the aggregate
 read over the distinct values (`SeqAggFunc.distinct`).
 -/
+
+@[expose] public section
 
 variable {T : Type} {n m : ℕ}
 

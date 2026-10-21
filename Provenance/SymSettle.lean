@@ -1,4 +1,6 @@
-import Provenance.SymCut
+module
+
+public import Provenance.SymCut
 
 /-!
 # The symbolic evaluation settles on every instance
@@ -10,6 +12,8 @@ recursions being bounded by counters (`Sym.settlesAt_symMuQ`), and so
 does everything the environment and the cut are built of
 (`Sym.settlesAt_tabQ`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

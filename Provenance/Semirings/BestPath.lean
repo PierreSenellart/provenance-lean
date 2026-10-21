@@ -1,9 +1,11 @@
-import Mathlib.Order.Prod.Lex.Basic
-import Mathlib.Data.List.Lex
-import Mathlib.Order.WithBot
-import Mathlib.Algebra.Order.Monoid.Defs
+module
 
-import Provenance.SemiringWithMonus
+public import Mathlib.Order.Prod.Lex.Basic
+public import Mathlib.Data.List.Lex
+public import Mathlib.Order.WithBot
+public import Mathlib.Algebra.Order.Monoid.Defs
+
+public import Provenance.SemiringWithMonus
 
 /-!
 # The one-best-derivation m-semiring (ProvSQL's `sr_best_path`)
@@ -38,6 +40,8 @@ The costs are any linearly ordered cancellative additive monoid
 (`ℝ`, `ℝ≥0`, `ℕ`), the labels any linearly ordered type (ProvSQL
 compares them bytewise).
 -/
+
+@[expose] public section
 
 /-- A cost and a word of labels: a value of `sr_best_path` other than
 `𝟘`. -/

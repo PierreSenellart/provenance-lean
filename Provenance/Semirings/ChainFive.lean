@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Tactic.DeriveFintype
-import Provenance.Having
+module
+
+public import Mathlib.Tactic.DeriveFintype
+public import Provenance.Having
 
 /-!
 # A five-element chain m-semiring where `⊗` does not distribute over `⊖`
@@ -51,6 +53,8 @@ against `mid`. The two forms of the world annotation coincide exactly when
 All proofs are by `decide`: the carrier is a five-element enumeration with
 derived decidable equality and order.
 -/
+
+@[expose] public section
 
 /-- The five-element chain `𝟘 < lo < mid < hi < 𝟙` (constructor order is the
 chain order), carrying the m-semiring structure described in the module

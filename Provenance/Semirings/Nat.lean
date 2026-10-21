@@ -1,6 +1,8 @@
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.Bool
-import Provenance.Semirings.BoolFunc
+module
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.Bool
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Counting m-semiring
@@ -13,10 +15,12 @@ The natural order is the usual order on natural numbers, and monus coincides wit
 Mathlib's `Nat.sub`.
 -/
 
-/-- ProvSQL's `Counting::delta`: the support indicator. -/
-private def Nat.deltaInd (n : ℕ) : ℕ := if n = 0 then 0 else 1
+@[expose] public section
 
-private theorem Nat.deltaInd_isIndicator : IsDeltaIndicator Nat.deltaInd where
+/-- ProvSQL's `Counting::delta`: the support indicator. -/
+def Nat.deltaInd (n : ℕ) : ℕ := if n = 0 then 0 else 1
+
+theorem Nat.deltaInd_isIndicator : IsDeltaIndicator Nat.deltaInd where
   zero := rfl
   nonzero := fun a ha => by simp [Nat.deltaInd, ha]
 

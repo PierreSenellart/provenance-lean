@@ -1,4 +1,6 @@
-import Provenance.SymCells
+module
+
+public import Provenance.SymCells
 
 /-!
 # Symbolic rows
@@ -14,6 +16,8 @@ a parameter row and an output row, and what a symbolic evaluation is
 asked is that the rows it holds under the descriptor of a parameter row
 be the encodings of the output rows at that parameter row.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

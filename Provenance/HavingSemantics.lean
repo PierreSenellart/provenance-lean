@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Algebra.BigOperators.Fin
-import Provenance.HavingMinMax
-import Provenance.QueryAdequacy
-import Provenance.QueryAnnotatedDatabase
+module
+
+public import Mathlib.Algebra.BigOperators.Fin
+public import Provenance.HavingMinMax
+public import Provenance.QueryAdequacy
+public import Provenance.QueryAnnotatedDatabase
 
 /-!
 # Possible-world semantics of the fused `Having` operator
@@ -61,6 +63,8 @@ Boolean combinations of aggregate comparisons are interpreted by
 De Morgan duality, complementing the comparison operator of an atom (as
 in ProvSQL's implementation).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
@@ -869,7 +873,9 @@ theorem foldr_sortedInsert_coe {α' : Type} [LinearOrder α'] (s : Multiset α')
     rw [Multiset.foldr_cons]
     calc (↑((sortedInsert a (s.foldr sortedInsert ⟨[], by simp⟩)).val) : Multiset α')
         = ↑(a :: (s.foldr sortedInsert ⟨[], by simp⟩).val) :=
-          Multiset.coe_eq_coe.mpr (List.perm_orderedInsert _ a _)
+          Multiset.coe_eq_coe.mpr (by
+            simp only [sortedInsert, List.orderedIns_eq]
+            exact List.perm_orderedInsert _ a _)
       _ = a ::ₘ ↑((s.foldr sortedInsert ⟨[], by simp⟩).val) := rfl
       _ = a ::ₘ s := by rw [ih]
 

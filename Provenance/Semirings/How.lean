@@ -1,9 +1,11 @@
-import Mathlib.Algebra.MvPolynomial.Basic
-import Mathlib.Algebra.MvPolynomial.Eval
+module
 
-import Provenance.SemiringWithMonus
-import Provenance.Semirings.BoolFunc
-import Provenance.Semirings.Nat
+public import Mathlib.Algebra.MvPolynomial.Basic
+public import Mathlib.Algebra.MvPolynomial.Eval
+
+public import Provenance.SemiringWithMonus
+public import Provenance.Semirings.BoolFunc
+public import Provenance.Semirings.Nat
 
 /-!
 # How-provenance m-semiring `ℕ[X]`
@@ -29,6 +31,8 @@ differences*, Table on p. 4][amsterdamer2011limitations].
 * [Amsterdamer, Deutch & Tannen, *On the limitations of provenance for queries
   with differences*][amsterdamer2011limitations]
 -/
+
+@[expose] public section
 
 variable {X: Type} [DecidableEq X]
 
@@ -97,10 +101,10 @@ instance : CharZero (MvPolynomial X ℕ) where
          MvPolynomial.C_inj, Nat.cast_inj] at hxy
 
 /-- ProvSQL's `How::delta`: the support indicator. -/
-private noncomputable def How.deltaInd (p : MvPolynomial X ℕ) : MvPolynomial X ℕ :=
+noncomputable def How.deltaInd (p : MvPolynomial X ℕ) : MvPolynomial X ℕ :=
   if p = 0 then 0 else 1
 
-private theorem How.deltaInd_isIndicator : IsDeltaIndicator (How.deltaInd (X := X)) where
+theorem How.deltaInd_isIndicator : IsDeltaIndicator (How.deltaInd (X := X)) where
   zero := by simp [How.deltaInd]
   nonzero := fun a ha => by simp [How.deltaInd, ha]
 

@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AnnotatedBasisClass
-import Provenance.AggQueryHom
+module
+
+public import Provenance.AnnotatedBasisClass
+public import Provenance.AggQueryHom
 
 /-!
 # The matches of the annotated basis commute with homomorphisms
@@ -17,6 +19,8 @@ source on both sides. Nothing is asked of the match's syntax – its labels
 and recorded read sets may be those a construction copies, which
 `AggQueryIn.evaluateAnnotated_hom` would not accept – only of the source.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

@@ -1,7 +1,11 @@
-import Mathlib.Algebra.Group.Defs
-import Mathlib.Order.Defs.LinearOrder
+module
 
-import Provenance.SemiringWithMonus
+public import Mathlib.Algebra.Group.Defs
+public import Mathlib.Order.Defs.LinearOrder
+
+public import Provenance.SemiringWithMonus
+
+@[expose] public section
 
 /-- A value domain. The `isNull` predicate says which of its values is
 SQL's `NULL`; a domain without one answers `false` everywhere, which is the

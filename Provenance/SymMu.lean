@@ -1,4 +1,6 @@
-import Provenance.SymWin
+module
+
+public import Provenance.SymWin
 
 /-!
 # A bag recursion run against a counter
@@ -21,6 +23,8 @@ round's counter and the recursion stops after the last one
 under a descriptor is the encoding of the recursion's rows
 (`Sym.sliceIs_symMu`).
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 

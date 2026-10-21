@@ -2,10 +2,12 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Order.Lattice.Nat
-import Provenance.AggExpr
-import Provenance.Nested
-import Provenance.Frame
+module
+
+public import Mathlib.Order.Lattice.Nat
+public import Provenance.AggExpr
+public import Provenance.Nested
+public import Provenance.Frame
 
 /-!
 # Kind-indexed general queries and their annotated semantics
@@ -82,6 +84,8 @@ Scalar aggregation (aggregation without grouping, whose empty input is a
 real possible world in ProvSQL) is out of scope: `Gamma` is the grouped
 operator only.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]

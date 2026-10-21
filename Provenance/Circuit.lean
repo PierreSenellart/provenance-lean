@@ -1,12 +1,14 @@
-import Mathlib.Algebra.BigOperators.Group.Finset.Basic
-import Mathlib.Algebra.BigOperators.Pi
-import Mathlib.Algebra.BigOperators.Ring.Finset
-import Mathlib.Data.Fintype.BigOperators
-import Mathlib.Data.Fintype.Pi
-import Mathlib.Logic.Equiv.Prod
+module
 
-import Provenance.Probability
-import Provenance.Semirings.BoolFunc
+public import Mathlib.Algebra.BigOperators.Group.Finset.Basic
+public import Mathlib.Algebra.BigOperators.Pi
+public import Mathlib.Algebra.BigOperators.Ring.Finset
+public import Mathlib.Data.Fintype.BigOperators
+public import Mathlib.Data.Fintype.Pi
+public import Mathlib.Logic.Equiv.Prod
+
+public import Provenance.Probability
+public import Provenance.Semirings.BoolFunc
 
 /-!
 # Boolean circuits, read-once and d-D correctness
@@ -68,6 +70,8 @@ OR formula.
 
 * [Sen, Maniu & Senellart][sen2026provsql] (Section V-D step 1)
 -/
+
+@[expose] public section
 
 variable {X : Type} [Fintype X] [DecidableEq X]
 

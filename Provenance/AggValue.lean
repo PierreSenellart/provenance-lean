@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.HavingSemantics
+module
+
+public import Provenance.HavingSemantics
 
 /-!
 # Symbolic aggregate tokens
@@ -51,6 +53,8 @@ extend the pushforward and the deterministic reading to such lifted
 values; the kind-indexed syntax of the general evaluator governs
 statically which columns hold which arm.
 -/
+
+@[expose] public section
 
 deriving instance DecidableEq for TermIn
 

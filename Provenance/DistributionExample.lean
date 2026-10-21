@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.Derived
-import Provenance.QueryAdequacy
+module
+
+public import Provenance.Derived
+public import Provenance.QueryAdequacy
 
 /-!
 # The distribution functions, and the two ranks, on a worked relation
@@ -34,6 +36,8 @@ cast the kernel cannot reduce, so their checks rewrite with
 same equation, stated on the cast-free right-hand side those lemmas
 give.
 -/
+
+@[expose] public section
 
 namespace DistributionExample
 

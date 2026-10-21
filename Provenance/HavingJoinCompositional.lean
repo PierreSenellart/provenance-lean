@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.HavingQueryCorrectness
+module
+
+public import Provenance.HavingQueryCorrectness
 
 /-!
 # Compositional correctness of the JOIN rewriting for `HAVING COUNT(*)`
@@ -29,6 +31,8 @@ and further `HAVING`s, which are *not* congruences for the naive
 “equal up to `𝟘`-rows” relation (a `𝟘`-annotated row still changes the
 deterministic aggregate values of an enclosing group).
 -/
+
+@[expose] public section
 
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 

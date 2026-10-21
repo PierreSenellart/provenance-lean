@@ -2,8 +2,10 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Mathlib.Tactic.FinCases
-import Provenance.AggQuery
+module
+
+public import Mathlib.Tactic.FinCases
+public import Provenance.AggQuery
 
 /-!
 # Surface syntax for kind-indexed queries
@@ -39,6 +41,8 @@ than in notation over terms.
 Column references are positional: `#i` is column `i`, counting from zero, of
 the query the surrounding operator reads.
 -/
+
+@[expose] public section
 
 namespace Provenance.Notation
 
@@ -204,14 +208,14 @@ def projAt {T : Type} {n : ℕ} {κ : Fin n → ColKind} (k : Fin n) : ProjCol T
   | ColKind.prov => ProjColIn.provTerm (TermGIn.provIndex k h)
 
 /-- A bare column reference, if that is what the term is. -/
-private def asCol : Lean.TSyntax `raTerm → Option (Lean.TSyntax `num)
+private meta def asCol : Lean.TSyntax `raTerm → Option (Lean.TSyntax `num)
   | `(raTerm| #$i:num) => some i
   | _ => none
 
 /-- Build a comparison, reading a bare column reference on either side
 through `atomAt`. The converse operator is used for the flipped case, so that
 `t ≤ #i` is the atom `#i ≥ t`. -/
-private def mkCmp (op conv : Lean.TSyntax `term) (a b : Lean.TSyntax `raTerm) :
+private meta def mkCmp (op conv : Lean.TSyntax `term) (a b : Lean.TSyntax `raTerm) :
     Lean.MacroM (Lean.TSyntax `term) := do
   if let some i := asCol a then `($(Lean.mkIdent ``atomAt) $i $op (ra_term% $b))
   else if let some j := asCol b then `($(Lean.mkIdent ``atomAt) $j $conv (ra_term% $a))
@@ -219,7 +223,7 @@ private def mkCmp (op conv : Lean.TSyntax `term) (a b : Lean.TSyntax `raTerm) :
 
 /-- A projection column: a bare column reference is carried through by
 `projAt`, anything else is a term. -/
-private def mkProj (t : Lean.TSyntax `raTerm) : Lean.MacroM (Lean.TSyntax `term) := do
+private meta def mkProj (t : Lean.TSyntax `raTerm) : Lean.MacroM (Lean.TSyntax `term) := do
   if let some i := asCol t then `($(Lean.mkIdent ``projAt) $i)
   else `(ProjColIn.term (ra_term% $t))
 

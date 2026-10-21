@@ -2,12 +2,15 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import DescriptiveComplexity.Decoding
-import DescriptiveComplexity.Encoding.BinarySubsetSum
-import DescriptiveComplexity.Problems.Knapsack
-import Provenance.Having
-import Provenance.Semirings.BoolFunc
-import Provenance.Semirings.How
+module
+
+public import DescriptiveComplexity.Decoding
+public import DescriptiveComplexity.Encoding.BinarySubsetSum
+public import DescriptiveComplexity.Problems.Knapsack
+public import DescriptiveComplexity.Problems.Knapsack.Membership
+public import Provenance.Having
+public import Provenance.Semirings.BoolFunc
+public import Provenance.Semirings.How
 
 /-!
 # NP-completeness of deciding non-zero `HAVING` provenance
@@ -73,6 +76,8 @@ of a group only.
   computable decoding back, which carries *hardness*: the problem is nowhere
   hard on structures that are not groups.
 -/
+
+@[expose] public section
 
 namespace Provenance.Complexity
 

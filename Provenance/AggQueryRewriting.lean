@@ -2,7 +2,9 @@
   Released under the MIT license as described in the file LICENSE.
   Authors: Pierre Senellart
 -/
-import Provenance.AggQueryEmbedding
+module
+
+public import Provenance.AggQueryEmbedding
 
 /-!
 # The rewriting rules (R1)–(R4), natively on the general syntax
@@ -29,6 +31,8 @@ the classical fragment, the casts into the composite domain, and
 `AggQueryIn.rewriting`.
 -/
 
+@[expose] public section
+
 variable {T : Type} [ValueType T]
 variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
   [HasAltLinearOrder K]
@@ -38,7 +42,7 @@ variable {K : Type} [CommSemiringWithMonus K] [DecidableEq K]
 /-- The kind vector of a rewritten query: `n` data columns followed by
 the provenance column. -/
 def ColKind.rewKinds (n : ℕ) : Fin (n + 1) → ColKind :=
-  fun k => if (k : ℕ) < n then ColKind.reg else ColKind.prov
+  fun k => if ((k : ℕ) < n : Prop) then ColKind.reg else ColKind.prov
 
 theorem ColKind.rewKinds_lt {n : ℕ} {k : Fin (n + 1)} (h : (k : ℕ) < n) :
     ColKind.rewKinds n k = ColKind.reg := ite_eq_left h
@@ -307,7 +311,7 @@ def AggQueryIn.rewriting :
           rfl)
       (AggQueryIn.Proj
         (fun j : Fin (m + 1) =>
-          if hj : (j : ℕ) < m then
+          if hj : ((j : ℕ) < m : Prop) then
             (ps ⟨j, hj⟩).castComposite
               (AggQueryIn.classical_kinds q hq.2) (hq.1 ⟨j, hj⟩)
           else
@@ -328,11 +332,11 @@ def AggQueryIn.rewriting :
           · rw [dite_eq_right h₂]; rfl)
       (AggQueryIn.Proj
         (fun j : Fin (n₁ + n₂ + 1) =>
-          if h₁ : (j : ℕ) < n₁ then
+          if h₁ : ((j : ℕ) < n₁ : Prop) then
             ProjColIn.term (TermGIn.index
               (Fin.castAdd (n₂ + 1) (⟨j, Nat.lt_succ_of_lt h₁⟩ : Fin (n₁ + 1)))
               ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt h₁)))
-          else if h₂ : (j : ℕ) < n₁ + n₂ then
+          else if h₂ : ((j : ℕ) < n₁ + n₂ : Prop) then
             ProjColIn.term (TermGIn.index
               (Fin.natAdd (n₁ + 1)
                 (⟨(j : ℕ) - n₁, by omega⟩ : Fin (n₂ + 1)))
@@ -395,7 +399,7 @@ def AggQueryIn.rewriting :
           · rw [dite_eq_right hj]; rfl)
         (AggQueryIn.Proj
           (fun j : Fin (n + 1) =>
-            if hj : (j : ℕ) < n then
+            if hj : ((j : ℕ) < n : Prop) then
               ProjColIn.term (TermGIn.index
                 (Fin.castAdd n (⟨j, Nat.lt_succ_of_lt hj⟩ : Fin (n + 1)))
                 ((Fin.append_left _ _ _).trans (ColKind.rewKinds_lt hj)))
@@ -435,7 +439,7 @@ def AggQueryIn.rewriting :
           · rw [dite_eq_right hj]; rfl)
         (AggQueryIn.Proj
           (fun j : Fin (n + 1) =>
-            if hj : (j : ℕ) < n then
+            if hj : ((j : ℕ) < n : Prop) then
               ProjColIn.term (TermGIn.index
                 (Fin.castAdd (n + 1)
                   (⟨j, Nat.lt_succ_of_lt hj⟩ : Fin (n + 1)))

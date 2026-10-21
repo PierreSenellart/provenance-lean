@@ -1,4 +1,6 @@
-import Provenance.AggExpr
+module
+
+public import Provenance.AggExpr
 
 /-!
 # Congruence of predicate provenance under tie-block permutations
@@ -28,6 +30,8 @@ for an order-sensitive aggregate, exchanging two occurrences of equal value
 * `AggValue.predProv_congr` – the congruence: tokens with the same aggregate
   and `TiePerm`-related payloads have the same predicate provenance.
 -/
+
+@[expose] public section
 
 /-! ## Tie-block permutations -/
 

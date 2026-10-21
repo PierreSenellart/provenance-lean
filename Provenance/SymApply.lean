@@ -1,4 +1,6 @@
-import Provenance.SymMatch
+module
+
+public import Provenance.SymMatch
 
 /-!
 # An apply written with products
@@ -14,6 +16,8 @@ decoded values (`Sym.applyX`, `Sym.evaluatePlain_applyX`). No row of the
 left side is read twice: the left side appears once, as the last factor,
 so the construction applies as well inside a recursive term.
 -/
+
+@[expose] public section
 
 variable {T : Type} [ValueType T]
 
